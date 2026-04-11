@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-mark">R</div>
+          <div>
+            <p class="eyebrow">Restaurant OS</p>
+            <h1 class="brand-title">Owner Console</h1>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <a class="nav-item" href="./index.html">Overview</a>
+          <a class="nav-item" href="./outlets.html">Outlets</a>
+          <a class="nav-item" href="./menu.html">Menu & Categories</a>
+          <a class="nav-item" href="./staff.html">Staff & Roles</a>
+          <a class="nav-item" href="./discount-rules.html">Discount Rules</a>
+          <a class="nav-item" href="./integrations.html">Integrations</a>
+          <a class="nav-item" href="./devices.html">Devices</a>
+          <a class="nav-item" href="./taxes-receipts.html">Taxes & Receipts</a>
+          <a class="nav-item" href="#">Security</a>
+          <a class="nav-item" href="./shifts-cash.html">Shifts & Cash Control</a>
+          <a class="nav-item active" href="./reports.html">Reports</a>
+        </nav>
+
+        <div class="sidebar-card">
+          <p class="sidebar-label">Report Center</p>
+          <strong>Daily closing ready</strong>
+          <span>Owner email trigger is active for 11:30 PM summary delivery</span>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Analytics • Daily Closing</p>
+            <h2>Reports</h2>
+          </div>
+
+          <div class="topbar-actions">
+            <button class="secondary-btn">Export PDF</button>
+            <button class="primary-btn">Send Closing Report</button>
+          </div>
+        </header>
+
+        <section class="hero-panel reports-hero">
+          <div>
+            <p class="hero-label">Owner visibility</p>
+            <h3>Track performance and deliver the closing report automatically</h3>
+            <p class="hero-copy">
+              Monitor sales, profit, tax, expenses, staff activity, and outlet comparison, then
+              trigger the end-of-day closing summary to the owner by email every night.
+            </p>
+          </div>
+
+          <div class="hero-stats">
+            <div>
+              <span>Today sales</span>
+              <strong>Rs 2,45,000</strong>
+            </div>
+            <div>
+              <span>Net profit</span>
+              <strong>Rs 61,800</strong>
+            </div>
+            <div>
+              <span>Owner mail</span>
+              <strong class="positive">Scheduled</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="metrics-grid">
+          <article class="metric-card">
+            <span class="metric-label">Orders today</span>
+            <strong>512</strong>
+            <p>Across all active outlets</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">GST total</span>
+            <strong>Rs 12,420</strong>
+            <p>Ready for tax reporting</p>
+          </article>
+          <article class="metric-card warning">
+            <span class="metric-label">Expense ratio</span>
+            <strong>18%</strong>
+            <p>Higher than yesterday by 3%</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Cash mismatch</span>
+            <strong>Rs 1,200</strong>
+            <p>1 outlet under review before final close</p>
+          </article>
+        </section>
+
+        <section class="dashboard-grid reports-layout">
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Daily Snapshot</p>
+                <h3>Outlet Comparison</h3>
+              </div>
+              <button class="ghost-btn">Open full report</button>
+            </div>
+
+            <div class="staff-table">
+              <div class="staff-row staff-head">
+                <span>Outlet</span>
+                <span>Sales</span>
+                <span>Profit</span>
+                <span>Expenses</span>
+                <span>Status</span>
+              </div>
+              <div class="staff-row">
+                <span>Indiranagar</span>
+                <span>Rs 82,000</span>
+                <span>Rs 22,100</span>
+                <span>Rs 13,200</span>
+                <span class="status online">Strong</span>
+              </div>
+              <div class="staff-row">
+                <span>Koramangala</span>
+                <span>Rs 61,500</span>
+                <span>Rs 12,900</span>
+                <span>Rs 14,300</span>
+                <span class="status warning">Review</span>
+              </div>
+              <div class="staff-row">
+                <span>HSR Layout</span>
+                <span>Rs 54,300</span>
+                <span>Rs 14,600</span>
+                <span>Rs 9,800</span>
+                <span class="status online">Healthy</span>
+              </div>
+              <div class="staff-row">
+                <span>Whitefield</span>
+                <span>Rs 47,200</span>
+                <span>Rs 12,200</span>
+                <span>Rs 8,900</span>
+                <span class="status online">Healthy</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Closing Email</p>
+                <h3>Owner Mail Trigger</h3>
+              </div>
+            </div>
+
+            <form class="simple-form">
+              <label>
+                Owner email
+                <input type="text" value="owner@a2bkitchens.com" />
+              </label>
+              <label>
+                Delivery time
+                <select>
+                  <option>11:30 PM</option>
+                  <option>11:00 PM</option>
+                  <option>12:00 AM</option>
+                </select>
+              </label>
+              <label>
+                Report format
+                <select>
+                  <option>PDF + Summary Email</option>
+                  <option>Summary Email Only</option>
+                  <option>Excel Attachment</option>
+                </select>
+              </label>
+              <label>
+                Trigger condition
+                <select>
+                  <option>Send after all outlets close</option>
+                  <option>Send at fixed time</option>
+                </select>
+              </label>
+              <button type="button" class="primary-btn full-width">Save Trigger</button>
+            </form>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Core Reports</p>
+                <h3>Available Views</h3>
+              </div>
+            </div>
+
+            <div class="mini-stack">
+              <div class="mini-card">
+                <span>Sales report</span>
+                <strong>Live</strong>
+              </div>
+              <div class="mini-card">
+                <span>Profit report</span>
+                <strong>Live</strong>
+              </div>
+              <div class="mini-card">
+                <span>GST report</span>
+                <strong>Ready</strong>
+              </div>
+              <div class="mini-card">
+                <span>Staff activity</span>
+                <strong>Tracked</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Today’s Insights</p>
+                <h3>Business Signals</h3>
+              </div>
+              <button class="ghost-btn">View trends</button>
+            </div>
+
+            <div class="journey-grid">
+              <div class="journey-step">
+                <strong>Top profit item</strong>
+                <span>Paneer Tikka generated the highest profit today across all outlets.</span>
+              </div>
+              <div class="journey-step">
+                <strong>Best selling time</strong>
+                <span>Sales peak happened between 7 PM and 9 PM at 3 outlets.</span>
+              </div>
+              <div class="journey-step">
+                <strong>Outlet alert</strong>
+                <span>Koramangala profit dropped 18% compared to yesterday.</span>
+              </div>
+              <div class="journey-step">
+                <strong>Cash review</strong>
+                <span>One shift mismatch should be resolved before daily closing report goes out.</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Closing Summary</p>
+                <h3>What Goes To Owner Mail</h3>
+              </div>
+              <button class="ghost-btn">Preview email</button>
+            </div>
+
+            <div class="integration-grid">
+              <div class="integration-card">
+                <div class="integration-card-head">
+                  <strong>Sales & Payments</strong>
+                  <span class="status online">Included</span>
+                </div>
+                <div class="integration-meta">
+                  <span>Total sales, order count, cash vs UPI vs card summary</span>
+                </div>
+              </div>
+
+              <div class="integration-card">
+                <div class="integration-card-head">
+                  <strong>Profit & Expenses</strong>
+                  <span class="status online">Included</span>
+                </div>
+                <div class="integration-meta">
+                  <span>Outlet-wise profit, expense ratio, and exception highlights</span>
+                </div>
+              </div>
+
+              <div class="integration-card review">
+                <div class="integration-card-head">
+                  <strong>Risk Alerts</strong>
+                  <span class="status warning">Conditional</span>
+                </div>
+                <div class="integration-meta">
+                  <span>Cash mismatch, deleted bills, discount overrides, and stock exceptions</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Attention Needed</p>
+                <h3>Report Alerts</h3>
+              </div>
+            </div>
+
+            <div class="alert-list">
+              <div class="alert-item">
+                <strong>Closing email should wait for one unresolved shift</strong>
+                <span>HSR Layout cash mismatch is still open</span>
+              </div>
+              <div class="alert-item">
+                <strong>Koramangala profit trend is below target</strong>
+                <span>Add this automatically to owner email summary</span>
+              </div>
+              <div class="alert-item">
+                <strong>GST report and sales summary are ready</strong>
+                <span>Monthly export can be generated anytime</span>
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

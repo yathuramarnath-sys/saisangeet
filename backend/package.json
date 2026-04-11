@@ -1,0 +1,23 @@
+{
+  "name": "restaurant-pos-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend API for the restaurant POS owner dashboard and POS platform",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.10.0"
+  }
+}

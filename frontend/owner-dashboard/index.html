@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Owner Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-mark">R</div>
+          <div>
+            <p class="eyebrow">Restaurant OS</p>
+            <h1 class="brand-title">Owner Console</h1>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <a class="nav-item active" href="./index.html">Overview</a>
+          <a class="nav-item" href="./outlets.html">Outlets</a>
+          <a class="nav-item" href="./menu.html">Menu & Categories</a>
+          <a class="nav-item" href="./staff.html">Staff & Roles</a>
+          <a class="nav-item" href="./integrations.html">Integrations</a>
+          <a class="nav-item" href="./discount-rules.html">Discount Rules</a>
+          <a class="nav-item" href="./devices.html">Devices</a>
+          <a class="nav-item" href="./taxes-receipts.html">Taxes & Receipts</a>
+          <a class="nav-item" href="#">Security</a>
+          <a class="nav-item" href="./shifts-cash.html">Shifts & Cash Control</a>
+          <a class="nav-item" href="./reports.html">Reports</a>
+        </nav>
+
+        <div class="sidebar-card">
+          <p class="sidebar-label">Quick Status</p>
+          <strong>6 devices active</strong>
+          <span>2 cashier terminals, 2 captain tablets, 2 kitchen screens</span>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Today • Live view</p>
+            <h2>Business Control Center</h2>
+          </div>
+
+          <div class="topbar-actions">
+            <button class="secondary-btn">Export Report</button>
+            <button class="primary-btn">Link New POS</button>
+          </div>
+        </header>
+
+        <section class="hero-panel">
+          <div>
+            <p class="hero-label">Simple by default</p>
+            <h3>Everything your owner needs before the outlet starts billing</h3>
+            <p class="hero-copy">
+              Create items, manage staff, control taxes, link devices, and monitor outlet performance
+              from one clean dashboard.
+            </p>
+          </div>
+
+          <div class="hero-stats">
+            <div>
+              <span>Total Sales</span>
+              <strong>Rs 2,45,000</strong>
+            </div>
+            <div>
+              <span>Orders Today</span>
+              <strong>512</strong>
+            </div>
+            <div>
+              <span>Profit Trend</span>
+              <strong class="positive">+12.4%</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="metrics-grid">
+          <article class="metric-card">
+            <span class="metric-label">Active outlets</span>
+            <strong>4</strong>
+            <p>All locations online and reporting</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Menu items</span>
+            <strong>186</strong>
+            <p>12 categories across outlets</p>
+          </article>
+          <article class="metric-card warning">
+            <span class="metric-label">Alerts</span>
+            <strong>3</strong>
+            <p>1 device pending, 2 cash mismatches</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Staff active</span>
+            <strong>28</strong>
+            <p>Cashiers, captains, waiters, managers</p>
+          </article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel panel-large">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Owner Setup</p>
+                <h3>Master Controls</h3>
+              </div>
+              <button class="ghost-btn">View all</button>
+            </div>
+
+            <div class="control-grid">
+              <button class="control-tile">
+                <strong>Business Info</strong>
+                <span>GSTIN, address, branding, invoice header</span>
+              </button>
+              <button class="control-tile">
+                <strong>Items & Categories</strong>
+                <span>Create menus fast and assign stations</span>
+              </button>
+              <button class="control-tile">
+                <strong>Roles & Permissions</strong>
+                <span>Owner, manager, cashier, captain, waiter</span>
+              </button>
+              <button class="control-tile">
+                <strong>Discount Rules</strong>
+                <span>Approval-based offers and limits</span>
+              </button>
+              <button class="control-tile">
+                <strong>Tax Setup</strong>
+                <span>GST profiles, inclusive or exclusive pricing</span>
+              </button>
+              <button class="control-tile">
+                <strong>Receipt Templates</strong>
+                <span>Dine-in, takeaway, delivery formats</span>
+              </button>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Devices</p>
+                <h3>POS Linking</h3>
+              </div>
+              <button class="ghost-btn">Generate code</button>
+            </div>
+
+            <div class="device-card">
+              <div class="device-code">POS24190</div>
+              <p>Use this code to link a new POS machine in 15 minutes.</p>
+            </div>
+
+            <ul class="plain-list">
+              <li>Front Counter POS 1 <span class="status online">Active</span></li>
+              <li>Captain Tablet 2 <span class="status online">Active</span></li>
+              <li>Kitchen Screen <span class="status pending">Pending</span></li>
+            </ul>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Today’s Watchlist</p>
+                <h3>Alerts</h3>
+              </div>
+              <button class="ghost-btn">Resolve</button>
+            </div>
+
+            <div class="alert-list">
+              <div class="alert-item">
+                <strong>Shop 2 profit down 18%</strong>
+                <span>Compared to yesterday at 5:00 PM</span>
+              </div>
+              <div class="alert-item">
+                <strong>Cash mismatch detected</strong>
+                <span>Outlet 1 closing amount differs by Rs 1,200</span>
+              </div>
+              <div class="alert-item">
+                <strong>GST profile missing on 4 items</strong>
+                <span>Update before tomorrow billing shift</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Outlet Performance</p>
+                <h3>Sales Snapshot</h3>
+              </div>
+              <button class="ghost-btn">Open report</button>
+            </div>
+
+            <div class="outlet-table">
+              <div class="outlet-row outlet-head">
+                <span>Outlet</span>
+                <span>Sales</span>
+                <span>Orders</span>
+                <span>Profit</span>
+                <span>Status</span>
+              </div>
+              <div class="outlet-row">
+                <span>Indiranagar</span>
+                <span>Rs 82,000</span>
+                <span>174</span>
+                <span class="positive">+14%</span>
+                <span class="status online">Healthy</span>
+              </div>
+              <div class="outlet-row">
+                <span>Koramangala</span>
+                <span>Rs 61,500</span>
+                <span>128</span>
+                <span class="negative">-18%</span>
+                <span class="status warning">Review</span>
+              </div>
+              <div class="outlet-row">
+                <span>HSR Layout</span>
+                <span>Rs 54,300</span>
+                <span>106</span>
+                <span class="positive">+9%</span>
+                <span class="status online">Healthy</span>
+              </div>
+              <div class="outlet-row">
+                <span>Whitefield</span>
+                <span>Rs 47,200</span>
+                <span>104</span>
+                <span class="positive">+6%</span>
+                <span class="status online">Healthy</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Staff Access</p>
+                <h3>Role Summary</h3>
+              </div>
+              <button class="ghost-btn">Manage roles</button>
+            </div>
+
+            <ul class="plain-list compact">
+              <li>Owner <span>Full access</span></li>
+              <li>Manager <span>Approvals and reports</span></li>
+              <li>Cashier <span>Billing and payment only</span></li>
+              <li>Captain <span>Orders, KOT, move table</span></li>
+              <li>Waiter <span>Order taking and instructions</span></li>
+            </ul>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Receipts & Tax</p>
+                <h3>Configuration</h3>
+              </div>
+              <button class="ghost-btn">Edit</button>
+            </div>
+
+            <div class="mini-stack">
+              <div class="mini-card">
+                <span>Default GST profile</span>
+                <strong>GST 5%</strong>
+              </div>
+              <div class="mini-card">
+                <span>Receipt template</span>
+                <strong>Dine-In Standard</strong>
+              </div>
+              <div class="mini-card">
+                <span>Login timeout</span>
+                <strong>20 minutes</strong>
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
