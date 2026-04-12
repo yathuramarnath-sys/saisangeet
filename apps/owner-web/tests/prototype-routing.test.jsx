@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
 import { OwnerLayout } from "../src/components/OwnerLayout";
 import { navigation } from "../src/data/navigation";
 import { AppRoutes } from "../src/pages/routes";
+import { loadRestaurantState, resetRestaurantState, updatePermissionPolicies } from "../../../packages/shared-types/src/mockRestaurantStore.js";
 
 describe("owner web prototype-backed routing", () => {
   beforeEach(() => {
@@ -55,6 +56,8 @@ describe("owner web prototype-backed routing", () => {
   });
 
   afterEach(() => {
+    cleanup();
+    resetRestaurantState();
     vi.unstubAllGlobals();
   });
 
@@ -79,6 +82,7 @@ describe("owner web prototype-backed routing", () => {
     });
 
     expect(screen.getByText("Everything your owner needs before the outlet starts billing")).toBeInTheDocument();
+    expect(screen.getByText(/control issues need owner review/i)).toBeInTheDocument();
   });
 
   it("renders the reports route from the React page", async () => {
@@ -91,12 +95,93 @@ describe("owner web prototype-backed routing", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 2, name: "Reports" })).toBeInTheDocument();
+      expect(screen.getAllByRole("heading", { level: 2, name: "Reports" }).length).toBeGreaterThan(0);
     });
 
     expect(screen.getByText("Track performance and deliver the closing report automatically")).toBeInTheDocument();
     expect(screen.getByText("Owner Mail Trigger")).toBeInTheDocument();
     expect(screen.getByText("Closing email should wait for one unresolved shift")).toBeInTheDocument();
+    expect(screen.getByText("Owner Risk Summary")).toBeInTheDocument();
+    expect(screen.getByText("Manager Approval History")).toBeInTheDocument();
+    expect(screen.getByText("Deleted bill approved at HSR Layout")).toBeInTheDocument();
+    expect(screen.getByText("Approve Final Closing Report")).toBeInTheDocument();
+    expect(screen.getByText("Unresolved Issues")).toBeInTheDocument();
+    expect(screen.getByText("Final Snapshot")).toBeInTheDocument();
+  });
+
+  it("respects manager close-day policy inside reports", async () => {
+    updatePermissionPolicies((current) => ({
+      ...current,
+      "manager-close-day": false
+    }));
+
+    render(
+      <MemoryRouter initialEntries={["/reports"]}>
+        <OwnerLayout>
+          <AppRoutes />
+        </OwnerLayout>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("heading", { level: 2, name: "Reports" }).length).toBeGreaterThan(0);
+    });
+
+    expect(screen.getByRole("button", { name: "Manager" })).toBeDisabled();
+  });
+
+  it("approves the daily closing report from reports", async () => {
+    render(
+      <MemoryRouter initialEntries={["/reports"]}>
+        <OwnerLayout>
+          <AppRoutes />
+        </OwnerLayout>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("heading", { level: 2, name: "Reports" }).length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Approve & Send Closing Report" })[0]);
+
+    expect(loadRestaurantState().closingState.approved).toBe(true);
+    expect(loadRestaurantState().closingState.approvedBy).toBe("Owner");
+  });
+
+  it("allows manager to approve and reopen the business day from reports", async () => {
+    render(
+      <MemoryRouter initialEntries={["/reports"]}>
+        <OwnerLayout>
+          <AppRoutes />
+        </OwnerLayout>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("heading", { level: 2, name: "Reports" }).length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Manager" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Approve & Send Closing Report" })[0]);
+
+    await waitFor(() => {
+      expect(loadRestaurantState().closingState.approved).toBe(true);
+    });
+    expect(loadRestaurantState().closingState.approvedBy).toBe("Manager Rakesh");
+    expect(loadRestaurantState().closingState.approvedRole).toBe("Manager");
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: "Reopen Business Day" })[0]).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Reopen Business Day" })[0]);
+
+    await waitFor(() => {
+      expect(loadRestaurantState().closingState.approved).toBe(false);
+    });
+    expect(loadRestaurantState().closingState.reopenedBy).toBe("Manager Rakesh");
+    expect(loadRestaurantState().closingState.reopenedRole).toBe("Manager");
   });
 
   it("renders the outlets route from the React page", async () => {
@@ -149,7 +234,33 @@ describe("owner web prototype-backed routing", () => {
 
     expect(screen.getByText("Give every staff member only the access they need")).toBeInTheDocument();
     expect(screen.getByText("Captain Role Permissions")).toBeInTheDocument();
+    expect(screen.getByText("Role Access Matrix")).toBeInTheDocument();
+    expect(screen.getByText("Role Permission Editor")).toBeInTheDocument();
     expect(screen.getByText("Cashier Can Create Tables")).toBeInTheDocument();
+    expect(screen.getAllByText("Approve and reopen").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("Request only").length).toBeGreaterThan(1);
+  });
+
+  it("lets the owner toggle role permissions from staff page", async () => {
+    render(
+      <MemoryRouter initialEntries={["/staff"]}>
+        <OwnerLayout>
+          <AppRoutes />
+        </OwnerLayout>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { level: 2, name: "Staff & Roles" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Disable" })[0]);
+    expect(screen.getByText(/Cashier: Cashier can create tables disabled/i)).toBeInTheDocument();
+    expect(loadRestaurantState().permissionPolicies["cashier-table-setup"]).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Enable" }));
+    expect(screen.getByText(/Cashier: Cashier can create tables enabled/i)).toBeInTheDocument();
+    expect(loadRestaurantState().permissionPolicies["cashier-table-setup"]).toBe(true);
   });
 
   it("renders the discount rules route from the React page", async () => {
@@ -239,6 +350,7 @@ describe("owner web prototype-backed routing", () => {
 
     expect(screen.getByText("Track every cashier shift from opening cash to final close")).toBeInTheDocument();
     expect(screen.getByText("Cashier-wise Shift Status")).toBeInTheDocument();
-    expect(screen.getByText("HSR Layout shift short by Rs 1,200")).toBeInTheDocument();
+    expect(screen.getAllByText("HSR Layout shift short by Rs 1,200").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Mark Mismatch Under Review" })).toBeInTheDocument();
   });
 });

@@ -42,6 +42,105 @@ export const staffSeedData = {
     { id: "delete-bill", name: "Delete bill", status: "Disabled", disabled: true },
     { id: "access-reports", name: "Access reports", status: "Disabled", disabled: true }
   ],
+  accessMatrix: [
+    {
+      id: "owner",
+      role: "Owner",
+      outletScope: "All outlets",
+      closeDay: "Approve and reopen",
+      discountOverride: "Approve",
+      voidApproval: "Approve",
+      reports: "Full access",
+      tableControl: "Allow or block cashier setup"
+    },
+    {
+      id: "manager",
+      role: "Manager",
+      outletScope: "Assigned outlet",
+      closeDay: "Approve and reopen",
+      discountOverride: "Approve",
+      voidApproval: "Approve",
+      reports: "Outlet reports",
+      tableControl: "Monitor only"
+    },
+    {
+      id: "cashier",
+      role: "Cashier",
+      outletScope: "Assigned outlet",
+      closeDay: "View only",
+      discountOverride: "Request only",
+      voidApproval: "Request only",
+      reports: "Shift and billing only",
+      tableControl: "Optional if owner allows"
+    },
+    {
+      id: "captain",
+      role: "Captain",
+      outletScope: "Assigned section",
+      closeDay: "No access",
+      discountOverride: "No access",
+      voidApproval: "No access",
+      reports: "No access",
+      tableControl: "Move table and assign waiter"
+    },
+    {
+      id: "waiter",
+      role: "Waiter",
+      outletScope: "Assigned tables",
+      closeDay: "No access",
+      discountOverride: "No access",
+      voidApproval: "No access",
+      reports: "No access",
+      tableControl: "Pickup and deliver only"
+    },
+    {
+      id: "kitchen",
+      role: "Kitchen",
+      outletScope: "Assigned station",
+      closeDay: "No access",
+      discountOverride: "No access",
+      voidApproval: "No access",
+      reports: "No access",
+      tableControl: "KOT status update or view-only"
+    }
+  ],
+  permissionEditor: [
+    {
+      id: "cashier-table-setup",
+      label: "Cashier can create tables",
+      role: "Cashier",
+      detail: "Allow cashier to add table name and seats in AC, Non-AC, and Self Service areas.",
+      enabled: true
+    },
+    {
+      id: "manager-close-day",
+      label: "Manager can approve closing day",
+      role: "Manager",
+      detail: "Let manager approve final closing and reopen the next business day.",
+      enabled: true
+    },
+    {
+      id: "captain-move-table",
+      label: "Captain can move table",
+      role: "Captain",
+      detail: "Allow captain to shift guests between tables before billing.",
+      enabled: true
+    },
+    {
+      id: "waiter-request-bill",
+      label: "Waiter can request bill",
+      role: "Waiter",
+      detail: "Let waiter trigger bill request to cashier after service is delivered.",
+      enabled: true
+    },
+    {
+      id: "kitchen-kot-control",
+      label: "Kitchen can update KOT status",
+      role: "Kitchen",
+      detail: "Allow kitchen to move tickets between New, Preparing, Ready, and pickup states.",
+      enabled: true
+    }
+  ],
   staff: [
     {
       id: "karthik",

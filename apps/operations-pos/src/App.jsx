@@ -1,6 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { areas, categories, kitchenInstructions, menuItems, serviceModes, tableOrders } from "./data/pos.seed";
+import {
+  buildAuditEntry,
+  createDemoOrder,
+  loadRestaurantState,
+  subscribeRestaurantState,
+  updateRestaurantOrders
+} from "../../../packages/shared-types/src/mockRestaurantStore.js";
 
 const paymentMethods = [
   { id: "cash", label: "Cash" },
@@ -63,8 +70,30 @@ function getOrderFinancials(order) {
   };
 }
 
+function appendAudit(order, entry) {
+  order.auditTrail = [entry, ...(order.auditTrail || [])].slice(0, 6);
+}
+
+function appendAlert(order, message) {
+  order.controlAlerts = [message, ...(order.controlAlerts || [])].slice(0, 4);
+}
+
+function appendDeletedBill(order) {
+  order.deletedBillLog = [
+    {
+      id: `deleted-${Date.now()}`,
+      orderNumber: order.orderNumber,
+      tableNumber: order.tableNumber,
+      reason: order.voidReason,
+      approvedBy: order.voidApprovedBy
+    },
+    ...(order.deletedBillLog || [])
+  ].slice(0, 4);
+}
+
 function buildInitialOrders() {
-  const orders = JSON.parse(JSON.stringify(tableOrders));
+  const sharedState = loadRestaurantState();
+  const orders = JSON.parse(JSON.stringify({ ...tableOrders, ...sharedState.orders }));
 
   Object.values(orders).forEach((order) => {
     order.payments = order.payments || [];
@@ -83,6 +112,11 @@ function buildInitialOrders() {
     order.voidReason = order.voidReason || "Not requested";
     order.voidApprovedBy = order.voidApprovedBy || "Pending";
     order.voidRequested = order.voidRequested || false;
+    order.discountApprovalStatus = order.discountApprovalStatus || "Within limit";
+    order.discountApprovedBy = order.discountApprovedBy || "Not needed";
+    order.discountOverrideRequested = order.discountOverrideRequested || false;
+    order.deletedBillLog = order.deletedBillLog || [];
+    order.controlAlerts = order.controlAlerts || [];
   });
 
   return orders;
@@ -98,9 +132,12 @@ export function App() {
   const [discountInput, setDiscountInput] = useState("0");
   const [selectedReprintReason, setSelectedReprintReason] = useState(reprintReasons[0]);
   const [selectedVoidReason, setSelectedVoidReason] = useState(voidReasons[0]);
+  const [closingLocked, setClosingLocked] = useState(loadRestaurantState().closingState?.approved || false);
+  const [permissionPolicies, setPermissionPolicies] = useState(loadRestaurantState().permissionPolicies || {});
 
   const currentOrder = ordersByTable[selectedTableId];
   const currentFinancials = getOrderFinancials(currentOrder);
+  const cashierTableSetupEnabled = permissionPolicies["cashier-table-setup"] !== false;
 
   const visibleMenuItems = useMemo(
     () => menuItems.filter((item) => item.categoryId === selectedCategoryId),
@@ -116,6 +153,58 @@ export function App() {
   );
 
   const canCloseOrder = currentFinancials.total > 0 && currentFinancials.remainingAmount === 0 && !currentOrder.voidRequested;
+  const billRequestedOrders = useMemo(
+    () =>
+      Object.values(ordersByTable)
+        .filter((order) => order.billRequested && !order.isClosed)
+        .sort((left, right) => (left.billRequestedAt || "").localeCompare(right.billRequestedAt || "")),
+    [ordersByTable]
+  );
+
+  useEffect(() => {
+    return subscribeRestaurantState((nextState) => {
+      setClosingLocked(nextState.closingState?.approved || false);
+      setPermissionPolicies(nextState.permissionPolicies || {});
+      setOrdersByTable((current) => {
+        const merged = structuredClone(current);
+
+        Object.entries(nextState.orders).forEach(([key, order]) => {
+          const existing = merged[key] || {};
+          merged[key] = {
+            ...existing,
+            ...order,
+            items: order.items.map((item) => ({
+              ...item,
+              menuItemId: item.menuItemId || item.id
+            })),
+            payments: existing.payments || [],
+            billSplitCount: existing.billSplitCount || 1,
+            isClosed: existing.isClosed || false,
+            closedAt: existing.closedAt || null,
+            printCount: existing.printCount || 0,
+            lastPrintLabel: existing.lastPrintLabel || "Not printed yet",
+            serviceChargeEnabled: existing.serviceChargeEnabled || false,
+            serviceChargeRate: existing.serviceChargeRate || 0.1,
+            discountAmount: existing.discountAmount || 0,
+            cashierName: existing.cashierName || "Anita",
+            billTimestamp: existing.billTimestamp || "11 Apr 2026, 5:15 PM",
+            reprintReason: existing.reprintReason || "Not requested",
+            reprintApprovedBy: existing.reprintApprovedBy || "Not needed",
+            voidReason: existing.voidReason || "Not requested",
+            voidApprovedBy: existing.voidApprovedBy || "Pending",
+            voidRequested: existing.voidRequested || false,
+            discountApprovalStatus: existing.discountApprovalStatus || "Within limit",
+            discountApprovedBy: existing.discountApprovedBy || "Not needed",
+            discountOverrideRequested: existing.discountOverrideRequested || false,
+            deletedBillLog: existing.deletedBillLog || [],
+            controlAlerts: existing.controlAlerts || []
+          };
+        });
+
+        return merged;
+      });
+    });
+  }, []);
 
   function selectTable(tableId) {
     const nextOrder = ordersByTable[tableId];
@@ -130,7 +219,7 @@ export function App() {
   }
 
   function addItem(menuItem) {
-    if (currentOrder.isClosed || currentOrder.voidRequested) {
+    if (currentOrder.isClosed || currentOrder.voidRequested || closingLocked) {
       return;
     }
 
@@ -175,7 +264,7 @@ export function App() {
   }
 
   function applyInstruction(instruction) {
-    if (!selectedLineId || currentOrder.isClosed || currentOrder.voidRequested) {
+    if (!selectedLineId || currentOrder.isClosed || currentOrder.voidRequested || closingLocked) {
       return;
     }
 
@@ -193,7 +282,7 @@ export function App() {
   }
 
   function sendKot() {
-    if (currentOrder.isClosed || currentOrder.voidRequested) {
+    if (currentOrder.isClosed || currentOrder.voidRequested || closingLocked) {
       return;
     }
 
@@ -204,10 +293,24 @@ export function App() {
       });
       return next;
     });
+
+    updateRestaurantOrders((current) => {
+      const next = structuredClone(current);
+      if (next[selectedTableId]) {
+        next[selectedTableId].items = currentOrder.items.map((item) => ({
+          ...item,
+          sentToKot: true
+        }));
+        next[selectedTableId].pickupStatus = "ready";
+        next[selectedTableId].notes = "KOT sent from POS";
+        appendAudit(next[selectedTableId], buildAuditEntry("KOT sent from POS", "Cashier Anita", "Now"));
+      }
+      return next;
+    });
   }
 
   function splitBill() {
-    if (currentOrder.items.length === 0 || currentOrder.isClosed || currentOrder.voidRequested) {
+    if (currentOrder.items.length === 0 || currentOrder.isClosed || currentOrder.voidRequested || closingLocked) {
       return;
     }
 
@@ -223,7 +326,7 @@ export function App() {
   function addPayment() {
     const rawAmount = Number(paymentAmount);
 
-    if (!rawAmount || rawAmount < 0.01 || currentOrder.isClosed || currentOrder.items.length === 0 || currentOrder.voidRequested) {
+    if (!rawAmount || rawAmount < 0.01 || currentOrder.isClosed || currentOrder.items.length === 0 || currentOrder.voidRequested || closingLocked) {
       return;
     }
 
@@ -251,7 +354,7 @@ export function App() {
   }
 
   function fillRemainingAmount() {
-    if (currentFinancials.remainingAmount <= 0 || currentOrder.isClosed || currentOrder.voidRequested) {
+    if (currentFinancials.remainingAmount <= 0 || currentOrder.isClosed || currentOrder.voidRequested || closingLocked) {
       return;
     }
 
@@ -259,21 +362,76 @@ export function App() {
   }
 
   function applyDiscount() {
-    if (currentOrder.items.length === 0 || currentOrder.isClosed || currentOrder.voidRequested) {
+    if (currentOrder.items.length === 0 || currentOrder.isClosed || currentOrder.voidRequested || closingLocked) {
       return;
     }
 
     const nextDiscount = Number(discountInput) || 0;
+    const requiresOverride = nextDiscount > 100;
 
     setOrdersByTable((current) => {
       const next = structuredClone(current);
       next[selectedTableId].discountAmount = Math.max(nextDiscount, 0);
+      next[selectedTableId].discountOverrideRequested = requiresOverride;
+      next[selectedTableId].discountApprovalStatus = requiresOverride ? "Manager approval pending" : "Within limit";
+      next[selectedTableId].discountApprovedBy = requiresOverride ? "Pending manager" : "Not needed";
+
+      if (requiresOverride) {
+        next[selectedTableId].notes = "High discount needs manager approval";
+        appendAlert(next[selectedTableId], "High discount override requested");
+        appendAudit(next[selectedTableId], buildAuditEntry("Discount override requested", "Cashier Anita", "Now"));
+      }
+      return next;
+    });
+
+    updateRestaurantOrders((current) => {
+      const next = structuredClone(current);
+      if (next[selectedTableId]) {
+        next[selectedTableId].discountAmount = Math.max(nextDiscount, 0);
+        next[selectedTableId].discountOverrideRequested = requiresOverride;
+        next[selectedTableId].discountApprovalStatus = requiresOverride ? "Manager approval pending" : "Within limit";
+        next[selectedTableId].discountApprovedBy = requiresOverride ? "Pending manager" : "Not needed";
+
+        if (requiresOverride) {
+          next[selectedTableId].notes = "High discount needs manager approval";
+          appendAlert(next[selectedTableId], "High discount override requested");
+          appendAudit(next[selectedTableId], buildAuditEntry("Discount override requested", "Cashier Anita", "Now"));
+        }
+      }
+      return next;
+    });
+  }
+
+  function approveDiscountOverride() {
+    if (!currentOrder.discountOverrideRequested || closingLocked) {
+      return;
+    }
+
+    setOrdersByTable((current) => {
+      const next = structuredClone(current);
+      next[selectedTableId].discountOverrideRequested = false;
+      next[selectedTableId].discountApprovalStatus = "Approved";
+      next[selectedTableId].discountApprovedBy = "Manager Rakesh";
+      next[selectedTableId].notes = "Discount approved by manager";
+      appendAudit(next[selectedTableId], buildAuditEntry("Discount approved", "Manager Rakesh", "Now"));
+      return next;
+    });
+
+    updateRestaurantOrders((current) => {
+      const next = structuredClone(current);
+      if (next[selectedTableId]) {
+        next[selectedTableId].discountOverrideRequested = false;
+        next[selectedTableId].discountApprovalStatus = "Approved";
+        next[selectedTableId].discountApprovedBy = "Manager Rakesh";
+        next[selectedTableId].notes = "Discount approved by manager";
+        appendAudit(next[selectedTableId], buildAuditEntry("Discount approved", "Manager Rakesh", "Now"));
+      }
       return next;
     });
   }
 
   function toggleServiceCharge() {
-    if (currentOrder.isClosed || currentOrder.voidRequested) {
+    if (currentOrder.isClosed || currentOrder.voidRequested || closingLocked) {
       return;
     }
 
@@ -282,10 +440,18 @@ export function App() {
       next[selectedTableId].serviceChargeEnabled = !next[selectedTableId].serviceChargeEnabled;
       return next;
     });
+
+    updateRestaurantOrders((current) => {
+      const next = structuredClone(current);
+      if (next[selectedTableId]) {
+        next[selectedTableId].serviceChargeEnabled = !next[selectedTableId].serviceChargeEnabled;
+      }
+      return next;
+    });
   }
 
   function markPrinted(printMode) {
-    if (currentOrder.items.length === 0) {
+    if (currentOrder.items.length === 0 || closingLocked) {
       return;
     }
 
@@ -302,10 +468,23 @@ export function App() {
 
       return next;
     });
+
+    updateRestaurantOrders((current) => {
+      const next = structuredClone(current);
+      if (next[selectedTableId]) {
+        next[selectedTableId].lastPrintLabel = printMode === "reprint" ? "Reprinted just now" : "Printed just now";
+        if (printMode === "reprint") {
+          next[selectedTableId].reprintReason = selectedReprintReason;
+          next[selectedTableId].reprintApprovedBy = "Manager Placeholder";
+          appendAudit(next[selectedTableId], buildAuditEntry("Bill reprinted", "Cashier Anita", "Now"));
+        }
+      }
+      return next;
+    });
   }
 
   function requestVoid() {
-    if (currentOrder.items.length === 0 || currentOrder.isClosed) {
+    if (currentOrder.items.length === 0 || currentOrder.isClosed || closingLocked) {
       return;
     }
 
@@ -316,12 +495,27 @@ export function App() {
       order.voidReason = selectedVoidReason;
       order.voidApprovedBy = "Pending manager";
       order.notes = "Void requested";
+      appendAlert(order, `Void requested: ${selectedVoidReason}`);
+      appendAudit(order, buildAuditEntry("Void requested", "Cashier Anita", "Now"));
+      return next;
+    });
+
+    updateRestaurantOrders((current) => {
+      const next = structuredClone(current);
+      if (next[selectedTableId]) {
+        next[selectedTableId].voidRequested = true;
+        next[selectedTableId].voidReason = selectedVoidReason;
+        next[selectedTableId].voidApprovedBy = "Pending manager";
+        next[selectedTableId].notes = "Void requested";
+        appendAlert(next[selectedTableId], `Void requested: ${selectedVoidReason}`);
+        appendAudit(next[selectedTableId], buildAuditEntry("Void requested", "Cashier Anita", "Now"));
+      }
       return next;
     });
   }
 
   function approveVoid() {
-    if (!currentOrder.voidRequested) {
+    if (!currentOrder.voidRequested || closingLocked) {
       return;
     }
 
@@ -330,12 +524,25 @@ export function App() {
       const order = next[selectedTableId];
       order.voidApprovedBy = "Manager Placeholder";
       order.notes = "Void approved placeholder";
+      appendDeletedBill(order);
+      appendAudit(order, buildAuditEntry("Void approved", "Manager Placeholder", "Now"));
+      return next;
+    });
+
+    updateRestaurantOrders((current) => {
+      const next = structuredClone(current);
+      if (next[selectedTableId]) {
+        next[selectedTableId].voidApprovedBy = "Manager Placeholder";
+        next[selectedTableId].notes = "Void approved placeholder";
+        appendDeletedBill(next[selectedTableId]);
+        appendAudit(next[selectedTableId], buildAuditEntry("Void approved", "Manager Placeholder", "Now"));
+      }
       return next;
     });
   }
 
   function closeOrder() {
-    if (!canCloseOrder) {
+    if (!canCloseOrder || closingLocked) {
       return;
     }
 
@@ -347,6 +554,24 @@ export function App() {
       order.notes = "Invoice ready and settled";
       return next;
     });
+
+    updateRestaurantOrders((current) => {
+      const next = structuredClone(current);
+      if (next[selectedTableId]) {
+        next[selectedTableId].billRequested = false;
+        next[selectedTableId].notes = "Invoice ready and settled";
+        appendAudit(next[selectedTableId], buildAuditEntry("Order settled", "Cashier Anita", "Now"));
+      }
+      return next;
+    });
+  }
+
+  function handleCreateDemoOrder() {
+    const result = createDemoOrder();
+
+    if (result.tableId) {
+      selectTable(result.tableId);
+    }
   }
 
   return (
@@ -368,6 +593,10 @@ export function App() {
             </button>
           ))}
         </div>
+
+        <button type="button" className="ghost-btn" onClick={handleCreateDemoOrder}>
+          Create Demo Order
+        </button>
       </header>
 
       <section className="pos-grid">
@@ -377,8 +606,8 @@ export function App() {
               <p className="eyebrow">Area and Table</p>
               <h2>Select Table</h2>
             </div>
-            <button type="button" className="ghost-btn">
-              Move Table
+            <button type="button" className="ghost-btn" disabled={!cashierTableSetupEnabled}>
+              {cashierTableSetupEnabled ? "Move Table" : "Table Setup Locked"}
             </button>
           </div>
 
@@ -426,6 +655,41 @@ export function App() {
             {currentOrder.voidRequested ? "Void requested • Manager approval pending" : currentOrder.isClosed ? "Order closed • Invoice ready" : currentOrder.notes}
           </div>
 
+          {closingLocked ? <div className="order-note-banner closed">Daily closing approved • Risky cashier actions are locked</div> : null}
+
+          {billRequestedOrders.length > 0 ? (
+            <div className="order-note-banner">
+              Bill Requests: {billRequestedOrders.map((order) => order.tableNumber).join(", ")}
+            </div>
+          ) : null}
+
+          <div className="bill-request-panel">
+            <div className="panel-header compact">
+              <div>
+                <p className="eyebrow">Audit Trail</p>
+                <h3>Order Activity</h3>
+              </div>
+            </div>
+
+            <div className="closed-history-list">
+              {(currentOrder.auditTrail || []).length === 0 ? (
+                <div className="empty-order-card">No activity yet. Actions from captain, kitchen, waiter, and cashier will appear here.</div>
+              ) : (
+                currentOrder.auditTrail.map((entry) => (
+                  <div key={entry.id} className="history-card">
+                    <div>
+                      <strong>{entry.label}</strong>
+                      <span>{entry.actor}</span>
+                    </div>
+                    <div className="history-meta">
+                      <span>{entry.time}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           <div className="order-lines">
             {currentOrder.items.length === 0 ? (
               <div className="empty-order-card">No items yet. Pick items from the menu to start this order.</div>
@@ -471,7 +735,7 @@ export function App() {
                   type="button"
                   className="instruction-chip"
                   onClick={() => applyInstruction(instruction)}
-                  disabled={currentOrder.isClosed || currentOrder.voidRequested}
+                  disabled={currentOrder.isClosed || currentOrder.voidRequested || closingLocked}
                 >
                   {instruction}
                 </button>
@@ -499,18 +763,26 @@ export function App() {
                   placeholder="Enter discount"
                 />
               </label>
-              <button type="button" className="secondary-btn" onClick={applyDiscount} disabled={currentOrder.isClosed || currentOrder.voidRequested}>
+              <button type="button" className="secondary-btn" onClick={applyDiscount} disabled={currentOrder.isClosed || currentOrder.voidRequested || closingLocked}>
                 Apply Discount
               </button>
-              <button type="button" className={`ghost-btn ${currentOrder.serviceChargeEnabled ? "toggle-on" : ""}`} onClick={toggleServiceCharge} disabled={currentOrder.isClosed || currentOrder.voidRequested}>
+              <button type="button" className={`ghost-btn ${currentOrder.serviceChargeEnabled ? "toggle-on" : ""}`} onClick={toggleServiceCharge} disabled={currentOrder.isClosed || currentOrder.voidRequested || closingLocked}>
                 {currentOrder.serviceChargeEnabled ? "Service Charge On" : "Enable Service Charge"}
               </button>
             </div>
-
+            
             <div className="bill-adjustment-list">
               <div className="payment-row">
                 <span>Discount Applied</span>
                 <strong>{currency(currentFinancials.discountAmount)}</strong>
+              </div>
+              <div className="payment-row">
+                <span>Discount Approval</span>
+                <strong>{currentOrder.discountApprovalStatus}</strong>
+              </div>
+              <div className="payment-row">
+                <span>Approved By</span>
+                <strong>{currentOrder.discountApprovedBy}</strong>
               </div>
               <div className="payment-row">
                 <span>Service Charge</span>
@@ -520,6 +792,12 @@ export function App() {
                 <span>Round-Off</span>
                 <strong>{currency(currentFinancials.roundOff)}</strong>
               </div>
+            </div>
+
+            <div className="approval-actions">
+              <button type="button" className="ghost-btn" onClick={approveDiscountOverride} disabled={!currentOrder.discountOverrideRequested || closingLocked}>
+                Manager Approve Discount
+              </button>
             </div>
           </div>
 
@@ -579,10 +857,10 @@ export function App() {
                 />
               </label>
 
-              <button type="button" className="ghost-btn" onClick={fillRemainingAmount} disabled={currentFinancials.remainingAmount === 0 || currentOrder.isClosed || currentOrder.voidRequested}>
+              <button type="button" className="ghost-btn" onClick={fillRemainingAmount} disabled={currentFinancials.remainingAmount === 0 || currentOrder.isClosed || currentOrder.voidRequested || closingLocked}>
                 Fill Balance
               </button>
-              <button type="button" className="primary-btn" onClick={addPayment} disabled={currentOrder.isClosed || currentOrder.voidRequested}>
+              <button type="button" className="primary-btn" onClick={addPayment} disabled={currentOrder.isClosed || currentOrder.voidRequested || closingLocked}>
                 Add Payment
               </button>
             </div>
@@ -605,7 +883,7 @@ export function App() {
             <div className="panel-header compact">
               <div>
                 <p className="eyebrow">Controls</p>
-                <h3>Reprint and Void Approval</h3>
+                <h3>Manager Control Rules</h3>
               </div>
             </div>
 
@@ -634,10 +912,10 @@ export function App() {
             </div>
 
             <div className="approval-actions">
-              <button type="button" className="secondary-btn" onClick={requestVoid} disabled={currentOrder.isClosed || currentOrder.items.length === 0}>
+              <button type="button" className="secondary-btn" onClick={requestVoid} disabled={currentOrder.isClosed || currentOrder.items.length === 0 || closingLocked}>
                 Request Void
               </button>
-              <button type="button" className="ghost-btn" onClick={approveVoid} disabled={!currentOrder.voidRequested}>
+              <button type="button" className="ghost-btn" onClick={approveVoid} disabled={!currentOrder.voidRequested || closingLocked}>
                 Manager Approve Void
               </button>
             </div>
@@ -651,6 +929,41 @@ export function App() {
                 <span>Void Approval</span>
                 <strong>{currentOrder.voidApprovedBy}</strong>
               </div>
+            </div>
+
+            <div className="closed-history-list">
+              {(currentOrder.controlAlerts || []).length === 0 ? (
+                <div className="empty-order-card">No unauthorized actions right now. Control alerts will appear here.</div>
+              ) : (
+                currentOrder.controlAlerts.map((alert) => (
+                  <div key={alert} className="alert-card">
+                    <strong>Unauthorized Action Alert</strong>
+                    <span>{alert}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="closed-history-list">
+              {(currentOrder.deletedBillLog || []).length === 0 ? (
+                <div className="empty-order-card">Deleted bill tracking is empty. Approved voids will appear here.</div>
+              ) : (
+                currentOrder.deletedBillLog.map((deletedBill) => (
+                  <div key={deletedBill.id} className="history-card">
+                    <div>
+                      <strong>
+                        Deleted Bill #{deletedBill.orderNumber}
+                      </strong>
+                      <span>
+                        {deletedBill.tableNumber} • {deletedBill.reason}
+                      </span>
+                    </div>
+                    <div className="history-meta">
+                      <span>{deletedBill.approvedBy}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -683,13 +996,13 @@ export function App() {
             </div>
 
             <div className="footer-actions">
-              <button type="button" className="secondary-btn" onClick={splitBill}>
+              <button type="button" className="secondary-btn" onClick={splitBill} disabled={closingLocked}>
                 Split Bill
               </button>
-              <button type="button" className="secondary-btn" onClick={closeOrder} disabled={!canCloseOrder || currentOrder.isClosed}>
+              <button type="button" className="secondary-btn" onClick={closeOrder} disabled={!canCloseOrder || currentOrder.isClosed || closingLocked}>
                 Close Order
               </button>
-              <button type="button" className="primary-btn" onClick={sendKot} disabled={currentOrder.isClosed || currentOrder.voidRequested}>
+              <button type="button" className="primary-btn" onClick={sendKot} disabled={currentOrder.isClosed || currentOrder.voidRequested || closingLocked}>
                 Send KOT
               </button>
             </div>
@@ -697,6 +1010,42 @@ export function App() {
         </main>
 
         <aside className="pos-panel menu-panel">
+          <div className="bill-request-panel">
+            <div className="panel-header compact">
+              <div>
+                <p className="eyebrow">Cashier Queue</p>
+                <h3>Bill Requested</h3>
+              </div>
+              <span className="thermal-badge">{billRequestedOrders.length} tables</span>
+            </div>
+
+            <div className="closed-history-list">
+              {billRequestedOrders.length === 0 ? (
+                <div className="empty-order-card">No bill requests right now. Requested tables will appear here for cashier action.</div>
+              ) : (
+                billRequestedOrders.map((order) => (
+                  <button
+                    key={order.tableId}
+                    type="button"
+                    className={`history-card ${order.tableId === selectedTableId ? "selected" : ""}`}
+                    onClick={() => selectTable(order.tableId)}
+                  >
+                    <div>
+                      <strong>
+                        {order.tableNumber} • #{order.orderNumber}
+                      </strong>
+                      <span>{order.billRequestedAt || "Requested from service floor"}</span>
+                    </div>
+                    <div className="history-meta">
+                      <span>{order.assignedWaiter}</span>
+                      <span>Open Bill</span>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
           <div className="panel-header">
             <div>
               <p className="eyebrow">Menu</p>
@@ -727,7 +1076,7 @@ export function App() {
                 type="button"
                 className="menu-pick-card"
                 onClick={() => addItem(item)}
-                disabled={currentOrder.isClosed || currentOrder.voidRequested}
+                disabled={currentOrder.isClosed || currentOrder.voidRequested || closingLocked}
               >
                 <div>
                   <strong>{item.name}</strong>
@@ -872,10 +1221,10 @@ export function App() {
             </div>
 
             <div className="thermal-actions">
-              <button type="button" className="secondary-btn" onClick={() => markPrinted("print")} disabled={currentOrder.items.length === 0}>
+              <button type="button" className="secondary-btn" onClick={() => markPrinted("print")} disabled={currentOrder.items.length === 0 || closingLocked}>
                 Print Bill
               </button>
-              <button type="button" className="ghost-btn" onClick={() => markPrinted("reprint")} disabled={!currentOrder.isClosed}>
+              <button type="button" className="ghost-btn" onClick={() => markPrinted("reprint")} disabled={!currentOrder.isClosed || closingLocked}>
                 Reprint Last Bill
               </button>
             </div>

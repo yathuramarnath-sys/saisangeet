@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchShiftData } from "./shifts.service";
+import { fetchShiftData, recordCashMismatchResolution, subscribeShiftData } from "./shifts.service";
 
 function statusClass(status) {
   return ["Mismatch", "Manager check"].includes(status) ? "warning" : "online";
@@ -28,8 +28,16 @@ export function ShiftsCashPage() {
 
     load();
 
+    const unsubscribe = subscribeShiftData((nextData) => {
+      if (!cancelled) {
+        setShiftData(nextData);
+        setLoading(false);
+      }
+    });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 
@@ -266,6 +274,9 @@ export function ShiftsCashPage() {
               <span>Manager approval</span>
               <strong>Required</strong>
             </div>
+            <button type="button" className="secondary-btn full-width" onClick={recordCashMismatchResolution}>
+              Mark Mismatch Under Review
+            </button>
           </div>
         </article>
 

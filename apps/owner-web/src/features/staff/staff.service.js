@@ -1,5 +1,6 @@
 import { api } from "../../lib/api";
 import { staffSeedData } from "./staff.seed";
+import { loadRestaurantState } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
 
 function normalizeRoles(roles) {
   return roles.map((role, index) => ({
@@ -23,6 +24,12 @@ function normalizeStaff(users) {
 }
 
 export async function fetchStaffData() {
+  const state = loadRestaurantState();
+  const permissionEditor = staffSeedData.permissionEditor.map((item) => ({
+    ...item,
+    enabled: state.permissionPolicies?.[item.id] ?? item.enabled
+  }));
+
   try {
     const [roles, permissions, users] = await Promise.all([
       api.get("/roles"),
@@ -38,11 +45,16 @@ export async function fetchStaffData() {
         status: index < 6 ? "Enabled" : "Disabled",
         disabled: index >= 6
       })),
+      accessMatrix: staffSeedData.accessMatrix,
+      permissionEditor,
       staff: normalizeStaff(users),
       tableAccess: staffSeedData.tableAccess,
       alerts: staffSeedData.alerts
     };
   } catch (_error) {
-    return staffSeedData;
+    return {
+      ...staffSeedData,
+      permissionEditor
+    };
   }
 }

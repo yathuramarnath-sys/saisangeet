@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchStaffData } from "./staff.service";
+import { subscribeRestaurantState, updatePermissionPolicies } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
 
 function statusClass(status) {
   return status === "Approval pending" ? "warning" : "online";
@@ -10,11 +11,14 @@ export function StaffPage() {
   const [staffData, setStaffData] = useState({
     roles: [],
     permissions: [],
+    accessMatrix: [],
+    permissionEditor: [],
     staff: [],
     tableAccess: [],
     alerts: []
   });
   const [loading, setLoading] = useState(true);
+  const [lastUpdatedPermission, setLastUpdatedPermission] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -30,8 +34,17 @@ export function StaffPage() {
 
     load();
 
+    const unsubscribe = subscribeRestaurantState(async () => {
+      const result = await fetchStaffData();
+
+      if (!cancelled) {
+        setStaffData(result);
+      }
+    });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 
@@ -39,6 +52,28 @@ export function StaffPage() {
   const totalRoles = staffData.roles.length || 5;
   const pendingApprovals =
     staffData.staff.filter((member) => member.status === "Approval pending").length || 2;
+
+  function togglePermissionEditorItem(itemId) {
+    updatePermissionPolicies((current) => ({
+      ...current,
+      [itemId]: !current[itemId]
+    }));
+
+    setStaffData((current) => {
+      const nextEditor = current.permissionEditor.map((item) =>
+        item.id === itemId ? { ...item, enabled: !item.enabled } : item
+      );
+      const changedItem = nextEditor.find((item) => item.id === itemId);
+      setLastUpdatedPermission(
+        changedItem ? `${changedItem.role}: ${changedItem.label} ${changedItem.enabled ? "enabled" : "disabled"}` : ""
+      );
+
+      return {
+        ...current,
+        permissionEditor: nextEditor
+      };
+    });
+  }
 
   return (
     <>
@@ -150,6 +185,74 @@ export function StaffPage() {
                 <span>{permission.status}</span>
               </div>
             ))}
+          </div>
+        </article>
+
+        <article className="panel panel-wide">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Permission Visibility</p>
+              <h3>Role Access Matrix</h3>
+            </div>
+            <button type="button" className="ghost-btn">
+              Export matrix
+            </button>
+          </div>
+
+          <div className="staff-table">
+            <div className="staff-row staff-head">
+              <span>Role</span>
+              <span>Outlet scope</span>
+              <span>Closing day</span>
+              <span>Discount</span>
+              <span>Void</span>
+              <span>Reports</span>
+              <span>Table control</span>
+            </div>
+            {staffData.accessMatrix.map((item) => (
+              <div key={item.id} className="staff-row">
+                <span>{item.role}</span>
+                <span>{item.outletScope}</span>
+                <span>{item.closeDay}</span>
+                <span>{item.discountOverride}</span>
+                <span>{item.voidApproval}</span>
+                <span>{item.reports}</span>
+                <span>{item.tableControl}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel panel-wide">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Permission Editor</p>
+              <h3>Role Permission Editor</h3>
+            </div>
+            <button type="button" className="ghost-btn">
+              Save policy
+            </button>
+          </div>
+
+          <div className="mini-stack">
+            {staffData.permissionEditor.map((item) => (
+              <div key={item.id} className="mini-card">
+                <span>{item.role} • {item.label}</span>
+                <strong>{item.enabled ? "Enabled" : "Disabled"}</strong>
+                <span>{item.detail}</span>
+                <button
+                  type="button"
+                  className={item.enabled ? "secondary-btn" : "primary-btn"}
+                  onClick={() => togglePermissionEditorItem(item.id)}
+                >
+                  {item.enabled ? "Disable" : "Enable"}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="panel-empty">
+            {lastUpdatedPermission || "Choose a role permission to enable or disable for daily operations."}
           </div>
         </article>
 

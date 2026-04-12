@@ -67,7 +67,10 @@ button {
 .instruction-grid,
 .mobile-table-grid,
 .menu-stack,
-.order-stack {
+.order-stack,
+.queue-actions,
+.mobile-stats-grid,
+.audit-stack {
   display: grid;
   gap: 10px;
 }
@@ -178,6 +181,36 @@ button {
   gap: 10px;
 }
 
+.mobile-stats-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mobile-stat-card {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(17, 19, 23, 0.05);
+  display: grid;
+  gap: 4px;
+}
+
+.mobile-stat-card span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.audit-row {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(17, 19, 23, 0.05);
+  display: grid;
+  gap: 4px;
+}
+
+.audit-row span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .table-summary div {
   padding: 12px;
   border-radius: 16px;
@@ -217,6 +250,29 @@ button {
   font-weight: 700;
 }
 
+.queue-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  display: grid;
+  gap: 12px;
+}
+
+.queue-card > div {
+  display: grid;
+  gap: 4px;
+}
+
+.queue-card span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.queue-actions {
+  grid-template-columns: 1fr 1fr;
+}
+
 .mobile-sticky-bar {
   position: fixed;
   left: 0;
@@ -238,7 +294,9 @@ button {
   .mobile-table-grid,
   .instruction-grid,
   .table-summary,
-  .mobile-sticky-bar {
+  .mobile-sticky-bar,
+  .queue-actions,
+  .mobile-stats-grid {
     grid-template-columns: 1fr;
   }
 

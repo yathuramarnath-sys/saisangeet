@@ -1,7 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { App } from "../src/App";
+import { loadRestaurantState, resetRestaurantState, updateClosingState, updatePermissionPolicies } from "../../../packages/shared-types/src/mockRestaurantStore.js";
+
+afterEach(() => {
+  cleanup();
+  resetRestaurantState();
+});
 
 describe("operations pos app", () => {
   it("renders the service floor flow with tables, KOT actions, billing controls, and thermal preview", () => {
@@ -15,6 +21,18 @@ describe("operations pos app", () => {
     expect(screen.getByRole("heading", { level: 3, name: "Split Bill and Collect Payment" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "Discount, Service Charge, and Round-Off" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "3-inch Thermal Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Bill Requested" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Order Activity" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Manager Control Rules" })).toBeInTheDocument();
+  });
+
+  it("shows the bill request queue and creates a demo order for quick cashier testing", () => {
+    render(<App />);
+
+    expect(screen.getByText("F1 • #10034")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Demo Order" }));
+    expect(loadRestaurantState().orders.t2.items.length).toBeGreaterThan(0);
   });
 
   it("lets the user switch tables, add items, apply instructions, and send KOT", () => {
@@ -78,5 +96,47 @@ describe("operations pos app", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Manager Approve Void" })[0]);
     expect(screen.getAllByText("Manager Placeholder").length).toBeGreaterThan(0);
+    expect(screen.getByText("Deleted Bill #10031")).toBeInTheDocument();
+  });
+
+  it("requires manager approval for high discount override", () => {
+    render(<App />);
+
+    const discountInput = screen.getAllByPlaceholderText("Enter discount")[0];
+    fireEvent.change(discountInput, { target: { value: "150" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Apply Discount" })[0]);
+
+    expect(screen.getByText("Manager approval pending")).toBeInTheDocument();
+    expect(screen.getByText("Unauthorized Action Alert")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manager Approve Discount" }));
+    expect(screen.getByText("Approved")).toBeInTheDocument();
+    expect(screen.getAllByText("Manager Rakesh").length).toBeGreaterThan(0);
+  });
+
+  it("locks risky cashier actions after daily closing is approved", () => {
+    updateClosingState(() => ({
+      approved: true,
+      approvedAt: "11:32 PM",
+      approvedBy: "Owner",
+      status: "Approved and queued"
+    }));
+
+    render(<App />);
+
+    expect(screen.getByText("Daily closing approved • Risky cashier actions are locked")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply Discount" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Request Void" })).toBeDisabled();
+  });
+
+  it("applies cashier table setup policy in pos", () => {
+    updatePermissionPolicies((current) => ({
+      ...current,
+      "cashier-table-setup": false
+    }));
+
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Table Setup Locked" })).toBeDisabled();
   });
 });

@@ -387,7 +387,8 @@ select:disabled {
 }
 
 .billing-rules-panel,
-.approval-panel {
+.approval-panel,
+.bill-request-panel {
   margin-top: 16px;
   padding: 16px;
   border: 1px solid var(--line);
@@ -550,10 +551,28 @@ select:disabled {
   box-shadow: 0 0 0 2px rgba(17, 19, 23, 0.08);
 }
 
+.alert-card {
+  padding: 12px 14px;
+  border: 1px solid rgba(140, 47, 35, 0.18);
+  border-radius: 16px;
+  background: var(--danger-soft);
+  display: grid;
+  gap: 4px;
+}
+
+.alert-card span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .history-card > div,
 .history-meta {
   display: grid;
   gap: 4px;
+}
+
+.bill-request-panel .history-meta {
+  justify-items: end;
 }
 
 .instruction-chip-group {

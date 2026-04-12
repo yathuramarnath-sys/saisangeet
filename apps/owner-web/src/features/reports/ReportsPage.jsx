@@ -1,19 +1,45 @@
 import { useEffect, useState } from "react";
 
-import { fetchReportsData } from "./reports.service";
+import { approveClosingReport, fetchReportsData, reopenBusinessDay, subscribeOwnerReports } from "./reports.service";
 
 function statusClass(status) {
   return ["Review", "Conditional"].includes(status) ? "warning" : "online";
 }
 
 export function ReportsPage() {
+  const accessProfiles = [
+    { id: "owner", name: "Owner", role: "Owner" },
+    { id: "manager", name: "Manager Rakesh", role: "Manager" }
+  ];
   const [reportData, setReportData] = useState({
+    popupAlert: null,
     outletComparison: [],
     insights: [],
     closingSummary: [],
+    closingCenter: {
+      blockers: [],
+      checklist: [],
+      ownerSummary: []
+    },
+    closingState: {
+      approved: false,
+      approvedAt: null,
+      approvedBy: null,
+      approvedRole: null,
+      reopenedAt: null,
+      reopenedBy: null,
+      reopenedRole: null,
+      status: "Pending review"
+    },
+    permissionPolicies: {},
+    controlSummary: [],
+    approvalLog: [],
     alerts: []
   });
   const [loading, setLoading] = useState(true);
+  const [selectedAccessId, setSelectedAccessId] = useState("owner");
+  const activeAccess = accessProfiles.find((profile) => profile.id === selectedAccessId) || accessProfiles[0];
+  const managerCloseDayEnabled = reportData.permissionPolicies?.["manager-close-day"] !== false;
 
   useEffect(() => {
     let cancelled = false;
@@ -29,10 +55,30 @@ export function ReportsPage() {
 
     load();
 
+    const unsubscribe = subscribeOwnerReports((nextData) => {
+      if (!cancelled) {
+        setReportData(nextData);
+        setLoading(false);
+      }
+    });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
+
+  async function handleApproveClosing() {
+    approveClosingReport(activeAccess);
+    const nextData = await fetchReportsData();
+    setReportData(nextData);
+  }
+
+  async function handleReopenBusinessDay() {
+    reopenBusinessDay(activeAccess);
+    const nextData = await fetchReportsData();
+    setReportData(nextData);
+  }
 
   return (
     <>
@@ -102,6 +148,143 @@ export function ReportsPage() {
       </section>
 
       <section className="dashboard-grid reports-layout">
+        <article className="panel panel-wide">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Daily Closing Center</p>
+              <h3>Approve Final Closing Report</h3>
+            </div>
+            <div className="topbar-actions">
+              <div className="category-tabs" aria-label="Closing access role">
+                {accessProfiles.map((profile) => (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    className={`category-chip ${profile.id === selectedAccessId ? "active" : ""}`}
+                    onClick={() => setSelectedAccessId(profile.id)}
+                    disabled={profile.id === "manager" && !managerCloseDayEnabled}
+                  >
+                    {profile.role}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={handleReopenBusinessDay}
+                disabled={!reportData.closingState?.approved || (selectedAccessId === "manager" && !managerCloseDayEnabled)}
+              >
+                Reopen Business Day
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={handleApproveClosing}
+                disabled={reportData.closingState?.approved || (selectedAccessId === "manager" && !managerCloseDayEnabled)}
+              >
+                Approve & Send Closing Report
+              </button>
+            </div>
+          </div>
+
+          <div className="dashboard-grid reports-layout">
+            <div className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Blockers</p>
+                  <h3>Unresolved Issues</h3>
+                </div>
+              </div>
+              <div className="alert-list">
+                {reportData.closingCenter.blockers.map((blocker) => (
+                  <div key={blocker.id} className="alert-item">
+                    <strong>{blocker.title}</strong>
+                    <span>{blocker.detail}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Checklist</p>
+                  <h3>Before Sending</h3>
+                </div>
+              </div>
+              <div className="mini-stack">
+                {reportData.closingCenter.checklist.map((item) => (
+                  <div key={item.id} className="mini-card">
+                    <span>{item.title}</span>
+                    <strong className={item.status === "Done" ? "positive" : "negative"}>{item.status}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Owner Summary</p>
+                  <h3>Final Snapshot</h3>
+                </div>
+              </div>
+              <div className="mini-stack">
+                <div className="mini-card">
+                  <span>Access Role</span>
+                  <strong>{activeAccess.role}</strong>
+                </div>
+                <div className="mini-card">
+                  <span>Current State</span>
+                  <strong>{reportData.closingState?.status}</strong>
+                </div>
+                {reportData.closingCenter.ownerSummary.map((item) => (
+                  <div key={item.id} className="mini-card">
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="panel-empty">
+                {reportData.closingState?.approved
+                  ? `Closing report approved and queued for owner mail by ${reportData.closingState.approvedBy} (${reportData.closingState.approvedRole}).`
+                  : reportData.closingState?.reopenedBy
+                    ? `Business day reopened by ${reportData.closingState.reopenedBy} (${reportData.closingState.reopenedRole}).`
+                    : selectedAccessId === "manager" && !managerCloseDayEnabled
+                      ? "Manager closing-day approval is disabled by owner policy."
+                    : "Final review pending owner or manager approval."}
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article className="panel panel-wide">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Control Center</p>
+              <h3>Owner Risk Summary</h3>
+            </div>
+            <button type="button" className="ghost-btn">
+              Export risk log
+            </button>
+          </div>
+
+          <div className="integration-grid">
+            {reportData.controlSummary.map((card) => (
+              <div key={card.id} className={`integration-card ${card.status !== "Strong" ? "review" : ""}`}>
+                <div className="integration-card-head">
+                  <strong>{card.title}</strong>
+                  <span className={`status ${statusClass(card.status)}`}>{card.status}</span>
+                </div>
+                <div className="integration-meta">
+                  <strong>{card.value}</strong>
+                  <span>{card.detail}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+
         <article className="panel panel-wide">
           <div className="panel-head">
             <div>
@@ -223,6 +406,34 @@ export function ReportsPage() {
               <div key={insight.id} className="journey-step">
                 <strong>{insight.title}</strong>
                 <span>{insight.description}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel panel-wide">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Approvals</p>
+              <h3>Manager Approval History</h3>
+            </div>
+          </div>
+
+          <div className="staff-table">
+            <div className="staff-row staff-head">
+              <span>Outlet</span>
+              <span>Action</span>
+              <span>Actor</span>
+              <span>Value</span>
+              <span>Time</span>
+            </div>
+            {reportData.approvalLog.map((row) => (
+              <div key={row.id} className="staff-row">
+                <span>{row.outlet}</span>
+                <span>{row.action}</span>
+                <span>{row.actor}</span>
+                <span>{row.amount}</span>
+                <span>{row.time}</span>
               </div>
             ))}
           </div>
