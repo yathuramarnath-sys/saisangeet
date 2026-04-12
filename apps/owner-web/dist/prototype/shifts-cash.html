@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shifts & Cash Control</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-mark">R</div>
+          <div>
+            <p class="eyebrow">Restaurant OS</p>
+            <h1 class="brand-title">Owner Console</h1>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <a class="nav-item" href="./index.html">Overview</a>
+          <a class="nav-item" href="./outlets.html">Outlets</a>
+          <a class="nav-item" href="./menu.html">Menu & Categories</a>
+          <a class="nav-item" href="./staff.html">Staff & Roles</a>
+          <a class="nav-item active" href="./integrations.html">Integrations</a>
+          <a class="nav-item" href="./discount-rules.html">Discount Rules</a>
+          <a class="nav-item" href="./devices.html">Devices</a>
+          <a class="nav-item" href="./taxes-receipts.html">Taxes & Receipts</a>
+          <a class="nav-item" href="#">Security</a>
+          <a class="nav-item active" href="./shifts-cash.html">Shifts & Cash Control</a>
+          <a class="nav-item" href="./reports.html">Reports</a>
+        </nav>
+
+        <div class="sidebar-card">
+          <p class="sidebar-label">Cash Control</p>
+          <strong>4 shifts active</strong>
+          <span>1 shift has cash mismatch and needs manager review</span>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Operations • Cashier Control</p>
+            <h2>Shifts & Cash Control</h2>
+          </div>
+
+          <div class="topbar-actions">
+            <button class="secondary-btn">Export Shift Report</button>
+            <button class="primary-btn">Open New Shift</button>
+          </div>
+        </header>
+
+        <section class="hero-panel shifts-hero">
+          <div>
+            <p class="hero-label">Cash accountability</p>
+            <h3>Track every cashier shift from opening cash to final close</h3>
+            <p class="hero-copy">
+              Owners and managers should be able to see opening balance, cash in, cash out,
+              expected closing cash, actual cash counted, and mismatch for every cashier shift.
+            </p>
+          </div>
+
+          <div class="hero-stats">
+            <div>
+              <span>Open shifts</span>
+              <strong>4</strong>
+            </div>
+            <div>
+              <span>Cash mismatch</span>
+              <strong class="negative">Rs 1,200</strong>
+            </div>
+            <div>
+              <span>Review needed</span>
+              <strong>1 shift</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="metrics-grid">
+          <article class="metric-card">
+            <span class="metric-label">Opening cash today</span>
+            <strong>Rs 28,000</strong>
+            <p>Total opening balance across all outlets</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Cash in entries</span>
+            <strong>7</strong>
+            <p>Petty additions and drawer top-ups</p>
+          </article>
+          <article class="metric-card warning">
+            <span class="metric-label">Cash out entries</span>
+            <strong>5</strong>
+            <p>Expenses and controlled withdrawals</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Closed cleanly</span>
+            <strong>3/4</strong>
+            <p>One shift still has mismatch pending</p>
+          </article>
+        </section>
+
+        <section class="dashboard-grid shifts-layout">
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Quick Open</p>
+                <h3>Start Shift</h3>
+              </div>
+            </div>
+
+            <form class="simple-form">
+              <label>
+                Cashier
+                <select>
+                  <option>Arjun</option>
+                  <option>Karthik</option>
+                </select>
+              </label>
+              <label>
+                Outlet
+                <select>
+                  <option>Koramangala</option>
+                  <option>Indiranagar</option>
+                </select>
+              </label>
+              <label>
+                Opening cash
+                <input type="text" value="5000" />
+              </label>
+              <label>
+                Shift note
+                <input type="text" value="Lunch shift" />
+              </label>
+              <button type="button" class="primary-btn full-width">Open Shift</button>
+            </form>
+          </article>
+
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Shift Register</p>
+                <h3>Cashier-wise Shift Status</h3>
+              </div>
+              <button class="ghost-btn">View all shifts</button>
+            </div>
+
+            <div class="staff-table">
+              <div class="staff-row staff-head">
+                <span>Cashier</span>
+                <span>Outlet</span>
+                <span>Opening Cash</span>
+                <span>Expected Close</span>
+                <span>Status</span>
+              </div>
+              <div class="staff-row">
+                <span>Arjun</span>
+                <span>Koramangala</span>
+                <span>Rs 5,000</span>
+                <span>Rs 21,450</span>
+                <span class="status online">Open</span>
+              </div>
+              <div class="staff-row">
+                <span>Priya</span>
+                <span>Indiranagar</span>
+                <span>Rs 8,000</span>
+                <span>Rs 32,200</span>
+                <span class="status online">Open</span>
+              </div>
+              <div class="staff-row">
+                <span>Ramesh</span>
+                <span>HSR Layout</span>
+                <span>Rs 7,000</span>
+                <span>Rs 26,300</span>
+                <span class="status warning">Mismatch</span>
+              </div>
+              <div class="staff-row">
+                <span>Manoj</span>
+                <span>Whitefield</span>
+                <span>Rs 8,000</span>
+                <span>Rs 28,110</span>
+                <span class="status online">Closed</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Quick Cash Entry</p>
+                <h3>Cash In / Out</h3>
+              </div>
+            </div>
+
+            <form class="simple-form">
+              <label>
+                Entry type
+                <select>
+                  <option>Cash In</option>
+                  <option>Cash Out</option>
+                </select>
+              </label>
+              <label>
+                Cashier
+                <select>
+                  <option>Arjun</option>
+                  <option>Priya</option>
+                </select>
+              </label>
+              <label>
+                Amount
+                <input type="text" value="500" />
+              </label>
+              <label>
+                Reason
+                <input type="text" value="Change refill" />
+              </label>
+              <button type="button" class="primary-btn full-width">Save Entry</button>
+            </form>
+          </article>
+
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Cash Movement</p>
+                <h3>Recent Cash In / Out</h3>
+              </div>
+              <button class="ghost-btn">Open ledger</button>
+            </div>
+
+            <div class="staff-table">
+              <div class="staff-row staff-head">
+                <span>Cashier</span>
+                <span>Type</span>
+                <span>Amount</span>
+                <span>Reason</span>
+                <span>Status</span>
+              </div>
+              <div class="staff-row">
+                <span>Arjun</span>
+                <span>Cash In</span>
+                <span>Rs 500</span>
+                <span>Change refill</span>
+                <span class="status online">Approved</span>
+              </div>
+              <div class="staff-row">
+                <span>Priya</span>
+                <span>Cash Out</span>
+                <span>Rs 850</span>
+                <span>Petty expense</span>
+                <span class="status warning">Manager check</span>
+              </div>
+              <div class="staff-row">
+                <span>Ramesh</span>
+                <span>Cash Out</span>
+                <span>Rs 300</span>
+                <span>Courier payout</span>
+                <span class="status online">Approved</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Shift Closing</p>
+                <h3>Close Shift</h3>
+              </div>
+            </div>
+
+            <div class="mini-stack">
+              <div class="mini-card">
+                <span>Expected cash</span>
+                <strong>Rs 26,300</strong>
+              </div>
+              <div class="mini-card">
+                <span>Actual cash counted</span>
+                <strong>Rs 25,100</strong>
+              </div>
+              <div class="mini-card">
+                <span>Mismatch</span>
+                <strong class="negative">Rs 1,200 short</strong>
+              </div>
+              <div class="mini-card">
+                <span>Manager approval</span>
+                <strong>Required</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Attention Needed</p>
+                <h3>Cash Alerts</h3>
+              </div>
+            </div>
+
+            <div class="alert-list">
+              <div class="alert-item">
+                <strong>HSR Layout shift short by Rs 1,200</strong>
+                <span>Manager must review before final closing</span>
+              </div>
+              <div class="alert-item">
+                <strong>2 cash-out entries exceed normal petty range</strong>
+                <span>Check approval and reason entries</span>
+              </div>
+              <div class="alert-item">
+                <strong>One cashier has not closed shift</strong>
+                <span>Prompt closing before end-of-day report generation</span>
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

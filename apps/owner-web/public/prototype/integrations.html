@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Integrations</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-mark">R</div>
+          <div>
+            <p class="eyebrow">Restaurant OS</p>
+            <h1 class="brand-title">Owner Console</h1>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <a class="nav-item" href="./index.html">Overview</a>
+          <a class="nav-item" href="./outlets.html">Outlets</a>
+          <a class="nav-item" href="./menu.html">Menu & Categories</a>
+          <a class="nav-item" href="./staff.html">Staff & Roles</a>
+          <a class="nav-item active" href="./integrations.html">Integrations</a>
+          <a class="nav-item active" href="./discount-rules.html">Discount Rules</a>
+          <a class="nav-item" href="./devices.html">Devices</a>
+          <a class="nav-item" href="./taxes-receipts.html">Taxes & Receipts</a>
+          <a class="nav-item" href="#">Security</a>
+          <a class="nav-item" href="./shifts-cash.html">Shifts & Cash Control</a>
+          <a class="nav-item" href="./reports.html">Reports</a>
+        </nav>
+
+        <div class="sidebar-card">
+          <p class="sidebar-label">Integration Health</p>
+          <strong>3 connections active</strong>
+          <span>1 menu sync issue and 1 outlet mapping pending</span>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Owner Setup • Connected Platforms</p>
+            <h2>Integrations</h2>
+          </div>
+
+          <div class="topbar-actions">
+            <button class="secondary-btn">Sync All</button>
+            <button class="primary-btn">Add Integration</button>
+          </div>
+        </header>
+
+        <section class="hero-panel integrations-hero">
+          <div>
+            <p class="hero-label">Connected operations</p>
+            <h3>Keep accounting, delivery, and inventory platforms in one place</h3>
+            <p class="hero-copy">
+              Connect Zoho Books for accounting and connect Swiggy and Zomato for delivery order
+              sync, menu mapping, and outlet-level control.
+            </p>
+          </div>
+
+          <div class="hero-stats">
+            <div>
+              <span>Connected apps</span>
+              <strong>3</strong>
+            </div>
+            <div>
+              <span>Last sync</span>
+              <strong>2 min ago</strong>
+            </div>
+            <div>
+              <span>Needs attention</span>
+              <strong class="negative">2</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="metrics-grid">
+          <article class="metric-card">
+            <span class="metric-label">Zoho Books</span>
+            <strong>Connected</strong>
+            <p>Sales and tax export active</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Swiggy</span>
+            <strong>Connected</strong>
+            <p>Live order import enabled</p>
+          </article>
+          <article class="metric-card warning">
+            <span class="metric-label">Zomato</span>
+            <strong>Review</strong>
+            <p>1 outlet mapping still incomplete</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Inventory sync</span>
+            <strong>Planned</strong>
+            <p>Ready for external stock integrations later</p>
+          </article>
+        </section>
+
+        <section class="dashboard-grid integrations-layout">
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Platform Cards</p>
+                <h3>Connected Services</h3>
+              </div>
+              <button class="ghost-btn">Manage tokens</button>
+            </div>
+
+            <div class="integration-grid">
+              <div class="integration-card">
+                <div class="integration-card-head">
+                  <strong>Zoho Books</strong>
+                  <span class="status online">Connected</span>
+                </div>
+                <div class="integration-meta">
+                  <span>Purpose: Accounting + tax export</span>
+                  <span>Last sync: 10:05 AM</span>
+                  <span>Outlets mapped: 4/4</span>
+                </div>
+                <div class="location-actions">
+                  <button class="ghost-chip">Reconnect</button>
+                  <button class="ghost-chip">View sync</button>
+                  <button class="ghost-chip">Map ledgers</button>
+                </div>
+              </div>
+
+              <div class="integration-card">
+                <div class="integration-card-head">
+                  <strong>Swiggy</strong>
+                  <span class="status online">Connected</span>
+                </div>
+                <div class="integration-meta">
+                  <span>Purpose: Delivery order sync</span>
+                  <span>Last sync: 2 min ago</span>
+                  <span>Menu sync: Healthy</span>
+                </div>
+                <div class="location-actions">
+                  <button class="ghost-chip">Sync menu</button>
+                  <button class="ghost-chip">View orders</button>
+                  <button class="ghost-chip">Outlet map</button>
+                </div>
+              </div>
+
+              <div class="integration-card review">
+                <div class="integration-card-head">
+                  <strong>Zomato</strong>
+                  <span class="status warning">Review</span>
+                </div>
+                <div class="integration-meta">
+                  <span>Purpose: Delivery order sync</span>
+                  <span>Last sync: 21 min ago</span>
+                  <span>Outlet mapping pending: 1</span>
+                </div>
+                <div class="location-actions">
+                  <button class="ghost-chip">Complete setup</button>
+                  <button class="ghost-chip">Sync menu</button>
+                  <button class="ghost-chip">Reconnect</button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Quick Connect</p>
+                <h3>New Integration</h3>
+              </div>
+            </div>
+
+            <form class="simple-form">
+              <label>
+                Platform
+                <select>
+                  <option>Zoho Books</option>
+                  <option>Swiggy</option>
+                  <option>Zomato</option>
+                </select>
+              </label>
+              <label>
+                Outlet
+                <select>
+                  <option>All outlets</option>
+                  <option>Indiranagar</option>
+                  <option>Koramangala</option>
+                </select>
+              </label>
+              <label>
+                Sync mode
+                <select>
+                  <option>Automatic</option>
+                  <option>Manual approval</option>
+                </select>
+              </label>
+              <button type="button" class="primary-btn full-width">Connect Platform</button>
+            </form>
+          </article>
+
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Outlet Mapping</p>
+                <h3>Platform by Outlet</h3>
+              </div>
+              <button class="ghost-btn">Edit mapping</button>
+            </div>
+
+            <div class="staff-table">
+              <div class="staff-row staff-head">
+                <span>Outlet</span>
+                <span>Zoho Books</span>
+                <span>Swiggy</span>
+                <span>Zomato</span>
+                <span>Status</span>
+              </div>
+              <div class="staff-row">
+                <span>Indiranagar</span>
+                <span>Mapped</span>
+                <span>Mapped</span>
+                <span>Mapped</span>
+                <span class="status online">Healthy</span>
+              </div>
+              <div class="staff-row">
+                <span>Koramangala</span>
+                <span>Mapped</span>
+                <span>Mapped</span>
+                <span>Pending</span>
+                <span class="status warning">Review</span>
+              </div>
+              <div class="staff-row">
+                <span>HSR Layout</span>
+                <span>Mapped</span>
+                <span>Mapped</span>
+                <span>Mapped</span>
+                <span class="status online">Healthy</span>
+              </div>
+              <div class="staff-row">
+                <span>Whitefield</span>
+                <span>Mapped</span>
+                <span>Mapped</span>
+                <span>Mapped</span>
+                <span class="status online">Healthy</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Sync Rules</p>
+                <h3>Defaults</h3>
+              </div>
+            </div>
+
+            <div class="mini-stack">
+              <div class="mini-card">
+                <span>Zoho sync</span>
+                <strong>Daily + on demand</strong>
+              </div>
+              <div class="mini-card">
+                <span>Swiggy orders</span>
+                <strong>Auto import</strong>
+              </div>
+              <div class="mini-card">
+                <span>Zomato menu sync</span>
+                <strong>Manual review</strong>
+              </div>
+              <div class="mini-card">
+                <span>Error alerts</span>
+                <strong>Enabled</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Attention Needed</p>
+                <h3>Sync Alerts</h3>
+              </div>
+            </div>
+
+            <div class="alert-list">
+              <div class="alert-item">
+                <strong>Zomato outlet mapping pending for Koramangala</strong>
+                <span>Complete mapping before enabling live order sync</span>
+              </div>
+              <div class="alert-item">
+                <strong>Swiggy menu update not pushed for 3 items</strong>
+                <span>Resync menu after latest price changes</span>
+              </div>
+              <div class="alert-item">
+                <strong>Zoho tax ledger check recommended</strong>
+                <span>Verify GST ledger mapping before monthly filing</span>
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
