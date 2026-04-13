@@ -57,11 +57,11 @@ describe("operations pos app", () => {
     render(<App />);
 
     const discountInput = screen.getAllByPlaceholderText("Enter discount")[0];
-    fireEvent.change(discountInput, { target: { value: "25" } });
+    fireEvent.change(discountInput, { target: { value: "5" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Apply Discount" })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: "Enable Service Charge" })[0]);
 
-    expect(screen.getAllByText("Rs 25.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Rs 5.00").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Service Charge On").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getAllByRole("button", { name: "Split Bill" })[0]);
@@ -91,27 +91,66 @@ describe("operations pos app", () => {
   it("supports void request and manager approval placeholders", () => {
     render(<App />);
 
+    fireEvent.click(screen.getAllByRole("button", { name: /T3/i })[0]);
     fireEvent.change(screen.getAllByDisplayValue("Wrong table")[0], { target: { value: "Duplicate bill" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Request Void" })[0]);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Manager Approve Void" })[0]);
-    expect(screen.getAllByText("Manager Placeholder").length).toBeGreaterThan(0);
-    expect(screen.getByText("Deleted Bill #10031")).toBeInTheDocument();
+    expect(loadRestaurantState().orders.t3.voidRequested).toBe(false);
+    expect(loadRestaurantState().orders.t3.voidApprovedBy).toBe("Cashier Anita");
+    expect(loadRestaurantState().orders.t3.deletedBillLog[0].orderNumber).toBe(10033);
+  });
+
+  it("requires manager or owner otp approval for voids above Rs 200", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /T2/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Biryani" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: /Veg Biryani/i }));
+    fireEvent.change(screen.getAllByDisplayValue("Wrong table")[0], { target: { value: "Duplicate bill" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Request Void" })[0]);
+
+    expect(loadRestaurantState().orders.t2.voidRequested).toBe(true);
+    expect(loadRestaurantState().orders.t2.voidApprovedBy).toBe("Pending OTP");
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Manager/Owner OTP Approve Void" })[0]);
+    fireEvent.change(screen.getByPlaceholderText("Enter OTP"), { target: { value: "2468" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm OTP Approval" }));
+
+    expect(loadRestaurantState().orders.t2.voidRequested).toBe(false);
+    expect(loadRestaurantState().orders.t2.voidApprovedBy).toBe("Manager OTP");
+    expect(loadRestaurantState().orders.t2.deletedBillLog[0].orderNumber).toBe(10032);
   });
 
   it("requires manager approval for high discount override", () => {
     render(<App />);
 
     const discountInput = screen.getAllByPlaceholderText("Enter discount")[0];
-    fireEvent.change(discountInput, { target: { value: "150" } });
+    fireEvent.change(discountInput, { target: { value: "25" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Apply Discount" })[0]);
 
-    expect(screen.getByText("Manager approval pending")).toBeInTheDocument();
+    expect(screen.getByText("Manager/Owner approval pending")).toBeInTheDocument();
     expect(screen.getByText("Unauthorized Action Alert")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Manager Approve Discount" }));
+    fireEvent.click(screen.getByRole("button", { name: "Manager/Owner Approve Discount" }));
+    fireEvent.change(screen.getByPlaceholderText("Enter OTP"), { target: { value: "2468" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm OTP Approval" }));
+
     expect(screen.getByText("Approved")).toBeInTheDocument();
-    expect(screen.getAllByText("Manager Rakesh").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Manager OTP").length).toBeGreaterThan(0);
+  });
+
+  it("rejects invalid otp before approval", () => {
+    render(<App />);
+
+    const discountInput = screen.getAllByPlaceholderText("Enter discount")[0];
+    fireEvent.change(discountInput, { target: { value: "25" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Apply Discount" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Manager/Owner Approve Discount" }));
+    fireEvent.change(screen.getByPlaceholderText("Enter OTP"), { target: { value: "1111" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm OTP Approval" }));
+
+    expect(screen.getByText("Enter valid OTP")).toBeInTheDocument();
+    expect(loadRestaurantState().orders.t1.discountOverrideRequested).toBe(true);
   });
 
   it("locks risky cashier actions after daily closing is approved", () => {

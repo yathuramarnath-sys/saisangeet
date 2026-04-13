@@ -10,6 +10,7 @@ const { usersRouter } = require("../modules/users/users.routes");
 const { taxProfilesRouter } = require("../modules/tax-profiles/tax-profiles.routes");
 const { receiptTemplatesRouter } = require("../modules/receipt-templates/receipt-templates.routes");
 const { devicesRouter } = require("../modules/devices/devices.routes");
+const { operationsRouter } = require("../modules/operations/operations.routes");
 
 const apiRouter = express.Router();
 
@@ -23,6 +24,7 @@ apiRouter.use("/users", usersRouter);
 apiRouter.use("/settings/tax-profiles", taxProfilesRouter);
 apiRouter.use("/settings/receipt-templates", receiptTemplatesRouter);
 apiRouter.use("/devices", devicesRouter);
+apiRouter.use("/operations", operationsRouter);
 
 module.exports = {
   apiRouter

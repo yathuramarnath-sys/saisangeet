@@ -16,6 +16,7 @@ import {
   subscribeRestaurantState,
   updateRestaurantOrders
 } from "../../../packages/shared-types/src/mockRestaurantStore.js";
+import { api } from "./lib/api";
 
 function currency(value) {
   return `Rs ${value.toFixed(2)}`;
@@ -24,6 +25,23 @@ function currency(value) {
 function buildInitialOrders() {
   const sharedState = loadRestaurantState();
   return JSON.parse(JSON.stringify({ ...mobileOrders, ...sharedState.orders }));
+}
+
+function normalizeOrders(orders) {
+  const nextOrders = structuredClone(orders);
+
+  Object.values(nextOrders).forEach((order) => {
+    order.items = order.items || [];
+    order.auditTrail = order.auditTrail || [];
+    order.statusNote = order.statusNote || order.notes || "Table active";
+    order.assignedWaiter = order.assignedWaiter || "Waiter Priya";
+  });
+
+  return nextOrders;
+}
+
+function mapOrderArrayToRecord(orders = []) {
+  return Object.fromEntries((orders || []).map((order) => [order.tableId, order]));
 }
 
 function tableClass(status, selected) {
@@ -110,6 +128,40 @@ export function App() {
     });
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFromApi() {
+      try {
+        const [summary, orders] = await Promise.all([
+          api.get("/operations/summary"),
+          api.get("/operations/orders")
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setClosingLocked(summary.closingState?.approved || false);
+        setPermissionPolicies(summary.permissionPolicies || {});
+        setOrdersByTable((current) =>
+          normalizeOrders({
+            ...current,
+            ...mapOrderArrayToRecord(orders)
+          })
+        );
+      } catch {
+        // Keep local mock flow when backend is not available.
+      }
+    }
+
+    loadFromApi();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function selectRole(roleId) {
     setSelectedRoleId(roleId);
     setMobileBanner(roleId === "captain" ? "Captain controls table orders" : "Waiter handles pickup and delivery");
@@ -136,11 +188,13 @@ export function App() {
       return;
     }
 
+    const lineId = `line-${Date.now()}-${item.id}`;
+
     setOrdersByTable((current) => {
       const next = structuredClone(current);
       const order = next[selectedTableId];
       const newLine = {
-        id: `line-${Date.now()}-${item.id}`,
+        id: lineId,
         name: item.name,
         price: item.price,
         quantity: 1,
@@ -164,7 +218,7 @@ export function App() {
       const next = structuredClone(current);
       const order = next[selectedTableId];
       const newLine = {
-        id: `line-${Date.now()}-${item.id}`,
+        id: lineId,
         menuItemId: item.id,
         name: item.name,
         price: item.price,
@@ -186,6 +240,30 @@ export function App() {
 
       return next;
     });
+
+    api
+      .post(`/operations/orders/${selectedTableId}/items`, {
+        id: lineId,
+        menuItemId: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: 1,
+        note: "",
+        sentToKot: false,
+        stationId: item.stationId,
+        stationName: item.stationName,
+        actorName: "Captain Karthik",
+        actorRole: "Captain"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrders({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
 
     setMobileBanner(`${item.name} added`);
   }
@@ -222,6 +300,23 @@ export function App() {
       return next;
     });
 
+    api
+      .patch(`/operations/orders/${selectedTableId}/items/${selectedLineId}`, {
+        note: instruction,
+        sentToKot: false,
+        actorName: "Captain Karthik",
+        actorRole: "Captain"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrders({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
+
     setMobileBanner(`Instruction added: ${instruction}`);
   }
 
@@ -251,6 +346,21 @@ export function App() {
       return next;
     });
 
+    api
+      .post(`/operations/orders/${selectedTableId}/kot`, {
+        actorName: "Captain Karthik",
+        actorRole: "Captain"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrders({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
+
     setMobileBanner("KOT sent");
   }
 
@@ -267,6 +377,21 @@ export function App() {
       appendAudit(next[selectedTableId], buildAuditEntry("Bill requested", profile.name, "Now"));
       return next;
     });
+
+    api
+      .post(`/operations/orders/${selectedTableId}/request-bill`, {
+        actorName: profile.name,
+        actorRole: profile.role
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrders({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
 
     setMobileBanner("Bill requested for cashier");
   }
@@ -291,6 +416,22 @@ export function App() {
       return next;
     });
 
+    api
+      .post(`/operations/orders/${selectedTableId}/assign-waiter`, {
+        waiterName,
+        actorName: "Captain Karthik",
+        actorRole: "Captain"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrders({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
+
     setMobileBanner(`${waiterName} assigned to ${currentOrder.tableNumber}`);
   }
 
@@ -314,6 +455,22 @@ export function App() {
       return next;
     });
 
+    api
+      .post(`/operations/orders/${tableId}/status`, {
+        pickupStatus: "picked",
+        actorName: "Waiter Priya",
+        actorRole: "Waiter"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrders({
+            ...current,
+            [tableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
+
     setMobileBanner(`Picked up for ${ordersByTable[tableId].tableNumber}`);
   }
 
@@ -336,6 +493,22 @@ export function App() {
       appendAudit(next[tableId], buildAuditEntry("Delivered to table", "Waiter Priya", "Now"));
       return next;
     });
+
+    api
+      .post(`/operations/orders/${tableId}/status`, {
+        pickupStatus: "delivered",
+        actorName: "Waiter Priya",
+        actorRole: "Waiter"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrders({
+            ...current,
+            [tableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
 
     setMobileBanner(`Delivered to ${ordersByTable[tableId].tableNumber}`);
   }

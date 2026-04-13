@@ -381,6 +381,15 @@ select:disabled {
   color: var(--text);
 }
 
+.payment-input-group select {
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+}
+
 .payment-list {
   display: grid;
   gap: 10px;
@@ -417,6 +426,78 @@ select:disabled {
 
 .approval-actions {
   grid-template-columns: 1fr 1fr;
+}
+
+.otp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 19, 23, 0.28);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 40;
+}
+
+.otp-modal-card {
+  width: min(100%, 520px);
+  border: 1px solid rgba(17, 19, 23, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 24px 48px rgba(17, 19, 23, 0.18);
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+}
+
+.otp-modal-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.otp-meta-card {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(17, 19, 23, 0.04);
+  display: grid;
+  gap: 4px;
+}
+
+.otp-meta-card strong {
+  font-size: 1rem;
+}
+
+.otp-meta-card small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.otp-boxes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 56px));
+  gap: 10px;
+}
+
+.otp-box {
+  min-height: 56px;
+  border-radius: 18px;
+  border: 1px solid rgba(17, 19, 23, 0.12);
+  background: #f8f6f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.otp-box.filled {
+  border-color: rgba(17, 19, 23, 0.24);
+  background: #fff;
 }
 
 .toggle-on {
@@ -664,6 +745,10 @@ select:disabled {
   .approval-grid,
   .approval-actions {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .otp-boxes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

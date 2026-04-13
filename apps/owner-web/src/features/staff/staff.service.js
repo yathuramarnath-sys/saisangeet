@@ -29,6 +29,32 @@ export async function fetchStaffData() {
     ...item,
     enabled: state.permissionPolicies?.[item.id] ?? item.enabled
   }));
+  const financialControls = [
+    {
+      id: "cashier-discount-limit",
+      title: "Cashier Discount Limit",
+      value: `${state.permissionPolicies?.["cashier-discount-limit-percent"] ?? 5}%`,
+      detail: "Cashier can approve discount up to this percentage of bill subtotal."
+    },
+    {
+      id: "discount-approval-route",
+      title: "Approval Route",
+      value: "Manager / Owner",
+      detail: "Any discount above cashier limit needs manager or owner approval."
+    },
+    {
+      id: "cashier-void-limit",
+      title: "Cashier Void Limit",
+      value: `Rs ${state.permissionPolicies?.["cashier-void-limit-amount"] ?? 200}`,
+      detail: "Cashier can complete void directly up to this amount."
+    },
+    {
+      id: "void-approval-route",
+      title: "Void Approval Route",
+      value: "Manager / Owner OTP",
+      detail: "Any void above cashier limit needs OTP approval from manager or owner."
+    }
+  ];
 
   try {
     const [roles, permissions, users] = await Promise.all([
@@ -47,6 +73,7 @@ export async function fetchStaffData() {
       })),
       accessMatrix: staffSeedData.accessMatrix,
       permissionEditor,
+      financialControls,
       staff: normalizeStaff(users),
       tableAccess: staffSeedData.tableAccess,
       alerts: staffSeedData.alerts
@@ -54,7 +81,8 @@ export async function fetchStaffData() {
   } catch (_error) {
     return {
       ...staffSeedData,
-      permissionEditor
+      permissionEditor,
+      financialControls
     };
   }
 }

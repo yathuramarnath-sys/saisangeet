@@ -14,6 +14,13 @@ This folder contains the initial Express backend scaffold for the restaurant POS
   - tax profiles
   - receipt templates
   - devices and POS linking
+- Operations API foundation for:
+  - live order summary
+  - order queue
+  - send KOT
+  - request bill
+  - discount approval
+  - void approval
 
 ## Run locally
 
@@ -33,8 +40,20 @@ npm run dev
 
 ## Next implementation tasks
 
-- Add SQL migrations from the schema docs
-- Implement repository SQL queries
+- Add SQL migrations from `src/db/schema.sql`
+- Replace the in-memory operations repository with PostgreSQL queries
 - Add request validation
 - Add password hashing and refresh token flow
 - Add tests for auth and owner dashboard endpoints
+
+## Operations endpoints
+
+- `GET /api/v1/operations/summary`
+- `GET /api/v1/operations/orders`
+- `GET /api/v1/operations/orders/:tableId`
+- `POST /api/v1/operations/orders/:tableId/kot`
+- `POST /api/v1/operations/orders/:tableId/request-bill`
+- `POST /api/v1/operations/orders/:tableId/discount-approval`
+- `POST /api/v1/operations/orders/:tableId/void-approval`
+
+These endpoints currently use an in-memory store so the API contract is available before the PostgreSQL repositories are fully wired.

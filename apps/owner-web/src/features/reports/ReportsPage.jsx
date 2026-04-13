@@ -415,23 +415,29 @@ export function ReportsPage() {
           <div className="panel-head">
             <div>
               <p className="eyebrow">Approvals</p>
-              <h3>Manager Approval History</h3>
+              <h3>OTP and Approval History</h3>
             </div>
           </div>
 
           <div className="staff-table">
             <div className="staff-row staff-head">
               <span>Outlet</span>
+              <span>Table / Order</span>
               <span>Action</span>
               <span>Actor</span>
+              <span>Mode</span>
               <span>Value</span>
               <span>Time</span>
             </div>
             {reportData.approvalLog.map((row) => (
               <div key={row.id} className="staff-row">
                 <span>{row.outlet}</span>
+                <span>
+                  {row.tableNumber} / #{row.orderNumber}
+                </span>
                 <span>{row.action}</span>
                 <span>{row.actor}</span>
+                <span>{row.approvalMode || "Manual"}</span>
                 <span>{row.amount}</span>
                 <span>{row.time}</span>
               </div>

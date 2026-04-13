@@ -13,6 +13,7 @@ export function StaffPage() {
     permissions: [],
     accessMatrix: [],
     permissionEditor: [],
+    financialControls: [],
     staff: [],
     tableAccess: [],
     alerts: []
@@ -253,6 +254,25 @@ export function StaffPage() {
 
           <div className="panel-empty">
             {lastUpdatedPermission || "Choose a role permission to enable or disable for daily operations."}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Financial Control</p>
+              <h3>Discount Approval Rule</h3>
+            </div>
+          </div>
+
+            <div className="mini-stack">
+              {staffData.financialControls.map((item) => (
+                <div key={item.id} className="mini-card">
+                  <span>{item.title}</span>
+                <strong>{item.value}</strong>
+                <span>{item.detail}</span>
+              </div>
+            ))}
           </div>
         </article>
 

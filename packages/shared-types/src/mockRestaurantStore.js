@@ -94,7 +94,9 @@ const defaultPermissionPolicies = {
   "manager-close-day": true,
   "captain-move-table": true,
   "waiter-request-bill": true,
-  "kitchen-kot-control": true
+  "kitchen-kot-control": true,
+  "cashier-discount-limit-percent": 5,
+  "cashier-void-limit-amount": 200
 };
 
 function clone(value) {

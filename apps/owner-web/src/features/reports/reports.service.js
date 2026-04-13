@@ -1,5 +1,6 @@
 import { reportsSeedData } from "./reports.seed";
 import { loadRestaurantState, subscribeRestaurantState, updateClosingState } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
+import { api } from "../../lib/api";
 
 function formatCurrency(value) {
   return `Rs ${value.toLocaleString("en-IN")}`;
@@ -22,8 +23,11 @@ function deriveControlData(orders) {
       .map((entry, index) => ({
         id: `${order.tableId}-${index}-${entry.id}`,
         outlet: order.areaName,
+        tableNumber: order.tableNumber,
+        orderNumber: order.orderNumber,
         action: entry.label,
         actor: entry.actor,
+        approvalMode: entry.actor.includes("OTP") ? "OTP" : "Manual",
         amount: entry.label === "Discount approved" ? formatCurrency(order.discountAmount || 0) : `Bill #${order.orderNumber}`,
         time: entry.time
       }))
@@ -210,9 +214,31 @@ function mergeReportsData(orders, cashShifts, closingState) {
   };
 }
 
+function mapOrderArrayToRecord(orders = []) {
+  return Object.fromEntries((orders || []).map((order) => [order.tableId, order]));
+}
+
 export async function fetchReportsData() {
   const state = loadRestaurantState();
-  return mergeReportsData(state.orders, state.cashShifts, state.closingState);
+
+  try {
+    const [operationsSummary, operationsOrders] = await Promise.all([
+      api.get("/operations/summary"),
+      api.get("/operations/orders")
+    ]);
+    const preferredClosingState =
+      state.closingState?.approved || state.closingState?.reopenedAt
+        ? state.closingState
+        : operationsSummary.closingState || state.closingState;
+
+    return mergeReportsData(
+      mapOrderArrayToRecord(operationsOrders),
+      state.cashShifts,
+      preferredClosingState
+    );
+  } catch {
+    return mergeReportsData(state.orders, state.cashShifts, state.closingState);
+  }
 }
 
 export function subscribeOwnerReports(callback) {

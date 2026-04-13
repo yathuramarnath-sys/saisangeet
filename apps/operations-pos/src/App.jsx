@@ -8,6 +8,7 @@ import {
   subscribeRestaurantState,
   updateRestaurantOrders
 } from "../../../packages/shared-types/src/mockRestaurantStore.js";
+import { api } from "./lib/api";
 
 const paymentMethods = [
   { id: "cash", label: "Cash" },
@@ -91,6 +92,22 @@ function appendDeletedBill(order) {
   ].slice(0, 4);
 }
 
+function finalizeVoidApproval(order, approverLabel) {
+  order.voidRequested = false;
+  order.voidApprovedBy = approverLabel;
+  order.notes = approverLabel === "Cashier Anita" ? "Void completed within cashier limit" : "Void approved via OTP";
+  appendDeletedBill(order);
+  appendAudit(order, buildAuditEntry("Void approved", approverLabel, "Now"));
+}
+
+function finalizeDiscountApproval(order, approverLabel) {
+  order.discountOverrideRequested = false;
+  order.discountApprovalStatus = "Approved";
+  order.discountApprovedBy = approverLabel;
+  order.notes = "Discount approved by manager/owner";
+  appendAudit(order, buildAuditEntry("Discount approved", approverLabel, "Now"));
+}
+
 function buildInitialOrders() {
   const sharedState = loadRestaurantState();
   const orders = JSON.parse(JSON.stringify({ ...tableOrders, ...sharedState.orders }));
@@ -122,6 +139,44 @@ function buildInitialOrders() {
   return orders;
 }
 
+function normalizeOrderMap(orders) {
+  const normalized = structuredClone(orders);
+
+  Object.values(normalized).forEach((order) => {
+    order.items = (order.items || []).map((item) => ({
+      ...item,
+      menuItemId: item.menuItemId || item.id
+    }));
+    order.payments = order.payments || [];
+    order.billSplitCount = order.billSplitCount || 1;
+    order.isClosed = order.isClosed || false;
+    order.closedAt = order.closedAt || null;
+    order.printCount = order.printCount || 0;
+    order.lastPrintLabel = order.lastPrintLabel || "Not printed yet";
+    order.serviceChargeEnabled = order.serviceChargeEnabled || false;
+    order.serviceChargeRate = order.serviceChargeRate || 0.1;
+    order.discountAmount = order.discountAmount || 0;
+    order.cashierName = order.cashierName || "Anita";
+    order.billTimestamp = order.billTimestamp || "11 Apr 2026, 5:15 PM";
+    order.reprintReason = order.reprintReason || "Not requested";
+    order.reprintApprovedBy = order.reprintApprovedBy || "Not needed";
+    order.voidReason = order.voidReason || "Not requested";
+    order.voidApprovedBy = order.voidApprovedBy || "Pending";
+    order.voidRequested = order.voidRequested || false;
+    order.discountApprovalStatus = order.discountApprovalStatus || "Within limit";
+    order.discountApprovedBy = order.discountApprovedBy || "Not needed";
+    order.discountOverrideRequested = order.discountOverrideRequested || false;
+    order.deletedBillLog = order.deletedBillLog || [];
+    order.controlAlerts = order.controlAlerts || [];
+  });
+
+  return normalized;
+}
+
+function mapOrderArrayToRecord(orders = []) {
+  return Object.fromEntries((orders || []).map((order) => [order.tableId, order]));
+}
+
 export function App() {
   const [selectedTableId, setSelectedTableId] = useState("t1");
   const [selectedCategoryId, setSelectedCategoryId] = useState("starters");
@@ -134,10 +189,18 @@ export function App() {
   const [selectedVoidReason, setSelectedVoidReason] = useState(voidReasons[0]);
   const [closingLocked, setClosingLocked] = useState(loadRestaurantState().closingState?.approved || false);
   const [permissionPolicies, setPermissionPolicies] = useState(loadRestaurantState().permissionPolicies || {});
+  const [approvalModal, setApprovalModal] = useState({
+    type: null,
+    approverRole: "Manager",
+    otp: "",
+    error: ""
+  });
 
   const currentOrder = ordersByTable[selectedTableId];
   const currentFinancials = getOrderFinancials(currentOrder);
   const cashierTableSetupEnabled = permissionPolicies["cashier-table-setup"] !== false;
+  const cashierDiscountLimitPercent = Number(permissionPolicies["cashier-discount-limit-percent"] || 5);
+  const cashierVoidLimitAmount = Number(permissionPolicies["cashier-void-limit-amount"] || 200);
 
   const visibleMenuItems = useMemo(
     () => menuItems.filter((item) => item.categoryId === selectedCategoryId),
@@ -206,6 +269,40 @@ export function App() {
     });
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFromApi() {
+      try {
+        const [summary, orders] = await Promise.all([
+          api.get("/operations/summary"),
+          api.get("/operations/orders")
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setClosingLocked(summary.closingState?.approved || false);
+        setPermissionPolicies(summary.permissionPolicies || {});
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            ...mapOrderArrayToRecord(orders)
+          })
+        );
+      } catch {
+        // Keep the current local mock flow if backend is not reachable.
+      }
+    }
+
+    loadFromApi();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function selectTable(tableId) {
     const nextOrder = ordersByTable[tableId];
 
@@ -223,6 +320,8 @@ export function App() {
       return;
     }
 
+    const newLineId = `line-${Date.now()}-${menuItem.id}`;
+
     setOrdersByTable((current) => {
       const next = structuredClone(current);
       const order = next[selectedTableId];
@@ -236,7 +335,7 @@ export function App() {
       }
 
       const newItem = {
-        id: `line-${Date.now()}-${menuItem.id}`,
+        id: newLineId,
         menuItemId: menuItem.id,
         name: menuItem.name,
         quantity: 1,
@@ -261,6 +360,30 @@ export function App() {
       setSelectedLineId(newItem.id);
       return next;
     });
+
+    api
+      .post(`/operations/orders/${selectedTableId}/items`, {
+        id: newLineId,
+        menuItemId: menuItem.id,
+        name: menuItem.name,
+        quantity: 1,
+        price: menuItem.price,
+        note: "Add kitchen note",
+        sentToKot: false,
+        stationId: menuItem.stationId,
+        stationName: menuItem.station,
+        actorName: "Cashier Anita",
+        actorRole: "Cashier"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
   }
 
   function applyInstruction(instruction) {
@@ -279,6 +402,23 @@ export function App() {
 
       return next;
     });
+
+    api
+      .patch(`/operations/orders/${selectedTableId}/items/${selectedLineId}`, {
+        note: instruction,
+        sentToKot: false,
+        actorName: "Cashier Anita",
+        actorRole: "Cashier"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
   }
 
   function sendKot() {
@@ -307,6 +447,21 @@ export function App() {
       }
       return next;
     });
+
+    api
+      .post(`/operations/orders/${selectedTableId}/kot`, {
+        actorName: "Cashier Anita",
+        actorRole: "Cashier"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
   }
 
   function splitBill() {
@@ -367,18 +522,19 @@ export function App() {
     }
 
     const nextDiscount = Number(discountInput) || 0;
-    const requiresOverride = nextDiscount > 100;
+    const cashierLimitAmount = currentFinancials.subtotal * (cashierDiscountLimitPercent / 100);
+    const requiresOverride = nextDiscount > cashierLimitAmount;
 
     setOrdersByTable((current) => {
       const next = structuredClone(current);
       next[selectedTableId].discountAmount = Math.max(nextDiscount, 0);
       next[selectedTableId].discountOverrideRequested = requiresOverride;
-      next[selectedTableId].discountApprovalStatus = requiresOverride ? "Manager approval pending" : "Within limit";
+      next[selectedTableId].discountApprovalStatus = requiresOverride ? "Manager/Owner approval pending" : "Within cashier 5% limit";
       next[selectedTableId].discountApprovedBy = requiresOverride ? "Pending manager" : "Not needed";
 
       if (requiresOverride) {
-        next[selectedTableId].notes = "High discount needs manager approval";
-        appendAlert(next[selectedTableId], "High discount override requested");
+        next[selectedTableId].notes = `Discount above ${cashierDiscountLimitPercent}% needs manager/owner approval`;
+        appendAlert(next[selectedTableId], `Discount above ${cashierDiscountLimitPercent}% requested`);
         appendAudit(next[selectedTableId], buildAuditEntry("Discount override requested", "Cashier Anita", "Now"));
       }
       return next;
@@ -389,12 +545,12 @@ export function App() {
       if (next[selectedTableId]) {
         next[selectedTableId].discountAmount = Math.max(nextDiscount, 0);
         next[selectedTableId].discountOverrideRequested = requiresOverride;
-        next[selectedTableId].discountApprovalStatus = requiresOverride ? "Manager approval pending" : "Within limit";
+        next[selectedTableId].discountApprovalStatus = requiresOverride ? "Manager/Owner approval pending" : "Within cashier 5% limit";
         next[selectedTableId].discountApprovedBy = requiresOverride ? "Pending manager" : "Not needed";
 
         if (requiresOverride) {
-          next[selectedTableId].notes = "High discount needs manager approval";
-          appendAlert(next[selectedTableId], "High discount override requested");
+          next[selectedTableId].notes = `Discount above ${cashierDiscountLimitPercent}% needs manager/owner approval`;
+          appendAlert(next[selectedTableId], `Discount above ${cashierDiscountLimitPercent}% requested`);
           appendAudit(next[selectedTableId], buildAuditEntry("Discount override requested", "Cashier Anita", "Now"));
         }
       }
@@ -406,28 +562,43 @@ export function App() {
     if (!currentOrder.discountOverrideRequested || closingLocked) {
       return;
     }
+    setApprovalModal({
+      type: "discount",
+      approverRole: "Manager",
+      otp: "",
+      error: ""
+    });
+  }
 
+  function confirmDiscountApproval(approverLabel) {
     setOrdersByTable((current) => {
       const next = structuredClone(current);
-      next[selectedTableId].discountOverrideRequested = false;
-      next[selectedTableId].discountApprovalStatus = "Approved";
-      next[selectedTableId].discountApprovedBy = "Manager Rakesh";
-      next[selectedTableId].notes = "Discount approved by manager";
-      appendAudit(next[selectedTableId], buildAuditEntry("Discount approved", "Manager Rakesh", "Now"));
+      finalizeDiscountApproval(next[selectedTableId], approverLabel);
       return next;
     });
 
     updateRestaurantOrders((current) => {
       const next = structuredClone(current);
       if (next[selectedTableId]) {
-        next[selectedTableId].discountOverrideRequested = false;
-        next[selectedTableId].discountApprovalStatus = "Approved";
-        next[selectedTableId].discountApprovedBy = "Manager Rakesh";
-        next[selectedTableId].notes = "Discount approved by manager";
-        appendAudit(next[selectedTableId], buildAuditEntry("Discount approved", "Manager Rakesh", "Now"));
+        finalizeDiscountApproval(next[selectedTableId], approverLabel);
       }
       return next;
     });
+
+    api
+      .post(`/operations/orders/${selectedTableId}/discount-approval`, {
+        actorRole: approvalModal.approverRole,
+        otpVerified: true
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
   }
 
   function toggleServiceCharge() {
@@ -488,27 +659,39 @@ export function App() {
       return;
     }
 
+    const requiresOtpApproval = currentFinancials.total > cashierVoidLimitAmount;
+
     setOrdersByTable((current) => {
       const next = structuredClone(current);
       const order = next[selectedTableId];
-      order.voidRequested = true;
       order.voidReason = selectedVoidReason;
-      order.voidApprovedBy = "Pending manager";
-      order.notes = "Void requested";
-      appendAlert(order, `Void requested: ${selectedVoidReason}`);
-      appendAudit(order, buildAuditEntry("Void requested", "Cashier Anita", "Now"));
+
+      if (requiresOtpApproval) {
+        order.voidRequested = true;
+        order.voidApprovedBy = "Pending OTP";
+        order.notes = "Void above cashier limit needs manager/owner OTP approval";
+        appendAlert(order, `Void above Rs ${cashierVoidLimitAmount} requested`);
+        appendAudit(order, buildAuditEntry("Void requested", "Cashier Anita", "Now"));
+      } else {
+        finalizeVoidApproval(order, "Cashier Anita");
+      }
       return next;
     });
 
     updateRestaurantOrders((current) => {
       const next = structuredClone(current);
       if (next[selectedTableId]) {
-        next[selectedTableId].voidRequested = true;
         next[selectedTableId].voidReason = selectedVoidReason;
-        next[selectedTableId].voidApprovedBy = "Pending manager";
-        next[selectedTableId].notes = "Void requested";
-        appendAlert(next[selectedTableId], `Void requested: ${selectedVoidReason}`);
-        appendAudit(next[selectedTableId], buildAuditEntry("Void requested", "Cashier Anita", "Now"));
+
+        if (requiresOtpApproval) {
+          next[selectedTableId].voidRequested = true;
+          next[selectedTableId].voidApprovedBy = "Pending OTP";
+          next[selectedTableId].notes = "Void above cashier limit needs manager/owner OTP approval";
+          appendAlert(next[selectedTableId], `Void above Rs ${cashierVoidLimitAmount} requested`);
+          appendAudit(next[selectedTableId], buildAuditEntry("Void requested", "Cashier Anita", "Now"));
+        } else {
+          finalizeVoidApproval(next[selectedTableId], "Cashier Anita");
+        }
       }
       return next;
     });
@@ -518,27 +701,43 @@ export function App() {
     if (!currentOrder.voidRequested || closingLocked) {
       return;
     }
+    setApprovalModal({
+      type: "void",
+      approverRole: "Manager",
+      otp: "",
+      error: ""
+    });
+  }
 
+  function confirmVoidApproval(approverLabel) {
     setOrdersByTable((current) => {
       const next = structuredClone(current);
-      const order = next[selectedTableId];
-      order.voidApprovedBy = "Manager Placeholder";
-      order.notes = "Void approved placeholder";
-      appendDeletedBill(order);
-      appendAudit(order, buildAuditEntry("Void approved", "Manager Placeholder", "Now"));
+      finalizeVoidApproval(next[selectedTableId], approverLabel);
       return next;
     });
 
     updateRestaurantOrders((current) => {
       const next = structuredClone(current);
       if (next[selectedTableId]) {
-        next[selectedTableId].voidApprovedBy = "Manager Placeholder";
-        next[selectedTableId].notes = "Void approved placeholder";
-        appendDeletedBill(next[selectedTableId]);
-        appendAudit(next[selectedTableId], buildAuditEntry("Void approved", "Manager Placeholder", "Now"));
+        finalizeVoidApproval(next[selectedTableId], approverLabel);
       }
       return next;
     });
+
+    api
+      .post(`/operations/orders/${selectedTableId}/void-approval`, {
+        actorRole: approvalModal.approverRole,
+        otpVerified: true
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
   }
 
   function closeOrder() {
@@ -572,6 +771,37 @@ export function App() {
     if (result.tableId) {
       selectTable(result.tableId);
     }
+  }
+
+  function closeApprovalModal() {
+    setApprovalModal({
+      type: null,
+      approverRole: "Manager",
+      otp: "",
+      error: ""
+    });
+  }
+
+  function submitApprovalOtp() {
+    if (approvalModal.otp !== "2468") {
+      setApprovalModal((current) => ({
+        ...current,
+        error: "Enter valid OTP"
+      }));
+      return;
+    }
+
+    const approverLabel = approvalModal.approverRole === "Owner" ? "Owner OTP" : "Manager OTP";
+
+    if (approvalModal.type === "discount") {
+      confirmDiscountApproval(approverLabel);
+    }
+
+    if (approvalModal.type === "void") {
+      confirmVoidApproval(approverLabel);
+    }
+
+    closeApprovalModal();
   }
 
   return (
@@ -652,7 +882,7 @@ export function App() {
           </div>
 
           <div className={`order-note-banner ${currentOrder.isClosed ? "closed" : ""} ${currentOrder.voidRequested ? "void" : ""}`}>
-            {currentOrder.voidRequested ? "Void requested • Manager approval pending" : currentOrder.isClosed ? "Order closed • Invoice ready" : currentOrder.notes}
+            {currentOrder.voidRequested ? "Void requested • Manager/Owner OTP approval pending" : currentOrder.isClosed ? "Order closed • Invoice ready" : currentOrder.notes}
           </div>
 
           {closingLocked ? <div className="order-note-banner closed">Daily closing approved • Risky cashier actions are locked</div> : null}
@@ -796,9 +1026,10 @@ export function App() {
 
             <div className="approval-actions">
               <button type="button" className="ghost-btn" onClick={approveDiscountOverride} disabled={!currentOrder.discountOverrideRequested || closingLocked}>
-                Manager Approve Discount
+                Manager/Owner Approve Discount
               </button>
             </div>
+
           </div>
 
           <div className="settlement-panel">
@@ -916,7 +1147,7 @@ export function App() {
                 Request Void
               </button>
               <button type="button" className="ghost-btn" onClick={approveVoid} disabled={!currentOrder.voidRequested || closingLocked}>
-                Manager Approve Void
+                Manager/Owner OTP Approve Void
               </button>
             </div>
 
@@ -1008,6 +1239,93 @@ export function App() {
             </div>
           </div>
         </main>
+
+        {approvalModal.type ? (
+          <div className="otp-modal-backdrop" role="presentation">
+            <div className="otp-modal-card" role="dialog" aria-modal="true" aria-labelledby="otp-approval-title">
+              <div className="panel-header compact">
+                <div>
+                  <p className="eyebrow">Approval Required</p>
+                  <h3 id="otp-approval-title">
+                    {approvalModal.type === "discount" ? "Discount OTP Approval" : "Void OTP Approval"}
+                  </h3>
+                </div>
+                <span className="thermal-badge">
+                  {approvalModal.type === "discount" ? "Discount Control" : "Void Control"}
+                </span>
+              </div>
+
+              <p className="otp-modal-copy">
+                {approvalModal.type === "discount"
+                  ? "Discount above cashier limit needs manager or owner verification."
+                  : `Void above Rs ${cashierVoidLimitAmount} needs manager or owner verification.`}
+              </p>
+
+              <div className="approval-grid">
+                <label className="payment-input-group">
+                  <span>Approver Role</span>
+                  <select
+                    value={approvalModal.approverRole}
+                    onChange={(event) =>
+                      setApprovalModal((current) => ({
+                        ...current,
+                        approverRole: event.target.value,
+                        error: ""
+                      }))
+                    }
+                  >
+                    <option value="Manager">Manager</option>
+                    <option value="Owner">Owner</option>
+                  </select>
+                </label>
+
+                <div className="otp-meta-card">
+                  <span>OTP Status</span>
+                  <strong>{approvalModal.error ? "Invalid" : "Waiting"}</strong>
+                  <small>Resend placeholder: 00:30</small>
+                </div>
+              </div>
+
+              <label className="payment-input-group">
+                <span>Enter OTP</span>
+                <input
+                  type="password"
+                  value={approvalModal.otp}
+                  onChange={(event) =>
+                    setApprovalModal((current) => ({
+                      ...current,
+                      otp: event.target.value,
+                      error: ""
+                    }))
+                  }
+                  placeholder="Enter OTP"
+                />
+              </label>
+
+              <div className="otp-boxes" aria-hidden="true">
+                {Array.from({ length: 4 }).map((_, index) => {
+                  const character = approvalModal.otp[index] || "";
+                  return (
+                    <span key={index} className={`otp-box ${character ? "filled" : ""}`}>
+                      {character ? "•" : ""}
+                    </span>
+                  );
+                })}
+              </div>
+
+              {approvalModal.error ? <div className="order-note-banner void">{approvalModal.error}</div> : null}
+
+              <div className="approval-actions">
+                <button type="button" className="ghost-btn" onClick={closeApprovalModal}>
+                  Cancel OTP
+                </button>
+                <button type="button" className="secondary-btn" onClick={submitApprovalOtp}>
+                  Confirm OTP Approval
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <aside className="pos-panel menu-panel">
           <div className="bill-request-panel">

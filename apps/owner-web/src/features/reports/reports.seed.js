@@ -174,24 +174,33 @@ export const reportsSeedData = {
     {
       id: "approval-1",
       outlet: "Koramangala",
-      action: "Discount override approved",
-      actor: "Manager Rakesh",
+      tableNumber: "T4",
+      orderNumber: 10041,
+      action: "Discount approved",
+      actor: "Manager OTP",
+      approvalMode: "OTP",
       amount: "Rs 150",
       time: "7:48 PM"
     },
     {
       id: "approval-2",
       outlet: "HSR Layout",
-      action: "Deleted bill approved",
-      actor: "Manager Placeholder",
+      tableNumber: "T2",
+      orderNumber: 10031,
+      action: "Void approved",
+      actor: "Owner OTP",
+      approvalMode: "OTP",
       amount: "Bill #10031",
       time: "8:05 PM"
     },
     {
       id: "approval-3",
       outlet: "Indiranagar",
+      tableNumber: "Counter",
+      orderNumber: 10055,
       action: "Cash mismatch flagged",
       actor: "System alert",
+      approvalMode: "System",
       amount: "Rs 1,200",
       time: "8:22 PM"
     }

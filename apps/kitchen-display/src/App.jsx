@@ -8,6 +8,7 @@ import {
   subscribeRestaurantState,
   updateRestaurantOrders
 } from "../../../packages/shared-types/src/mockRestaurantStore.js";
+import { api } from "./lib/api";
 
 const statusColumns = [
   { id: "new", label: "New" },
@@ -72,6 +73,10 @@ function syncTicketsFromOrders(orders) {
   return sourceTickets.length > 0 ? sourceTickets : JSON.parse(JSON.stringify(kotTickets));
 }
 
+function mapOrderArrayToRecord(orders = []) {
+  return Object.fromEntries((orders || []).map((order) => [order.tableId, order]));
+}
+
 function ticketClass(status, selected) {
   return `ticket-card ${status} ${selected ? "selected" : ""}`;
 }
@@ -118,6 +123,39 @@ export function App() {
         setSelectedTicketId(nextTickets[0].id);
       }
     });
+  }, [selectedTicketId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFromApi() {
+      try {
+        const [summary, orders] = await Promise.all([
+          api.get("/operations/summary"),
+          api.get("/operations/orders")
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setClosingLocked(summary.closingState?.approved || false);
+        setPermissionPolicies(summary.permissionPolicies || {});
+        const nextTickets = syncTicketsFromOrders(mapOrderArrayToRecord(orders));
+        setTickets(nextTickets);
+        if (nextTickets[0] && !nextTickets.some((ticket) => ticket.id === selectedTicketId)) {
+          setSelectedTicketId(nextTickets[0].id);
+        }
+      } catch {
+        // Keep current local mock flow when backend is unavailable.
+      }
+    }
+
+    loadFromApi();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedTicketId]);
 
   function filterByStation(stationId) {
@@ -176,6 +214,21 @@ export function App() {
       }
       return next;
     });
+
+    if (selectedTicket?.tableId) {
+      api
+        .post(`/operations/orders/${selectedTicket.tableId}/status`, {
+          pickupStatus: status,
+          actorName: "Chef Manoj",
+          actorRole: "Kitchen"
+        })
+        .then(() => api.get("/operations/orders"))
+        .then((orders) => {
+          const nextTickets = syncTicketsFromOrders(mapOrderArrayToRecord(orders));
+          setTickets(nextTickets);
+        })
+        .catch(() => {});
+    }
   }
 
   function markPickedUp(ticketId) {
@@ -200,6 +253,21 @@ export function App() {
       }
       return next;
     });
+
+    if (selectedTicket?.tableId) {
+      api
+        .post(`/operations/orders/${selectedTicket.tableId}/status`, {
+          pickupStatus: "picked",
+          actorName: "Chef Manoj",
+          actorRole: "Kitchen"
+        })
+        .then(() => api.get("/operations/orders"))
+        .then((orders) => {
+          const nextTickets = syncTicketsFromOrders(mapOrderArrayToRecord(orders));
+          setTickets(nextTickets);
+        })
+        .catch(() => {});
+    }
   }
 
   function handleCreateDemoOrder() {

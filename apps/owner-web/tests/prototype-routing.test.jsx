@@ -12,6 +12,96 @@ describe("owner web prototype-backed routing", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url) => {
+        if (String(url).includes("/api/v1/operations/summary")) {
+          return {
+            ok: true,
+            json: async () => ({
+              closingState: {
+                approved: false,
+                approvedAt: null,
+                approvedBy: null,
+                approvedRole: null,
+                reopenedAt: null,
+                reopenedBy: null,
+                reopenedRole: null,
+                status: "Pending review"
+              },
+              permissionPolicies: {
+                "manager-close-day": true
+              },
+              totals: {
+                openOrders: 3,
+                billRequested: 1,
+                discountApprovalsPending: 1,
+                voidApprovalsPending: 1,
+                kitchenActive: 2
+              },
+              queues: {
+                cashier: [],
+                approvals: []
+              }
+            })
+          };
+        }
+
+        if (String(url).includes("/api/v1/operations/orders")) {
+          return {
+            ok: true,
+            json: async () => [
+              {
+                tableId: "t2",
+                tableNumber: "T2",
+                orderNumber: 10032,
+                areaName: "Koramangala",
+                discountAmount: 25,
+                discountOverrideRequested: true,
+                discountApprovalStatus: "Manager/Owner approval pending",
+                discountApprovedBy: "Pending manager",
+                deletedBillLog: [],
+                controlAlerts: ["Discount above 5% requested"],
+                auditTrail: [
+                  {
+                    id: "audit-1",
+                    label: "Discount approved",
+                    actor: "Manager OTP",
+                    time: "7:48 PM"
+                  }
+                ],
+                items: []
+              },
+              {
+                tableId: "t3",
+                tableNumber: "T3",
+                orderNumber: 10033,
+                areaName: "HSR Layout",
+                discountAmount: 0,
+                discountOverrideRequested: false,
+                discountApprovalStatus: "Within cashier 5% limit",
+                discountApprovedBy: "Not needed",
+                deletedBillLog: [
+                  {
+                    id: "deleted-1",
+                    orderNumber: 10033,
+                    tableNumber: "T3",
+                    reason: "Duplicate bill",
+                    approvedBy: "Owner OTP"
+                  }
+                ],
+                controlAlerts: [],
+                auditTrail: [
+                  {
+                    id: "audit-2",
+                    label: "Void approved",
+                    actor: "Owner OTP",
+                    time: "8:05 PM"
+                  }
+                ],
+                items: []
+              }
+            ]
+          };
+        }
+
         if (String(url).includes("reports.html")) {
           return {
             ok: true,
@@ -102,7 +192,9 @@ describe("owner web prototype-backed routing", () => {
     expect(screen.getByText("Owner Mail Trigger")).toBeInTheDocument();
     expect(screen.getByText("Closing email should wait for one unresolved shift")).toBeInTheDocument();
     expect(screen.getByText("Owner Risk Summary")).toBeInTheDocument();
-    expect(screen.getByText("Manager Approval History")).toBeInTheDocument();
+    expect(screen.getByText("OTP and Approval History")).toBeInTheDocument();
+    expect(screen.getByText("Table / Order")).toBeInTheDocument();
+    expect(screen.getByText("Mode")).toBeInTheDocument();
     expect(screen.getByText("Deleted bill approved at HSR Layout")).toBeInTheDocument();
     expect(screen.getByText("Approve Final Closing Report")).toBeInTheDocument();
     expect(screen.getByText("Unresolved Issues")).toBeInTheDocument();
@@ -236,6 +328,12 @@ describe("owner web prototype-backed routing", () => {
     expect(screen.getByText("Captain Role Permissions")).toBeInTheDocument();
     expect(screen.getByText("Role Access Matrix")).toBeInTheDocument();
     expect(screen.getByText("Role Permission Editor")).toBeInTheDocument();
+    expect(screen.getByText("Discount Approval Rule")).toBeInTheDocument();
+    expect(screen.getByText("Cashier Discount Limit")).toBeInTheDocument();
+    expect(screen.getByText("5%")).toBeInTheDocument();
+    expect(screen.getByText("Cashier Void Limit")).toBeInTheDocument();
+    expect(screen.getByText("Rs 200")).toBeInTheDocument();
+    expect(screen.getByText("Manager / Owner OTP")).toBeInTheDocument();
     expect(screen.getByText("Cashier Can Create Tables")).toBeInTheDocument();
     expect(screen.getAllByText("Approve and reopen").length).toBeGreaterThan(1);
     expect(screen.getAllByText("Request only").length).toBeGreaterThan(1);
