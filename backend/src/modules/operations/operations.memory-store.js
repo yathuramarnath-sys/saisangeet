@@ -30,6 +30,79 @@ function appendDeletedBill(order, actor) {
   ].slice(0, 5);
 }
 
+function appendReprintLog(order, actor, reason) {
+  order.reprintLog = [
+    {
+      id: `reprint-${Date.now()}`,
+      orderNumber: order.orderNumber,
+      tableNumber: order.tableNumber,
+      reason,
+      approvedBy: actor
+    },
+    ...(order.reprintLog || [])
+  ].slice(0, 5);
+}
+
+const tableCatalog = [
+  { tableId: "t1", tableNumber: "T1", areaName: "AC Hall 1", outletName: "Indiranagar", captain: "Captain Karthik" },
+  { tableId: "t2", tableNumber: "T2", areaName: "AC Hall 1", outletName: "Koramangala", captain: "Captain Karthik" },
+  { tableId: "t3", tableNumber: "T3", areaName: "Non-AC Hall", outletName: "HSR Layout", captain: "Captain Karthik" },
+  { tableId: "f1", tableNumber: "F1", areaName: "Family Hall", outletName: "Whitefield", captain: "Captain Karthik" },
+  { tableId: "f2", tableNumber: "F2", areaName: "Family Hall", outletName: "Whitefield", captain: "Captain Karthik" },
+  { tableId: "s3", tableNumber: "S3", areaName: "Self Service", outletName: "Indiranagar", captain: "Open" },
+  { tableId: "s4", tableNumber: "S4", areaName: "Self Service", outletName: "Indiranagar", captain: "Captain Karthik" }
+];
+
+function getTableMeta(tableId) {
+  return tableCatalog.find((table) => table.tableId === tableId);
+}
+
+function buildEmptyOrder(tableId, fallbackOrderNumber = 10030) {
+  const tableMeta = getTableMeta(tableId);
+
+  if (!tableMeta) {
+    throw new ApiError(404, "TABLE_NOT_FOUND", `Table not found: ${tableId}`);
+  }
+
+  return {
+    tableId: tableMeta.tableId,
+    tableNumber: tableMeta.tableNumber,
+    orderNumber: fallbackOrderNumber,
+    kotNumber: `KOT-${fallbackOrderNumber}`,
+    outletName: tableMeta.outletName,
+    areaName: tableMeta.areaName,
+    captain: tableMeta.captain,
+    assignedWaiter: "Waiter Priya",
+    guests: 0,
+    pickupStatus: "new",
+    payments: [],
+    billSplitCount: 1,
+    printCount: 0,
+    lastPrintLabel: "Not printed yet",
+    isClosed: false,
+    closedAt: null,
+    serviceChargeEnabled: false,
+    serviceChargeRate: 0.1,
+    billRequested: false,
+    billRequestedAt: null,
+    notes: "Ready for new guests",
+    discountAmount: 0,
+    discountOverrideRequested: false,
+    discountApprovalStatus: "Within cashier 5% limit",
+    discountApprovedBy: "Not needed",
+    voidRequested: false,
+    voidReason: "Not requested",
+    voidApprovedBy: "Pending",
+    reprintReason: "Not requested",
+    reprintApprovedBy: "Not needed",
+    reprintLog: [],
+    deletedBillLog: [],
+    controlAlerts: [],
+    auditTrail: [],
+    items: []
+  };
+}
+
 function buildInitialState() {
   return {
     closingState: {
@@ -38,6 +111,87 @@ function buildInitialState() {
       approvedBy: null,
       approvedRole: null,
       status: "Pending review"
+    },
+    cashShifts: {
+      shifts: [
+        {
+          id: "arjun-koramangala",
+          cashier: "Arjun",
+          outlet: "Koramangala",
+          openingCash: "Rs 5,000",
+          expectedClose: "Rs 21,450",
+          status: "Open"
+        },
+        {
+          id: "priya-indiranagar",
+          cashier: "Priya",
+          outlet: "Indiranagar",
+          openingCash: "Rs 8,000",
+          expectedClose: "Rs 32,200",
+          status: "Open"
+        },
+        {
+          id: "ramesh-hsr",
+          cashier: "Ramesh",
+          outlet: "HSR Layout",
+          openingCash: "Rs 7,000",
+          expectedClose: "Rs 26,300",
+          status: "Mismatch",
+          warning: true
+        },
+        {
+          id: "manoj-whitefield",
+          cashier: "Manoj",
+          outlet: "Whitefield",
+          openingCash: "Rs 8,000",
+          expectedClose: "Rs 28,110",
+          status: "Closed"
+        }
+      ],
+      movements: [
+        {
+          id: "cash-in-1",
+          cashier: "Arjun",
+          type: "Cash In",
+          amount: "Rs 500",
+          reason: "Change refill",
+          status: "Approved"
+        },
+        {
+          id: "cash-out-1",
+          cashier: "Priya",
+          type: "Cash Out",
+          amount: "Rs 850",
+          reason: "Petty expense",
+          status: "Manager check",
+          warning: true
+        },
+        {
+          id: "cash-out-2",
+          cashier: "Ramesh",
+          type: "Cash Out",
+          amount: "Rs 300",
+          reason: "Courier payout",
+          status: "Approved"
+        }
+      ],
+      alerts: [
+        {
+          id: "hsr-short",
+          title: "HSR Layout shift short by Rs 1,200",
+          description: "Manager must review before final closing"
+        },
+        {
+          id: "petty-range",
+          title: "2 cash-out entries exceed normal petty range",
+          description: "Check approval and reason entries"
+        },
+        {
+          id: "not-closed",
+          title: "One cashier has not closed shift",
+          description: "Prompt closing before end-of-day report generation"
+        }
+      ]
     },
     permissionPolicies: {
       "cashier-discount-limit-percent": 5,
@@ -55,6 +209,14 @@ function buildInitialState() {
         assignedWaiter: "Waiter Priya",
         guests: 3,
         pickupStatus: "ready",
+        payments: [],
+        billSplitCount: 1,
+        printCount: 0,
+        lastPrintLabel: "Not printed yet",
+        isClosed: false,
+        closedAt: null,
+        serviceChargeEnabled: false,
+        serviceChargeRate: 0.1,
         billRequested: false,
         billRequestedAt: null,
         notes: "Ready for pickup",
@@ -65,6 +227,9 @@ function buildInitialState() {
         voidRequested: false,
         voidReason: "Not requested",
         voidApprovedBy: "Pending",
+        reprintReason: "Not requested",
+        reprintApprovedBy: "Not needed",
+        reprintLog: [],
         deletedBillLog: [],
         controlAlerts: [],
         auditTrail: [
@@ -92,6 +257,14 @@ function buildInitialState() {
         assignedWaiter: "Waiter Rahul",
         guests: 4,
         pickupStatus: "preparing",
+        payments: [],
+        billSplitCount: 1,
+        printCount: 0,
+        lastPrintLabel: "Not printed yet",
+        isClosed: false,
+        closedAt: null,
+        serviceChargeEnabled: false,
+        serviceChargeRate: 0.1,
         billRequested: false,
         billRequestedAt: null,
         notes: "Discount above cashier limit needs manager approval",
@@ -102,6 +275,9 @@ function buildInitialState() {
         voidRequested: false,
         voidReason: "Not requested",
         voidApprovedBy: "Pending",
+        reprintReason: "Not requested",
+        reprintApprovedBy: "Not needed",
+        reprintLog: [],
         deletedBillLog: [],
         controlAlerts: ["Discount above 5% requested"],
         auditTrail: [buildAuditEntry("Discount override requested", "Cashier Anita", "7:42 PM")],
@@ -126,6 +302,14 @@ function buildInitialState() {
         assignedWaiter: "Waiter Devi",
         guests: 2,
         pickupStatus: "delivered",
+        payments: [],
+        billSplitCount: 1,
+        printCount: 0,
+        lastPrintLabel: "Not printed yet",
+        isClosed: false,
+        closedAt: null,
+        serviceChargeEnabled: false,
+        serviceChargeRate: 0.1,
         billRequested: true,
         billRequestedAt: "7:48 PM",
         notes: "Void above cashier limit needs manager/owner OTP approval",
@@ -136,6 +320,9 @@ function buildInitialState() {
         voidRequested: true,
         voidReason: "Duplicate bill",
         voidApprovedBy: "Pending OTP",
+        reprintReason: "Not requested",
+        reprintApprovedBy: "Not needed",
+        reprintLog: [],
         deletedBillLog: [],
         controlAlerts: ["Void above Rs 200 requested"],
         auditTrail: [buildAuditEntry("Void requested", "Cashier Anita", "7:51 PM")],
@@ -154,6 +341,11 @@ function buildInitialState() {
 }
 
 let state = buildInitialState();
+tableCatalog.forEach((table, index) => {
+  if (!state.orders[table.tableId]) {
+    state.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
+  }
+});
 
 function getState() {
   return clone(state);
@@ -161,6 +353,22 @@ function getState() {
 
 function resetState() {
   state = buildInitialState();
+  tableCatalog.forEach((table, index) => {
+    if (!state.orders[table.tableId]) {
+      state.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
+    }
+  });
+  return getState();
+}
+
+function hydrateState(nextState) {
+  state = clone(nextState);
+  tableCatalog.forEach((table, index) => {
+    if (!state.orders[table.tableId]) {
+      state.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
+    }
+  });
+
   return getState();
 }
 
@@ -216,6 +424,134 @@ function getSummary() {
         }))
     }
   };
+}
+
+function getCashShifts() {
+  return clone(state.cashShifts);
+}
+
+function markCashMismatchUnderReview() {
+  state.cashShifts.shifts = state.cashShifts.shifts.map((shift) =>
+    shift.id === "ramesh-hsr"
+      ? {
+          ...shift,
+          status: "Manager check"
+        }
+      : shift
+  );
+
+  state.cashShifts.alerts = state.cashShifts.alerts.map((alert) =>
+    alert.id === "hsr-short"
+      ? {
+          ...alert,
+          title: "HSR Layout mismatch under manager review",
+          description: "Owner report should stay open until closing approval is complete"
+        }
+      : alert
+  );
+
+  return clone(state.cashShifts);
+}
+
+function approveClosingState(actorName = "Owner", actorRole = "Owner") {
+  state.closingState = {
+    approved: true,
+    approvedAt: "11:32 PM",
+    approvedBy: actorName,
+    approvedRole: actorRole,
+    reopenedAt: null,
+    reopenedBy: null,
+    reopenedRole: null,
+    status: "Approved and queued"
+  };
+
+  return clone(state.closingState);
+}
+
+function reopenClosingState(actorName = "Owner", actorRole = "Owner") {
+  state.closingState = {
+    approved: false,
+    approvedAt: null,
+    approvedBy: null,
+    approvedRole: null,
+    reopenedAt: "6:00 AM",
+    reopenedBy: actorName,
+    reopenedRole: actorRole,
+    status: "Open for operations"
+  };
+
+  return clone(state.closingState);
+}
+
+function nextOrderNumber() {
+  return Math.max(...Object.values(state.orders).map((order) => order.orderNumber), 10030) + 1;
+}
+
+function createDemoOrder(actor = "System") {
+  const targetTable =
+    tableCatalog.find((table) => {
+      const order = state.orders[table.tableId];
+      return !order || (order.items || []).length === 0;
+    }) || tableCatalog[0];
+
+  const orderNumber = nextOrderNumber();
+  state.orders[targetTable.tableId] = {
+    ...buildEmptyOrder(targetTable.tableId, orderNumber),
+    orderNumber,
+    kotNumber: `KOT-${orderNumber}`,
+    guests: 2,
+    assignedWaiter: "Waiter Priya",
+    pickupStatus: "new",
+    notes: "Demo order created",
+    items: [
+      {
+        id: `line-${orderNumber}-1`,
+        menuItemId: "paneer-tikka",
+        name: "Paneer Tikka",
+        quantity: 1,
+        price: 220,
+        note: "Demo order",
+        sentToKot: false,
+        stationId: "grill",
+        stationName: "Grill"
+      }
+    ],
+    auditTrail: [buildAuditEntry("Demo order created", actor, "Now")]
+  };
+
+  return clone(state.orders[targetTable.tableId]);
+}
+
+function moveTable(sourceTableId, targetTableId, actor = "System") {
+  if (sourceTableId === targetTableId) {
+    throw new ApiError(409, "TABLE_MOVE_INVALID", "Source and target table cannot be the same");
+  }
+
+  const sourceOrder = findOrder(sourceTableId);
+  const targetMeta = getTableMeta(targetTableId);
+
+  if (!targetMeta) {
+    throw new ApiError(404, "TABLE_NOT_FOUND", `Target table not found: ${targetTableId}`);
+  }
+
+  const targetOrder = state.orders[targetTableId];
+  if (targetOrder && (targetOrder.items || []).length > 0) {
+    throw new ApiError(409, "TABLE_OCCUPIED", `Target table already has an active order: ${targetTableId}`);
+  }
+
+  const movedOrder = {
+    ...clone(sourceOrder),
+    tableId: targetMeta.tableId,
+    tableNumber: targetMeta.tableNumber,
+    areaName: targetMeta.areaName,
+    outletName: targetMeta.outletName,
+    notes: `Moved from ${sourceOrder.tableNumber} to ${targetMeta.tableNumber}`
+  };
+  appendAudit(movedOrder, buildAuditEntry("Table moved", actor, "Now"));
+
+  state.orders[targetTableId] = movedOrder;
+  state.orders[sourceTableId] = buildEmptyOrder(sourceTableId, nextOrderNumber());
+  return clone(movedOrder);
 }
 
 function markKotSent(tableId, actor = "Captain") {
@@ -292,6 +628,77 @@ function updateOrderItem(tableId, itemId, payload, actor = "System") {
   return clone(order);
 }
 
+function calculateOrderTotals(order) {
+  const subtotal = (order.items || []).reduce(
+    (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+    0
+  );
+  const discountAmount = Math.min(Number(order.discountAmount || 0), subtotal);
+  const discountedSubtotal = Math.max(subtotal - discountAmount, 0);
+  const serviceChargeRate = order.serviceChargeEnabled ? Number(order.serviceChargeRate || 0.1) : 0;
+  const serviceCharge = discountedSubtotal * serviceChargeRate;
+  const tax = (discountedSubtotal + serviceCharge) * 0.05;
+  const total = Math.round(discountedSubtotal + serviceCharge + tax);
+  const paidAmount = (order.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+
+  return {
+    subtotal,
+    discountAmount,
+    serviceCharge,
+    tax,
+    total,
+    paidAmount,
+    remainingAmount: Math.max(total - paidAmount, 0)
+  };
+}
+
+function splitOrderBill(tableId, actor = "System") {
+  const order = findOrder(tableId);
+  const maxSplits = Math.min(Math.max(Number(order.guests || 0), 2), 4);
+  order.billSplitCount = order.billSplitCount >= maxSplits ? 1 : (order.billSplitCount || 1) + 1;
+  order.notes = `Bill split updated to ${order.billSplitCount}`;
+  appendAudit(order, buildAuditEntry("Split bill updated", actor, "Now"));
+  return clone(order);
+}
+
+function addOrderPayment(tableId, payload, actor = "System") {
+  const order = findOrder(tableId);
+  const totals = calculateOrderTotals(order);
+  const requestedAmount = Number(payload.amount || 0);
+  const amount = Math.min(requestedAmount, totals.remainingAmount);
+
+  if (amount <= 0) {
+    throw new ApiError(400, "INVALID_PAYMENT_AMOUNT", "Payment amount must be greater than zero");
+  }
+
+  order.payments = order.payments || [];
+  order.payments.push({
+    id: payload.id || `payment-${Date.now()}`,
+    method: payload.method || "cash",
+    label: payload.label || String(payload.method || "cash").toUpperCase(),
+    amount
+  });
+  order.notes = "Payment collected";
+  appendAudit(order, buildAuditEntry("Payment added", actor, "Now"));
+  return clone(order);
+}
+
+function closeOrder(tableId, actor = "System") {
+  const order = findOrder(tableId);
+  const totals = calculateOrderTotals(order);
+
+  if (totals.total <= 0 || totals.remainingAmount > 0) {
+    throw new ApiError(409, "ORDER_NOT_SETTLED", "Order must be fully paid before closing");
+  }
+
+  order.isClosed = true;
+  order.closedAt = "Closed just now";
+  order.billRequested = false;
+  order.notes = "Invoice ready and settled";
+  appendAudit(order, buildAuditEntry("Order settled", actor, "Now"));
+  return clone(order);
+}
+
 function approveDiscount(tableId, actor = "Manager OTP") {
   const order = findOrder(tableId);
 
@@ -320,6 +727,78 @@ function approveVoid(tableId, actor = "Manager OTP") {
   appendDeletedBill(order, actor);
   appendAudit(order, buildAuditEntry("Void approved", actor, "Now"));
   return clone(order);
+}
+
+function recordReprint(tableId, reason, actor = "Manager") {
+  const order = findOrder(tableId);
+  order.printCount = Number(order.printCount || 0) + 1;
+  order.lastPrintLabel = "Reprinted just now";
+  order.reprintReason = reason || "Audit copy";
+  order.reprintApprovedBy = actor;
+  appendReprintLog(order, actor, order.reprintReason);
+  appendAudit(order, buildAuditEntry("Bill reprinted", actor, "Now"));
+  return clone(order);
+}
+
+function requestVoidApproval(tableId, reason, actor = "Cashier") {
+  const order = findOrder(tableId);
+  order.voidRequested = true;
+  order.voidReason = reason || "Manager cancellation";
+  order.voidApprovedBy = "Pending OTP";
+  order.notes = "Void above cashier limit needs manager/owner OTP approval";
+  order.controlAlerts = [
+    `Void above Rs ${state.permissionPolicies["cashier-void-limit-amount"] || 200} requested`,
+    ...(order.controlAlerts || []).filter((message) => !message.startsWith("Void above Rs "))
+  ].slice(0, 4);
+  appendAudit(order, buildAuditEntry("Void requested", actor, "Now"));
+  return clone(order);
+}
+
+function getControlLogs() {
+  const orders = Object.values(state.orders);
+
+  return {
+    reprints: orders.flatMap((order) =>
+      (order.reprintLog || []).map((entry) => ({
+        id: `${order.tableId}-${entry.id}`,
+        outlet: order.outletName || order.areaName,
+        tableId: order.tableId,
+        tableNumber: entry.tableNumber,
+        orderNumber: entry.orderNumber,
+        reason: entry.reason,
+        actor: entry.approvedBy,
+        time: "Now",
+        type: "reprint"
+      }))
+    ),
+    deletedBills: orders.flatMap((order) =>
+      (order.deletedBillLog || []).map((entry) => ({
+        id: `${order.tableId}-${entry.id}`,
+        outlet: order.outletName || order.areaName,
+        tableId: order.tableId,
+        tableNumber: entry.tableNumber,
+        orderNumber: entry.orderNumber,
+        reason: entry.reason,
+        actor: entry.approvedBy,
+        time: "Now",
+        type: "deleted-bill"
+      }))
+    ),
+    voidRequests: orders
+      .filter((order) => order.voidRequested)
+      .map((order) => ({
+        id: `${order.tableId}-void-request`,
+        outlet: order.outletName || order.areaName,
+        tableId: order.tableId,
+        tableNumber: order.tableNumber,
+        orderNumber: order.orderNumber,
+        reason: order.voidReason,
+        actor: order.voidApprovedBy || "Pending OTP",
+        time: order.billRequestedAt || "Now",
+        type: "void-request",
+        status: "Pending OTP"
+      }))
+  };
 }
 
 function updateOrderStatus(tableId, pickupStatus, actor = "System") {
@@ -361,15 +840,28 @@ function updateOrderStatus(tableId, pickupStatus, actor = "System") {
 module.exports = {
   getState,
   resetState,
+  hydrateState,
   listOrders,
   getOrder,
   getSummary,
+  getCashShifts,
+  markCashMismatchUnderReview,
+  approveClosingState,
+  reopenClosingState,
+  createDemoOrder,
+  moveTable,
   markKotSent,
   requestBill,
   assignWaiter,
   addOrderItem,
   updateOrderItem,
+  splitOrderBill,
+  addOrderPayment,
+  closeOrder,
   approveDiscount,
   approveVoid,
-  updateOrderStatus
+  updateOrderStatus,
+  recordReprint,
+  requestVoidApproval,
+  getControlLogs
 };

@@ -6,6 +6,7 @@ export const navigation = [
   { id: "discounts", label: "Discount Rules", path: "/discount-rules", mode: "react" },
   { id: "integrations", label: "Integrations", path: "/integrations", mode: "react" },
   { id: "devices", label: "Devices", path: "/devices", mode: "react" },
+  { id: "inventory", label: "Inventory", path: "/inventory", mode: "react" },
   { id: "taxes", label: "Taxes & Receipts", path: "/taxes-receipts", mode: "react" },
   { id: "shifts", label: "Shifts & Cash Control", path: "/shifts-cash", mode: "react" },
   { id: "reports", label: "Reports", path: "/reports", mode: "react" }

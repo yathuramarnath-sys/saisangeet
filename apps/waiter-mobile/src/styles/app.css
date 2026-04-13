@@ -130,6 +130,11 @@ button {
   font-weight: 700;
 }
 
+.mobile-banner.inventory-warning {
+  background: #fff1de;
+  color: #7a4a00;
+}
+
 .mobile-table-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -231,6 +236,10 @@ button {
   gap: 12px;
   align-items: center;
   text-align: left;
+}
+
+.menu-item-card.inventory-blocked {
+  opacity: 0.68;
 }
 
 .order-line p {

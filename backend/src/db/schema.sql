@@ -122,6 +122,27 @@ CREATE TABLE order_audit_log (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE order_control_log (
+  id UUID PRIMARY KEY,
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  control_type TEXT NOT NULL,
+  reason TEXT,
+  actor_name TEXT NOT NULL,
+  actor_role TEXT,
+  status TEXT NOT NULL DEFAULT 'recorded',
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE payment_print_log (
+  id UUID PRIMARY KEY,
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  print_type TEXT NOT NULL DEFAULT 'reprint',
+  reason TEXT,
+  approved_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE daily_closing (
   id UUID PRIMARY KEY,
   outlet_id UUID NOT NULL REFERENCES outlets(id) ON DELETE CASCADE,
@@ -135,4 +156,37 @@ CREATE TABLE daily_closing (
   reopened_at TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'Pending review',
   UNIQUE (outlet_id, business_date)
+);
+
+CREATE TABLE cash_shifts (
+  id UUID PRIMARY KEY,
+  outlet_id UUID NOT NULL REFERENCES outlets(id) ON DELETE CASCADE,
+  cashier_name TEXT NOT NULL,
+  opening_cash NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  expected_close NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'Open',
+  business_date DATE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE cash_movements (
+  id UUID PRIMARY KEY,
+  shift_id UUID NOT NULL REFERENCES cash_shifts(id) ON DELETE CASCADE,
+  movement_type TEXT NOT NULL,
+  amount NUMERIC(10, 2) NOT NULL,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Approved',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE policy_settings (
+  code TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE app_runtime_state (
+  scope TEXT PRIMARY KEY,
+  payload JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

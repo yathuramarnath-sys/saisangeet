@@ -41,6 +41,12 @@ export function ShiftsCashPage() {
     };
   }, []);
 
+  async function handleMismatchReview() {
+    await recordCashMismatchResolution();
+    const nextData = await fetchShiftData();
+    setShiftData(nextData);
+  }
+
   return (
     <>
       <header className="topbar">
@@ -274,7 +280,7 @@ export function ShiftsCashPage() {
               <span>Manager approval</span>
               <strong>Required</strong>
             </div>
-            <button type="button" className="secondary-btn full-width" onClick={recordCashMismatchResolution}>
+            <button type="button" className="secondary-btn full-width" onClick={handleMismatchReview}>
               Mark Mismatch Under Review
             </button>
           </div>

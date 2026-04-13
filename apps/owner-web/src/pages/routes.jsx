@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { navigation } from "../data/navigation";
 import { DevicesPage } from "../features/devices/DevicesPage";
 import { DiscountRulesPage } from "../features/discounts/DiscountRulesPage";
+import { InventoryPage } from "../features/inventory/InventoryPage";
 import { IntegrationsPage } from "../features/integrations/IntegrationsPage";
 import { MenuPage } from "../features/menu/MenuPage";
 import { OutletsPage } from "../features/outlets/OutletsPage";
@@ -36,6 +37,10 @@ export function AppRoutes() {
 
     if (item.mode === "react" && item.id === "devices") {
       return <DevicesPage />;
+    }
+
+    if (item.mode === "react" && item.id === "inventory") {
+      return <InventoryPage />;
     }
 
     if (item.mode === "react" && item.id === "taxes") {

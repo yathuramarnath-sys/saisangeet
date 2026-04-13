@@ -11,11 +11,132 @@ describe("owner web prototype-backed routing", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (url) => {
-        if (String(url).includes("/api/v1/operations/summary")) {
+      vi.fn(async (url, options) => {
+        if (String(url).includes("/api/v1/reports/closing/approve")) {
+          const actor = options?.body ? JSON.parse(options.body) : { name: "Owner", role: "Owner" };
           return {
             ok: true,
             json: async () => ({
+              popupAlert: {
+                title: "Daily closing approved",
+                description: `Approved by ${actor.name} (${actor.role}) at 11:32 PM.`,
+                cta: "Open reports"
+              },
+              outletComparison: [],
+              insights: [],
+              closingSummary: [],
+              closingCenter: {
+                blockers: [],
+                checklist: [],
+                ownerSummary: []
+              },
+              closingState: {
+                approved: true,
+                approvedAt: "11:32 PM",
+                approvedBy: actor.name,
+                approvedRole: actor.role,
+                reopenedAt: null,
+                reopenedBy: null,
+                reopenedRole: null,
+                status: "Approved and queued"
+              },
+              permissionPolicies: {
+                "manager-close-day": true
+              },
+              controlSummary: [],
+              approvalLog: [],
+              alerts: []
+            })
+          };
+        }
+
+        if (String(url).includes("/api/v1/reports/closing/reopen")) {
+          const actor = options?.body ? JSON.parse(options.body) : { name: "Owner", role: "Owner" };
+          return {
+            ok: true,
+            json: async () => ({
+              popupAlert: {
+                title: "2 control issues need owner review",
+                description: "1 discount overrides and 1 deleted bills were recorded in live operations.",
+                cta: "Open reports"
+              },
+              outletComparison: [],
+              insights: [],
+              closingSummary: [],
+              closingCenter: {
+                blockers: [],
+                checklist: [],
+                ownerSummary: []
+              },
+              closingState: {
+                approved: false,
+                approvedAt: null,
+                approvedBy: null,
+                approvedRole: null,
+                reopenedAt: "6:00 AM",
+                reopenedBy: actor.name,
+                reopenedRole: actor.role,
+                status: "Open for operations"
+              },
+              permissionPolicies: {
+                "manager-close-day": true
+              },
+              controlSummary: [],
+              approvalLog: [],
+              alerts: []
+            })
+          };
+        }
+
+        if (String(url).includes("/api/v1/reports/owner-summary")) {
+          return {
+            ok: true,
+            json: async () => ({
+              popupAlert: {
+                title: "2 control issues need owner review",
+                description: "1 discount overrides and 1 deleted bills were recorded in live operations.",
+                cta: "Open reports"
+              },
+              outletComparison: [
+                {
+                  id: "koramangala",
+                  outlet: "Koramangala",
+                  sales: "Rs 61,500",
+                  profit: "Rs 12,900",
+                  expenses: "Rs 14,300",
+                  status: "Review"
+                }
+              ],
+              insights: [
+                {
+                  id: "profit-item",
+                  title: "Top profit item",
+                  description: "Paneer Tikka generated the highest profit today across outlets."
+                }
+              ],
+              closingSummary: [
+                {
+                  id: "sales-payments",
+                  title: "Sales & Payments",
+                  status: "Included",
+                  meta: "Total sales, order count, cash vs UPI vs card summary"
+                }
+              ],
+              closingCenter: {
+                blockers: [
+                  {
+                    id: "blocker-override",
+                    title: "1 high discount override needs review",
+                    detail: "Owner should confirm manager approvals before sending final closing mail."
+                  }
+                ],
+                checklist: [
+                  { id: "sales-lock", title: "All outlets sales synced", status: "Done" }
+                ],
+                ownerSummary: [
+                  { id: "closing-sales", label: "Net sales", value: "Rs 2,45,000" }
+                ]
+              },
               closingState: {
                 approved: false,
                 approvedAt: null,
@@ -29,76 +150,149 @@ describe("owner web prototype-backed routing", () => {
               permissionPolicies: {
                 "manager-close-day": true
               },
-              totals: {
-                openOrders: 3,
-                billRequested: 1,
-                discountApprovalsPending: 1,
-                voidApprovalsPending: 1,
-                kitchenActive: 2
+              controlSummary: [
+                {
+                  id: "discount-overrides",
+                  title: "Discount overrides",
+                  value: "1 today",
+                  detail: "1 still need review",
+                  status: "Review"
+                }
+              ],
+              controlLogs: {
+                reprints: [
+                  {
+                    id: "reprint-1",
+                    outlet: "Indiranagar",
+                    tableNumber: "T1",
+                    orderNumber: 10031,
+                    reason: "Audit copy",
+                    actor: "Manager Rakesh",
+                    time: "Now",
+                    type: "reprint"
+                  }
+                ],
+                deletedBills: [
+                  {
+                    id: "deleted-1",
+                    outlet: "HSR Layout",
+                    tableNumber: "T3",
+                    orderNumber: 10033,
+                    reason: "Duplicate bill",
+                    actor: "Owner OTP",
+                    time: "Now",
+                    type: "deleted-bill"
+                  }
+                ],
+                voidRequests: [
+                  {
+                    id: "void-1",
+                    outlet: "HSR Layout",
+                    tableNumber: "T3",
+                    orderNumber: 10033,
+                    reason: "Duplicate bill",
+                    actor: "Pending OTP",
+                    status: "Pending OTP",
+                    time: "Now",
+                    type: "void-request"
+                  }
+                ]
               },
-              queues: {
-                cashier: [],
-                approvals: []
-              }
+              approvalLog: [
+                {
+                  id: "approval-1",
+                  outlet: "Koramangala",
+                  tableNumber: "T2",
+                  orderNumber: 10032,
+                  action: "Discount approved",
+                  actor: "Manager OTP",
+                  approvalMode: "OTP",
+                  amount: "Rs 25",
+                  time: "7:48 PM"
+                }
+              ],
+              alerts: [
+                {
+                  id: "closing-email-wait",
+                  title: "Closing email should wait for one unresolved shift",
+                  description: "HSR Layout cash mismatch is still open"
+                },
+                {
+                  id: "deleted-bill-owner",
+                  title: "Deleted bill approved at HSR Layout",
+                  description: "Include deleted-bill reason and manager name in owner report"
+                }
+              ]
             })
           };
         }
 
-        if (String(url).includes("/api/v1/operations/orders")) {
+        if (String(url).includes("/api/v1/shifts/mismatch/review")) {
           return {
             ok: true,
-            json: async () => [
-              {
-                tableId: "t2",
-                tableNumber: "T2",
-                orderNumber: 10032,
-                areaName: "Koramangala",
-                discountAmount: 25,
-                discountOverrideRequested: true,
-                discountApprovalStatus: "Manager/Owner approval pending",
-                discountApprovedBy: "Pending manager",
-                deletedBillLog: [],
-                controlAlerts: ["Discount above 5% requested"],
-                auditTrail: [
-                  {
-                    id: "audit-1",
-                    label: "Discount approved",
-                    actor: "Manager OTP",
-                    time: "7:48 PM"
-                  }
-                ],
-                items: []
-              },
-              {
-                tableId: "t3",
-                tableNumber: "T3",
-                orderNumber: 10033,
-                areaName: "HSR Layout",
-                discountAmount: 0,
-                discountOverrideRequested: false,
-                discountApprovalStatus: "Within cashier 5% limit",
-                discountApprovedBy: "Not needed",
-                deletedBillLog: [
-                  {
-                    id: "deleted-1",
-                    orderNumber: 10033,
-                    tableNumber: "T3",
-                    reason: "Duplicate bill",
-                    approvedBy: "Owner OTP"
-                  }
-                ],
-                controlAlerts: [],
-                auditTrail: [
-                  {
-                    id: "audit-2",
-                    label: "Void approved",
-                    actor: "Owner OTP",
-                    time: "8:05 PM"
-                  }
-                ],
-                items: []
-              }
-            ]
+            json: async () => ({
+              shifts: [
+                {
+                  id: "ramesh-hsr",
+                  cashier: "Ramesh",
+                  outlet: "HSR Layout",
+                  openingCash: "Rs 7,000",
+                  expectedClose: "Rs 26,300",
+                  status: "Manager check"
+                }
+              ],
+              movements: [],
+              alerts: [
+                {
+                  id: "hsr-short",
+                  title: "HSR Layout mismatch under manager review",
+                  description: "Owner report should stay open until closing approval is complete"
+                }
+              ]
+            })
+          };
+        }
+
+        if (String(url).includes("/api/v1/shifts/summary")) {
+          return {
+            ok: true,
+            json: async () => ({
+              shifts: [
+                {
+                  id: "arjun-koramangala",
+                  cashier: "Arjun",
+                  outlet: "Koramangala",
+                  openingCash: "Rs 5,000",
+                  expectedClose: "Rs 21,450",
+                  status: "Open"
+                },
+                {
+                  id: "ramesh-hsr",
+                  cashier: "Ramesh",
+                  outlet: "HSR Layout",
+                  openingCash: "Rs 7,000",
+                  expectedClose: "Rs 26,300",
+                  status: "Mismatch"
+                }
+              ],
+              movements: [
+                {
+                  id: "cash-in-1",
+                  cashier: "Arjun",
+                  type: "Cash In",
+                  amount: "Rs 500",
+                  reason: "Change refill",
+                  status: "Approved"
+                }
+              ],
+              alerts: [
+                {
+                  id: "hsr-short",
+                  title: "HSR Layout shift short by Rs 1,200",
+                  description: "Manager must review before final closing"
+                }
+              ]
+            })
           };
         }
 
@@ -193,12 +387,33 @@ describe("owner web prototype-backed routing", () => {
     expect(screen.getByText("Closing email should wait for one unresolved shift")).toBeInTheDocument();
     expect(screen.getByText("Owner Risk Summary")).toBeInTheDocument();
     expect(screen.getByText("OTP and Approval History")).toBeInTheDocument();
-    expect(screen.getByText("Table / Order")).toBeInTheDocument();
+    expect(screen.getAllByText("Table / Order").length).toBeGreaterThan(0);
+    expect(screen.getByText("Reprints, Void Requests, and Deleted Bills")).toBeInTheDocument();
     expect(screen.getByText("Mode")).toBeInTheDocument();
     expect(screen.getByText("Deleted bill approved at HSR Layout")).toBeInTheDocument();
     expect(screen.getByText("Approve Final Closing Report")).toBeInTheDocument();
     expect(screen.getByText("Unresolved Issues")).toBeInTheDocument();
     expect(screen.getByText("Final Snapshot")).toBeInTheDocument();
+  });
+
+  it("renders the inventory route from the React page", async () => {
+    render(
+      <MemoryRouter initialEntries={["/inventory"]}>
+        <OwnerLayout>
+          <AppRoutes />
+        </OwnerLayout>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { level: 2, name: "Inventory" })).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Split dining availability and kitchen production stock cleanly")).toBeInTheDocument();
+    expect(screen.getByText("Dining Item Inventory")).toBeInTheDocument();
+    expect(screen.getByText("Kitchen Production Inventory")).toBeInTheDocument();
+    expect(screen.getByText("Cashier and Manager Access")).toBeInTheDocument();
+    expect(screen.getByText("Store Incharge and Manager Access")).toBeInTheDocument();
   });
 
   it("respects manager close-day policy inside reports", async () => {
@@ -237,7 +452,9 @@ describe("owner web prototype-backed routing", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Approve & Send Closing Report" })[0]);
 
-    expect(loadRestaurantState().closingState.approved).toBe(true);
+    await waitFor(() => {
+      expect(loadRestaurantState().closingState.approved).toBe(true);
+    });
     expect(loadRestaurantState().closingState.approvedBy).toBe("Owner");
   });
 

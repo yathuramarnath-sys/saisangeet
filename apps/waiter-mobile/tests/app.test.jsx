@@ -1,8 +1,8 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { App } from "../src/App";
-import { resetRestaurantState, updateClosingState, updatePermissionPolicies } from "../../../packages/shared-types/src/mockRestaurantStore.js";
+import { loadRestaurantState, resetRestaurantState, updateClosingState, updatePermissionPolicies } from "../../../packages/shared-types/src/mockRestaurantStore.js";
 
 afterEach(() => {
   cleanup();
@@ -19,6 +19,7 @@ describe("waiter mobile app", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Delivery Pulse" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Assign Waiter" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send KOT" })).toBeInTheDocument();
+    expect(screen.getByText(/Stock alert:/)).toBeInTheDocument();
   });
 
   it("creates a demo order from mobile for cross-app testing", () => {
@@ -88,5 +89,30 @@ describe("waiter mobile app", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Waiter" }));
     expect(screen.getByRole("button", { name: "Bill Request Locked" })).toBeDisabled();
+  });
+
+  it("shows out-of-stock and low-stock dining items to captain", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mains" }));
+
+    expect(screen.getByText("Low Stock")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Butter Naan/i })).toBeDisabled();
+    expect(screen.getByText("Out of stock")).toBeInTheDocument();
+  });
+
+  it("deducts dining inventory after captain sends KOT", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mains" }));
+    fireEvent.click(screen.getByRole("button", { name: /Veg Biryani/i }));
+    expect(screen.getAllByText("Veg Biryani").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Send KOT" }));
+
+    await waitFor(() => {
+      const vegBiryani = loadRestaurantState().inventory.diningItems.find((item) => item.id === "veg-biryani");
+      expect(vegBiryani.quantity).toBe(2);
+      expect(["Low Stock", "Out of Stock"]).toContain(vegBiryani.status);
+    });
   });
 });

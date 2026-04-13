@@ -34,6 +34,11 @@ export function ReportsPage() {
     permissionPolicies: {},
     controlSummary: [],
     approvalLog: [],
+    controlLogs: {
+      reprints: [],
+      deletedBills: [],
+      voidRequests: []
+    },
     alerts: []
   });
   const [loading, setLoading] = useState(true);
@@ -69,13 +74,13 @@ export function ReportsPage() {
   }, []);
 
   async function handleApproveClosing() {
-    approveClosingReport(activeAccess);
+    await approveClosingReport(activeAccess);
     const nextData = await fetchReportsData();
     setReportData(nextData);
   }
 
   async function handleReopenBusinessDay() {
-    reopenBusinessDay(activeAccess);
+    await reopenBusinessDay(activeAccess);
     const nextData = await fetchReportsData();
     setReportData(nextData);
   }
@@ -440,6 +445,42 @@ export function ReportsPage() {
                 <span>{row.approvalMode || "Manual"}</span>
                 <span>{row.amount}</span>
                 <span>{row.time}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel panel-wide">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Control Logs</p>
+              <h3>Reprints, Void Requests, and Deleted Bills</h3>
+            </div>
+          </div>
+
+          <div className="staff-table">
+            <div className="staff-row staff-head">
+              <span>Type</span>
+              <span>Outlet</span>
+              <span>Table / Order</span>
+              <span>Reason</span>
+              <span>Actor / State</span>
+              <span>Time</span>
+            </div>
+            {[
+              ...(reportData.controlLogs?.reprints || []).map((row) => ({ ...row, typeLabel: "Reprint" })),
+              ...(reportData.controlLogs?.voidRequests || []).map((row) => ({ ...row, typeLabel: "Void Request" })),
+              ...(reportData.controlLogs?.deletedBills || []).map((row) => ({ ...row, typeLabel: "Deleted Bill" }))
+            ].map((row) => (
+              <div key={row.id} className="staff-row">
+                <span>{row.typeLabel}</span>
+                <span>{row.outlet}</span>
+                <span>
+                  {row.tableNumber} / #{row.orderNumber}
+                </span>
+                <span>{row.reason}</span>
+                <span>{row.status || row.actor}</span>
+                <span>{row.time || "Now"}</span>
               </div>
             ))}
           </div>

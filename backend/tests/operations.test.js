@@ -3,14 +3,22 @@ const assert = require("node:assert/strict");
 
 const {
   getOperationsSummary,
+  createDemoOperationsOrder,
+  moveOrderToTable,
   getOrder,
   requestBillForOrder,
   assignWaiterToOrder,
   addItemToOrder,
   updateOrderItemDetails,
+  updateOrderSplit,
+  addPaymentToOrder,
+  settleOrderBill,
   approveDiscountOverride,
   approveVoidRequest,
-  changeOrderStatus
+  changeOrderStatus,
+  getOperationsControlLogs,
+  recordOrderReprint,
+  requestOrderVoidApproval
 } = require("../src/modules/operations/operations.service");
 const { operationsRouter } = require("../src/modules/operations/operations.routes");
 const { resetState } = require("../src/modules/operations/operations.memory-store");
@@ -22,10 +30,33 @@ test.beforeEach(() => {
 test("operations summary returns cashier and approval queues", async () => {
   const payload = await getOperationsSummary();
 
-  assert.equal(payload.totals.openOrders, 3);
+  assert.equal(payload.totals.openOrders, 7);
   assert.equal(payload.totals.billRequested, 1);
   assert.equal(payload.totals.discountApprovalsPending, 1);
   assert.equal(payload.totals.voidApprovalsPending, 1);
+});
+
+test("create demo order uses the next available table", async () => {
+  const payload = await createDemoOperationsOrder({
+    actorName: "Cashier Anita",
+    actorRole: "Cashier"
+  });
+
+  assert.equal(payload.tableId, "f1");
+  assert.equal(payload.notes, "Demo order created");
+  assert.equal(payload.auditTrail[0].label, "Demo order created");
+});
+
+test("move table transfers active order to an empty target table", async () => {
+  const payload = await moveOrderToTable("t1", {
+    targetTableId: "f2",
+    actorName: "Captain Karthik",
+    actorRole: "Captain"
+  });
+
+  assert.equal(payload.tableId, "f2");
+  assert.equal(payload.tableNumber, "F2");
+  assert.equal(payload.auditTrail[0].label, "Table moved");
 });
 
 test("request bill updates the selected order", async () => {
@@ -75,6 +106,49 @@ test("add item and kitchen note update the order", async () => {
   assert.equal(updated.auditTrail[0].label, "Kitchen note added");
 });
 
+test("split bill updates the order split count", async () => {
+  const payload = await updateOrderSplit("t1", {
+    actorName: "Cashier Anita",
+    actorRole: "Cashier"
+  });
+
+  assert.equal(payload.billSplitCount, 2);
+  assert.equal(payload.auditTrail[0].label, "Split bill updated");
+});
+
+test("payment collection updates the order balance state", async () => {
+  const payload = await addPaymentToOrder("t1", {
+    method: "upi",
+    label: "UPI",
+    amount: 200,
+    actorName: "Cashier Anita",
+    actorRole: "Cashier"
+  });
+
+  assert.equal(payload.payments.length, 1);
+  assert.equal(payload.payments[0].label, "UPI");
+  assert.equal(payload.auditTrail[0].label, "Payment added");
+});
+
+test("close order settles only after full payment", async () => {
+  await addPaymentToOrder("t1", {
+    method: "cash",
+    label: "Cash",
+    amount: 231,
+    actorName: "Cashier Anita",
+    actorRole: "Cashier"
+  });
+
+  const payload = await settleOrderBill("t1", {
+    actorName: "Cashier Anita",
+    actorRole: "Cashier"
+  });
+
+  assert.equal(payload.isClosed, true);
+  assert.equal(payload.notes, "Invoice ready and settled");
+  assert.equal(payload.auditTrail[0].label, "Order settled");
+});
+
 test("discount approval records manager otp actor", async () => {
   const payload = await approveDiscountOverride("t2", {
     actorRole: "Manager",
@@ -95,6 +169,35 @@ test("void approval records owner otp actor and deleted bill log", async () => {
   assert.equal(payload.voidRequested, false);
   assert.equal(payload.voidApprovedBy, "Owner OTP");
   assert.equal(payload.deletedBillLog[0].orderNumber, 10033);
+});
+
+test("reprint log entry is captured in control logs", async () => {
+  const payload = await recordOrderReprint("t1", {
+    reason: "Audit copy",
+    actorName: "Manager Rakesh",
+    actorRole: "Manager"
+  });
+
+  assert.equal(payload.reprintApprovedBy, "Manager Rakesh");
+  assert.equal(payload.reprintLog[0].reason, "Audit copy");
+
+  const logs = await getOperationsControlLogs();
+  assert.equal(logs.reprints[0].tableNumber, "T1");
+  assert.equal(logs.reprints[0].reason, "Audit copy");
+});
+
+test("void request is captured in control logs", async () => {
+  const payload = await requestOrderVoidApproval("t1", {
+    reason: "Duplicate bill",
+    actorName: "Cashier Anita",
+    actorRole: "Cashier"
+  });
+
+  assert.equal(payload.voidRequested, true);
+  assert.equal(payload.voidReason, "Duplicate bill");
+
+  const logs = await getOperationsControlLogs();
+  assert.equal(logs.voidRequests.some((entry) => entry.tableNumber === "T1"), true);
 });
 
 test("status update records waiter delivery and kitchen preparation changes", async () => {
@@ -135,15 +238,23 @@ test("operations routes register the expected endpoints", () => {
 
   assert.deepEqual(routes, [
     { path: "/summary", methods: ["get"] },
+    { path: "/control-logs", methods: ["get"] },
+    { path: "/orders/demo", methods: ["post"] },
     { path: "/orders", methods: ["get"] },
     { path: "/orders/:tableId", methods: ["get"] },
     { path: "/orders/:tableId/kot", methods: ["post"] },
     { path: "/orders/:tableId/request-bill", methods: ["post"] },
+    { path: "/orders/:tableId/move-table", methods: ["post"] },
     { path: "/orders/:tableId/assign-waiter", methods: ["post"] },
     { path: "/orders/:tableId/items", methods: ["post"] },
+    { path: "/orders/:tableId/split-bill", methods: ["post"] },
+    { path: "/orders/:tableId/payments", methods: ["post"] },
+    { path: "/orders/:tableId/close", methods: ["post"] },
     { path: "/orders/:tableId/items/:itemId", methods: ["patch"] },
     { path: "/orders/:tableId/discount-approval", methods: ["post"] },
     { path: "/orders/:tableId/void-approval", methods: ["post"] },
+    { path: "/orders/:tableId/reprint", methods: ["post"] },
+    { path: "/orders/:tableId/void-request", methods: ["post"] },
     { path: "/orders/:tableId/status", methods: ["post"] }
   ]);
 });

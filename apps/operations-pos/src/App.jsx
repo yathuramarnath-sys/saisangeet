@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { areas, categories, kitchenInstructions, menuItems, serviceModes, tableOrders } from "./data/pos.seed";
 import {
+  applyInventoryConsumption,
   buildAuditEntry,
   createDemoOrder,
   loadRestaurantState,
@@ -92,6 +93,19 @@ function appendDeletedBill(order) {
   ].slice(0, 4);
 }
 
+function appendReprintLog(order, actor, reason) {
+  order.reprintLog = [
+    {
+      id: `reprint-${Date.now()}`,
+      orderNumber: order.orderNumber,
+      tableNumber: order.tableNumber,
+      reason,
+      approvedBy: actor
+    },
+    ...(order.reprintLog || [])
+  ].slice(0, 4);
+}
+
 function finalizeVoidApproval(order, approverLabel) {
   order.voidRequested = false;
   order.voidApprovedBy = approverLabel;
@@ -126,6 +140,7 @@ function buildInitialOrders() {
     order.billTimestamp = order.billTimestamp || "11 Apr 2026, 5:15 PM";
     order.reprintReason = order.reprintReason || "Not requested";
     order.reprintApprovedBy = order.reprintApprovedBy || "Not needed";
+    order.reprintLog = order.reprintLog || [];
     order.voidReason = order.voidReason || "Not requested";
     order.voidApprovedBy = order.voidApprovedBy || "Pending";
     order.voidRequested = order.voidRequested || false;
@@ -160,6 +175,7 @@ function normalizeOrderMap(orders) {
     order.billTimestamp = order.billTimestamp || "11 Apr 2026, 5:15 PM";
     order.reprintReason = order.reprintReason || "Not requested";
     order.reprintApprovedBy = order.reprintApprovedBy || "Not needed";
+    order.reprintLog = order.reprintLog || [];
     order.voidReason = order.voidReason || "Not requested";
     order.voidApprovedBy = order.voidApprovedBy || "Pending";
     order.voidRequested = order.voidRequested || false;
@@ -177,6 +193,11 @@ function mapOrderArrayToRecord(orders = []) {
   return Object.fromEntries((orders || []).map((order) => [order.tableId, order]));
 }
 
+function findNextEmptyTableId(currentTableId, ordersByTable, tableAreas) {
+  const tableIds = tableAreas.flatMap((area) => area.tables.map((table) => table.id));
+  return tableIds.find((tableId) => tableId !== currentTableId && (ordersByTable[tableId]?.items || []).length === 0);
+}
+
 export function App() {
   const [selectedTableId, setSelectedTableId] = useState("t1");
   const [selectedCategoryId, setSelectedCategoryId] = useState("starters");
@@ -189,6 +210,7 @@ export function App() {
   const [selectedVoidReason, setSelectedVoidReason] = useState(voidReasons[0]);
   const [closingLocked, setClosingLocked] = useState(loadRestaurantState().closingState?.approved || false);
   const [permissionPolicies, setPermissionPolicies] = useState(loadRestaurantState().permissionPolicies || {});
+  const [inventoryState, setInventoryState] = useState(loadRestaurantState().inventory || { diningItems: [] });
   const [approvalModal, setApprovalModal] = useState({
     type: null,
     approverRole: "Manager",
@@ -205,6 +227,10 @@ export function App() {
   const visibleMenuItems = useMemo(
     () => menuItems.filter((item) => item.categoryId === selectedCategoryId),
     [selectedCategoryId]
+  );
+  const diningInventoryById = useMemo(
+    () => Object.fromEntries((inventoryState.diningItems || []).map((item) => [item.id, item])),
+    [inventoryState]
   );
 
   const closedOrders = useMemo(
@@ -228,6 +254,7 @@ export function App() {
     return subscribeRestaurantState((nextState) => {
       setClosingLocked(nextState.closingState?.approved || false);
       setPermissionPolicies(nextState.permissionPolicies || {});
+      setInventoryState(nextState.inventory || { diningItems: [] });
       setOrdersByTable((current) => {
         const merged = structuredClone(current);
 
@@ -253,6 +280,7 @@ export function App() {
             billTimestamp: existing.billTimestamp || "11 Apr 2026, 5:15 PM",
             reprintReason: existing.reprintReason || "Not requested",
             reprintApprovedBy: existing.reprintApprovedBy || "Not needed",
+            reprintLog: existing.reprintLog || [],
             voidReason: existing.voidReason || "Not requested",
             voidApprovedBy: existing.voidApprovedBy || "Pending",
             voidRequested: existing.voidRequested || false,
@@ -317,6 +345,10 @@ export function App() {
 
   function addItem(menuItem) {
     if (currentOrder.isClosed || currentOrder.voidRequested || closingLocked) {
+      return;
+    }
+
+    if (diningInventoryById[menuItem.id]?.status === "Out of Stock") {
       return;
     }
 
@@ -426,6 +458,13 @@ export function App() {
       return;
     }
 
+    const unsentItems = currentOrder.items
+      .filter((item) => !item.sentToKot)
+      .map((item) => ({
+        menuItemId: item.menuItemId || item.id,
+        quantity: item.quantity
+      }));
+
     setOrdersByTable((current) => {
       const next = structuredClone(current);
       next[selectedTableId].items.forEach((item) => {
@@ -447,6 +486,10 @@ export function App() {
       }
       return next;
     });
+
+    if (unsentItems.length > 0) {
+      applyInventoryConsumption(unsentItems);
+    }
 
     api
       .post(`/operations/orders/${selectedTableId}/kot`, {
@@ -476,6 +519,21 @@ export function App() {
       order.billSplitCount = order.billSplitCount >= maxSplits ? 1 : order.billSplitCount + 1;
       return next;
     });
+
+    api
+      .post(`/operations/orders/${selectedTableId}/split-bill`, {
+        actorName: "Cashier Anita",
+        actorRole: "Cashier"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
   }
 
   function addPayment() {
@@ -506,6 +564,24 @@ export function App() {
     });
 
     setPaymentAmount("");
+
+    api
+      .post(`/operations/orders/${selectedTableId}/payments`, {
+        method: selectedPaymentMethod,
+        label: paymentMethods.find((method) => method.id === selectedPaymentMethod)?.label || selectedPaymentMethod,
+        amount: rawAmount,
+        actorName: "Cashier Anita",
+        actorRole: "Cashier"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
   }
 
   function fillRemainingAmount() {
@@ -635,6 +711,7 @@ export function App() {
       if (printMode === "reprint") {
         order.reprintReason = selectedReprintReason;
         order.reprintApprovedBy = "Manager Placeholder";
+        appendReprintLog(order, "Manager Placeholder", selectedReprintReason);
       }
 
       return next;
@@ -647,11 +724,30 @@ export function App() {
         if (printMode === "reprint") {
           next[selectedTableId].reprintReason = selectedReprintReason;
           next[selectedTableId].reprintApprovedBy = "Manager Placeholder";
+          appendReprintLog(next[selectedTableId], "Manager Placeholder", selectedReprintReason);
           appendAudit(next[selectedTableId], buildAuditEntry("Bill reprinted", "Cashier Anita", "Now"));
         }
       }
       return next;
     });
+
+    if (printMode === "reprint") {
+      api
+        .post(`/operations/orders/${selectedTableId}/reprint`, {
+          reason: selectedReprintReason,
+          actorName: "Cashier Anita",
+          actorRole: "Manager"
+        })
+        .then((nextOrder) => {
+          setOrdersByTable((current) =>
+            normalizeOrderMap({
+              ...current,
+              [selectedTableId]: nextOrder
+            })
+          );
+        })
+        .catch(() => {});
+    }
   }
 
   function requestVoid() {
@@ -695,6 +791,24 @@ export function App() {
       }
       return next;
     });
+
+    if (requiresOtpApproval) {
+      api
+        .post(`/operations/orders/${selectedTableId}/void-request`, {
+          reason: selectedVoidReason,
+          actorName: "Cashier Anita",
+          actorRole: "Cashier"
+        })
+        .then((nextOrder) => {
+          setOrdersByTable((current) =>
+            normalizeOrderMap({
+              ...current,
+              [selectedTableId]: nextOrder
+            })
+          );
+        })
+        .catch(() => {});
+    }
   }
 
   function approveVoid() {
@@ -763,6 +877,75 @@ export function App() {
       }
       return next;
     });
+
+    api
+      .post(`/operations/orders/${selectedTableId}/close`, {
+        actorName: "Cashier Anita",
+        actorRole: "Cashier"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            [selectedTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
+  }
+
+  function moveCurrentTable() {
+    if (!cashierTableSetupEnabled || closingLocked) {
+      return;
+    }
+
+    const targetTableId = findNextEmptyTableId(selectedTableId, ordersByTable, areas);
+    if (!targetTableId) {
+      return;
+    }
+
+    setOrdersByTable((current) => {
+      const next = structuredClone(current);
+      const movingOrder = structuredClone(next[selectedTableId]);
+      const targetSeed = next[targetTableId];
+
+      next[targetTableId] = {
+        ...movingOrder,
+        tableId: targetTableId,
+        tableNumber: targetSeed.tableNumber,
+        areaName: targetSeed.areaName,
+        notes: `Moved from ${movingOrder.tableNumber} to ${targetSeed.tableNumber}`
+      };
+      next[selectedTableId] = {
+        ...targetSeed,
+        items: [],
+        guests: 0,
+        billRequested: false,
+        billRequestedAt: null,
+        notes: "Ready for new guests",
+        auditTrail: []
+      };
+
+      return next;
+    });
+
+    api
+      .post(`/operations/orders/${selectedTableId}/move-table`, {
+        targetTableId,
+        actorName: "Cashier Anita",
+        actorRole: "Cashier"
+      })
+      .then((movedOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            [targetTableId]: movedOrder
+          })
+        );
+      })
+      .catch(() => {});
+
+    selectTable(targetTableId);
   }
 
   function handleCreateDemoOrder() {
@@ -771,6 +954,22 @@ export function App() {
     if (result.tableId) {
       selectTable(result.tableId);
     }
+
+    api
+      .post("/operations/orders/demo", {
+        actorName: "Cashier Anita",
+        actorRole: "Cashier"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrderMap({
+            ...current,
+            [nextOrder.tableId]: nextOrder
+          })
+        );
+        selectTable(nextOrder.tableId);
+      })
+      .catch(() => {});
   }
 
   function closeApprovalModal() {
@@ -836,7 +1035,7 @@ export function App() {
               <p className="eyebrow">Area and Table</p>
               <h2>Select Table</h2>
             </div>
-            <button type="button" className="ghost-btn" disabled={!cashierTableSetupEnabled}>
+            <button type="button" className="ghost-btn" disabled={!cashierTableSetupEnabled} onClick={moveCurrentTable}>
               {cashierTableSetupEnabled ? "Move Table" : "Table Setup Locked"}
             </button>
           </div>
@@ -1394,13 +1593,22 @@ export function App() {
                 type="button"
                 className="menu-pick-card"
                 onClick={() => addItem(item)}
-                disabled={currentOrder.isClosed || currentOrder.voidRequested || closingLocked}
+                disabled={
+                  currentOrder.isClosed ||
+                  currentOrder.voidRequested ||
+                  closingLocked ||
+                  diningInventoryById[item.id]?.status === "Out of Stock"
+                }
               >
                 <div>
                   <strong>{item.name}</strong>
                   <span>{item.station}</span>
+                  <span>{diningInventoryById[item.id]?.status || "Available"}</span>
                 </div>
-                <strong>{currency(item.price)}</strong>
+                <div>
+                  <strong>{currency(item.price)}</strong>
+                  <span>{diningInventoryById[item.id]?.status === "Out of Stock" ? "Out of stock" : ""}</span>
+                </div>
               </button>
             ))}
           </div>

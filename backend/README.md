@@ -26,13 +26,20 @@ This folder contains the initial Express backend scaffold for the restaurant POS
 
 1. Install Node.js 20+ and npm
 2. Copy `.env.example` to `.env`
-3. Install dependencies:
+3. Optional: enable PostgreSQL runtime persistence in `.env`
+
+```bash
+ENABLE_DATABASE=true
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/restaurant_pos
+```
+
+4. Install dependencies:
 
 ```bash
 npm install
 ```
 
-4. Start development server:
+5. Start development server:
 
 ```bash
 npm run dev
@@ -41,7 +48,7 @@ npm run dev
 ## Next implementation tasks
 
 - Add SQL migrations from `src/db/schema.sql`
-- Replace the in-memory operations repository with PostgreSQL queries
+- Replace runtime snapshot persistence with normalized PostgreSQL queries per module
 - Add request validation
 - Add password hashing and refresh token flow
 - Add tests for auth and owner dashboard endpoints
@@ -56,4 +63,8 @@ npm run dev
 - `POST /api/v1/operations/orders/:tableId/discount-approval`
 - `POST /api/v1/operations/orders/:tableId/void-approval`
 
-These endpoints currently use an in-memory store so the API contract is available before the PostgreSQL repositories are fully wired.
+These endpoints currently support two modes:
+- default in-memory mode for local preview
+- PostgreSQL runtime-state persistence when `ENABLE_DATABASE=true`
+
+This keeps the working API contract stable while we gradually replace snapshot persistence with normalized module-level SQL repositories.

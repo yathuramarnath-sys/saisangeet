@@ -1,5 +1,7 @@
 const {
   fetchOperationsSummary,
+  createOperationsDemoOrder,
+  moveOrderTableAssignment,
   fetchOrders,
   fetchOrderByTable,
   sendKot,
@@ -7,9 +9,15 @@ const {
   assignOrderWaiter,
   createOrderItem,
   editOrderItem,
+  updateSplitBill,
+  createOrderPayment,
+  settleOrder,
   approveOrderDiscount,
   approveOrderVoid,
-  updateOrderPickupStatus
+  updateOrderPickupStatus,
+  fetchOperationsControlLogs,
+  createOrderReprintLog,
+  createOrderVoidRequest
 } = require("./operations.repository");
 
 function resolveActor(actorName, actorRole, otpVerified) {
@@ -22,6 +30,18 @@ function resolveActor(actorName, actorRole, otpVerified) {
 
 async function getOperationsSummary() {
   return fetchOperationsSummary();
+}
+
+async function createDemoOperationsOrder(payload = {}) {
+  return createOperationsDemoOrder(resolveActor(payload.actorName, payload.actorRole));
+}
+
+async function moveOrderToTable(tableId, payload = {}) {
+  return moveOrderTableAssignment(
+    tableId,
+    payload.targetTableId,
+    resolveActor(payload.actorName, payload.actorRole)
+  );
 }
 
 async function getOrders() {
@@ -65,6 +85,22 @@ async function updateOrderItemDetails(tableId, itemId, payload = {}) {
   );
 }
 
+async function updateOrderSplit(tableId, payload = {}) {
+  return updateSplitBill(tableId, resolveActor(payload.actorName, payload.actorRole));
+}
+
+async function addPaymentToOrder(tableId, payload = {}) {
+  return createOrderPayment(
+    tableId,
+    payload,
+    resolveActor(payload.actorName, payload.actorRole)
+  );
+}
+
+async function settleOrderBill(tableId, payload = {}) {
+  return settleOrder(tableId, resolveActor(payload.actorName, payload.actorRole));
+}
+
 async function approveDiscountOverride(tableId, payload = {}) {
   return approveOrderDiscount(tableId, resolveActor(payload.actorName, payload.actorRole, payload.otpVerified));
 }
@@ -81,8 +117,30 @@ async function changeOrderStatus(tableId, payload = {}) {
   );
 }
 
+async function getOperationsControlLogs() {
+  return fetchOperationsControlLogs();
+}
+
+async function recordOrderReprint(tableId, payload = {}) {
+  return createOrderReprintLog(
+    tableId,
+    payload.reason,
+    resolveActor(payload.actorName, payload.actorRole)
+  );
+}
+
+async function requestOrderVoidApproval(tableId, payload = {}) {
+  return createOrderVoidRequest(
+    tableId,
+    payload.reason,
+    resolveActor(payload.actorName, payload.actorRole)
+  );
+}
+
 module.exports = {
   getOperationsSummary,
+  createDemoOperationsOrder,
+  moveOrderToTable,
   getOrders,
   getOrder,
   sendOrderKot,
@@ -90,7 +148,13 @@ module.exports = {
   assignWaiterToOrder,
   addItemToOrder,
   updateOrderItemDetails,
+  updateOrderSplit,
+  addPaymentToOrder,
+  settleOrderBill,
   approveDiscountOverride,
   approveVoidRequest,
-  changeOrderStatus
+  changeOrderStatus,
+  getOperationsControlLogs,
+  recordOrderReprint,
+  requestOrderVoidApproval
 };

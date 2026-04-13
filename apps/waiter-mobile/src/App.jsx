@@ -10,6 +10,7 @@ import {
   waiterTeam
 } from "./data/mobile.seed";
 import {
+  applyInventoryConsumption,
   buildAuditEntry,
   createDemoOrder,
   loadRestaurantState,
@@ -42,6 +43,11 @@ function normalizeOrders(orders) {
 
 function mapOrderArrayToRecord(orders = []) {
   return Object.fromEntries((orders || []).map((order) => [order.tableId, order]));
+}
+
+function findNextEmptyTableId(currentTableId, ordersByTable, tableAreas) {
+  const tableIds = tableAreas.flatMap((area) => area.tables.map((table) => table.id));
+  return tableIds.find((tableId) => tableId !== currentTableId && (ordersByTable[tableId]?.items || []).length === 0);
 }
 
 function tableClass(status, selected) {
@@ -78,6 +84,7 @@ export function App() {
   const [mobileBanner, setMobileBanner] = useState("Captain controls table orders");
   const [closingLocked, setClosingLocked] = useState(loadRestaurantState().closingState?.approved || false);
   const [permissionPolicies, setPermissionPolicies] = useState(loadRestaurantState().permissionPolicies || {});
+  const [inventoryState, setInventoryState] = useState(loadRestaurantState().inventory || { diningItems: [], productionItems: [] });
 
   const profile = staffProfiles.find((item) => item.id === selectedRoleId);
   const selectedArea = mobileAreas.find((area) => area.id === selectedAreaId);
@@ -86,6 +93,14 @@ export function App() {
   const visibleItems = useMemo(
     () => mobileMenuItems.filter((item) => item.categoryId === selectedCategoryId),
     [selectedCategoryId]
+  );
+  const diningInventoryById = useMemo(
+    () => Object.fromEntries((inventoryState.diningItems || []).map((item) => [item.id, item])),
+    [inventoryState]
+  );
+  const captainStockAlerts = useMemo(
+    () => (inventoryState.diningItems || []).filter((item) => item.status === "Low Stock" || item.status === "Out of Stock"),
+    [inventoryState]
   );
 
   const currentTotal = currentOrder.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -121,6 +136,7 @@ export function App() {
     return subscribeRestaurantState((nextState) => {
       setClosingLocked(nextState.closingState?.approved || false);
       setPermissionPolicies(nextState.permissionPolicies || {});
+      setInventoryState(nextState.inventory || { diningItems: [], productionItems: [] });
       setOrdersByTable((current) => ({
         ...current,
         ...JSON.parse(JSON.stringify(nextState.orders))
@@ -188,6 +204,12 @@ export function App() {
       return;
     }
 
+    const inventoryItem = diningInventoryById[item.id];
+    if (inventoryItem?.status === "Out of Stock") {
+      setMobileBanner(`${item.name} is out of stock`);
+      return;
+    }
+
     const lineId = `line-${Date.now()}-${item.id}`;
 
     setOrdersByTable((current) => {
@@ -195,6 +217,7 @@ export function App() {
       const order = next[selectedTableId];
       const newLine = {
         id: lineId,
+        menuItemId: item.id,
         name: item.name,
         price: item.price,
         quantity: 1,
@@ -325,6 +348,13 @@ export function App() {
       return;
     }
 
+    const unsentItems = currentOrder.items
+      .filter((item) => !item.sentToKot)
+      .map((item) => ({
+        menuItemId: item.menuItemId || item.id,
+        quantity: item.quantity
+      }));
+
     setOrdersByTable((current) => {
       const next = structuredClone(current);
       next[selectedTableId].items.forEach((item) => {
@@ -345,6 +375,10 @@ export function App() {
       appendAudit(next[selectedTableId], buildAuditEntry("KOT sent", "Captain Karthik", "Now"));
       return next;
     });
+
+    if (unsentItems.length > 0) {
+      applyInventoryConsumption(unsentItems);
+    }
 
     api
       .post(`/operations/orders/${selectedTableId}/kot`, {
@@ -513,6 +547,61 @@ export function App() {
     setMobileBanner(`Delivered to ${ordersByTable[tableId].tableNumber}`);
   }
 
+  function moveCurrentTable() {
+    if (selectedRoleId !== "captain" || !captainMoveTableEnabled || closingLocked) {
+      return;
+    }
+
+    const targetTableId = findNextEmptyTableId(selectedTableId, ordersByTable, mobileAreas);
+    if (!targetTableId) {
+      return;
+    }
+
+    setOrdersByTable((current) => {
+      const next = structuredClone(current);
+      const movingOrder = structuredClone(next[selectedTableId]);
+      const targetSeed = next[targetTableId];
+
+      next[targetTableId] = {
+        ...movingOrder,
+        tableId: targetTableId,
+        tableNumber: targetSeed.tableNumber,
+        areaName: targetSeed.areaName,
+        statusNote: `Moved from ${movingOrder.tableNumber} to ${targetSeed.tableNumber}`
+      };
+      next[selectedTableId] = {
+        ...targetSeed,
+        items: [],
+        guests: 0,
+        billRequested: false,
+        billRequestedAt: null,
+        statusNote: "Open table",
+        auditTrail: []
+      };
+
+      return next;
+    });
+
+    api
+      .post(`/operations/orders/${selectedTableId}/move-table`, {
+        targetTableId,
+        actorName: "Captain Karthik",
+        actorRole: "Captain"
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrders({
+            ...current,
+            [targetTableId]: nextOrder
+          })
+        );
+      })
+      .catch(() => {});
+
+    selectTable(targetTableId);
+    setMobileBanner(`Moved to ${ordersByTable[targetTableId].tableNumber}`);
+  }
+
   function handleCreateDemoOrder() {
     if (closingLocked) {
       return;
@@ -528,6 +617,27 @@ export function App() {
       setSelectedTableId(result.tableId);
       setMobileBanner(`Demo order created for ${ordersByTable[result.tableId]?.tableNumber || result.tableId.toUpperCase()}`);
     }
+
+    api
+      .post("/operations/orders/demo", {
+        actorName: profile.name,
+        actorRole: profile.role
+      })
+      .then((nextOrder) => {
+        setOrdersByTable((current) =>
+          normalizeOrders({
+            ...current,
+            [nextOrder.tableId]: nextOrder
+          })
+        );
+        const demoArea = mobileAreas.find((area) => area.tables.some((table) => table.id === nextOrder.tableId));
+        if (demoArea) {
+          setSelectedAreaId(demoArea.id);
+        }
+        setSelectedTableId(nextOrder.tableId);
+        setMobileBanner(`Demo order created for ${nextOrder.tableNumber}`);
+      })
+      .catch(() => {});
   }
 
   return (
@@ -553,6 +663,11 @@ export function App() {
 
       <div className="mobile-banner">{mobileBanner}</div>
       {closingLocked ? <div className="mobile-banner">Day closed • Ordering, assignment, pickup, and billing actions are locked</div> : null}
+      {selectedRoleId === "captain" && captainStockAlerts.length > 0 ? (
+        <div className="mobile-banner inventory-warning">
+          Stock alert: {captainStockAlerts.map((item) => `${item.name} ${item.status}`).join(", ")}
+        </div>
+      ) : null}
 
       <section className="mobile-card">
         <div className="section-head">
@@ -758,12 +873,25 @@ export function App() {
 
             <div className="menu-stack">
               {visibleItems.map((item) => (
-                <button key={item.id} type="button" className="menu-item-card" onClick={() => addItem(item)} disabled={closingLocked}>
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`menu-item-card ${diningInventoryById[item.id]?.status === "Out of Stock" ? "inventory-blocked" : ""}`}
+                  onClick={() => addItem(item)}
+                  disabled={closingLocked || diningInventoryById[item.id]?.status === "Out of Stock"}
+                >
                   <div>
                     <strong>{item.name}</strong>
                     <span>{currency(item.price)}</span>
+                    <span>{diningInventoryById[item.id]?.status || "Available"}</span>
                   </div>
-                  <span>Add</span>
+                  <span>
+                    {diningInventoryById[item.id]?.status === "Out of Stock"
+                      ? "Out of stock"
+                      : diningInventoryById[item.id]?.status === "Low Stock"
+                        ? "Low stock"
+                        : "Add"}
+                  </span>
                 </button>
               ))}
             </div>
@@ -890,6 +1018,7 @@ export function App() {
         <button
           type="button"
           className="secondary-action"
+          onClick={moveCurrentTable}
           disabled={selectedRoleId === "captain" && (!captainMoveTableEnabled || closingLocked)}
         >
           {selectedRoleId === "captain" && !captainMoveTableEnabled ? "Move Table Locked" : selectedRoleId === "captain" ? "Move Table" : "Assigned Tables"}

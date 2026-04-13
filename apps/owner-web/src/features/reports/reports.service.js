@@ -76,6 +76,24 @@ function deriveControlData(orders) {
       }
     ],
     approvalLog,
+    controlLogs: {
+      reprints: [],
+      deletedBills,
+      voidRequests: overrideOrders
+        .filter((order) => order.voidRequested)
+        .map((order) => ({
+          id: `${order.tableId}-void-request`,
+          outlet: order.areaName,
+          tableNumber: order.tableNumber,
+          orderNumber: order.orderNumber,
+          reason: order.voidReason,
+          actor: order.voidApprovedBy,
+          time: "Now",
+          type: "void-request",
+          status: "Pending OTP"
+        })),
+      unauthorizedAlerts
+    },
     alerts: [
       ...reportsSeedData.alerts,
       ...unauthorizedAlerts.slice(0, 2).map((alert) => ({
@@ -210,6 +228,14 @@ function mergeReportsData(orders, cashShifts, closingState) {
     closingCenter,
     controlSummary,
     approvalLog: hasLiveControlData ? liveControlData.approvalLog : reportsSeedData.approvalLog,
+    controlLogs: hasLiveControlData
+      ? liveControlData.controlLogs
+      : {
+          reprints: [],
+          deletedBills: [],
+          voidRequests: [],
+          unauthorizedAlerts: []
+        },
     alerts: [...(hasLiveControlData ? liveControlData.alerts : reportsSeedData.alerts), ...liveShiftData.alerts]
   };
 }
@@ -222,20 +248,20 @@ export async function fetchReportsData() {
   const state = loadRestaurantState();
 
   try {
-    const [operationsSummary, operationsOrders] = await Promise.all([
-      api.get("/operations/summary"),
-      api.get("/operations/orders")
-    ]);
+    const backendSummary = await api.get("/reports/owner-summary");
     const preferredClosingState =
       state.closingState?.approved || state.closingState?.reopenedAt
         ? state.closingState
-        : operationsSummary.closingState || state.closingState;
+        : backendSummary.closingState || state.closingState;
 
-    return mergeReportsData(
-      mapOrderArrayToRecord(operationsOrders),
-      state.cashShifts,
-      preferredClosingState
-    );
+    return {
+      ...backendSummary,
+      closingState: preferredClosingState,
+      permissionPolicies: {
+        ...(backendSummary.permissionPolicies || {}),
+        ...(state.permissionPolicies || {})
+      }
+    };
   } catch {
     return mergeReportsData(state.orders, state.cashShifts, state.closingState);
   }
@@ -248,27 +274,43 @@ export function subscribeOwnerReports(callback) {
 }
 
 export function approveClosingReport(actor = { name: "Owner", role: "Owner" }) {
-  return updateClosingState(() => ({
-    approved: true,
-    approvedAt: "11:32 PM",
-    approvedBy: actor.name,
-    approvedRole: actor.role,
-    reopenedAt: null,
-    reopenedBy: null,
-    reopenedRole: null,
-    status: "Approved and queued"
-  }));
+  return api
+    .post("/reports/closing/approve", actor)
+    .then((payload) => {
+      updateClosingState(() => payload.closingState);
+      return payload;
+    })
+    .catch(() =>
+      updateClosingState(() => ({
+        approved: true,
+        approvedAt: "11:32 PM",
+        approvedBy: actor.name,
+        approvedRole: actor.role,
+        reopenedAt: null,
+        reopenedBy: null,
+        reopenedRole: null,
+        status: "Approved and queued"
+      }))
+    );
 }
 
 export function reopenBusinessDay(actor = { name: "Owner", role: "Owner" }) {
-  return updateClosingState(() => ({
-    approved: false,
-    approvedAt: null,
-    approvedBy: null,
-    approvedRole: null,
-    reopenedAt: "6:00 AM",
-    reopenedBy: actor.name,
-    reopenedRole: actor.role,
-    status: "Open for operations"
-  }));
+  return api
+    .post("/reports/closing/reopen", actor)
+    .then((payload) => {
+      updateClosingState(() => payload.closingState);
+      return payload;
+    })
+    .catch(() =>
+      updateClosingState(() => ({
+        approved: false,
+        approvedAt: null,
+        approvedBy: null,
+        approvedRole: null,
+        reopenedAt: "6:00 AM",
+        reopenedBy: actor.name,
+        reopenedRole: actor.role,
+        status: "Open for operations"
+      }))
+    );
 }

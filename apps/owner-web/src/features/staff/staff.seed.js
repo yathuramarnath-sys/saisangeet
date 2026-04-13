@@ -22,6 +22,11 @@ export const staffSeedData = {
       summary: "Reports, approvals, outlet oversight"
     },
     {
+      id: "store-incharge",
+      name: "Store Incharge",
+      summary: "Kitchen production inventory only"
+    },
+    {
       id: "kitchen",
       name: "Kitchen",
       summary: "KOT and preparation view only"
@@ -92,6 +97,16 @@ export const staffSeedData = {
       voidApproval: "No access",
       reports: "No access",
       tableControl: "Pickup and deliver only"
+    },
+    {
+      id: "store-incharge",
+      role: "Store Incharge",
+      outletScope: "Assigned store",
+      closeDay: "No access",
+      discountOverride: "No access",
+      voidApproval: "No access",
+      reports: "Production stock only",
+      tableControl: "Production items only"
     },
     {
       id: "kitchen",

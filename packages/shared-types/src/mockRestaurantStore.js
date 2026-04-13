@@ -98,9 +98,186 @@ const defaultPermissionPolicies = {
   "cashier-discount-limit-percent": 5,
   "cashier-void-limit-amount": 200
 };
+const defaultInventory = {
+  diningItems: [
+    {
+      id: "paneer-tikka",
+      name: "Paneer Tikka",
+      outlet: "Indiranagar",
+      quantity: 14,
+      threshold: 4,
+      status: "Available",
+      quantityLabel: "14 portions",
+      alert: "Normal sale flow",
+      access: "Cashier + Manager"
+    },
+    {
+      id: "crispy-corn",
+      name: "Crispy Corn",
+      outlet: "Koramangala",
+      quantity: 5,
+      threshold: 5,
+      status: "Low Stock",
+      quantityLabel: "5 portions left",
+      alert: "Captain should push alternate starter if needed",
+      access: "Cashier + Manager"
+    },
+    {
+      id: "veg-biryani",
+      name: "Veg Biryani",
+      outlet: "HSR Layout",
+      quantity: 3,
+      threshold: 4,
+      status: "Low Stock",
+      quantityLabel: "3 portions left",
+      alert: "Show low-stock alert on captain mobile",
+      access: "Cashier + Manager"
+    },
+    {
+      id: "butter-naan",
+      name: "Butter Naan",
+      outlet: "Whitefield",
+      quantity: 0,
+      threshold: 5,
+      status: "Out of Stock",
+      quantityLabel: "0 portions",
+      alert: "Hide from captain quick-add flow",
+      access: "Cashier + Manager"
+    },
+    {
+      id: "sweet-lime",
+      name: "Sweet Lime",
+      outlet: "Indiranagar",
+      quantity: 22,
+      threshold: 6,
+      status: "Available",
+      quantityLabel: "22 glasses",
+      alert: "Normal sale flow",
+      access: "Cashier + Manager"
+    }
+  ],
+  productionItems: [
+    {
+      id: "rice",
+      name: "Rice",
+      unit: "kg",
+      quantity: 42,
+      threshold: 12,
+      status: "Healthy",
+      quantityLabel: "42 kg",
+      alert: "Enough for lunch and dinner production",
+      access: "Store Incharge + Manager"
+    },
+    {
+      id: "paneer",
+      name: "Paneer",
+      unit: "kg",
+      quantity: 6,
+      threshold: 8,
+      status: "Low Stock",
+      quantityLabel: "6 kg",
+      alert: "Refill needed before evening rush",
+      access: "Store Incharge + Manager"
+    },
+    {
+      id: "cooking-oil",
+      name: "Cooking Oil",
+      unit: "ltr",
+      quantity: 28,
+      threshold: 8,
+      status: "Healthy",
+      quantityLabel: "28 ltr",
+      alert: "Normal kitchen production stock",
+      access: "Store Incharge + Manager"
+    },
+    {
+      id: "sugar",
+      name: "Sugar",
+      unit: "kg",
+      quantity: 2,
+      threshold: 4,
+      status: "Critical",
+      quantityLabel: "2 kg",
+      alert: "Store incharge should issue stock immediately",
+      access: "Store Incharge + Manager"
+    }
+  ],
+  wasteLog: [
+    {
+      id: "waste-sugar-1",
+      itemName: "Sugar",
+      amount: "0.5 kg",
+      reason: "Spillage",
+      actor: "Store Incharge",
+      time: "Today"
+    }
+  ]
+};
+
+const productionRecipes = {
+  "paneer-tikka": [
+    { itemId: "paneer", amount: 0.25 },
+    { itemId: "cooking-oil", amount: 0.05 }
+  ],
+  "crispy-corn": [{ itemId: "cooking-oil", amount: 0.04 }],
+  "veg-biryani": [
+    { itemId: "rice", amount: 0.3 },
+    { itemId: "cooking-oil", amount: 0.03 }
+  ],
+  "butter-naan": [{ itemId: "cooking-oil", amount: 0.01 }],
+  "sweet-lime": [{ itemId: "sugar", amount: 0.03 }]
+};
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function formatDiningQuantity(value) {
+  return `${value} portions`;
+}
+
+function formatProductionQuantity(value, unit) {
+  return `${value} ${unit}`;
+}
+
+function getDiningStatus(quantity, threshold) {
+  if (quantity <= 0) {
+    return "Out of Stock";
+  }
+
+  if (quantity <= threshold) {
+    return "Low Stock";
+  }
+
+  return "Available";
+}
+
+function getProductionStatus(quantity, threshold) {
+  if (quantity <= Math.max(1, threshold / 2)) {
+    return "Critical";
+  }
+
+  if (quantity <= threshold) {
+    return "Low Stock";
+  }
+
+  return "Healthy";
+}
+
+function refreshDiningItem(item) {
+  return {
+    ...item,
+    status: getDiningStatus(Number(item.quantity || 0), Number(item.threshold || 0)),
+    quantityLabel: formatDiningQuantity(Number(item.quantity || 0))
+  };
+}
+
+function refreshProductionItem(item) {
+  return {
+    ...item,
+    status: getProductionStatus(Number(item.quantity || 0), Number(item.threshold || 0)),
+    quantityLabel: formatProductionQuantity(Number(item.quantity || 0), item.unit)
+  };
 }
 
 function normalizeOrders(orders) {
@@ -119,6 +296,7 @@ function buildDefaultState() {
   return {
     orders: normalizeOrders(clone(sharedOrders)),
     cashShifts: clone(defaultCashShifts),
+    inventory: clone(defaultInventory),
     permissionPolicies: clone(defaultPermissionPolicies),
     closingState: {
       approved: false,
@@ -196,6 +374,11 @@ export function loadRestaurantState() {
         ...(parsed.orders || {})
       }),
       cashShifts: parsed.cashShifts || clone(defaultCashShifts),
+      inventory: {
+        diningItems: (parsed.inventory?.diningItems || clone(defaultInventory.diningItems)).map(refreshDiningItem),
+        productionItems: (parsed.inventory?.productionItems || clone(defaultInventory.productionItems)).map(refreshProductionItem),
+        wasteLog: parsed.inventory?.wasteLog || clone(defaultInventory.wasteLog)
+      },
       permissionPolicies: {
         ...clone(defaultPermissionPolicies),
         ...(parsed.permissionPolicies || {})
@@ -257,6 +440,93 @@ export function updatePermissionPolicies(updater) {
       ...clone(defaultPermissionPolicies),
       ...nextPolicies
     }
+  });
+}
+
+export function updateInventoryState(updater) {
+  const currentState = loadRestaurantState();
+  const nextInventory = updater(
+    clone(
+      currentState.inventory || {
+        diningItems: defaultInventory.diningItems,
+        productionItems: defaultInventory.productionItems
+      }
+    )
+  );
+
+  return saveRestaurantState({
+    ...currentState,
+    inventory: {
+      diningItems: (nextInventory.diningItems || []).map(refreshDiningItem),
+      productionItems: (nextInventory.productionItems || []).map(refreshProductionItem),
+      wasteLog: nextInventory.wasteLog || []
+    }
+  });
+}
+
+export function applyInventoryConsumption(items = []) {
+  return updateInventoryState((current) => {
+    const next = clone(current);
+
+    items.forEach((orderItem) => {
+      const diningItem = next.diningItems.find((item) => item.id === orderItem.menuItemId);
+
+      if (diningItem) {
+        diningItem.quantity = Math.max(0, Number(diningItem.quantity || 0) - Number(orderItem.quantity || 0));
+        diningItem.alert =
+          diningItem.quantity <= 0
+            ? "Blocked from captain quick-add flow"
+            : diningItem.quantity <= Number(diningItem.threshold || 0)
+              ? "Captain mobile should warn before item goes out of stock"
+              : "Normal sale flow";
+      }
+
+      (productionRecipes[orderItem.menuItemId] || []).forEach((recipe) => {
+        const productionItem = next.productionItems.find((item) => item.id === recipe.itemId);
+
+        if (productionItem) {
+          productionItem.quantity = Math.max(
+            0,
+            Number(productionItem.quantity || 0) - Number(recipe.amount || 0) * Number(orderItem.quantity || 0)
+          );
+          productionItem.quantity = Number(productionItem.quantity.toFixed(2));
+          productionItem.alert =
+            productionItem.quantity <= Number(productionItem.threshold || 0)
+              ? "Manager should review issue quantity"
+              : "Production stock normalized";
+        }
+      });
+    });
+
+    return next;
+  });
+}
+
+export function recordInventoryWaste(itemId, amount, reason = "Waste entry", actor = "Store Incharge") {
+  return updateInventoryState((current) => {
+    const next = clone(current);
+    const productionItem = next.productionItems.find((item) => item.id === itemId);
+
+    if (!productionItem) {
+      return next;
+    }
+
+    productionItem.quantity = Math.max(0, Number(productionItem.quantity || 0) - Number(amount || 0));
+    productionItem.quantity = Number(productionItem.quantity.toFixed(2));
+    productionItem.alert = "Waste recorded and stock reduced";
+    next.wasteLog = [
+      {
+        id: `waste-${itemId}-${Date.now()}`,
+        itemName: productionItem.name,
+        amount: `${amount} ${productionItem.unit}`,
+        reason,
+        actor,
+        time: "Now"
+      },
+      ...(next.wasteLog || [])
+    ].slice(0, 6);
+
+    return next;
   });
 }
 

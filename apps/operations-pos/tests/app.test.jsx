@@ -178,4 +178,13 @@ describe("operations pos app", () => {
 
     expect(screen.getByRole("button", { name: "Table Setup Locked" })).toBeDisabled();
   });
+
+  it("shows low-stock menu visibility in pos and keeps out-of-stock items off the quick-pick list", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Biryani" })[0]);
+    expect(screen.getByRole("button", { name: /Veg Biryani/i })).toBeInTheDocument();
+    expect(screen.getByText("Low Stock")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Butter Naan/i })).not.toBeInTheDocument();
+  });
 });

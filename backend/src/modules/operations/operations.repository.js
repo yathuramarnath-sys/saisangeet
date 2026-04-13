@@ -2,62 +2,117 @@ const {
   listOrders,
   getOrder,
   getSummary,
+  createDemoOrder,
+  moveTable,
   markKotSent,
   requestBill,
   assignWaiter,
   addOrderItem,
   updateOrderItem,
+  splitOrderBill,
+  addOrderPayment,
+  closeOrder,
   approveDiscount,
   approveVoid,
-  updateOrderStatus
+  updateOrderStatus,
+  recordReprint,
+  requestVoidApproval,
+  getControlLogs
 } = require("./operations.memory-store");
+const { syncOperationsState, persistOperationsState } = require("./operations.state");
+
+async function runRead(operation) {
+  await syncOperationsState();
+  return operation();
+}
+
+async function runWrite(operation) {
+  await syncOperationsState();
+  const result = operation();
+  await persistOperationsState();
+  return result;
+}
 
 async function fetchOperationsSummary() {
-  return getSummary();
+  return runRead(() => getSummary());
+}
+
+async function createOperationsDemoOrder(actor) {
+  return runWrite(() => createDemoOrder(actor));
+}
+
+async function moveOrderTableAssignment(sourceTableId, targetTableId, actor) {
+  return runWrite(() => moveTable(sourceTableId, targetTableId, actor));
 }
 
 async function fetchOrders() {
-  return listOrders();
+  return runRead(() => listOrders());
 }
 
 async function fetchOrderByTable(tableId) {
-  return getOrder(tableId);
+  return runRead(() => getOrder(tableId));
 }
 
 async function sendKot(tableId, actor) {
-  return markKotSent(tableId, actor);
+  return runWrite(() => markKotSent(tableId, actor));
 }
 
 async function requestOrderBill(tableId, actor) {
-  return requestBill(tableId, actor);
+  return runWrite(() => requestBill(tableId, actor));
 }
 
 async function assignOrderWaiter(tableId, waiterName, actor) {
-  return assignWaiter(tableId, waiterName, actor);
+  return runWrite(() => assignWaiter(tableId, waiterName, actor));
 }
 
 async function createOrderItem(tableId, payload, actor) {
-  return addOrderItem(tableId, payload, actor);
+  return runWrite(() => addOrderItem(tableId, payload, actor));
 }
 
 async function editOrderItem(tableId, itemId, payload, actor) {
-  return updateOrderItem(tableId, itemId, payload, actor);
+  return runWrite(() => updateOrderItem(tableId, itemId, payload, actor));
+}
+
+async function updateSplitBill(tableId, actor) {
+  return runWrite(() => splitOrderBill(tableId, actor));
+}
+
+async function createOrderPayment(tableId, payload, actor) {
+  return runWrite(() => addOrderPayment(tableId, payload, actor));
+}
+
+async function settleOrder(tableId, actor) {
+  return runWrite(() => closeOrder(tableId, actor));
 }
 
 async function approveOrderDiscount(tableId, actor) {
-  return approveDiscount(tableId, actor);
+  return runWrite(() => approveDiscount(tableId, actor));
 }
 
 async function approveOrderVoid(tableId, actor) {
-  return approveVoid(tableId, actor);
+  return runWrite(() => approveVoid(tableId, actor));
 }
 
 async function updateOrderPickupStatus(tableId, pickupStatus, actor) {
-  return updateOrderStatus(tableId, pickupStatus, actor);
+  return runWrite(() => updateOrderStatus(tableId, pickupStatus, actor));
+}
+
+async function fetchOperationsControlLogs() {
+  return runRead(() => getControlLogs());
+}
+
+async function createOrderReprintLog(tableId, reason, actor) {
+  return runWrite(() => recordReprint(tableId, reason, actor));
+}
+
+async function createOrderVoidRequest(tableId, reason, actor) {
+  return runWrite(() => requestVoidApproval(tableId, reason, actor));
 }
 
 module.exports = {
   fetchOperationsSummary,
+  createOperationsDemoOrder,
+  moveOrderTableAssignment,
   fetchOrders,
   fetchOrderByTable,
   sendKot,
@@ -65,7 +120,13 @@ module.exports = {
   assignOrderWaiter,
   createOrderItem,
   editOrderItem,
+  updateSplitBill,
+  createOrderPayment,
+  settleOrder,
   approveOrderDiscount,
   approveOrderVoid,
-  updateOrderPickupStatus
+  updateOrderPickupStatus,
+  fetchOperationsControlLogs,
+  createOrderReprintLog,
+  createOrderVoidRequest
 };
