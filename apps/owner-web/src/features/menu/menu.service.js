@@ -10,6 +10,11 @@ function normalizeMenuItems(items) {
     status: item.status || "Live",
     foodType: item.foodType || "Veg",
     badges: item.badges || ["Standard pricing"],
+    inventoryTracking: item.inventoryTracking || {
+      enabled: false,
+      mode: "Optional",
+      note: "Inventory tracking is disabled for this item. Enable only if this product should use sales stock control."
+    },
     pricing: item.pricing || [],
     actions: item.actions || ["Edit"],
     review: item.status === "Review",

@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 
 import { subscribeRestaurantState } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
-import { addProductionWaste, fetchInventoryData, toggleDiningItemStatus, toggleProductionStock } from "./inventory.service";
+import {
+  addProductionWaste,
+  addPurchaseStock,
+  fetchInventoryData,
+  issueToKitchen,
+  runDiningCountCheck,
+  runProductionCountCheck,
+  toggleDiningItemStatus,
+  toggleProductionStock
+} from "./inventory.service";
 
 function statusClass(status) {
   return ["Low Stock", "Critical", "Out of Stock"].includes(status) ? "warning" : "online";
@@ -13,7 +22,12 @@ export function InventoryPage() {
     alerts: [],
     diningItems: [],
     productionItems: [],
-    wasteLog: []
+    wasteLog: [],
+    issueLog: [],
+    purchaseLog: [],
+    countLog: [],
+    varianceLog: [],
+    dailySummary: []
   });
 
   useEffect(() => {
@@ -50,10 +64,10 @@ export function InventoryPage() {
 
         <div className="topbar-actions">
           <button type="button" className="secondary-btn">
-            Export Stock
+            Category Entry
           </button>
           <button type="button" className="primary-btn">
-            Add Stock Entry
+            Item Entry
           </button>
         </div>
       </header>
@@ -63,8 +77,10 @@ export function InventoryPage() {
           <p className="hero-label">Inventory workflow</p>
           <h3>Split dining availability and kitchen production stock cleanly</h3>
           <p className="hero-copy">
-            Cashiers and managers can control saleable dining items, while store incharge and
-            managers track only production stock used by the kitchen.
+            Sales inventory stays independent for POS and waiter ordering. Kitchen inventory is a
+            separate optional module for raw materials, waste, issue, and kitchen-side control.
+            Keep sales stock entry simple with category-wise or item-wise updates before shift start
+            and again during service whenever needed.
           </p>
         </div>
 
@@ -94,12 +110,35 @@ export function InventoryPage() {
         ))}
       </section>
 
+      <section className="metrics-grid">
+        <article className="metric-card">
+          <span className="metric-label">Quick Entry Mode</span>
+          <strong>Category-wise or item-wise</strong>
+          <p>Cashier or manager can load stock quickly before shift opening or update it mid-shift.</p>
+        </article>
+        <article className="metric-card">
+          <span className="metric-label">Shift Timing</span>
+          <strong>Opening and in-between</strong>
+          <p>Designed for simple stock entry before service starts and fast correction during live billing.</p>
+        </article>
+      </section>
+
+      <section className="metrics-grid">
+        {inventoryData.dailySummary.map((item) => (
+          <article key={item.id} className="metric-card">
+            <span className="metric-label">{item.label}</span>
+            <strong>{item.value}</strong>
+            <p>{item.helper}</p>
+          </article>
+        ))}
+      </section>
+
       <section className="dashboard-grid reports-layout">
         <article className="panel panel-wide">
           <div className="panel-head">
             <div>
               <p className="eyebrow">Dining Inventory</p>
-              <h3>Cashier and Manager Access</h3>
+              <h3>Sales Inventory • Cashier and Manager Access</h3>
             </div>
           </div>
 
@@ -122,9 +161,14 @@ export function InventoryPage() {
                 <span>{item.threshold} portions</span>
                 <span>{item.alert}</span>
                 <span>
-                  <button type="button" className="ghost-btn" onClick={() => toggleDiningItemStatus(item.id)}>
-                    {item.status === "Out of Stock" ? "Mark Available" : "Mark Out Of Stock"}
-                  </button>
+                  <div className="topbar-actions">
+                    <button type="button" className="ghost-btn" onClick={() => toggleDiningItemStatus(item.id)}>
+                      {item.status === "Out of Stock" ? "Mark Available" : "Mark Out Of Stock"}
+                    </button>
+                    <button type="button" className="secondary-btn" onClick={() => runDiningCountCheck(item.id)}>
+                      Count Check
+                    </button>
+                  </div>
                 </span>
               </div>
             ))}
@@ -135,7 +179,7 @@ export function InventoryPage() {
           <div className="panel-head">
             <div>
               <p className="eyebrow">Kitchen Production</p>
-              <h3>Store Incharge and Manager Access</h3>
+              <h3>Kitchen Inventory • Store Incharge and Manager Access</h3>
             </div>
           </div>
 
@@ -163,8 +207,137 @@ export function InventoryPage() {
                     <button type="button" className="secondary-btn" onClick={() => addProductionWaste(item.id)}>
                       Waste 0.5
                     </button>
+                    <button type="button" className="secondary-btn" onClick={() => issueToKitchen(item.id)}>
+                      Issue 1
+                    </button>
+                    <button type="button" className="secondary-btn" onClick={() => addPurchaseStock(item.id)}>
+                      Inward 5
+                    </button>
+                    <button type="button" className="secondary-btn" onClick={() => runProductionCountCheck(item.id)}>
+                      Count Check
+                    </button>
                   </div>
                 </span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel panel-wide">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Physical Count</p>
+              <h3>Daily Stock Count Log</h3>
+            </div>
+          </div>
+
+          <div className="staff-table">
+            <div className="staff-row staff-head">
+              <span>Item</span>
+              <span>Type</span>
+              <span>System</span>
+              <span>Counted</span>
+              <span>Variance</span>
+              <span>Actor</span>
+              <span>Time</span>
+            </div>
+            {inventoryData.countLog.map((row) => (
+              <div key={row.id} className="staff-row">
+                <span>{row.itemName}</span>
+                <span>{row.category}</span>
+                <span>{row.systemQuantity}</span>
+                <span>{row.countedQuantity}</span>
+                <span>{row.variance}</span>
+                <span>{row.actor}</span>
+                <span>{row.time}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel panel-wide">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Variance Review</p>
+              <h3>Missing Stock Alert Report</h3>
+            </div>
+          </div>
+
+          <div className="staff-table">
+            <div className="staff-row staff-head">
+              <span>Item</span>
+              <span>Type</span>
+              <span>Variance</span>
+              <span>Severity</span>
+              <span>Note</span>
+              <span>Actor</span>
+              <span>Time</span>
+            </div>
+            {inventoryData.varianceLog.map((row) => (
+              <div key={row.id} className="staff-row">
+                <span>{row.itemName}</span>
+                <span>{row.category}</span>
+                <span>{row.variance}</span>
+                <span className={`status ${row.severity === "Missing" ? "warning" : "online"}`}>{row.severity}</span>
+                <span>{row.note}</span>
+                <span>{row.actor}</span>
+                <span>{row.time}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel panel-wide">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Store To Kitchen</p>
+              <h3>Production Issue Log</h3>
+            </div>
+          </div>
+
+          <div className="staff-table">
+            <div className="staff-row staff-head">
+              <span>Item</span>
+              <span>Qty</span>
+              <span>Destination</span>
+              <span>Actor</span>
+              <span>Time</span>
+            </div>
+            {inventoryData.issueLog.map((row) => (
+              <div key={row.id} className="staff-row">
+                <span>{row.itemName}</span>
+                <span>{row.amount}</span>
+                <span>{row.destination}</span>
+                <span>{row.actor}</span>
+                <span>{row.time}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel panel-wide">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Purchase Inward</p>
+              <h3>Stock Entry Log</h3>
+            </div>
+          </div>
+
+          <div className="staff-table">
+            <div className="staff-row staff-head">
+              <span>Item</span>
+              <span>Qty</span>
+              <span>Vendor</span>
+              <span>Actor</span>
+              <span>Time</span>
+            </div>
+            {inventoryData.purchaseLog.map((row) => (
+              <div key={row.id} className="staff-row">
+                <span>{row.itemName}</span>
+                <span>{row.amount}</span>
+                <span>{row.vendor}</span>
+                <span>{row.actor}</span>
+                <span>{row.time}</span>
               </div>
             ))}
           </div>

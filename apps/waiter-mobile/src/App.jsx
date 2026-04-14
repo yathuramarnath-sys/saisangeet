@@ -99,7 +99,10 @@ export function App() {
     [inventoryState]
   );
   const captainStockAlerts = useMemo(
-    () => (inventoryState.diningItems || []).filter((item) => item.status === "Low Stock" || item.status === "Out of Stock"),
+    () =>
+      (inventoryState.diningItems || []).filter(
+        (item) => item.trackingEnabled !== false && (item.status === "Low Stock" || item.status === "Out of Stock")
+      ),
     [inventoryState]
   );
 
@@ -205,7 +208,9 @@ export function App() {
     }
 
     const inventoryItem = diningInventoryById[item.id];
-    if (inventoryItem?.status === "Out of Stock") {
+    const isTracked = inventoryItem?.trackingEnabled !== false;
+
+    if (isTracked && inventoryItem?.status === "Out of Stock") {
       setMobileBanner(`${item.name} is out of stock`);
       return;
     }
@@ -873,26 +878,34 @@ export function App() {
 
             <div className="menu-stack">
               {visibleItems.map((item) => (
+                (() => {
+                  const inventoryItem = diningInventoryById[item.id];
+                  const isTracked = inventoryItem?.trackingEnabled !== false;
+                  const isBlocked = isTracked && inventoryItem?.status === "Out of Stock";
+                  const statusLabel = isTracked ? inventoryItem?.status || "Available" : "Not tracked";
+                  const actionLabel = isBlocked
+                    ? "Out of stock"
+                    : isTracked && inventoryItem?.status === "Low Stock"
+                      ? "Low stock"
+                      : "Add";
+
+                  return (
                 <button
                   key={item.id}
                   type="button"
-                  className={`menu-item-card ${diningInventoryById[item.id]?.status === "Out of Stock" ? "inventory-blocked" : ""}`}
+                  className={`menu-item-card ${isBlocked ? "inventory-blocked" : ""}`}
                   onClick={() => addItem(item)}
-                  disabled={closingLocked || diningInventoryById[item.id]?.status === "Out of Stock"}
+                  disabled={closingLocked || isBlocked}
                 >
                   <div>
                     <strong>{item.name}</strong>
                     <span>{currency(item.price)}</span>
-                    <span>{diningInventoryById[item.id]?.status || "Available"}</span>
+                    <span>{statusLabel}</span>
                   </div>
-                  <span>
-                    {diningInventoryById[item.id]?.status === "Out of Stock"
-                      ? "Out of stock"
-                      : diningInventoryById[item.id]?.status === "Low Stock"
-                        ? "Low stock"
-                        : "Add"}
-                  </span>
+                  <span>{actionLabel}</span>
                 </button>
+                  );
+                })()
               ))}
             </div>
           </section>

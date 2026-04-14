@@ -2,7 +2,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it } from "vitest";
 
 import { App } from "../src/App";
-import { loadRestaurantState, resetRestaurantState, updateClosingState, updatePermissionPolicies } from "../../../packages/shared-types/src/mockRestaurantStore.js";
+import {
+  loadRestaurantState,
+  resetRestaurantState,
+  updateClosingState,
+  updateInventoryState,
+  updatePermissionPolicies
+} from "../../../packages/shared-types/src/mockRestaurantStore.js";
 
 afterEach(() => {
   cleanup();
@@ -114,5 +120,27 @@ describe("waiter mobile app", () => {
       expect(vegBiryani.quantity).toBe(2);
       expect(["Low Stock", "Out of Stock"]).toContain(vegBiryani.status);
     });
+  });
+
+  it("keeps untracked items orderable even when quantity is zero", () => {
+    updateInventoryState((current) => ({
+      ...current,
+      diningItems: current.diningItems.map((item) =>
+        item.id === "crispy-corn"
+          ? {
+              ...item,
+              trackingEnabled: false,
+              quantity: 0,
+              status: "Out of Stock"
+            }
+          : item
+      )
+    }));
+
+    render(<App />);
+
+    const crispyCornButton = screen.getByRole("button", { name: /Crispy Corn/i });
+    expect(crispyCornButton).not.toBeDisabled();
+    expect(screen.getByText("Not tracked")).toBeInTheDocument();
   });
 });

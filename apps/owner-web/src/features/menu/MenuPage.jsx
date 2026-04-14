@@ -102,6 +102,11 @@ export function MenuPage() {
           <strong>184</strong>
           <p>2 items still need station assignment</p>
         </article>
+        <article className="metric-card">
+          <span className="metric-label">Inventory tracking</span>
+          <strong>Per product optional</strong>
+          <p>Enable only for items the restaurant wants to track in sales inventory</p>
+        </article>
       </section>
 
       <section className="dashboard-grid menu-layout">
@@ -164,6 +169,19 @@ export function MenuPage() {
                       </span>
                     ))}
                   </div>
+
+                  <div className="mini-stack">
+                    <div className="mini-card">
+                      <span>Inventory tracking</span>
+                      <strong>{item.inventoryTracking.enabled ? "Enabled" : "Disabled"}</strong>
+                    </div>
+                    <div className="mini-card">
+                      <span>Entry style</span>
+                      <strong>{item.inventoryTracking.mode}</strong>
+                    </div>
+                  </div>
+
+                  <p>{item.inventoryTracking.note}</p>
 
                   <div className={`pricing-table ${item.compact ? "compact" : ""}`}>
                     <div className="pricing-table-row pricing-table-head">
@@ -258,6 +276,21 @@ export function MenuPage() {
                 <option>Fry station</option>
                 <option>Grill station</option>
                 <option>Main kitchen</option>
+              </select>
+            </label>
+            <label>
+              Track inventory
+              <select defaultValue="Enabled">
+                <option>Enabled</option>
+                <option>Disabled</option>
+              </select>
+            </label>
+            <label>
+              Entry style
+              <select defaultValue="Item wise">
+                <option>Item wise</option>
+                <option>Category wise</option>
+                <option>Optional later</option>
               </select>
             </label>
             <button type="button" className="primary-btn full-width">

@@ -126,9 +126,12 @@ function deriveShiftControlData(cashShifts) {
 }
 
 function mergeReportsData(orders, cashShifts, closingState) {
-  const permissionPolicies = loadRestaurantState().permissionPolicies || {};
+  const localState = loadRestaurantState();
+  const permissionPolicies = localState.permissionPolicies || {};
+  const inventoryState = localState.inventory || {};
   const liveControlData = deriveControlData(orders);
   const liveShiftData = deriveShiftControlData(cashShifts);
+  const stockVarianceLog = inventoryState.varianceLog || [];
   const hasLiveControlData =
     liveControlData.approvalLog.length > 0 ||
     liveControlData.controlSummary.some((item) => item.status !== "Strong" && item.value !== "0 approved" && item.value !== "0 today" && item.value !== "0 alerts");
@@ -167,6 +170,15 @@ function mergeReportsData(orders, cashShifts, closingState) {
             }
           ]
         : []),
+      ...(stockVarianceLog.length > 0
+        ? [
+            {
+              id: "live-stock-variance",
+              title: `${stockVarianceLog.length} stock mismatch alert pending review`,
+              detail: stockVarianceLog[0].note
+            }
+          ]
+        : []),
       ...reportsSeedData.closingCenter.blockers
     ].slice(0, 4),
     checklist: reportsSeedData.closingCenter.checklist.map((item) => {
@@ -180,7 +192,7 @@ function mergeReportsData(orders, cashShifts, closingState) {
       if (item.id === "risk-review") {
         return {
           ...item,
-          status: pendingOverrideCount > 0 || deletedBillCount > 0 ? "Pending" : "Done"
+          status: pendingOverrideCount > 0 || deletedBillCount > 0 || stockVarianceLog.length > 0 ? "Pending" : "Done"
         };
       }
 
@@ -236,7 +248,15 @@ function mergeReportsData(orders, cashShifts, closingState) {
           voidRequests: [],
           unauthorizedAlerts: []
         },
-    alerts: [...(hasLiveControlData ? liveControlData.alerts : reportsSeedData.alerts), ...liveShiftData.alerts]
+    alerts: [
+      ...(hasLiveControlData ? liveControlData.alerts : reportsSeedData.alerts),
+      ...liveShiftData.alerts,
+      ...stockVarianceLog.slice(0, 2).map((item) => ({
+        id: item.id,
+        title: `${item.itemName} stock mismatch detected`,
+        description: item.note
+      }))
+    ]
   };
 }
 

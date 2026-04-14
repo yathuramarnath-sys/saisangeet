@@ -66,6 +66,83 @@ CREATE TABLE menu_items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE sales_inventory_items (
+  id UUID PRIMARY KEY,
+  outlet_id UUID NOT NULL REFERENCES outlets(id) ON DELETE CASCADE,
+  menu_item_id UUID REFERENCES menu_items(id) ON DELETE SET NULL,
+  sku_code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  unit_label TEXT NOT NULL DEFAULT 'portion',
+  reorder_level NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  par_level NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (outlet_id, sku_code)
+);
+
+CREATE TABLE sales_inventory_ledger (
+  id UUID PRIMARY KEY,
+  sales_inventory_item_id UUID NOT NULL REFERENCES sales_inventory_items(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  quantity_delta NUMERIC(10, 2) NOT NULL,
+  balance_after NUMERIC(10, 2) NOT NULL,
+  source_type TEXT,
+  source_id UUID,
+  notes TEXT,
+  actor_name TEXT,
+  actor_role TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE kitchen_inventory_items (
+  id UUID PRIMARY KEY,
+  outlet_id UUID NOT NULL REFERENCES outlets(id) ON DELETE CASCADE,
+  item_code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category_name TEXT,
+  unit_label TEXT NOT NULL,
+  reorder_level NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (outlet_id, item_code)
+);
+
+CREATE TABLE kitchen_inventory_ledger (
+  id UUID PRIMARY KEY,
+  kitchen_inventory_item_id UUID NOT NULL REFERENCES kitchen_inventory_items(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  quantity_delta NUMERIC(10, 2) NOT NULL,
+  balance_after NUMERIC(10, 2) NOT NULL,
+  source_type TEXT,
+  source_id UUID,
+  notes TEXT,
+  actor_name TEXT,
+  actor_role TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE stock_count_sessions (
+  id UUID PRIMARY KEY,
+  outlet_id UUID NOT NULL REFERENCES outlets(id) ON DELETE CASCADE,
+  inventory_domain TEXT NOT NULL,
+  counted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE stock_count_lines (
+  id UUID PRIMARY KEY,
+  session_id UUID NOT NULL REFERENCES stock_count_sessions(id) ON DELETE CASCADE,
+  item_ref_id UUID NOT NULL,
+  expected_quantity NUMERIC(10, 2) NOT NULL,
+  counted_quantity NUMERIC(10, 2) NOT NULL,
+  variance_quantity NUMERIC(10, 2) NOT NULL,
+  variance_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE orders (
   id UUID PRIMARY KEY,
   outlet_id UUID NOT NULL REFERENCES outlets(id) ON DELETE CASCADE,

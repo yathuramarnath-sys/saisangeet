@@ -103,6 +103,8 @@ const defaultInventory = {
     {
       id: "paneer-tikka",
       name: "Paneer Tikka",
+      trackingEnabled: true,
+      trackingMode: "Item wise",
       outlet: "Indiranagar",
       quantity: 14,
       threshold: 4,
@@ -114,6 +116,8 @@ const defaultInventory = {
     {
       id: "crispy-corn",
       name: "Crispy Corn",
+      trackingEnabled: false,
+      trackingMode: "Optional later",
       outlet: "Koramangala",
       quantity: 5,
       threshold: 5,
@@ -125,6 +129,8 @@ const defaultInventory = {
     {
       id: "veg-biryani",
       name: "Veg Biryani",
+      trackingEnabled: true,
+      trackingMode: "Category wise",
       outlet: "HSR Layout",
       quantity: 3,
       threshold: 4,
@@ -136,6 +142,8 @@ const defaultInventory = {
     {
       id: "butter-naan",
       name: "Butter Naan",
+      trackingEnabled: true,
+      trackingMode: "Item wise",
       outlet: "Whitefield",
       quantity: 0,
       threshold: 5,
@@ -147,6 +155,8 @@ const defaultInventory = {
     {
       id: "sweet-lime",
       name: "Sweet Lime",
+      trackingEnabled: false,
+      trackingMode: "Optional later",
       outlet: "Indiranagar",
       quantity: 22,
       threshold: 6,
@@ -211,6 +221,51 @@ const defaultInventory = {
       actor: "Store Incharge",
       time: "Today"
     }
+  ],
+  issueLog: [
+    {
+      id: "issue-paneer-1",
+      itemName: "Paneer",
+      amount: "2 kg",
+      from: "Store",
+      to: "Main Kitchen",
+      actor: "Store Incharge",
+      time: "Today"
+    }
+  ],
+  purchaseLog: [
+    {
+      id: "purchase-rice-1",
+      itemName: "Rice",
+      amount: "25 kg",
+      vendor: "A1 Traders",
+      actor: "Manager",
+      time: "Today"
+    }
+  ],
+  countLog: [
+    {
+      id: "count-paneer-1",
+      itemName: "Paneer Tikka",
+      category: "Dining",
+      systemQuantity: "14 portions",
+      countedQuantity: "13 portions",
+      variance: "-1 portions",
+      actor: "Manager",
+      time: "Today"
+    }
+  ],
+  varianceLog: [
+    {
+      id: "variance-paneer-1",
+      itemName: "Paneer Tikka",
+      category: "Dining",
+      variance: "-1 portions",
+      severity: "Missing",
+      note: "Physical count is below system stock. Review leakage, wastage, or missed billing.",
+      actor: "Manager",
+      time: "Today"
+    }
   ]
 };
 
@@ -265,6 +320,15 @@ function getProductionStatus(quantity, threshold) {
 }
 
 function refreshDiningItem(item) {
+  if (item.trackingEnabled === false) {
+    return {
+      ...item,
+      status: "Not tracked",
+      quantityLabel: item.quantityLabel || "Tracking off",
+      alert: item.alert || "Inventory tracking is disabled for this item"
+    };
+  }
+
   return {
     ...item,
     status: getDiningStatus(Number(item.quantity || 0), Number(item.threshold || 0)),
@@ -377,7 +441,11 @@ export function loadRestaurantState() {
       inventory: {
         diningItems: (parsed.inventory?.diningItems || clone(defaultInventory.diningItems)).map(refreshDiningItem),
         productionItems: (parsed.inventory?.productionItems || clone(defaultInventory.productionItems)).map(refreshProductionItem),
-        wasteLog: parsed.inventory?.wasteLog || clone(defaultInventory.wasteLog)
+        wasteLog: parsed.inventory?.wasteLog || clone(defaultInventory.wasteLog),
+        issueLog: parsed.inventory?.issueLog || clone(defaultInventory.issueLog),
+        purchaseLog: parsed.inventory?.purchaseLog || clone(defaultInventory.purchaseLog),
+        countLog: parsed.inventory?.countLog || clone(defaultInventory.countLog),
+        varianceLog: parsed.inventory?.varianceLog || clone(defaultInventory.varianceLog)
       },
       permissionPolicies: {
         ...clone(defaultPermissionPolicies),
@@ -459,7 +527,11 @@ export function updateInventoryState(updater) {
     inventory: {
       diningItems: (nextInventory.diningItems || []).map(refreshDiningItem),
       productionItems: (nextInventory.productionItems || []).map(refreshProductionItem),
-      wasteLog: nextInventory.wasteLog || []
+      wasteLog: nextInventory.wasteLog || [],
+      issueLog: nextInventory.issueLog || [],
+      purchaseLog: nextInventory.purchaseLog || [],
+      countLog: nextInventory.countLog || [],
+      varianceLog: nextInventory.varianceLog || []
     }
   });
 }
@@ -472,6 +544,10 @@ export function applyInventoryConsumption(items = []) {
       const diningItem = next.diningItems.find((item) => item.id === orderItem.menuItemId);
 
       if (diningItem) {
+        if (diningItem.trackingEnabled === false) {
+          return;
+        }
+
         diningItem.quantity = Math.max(0, Number(diningItem.quantity || 0) - Number(orderItem.quantity || 0));
         diningItem.alert =
           diningItem.quantity <= 0
@@ -480,22 +556,6 @@ export function applyInventoryConsumption(items = []) {
               ? "Captain mobile should warn before item goes out of stock"
               : "Normal sale flow";
       }
-
-      (productionRecipes[orderItem.menuItemId] || []).forEach((recipe) => {
-        const productionItem = next.productionItems.find((item) => item.id === recipe.itemId);
-
-        if (productionItem) {
-          productionItem.quantity = Math.max(
-            0,
-            Number(productionItem.quantity || 0) - Number(recipe.amount || 0) * Number(orderItem.quantity || 0)
-          );
-          productionItem.quantity = Number(productionItem.quantity.toFixed(2));
-          productionItem.alert =
-            productionItem.quantity <= Number(productionItem.threshold || 0)
-              ? "Manager should review issue quantity"
-              : "Production stock normalized";
-        }
-      });
     });
 
     return next;
@@ -525,6 +585,123 @@ export function recordInventoryWaste(itemId, amount, reason = "Waste entry", act
       },
       ...(next.wasteLog || [])
     ].slice(0, 6);
+
+    return next;
+  });
+}
+
+export function issueProductionInventory(itemId, amount, destination = "Main Kitchen", actor = "Store Incharge") {
+  return updateInventoryState((current) => {
+    const next = clone(current);
+    const productionItem = next.productionItems.find((item) => item.id === itemId);
+
+    if (!productionItem) {
+      return next;
+    }
+
+    productionItem.quantity = Math.max(0, Number(productionItem.quantity || 0) - Number(amount || 0));
+    productionItem.quantity = Number(productionItem.quantity.toFixed(2));
+    productionItem.alert = "Issued to kitchen production";
+    next.issueLog = [
+      {
+        id: `issue-${itemId}-${Date.now()}`,
+        itemName: productionItem.name,
+        amount: `${amount} ${productionItem.unit}`,
+        from: "Store",
+        to: destination,
+        actor,
+        time: "Now"
+      },
+      ...(next.issueLog || [])
+    ].slice(0, 6);
+
+    return next;
+  });
+}
+
+export function addPurchaseInventory(itemId, amount, vendor = "Vendor", actor = "Manager") {
+  return updateInventoryState((current) => {
+    const next = clone(current);
+    const productionItem = next.productionItems.find((item) => item.id === itemId);
+
+    if (!productionItem) {
+      return next;
+    }
+
+    productionItem.quantity = Number(Number(productionItem.quantity || 0) + Number(amount || 0));
+    productionItem.quantity = Number(productionItem.quantity.toFixed(2));
+    productionItem.alert = "Fresh inward stock added";
+    next.purchaseLog = [
+      {
+        id: `purchase-${itemId}-${Date.now()}`,
+        itemName: productionItem.name,
+        amount: `${amount} ${productionItem.unit}`,
+        vendor,
+        actor,
+        time: "Now"
+      },
+      ...(next.purchaseLog || [])
+    ].slice(0, 6);
+
+    return next;
+  });
+}
+
+export function recordInventoryCount(itemId, countedQuantity, actor = "Manager") {
+  return updateInventoryState((current) => {
+    const next = clone(current);
+    const diningItem = next.diningItems.find((item) => item.id === itemId);
+    const productionItem = next.productionItems.find((item) => item.id === itemId);
+    const targetItem = diningItem || productionItem;
+
+    if (!targetItem) {
+      return next;
+    }
+
+    const category = diningItem ? "Dining" : "Production";
+    const unit = diningItem ? "portions" : targetItem.unit;
+    const systemQuantity = Number(targetItem.quantity || 0);
+    const counted = Number(countedQuantity || 0);
+    const variance = Number((counted - systemQuantity).toFixed(2));
+    const varianceLabel = `${variance > 0 ? "+" : ""}${variance} ${unit}`;
+
+    next.countLog = [
+      {
+        id: `count-${itemId}-${Date.now()}`,
+        itemName: targetItem.name,
+        category,
+        systemQuantity: `${systemQuantity} ${unit}`,
+        countedQuantity: `${counted} ${unit}`,
+        variance: varianceLabel,
+        actor,
+        time: "Now"
+      },
+      ...(next.countLog || [])
+    ].slice(0, 8);
+
+    if (variance !== 0) {
+      targetItem.alert =
+        variance < 0
+          ? "Missing stock alert should be reviewed before daily closing"
+          : "Extra stock found during physical count";
+
+      next.varianceLog = [
+        {
+          id: `variance-${itemId}-${Date.now()}`,
+          itemName: targetItem.name,
+          category,
+          variance: varianceLabel,
+          severity: variance < 0 ? "Missing" : "Excess",
+          note:
+            variance < 0
+              ? "Physical count is below system stock. Review leakage, wastage, or missed billing."
+              : "Physical count is above system stock. Review inward entries and manual adjustments.",
+          actor,
+          time: "Now"
+        },
+        ...(next.varianceLog || [])
+      ].slice(0, 8);
+    }
 
     return next;
   });

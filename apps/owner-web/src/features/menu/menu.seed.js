@@ -15,7 +15,12 @@ export const menuSeedData = {
       gstLabel: "GST 5%",
       status: "Favorite",
       foodType: "Veg",
-      badges: ["Area + service pricing", "Available"],
+      badges: ["Area + service pricing", "Available", "Tracked"],
+      inventoryTracking: {
+        enabled: true,
+        mode: "Item wise",
+        note: "Track sellable stock for POS and waiter ordering"
+      },
       pricing: [
         { area: "AC", dineIn: "Rs 220", takeaway: "Rs 210", delivery: "Rs 230" },
         { area: "Non-AC", dineIn: "Rs 210", takeaway: "Rs 205", delivery: "Rs 225" },
@@ -30,7 +35,12 @@ export const menuSeedData = {
       gstLabel: "GST 5%",
       status: "Live",
       foodType: "Non-Veg",
-      badges: ["Area + service pricing", "Available"],
+      badges: ["Area + service pricing", "Available", "Not tracked"],
+      inventoryTracking: {
+        enabled: false,
+        mode: "Optional",
+        note: "Restaurant can sell this item without inventory tracking"
+      },
       pricing: [
         { area: "AC", dineIn: "Rs 260", takeaway: "Rs 250", delivery: "Rs 275" },
         { area: "Non-AC", dineIn: "Rs 245", takeaway: "Rs 240", delivery: "Rs 265" },
@@ -45,7 +55,12 @@ export const menuSeedData = {
       gstLabel: "GST missing",
       status: "Review",
       foodType: "Veg",
-      badges: ["Pricing pending", "Needs setup"],
+      badges: ["Pricing pending", "Needs setup", "Not tracked"],
+      inventoryTracking: {
+        enabled: false,
+        mode: "Optional",
+        note: "Enable only if this item should participate in sales stock"
+      },
       pricing: [
         { area: "AC", dineIn: "Not set", takeaway: "Not set", delivery: "Not set" },
         { area: "Non-AC", dineIn: "Not set", takeaway: "Not set", delivery: "Not set" },
@@ -62,7 +77,12 @@ export const menuSeedData = {
       gstLabel: "GST 5%",
       status: "Live",
       foodType: "Veg",
-      badges: ["Area + service pricing", "Available"],
+      badges: ["Area + service pricing", "Available", "Tracked"],
+      inventoryTracking: {
+        enabled: true,
+        mode: "Category wise",
+        note: "Included in opening stock category-wise sales tracking"
+      },
       pricing: [
         { area: "AC", dineIn: "Rs 210", takeaway: "Rs 200", delivery: "Rs 220" },
         { area: "Non-AC", dineIn: "Rs 200", takeaway: "Rs 195", delivery: "Rs 215" },

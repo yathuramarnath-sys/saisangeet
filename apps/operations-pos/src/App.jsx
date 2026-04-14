@@ -348,7 +348,10 @@ export function App() {
       return;
     }
 
-    if (diningInventoryById[menuItem.id]?.status === "Out of Stock") {
+    const inventoryItem = diningInventoryById[menuItem.id];
+    const isTracked = inventoryItem?.trackingEnabled !== false;
+
+    if (isTracked && inventoryItem?.status === "Out of Stock") {
       return;
     }
 
@@ -1587,7 +1590,15 @@ export function App() {
           </div>
 
           <div className="menu-item-stack">
-            {visibleMenuItems.map((item) => (
+              {visibleMenuItems.map((item) => (
+                (() => {
+                  const inventoryItem = diningInventoryById[item.id];
+                  const isTracked = inventoryItem?.trackingEnabled !== false;
+                  const isBlocked = isTracked && inventoryItem?.status === "Out of Stock";
+                  const statusLabel = isTracked ? inventoryItem?.status || "Available" : "Not tracked";
+                  const helperLabel = isBlocked ? "Out of stock" : "";
+
+                  return (
               <button
                 key={item.id}
                 type="button"
@@ -1597,19 +1608,21 @@ export function App() {
                   currentOrder.isClosed ||
                   currentOrder.voidRequested ||
                   closingLocked ||
-                  diningInventoryById[item.id]?.status === "Out of Stock"
+                  isBlocked
                 }
               >
                 <div>
                   <strong>{item.name}</strong>
                   <span>{item.station}</span>
-                  <span>{diningInventoryById[item.id]?.status || "Available"}</span>
+                  <span>{statusLabel}</span>
                 </div>
                 <div>
                   <strong>{currency(item.price)}</strong>
-                  <span>{diningInventoryById[item.id]?.status === "Out of Stock" ? "Out of stock" : ""}</span>
+                  <span>{helperLabel}</span>
                 </div>
               </button>
+                  );
+                })()
             ))}
           </div>
 

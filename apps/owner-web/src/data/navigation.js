@@ -2,6 +2,7 @@ export const navigation = [
   { id: "overview", label: "Overview", path: "/", prototypeFile: "index.html" },
   { id: "outlets", label: "Outlets", path: "/outlets", mode: "react" },
   { id: "menu", label: "Menu & Categories", path: "/menu", mode: "react" },
+  { id: "menus", label: "Menus", path: "/menus", mode: "react" },
   { id: "staff", label: "Staff & Roles", path: "/staff", mode: "react" },
   { id: "discounts", label: "Discount Rules", path: "/discount-rules", mode: "react" },
   { id: "integrations", label: "Integrations", path: "/integrations", mode: "react" },
