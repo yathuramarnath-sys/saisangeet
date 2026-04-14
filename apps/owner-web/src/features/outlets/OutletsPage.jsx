@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchOutlets } from "./outlets.service";
+import { createOutlet, fetchOutlets } from "./outlets.service";
 
 function statusClass(status) {
   return status === "Review" ? "warning" : "online";
@@ -9,6 +9,7 @@ function statusClass(status) {
 export function OutletsPage() {
   const [outlets, setOutlets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -28,6 +29,30 @@ export function OutletsPage() {
       cancelled = true;
     };
   }, []);
+
+  async function reloadOutlets() {
+    const result = await fetchOutlets();
+    setOutlets(result);
+    setLoading(false);
+  }
+
+  async function handleCreateOutlet(event) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    await createOutlet({
+      name: formData.get("name"),
+      code: formData.get("code"),
+      city: formData.get("city"),
+      state: "Karnataka",
+      gstin: formData.get("gstin"),
+      defaultTaxProfileId: formData.get("defaultTaxProfileId")
+    });
+
+    await reloadOutlets();
+    event.currentTarget.reset();
+    setStatusMessage("Outlet created and added to owner setup.");
+  }
 
   const outletCount = outlets.length || 4;
   const deviceCount = outlets.reduce((total, outlet) => total + outlet.devicesLinked, 0) || 6;
@@ -160,27 +185,32 @@ export function OutletsPage() {
             </div>
           </div>
 
-          <form className="simple-form">
+          <form className="simple-form" onSubmit={handleCreateOutlet}>
             <label>
               Outlet name
-              <input type="text" defaultValue="Electronic City" />
+              <input type="text" name="name" defaultValue="Electronic City" required />
             </label>
             <label>
               Outlet code
-              <input type="text" defaultValue="BLR-05" />
+              <input type="text" name="code" defaultValue="BLR-05" required />
             </label>
             <label>
               City
-              <input type="text" defaultValue="Bengaluru" />
+              <input type="text" name="city" defaultValue="Bengaluru" required />
+            </label>
+            <label>
+              GSTIN
+              <input type="text" name="gstin" defaultValue="29ABCDE1234F1Z5" />
             </label>
             <label>
               Default GST
-              <select defaultValue="GST 5%">
-                <option>GST 5%</option>
-                <option>GST 18%</option>
+              <select name="defaultTaxProfileId" defaultValue="tax-5">
+                <option value="tax-5">GST 5%</option>
+                <option value="tax-18">GST 18%</option>
               </select>
             </label>
-            <button type="button" className="primary-btn full-width">
+            {statusMessage ? <p>{statusMessage}</p> : null}
+            <button type="submit" className="primary-btn full-width">
               Save Outlet
             </button>
           </form>

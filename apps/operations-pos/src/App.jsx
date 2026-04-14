@@ -25,6 +25,7 @@ const businessProfile = {
   address: "Thyagaraya Nagar, Chennai",
   gstin: "33ABCDE1234F1Z5"
 };
+const activeOutletName = "Indiranagar";
 
 function tableClass(status, isSelected) {
   return `table-card ${status} ${isSelected ? "selected" : ""}`;
@@ -211,6 +212,7 @@ export function App() {
   const [closingLocked, setClosingLocked] = useState(loadRestaurantState().closingState?.approved || false);
   const [permissionPolicies, setPermissionPolicies] = useState(loadRestaurantState().permissionPolicies || {});
   const [inventoryState, setInventoryState] = useState(loadRestaurantState().inventory || { diningItems: [] });
+  const [menuControls, setMenuControls] = useState(loadRestaurantState().menuControls || {});
   const [approvalModal, setApprovalModal] = useState({
     type: null,
     approverRole: "Manager",
@@ -225,8 +227,11 @@ export function App() {
   const cashierVoidLimitAmount = Number(permissionPolicies["cashier-void-limit-amount"] || 200);
 
   const visibleMenuItems = useMemo(
-    () => menuItems.filter((item) => item.categoryId === selectedCategoryId),
-    [selectedCategoryId]
+    () =>
+      menuItems.filter(
+        (item) => item.categoryId === selectedCategoryId && menuControls[item.id]?.outletAvailability?.[activeOutletName] !== false
+      ),
+    [menuControls, selectedCategoryId]
   );
   const diningInventoryById = useMemo(
     () => Object.fromEntries((inventoryState.diningItems || []).map((item) => [item.id, item])),
@@ -255,6 +260,7 @@ export function App() {
       setClosingLocked(nextState.closingState?.approved || false);
       setPermissionPolicies(nextState.permissionPolicies || {});
       setInventoryState(nextState.inventory || { diningItems: [] });
+      setMenuControls(nextState.menuControls || {});
       setOrdersByTable((current) => {
         const merged = structuredClone(current);
 
@@ -350,8 +356,9 @@ export function App() {
 
     const inventoryItem = diningInventoryById[menuItem.id];
     const isTracked = inventoryItem?.trackingEnabled !== false;
+    const isSoldOut = menuControls[menuItem.id]?.salesAvailability === "Sold Out";
 
-    if (isTracked && inventoryItem?.status === "Out of Stock") {
+    if (isSoldOut || (isTracked && inventoryItem?.status === "Out of Stock")) {
       return;
     }
 
@@ -1594,8 +1601,9 @@ export function App() {
                 (() => {
                   const inventoryItem = diningInventoryById[item.id];
                   const isTracked = inventoryItem?.trackingEnabled !== false;
-                  const isBlocked = isTracked && inventoryItem?.status === "Out of Stock";
-                  const statusLabel = isTracked ? inventoryItem?.status || "Available" : "Not tracked";
+                  const isSoldOut = menuControls[item.id]?.salesAvailability === "Sold Out";
+                  const isBlocked = isSoldOut || (isTracked && inventoryItem?.status === "Out of Stock");
+                  const statusLabel = isSoldOut ? "Sold Out" : isTracked ? inventoryItem?.status || "Available" : "Not tracked";
                   const helperLabel = isBlocked ? "Out of stock" : "";
 
                   return (

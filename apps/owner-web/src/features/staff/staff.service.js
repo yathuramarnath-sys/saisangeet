@@ -86,3 +86,11 @@ export async function fetchStaffData() {
     };
   }
 }
+
+export async function createStaffMember(payload) {
+  return api.post("/users", payload);
+}
+
+export async function createStaffRole(payload) {
+  return api.post("/roles", payload);
+}

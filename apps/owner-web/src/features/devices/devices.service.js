@@ -25,3 +25,11 @@ export async function fetchDevicesData() {
     return devicesSeedData;
   }
 }
+
+export async function createDeviceLinkCode(payload) {
+  return api.post("/devices/link-token", payload);
+}
+
+export async function linkDevice(payload) {
+  return api.post("/devices/link", payload);
+}

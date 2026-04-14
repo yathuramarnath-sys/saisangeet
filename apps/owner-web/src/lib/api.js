@@ -5,7 +5,7 @@ const DEMO_HEADERS = {
   "x-demo-user-role": import.meta.env.VITE_DEMO_USER_ROLE || "Owner",
   "x-demo-user-permissions":
     import.meta.env.VITE_DEMO_USER_PERMISSIONS ||
-    "reports.view,operations.kot.send,operations.bill.request,operations.discount.approve,operations.void.approve"
+    "business.manage,outlets.manage,menu.manage,roles.manage,users.manage,tax.manage,receipt_templates.manage,devices.manage,reports.view,operations.kot.send,operations.bill.request,operations.discount.approve,operations.void.approve"
 };
 
 async function request(path, options = {}) {

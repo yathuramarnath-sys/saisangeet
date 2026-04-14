@@ -1,6 +1,7 @@
 const {
   fetchRoles,
   fetchPermissions,
+  fetchUsers,
   createRole,
   createUser
 } = require("./roles.service");
@@ -20,6 +21,11 @@ async function createRoleHandler(req, res) {
   res.status(201).json(result);
 }
 
+async function listUsersHandler(_req, res) {
+  const result = await fetchUsers();
+  res.json(result);
+}
+
 async function createUserHandler(req, res) {
   const result = await createUser(req.body);
   res.status(201).json(result);
@@ -28,6 +34,7 @@ async function createUserHandler(req, res) {
 module.exports = {
   listRolesHandler,
   listPermissionsHandler,
+  listUsersHandler,
   createRoleHandler,
   createUserHandler
 };

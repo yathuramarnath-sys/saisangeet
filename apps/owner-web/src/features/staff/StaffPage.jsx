@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchStaffData } from "./staff.service";
+import { createStaffMember, createStaffRole, fetchStaffData } from "./staff.service";
 import { subscribeRestaurantState, updatePermissionPolicies } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
 
 function statusClass(status) {
@@ -20,6 +20,7 @@ export function StaffPage() {
   });
   const [loading, setLoading] = useState(true);
   const [lastUpdatedPermission, setLastUpdatedPermission] = useState("");
+  const [formMessage, setFormMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +50,12 @@ export function StaffPage() {
     };
   }, []);
 
+  async function reloadStaff() {
+    const result = await fetchStaffData();
+    setStaffData(result);
+    setLoading(false);
+  }
+
   const totalStaff = staffData.staff.length || 28;
   const totalRoles = staffData.roles.length || 5;
   const pendingApprovals =
@@ -74,6 +81,37 @@ export function StaffPage() {
         permissionEditor: nextEditor
       };
     });
+  }
+
+  async function handleCreateStaff(event) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    await createStaffMember({
+      fullName: formData.get("fullName"),
+      outletName: formData.get("outletName"),
+      roles: [formData.get("role")],
+      pin: formData.get("pin")
+    });
+
+    await reloadStaff();
+    event.currentTarget.reset();
+    setFormMessage("Staff member created.");
+  }
+
+  async function handleCreateRole() {
+    const roleName = window.prompt("Enter new role name");
+
+    if (!roleName) {
+      return;
+    }
+
+    await createStaffRole({
+      name: roleName,
+      description: `${roleName} role created from owner dashboard`
+    });
+    await reloadStaff();
+    setFormMessage(`${roleName} role created.`);
   }
 
   return (
@@ -150,7 +188,7 @@ export function StaffPage() {
               <p className="eyebrow">Roles</p>
               <h3>Role Library</h3>
             </div>
-            <button type="button" className="ghost-btn">
+            <button type="button" className="ghost-btn" onClick={handleCreateRole}>
               Create role
             </button>
           </div>
@@ -284,10 +322,10 @@ export function StaffPage() {
             </div>
           </div>
 
-          <form className="simple-form">
+          <form className="simple-form" onSubmit={handleCreateStaff}>
             <label>
               Full name
-              <input type="text" defaultValue="Karthik" />
+              <input type="text" name="fullName" defaultValue="Karthik" required />
             </label>
             <label>
               Mobile number
@@ -295,24 +333,26 @@ export function StaffPage() {
             </label>
             <label>
               Outlet
-              <select defaultValue="Indiranagar">
+              <select name="outletName" defaultValue="Indiranagar">
                 <option>Indiranagar</option>
                 <option>Koramangala</option>
               </select>
             </label>
             <label>
               Role
-              <select defaultValue="Captain">
+              <select name="role" defaultValue="Captain">
                 <option>Captain</option>
                 <option>Waiter</option>
                 <option>Cashier</option>
+                <option>Manager</option>
               </select>
             </label>
             <label>
               PIN
-              <input type="text" defaultValue="1234" />
+              <input type="text" name="pin" defaultValue="1234" />
             </label>
-            <button type="button" className="primary-btn full-width">
+            {formMessage ? <p>{formMessage}</p> : null}
+            <button type="submit" className="primary-btn full-width">
               Create Staff
             </button>
           </form>

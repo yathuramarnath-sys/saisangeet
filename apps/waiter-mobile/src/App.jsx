@@ -74,6 +74,8 @@ function appendAudit(order, entry) {
   order.auditTrail = [entry, ...(order.auditTrail || [])].slice(0, 6);
 }
 
+const activeOutletName = "Indiranagar";
+
 export function App() {
   const [selectedRoleId, setSelectedRoleId] = useState("captain");
   const [selectedAreaId, setSelectedAreaId] = useState("ac-hall-1");
@@ -85,14 +87,18 @@ export function App() {
   const [closingLocked, setClosingLocked] = useState(loadRestaurantState().closingState?.approved || false);
   const [permissionPolicies, setPermissionPolicies] = useState(loadRestaurantState().permissionPolicies || {});
   const [inventoryState, setInventoryState] = useState(loadRestaurantState().inventory || { diningItems: [], productionItems: [] });
+  const [menuControls, setMenuControls] = useState(loadRestaurantState().menuControls || {});
 
   const profile = staffProfiles.find((item) => item.id === selectedRoleId);
   const selectedArea = mobileAreas.find((area) => area.id === selectedAreaId);
   const currentOrder = ordersByTable[selectedTableId];
 
   const visibleItems = useMemo(
-    () => mobileMenuItems.filter((item) => item.categoryId === selectedCategoryId),
-    [selectedCategoryId]
+    () =>
+      mobileMenuItems.filter(
+        (item) => item.categoryId === selectedCategoryId && menuControls[item.id]?.outletAvailability?.[activeOutletName] !== false
+      ),
+    [menuControls, selectedCategoryId]
   );
   const diningInventoryById = useMemo(
     () => Object.fromEntries((inventoryState.diningItems || []).map((item) => [item.id, item])),
@@ -140,6 +146,7 @@ export function App() {
       setClosingLocked(nextState.closingState?.approved || false);
       setPermissionPolicies(nextState.permissionPolicies || {});
       setInventoryState(nextState.inventory || { diningItems: [], productionItems: [] });
+      setMenuControls(nextState.menuControls || {});
       setOrdersByTable((current) => ({
         ...current,
         ...JSON.parse(JSON.stringify(nextState.orders))
@@ -209,8 +216,9 @@ export function App() {
 
     const inventoryItem = diningInventoryById[item.id];
     const isTracked = inventoryItem?.trackingEnabled !== false;
+    const isSoldOut = menuControls[item.id]?.salesAvailability === "Sold Out";
 
-    if (isTracked && inventoryItem?.status === "Out of Stock") {
+    if (isSoldOut || (isTracked && inventoryItem?.status === "Out of Stock")) {
       setMobileBanner(`${item.name} is out of stock`);
       return;
     }
@@ -881,8 +889,9 @@ export function App() {
                 (() => {
                   const inventoryItem = diningInventoryById[item.id];
                   const isTracked = inventoryItem?.trackingEnabled !== false;
-                  const isBlocked = isTracked && inventoryItem?.status === "Out of Stock";
-                  const statusLabel = isTracked ? inventoryItem?.status || "Available" : "Not tracked";
+                  const isSoldOut = menuControls[item.id]?.salesAvailability === "Sold Out";
+                  const isBlocked = isSoldOut || (isTracked && inventoryItem?.status === "Out of Stock");
+                  const statusLabel = isSoldOut ? "Sold Out" : isTracked ? inventoryItem?.status || "Available" : "Not tracked";
                   const actionLabel = isBlocked
                     ? "Out of stock"
                     : isTracked && inventoryItem?.status === "Low Stock"

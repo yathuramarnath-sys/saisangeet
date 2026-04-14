@@ -7,6 +7,7 @@ import {
   resetRestaurantState,
   updateClosingState,
   updateInventoryState,
+  updateMenuControls,
   updatePermissionPolicies
 } from "../../../packages/shared-types/src/mockRestaurantStore.js";
 
@@ -214,5 +215,20 @@ describe("operations pos app", () => {
     const crispyCornButton = screen.getByRole("button", { name: /Crispy Corn/i });
     expect(crispyCornButton).not.toBeDisabled();
     expect(screen.getByText("Not tracked")).toBeInTheDocument();
+  });
+
+  it("blocks sold-out items from owner menu control in pos", () => {
+    updateMenuControls((current) => ({
+      ...current,
+      "paneer-tikka": {
+        ...(current["paneer-tikka"] || {}),
+        salesAvailability: "Sold Out"
+      }
+    }));
+
+    render(<App />);
+
+    expect(screen.getByText("Sold Out")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Paneer Tikka/i })).toBeDisabled();
   });
 });

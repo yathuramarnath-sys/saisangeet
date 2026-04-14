@@ -1,8 +1,8 @@
 const { ApiError } = require("../../utils/api-error");
-const { getBusinessProfile } = require("./business-profile.repository");
+const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
 
 async function fetchBusinessProfile() {
-  const profile = await getBusinessProfile();
+  const profile = getOwnerSetupData().businessProfile;
 
   if (!profile) {
     throw new ApiError(404, "BUSINESS_PROFILE_NOT_FOUND", "Business profile not found");
@@ -12,10 +12,15 @@ async function fetchBusinessProfile() {
 }
 
 async function updateBusinessProfile(payload) {
-  return {
-    message: "Update business profile implementation pending",
-    payload
-  };
+  const nextData = updateOwnerSetupData((current) => ({
+    ...current,
+    businessProfile: {
+      ...current.businessProfile,
+      ...payload
+    }
+  }));
+
+  return nextData.businessProfile;
 }
 
 module.exports = {

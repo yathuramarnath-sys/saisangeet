@@ -23,3 +23,7 @@ export async function fetchOutlets() {
     return outletSeedData;
   }
 }
+
+export async function createOutlet(payload) {
+  return api.post("/outlets", payload);
+}

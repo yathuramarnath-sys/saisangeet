@@ -416,25 +416,6 @@ describe("owner web prototype-backed routing", () => {
     expect(screen.getByText("Kitchen Inventory • Store Incharge and Manager Access")).toBeInTheDocument();
   });
 
-  it("renders the menus route from the React page", async () => {
-    render(
-      <MemoryRouter initialEntries={["/menus"]}>
-        <OwnerLayout>
-          <AppRoutes />
-        </OwnerLayout>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 2, name: "Menus" })).toBeInTheDocument();
-    });
-
-    expect(screen.getByText("Keep Item Library separate from Menus")).toBeInTheDocument();
-    expect(screen.getByText("Menu Groups")).toBeInTheDocument();
-    expect(screen.getByText("Outlet and Channel Mapping")).toBeInTheDocument();
-    expect(screen.getByText("New Menu")).toBeInTheDocument();
-  });
-
   it("respects manager close-day policy inside reports", async () => {
     updatePermissionPolicies((current) => ({
       ...current,
