@@ -5,7 +5,13 @@ import {
   updateInventoryState,
   updateMenuControls
 } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
-import { createCustomMenuItem, fetchMenuData } from "./menu.service";
+import {
+  createCustomMenuItem,
+  createMenuCategory,
+  createMenuStation,
+  fetchMenuData,
+  updateMenuCategory
+} from "./menu.service";
 
 function statusClass(status) {
   return status === "Review" ? "warning" : "online";
@@ -25,10 +31,24 @@ function toggleOutlet(item, outletName) {
 }
 
 export function MenuPage() {
-  const [menuData, setMenuData] = useState({ categories: [], items: [], menuGroups: [], menuAssignments: [], menuAlerts: [] });
+  const [menuData, setMenuData] = useState({
+    categories: [],
+    stations: [],
+    items: [],
+    menuGroups: [],
+    menuAssignments: [],
+    menuAlerts: []
+  });
   const [loading, setLoading] = useState(true);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [categoryName, setCategoryName] = useState("");
+  const [stationName, setStationName] = useState("");
+  const [itemDraft, setItemDraft] = useState({
+    categoryName: "",
+    station: ""
+  });
+  const [routingDrafts, setRoutingDrafts] = useState({});
   const formRef = useRef(null);
 
   useEffect(() => {
@@ -56,6 +76,12 @@ export function MenuPage() {
   const categoryCount = menuData.categories.length || 12;
   const itemCount = menuData.items.length ? 186 : 186;
   const reviewCount = menuData.items.filter((item) => item.status === "Review").length || 6;
+  const categoryGroups = menuData.categories.map((category) => ({
+    ...category,
+    items: menuData.items.filter((item) => item.categoryId === category.id)
+  }));
+  const availableCategoryNames = menuData.categories.map((category) => category.name);
+  const availableStationNames = menuData.stations.map((station) => station.name);
 
   function updateItem(itemId, updater) {
     setMenuData((current) => ({
@@ -68,14 +94,31 @@ export function MenuPage() {
     const result = await fetchMenuData();
     setMenuData(result);
     setLoading(false);
+    setItemDraft((current) => ({
+      categoryName: current.categoryName || result.categories[0]?.name || "Starters",
+      station: current.station || result.stations[0]?.name || "Main kitchen"
+    }));
+    setRoutingDrafts((current) => {
+      const next = { ...current };
+      result.categories.forEach((category) => {
+        next[category.id] = next[category.id] || {
+          station: category.station || "Main kitchen",
+          printerTarget: category.printerTarget || "Kitchen Printer 1",
+          displayTarget: category.displayTarget || "Hot Kitchen Display"
+        };
+      });
+      return next;
+    });
   }
 
   async function handleSaveItem(event) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
     try {
       setSaveError("");
+      setSaveMessage("");
       await createCustomMenuItem({
         itemName: formData.get("itemName"),
         categoryName: formData.get("categoryName"),
@@ -94,10 +137,91 @@ export function MenuPage() {
         foodType: formData.get("foodType")
       });
       await reloadMenu();
-      event.currentTarget.reset();
-      setSaveMessage("New menu item saved in the owner preview.");
+      form.reset();
+      setItemDraft((current) => ({
+        ...current,
+        categoryName: menuData.categories[0]?.name || "Starters",
+        station: menuData.stations[0]?.name || "Main kitchen"
+      }));
+      setSaveMessage("New menu item saved.");
     } catch (error) {
       setSaveError(error.message || "Unable to save the new menu item.");
+    }
+  }
+
+  async function handleCreateCategory(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+
+    if (!categoryName.trim()) {
+      setSaveError("Category name is required.");
+      return;
+    }
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      await createMenuCategory(categoryName.trim());
+      setCategoryName("");
+      await reloadMenu();
+      form.reset();
+      setSaveMessage("New category created.");
+    } catch (error) {
+      setSaveError(error.message || "Unable to create category.");
+    }
+  }
+
+  async function handleCreateStation(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+
+    if (!stationName.trim()) {
+      setSaveError("Kitchen station name is required.");
+      return;
+    }
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      await createMenuStation(stationName.trim());
+      setStationName("");
+      await reloadMenu();
+      form.reset();
+      setSaveMessage("New kitchen station created.");
+    } catch (error) {
+      setSaveError(error.message || "Unable to create kitchen station.");
+    }
+  }
+
+  function updateRoutingDraft(categoryId, field, value) {
+    setRoutingDrafts((current) => ({
+      ...current,
+      [categoryId]: {
+        station: current[categoryId]?.station || "Main kitchen",
+        printerTarget: current[categoryId]?.printerTarget || "Kitchen Printer 1",
+        displayTarget: current[categoryId]?.displayTarget || "Hot Kitchen Display",
+        ...current[categoryId],
+        [field]: value
+      }
+    }));
+  }
+
+  function updateItemDraft(field, value) {
+    setItemDraft((current) => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
+  async function handleSaveRouting(categoryId) {
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      await updateMenuCategory(categoryId, routingDrafts[categoryId]);
+      await reloadMenu();
+      setSaveMessage("Category routing updated.");
+    } catch (error) {
+      setSaveError(error.message || "Unable to update category routing.");
     }
   }
 
@@ -224,20 +348,106 @@ export function MenuPage() {
               <p className="eyebrow">Categories</p>
               <h3>Category List</h3>
             </div>
-            <button type="button" className="ghost-btn">
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
               Add category
             </button>
           </div>
 
+          <form className="simple-form" onSubmit={handleCreateCategory}>
+            <label>
+              Category name
+              <input
+                type="text"
+                value={categoryName}
+                onChange={(event) => setCategoryName(event.target.value)}
+                placeholder="Soups"
+              />
+            </label>
+            <button type="submit" className="secondary-btn full-width">
+              Save Category
+            </button>
+          </form>
+
           <div className="category-stack">
-            {menuData.categories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                className={`category-chip ${category.active ? "active" : ""}`}
-              >
-                {category.name} <span>{category.count}</span>
-              </button>
+            {categoryGroups.map((category) => (
+              <div key={category.id} className="mini-card">
+                <strong>{category.name}</strong>
+                <span>{category.items.length} items linked</span>
+                <span>Station: {category.station || "Main kitchen"}</span>
+                <span>Printer: {category.printerTarget || "Kitchen Printer 1"}</span>
+                <span>Display: {category.displayTarget || "Hot Kitchen Display"}</span>
+                <div className="mini-stack">
+                  {category.items.length === 0 ? (
+                    <span>No items in this category yet.</span>
+                  ) : (
+                    category.items.map((item) => (
+                      <div key={item.id} className="mini-card">
+                        <span>{item.name}</span>
+                        <strong>{item.station}</strong>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Kitchen Routing</p>
+              <h3>Category to Printer / Display</h3>
+            </div>
+          </div>
+
+          <div className="mini-stack">
+            {categoryGroups.map((category) => (
+              <div key={`${category.id}-routing`} className="mini-card">
+                <strong>{category.name}</strong>
+                <label>
+                  Kitchen station
+                  <select
+                    value={routingDrafts[category.id]?.station || category.station || "Main kitchen"}
+                    onChange={(event) => updateRoutingDraft(category.id, "station", event.target.value)}
+                  >
+                    {menuData.stations.map((station) => (
+                      <option key={station.id} value={station.name}>
+                        {station.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Printer target
+                  <select
+                    value={routingDrafts[category.id]?.printerTarget || category.printerTarget || "Kitchen Printer 1"}
+                    onChange={(event) => updateRoutingDraft(category.id, "printerTarget", event.target.value)}
+                  >
+                    <option>Kitchen Printer 1</option>
+                    <option>Bar Printer</option>
+                    <option>No printer</option>
+                  </select>
+                </label>
+                <label>
+                  Display target
+                  <select
+                    value={routingDrafts[category.id]?.displayTarget || category.displayTarget || "Hot Kitchen Display"}
+                    onChange={(event) => updateRoutingDraft(category.id, "displayTarget", event.target.value)}
+                  >
+                    <option>Hot Kitchen Display</option>
+                    <option>Drinks Display</option>
+                    <option>No display</option>
+                  </select>
+                </label>
+                <button type="button" className="primary-btn" onClick={() => handleSaveRouting(category.id)}>
+                  Save Routing
+                </button>
+              </div>
             ))}
           </div>
         </article>
@@ -368,19 +578,57 @@ export function MenuPage() {
           </div>
 
           <form className="simple-form" onSubmit={handleSaveItem}>
+            <div className="mini-card">
+              <span>Existing Categories</span>
+              <div className="entity-actions">
+                {availableCategoryNames.map((categoryOption) => (
+                  <button
+                    key={categoryOption}
+                    type="button"
+                    className={`ghost-chip ${itemDraft.categoryName === categoryOption ? "active-role" : ""}`}
+                    onClick={() => updateItemDraft("categoryName", categoryOption)}
+                  >
+                    {categoryOption}
+                  </button>
+                ))}
+              </div>
+            </div>
             <label>
               Item name
               <input type="text" name="itemName" defaultValue="Gobi Manchurian" required />
             </label>
             <label>
               Category
-              <select name="categoryName" defaultValue="Starters">
-                <option>Starters</option>
-                <option>Main Course</option>
-                <option>Beverages</option>
-                <option>Desserts</option>
-              </select>
+              <input
+                type="text"
+                name="categoryName"
+                list="menu-category-options"
+                value={itemDraft.categoryName}
+                onChange={(event) => updateItemDraft("categoryName", event.target.value)}
+                placeholder="Choose or type a category"
+                required
+              />
             </label>
+            <datalist id="menu-category-options">
+              {availableCategoryNames.map((categoryNameOption) => (
+                <option key={categoryNameOption} value={categoryNameOption} />
+              ))}
+            </datalist>
+            <div className="mini-card">
+              <span>Existing Kitchen Stations</span>
+              <div className="entity-actions">
+                {availableStationNames.map((stationOption) => (
+                  <button
+                    key={stationOption}
+                    type="button"
+                    className={`ghost-chip ${itemDraft.station === stationOption ? "active-role" : ""}`}
+                    onClick={() => updateItemDraft("station", stationOption)}
+                  >
+                    {stationOption}
+                  </button>
+                ))}
+              </div>
+            </div>
             <label>
               Food type
               <select name="foodType" defaultValue="Veg">
@@ -426,12 +674,21 @@ export function MenuPage() {
             </label>
             <label>
               Kitchen station
-              <select name="station" defaultValue="Fry station">
-                <option>Fry station</option>
-                <option>Grill station</option>
-                <option>Main kitchen</option>
-              </select>
+              <input
+                type="text"
+                name="station"
+                list="menu-station-options"
+                value={itemDraft.station}
+                onChange={(event) => updateItemDraft("station", event.target.value)}
+                placeholder="Choose or type a new station"
+                required
+              />
             </label>
+            <datalist id="menu-station-options">
+              {availableStationNames.map((stationNameOption) => (
+                <option key={stationNameOption} value={stationNameOption} />
+              ))}
+            </datalist>
             <label>
               Track inventory
               <select name="trackInventory" defaultValue="Enabled">
@@ -453,6 +710,39 @@ export function MenuPage() {
               Save Item
             </button>
           </form>
+        </article>
+
+        <article className="panel">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Kitchen Setup</p>
+              <h3>Kitchen Stations</h3>
+            </div>
+          </div>
+
+          <form className="simple-form" onSubmit={handleCreateStation}>
+            <label>
+              New kitchen station
+              <input
+                type="text"
+                value={stationName}
+                onChange={(event) => setStationName(event.target.value)}
+                placeholder="Tandoor station"
+              />
+            </label>
+            <button type="submit" className="secondary-btn full-width">
+              Add New Station
+            </button>
+          </form>
+
+          <div className="mini-stack">
+            {menuData.stations.map((station) => (
+              <div key={station.id} className="mini-card">
+                <span>Station</span>
+                <strong>{station.name}</strong>
+              </div>
+            ))}
+          </div>
         </article>
 
         <article className="panel">

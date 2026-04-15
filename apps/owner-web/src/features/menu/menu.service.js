@@ -90,6 +90,7 @@ function mergeMenuState(baseData) {
   return {
     ...baseData,
     categories,
+    stations: baseData.stations || [],
     items: normalizeMenuItems(mergedItems)
   };
 }
@@ -130,14 +131,22 @@ function normalizeMenuItems(items) {
 
 export async function fetchMenuData() {
   try {
-    const [categories, items] = await Promise.all([api.get("/menu/categories"), api.get("/menu/items")]);
+    const [categories, items, stations] = await Promise.all([
+      api.get("/menu/categories"),
+      api.get("/menu/items"),
+      api.get("/menu/stations")
+    ]);
 
     return mergeMenuState({
+      stations,
       categories: categories.map((category, index) => ({
         id: category.id,
         name: category.name,
         count: category.itemCount ?? 0,
-        active: index === 0
+        active: index === 0,
+        station: category.station,
+        printerTarget: category.printerTarget,
+        displayTarget: category.displayTarget
       })),
       items,
       menuGroups: menuSeedData.menuGroups,
@@ -149,9 +158,27 @@ export async function fetchMenuData() {
   }
 }
 
+export async function createMenuStation(name) {
+  return api.post("/menu/stations", { name });
+}
+
+export async function createMenuCategory(name) {
+  return api.post("/menu/categories", {
+    name,
+    station: "Main kitchen",
+    printerTarget: "Kitchen Printer 1",
+    displayTarget: "Hot Kitchen Display"
+  });
+}
+
+export async function updateMenuCategory(categoryId, payload) {
+  return api.patch(`/menu/categories/${categoryId}`, payload);
+}
+
 export async function createCustomMenuItem(formValues) {
   const itemName = String(formValues.itemName || "").trim();
   const categoryName = String(formValues.categoryName || "").trim();
+  const stationName = String(formValues.station || "").trim() || "Main kitchen";
 
   if (!itemName || !categoryName) {
     throw new Error("Item name and category are required.");
@@ -160,18 +187,24 @@ export async function createCustomMenuItem(formValues) {
   const categoryId = slugify(categoryName);
 
   try {
-    const categories = await api.get("/menu/categories");
+    const [categories, stations] = await Promise.all([api.get("/menu/categories"), api.get("/menu/stations")]);
     const existingCategory = categories.find((category) => slugify(category.name) === categoryId);
+    const existingStation = stations.find((station) => slugify(station.name) === slugify(stationName));
     const finalCategory =
       existingCategory ||
       (await api.post("/menu/categories", {
         name: categoryName
       }));
+    const finalStation =
+      existingStation ||
+      (await api.post("/menu/stations", {
+        name: stationName
+      }));
 
     return api.post("/menu/items", {
       categoryId: finalCategory.id,
       name: itemName,
-      station: formValues.station || "Main kitchen",
+      station: finalStation.name,
       gstLabel: "GST 5%",
       status: "Live",
       foodType: formValues.foodType || "Veg",
@@ -219,7 +252,7 @@ export async function createCustomMenuItem(formValues) {
       name: itemName,
       categoryId,
       categoryName,
-      station: formValues.station || "Main kitchen",
+      station: stationName,
       gstLabel: "GST 5%",
       status: "Live",
       foodType: formValues.foodType || "Veg",

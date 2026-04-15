@@ -4,15 +4,39 @@ async function fetchMenuCategories() {
   return getOwnerSetupData().menu.categories;
 }
 
+async function fetchMenuStations() {
+  return getOwnerSetupData().menu.stations || [];
+}
+
 async function fetchMenuItems() {
   return getOwnerSetupData().menu.items;
+}
+
+async function createMenuStation(payload) {
+  const station = {
+    id: `station-${Date.now()}`,
+    name: payload.name
+  };
+
+  updateOwnerSetupData((current) => ({
+    ...current,
+    menu: {
+      ...current.menu,
+      stations: [...(current.menu.stations || []), station]
+    }
+  }));
+
+  return station;
 }
 
 async function createMenuCategory(payload) {
   const category = {
     id: `cat-${Date.now()}`,
     name: payload.name,
-    itemCount: 0
+    itemCount: 0,
+    station: payload.station || "Main kitchen",
+    printerTarget: payload.printerTarget || "Kitchen Printer 1",
+    displayTarget: payload.displayTarget || "Hot Kitchen Display"
   };
 
   updateOwnerSetupData((current) => ({
@@ -24,6 +48,40 @@ async function createMenuCategory(payload) {
   }));
 
   return category;
+}
+
+async function updateMenuCategory(id, payload) {
+  let updatedCategory = null;
+
+  updateOwnerSetupData((current) => ({
+    ...current,
+    menu: {
+      ...current.menu,
+      categories: current.menu.categories.map((category) => {
+        if (category.id !== id) {
+          return category;
+        }
+
+        updatedCategory = {
+          ...category,
+          ...payload
+        };
+        return updatedCategory;
+      }),
+      items: current.menu.items.map((item) => {
+        if (item.categoryId !== id) {
+          return item;
+        }
+
+        return {
+          ...item,
+          station: payload.station || item.station
+        };
+      })
+    }
+  }));
+
+  return updatedCategory;
 }
 
 async function createMenuItem(payload) {
@@ -64,7 +122,10 @@ async function createMenuItem(payload) {
 
 module.exports = {
   fetchMenuCategories,
+  fetchMenuStations,
   fetchMenuItems,
+  createMenuStation,
   createMenuCategory,
-  createMenuItem
+  createMenuItem,
+  updateMenuCategory
 };

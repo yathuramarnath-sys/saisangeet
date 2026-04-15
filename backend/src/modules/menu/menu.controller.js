@@ -1,8 +1,11 @@
 const {
   fetchMenuCategories,
   fetchMenuItems,
+  fetchMenuStations,
   createMenuCategory,
-  createMenuItem
+  createMenuItem,
+  updateMenuCategory,
+  createMenuStation
 } = require("./menu.service");
 
 async function listMenuCategoriesHandler(_req, res) {
@@ -12,6 +15,11 @@ async function listMenuCategoriesHandler(_req, res) {
 
 async function listMenuItemsHandler(_req, res) {
   const result = await fetchMenuItems();
+  res.json(result);
+}
+
+async function listMenuStationsHandler(_req, res) {
+  const result = await fetchMenuStations();
   res.json(result);
 }
 
@@ -25,9 +33,22 @@ async function createMenuItemHandler(req, res) {
   res.status(201).json(result);
 }
 
+async function updateMenuCategoryHandler(req, res) {
+  const result = await updateMenuCategory(req.params.id, req.body);
+  res.json(result);
+}
+
+async function createMenuStationHandler(req, res) {
+  const result = await createMenuStation(req.body);
+  res.status(201).json(result);
+}
+
 module.exports = {
   listMenuCategoriesHandler,
   listMenuItemsHandler,
+  listMenuStationsHandler,
   createMenuCategoryHandler,
-  createMenuItemHandler
+  createMenuItemHandler,
+  updateMenuCategoryHandler,
+  createMenuStationHandler
 };

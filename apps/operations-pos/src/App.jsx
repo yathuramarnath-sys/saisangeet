@@ -20,12 +20,28 @@ const paymentMethods = [
 const reprintReasons = ["Customer copy", "Paper jam", "Audit copy"];
 const voidReasons = ["Wrong table", "Duplicate bill", "Manager cancellation"];
 
-const businessProfile = {
+const defaultBusinessProfile = {
   name: "Saisangeet",
   address: "Thyagaraya Nagar, Chennai",
   gstin: "33ABCDE1234F1Z5"
 };
-const activeOutletName = "Indiranagar";
+const defaultOutletName = "Indiranagar";
+
+function slugify(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function parsePriceLabel(value) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  return Number(String(value || "").replace(/[^0-9.]/g, "")) || 0;
+}
 
 function tableClass(status, isSelected) {
   return `table-card ${status} ${isSelected ? "selected" : ""}`;
@@ -219,6 +235,10 @@ export function App() {
     otp: "",
     error: ""
   });
+  const [posBusinessProfile, setPosBusinessProfile] = useState(defaultBusinessProfile);
+  const [posCategories, setPosCategories] = useState(categories);
+  const [posMenuItems, setPosMenuItems] = useState(menuItems);
+  const [activeOutletName, setActiveOutletName] = useState(defaultOutletName);
 
   const currentOrder = ordersByTable[selectedTableId];
   const currentFinancials = getOrderFinancials(currentOrder);
@@ -228,10 +248,10 @@ export function App() {
 
   const visibleMenuItems = useMemo(
     () =>
-      menuItems.filter(
+      posMenuItems.filter(
         (item) => item.categoryId === selectedCategoryId && menuControls[item.id]?.outletAvailability?.[activeOutletName] !== false
       ),
-    [menuControls, selectedCategoryId]
+    [activeOutletName, menuControls, posMenuItems, selectedCategoryId]
   );
   const diningInventoryById = useMemo(
     () => Object.fromEntries((inventoryState.diningItems || []).map((item) => [item.id, item])),
@@ -308,9 +328,10 @@ export function App() {
 
     async function loadFromApi() {
       try {
-        const [summary, orders] = await Promise.all([
+        const [summary, orders, appConfig] = await Promise.all([
           api.get("/operations/summary"),
-          api.get("/operations/orders")
+          api.get("/operations/orders"),
+          api.get("/setup/app-config")
         ]);
 
         if (cancelled) {
@@ -325,6 +346,37 @@ export function App() {
             ...mapOrderArrayToRecord(orders)
           })
         );
+        setPosBusinessProfile({
+          name: appConfig.businessProfile?.tradeName || appConfig.businessProfile?.legalName || defaultBusinessProfile.name,
+          address:
+            [appConfig.businessProfile?.addressLine1, appConfig.businessProfile?.city]
+              .filter(Boolean)
+              .join(", ") || defaultBusinessProfile.address,
+          gstin: appConfig.businessProfile?.gstin || defaultBusinessProfile.gstin
+        });
+        const firstOutlet = appConfig.outlets?.[0]?.name || defaultOutletName;
+        setActiveOutletName(firstOutlet);
+        const nextCategories =
+          appConfig.menu?.categories?.map((category) => ({
+            id: category.id,
+            name: category.name
+          })) || categories;
+        const nextMenuItems =
+          appConfig.menu?.items?.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: parsePriceLabel(item.pricing?.[0]?.dineIn),
+            station: item.station || "Main kitchen",
+            stationId: slugify(item.station || "main-kitchen"),
+            categoryId: item.categoryId
+          })) || menuItems;
+        setPosCategories(nextCategories);
+        setPosMenuItems(nextMenuItems);
+        if (nextCategories[0]) {
+          setSelectedCategoryId((current) =>
+            nextCategories.some((category) => category.id === current) ? current : nextCategories[0].id
+          );
+        }
       } catch {
         // Keep the current local mock flow if backend is not reachable.
       }
@@ -1584,7 +1636,7 @@ export function App() {
           </div>
 
           <div className="category-strip">
-            {categories.map((category) => (
+            {posCategories.map((category) => (
               <button
                 key={category.id}
                 type="button"
@@ -1645,9 +1697,9 @@ export function App() {
 
             <div className="thermal-paper" aria-label="Bill preview">
               <div className="thermal-header">
-                <strong>{businessProfile.name}</strong>
-                <span>{businessProfile.address}</span>
-                <span>GSTIN {businessProfile.gstin}</span>
+                <strong>{posBusinessProfile.name}</strong>
+                <span>{posBusinessProfile.address}</span>
+                <span>GSTIN {posBusinessProfile.gstin}</span>
               </div>
 
               <div className="thermal-meta">

@@ -12,12 +12,17 @@ import { ReportsPage } from "../features/reports/ReportsPage";
 import { ShiftsCashPage } from "../features/shifts/ShiftsCashPage";
 import { StaffPage } from "../features/staff/StaffPage";
 import { TaxesReceiptsPage } from "../features/taxes/TaxesReceiptsPage";
+import { OverviewPage } from "../features/overview/OverviewPage";
 import { PrototypePage } from "./PrototypePage";
 
 export function AppRoutes() {
   function renderRoute(item) {
     if (item.mode === "react" && item.id === "business") {
       return <BusinessProfilePage />;
+    }
+
+    if (item.mode === "react" && item.id === "overview") {
+      return <OverviewPage />;
     }
 
     if (item.mode === "react" && item.id === "outlets") {

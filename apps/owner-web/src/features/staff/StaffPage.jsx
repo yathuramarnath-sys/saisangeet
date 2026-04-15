@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { createStaffMember, createStaffRole, fetchStaffData } from "./staff.service";
 import { subscribeRestaurantState, updatePermissionPolicies } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
@@ -21,6 +21,11 @@ export function StaffPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdatedPermission, setLastUpdatedPermission] = useState("");
   const [formMessage, setFormMessage] = useState("");
+  const [formError, setFormError] = useState("");
+  const [roleName, setRoleName] = useState("");
+  const [roleDescription, setRoleDescription] = useState("");
+  const staffFormRef = useRef(null);
+  const roleFormRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,31 +92,46 @@ export function StaffPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
-    await createStaffMember({
-      fullName: formData.get("fullName"),
-      outletName: formData.get("outletName"),
-      roles: [formData.get("role")],
-      pin: formData.get("pin")
-    });
+    try {
+      setFormError("");
+      setFormMessage("");
+      await createStaffMember({
+        fullName: formData.get("fullName"),
+        outletName: formData.get("outletName"),
+        roles: [formData.get("role")],
+        pin: formData.get("pin")
+      });
 
-    await reloadStaff();
-    event.currentTarget.reset();
-    setFormMessage("Staff member created.");
+      await reloadStaff();
+      event.currentTarget.reset();
+      setFormMessage("Staff member created.");
+    } catch (error) {
+      setFormError(error.message || "Unable to create staff member.");
+    }
   }
 
-  async function handleCreateRole() {
-    const roleName = window.prompt("Enter new role name");
+  async function handleCreateRole(event) {
+    event.preventDefault();
 
-    if (!roleName) {
+    if (!roleName.trim()) {
+      setFormError("Role name is required.");
       return;
     }
 
-    await createStaffRole({
-      name: roleName,
-      description: `${roleName} role created from owner dashboard`
-    });
-    await reloadStaff();
-    setFormMessage(`${roleName} role created.`);
+    try {
+      setFormError("");
+      setFormMessage("");
+      await createStaffRole({
+        name: roleName.trim(),
+        description: roleDescription.trim() || `${roleName.trim()} role created from owner dashboard`
+      });
+      await reloadStaff();
+      setRoleName("");
+      setRoleDescription("");
+      setFormMessage(`${roleName.trim()} role created.`);
+    } catch (error) {
+      setFormError(error.message || "Unable to create role.");
+    }
   }
 
   return (
@@ -126,7 +146,11 @@ export function StaffPage() {
           <button type="button" className="secondary-btn">
             Export Staff
           </button>
-          <button type="button" className="primary-btn">
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => staffFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          >
             Add Staff
           </button>
         </div>
@@ -182,16 +206,44 @@ export function StaffPage() {
       </section>
 
       <section className="dashboard-grid staff-layout">
-        <article className="panel">
+        <article ref={staffFormRef} className="panel">
           <div className="panel-head">
             <div>
               <p className="eyebrow">Roles</p>
               <h3>Role Library</h3>
             </div>
-            <button type="button" className="ghost-btn" onClick={handleCreateRole}>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => roleFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
               Create role
             </button>
           </div>
+
+          <form className="simple-form" onSubmit={handleCreateRole} ref={roleFormRef}>
+            <label>
+              Role name
+              <input
+                type="text"
+                value={roleName}
+                onChange={(event) => setRoleName(event.target.value)}
+                placeholder="Cashier"
+              />
+            </label>
+            <label>
+              Role description
+              <input
+                type="text"
+                value={roleDescription}
+                onChange={(event) => setRoleDescription(event.target.value)}
+                placeholder="Can bill, collect payment, and print invoices"
+              />
+            </label>
+            <button type="submit" className="secondary-btn full-width">
+              Save Role
+            </button>
+          </form>
 
           <div className="role-stack">
             {staffData.roles.map((role) => (
@@ -336,6 +388,7 @@ export function StaffPage() {
               <select name="outletName" defaultValue="Indiranagar">
                 <option>Indiranagar</option>
                 <option>Koramangala</option>
+                <option>Test Outlet</option>
               </select>
             </label>
             <label>
@@ -352,6 +405,7 @@ export function StaffPage() {
               <input type="text" name="pin" defaultValue="1234" />
             </label>
             {formMessage ? <p>{formMessage}</p> : null}
+            {formError ? <p>{formError}</p> : null}
             <button type="submit" className="primary-btn full-width">
               Create Staff
             </button>

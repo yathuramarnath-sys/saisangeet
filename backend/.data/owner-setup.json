@@ -51,6 +51,54 @@
       ],
       "defaultTaxProfileId": "tax-5",
       "receiptTemplateId": "receipt-dine-in"
+    },
+    {
+      "id": "outlet-1776228758702",
+      "code": "TST-01",
+      "name": "Test Outlet",
+      "gstin": "33ABCDE1234F1Z5",
+      "city": "Chennai",
+      "state": "Tamil Nadu",
+      "isActive": true,
+      "hours": "9:00 AM - 11:00 PM",
+      "services": [
+        "Dine-in",
+        "Takeaway"
+      ],
+      "defaultTaxProfileId": "tax-5",
+      "receiptTemplateId": null
+    },
+    {
+      "id": "outlet-1776229340639",
+      "code": "BLR-05",
+      "name": "Electronic City",
+      "gstin": "29ABCDE1234F1Z5",
+      "city": "Bengaluru",
+      "state": "Karnataka",
+      "isActive": true,
+      "hours": "9:00 AM - 11:00 PM",
+      "services": [
+        "Dine-in",
+        "Takeaway"
+      ],
+      "defaultTaxProfileId": "tax-5",
+      "receiptTemplateId": null
+    },
+    {
+      "id": "outlet-1776229358623",
+      "code": "BLR-05",
+      "name": "Chennai 1",
+      "gstin": "29ABCDE1234F1Z5",
+      "city": "Bengaluru",
+      "state": "Karnataka",
+      "isActive": true,
+      "hours": "9:00 AM - 11:00 PM",
+      "services": [
+        "Dine-in",
+        "Takeaway"
+      ],
+      "defaultTaxProfileId": "tax-5",
+      "receiptTemplateId": null
     }
   ],
   "permissions": [
@@ -186,6 +234,39 @@
       "outletName": "Indiranagar",
       "isActive": true,
       "pin": "2244"
+    },
+    {
+      "id": "user-1776228273746",
+      "fullName": "Karthik",
+      "name": "Karthik",
+      "roles": [
+        "Captain"
+      ],
+      "outletName": "Indiranagar",
+      "isActive": true,
+      "pin": "1234"
+    },
+    {
+      "id": "user-1776228302591",
+      "fullName": "amarnath",
+      "name": "amarnath",
+      "roles": [
+        "Manager"
+      ],
+      "outletName": "Koramangala",
+      "isActive": true,
+      "pin": "5546"
+    },
+    {
+      "id": "user-1776228757846",
+      "fullName": "Test Staff",
+      "name": "Test Staff",
+      "roles": [
+        "Captain"
+      ],
+      "outletName": "Indiranagar",
+      "isActive": true,
+      "pin": "1234"
     }
   ],
   "taxProfiles": [
@@ -244,27 +325,426 @@
       "outletName": "Koramangala",
       "status": "inactive",
       "linkCode": "KORA-1002"
+    },
+    {
+      "id": "device-kitchen-printer-default",
+      "deviceName": "Kitchen Printer 1",
+      "deviceType": "Kitchen Printer",
+      "outletName": "Indiranagar",
+      "status": "active",
+      "linkCode": "KPR-DEFAULT"
+    },
+    {
+      "id": "device-kitchen-display-default",
+      "deviceName": "Hot Kitchen Display",
+      "deviceType": "Kitchen Display",
+      "outletName": "Indiranagar",
+      "status": "active",
+      "linkCode": "KDS-DEFAULT"
     }
   ],
   "menu": {
     "categories": [
       {
+        "station": "Main kitchen",
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
         "id": "cat-starters",
         "name": "Starters",
+        "itemCount": 5
+      },
+      {
+        "station": "Main kitchen",
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-main-course",
+        "name": "Main Course",
         "itemCount": 3
       },
       {
-        "id": "cat-main-course",
-        "name": "Main Course",
-        "itemCount": 1
-      },
-      {
+        "station": "Main kitchen",
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
         "id": "cat-beverages",
         "name": "Beverages",
         "itemCount": 1
+      },
+      {
+        "station": "Main kitchen",
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-1776228760653",
+        "name": "Soups",
+        "itemCount": 0
+      },
+      {
+        "station": "Main kitchen",
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-1776229234828",
+        "name": "Rice",
+        "itemCount": 0
+      },
+      {
+        "station": "Main kitchen",
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-1776229243197",
+        "name": "Juices",
+        "itemCount": 0
+      },
+      {
+        "station": "Main kitchen",
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-1776230500644",
+        "name": "test",
+        "itemCount": 0
+      },
+      {
+        "station": "Main kitchen",
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-1776238391613",
+        "name": "Test 2",
+        "itemCount": 0
+      },
+      {
+        "station": "Main kitchen",
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-1776252949376",
+        "name": "Dosa Itams",
+        "itemCount": 2
+      },
+      {
+        "id": "cat-1776253943627",
+        "name": "North Indian",
+        "itemCount": 0,
+        "station": "Main kitchen",
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display"
       }
     ],
     "items": [
+      {
+        "id": "item-1776253807085",
+        "categoryId": "cat-starters",
+        "name": "Gobi Manchurian Dry",
+        "station": "North Indian",
+        "gstLabel": "GST 5%",
+        "status": "Live",
+        "foodType": "Veg",
+        "badges": [
+          "Custom item",
+          "Available"
+        ],
+        "salesAvailability": "Available",
+        "outletAvailability": [
+          {
+            "outlet": "Indiranagar",
+            "enabled": true
+          },
+          {
+            "outlet": "Koramangala",
+            "enabled": true
+          },
+          {
+            "outlet": "HSR Layout",
+            "enabled": true
+          }
+        ],
+        "inventoryTracking": {
+          "enabled": true,
+          "mode": "Item wise",
+          "note": "Track sellable stock for POS and waiter ordering"
+        },
+        "pricing": [
+          {
+            "area": "AC",
+            "dineIn": "Rs 190",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          },
+          {
+            "area": "Non-AC",
+            "dineIn": "Rs 180",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 195"
+          },
+          {
+            "area": "Self Service",
+            "dineIn": "Rs 170",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 185"
+          }
+        ]
+      },
+      {
+        "id": "item-1776253099831",
+        "categoryId": "cat-1776252949376",
+        "name": "Podi Dosa",
+        "station": "south indian",
+        "gstLabel": "GST 5%",
+        "status": "Live",
+        "foodType": "Veg",
+        "badges": [
+          "Custom item",
+          "Available"
+        ],
+        "salesAvailability": "Available",
+        "outletAvailability": [
+          {
+            "outlet": "Indiranagar",
+            "enabled": true
+          },
+          {
+            "outlet": "Koramangala",
+            "enabled": true
+          },
+          {
+            "outlet": "HSR Layout",
+            "enabled": true
+          }
+        ],
+        "inventoryTracking": {
+          "enabled": true,
+          "mode": "Item wise",
+          "note": "Track sellable stock for POS and waiter ordering"
+        },
+        "pricing": [
+          {
+            "area": "AC",
+            "dineIn": "Rs 190",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          },
+          {
+            "area": "Non-AC",
+            "dineIn": "Rs 180",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 195"
+          },
+          {
+            "area": "Self Service",
+            "dineIn": "Rs 170",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 185"
+          }
+        ]
+      },
+      {
+        "id": "item-1776252949385",
+        "categoryId": "cat-1776252949376",
+        "name": "plain dosa",
+        "station": "south indian",
+        "gstLabel": "GST 5%",
+        "status": "Live",
+        "foodType": "Veg",
+        "badges": [
+          "Custom item",
+          "Available"
+        ],
+        "salesAvailability": "Available",
+        "outletAvailability": [
+          {
+            "outlet": "Indiranagar",
+            "enabled": true
+          },
+          {
+            "outlet": "Koramangala",
+            "enabled": true
+          },
+          {
+            "outlet": "HSR Layout",
+            "enabled": true
+          }
+        ],
+        "inventoryTracking": {
+          "enabled": true,
+          "mode": "Item wise",
+          "note": "Track sellable stock for POS and waiter ordering"
+        },
+        "pricing": [
+          {
+            "area": "AC",
+            "dineIn": "Rs 100",
+            "takeaway": "Rs 150",
+            "delivery": "Rs 205"
+          },
+          {
+            "area": "Non-AC",
+            "dineIn": "Rs 180",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 195"
+          },
+          {
+            "area": "Self Service",
+            "dineIn": "Rs 170",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 185"
+          }
+        ]
+      },
+      {
+        "id": "item-1776230443898",
+        "categoryId": "cat-starters",
+        "name": "Test",
+        "station": "Fry station",
+        "gstLabel": "GST 5%",
+        "status": "Live",
+        "foodType": "Veg",
+        "badges": [
+          "Custom item",
+          "Available"
+        ],
+        "salesAvailability": "Available",
+        "outletAvailability": [
+          {
+            "outlet": "Indiranagar",
+            "enabled": true
+          },
+          {
+            "outlet": "Koramangala",
+            "enabled": true
+          },
+          {
+            "outlet": "HSR Layout",
+            "enabled": true
+          }
+        ],
+        "inventoryTracking": {
+          "enabled": true,
+          "mode": "Item wise",
+          "note": "Track sellable stock for POS and waiter ordering"
+        },
+        "pricing": [
+          {
+            "area": "AC",
+            "dineIn": "Rs 190",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          },
+          {
+            "area": "Non-AC",
+            "dineIn": "Rs 180",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 195"
+          },
+          {
+            "area": "Self Service",
+            "dineIn": "Rs 170",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 185"
+          }
+        ]
+      },
+      {
+        "id": "item-1776229309045",
+        "categoryId": "cat-main-course",
+        "name": "Veg Fried Rice",
+        "station": "Fry station",
+        "gstLabel": "GST 5%",
+        "status": "Live",
+        "foodType": "Veg",
+        "badges": [
+          "Custom item",
+          "Available"
+        ],
+        "salesAvailability": "Available",
+        "outletAvailability": [
+          {
+            "outlet": "Indiranagar",
+            "enabled": true
+          },
+          {
+            "outlet": "Koramangala",
+            "enabled": true
+          },
+          {
+            "outlet": "HSR Layout",
+            "enabled": true
+          }
+        ],
+        "inventoryTracking": {
+          "enabled": true,
+          "mode": "Item wise",
+          "note": "Track sellable stock for POS and waiter ordering"
+        },
+        "pricing": [
+          {
+            "area": "AC",
+            "dineIn": "Rs 190",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          },
+          {
+            "area": "Non-AC",
+            "dineIn": "Rs 180",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 195"
+          },
+          {
+            "area": "Self Service",
+            "dineIn": "Rs 170",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 185"
+          }
+        ]
+      },
+      {
+        "id": "item-1776229307238",
+        "categoryId": "cat-main-course",
+        "name": "Veg Fried Rice",
+        "station": "Fry station",
+        "gstLabel": "GST 5%",
+        "status": "Live",
+        "foodType": "Veg",
+        "badges": [
+          "Custom item",
+          "Available"
+        ],
+        "salesAvailability": "Available",
+        "outletAvailability": [
+          {
+            "outlet": "Indiranagar",
+            "enabled": true
+          },
+          {
+            "outlet": "Koramangala",
+            "enabled": true
+          },
+          {
+            "outlet": "HSR Layout",
+            "enabled": true
+          }
+        ],
+        "inventoryTracking": {
+          "enabled": true,
+          "mode": "Item wise",
+          "note": "Track sellable stock for POS and waiter ordering"
+        },
+        "pricing": [
+          {
+            "area": "AC",
+            "dineIn": "Rs 190",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          },
+          {
+            "area": "Non-AC",
+            "dineIn": "Rs 180",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 195"
+          },
+          {
+            "area": "Self Service",
+            "dineIn": "Rs 170",
+            "takeaway": "Rs 175",
+            "delivery": "Rs 185"
+          }
+        ]
+      },
       {
         "id": "item-1776188816859",
         "categoryId": "cat-starters",
@@ -513,6 +993,20 @@
             "delivery": "Rs 95"
           }
         ]
+      }
+    ],
+    "stations": [
+      {
+        "id": "station-1776252949381",
+        "name": "south indian"
+      },
+      {
+        "id": "station-1776253807079",
+        "name": "North Indian"
+      },
+      {
+        "id": "station-1776253866086",
+        "name": "Tandoor Staions"
       }
     ]
   }

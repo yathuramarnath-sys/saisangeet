@@ -115,15 +115,23 @@ function createDefaultData() {
       { id: "receipt-dine-in", name: "Dine-In Standard", showQrPayment: true, showTaxBreakdown: true, footerNote: "Thank you, visit again", outletName: "All Outlets" },
       { id: "receipt-takeaway", name: "Takeaway Standard", showQrPayment: true, showTaxBreakdown: true, footerNote: "Packed with care", outletName: "All Outlets" }
     ],
-    devices: [
+      devices: [
       { id: "device-1", deviceName: "Front Cashier POS", deviceType: "POS Terminal", outletName: "Indiranagar", status: "active", linkCode: "INDR-1001" },
-      { id: "device-2", deviceName: "Billing Counter 2", deviceType: "POS Terminal", outletName: "Koramangala", status: "inactive", linkCode: "KORA-1002" }
+      { id: "device-2", deviceName: "Billing Counter 2", deviceType: "POS Terminal", outletName: "Koramangala", status: "inactive", linkCode: "KORA-1002" },
+      { id: "device-3", deviceName: "Kitchen Printer 1", deviceType: "Kitchen Printer", outletName: "Indiranagar", status: "active", linkCode: "KPR-1003" },
+      { id: "device-4", deviceName: "Hot Kitchen Display", deviceType: "Kitchen Display", outletName: "Indiranagar", status: "active", linkCode: "KDS-1004" }
     ],
     menu: {
+      stations: [
+        { id: "station-fry", name: "Fry station" },
+        { id: "station-grill", name: "Grill station" },
+        { id: "station-main", name: "Main kitchen" },
+        { id: "station-beverages", name: "Beverages" }
+      ],
       categories: [
-        { id: "cat-starters", name: "Starters", itemCount: 2 },
-        { id: "cat-main-course", name: "Main Course", itemCount: 1 },
-        { id: "cat-beverages", name: "Beverages", itemCount: 1 }
+        { id: "cat-starters", name: "Starters", itemCount: 2, station: "Fry station", printerTarget: "Kitchen Printer 1", displayTarget: "Hot Kitchen Display" },
+        { id: "cat-main-course", name: "Main Course", itemCount: 1, station: "Main kitchen", printerTarget: "Kitchen Printer 1", displayTarget: "Hot Kitchen Display" },
+        { id: "cat-beverages", name: "Beverages", itemCount: 1, station: "Beverages", printerTarget: "Bar Printer", displayTarget: "Drinks Display" }
       ],
       items: [
         {
@@ -215,6 +223,46 @@ function createDefaultData() {
   };
 }
 
+function normalizeOwnerSetupData(data) {
+  const next = JSON.parse(JSON.stringify(data));
+  next.devices = next.devices || [];
+  next.menu = next.menu || { categories: [], items: [] };
+  next.menu.stations = (next.menu.stations || []).map((station) => ({
+    id: station.id || `station-${String(station.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    name: station.name
+  }));
+  next.menu.categories = (next.menu.categories || []).map((category) => ({
+    station: category.station || "Main kitchen",
+    printerTarget: category.printerTarget || "Kitchen Printer 1",
+    displayTarget: category.displayTarget || "Hot Kitchen Display",
+    ...category
+  }));
+
+  if (!next.devices.some((device) => device.deviceType === "Kitchen Printer")) {
+    next.devices.push({
+      id: "device-kitchen-printer-default",
+      deviceName: "Kitchen Printer 1",
+      deviceType: "Kitchen Printer",
+      outletName: next.outlets?.[0]?.name || "Main Outlet",
+      status: "active",
+      linkCode: "KPR-DEFAULT"
+    });
+  }
+
+  if (!next.devices.some((device) => device.deviceType === "Kitchen Display")) {
+    next.devices.push({
+      id: "device-kitchen-display-default",
+      deviceName: "Hot Kitchen Display",
+      deviceType: "Kitchen Display",
+      outletName: next.outlets?.[0]?.name || "Main Outlet",
+      status: "active",
+      linkCode: "KDS-DEFAULT"
+    });
+  }
+
+  return next;
+}
+
 function ensureDataFile() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -228,7 +276,7 @@ function ensureDataFile() {
 function readData() {
   ensureDataFile();
   const raw = fs.readFileSync(DATA_FILE, "utf8");
-  return JSON.parse(raw);
+  return normalizeOwnerSetupData(JSON.parse(raw));
 }
 
 function writeData(data) {

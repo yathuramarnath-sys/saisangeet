@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { createOutlet, fetchOutlets } from "./outlets.service";
 
@@ -10,6 +10,8 @@ export function OutletsPage() {
   const [outlets, setOutlets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
+  const [statusError, setStatusError] = useState("");
+  const formRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,18 +42,24 @@ export function OutletsPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
-    await createOutlet({
-      name: formData.get("name"),
-      code: formData.get("code"),
-      city: formData.get("city"),
-      state: "Karnataka",
-      gstin: formData.get("gstin"),
-      defaultTaxProfileId: formData.get("defaultTaxProfileId")
-    });
+    try {
+      setStatusError("");
+      setStatusMessage("");
+      await createOutlet({
+        name: formData.get("name"),
+        code: formData.get("code"),
+        city: formData.get("city"),
+        state: formData.get("state"),
+        gstin: formData.get("gstin"),
+        defaultTaxProfileId: formData.get("defaultTaxProfileId")
+      });
 
-    await reloadOutlets();
-    event.currentTarget.reset();
-    setStatusMessage("Outlet created and added to owner setup.");
+      await reloadOutlets();
+      event.currentTarget.reset();
+      setStatusMessage("Outlet created and added to owner setup.");
+    } catch (error) {
+      setStatusError(error.message || "Unable to create outlet.");
+    }
   }
 
   const outletCount = outlets.length || 4;
@@ -70,7 +78,11 @@ export function OutletsPage() {
           <button type="button" className="secondary-btn">
             Bulk Update
           </button>
-          <button type="button" className="primary-btn">
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          >
             Create Outlet
           </button>
         </div>
@@ -177,7 +189,7 @@ export function OutletsPage() {
           )}
         </article>
 
-        <article className="panel">
+        <article ref={formRef} className="panel">
           <div className="panel-head">
             <div>
               <p className="eyebrow">Quick Create</p>
@@ -199,6 +211,10 @@ export function OutletsPage() {
               <input type="text" name="city" defaultValue="Bengaluru" required />
             </label>
             <label>
+              State
+              <input type="text" name="state" defaultValue="Karnataka" required />
+            </label>
+            <label>
               GSTIN
               <input type="text" name="gstin" defaultValue="29ABCDE1234F1Z5" />
             </label>
@@ -210,6 +226,7 @@ export function OutletsPage() {
               </select>
             </label>
             {statusMessage ? <p>{statusMessage}</p> : null}
+            {statusError ? <p>{statusError}</p> : null}
             <button type="submit" className="primary-btn full-width">
               Save Outlet
             </button>

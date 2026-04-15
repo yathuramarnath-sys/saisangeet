@@ -1,6 +1,6 @@
 export const navigation = [
   { id: "business", label: "Business Profile", path: "/business", mode: "react" },
-  { id: "overview", label: "Overview", path: "/", prototypeFile: "index.html" },
+  { id: "overview", label: "Overview", path: "/", mode: "react" },
   { id: "outlets", label: "Outlets", path: "/outlets", mode: "react" },
   { id: "menu", label: "Menu & Categories", path: "/menu", mode: "react" },
   { id: "staff", label: "Staff & Roles", path: "/staff", mode: "react" },

@@ -29,4 +29,6 @@ stop_service() {
 
 stop_service "owner-web" "$RUN_DIR/owner-web.pid"
 stop_service "operations-pos" "$RUN_DIR/operations-pos.pid"
+stop_service "waiter-mobile" "$RUN_DIR/waiter-mobile.pid"
+stop_service "kitchen-display" "$RUN_DIR/kitchen-display.pid"
 stop_service "backend" "$RUN_DIR/backend.pid"

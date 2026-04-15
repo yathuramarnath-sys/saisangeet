@@ -76,6 +76,14 @@ function appendAudit(order, entry) {
 
 const activeOutletName = "Indiranagar";
 
+function parsePriceLabel(value) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  return Number(String(value || "").replace(/[^0-9.]/g, "")) || 0;
+}
+
 export function App() {
   const [selectedRoleId, setSelectedRoleId] = useState("captain");
   const [selectedAreaId, setSelectedAreaId] = useState("ac-hall-1");
@@ -88,6 +96,9 @@ export function App() {
   const [permissionPolicies, setPermissionPolicies] = useState(loadRestaurantState().permissionPolicies || {});
   const [inventoryState, setInventoryState] = useState(loadRestaurantState().inventory || { diningItems: [], productionItems: [] });
   const [menuControls, setMenuControls] = useState(loadRestaurantState().menuControls || {});
+  const [menuCategories, setMenuCategories] = useState(mobileCategories);
+  const [menuCatalog, setMenuCatalog] = useState(mobileMenuItems);
+  const [configuredOutletName, setConfiguredOutletName] = useState(activeOutletName);
 
   const profile = staffProfiles.find((item) => item.id === selectedRoleId);
   const selectedArea = mobileAreas.find((area) => area.id === selectedAreaId);
@@ -95,10 +106,10 @@ export function App() {
 
   const visibleItems = useMemo(
     () =>
-      mobileMenuItems.filter(
-        (item) => item.categoryId === selectedCategoryId && menuControls[item.id]?.outletAvailability?.[activeOutletName] !== false
+      menuCatalog.filter(
+        (item) => item.categoryId === selectedCategoryId && menuControls[item.id]?.outletAvailability?.[configuredOutletName] !== false
       ),
-    [menuControls, selectedCategoryId]
+    [configuredOutletName, menuCatalog, menuControls, selectedCategoryId]
   );
   const diningInventoryById = useMemo(
     () => Object.fromEntries((inventoryState.diningItems || []).map((item) => [item.id, item])),
@@ -159,9 +170,10 @@ export function App() {
 
     async function loadFromApi() {
       try {
-        const [summary, orders] = await Promise.all([
+        const [summary, orders, appConfig] = await Promise.all([
           api.get("/operations/summary"),
-          api.get("/operations/orders")
+          api.get("/operations/orders"),
+          api.get("/setup/app-config")
         ]);
 
         if (cancelled) {
@@ -176,6 +188,26 @@ export function App() {
             ...mapOrderArrayToRecord(orders)
           })
         );
+        const nextCategories =
+          appConfig.menu?.categories?.map((category) => ({
+            id: category.id,
+            name: category.name
+          })) || mobileCategories;
+        const nextMenuItems =
+          appConfig.menu?.items?.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: parsePriceLabel(item.pricing?.[0]?.dineIn),
+            categoryId: item.categoryId
+          })) || mobileMenuItems;
+        setConfiguredOutletName(appConfig.outlets?.[0]?.name || activeOutletName);
+        setMenuCategories(nextCategories);
+        setMenuCatalog(nextMenuItems);
+        if (nextCategories[0]) {
+          setSelectedCategoryId((current) =>
+            nextCategories.some((category) => category.id === current) ? current : nextCategories[0].id
+          );
+        }
       } catch {
         // Keep local mock flow when backend is not available.
       }
@@ -872,7 +904,7 @@ export function App() {
             </div>
 
             <div className="category-tabs">
-              {mobileCategories.map((category) => (
+              {menuCategories.map((category) => (
                 <button
                   key={category.id}
                   type="button"

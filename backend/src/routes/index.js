@@ -14,6 +14,7 @@ const { devicesRouter } = require("../modules/devices/devices.routes");
 const { operationsRouter } = require("../modules/operations/operations.routes");
 const { reportsRouter } = require("../modules/reports/reports.routes");
 const { shiftsRouter } = require("../modules/shifts/shifts.routes");
+const { setupRouter } = require("../modules/setup/setup.routes");
 
 const apiRouter = express.Router();
 
@@ -31,6 +32,7 @@ apiRouter.use("/devices", devicesRouter);
 apiRouter.use("/operations", operationsRouter);
 apiRouter.use("/reports", reportsRouter);
 apiRouter.use("/shifts", shiftsRouter);
+apiRouter.use("/setup", setupRouter);
 
 module.exports = {
   apiRouter
