@@ -4,7 +4,230 @@ const path = require("path");
 const DATA_DIR = path.join(__dirname, "..", "..", ".data");
 const DATA_FILE = path.join(DATA_DIR, "owner-setup.json");
 
+function createDefaultPermissions() {
+  return [
+    { id: "perm-1", code: "business.manage", moduleName: "Business", scope: "owner" },
+    { id: "perm-2", code: "outlets.manage", moduleName: "Outlets", scope: "owner" },
+    { id: "perm-3", code: "menu.manage", moduleName: "Menu", scope: "owner" },
+    { id: "perm-4", code: "roles.manage", moduleName: "Roles", scope: "owner" },
+    { id: "perm-5", code: "users.manage", moduleName: "Users", scope: "owner" },
+    { id: "perm-6", code: "tax.manage", moduleName: "Billing", scope: "owner" },
+    { id: "perm-7", code: "receipt_templates.manage", moduleName: "Billing", scope: "owner" },
+    { id: "perm-8", code: "devices.manage", moduleName: "Devices", scope: "owner" },
+    { id: "perm-9", code: "reports.view", moduleName: "Reports", scope: "manager" },
+    { id: "perm-10", code: "operations.kot.send", moduleName: "Operations", scope: "captain" },
+    { id: "perm-11", code: "operations.bill.request", moduleName: "Operations", scope: "waiter" },
+    { id: "perm-12", code: "operations.discount.approve", moduleName: "Operations", scope: "manager" },
+    { id: "perm-13", code: "operations.table.create", moduleName: "Operations", scope: "cashier" },
+    { id: "perm-14", code: "operations.bill.split", moduleName: "Operations", scope: "captain" },
+    { id: "perm-15", code: "operations.bill.edit", moduleName: "Operations", scope: "cashier" },
+    { id: "perm-16", code: "operations.bill.cancel", moduleName: "Operations", scope: "manager" },
+    { id: "perm-17", code: "operations.table.move", moduleName: "Operations", scope: "captain" },
+    { id: "perm-18", code: "floor.area.manage", moduleName: "Floor", scope: "manager" },
+    { id: "perm-19", code: "floor.table.seats.manage", moduleName: "Floor", scope: "cashier" },
+    { id: "perm-20", code: "operations.kot.status.update", moduleName: "Operations", scope: "kitchen" }
+  ];
+}
+
+function createDefaultRoles() {
+  return [
+    {
+      id: "role-owner",
+      name: "Owner",
+      description: "Full business access across all outlets",
+      permissions: [
+        "business.manage",
+        "outlets.manage",
+        "menu.manage",
+        "roles.manage",
+        "users.manage",
+        "tax.manage",
+        "receipt_templates.manage",
+        "devices.manage",
+        "reports.view",
+        "operations.discount.approve",
+        "operations.table.create",
+        "operations.bill.split",
+        "operations.bill.edit",
+        "operations.bill.cancel",
+        "operations.table.move",
+        "floor.area.manage",
+        "floor.table.seats.manage",
+        "operations.kot.send",
+        "operations.kot.status.update"
+      ]
+    },
+    {
+      id: "role-manager",
+      name: "Manager",
+      description: "Outlet operations and approval access",
+      permissions: [
+        "menu.manage",
+        "users.manage",
+        "reports.view",
+        "operations.discount.approve",
+        "operations.bill.cancel",
+        "floor.area.manage"
+      ]
+    },
+    {
+      id: "role-cashier",
+      name: "Cashier",
+      description: "Billing, edits, cancellations, and optional table setup",
+      permissions: [
+        "operations.table.create",
+        "operations.bill.edit",
+        "floor.table.seats.manage"
+      ]
+    },
+    {
+      id: "role-captain",
+      name: "Captain",
+      description: "Floor service, KOT, table movement, and split bill request",
+      permissions: ["operations.kot.send", "operations.bill.split", "operations.table.move"]
+    },
+    {
+      id: "role-waiter",
+      name: "Waiter",
+      description: "Service support and billing request access",
+      permissions: ["operations.bill.request"]
+    },
+    {
+      id: "role-kitchen",
+      name: "Kitchen",
+      description: "Kitchen ticket status updates only",
+      permissions: ["operations.kot.status.update"]
+    }
+  ];
+}
+
+function createDefaultMenuConfig(taxProfiles = []) {
+  return {
+    defaultPricingMode: "Area + order type",
+    pricingZones: ["AC", "Non-AC", "Self Service"],
+    orderTypes: ["Dine-In", "Takeaway", "Delivery"],
+    defaultTaxProfileId: taxProfiles[0]?.id || "tax-5",
+    defaultPricingProfileId: "pricing-standard",
+    menuStructureNote: "One page, simple assignment"
+  };
+}
+
+function createDefaultPricingProfiles() {
+  return [
+    {
+      id: "pricing-standard",
+      name: "Standard Service Pricing",
+      dineInMode: "Area wise",
+      takeawayMode: "Single price",
+      deliveryMode: "Single price",
+      takeawayParcelChargeType: "None",
+      takeawayParcelChargeValue: 0,
+      deliveryParcelChargeType: "Fixed",
+      deliveryParcelChargeValue: 25,
+      isActive: true
+    },
+    {
+      id: "pricing-premium",
+      name: "Premium Delivery Pricing",
+      dineInMode: "Area wise",
+      takeawayMode: "Single price",
+      deliveryMode: "Single price",
+      takeawayParcelChargeType: "Fixed",
+      takeawayParcelChargeValue: 10,
+      deliveryParcelChargeType: "Percentage",
+      deliveryParcelChargeValue: 5,
+      isActive: false
+    }
+  ];
+}
+
+function createDefaultMenuGroups() {
+  return [
+    {
+      id: "all-day",
+      name: "All Day Menu",
+      status: "Live",
+      categoryIds: ["cat-starters", "cat-main-course", "cat-beverages"],
+      channels: "Dine-In, Takeaway, Delivery",
+      availability: "Always on",
+      note: "Primary menu used through the full service day"
+    },
+    {
+      id: "breakfast",
+      name: "Breakfast Menu",
+      status: "Scheduled",
+      categoryIds: ["cat-beverages"],
+      channels: "Dine-In, Takeaway",
+      availability: "7:00 AM - 11:00 AM",
+      note: "Shown from 7:00 AM to 11:00 AM"
+    },
+    {
+      id: "delivery-only",
+      name: "Delivery Specials",
+      status: "Review",
+      categoryIds: ["cat-main-course"],
+      channels: "Delivery",
+      availability: "6:00 PM - 10:30 PM",
+      note: "Owner should review pricing and availability before launch"
+    }
+  ];
+}
+
+function createDefaultMenuAssignments(outlets = []) {
+  return [
+    {
+      id: "assign-1",
+      menuGroupId: "all-day",
+      outletId: outlets[0]?.id || "outlet-indiranagar",
+      channels: "Dine-In, Takeaway, Delivery",
+      availability: "Always on",
+      status: "Ready"
+    },
+    {
+      id: "assign-2",
+      menuGroupId: "breakfast",
+      outletId: outlets[1]?.id || "outlet-koramangala",
+      channels: "Dine-In, Takeaway",
+      availability: "7:00 AM - 11:00 AM",
+      status: "Scheduled"
+    }
+  ];
+}
+
 function createDefaultData() {
+  const taxProfiles = [
+    { id: "tax-5", name: "GST 5%", cgstRate: 2.5, sgstRate: 2.5, igstRate: 5, cessRate: 0, isInclusive: false, isDefault: true },
+    { id: "tax-18", name: "GST 18%", cgstRate: 9, sgstRate: 9, igstRate: 18, cessRate: 0, isInclusive: false, isDefault: false }
+  ];
+  const outlets = [
+    {
+      id: "outlet-indiranagar",
+      code: "BLR-01",
+      name: "Indiranagar",
+      gstin: "29ABCDE1234F1Z5",
+      city: "Bengaluru",
+      state: "Karnataka",
+      isActive: true,
+      hours: "8:00 AM - 11:00 PM",
+      services: ["Dine-in", "Takeaway", "Delivery"],
+      defaultTaxProfileId: "tax-5",
+      receiptTemplateId: "receipt-dine-in"
+    },
+    {
+      id: "outlet-koramangala",
+      code: "BLR-02",
+      name: "Koramangala",
+      gstin: "29ABCDE1234F1Z5",
+      city: "Bengaluru",
+      state: "Karnataka",
+      isActive: true,
+      hours: "9:00 AM - 11:30 PM",
+      services: ["Dine-in", "Takeaway"],
+      defaultTaxProfileId: "tax-5",
+      receiptTemplateId: "receipt-dine-in"
+    }
+  ];
+
   return {
     businessProfile: {
       id: "business-1",
@@ -25,68 +248,9 @@ function createDefaultData() {
       invoiceHeader: "Pure veg family restaurant",
       invoiceFooter: "Thank you, visit again"
     },
-    outlets: [
-      {
-        id: "outlet-indiranagar",
-        code: "BLR-01",
-        name: "Indiranagar",
-        gstin: "29ABCDE1234F1Z5",
-        city: "Bengaluru",
-        state: "Karnataka",
-        isActive: true,
-        hours: "8:00 AM - 11:00 PM",
-        services: ["Dine-in", "Takeaway", "Delivery"],
-        defaultTaxProfileId: "tax-5",
-        receiptTemplateId: "receipt-dine-in"
-      },
-      {
-        id: "outlet-koramangala",
-        code: "BLR-02",
-        name: "Koramangala",
-        gstin: "29ABCDE1234F1Z5",
-        city: "Bengaluru",
-        state: "Karnataka",
-        isActive: true,
-        hours: "9:00 AM - 11:30 PM",
-        services: ["Dine-in", "Takeaway"],
-        defaultTaxProfileId: "tax-5",
-        receiptTemplateId: "receipt-dine-in"
-      }
-    ],
-    permissions: [
-      { id: "perm-1", code: "business.manage", moduleName: "Business", scope: "owner" },
-      { id: "perm-2", code: "outlets.manage", moduleName: "Outlets", scope: "owner" },
-      { id: "perm-3", code: "menu.manage", moduleName: "Menu", scope: "owner" },
-      { id: "perm-4", code: "roles.manage", moduleName: "Roles", scope: "owner" },
-      { id: "perm-5", code: "users.manage", moduleName: "Users", scope: "owner" },
-      { id: "perm-6", code: "tax.manage", moduleName: "Billing", scope: "owner" },
-      { id: "perm-7", code: "receipt_templates.manage", moduleName: "Billing", scope: "owner" },
-      { id: "perm-8", code: "devices.manage", moduleName: "Devices", scope: "owner" },
-      { id: "perm-9", code: "reports.view", moduleName: "Reports", scope: "manager" },
-      { id: "perm-10", code: "operations.kot.send", moduleName: "Operations", scope: "captain" },
-      { id: "perm-11", code: "operations.bill.request", moduleName: "Operations", scope: "waiter" },
-      { id: "perm-12", code: "operations.discount.approve", moduleName: "Operations", scope: "manager" }
-    ],
-    roles: [
-      {
-        id: "role-owner",
-        name: "Owner",
-        description: "Full business access across all outlets",
-        permissions: ["business.manage", "outlets.manage", "menu.manage", "roles.manage", "users.manage", "tax.manage", "receipt_templates.manage", "devices.manage", "reports.view"]
-      },
-      {
-        id: "role-manager",
-        name: "Manager",
-        description: "Outlet operations and approval access",
-        permissions: ["menu.manage", "users.manage", "reports.view", "operations.discount.approve"]
-      },
-      {
-        id: "role-captain",
-        name: "Captain",
-        description: "Floor service and KOT operations",
-        permissions: ["operations.kot.send"]
-      }
-    ],
+    outlets,
+    permissions: createDefaultPermissions(),
+    roles: createDefaultRoles(),
     users: [
       {
         id: "user-owner",
@@ -107,10 +271,7 @@ function createDefaultData() {
         pin: "2244"
       }
     ],
-    taxProfiles: [
-      { id: "tax-5", name: "GST 5%", cgstRate: 2.5, sgstRate: 2.5, igstRate: 5, cessRate: 0, isInclusive: false, isDefault: true },
-      { id: "tax-18", name: "GST 18%", cgstRate: 9, sgstRate: 9, igstRate: 18, cessRate: 0, isInclusive: false, isDefault: false }
-    ],
+    taxProfiles,
     receiptTemplates: [
       { id: "receipt-dine-in", name: "Dine-In Standard", showQrPayment: true, showTaxBreakdown: true, footerNote: "Thank you, visit again", outletName: "All Outlets" },
       { id: "receipt-takeaway", name: "Takeaway Standard", showQrPayment: true, showTaxBreakdown: true, footerNote: "Packed with care", outletName: "All Outlets" }
@@ -122,6 +283,8 @@ function createDefaultData() {
       { id: "device-4", deviceName: "Hot Kitchen Display", deviceType: "Kitchen Display", outletName: "Indiranagar", status: "active", linkCode: "KDS-1004" }
     ],
     menu: {
+      config: createDefaultMenuConfig(taxProfiles),
+      pricingProfiles: createDefaultPricingProfiles(),
       stations: [
         { id: "station-fry", name: "Fry station" },
         { id: "station-grill", name: "Grill station" },
@@ -218,15 +381,38 @@ function createDefaultData() {
             { area: "Self Service", dineIn: "Rs 90", takeaway: "Rs 85", delivery: "Rs 95" }
           ]
         }
-      ]
+      ],
+      menuGroups: createDefaultMenuGroups(),
+      menuAssignments: createDefaultMenuAssignments(outlets)
     }
   };
 }
 
 function normalizeOwnerSetupData(data) {
   const next = JSON.parse(JSON.stringify(data));
+  const defaultPermissions = createDefaultPermissions();
+  const defaultRoles = createDefaultRoles();
   next.devices = next.devices || [];
+  next.permissions = defaultPermissions.map((permission) => {
+    const existing = (next.permissions || []).find((item) => item.code === permission.code);
+    return existing ? { ...permission, ...existing } : permission;
+  });
+  next.roles = [
+    ...defaultRoles.map((role) => {
+      const existing = (next.roles || []).find((item) => item.name === role.name);
+      return existing
+        ? {
+            ...role,
+            ...existing,
+            permissions: Array.from(new Set([...(existing.permissions || []), ...(role.permissions || [])]))
+          }
+        : role;
+    }),
+    ...(next.roles || []).filter((role) => !defaultRoles.some((defaultRole) => defaultRole.name === role.name))
+  ];
   next.menu = next.menu || { categories: [], items: [] };
+  next.menu.config = next.menu.config || createDefaultMenuConfig(next.taxProfiles || []);
+  next.menu.pricingProfiles = next.menu.pricingProfiles || createDefaultPricingProfiles();
   next.menu.stations = (next.menu.stations || []).map((station) => ({
     id: station.id || `station-${String(station.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
     name: station.name
@@ -237,6 +423,22 @@ function normalizeOwnerSetupData(data) {
     displayTarget: category.displayTarget || "Hot Kitchen Display",
     ...category
   }));
+  next.menu.menuGroups = (next.menu.menuGroups || createDefaultMenuGroups()).map((menuGroup) => ({
+    status: "Live",
+    categoryIds: [],
+    channels: "Dine-In, Takeaway",
+    availability: "Always on",
+    note: "",
+    ...menuGroup
+  }));
+  next.menu.menuAssignments = (next.menu.menuAssignments || createDefaultMenuAssignments(next.outlets || [])).map(
+    (assignment) => ({
+      channels: "Dine-In, Takeaway",
+      availability: "Always on",
+      status: "Ready",
+      ...assignment
+    })
+  );
 
   if (!next.devices.some((device) => device.deviceType === "Kitchen Printer")) {
     next.devices.push({

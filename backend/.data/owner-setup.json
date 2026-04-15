@@ -208,7 +208,23 @@
       "name": "Captain",
       "description": "Floor service and KOT operations",
       "permissions": [
-        "operations.kot.send"
+        "operations.kot.send",
+        "operations.bill.request"
+      ]
+    },
+    {
+      "id": "role-1776275610938",
+      "name": "Cashier",
+      "description": "Cashier role created from owner dashboard",
+      "permissions": [
+        "menu.manage",
+        "users.manage",
+        "tax.manage",
+        "receipt_templates.manage",
+        "devices.manage",
+        "operations.kot.send",
+        "operations.bill.request",
+        "operations.discount.approve"
       ]
     }
   ],
@@ -351,7 +367,9 @@
         "displayTarget": "Hot Kitchen Display",
         "id": "cat-starters",
         "name": "Starters",
-        "itemCount": 5
+        "itemCount": 6,
+        "availableFrom": "12:00",
+        "availableTo": "16:00"
       },
       {
         "station": "Main kitchen",
@@ -397,36 +415,152 @@
         "station": "Main kitchen",
         "printerTarget": "Kitchen Printer 1",
         "displayTarget": "Hot Kitchen Display",
-        "id": "cat-1776230500644",
-        "name": "test",
-        "itemCount": 0
-      },
-      {
-        "station": "Main kitchen",
-        "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display",
-        "id": "cat-1776238391613",
-        "name": "Test 2",
-        "itemCount": 0
-      },
-      {
-        "station": "Main kitchen",
-        "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display",
-        "id": "cat-1776252949376",
-        "name": "Dosa Itams",
-        "itemCount": 2
-      },
-      {
         "id": "cat-1776253943627",
         "name": "North Indian",
-        "itemCount": 0,
+        "itemCount": 0
+      },
+      {
         "station": "Main kitchen",
         "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display"
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-1776271785173",
+        "name": "Break Fast",
+        "itemCount": 1,
+        "availableFrom": "07:00",
+        "availableTo": "11:00"
       }
     ],
     "items": [
+      {
+        "id": "item-1776271803537",
+        "categoryId": "cat-1776271785173",
+        "name": "podi Dosa",
+        "station": "south indian",
+        "gstLabel": "GST 5%",
+        "status": "Live",
+        "foodType": "Veg",
+        "badges": [
+          "Custom item",
+          "Available"
+        ],
+        "salesAvailability": "Available",
+        "outletAvailability": [
+          {
+            "outlet": "Indiranagar",
+            "enabled": true
+          },
+          {
+            "outlet": "Koramangala",
+            "enabled": true
+          },
+          {
+            "outlet": "HSR Layout",
+            "enabled": true
+          }
+        ],
+        "inventoryTracking": {
+          "enabled": true,
+          "mode": "Item wise",
+          "note": "Track sellable stock for POS and waiter ordering"
+        },
+        "takeawayPrice": "Rs 185",
+        "deliveryPrice": "Rs 205",
+        "parcelCharges": {
+          "takeaway": {
+            "type": "None",
+            "value": 0
+          },
+          "delivery": {
+            "type": "None",
+            "value": 0
+          }
+        },
+        "pricing": [
+          {
+            "area": "AC",
+            "dineIn": "Rs 190",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          },
+          {
+            "area": "Non-AC",
+            "dineIn": "Rs 180",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          },
+          {
+            "area": "Self Service",
+            "dineIn": "Rs 170",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          }
+        ]
+      },
+      {
+        "id": "item-1776258348885",
+        "categoryId": "cat-starters",
+        "name": "Gobi Manchurian",
+        "station": "North Indian",
+        "gstLabel": "GST 5%",
+        "status": "Live",
+        "foodType": "Veg",
+        "badges": [
+          "Custom item",
+          "Available"
+        ],
+        "salesAvailability": "Available",
+        "outletAvailability": [
+          {
+            "outlet": "Indiranagar",
+            "enabled": true
+          },
+          {
+            "outlet": "Koramangala",
+            "enabled": true
+          },
+          {
+            "outlet": "HSR Layout",
+            "enabled": true
+          }
+        ],
+        "inventoryTracking": {
+          "enabled": true,
+          "mode": "Item wise",
+          "note": "Track sellable stock for POS and waiter ordering"
+        },
+        "pricing": [
+          {
+            "area": "AC",
+            "dineIn": "Rs 190",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          },
+          {
+            "area": "Non-AC",
+            "dineIn": "Rs 180",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          },
+          {
+            "area": "Self Service",
+            "dineIn": "Rs 170",
+            "takeaway": "Rs 185",
+            "delivery": "Rs 205"
+          }
+        ],
+        "takeawayPrice": "Rs 185",
+        "deliveryPrice": "Rs 205",
+        "parcelCharges": {
+          "takeaway": {
+            "type": "None",
+            "value": 0
+          },
+          "delivery": {
+            "type": "None",
+            "value": 0
+          }
+        }
+      },
       {
         "id": "item-1776253807085",
         "categoryId": "cat-starters",
@@ -469,122 +603,28 @@
           {
             "area": "Non-AC",
             "dineIn": "Rs 180",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 195"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 170",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 185"
-          }
-        ]
-      },
-      {
-        "id": "item-1776253099831",
-        "categoryId": "cat-1776252949376",
-        "name": "Podi Dosa",
-        "station": "south indian",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Custom item",
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          },
-          {
-            "outlet": "HSR Layout",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Item wise",
-          "note": "Track sellable stock for POS and waiter ordering"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 190",
             "takeaway": "Rs 185",
             "delivery": "Rs 205"
           },
           {
-            "area": "Non-AC",
-            "dineIn": "Rs 180",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 195"
-          },
-          {
             "area": "Self Service",
             "dineIn": "Rs 170",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 185"
-          }
-        ]
-      },
-      {
-        "id": "item-1776252949385",
-        "categoryId": "cat-1776252949376",
-        "name": "plain dosa",
-        "station": "south indian",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Custom item",
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          },
-          {
-            "outlet": "HSR Layout",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Item wise",
-          "note": "Track sellable stock for POS and waiter ordering"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 100",
-            "takeaway": "Rs 150",
+            "takeaway": "Rs 185",
             "delivery": "Rs 205"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 180",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 195"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 170",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 185"
           }
-        ]
+        ],
+        "takeawayPrice": "Rs 185",
+        "deliveryPrice": "Rs 205",
+        "parcelCharges": {
+          "takeaway": {
+            "type": "None",
+            "value": 0
+          },
+          "delivery": {
+            "type": "None",
+            "value": 0
+          }
+        }
       },
       {
         "id": "item-1776230443898",
@@ -1007,6 +1047,121 @@
       {
         "id": "station-1776253866086",
         "name": "Tandoor Staions"
+      }
+    ],
+    "config": {
+      "defaultPricingMode": "Area + order type",
+      "pricingZones": [
+        "AC",
+        "Non-AC",
+        "Self Service"
+      ],
+      "orderTypes": [
+        "Dine-In",
+        "Takeaway",
+        "Delivery"
+      ],
+      "defaultTaxProfileId": "tax-5",
+      "menuStructureNote": "One page, simple assignment"
+    },
+    "menuGroups": [
+      {
+        "status": "Scheduled",
+        "categoryIds": [
+          "cat-starters"
+        ],
+        "channels": "Dine-In, Takeaway",
+        "availability": "Always on",
+        "note": "",
+        "id": "group-1776257380248",
+        "name": "DOSA Group"
+      },
+      {
+        "status": "Live",
+        "categoryIds": [
+          "cat-starters",
+          "cat-main-course",
+          "cat-beverages"
+        ],
+        "channels": "Dine-In, Takeaway, Delivery",
+        "availability": "Always on",
+        "note": "Primary menu used through the full service day",
+        "id": "all-day",
+        "name": "All Day Menu"
+      },
+      {
+        "status": "Scheduled",
+        "categoryIds": [
+          "cat-beverages"
+        ],
+        "channels": "Dine-In, Takeaway",
+        "availability": "7:00 AM - 11:00 AM",
+        "note": "Shown from 7:00 AM to 11:00 AM",
+        "id": "breakfast",
+        "name": "Breakfast Menu"
+      },
+      {
+        "status": "Review",
+        "categoryIds": [
+          "cat-main-course"
+        ],
+        "channels": "Delivery",
+        "availability": "6:00 PM - 10:30 PM",
+        "note": "Owner should review pricing and availability before launch",
+        "id": "delivery-only",
+        "name": "Delivery Specials"
+      }
+    ],
+    "menuAssignments": [
+      {
+        "channels": "Dine-In, Takeaway",
+        "availability": "Always on",
+        "status": "Ready",
+        "id": "assignment-1776257457326",
+        "menuGroupId": "group-1776257380248",
+        "outletId": "outlet-1776229358623"
+      },
+      {
+        "channels": "Dine-In, Takeaway, Delivery",
+        "availability": "Always on",
+        "status": "Ready",
+        "id": "assign-1",
+        "menuGroupId": "all-day",
+        "outletId": "outlet-indiranagar"
+      },
+      {
+        "channels": "Dine-In, Takeaway",
+        "availability": "7:00 AM - 11:00 AM",
+        "status": "Scheduled",
+        "id": "assign-2",
+        "menuGroupId": "breakfast",
+        "outletId": "outlet-koramangala"
+      }
+    ],
+    "pricingProfiles": [
+      {
+        "id": "pricing-standard",
+        "name": "Standard Service Pricing",
+        "dineInMode": "Area wise",
+        "takeawayMode": "Single price",
+        "deliveryMode": "Single price",
+        "takeawayParcelChargeType": "None",
+        "takeawayParcelChargeValue": 0,
+        "deliveryParcelChargeType": "Fixed",
+        "deliveryParcelChargeValue": 25,
+        "isActive": true
+      },
+      {
+        "id": "pricing-premium",
+        "name": "Premium Delivery Pricing",
+        "dineInMode": "Area wise",
+        "takeawayMode": "Single price",
+        "deliveryMode": "Single price",
+        "takeawayParcelChargeType": "Fixed",
+        "takeawayParcelChargeValue": 10,
+        "deliveryParcelChargeType": "Percentage",
+        "deliveryParcelChargeValue": 5,
+        "isActive": false
       }
     ]
   }

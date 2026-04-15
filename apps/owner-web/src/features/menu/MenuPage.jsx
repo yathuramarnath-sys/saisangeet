@@ -6,11 +6,22 @@ import {
   updateMenuControls
 } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
 import {
+  bulkImportMenuItems,
+  createMenuAssignment,
   createCustomMenuItem,
   createMenuCategory,
+  createMenuGroup,
   createMenuStation,
+  createPricingProfile,
+  deleteMenuCategory,
+  deleteCustomMenuItem,
   fetchMenuData,
-  updateMenuCategory
+  updateMenuAssignment,
+  updateMenuConfiguration,
+  updateCustomMenuItem,
+  updateMenuCategory,
+  updateMenuGroup,
+  updatePricingProfile
 } from "./menu.service";
 
 function statusClass(status) {
@@ -30,11 +41,99 @@ function toggleOutlet(item, outletName) {
   };
 }
 
+function buildDefaultItemDraft(menuData) {
+  return {
+    categoryName: menuData.categories[0]?.name || "",
+    station: menuData.stations[0]?.name || ""
+  };
+}
+
+function priceValue(pricing, area, field) {
+  const value = pricing.find((row) => row.area === area)?.[field] || "0";
+  const numericValue = String(value).replace(/[^0-9.]/g, "");
+  return numericValue || "0";
+}
+
+function moneyValue(value) {
+  const numericValue = String(value || "0").replace(/[^0-9.]/g, "");
+  return numericValue || "0";
+}
+
+function buildDefaultGroupDraft(menuData) {
+  return {
+    id: "",
+    name: "",
+    status: "Live",
+    categoryIds: menuData.categories.slice(0, 1).map((category) => category.id),
+    channels: "Dine-In, Takeaway",
+    availability: "Always on",
+    note: ""
+  };
+}
+
+function buildDefaultAssignmentDraft(menuData) {
+  return {
+    id: "",
+    menuGroupId: menuData.menuGroups[0]?.id || "",
+    outletId: menuData.outlets[0]?.id || "",
+    channels: "Dine-In, Takeaway",
+    availability: "Always on",
+    status: "Ready"
+  };
+}
+
+function buildDefaultPricingProfileDraft() {
+  return {
+    id: "",
+    name: "",
+    dineInMode: "Area wise",
+    takeawayMode: "Single price",
+    deliveryMode: "Single price",
+    takeawayParcelChargeType: "None",
+    takeawayParcelChargeValue: "0",
+    deliveryParcelChargeType: "None",
+    deliveryParcelChargeValue: "0",
+    isActive: false
+  };
+}
+
+function parseMenuImportText(text) {
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) {
+    return [];
+  }
+
+  const headers = lines[0].split(",").map((header) => header.trim());
+
+  return lines.slice(1).map((line) => {
+    const values = line.split(",").map((value) => value.trim());
+    return headers.reduce((row, header, index) => {
+      row[header] = values[index] || "";
+      return row;
+    }, {});
+  });
+}
+
 export function MenuPage() {
   const [menuData, setMenuData] = useState({
+    menuConfig: {
+      defaultPricingMode: "Area + order type",
+      pricingZones: [],
+      orderTypes: [],
+      defaultTaxProfileId: "",
+      defaultPricingProfileId: "",
+      menuStructureNote: ""
+    },
     categories: [],
     stations: [],
     items: [],
+    outlets: [],
+    taxProfiles: [],
+    pricingProfiles: [],
     menuGroups: [],
     menuAssignments: [],
     menuAlerts: []
@@ -43,13 +142,39 @@ export function MenuPage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [categoryName, setCategoryName] = useState("");
+  const [categoryAvailableFrom, setCategoryAvailableFrom] = useState("10:00");
+  const [categoryAvailableTo, setCategoryAvailableTo] = useState("16:00");
+  const [editingCategoryId, setEditingCategoryId] = useState("");
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [editingCategoryAvailableFrom, setEditingCategoryAvailableFrom] = useState("");
+  const [editingCategoryAvailableTo, setEditingCategoryAvailableTo] = useState("");
   const [stationName, setStationName] = useState("");
-  const [itemDraft, setItemDraft] = useState({
-    categoryName: "",
-    station: ""
+  const [itemDraft, setItemDraft] = useState({ categoryName: "", station: "" });
+  const [editingItemId, setEditingItemId] = useState("");
+  const [editDraft, setEditDraft] = useState(null);
+  const [configDraft, setConfigDraft] = useState({
+    defaultPricingMode: "Area + order type",
+    pricingZones: "AC, Non-AC, Self Service",
+    orderTypes: "Dine-In, Takeaway, Delivery",
+    defaultTaxProfileId: "",
+    defaultPricingProfileId: "",
+    menuStructureNote: "One page, simple assignment"
   });
+  const [groupDraft, setGroupDraft] = useState(buildDefaultGroupDraft({ categories: [] }));
+  const [assignmentDraft, setAssignmentDraft] = useState(
+    buildDefaultAssignmentDraft({ menuGroups: [], outlets: [] })
+  );
+  const [pricingProfileDraft, setPricingProfileDraft] = useState(buildDefaultPricingProfileDraft());
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("Active");
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [inventoryFilter, setInventoryFilter] = useState("Any");
+  const [foodTypeFilter, setFoodTypeFilter] = useState("Any");
+  const [importSummary, setImportSummary] = useState("");
   const [routingDrafts, setRoutingDrafts] = useState({});
   const formRef = useRef(null);
+  const importInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +185,20 @@ export function MenuPage() {
       if (!cancelled) {
         setMenuData(result);
         setLoading(false);
+        setItemDraft((current) =>
+          current.categoryName || current.station ? current : buildDefaultItemDraft(result)
+        );
+        setConfigDraft({
+          defaultPricingMode: result.menuConfig.defaultPricingMode || "Area + order type",
+          pricingZones: (result.menuConfig.pricingZones || []).join(", "),
+          orderTypes: (result.menuConfig.orderTypes || []).join(", "),
+          defaultTaxProfileId: result.menuConfig.defaultTaxProfileId || result.taxProfiles[0]?.id || "",
+          defaultPricingProfileId:
+            result.menuConfig.defaultPricingProfileId || result.pricingProfiles?.find((profile) => profile.isActive)?.id || "",
+          menuStructureNote: result.menuConfig.menuStructureNote || "One page, simple assignment"
+        });
+        setGroupDraft(buildDefaultGroupDraft(result));
+        setAssignmentDraft(buildDefaultAssignmentDraft(result));
       }
     }
 
@@ -73,15 +212,76 @@ export function MenuPage() {
     };
   }, []);
 
-  const categoryCount = menuData.categories.length || 12;
-  const itemCount = menuData.items.length ? 186 : 186;
-  const reviewCount = menuData.items.filter((item) => item.status === "Review").length || 6;
+  const categoryCount = menuData.categories.length;
+  const itemCount = menuData.items.length;
+  const reviewCount = menuData.items.filter((item) => item.status === "Review").length;
+  const vegItemCount = menuData.items.filter((item) => item.foodType === "Veg").length;
+  const missingTaxCount = menuData.items.filter((item) => Number(item.taxRate || 0) <= 0).length;
+  const kitchenMappedCount = menuData.items.filter(
+    (item) => item.station && item.station !== "Station pending"
+  ).length;
+  const inventoryTrackedCount = menuData.items.filter((item) => item.inventoryTracking.enabled).length;
+  const missingPriceCount = menuData.items.filter(
+    (item) =>
+      Number(priceValue(item.pricing, "AC", "dineIn")) <= 0 ||
+      Number(priceValue(item.pricing, "Non-AC", "dineIn")) <= 0 ||
+      Number(priceValue(item.pricing, "Self Service", "dineIn")) <= 0
+  ).length;
+  const missingStationCount = menuData.items.filter(
+    (item) => !item.station || item.station === "Station pending"
+  ).length;
+  const dynamicAlerts = [
+    missingTaxCount > 0
+      ? {
+          id: "missing-tax-live",
+          title: `${missingTaxCount} items missing tax setup`,
+          description: "Set tax mode and tax rate before billing starts."
+        }
+      : null,
+    missingPriceCount > 0
+      ? {
+          id: "missing-pricing-live",
+          title: `${missingPriceCount} items missing dine-in pricing`,
+          description: "Complete AC, Non-AC, and Self Service prices before outlet launch."
+        }
+      : null,
+    missingStationCount > 0
+      ? {
+          id: "missing-station-live",
+          title: `${missingStationCount} items missing kitchen station`,
+          description: "KOT routing will fail for items without a kitchen station."
+        }
+      : null
+  ].filter(Boolean);
   const categoryGroups = menuData.categories.map((category) => ({
     ...category,
     items: menuData.items.filter((item) => item.categoryId === category.id)
   }));
   const availableCategoryNames = menuData.categories.map((category) => category.name);
   const availableStationNames = menuData.stations.map((station) => station.name);
+  const availableOutlets = menuData.outlets || [];
+  const availableTaxProfiles = menuData.taxProfiles || [];
+  const availablePricingProfiles = menuData.pricingProfiles || [];
+  const availableMenuGroups = menuData.menuGroups || [];
+  const filteredLibraryItems = menuData.items.filter((item) => {
+    const matchesSearch =
+      !librarySearch ||
+      item.name.toLowerCase().includes(librarySearch.toLowerCase()) ||
+      (item.categoryName || "").toLowerCase().includes(librarySearch.toLowerCase());
+    const matchesCategory = categoryFilter === "All" || item.categoryName === categoryFilter;
+    const matchesStatus =
+      statusFilter === "All" ||
+      (statusFilter === "Active" && item.salesAvailability !== "Sold Out") ||
+      (statusFilter === "Sold Out" && item.salesAvailability === "Sold Out") ||
+      item.status === statusFilter;
+    const matchesInventory =
+      inventoryFilter === "Any" ||
+      (inventoryFilter === "Tracked" && item.inventoryTracking.enabled) ||
+      (inventoryFilter === "Not tracked" && !item.inventoryTracking.enabled);
+    const matchesFoodType = foodTypeFilter === "Any" || item.foodType === foodTypeFilter;
+
+    return matchesSearch && matchesCategory && matchesStatus && matchesInventory && matchesFoodType;
+  });
 
   function updateItem(itemId, updater) {
     setMenuData((current) => ({
@@ -95,8 +295,8 @@ export function MenuPage() {
     setMenuData(result);
     setLoading(false);
     setItemDraft((current) => ({
-      categoryName: current.categoryName || result.categories[0]?.name || "Starters",
-      station: current.station || result.stations[0]?.name || "Main kitchen"
+      categoryName: current.categoryName || result.categories[0]?.name || "",
+      station: current.station || result.stations[0]?.name || ""
     }));
     setRoutingDrafts((current) => {
       const next = { ...current };
@@ -109,6 +309,18 @@ export function MenuPage() {
       });
       return next;
     });
+    setConfigDraft({
+      defaultPricingMode: result.menuConfig.defaultPricingMode || "Area + order type",
+      pricingZones: (result.menuConfig.pricingZones || []).join(", "),
+      orderTypes: (result.menuConfig.orderTypes || []).join(", "),
+      defaultTaxProfileId: result.menuConfig.defaultTaxProfileId || result.taxProfiles[0]?.id || "",
+      defaultPricingProfileId:
+        result.menuConfig.defaultPricingProfileId || result.pricingProfiles?.find((profile) => profile.isActive)?.id || "",
+      menuStructureNote: result.menuConfig.menuStructureNote || "One page, simple assignment"
+    });
+    setGroupDraft((current) => (current.id ? current : buildDefaultGroupDraft(result)));
+    setAssignmentDraft((current) => (current.id ? current : buildDefaultAssignmentDraft(result)));
+    return result;
   }
 
   async function handleSaveItem(event) {
@@ -122,27 +334,27 @@ export function MenuPage() {
       await createCustomMenuItem({
         itemName: formData.get("itemName"),
         categoryName: formData.get("categoryName"),
+        availableFrom: formData.get("availableFrom"),
+        availableTo: formData.get("availableTo"),
         acDineIn: formData.get("acDineIn"),
-        acTakeaway: formData.get("acTakeaway"),
-        acDelivery: formData.get("acDelivery"),
         nonAcDineIn: formData.get("nonAcDineIn"),
-        nonAcTakeaway: formData.get("nonAcTakeaway"),
-        nonAcDelivery: formData.get("nonAcDelivery"),
         selfDineIn: formData.get("selfDineIn"),
-        selfTakeaway: formData.get("selfTakeaway"),
-        selfDelivery: formData.get("selfDelivery"),
+        takeawayPrice: formData.get("takeawayPrice"),
+        deliveryPrice: formData.get("deliveryPrice"),
+        taxMode: formData.get("taxMode"),
+        taxRate: formData.get("taxRate"),
+        takeawayParcelChargeType: formData.get("takeawayParcelChargeType"),
+        takeawayParcelChargeValue: formData.get("takeawayParcelChargeValue"),
+        deliveryParcelChargeType: formData.get("deliveryParcelChargeType"),
+        deliveryParcelChargeValue: formData.get("deliveryParcelChargeValue"),
         station: formData.get("station"),
         trackInventory: formData.get("trackInventory"),
         entryStyle: formData.get("entryStyle"),
         foodType: formData.get("foodType")
       });
-      await reloadMenu();
+      const result = await reloadMenu();
       form.reset();
-      setItemDraft((current) => ({
-        ...current,
-        categoryName: menuData.categories[0]?.name || "Starters",
-        station: menuData.stations[0]?.name || "Main kitchen"
-      }));
+      setItemDraft(buildDefaultItemDraft(result));
       setSaveMessage("New menu item saved.");
     } catch (error) {
       setSaveError(error.message || "Unable to save the new menu item.");
@@ -161,13 +373,75 @@ export function MenuPage() {
     try {
       setSaveError("");
       setSaveMessage("");
-      await createMenuCategory(categoryName.trim());
+      await createMenuCategory(categoryName.trim(), {
+        availableFrom: categoryAvailableFrom,
+        availableTo: categoryAvailableTo
+      });
       setCategoryName("");
+      setCategoryAvailableFrom("10:00");
+      setCategoryAvailableTo("16:00");
       await reloadMenu();
       form.reset();
       setSaveMessage("New category created.");
     } catch (error) {
       setSaveError(error.message || "Unable to create category.");
+    }
+  }
+
+  function startEditingCategory(category) {
+    setEditingCategoryId(category.id);
+    setEditingCategoryName(category.name);
+    setEditingCategoryAvailableFrom(category.availableFrom || "");
+    setEditingCategoryAvailableTo(category.availableTo || "");
+    setSaveError("");
+    setSaveMessage("");
+  }
+
+  function cancelEditingCategory() {
+    setEditingCategoryId("");
+    setEditingCategoryName("");
+    setEditingCategoryAvailableFrom("");
+    setEditingCategoryAvailableTo("");
+  }
+
+  async function handleSaveCategoryEdit(category) {
+    if (!editingCategoryName.trim()) {
+      setSaveError("Category name is required.");
+      return;
+    }
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      await updateMenuCategory(category.id, {
+        name: editingCategoryName.trim(),
+        availableFrom: editingCategoryAvailableFrom,
+        availableTo: editingCategoryAvailableTo
+      });
+      await reloadMenu();
+      cancelEditingCategory();
+      setSaveMessage("Category updated.");
+    } catch (error) {
+      setSaveError(error.message || "Unable to update category.");
+    }
+  }
+
+  async function handleDeleteCategory(category) {
+    if (!window.confirm(`Delete category ${category.name}? Items under this category will also be removed.`)) {
+      return;
+    }
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      await deleteMenuCategory(category.id);
+      await reloadMenu();
+      if (editingCategoryId === category.id) {
+        cancelEditingCategory();
+      }
+      setSaveMessage("Category deleted.");
+    } catch (error) {
+      setSaveError(error.message || "Unable to delete category.");
     }
   }
 
@@ -225,6 +499,320 @@ export function MenuPage() {
     }
   }
 
+  function updateConfigField(field, value) {
+    setConfigDraft((current) => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
+  async function handleSaveConfiguration(event) {
+    event.preventDefault();
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      await updateMenuConfiguration({
+        defaultPricingMode: configDraft.defaultPricingMode,
+        pricingZones: configDraft.pricingZones
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+        orderTypes: configDraft.orderTypes
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+        defaultTaxProfileId: configDraft.defaultTaxProfileId,
+        defaultPricingProfileId: configDraft.defaultPricingProfileId,
+        menuStructureNote: configDraft.menuStructureNote
+      });
+      await reloadMenu();
+      setSaveMessage("Menu configuration updated.");
+    } catch (error) {
+      setSaveError(error.message || "Unable to update menu configuration.");
+    }
+  }
+
+  function toggleGroupCategory(categoryId) {
+    setGroupDraft((current) => ({
+      ...current,
+      categoryIds: current.categoryIds.includes(categoryId)
+        ? current.categoryIds.filter((id) => id !== categoryId)
+        : [...current.categoryIds, categoryId]
+    }));
+  }
+
+  function startEditingPricingProfile(profile) {
+    setPricingProfileDraft({
+      id: profile.id,
+      name: profile.name,
+      dineInMode: profile.dineInMode || "Area wise",
+      takeawayMode: profile.takeawayMode || "Single price",
+      deliveryMode: profile.deliveryMode || "Single price",
+      takeawayParcelChargeType: profile.takeawayParcelChargeType || "None",
+      takeawayParcelChargeValue: String(profile.takeawayParcelChargeValue || 0),
+      deliveryParcelChargeType: profile.deliveryParcelChargeType || "None",
+      deliveryParcelChargeValue: String(profile.deliveryParcelChargeValue || 0),
+      isActive: Boolean(profile.isActive)
+    });
+  }
+
+  function cancelPricingProfileEdit() {
+    setPricingProfileDraft(buildDefaultPricingProfileDraft());
+  }
+
+  async function handleSavePricingProfile(event) {
+    event.preventDefault();
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      const payload = {
+        name: pricingProfileDraft.name,
+        dineInMode: pricingProfileDraft.dineInMode,
+        takeawayMode: pricingProfileDraft.takeawayMode,
+        deliveryMode: pricingProfileDraft.deliveryMode,
+        takeawayParcelChargeType: pricingProfileDraft.takeawayParcelChargeType,
+        takeawayParcelChargeValue: pricingProfileDraft.takeawayParcelChargeValue,
+        deliveryParcelChargeType: pricingProfileDraft.deliveryParcelChargeType,
+        deliveryParcelChargeValue: pricingProfileDraft.deliveryParcelChargeValue,
+        isActive: pricingProfileDraft.isActive
+      };
+
+      if (pricingProfileDraft.id) {
+        await updatePricingProfile(pricingProfileDraft.id, payload);
+        setSaveMessage("Pricing profile updated.");
+      } else {
+        await createPricingProfile(payload);
+        setSaveMessage("Pricing profile created.");
+      }
+
+      const result = await reloadMenu();
+      setPricingProfileDraft(buildDefaultPricingProfileDraft());
+      setConfigDraft((current) => ({
+        ...current,
+        defaultPricingProfileId:
+          result.menuConfig.defaultPricingProfileId || result.pricingProfiles?.find((profile) => profile.isActive)?.id || ""
+      }));
+    } catch (error) {
+      setSaveError(error.message || "Unable to save pricing profile.");
+    }
+  }
+
+  async function handleBulkImportSelection(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      setImportSummary("");
+
+      if (!file.name.toLowerCase().endsWith(".csv")) {
+        setSaveMessage(
+          "Bulk import access is enabled for PDF/Excel/CSV. Automatic item creation currently runs from CSV template files."
+        );
+        event.target.value = "";
+        return;
+      }
+
+      const text = await file.text();
+      const rows = parseMenuImportText(text);
+
+      if (rows.length === 0) {
+        throw new Error("The selected CSV file does not contain import rows.");
+      }
+
+      const result = await bulkImportMenuItems(rows);
+      await reloadMenu();
+      setImportSummary(`${file.name}: ${result.importedCount} items imported.`);
+      setSaveMessage("Bulk import completed.");
+      event.target.value = "";
+    } catch (error) {
+      setSaveError(error.message || "Unable to import menu items from the selected file.");
+    }
+  }
+
+  function startEditingGroup(menuGroup) {
+    setGroupDraft({
+      id: menuGroup.id,
+      name: menuGroup.name,
+      status: menuGroup.status,
+      categoryIds: menuGroup.categoryIds || [],
+      channels: menuGroup.channels,
+      availability: menuGroup.availability,
+      note: menuGroup.note || ""
+    });
+  }
+
+  function cancelGroupEdit() {
+    setGroupDraft(buildDefaultGroupDraft(menuData));
+  }
+
+  async function handleSaveMenuGroup(event) {
+    event.preventDefault();
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      const payload = {
+        name: groupDraft.name,
+        status: groupDraft.status,
+        categoryIds: groupDraft.categoryIds,
+        channels: groupDraft.channels,
+        availability: groupDraft.availability,
+        note: groupDraft.note
+      };
+
+      if (groupDraft.id) {
+        await updateMenuGroup(groupDraft.id, payload);
+        setSaveMessage("Menu group updated.");
+      } else {
+        await createMenuGroup(payload);
+        setSaveMessage("Menu group created.");
+      }
+
+      const result = await reloadMenu();
+      setGroupDraft(buildDefaultGroupDraft(result));
+    } catch (error) {
+      setSaveError(error.message || "Unable to save menu group.");
+    }
+  }
+
+  function startEditingAssignment(assignment) {
+    setAssignmentDraft({
+      id: assignment.id,
+      menuGroupId: assignment.menuGroupId,
+      outletId: assignment.outletId,
+      channels: assignment.channels,
+      availability: assignment.availability,
+      status: assignment.status
+    });
+  }
+
+  function cancelAssignmentEdit() {
+    setAssignmentDraft(buildDefaultAssignmentDraft(menuData));
+  }
+
+  async function handleSaveAssignment(event) {
+    event.preventDefault();
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      const payload = {
+        menuGroupId: assignmentDraft.menuGroupId,
+        outletId: assignmentDraft.outletId,
+        channels: assignmentDraft.channels,
+        availability: assignmentDraft.availability,
+        status: assignmentDraft.status
+      };
+
+      if (assignmentDraft.id) {
+        await updateMenuAssignment(assignmentDraft.id, payload);
+        setSaveMessage("Outlet mapping updated.");
+      } else {
+        await createMenuAssignment(payload);
+        setSaveMessage("Outlet mapping created.");
+      }
+
+      const result = await reloadMenu();
+      setAssignmentDraft(buildDefaultAssignmentDraft(result));
+    } catch (error) {
+      setSaveError(error.message || "Unable to save outlet mapping.");
+    }
+  }
+
+  function startEditingItem(item) {
+    setEditingItemId(item.id);
+    setEditDraft({
+      itemName: item.name,
+      categoryName: item.categoryName || menuData.categories.find((category) => category.id === item.categoryId)?.name || "",
+      station: item.station || "",
+      availableFrom: item.availableFrom || "",
+      availableTo: item.availableTo || "",
+      foodType: item.foodType || "Veg",
+      trackInventory: item.inventoryTracking.enabled ? "Enabled" : "Disabled",
+      entryStyle: item.inventoryTracking.mode || "Item wise",
+      acDineIn: priceValue(item.pricing, "AC", "dineIn"),
+      nonAcDineIn: priceValue(item.pricing, "Non-AC", "dineIn"),
+      selfDineIn: priceValue(item.pricing, "Self Service", "dineIn"),
+      takeawayPrice: moneyValue(item.takeawayPrice || item.pricing?.[0]?.takeaway),
+      deliveryPrice: moneyValue(item.deliveryPrice || item.pricing?.[0]?.delivery),
+      taxMode: item.taxMode || "Exclusive",
+      taxRate: String(item.taxRate || 0),
+      takeawayParcelChargeType: item.parcelCharges?.takeaway?.type || "None",
+      takeawayParcelChargeValue: String(item.parcelCharges?.takeaway?.value || 0),
+      deliveryParcelChargeType: item.parcelCharges?.delivery?.type || "None",
+      deliveryParcelChargeValue: String(item.parcelCharges?.delivery?.value || 0)
+    });
+    setSaveError("");
+    setSaveMessage("");
+  }
+
+  function cancelEditingItem() {
+    setEditingItemId("");
+    setEditDraft(null);
+  }
+
+  async function handleUpdateItem(itemId, event) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      await updateCustomMenuItem(itemId, {
+        itemName: formData.get("itemName"),
+        categoryName: formData.get("categoryName"),
+        availableFrom: formData.get("availableFrom"),
+        availableTo: formData.get("availableTo"),
+        acDineIn: formData.get("acDineIn"),
+        nonAcDineIn: formData.get("nonAcDineIn"),
+        selfDineIn: formData.get("selfDineIn"),
+        takeawayPrice: formData.get("takeawayPrice"),
+        deliveryPrice: formData.get("deliveryPrice"),
+        taxMode: formData.get("taxMode"),
+        taxRate: formData.get("taxRate"),
+        takeawayParcelChargeType: formData.get("takeawayParcelChargeType"),
+        takeawayParcelChargeValue: formData.get("takeawayParcelChargeValue"),
+        deliveryParcelChargeType: formData.get("deliveryParcelChargeType"),
+        deliveryParcelChargeValue: formData.get("deliveryParcelChargeValue"),
+        station: formData.get("station"),
+        trackInventory: formData.get("trackInventory"),
+        entryStyle: formData.get("entryStyle"),
+        foodType: formData.get("foodType")
+      });
+      await reloadMenu();
+      cancelEditingItem();
+      setSaveMessage("Menu item updated.");
+    } catch (error) {
+      setSaveError(error.message || "Unable to update the item.");
+    }
+  }
+
+  async function handleDeleteItem(item) {
+    if (!window.confirm(`Delete ${item.name}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setSaveError("");
+      setSaveMessage("");
+      await deleteCustomMenuItem(item.id);
+      await reloadMenu();
+      if (editingItemId === item.id) {
+        cancelEditingItem();
+      }
+      setSaveMessage("Menu item deleted.");
+    } catch (error) {
+      setSaveError(error.message || "Unable to delete the item.");
+    }
+  }
+
   function toggleInventoryTracking(itemId) {
     updateInventoryState((current) => ({
       ...current,
@@ -265,6 +853,53 @@ export function MenuPage() {
     }));
   }
 
+  async function handleExportMenu() {
+    try {
+      setSaveError("");
+      setSaveMessage("");
+
+      const headers = [
+        "itemName",
+        "categoryName",
+        "foodType",
+        "acDineIn",
+        "nonAcDineIn",
+        "selfDineIn",
+        "takeawayPrice",
+        "deliveryPrice",
+        "station",
+        "salesAvailability"
+      ];
+
+      const rows = menuData.items.map((item) => [
+        item.name,
+        item.categoryName || "",
+        item.foodType || "",
+        priceValue(item.pricing, "AC", "dineIn"),
+        priceValue(item.pricing, "Non-AC", "dineIn"),
+        priceValue(item.pricing, "Self Service", "dineIn"),
+        moneyValue(item.takeawayPrice),
+        moneyValue(item.deliveryPrice),
+        item.station || "",
+        item.salesAvailability || "Available"
+      ]);
+
+      const csv = [headers.join(","), ...rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","))].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "menu-export.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setSaveMessage("Menu export downloaded.");
+    } catch (error) {
+      setSaveError(error.message || "Unable to export menu.");
+    }
+  }
+
   return (
     <>
       <header className="topbar">
@@ -274,8 +909,22 @@ export function MenuPage() {
         </div>
 
         <div className="topbar-actions">
-          <button type="button" className="secondary-btn">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,.xls,.xlsx,.pdf"
+            style={{ display: "none" }}
+            onChange={handleBulkImportSelection}
+          />
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => importInputRef.current?.click()}
+          >
             Bulk Import
+          </button>
+          <button type="button" className="secondary-btn" onClick={handleExportMenu}>
+            Export Menu
           </button>
           <button
             type="button"
@@ -291,10 +940,6 @@ export function MenuPage() {
         <div>
           <p className="hero-label">Menu-first operations</p>
           <h3>Build a fast, clean menu before the POS goes live</h3>
-          <p className="hero-copy">
-            Owners should be able to create categories, assign taxes, define kitchen stations,
-            and mark top-selling items without needing technical help.
-          </p>
         </div>
 
         <div className="hero-stats">
@@ -316,29 +961,413 @@ export function MenuPage() {
       <section className="metrics-grid">
         <article className="metric-card">
           <span className="metric-label">Pricing profiles</span>
-          <strong>9</strong>
-          <p>Area-wise and order-type pricing enabled</p>
+          <strong>{availablePricingProfiles.length}</strong>
+          <p>Active pricing rules available for dine-in, takeaway, and delivery</p>
         </article>
         <article className="metric-card">
           <span className="metric-label">Veg items</span>
-          <strong>118</strong>
-          <p>Clearly tagged for POS and receipts</p>
+          <strong>{vegItemCount}</strong>
+          <p>Items currently marked as veg in the live menu data</p>
         </article>
         <article className="metric-card warning">
           <span className="metric-label">Missing GST</span>
-          <strong>4</strong>
-          <p>Assign tax profiles before billing starts</p>
+          <strong>{missingTaxCount}</strong>
+          <p>Items missing tax mode or tax rate</p>
         </article>
         <article className="metric-card">
           <span className="metric-label">Kitchen mapped</span>
-          <strong>184</strong>
-          <p>2 items still need station assignment</p>
+          <strong>{kitchenMappedCount}</strong>
+          <p>{missingStationCount} items still need station assignment</p>
         </article>
         <article className="metric-card">
           <span className="metric-label">Inventory tracking</span>
-          <strong>Per product optional</strong>
-          <p>Enable only for items the restaurant wants to track in sales inventory</p>
+          <strong>{inventoryTrackedCount}</strong>
+          <p>Items currently tracked in inventory</p>
         </article>
+      </section>
+
+      <section className={`panel menu-library-shell ${showFilterPanel ? "with-filters" : ""}`}>
+        <div className="menu-library-main">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Item Library</p>
+              <h3>Menu Items</h3>
+            </div>
+            <div className="topbar-actions">
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              >
+                Create Item
+              </button>
+            </div>
+          </div>
+
+          <div className="menu-library-toolbar">
+            <input
+              type="search"
+              value={librarySearch}
+              onChange={(event) => setLibrarySearch(event.target.value)}
+              placeholder="Search"
+            />
+            <button type="button" className="ghost-btn" onClick={() => setShowFilterPanel(true)}>
+              Category {categoryFilter !== "All" ? categoryFilter : ""}
+            </button>
+            <button type="button" className="ghost-btn" onClick={() => setShowFilterPanel(true)}>
+              Status {statusFilter}
+            </button>
+            <button type="button" className="ghost-btn" onClick={() => setShowFilterPanel((current) => !current)}>
+              All filters
+            </button>
+          </div>
+
+          {importSummary ? <p>{importSummary}</p> : null}
+
+          <div className="menu-library-table">
+            <div className="menu-library-row head">
+              <span>Item</span>
+              <span>Reporting category</span>
+              <span>Status</span>
+              <span>Price</span>
+              <span>Actions</span>
+            </div>
+            {filteredLibraryItems.map((item) => (
+              <div key={`library-${item.id}`} className="menu-library-row">
+                <span>
+                  <strong>{item.name}</strong>
+                </span>
+                <span>{item.categoryName || "Unassigned"}</span>
+                <span>
+                  <button
+                    type="button"
+                    className={`status status-pill ${item.salesAvailability === "Sold Out" ? "warning" : "online"}`}
+                    onClick={() => toggleSalesAvailability(item.id)}
+                  >
+                    {item.salesAvailability === "Sold Out" ? "Sold out" : "Available"}
+                  </button>
+                </span>
+                <span>{item.pricing?.[0]?.dineIn || item.takeawayPrice}</span>
+                <span className="entity-actions">
+                  <button type="button" className="ghost-chip" onClick={() => startEditingItem(item)}>
+                    Edit
+                  </button>
+                  <button type="button" className="ghost-chip" onClick={() => handleDeleteItem(item)}>
+                    Delete
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {editingItemId && editDraft ? (
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Edit Item</p>
+                  <h3>{editDraft.itemName || "Update Item"}</h3>
+                </div>
+              </div>
+
+          <form className="simple-form" onSubmit={(event) => handleUpdateItem(editingItemId, event)}>
+                <label>
+                  Item name
+                  <input
+                    type="text"
+                    name="itemName"
+                    value={editDraft.itemName}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, itemName: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Category
+                  <select
+                    name="categoryName"
+                    value={editDraft.categoryName}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, categoryName: event.target.value }))}
+                  >
+                    {availableCategoryNames.map((categoryNameOption) => (
+                      <option key={`edit-select-${categoryNameOption}`} value={categoryNameOption}>
+                        {categoryNameOption}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Kitchen station
+                  <select
+                    name="station"
+                    value={editDraft.station}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, station: event.target.value }))}
+                  >
+                    {availableStationNames.map((stationNameOption) => (
+                      <option key={`edit-station-${stationNameOption}`} value={stationNameOption}>
+                        {stationNameOption}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Food type
+                  <select
+                    name="foodType"
+                    value={editDraft.foodType}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, foodType: event.target.value }))}
+                  >
+                    <option>Veg</option>
+                    <option>Non-Veg</option>
+                  </select>
+                </label>
+                <label>
+                  AC dine-in price
+                  <input
+                    type="number"
+                    name="acDineIn"
+                    min="0"
+                    value={editDraft.acDineIn}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, acDineIn: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Non-AC dine-in price
+                  <input
+                    type="number"
+                    name="nonAcDineIn"
+                    min="0"
+                    value={editDraft.nonAcDineIn}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, nonAcDineIn: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Self service dine-in price
+                  <input
+                    type="number"
+                    name="selfDineIn"
+                    min="0"
+                    value={editDraft.selfDineIn}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, selfDineIn: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Takeaway price
+                  <input
+                    type="number"
+                    name="takeawayPrice"
+                    min="0"
+                    value={editDraft.takeawayPrice}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, takeawayPrice: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Delivery price
+                  <input
+                    type="number"
+                    name="deliveryPrice"
+                    min="0"
+                    value={editDraft.deliveryPrice}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, deliveryPrice: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Tax mode
+                  <select
+                    name="taxMode"
+                    value={editDraft.taxMode}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, taxMode: event.target.value }))}
+                  >
+                    <option>Inclusive</option>
+                    <option>Exclusive</option>
+                  </select>
+                </label>
+                <label>
+                  Tax rate
+                  <input
+                    type="number"
+                    name="taxRate"
+                    min="0"
+                    step="0.01"
+                    value={editDraft.taxRate}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, taxRate: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label>
+                  Available from
+                  <input
+                    type="time"
+                    name="availableFrom"
+                    value={editDraft.availableFrom}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, availableFrom: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Available to
+                  <input
+                    type="time"
+                    name="availableTo"
+                    value={editDraft.availableTo}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, availableTo: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Track inventory
+                  <select
+                    name="trackInventory"
+                    value={editDraft.trackInventory}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, trackInventory: event.target.value }))}
+                  >
+                    <option>Enabled</option>
+                    <option>Disabled</option>
+                  </select>
+                </label>
+                <label>
+                  Entry style
+                  <select
+                    name="entryStyle"
+                    value={editDraft.entryStyle}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, entryStyle: event.target.value }))}
+                  >
+                    <option>Item wise</option>
+                    <option>Category wise</option>
+                    <option>Optional later</option>
+                  </select>
+                </label>
+                <label>
+                  Takeaway parcel charge
+                  <select
+                    name="takeawayParcelChargeType"
+                    value={editDraft.takeawayParcelChargeType}
+                    onChange={(event) =>
+                      setEditDraft((current) => ({ ...current, takeawayParcelChargeType: event.target.value }))
+                    }
+                  >
+                    <option>None</option>
+                    <option>Fixed</option>
+                    <option>Percentage</option>
+                  </select>
+                </label>
+                <label>
+                  Takeaway parcel charge value
+                  <input
+                    type="number"
+                    name="takeawayParcelChargeValue"
+                    min="0"
+                    value={editDraft.takeawayParcelChargeValue}
+                    onChange={(event) =>
+                      setEditDraft((current) => ({ ...current, takeawayParcelChargeValue: event.target.value }))
+                    }
+                  />
+                </label>
+                <label>
+                  Delivery parcel charge
+                  <select
+                    name="deliveryParcelChargeType"
+                    value={editDraft.deliveryParcelChargeType}
+                    onChange={(event) =>
+                      setEditDraft((current) => ({ ...current, deliveryParcelChargeType: event.target.value }))
+                    }
+                  >
+                    <option>None</option>
+                    <option>Fixed</option>
+                    <option>Percentage</option>
+                  </select>
+                </label>
+                <label>
+                  Delivery parcel charge value
+                  <input
+                    type="number"
+                    name="deliveryParcelChargeValue"
+                    min="0"
+                    value={editDraft.deliveryParcelChargeValue}
+                    onChange={(event) =>
+                      setEditDraft((current) => ({ ...current, deliveryParcelChargeValue: event.target.value }))
+                    }
+                  />
+                </label>
+                <div className="entity-actions">
+                  <button type="submit" className="primary-btn">
+                    Save Changes
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={cancelEditingItem}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </article>
+          ) : null}
+        </div>
+
+        {showFilterPanel ? (
+          <aside className="menu-filter-panel">
+            <div className="panel-head">
+              <div>
+                <p className="eyebrow">Filter by</p>
+                <h3>Menu Filters</h3>
+              </div>
+              <div className="entity-actions">
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => {
+                    setCategoryFilter("All");
+                    setStatusFilter("Active");
+                    setInventoryFilter("Any");
+                    setFoodTypeFilter("Any");
+                  }}
+                >
+                  Reset
+                </button>
+                <button type="button" className="primary-btn" onClick={() => setShowFilterPanel(false)}>
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            <div className="simple-form">
+              <label>
+                Category
+                <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                  <option value="All">All</option>
+                  {availableCategoryNames.map((categoryNameOption) => (
+                    <option key={`filter-${categoryNameOption}`} value={categoryNameOption}>
+                      {categoryNameOption}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Status
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                  <option>Active</option>
+                  <option>Sold Out</option>
+                  <option>All</option>
+                </select>
+              </label>
+              <label>
+                Inventory
+                <select value={inventoryFilter} onChange={(event) => setInventoryFilter(event.target.value)}>
+                  <option>Any</option>
+                  <option>Tracked</option>
+                  <option>Not tracked</option>
+                </select>
+              </label>
+              <label>
+                Item type
+                <select value={foodTypeFilter} onChange={(event) => setFoodTypeFilter(event.target.value)}>
+                  <option>Any</option>
+                  <option>Veg</option>
+                  <option>Non-Veg</option>
+                </select>
+              </label>
+            </div>
+          </aside>
+        ) : null}
       </section>
 
       <section className="dashboard-grid menu-layout">
@@ -348,13 +1377,20 @@ export function MenuPage() {
               <p className="eyebrow">Categories</p>
               <h3>Category List</h3>
             </div>
-            <button
-              type="button"
-              className="ghost-btn"
-              onClick={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            >
-              Add category
-            </button>
+            <div className="entity-actions">
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              >
+                Add category
+              </button>
+              {editingCategoryId ? (
+                <button type="button" className="ghost-btn" onClick={cancelEditingCategory}>
+                  Cancel Edit
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <form className="simple-form" onSubmit={handleCreateCategory}>
@@ -367,6 +1403,22 @@ export function MenuPage() {
                 placeholder="Soups"
               />
             </label>
+            <label>
+              Available from
+              <input
+                type="time"
+                value={categoryAvailableFrom}
+                onChange={(event) => setCategoryAvailableFrom(event.target.value)}
+              />
+            </label>
+            <label>
+              Available to
+              <input
+                type="time"
+                value={categoryAvailableTo}
+                onChange={(event) => setCategoryAvailableTo(event.target.value)}
+              />
+            </label>
             <button type="submit" className="secondary-btn full-width">
               Save Category
             </button>
@@ -375,21 +1427,50 @@ export function MenuPage() {
           <div className="category-stack">
             {categoryGroups.map((category) => (
               <div key={category.id} className="mini-card">
-                <strong>{category.name}</strong>
-                <span>{category.items.length} items linked</span>
-                <span>Station: {category.station || "Main kitchen"}</span>
-                <span>Printer: {category.printerTarget || "Kitchen Printer 1"}</span>
-                <span>Display: {category.displayTarget || "Hot Kitchen Display"}</span>
-                <div className="mini-stack">
-                  {category.items.length === 0 ? (
-                    <span>No items in this category yet.</span>
+                {editingCategoryId === category.id ? (
+                  <>
+                    <label>
+                      Category name
+                      <input
+                        type="text"
+                        value={editingCategoryName}
+                        onChange={(event) => setEditingCategoryName(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Available from
+                      <input
+                        type="time"
+                        value={editingCategoryAvailableFrom}
+                        onChange={(event) => setEditingCategoryAvailableFrom(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Available to
+                      <input
+                        type="time"
+                        value={editingCategoryAvailableTo}
+                        onChange={(event) => setEditingCategoryAvailableTo(event.target.value)}
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <strong>{category.name}</strong>
+                )}
+                <div className="entity-actions">
+                  {editingCategoryId === category.id ? (
+                    <button type="button" className="primary-btn" onClick={() => handleSaveCategoryEdit(category)}>
+                      Save Category
+                    </button>
                   ) : (
-                    category.items.map((item) => (
-                      <div key={item.id} className="mini-card">
-                        <span>{item.name}</span>
-                        <strong>{item.station}</strong>
-                      </div>
-                    ))
+                    <>
+                      <button type="button" className="ghost-chip" onClick={() => startEditingCategory(category)}>
+                        Edit
+                      </button>
+                      <button type="button" className="ghost-chip" onClick={() => handleDeleteCategory(category)}>
+                        Delete
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -452,123 +1533,6 @@ export function MenuPage() {
           </div>
         </article>
 
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Item Directory</p>
-              <h3>Starter Items</h3>
-            </div>
-            <button type="button" className="ghost-btn">
-              Export menu
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="panel-empty">Loading menu items...</div>
-          ) : (
-            <div className="menu-card-grid">
-              {menuData.items.map((item) => (
-                <div key={item.id} className={`menu-item-card ${item.review ? "review" : ""}`}>
-                  <div className="menu-item-head">
-                    <div>
-                      <strong>{item.name}</strong>
-                      <span>
-                        {item.station} • {item.gstLabel}
-                      </span>
-                    </div>
-                    <span className={`status ${statusClass(item.status)}`}>{item.status}</span>
-                  </div>
-
-                  <div className="menu-item-meta">
-                    <span className={foodPillClass(item.foodType)}>{item.foodType}</span>
-                    {item.badges.map((badge) => (
-                      <span key={badge} className="pill">
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="mini-stack">
-                    <div className="mini-card">
-                      <span>Inventory tracking</span>
-                      <strong>{item.inventoryTracking.enabled ? "Enabled" : "Disabled"}</strong>
-                    </div>
-                    <div className="mini-card">
-                      <span>Entry style</span>
-                      <strong>{item.inventoryTracking.mode}</strong>
-                    </div>
-                    <div className="mini-card">
-                      <span>Sales availability</span>
-                      <strong>{item.salesAvailability}</strong>
-                    </div>
-                  </div>
-
-                  <p>{item.inventoryTracking.note}</p>
-
-                  <div className="mini-stack">
-                    {(item.outletAvailability || []).map((entry) => (
-                      <div key={`${item.id}-${entry.outlet}`} className="mini-card">
-                        <span>{entry.outlet}</span>
-                        <strong>{entry.enabled ? "Enabled" : "Hidden"}</strong>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className={`pricing-table ${item.compact ? "compact" : ""}`}>
-                    <div className="pricing-table-row pricing-table-head">
-                      <span>Area</span>
-                      <span>Dine-In</span>
-                      <span>Takeaway</span>
-                      <span>Delivery</span>
-                    </div>
-
-                    {item.pricing.map((priceRow) => (
-                      <div key={priceRow.area} className="pricing-table-row">
-                        <span>{priceRow.area}</span>
-                        <strong>{priceRow.dineIn}</strong>
-                        <strong>{priceRow.takeaway}</strong>
-                        <strong>{priceRow.delivery}</strong>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="location-actions">
-                    <button
-                      type="button"
-                      className="ghost-chip"
-                      onClick={() => toggleSalesAvailability(item.id)}
-                    >
-                      {item.salesAvailability === "Sold Out" ? "Mark Available" : "Mark Sold Out"}
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost-chip"
-                      onClick={() => toggleInventoryTracking(item.id)}
-                    >
-                      {item.inventoryTracking.enabled ? "Track Inventory Off" : "Track Inventory On"}
-                    </button>
-                    {(item.outletAvailability || []).slice(0, 2).map((entry) => (
-                      <button
-                        key={`${item.id}-${entry.outlet}-toggle`}
-                        type="button"
-                        className="ghost-chip"
-                        onClick={() => toggleOutletAvailability(item.id, entry.outlet)}
-                      >
-                        {entry.enabled ? `Hide ${entry.outlet}` : `Enable ${entry.outlet}`}
-                      </button>
-                    ))}
-                    {item.actions.map((action) => (
-                      <button key={action} type="button" className="ghost-chip">
-                        {action}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
-
         <article ref={formRef} className="panel">
           <div className="panel-head">
             <div>
@@ -578,21 +1542,6 @@ export function MenuPage() {
           </div>
 
           <form className="simple-form" onSubmit={handleSaveItem}>
-            <div className="mini-card">
-              <span>Existing Categories</span>
-              <div className="entity-actions">
-                {availableCategoryNames.map((categoryOption) => (
-                  <button
-                    key={categoryOption}
-                    type="button"
-                    className={`ghost-chip ${itemDraft.categoryName === categoryOption ? "active-role" : ""}`}
-                    onClick={() => updateItemDraft("categoryName", categoryOption)}
-                  >
-                    {categoryOption}
-                  </button>
-                ))}
-              </div>
-            </div>
             <label>
               Item name
               <input type="text" name="itemName" defaultValue="Gobi Manchurian" required />
@@ -614,21 +1563,6 @@ export function MenuPage() {
                 <option key={categoryNameOption} value={categoryNameOption} />
               ))}
             </datalist>
-            <div className="mini-card">
-              <span>Existing Kitchen Stations</span>
-              <div className="entity-actions">
-                {availableStationNames.map((stationOption) => (
-                  <button
-                    key={stationOption}
-                    type="button"
-                    className={`ghost-chip ${itemDraft.station === stationOption ? "active-role" : ""}`}
-                    onClick={() => updateItemDraft("station", stationOption)}
-                  >
-                    {stationOption}
-                  </button>
-                ))}
-              </div>
-            </div>
             <label>
               Food type
               <select name="foodType" defaultValue="Veg">
@@ -641,36 +1575,63 @@ export function MenuPage() {
               <input type="number" name="acDineIn" defaultValue="190" min="0" required />
             </label>
             <label>
-              AC takeaway price
-              <input type="number" name="acTakeaway" defaultValue="185" min="0" required />
+              Takeaway price
+              <input type="number" name="takeawayPrice" defaultValue="185" min="0" required />
             </label>
             <label>
-              AC delivery price
-              <input type="number" name="acDelivery" defaultValue="205" min="0" required />
+              Delivery price
+              <input type="number" name="deliveryPrice" defaultValue="205" min="0" required />
+            </label>
+            <label>
+              Tax mode
+              <select name="taxMode" defaultValue="Exclusive">
+                <option>Inclusive</option>
+                <option>Exclusive</option>
+              </select>
+            </label>
+            <label>
+              Tax rate
+              <input type="number" name="taxRate" defaultValue="5" min="0" step="0.01" required />
+            </label>
+            <label>
+              Available from
+              <input type="time" name="availableFrom" defaultValue="10:00" />
+            </label>
+            <label>
+              Available to
+              <input type="time" name="availableTo" defaultValue="16:00" />
             </label>
             <label>
               Non-AC dine-in price
               <input type="number" name="nonAcDineIn" defaultValue="180" min="0" required />
             </label>
             <label>
-              Non-AC takeaway price
-              <input type="number" name="nonAcTakeaway" defaultValue="175" min="0" required />
-            </label>
-            <label>
-              Non-AC delivery price
-              <input type="number" name="nonAcDelivery" defaultValue="195" min="0" required />
-            </label>
-            <label>
               Self service dine-in price
               <input type="number" name="selfDineIn" defaultValue="170" min="0" required />
             </label>
             <label>
-              Self service takeaway price
-              <input type="number" name="selfTakeaway" defaultValue="175" min="0" required />
+              Takeaway parcel charge
+              <select name="takeawayParcelChargeType" defaultValue="None">
+                <option>None</option>
+                <option>Fixed</option>
+                <option>Percentage</option>
+              </select>
             </label>
             <label>
-              Self service delivery price
-              <input type="number" name="selfDelivery" defaultValue="185" min="0" required />
+              Takeaway parcel charge value
+              <input type="number" name="takeawayParcelChargeValue" defaultValue="0" min="0" />
+            </label>
+            <label>
+              Delivery parcel charge
+              <select name="deliveryParcelChargeType" defaultValue="None">
+                <option>None</option>
+                <option>Fixed</option>
+                <option>Percentage</option>
+              </select>
+            </label>
+            <label>
+              Delivery parcel charge value
+              <input type="number" name="deliveryParcelChargeValue" defaultValue="0" min="0" />
             </label>
             <label>
               Kitchen station
@@ -748,118 +1709,24 @@ export function MenuPage() {
         <article className="panel">
           <div className="panel-head">
             <div>
-              <p className="eyebrow">Configuration</p>
-              <h3>Menu Rules</h3>
-            </div>
-          </div>
-
-          <div className="mini-stack">
-            <div className="mini-card">
-              <span>Default pricing mode</span>
-              <strong>Area + order type</strong>
-            </div>
-            <div className="mini-card">
-              <span>Pricing zones</span>
-              <strong>AC, Non-AC, Self Service</strong>
-            </div>
-            <div className="mini-card">
-              <span>Order-type pricing</span>
-              <strong>Dine-In, Takeaway, Delivery</strong>
-            </div>
-            <div className="mini-card">
-              <span>Default GST</span>
-              <strong>GST 5%</strong>
-            </div>
-            <div className="mini-card">
-              <span>Menu structure</span>
-              <strong>One page, simple assignment</strong>
-            </div>
-          </div>
-        </article>
-
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Menu Assignment</p>
-              <h3>Menu Groups and Service Windows</h3>
-            </div>
-          </div>
-
-          <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Menu</span>
-              <span>Status</span>
-              <span>Items</span>
-              <span>Channels</span>
-              <span>Notes</span>
-            </div>
-            {menuData.menuGroups.map((menu) => (
-              <div key={menu.id} className="staff-row">
-                <span>{menu.name}</span>
-                <span className={`status ${statusClass(menu.status)}`}>{menu.status}</span>
-                <span>{menu.itemCount}</span>
-                <span>{menu.channels}</span>
-                <span>{menu.note}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Outlet Mapping</p>
-              <h3>Where Menus Appear</h3>
-            </div>
-          </div>
-
-          <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Menu</span>
-              <span>Outlet</span>
-              <span>Channels</span>
-              <span>Availability</span>
-              <span>Status</span>
-            </div>
-            {menuData.menuAssignments.map((assignment) => (
-              <div key={assignment.id} className="staff-row">
-                <span>{assignment.menu}</span>
-                <span>{assignment.outlet}</span>
-                <span>{assignment.channels}</span>
-                <span>{assignment.availability}</span>
-                <span className={`status ${statusClass(assignment.status)}`}>{assignment.status}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-head">
-            <div>
               <p className="eyebrow">Pending Tasks</p>
               <h3>Menu Cleanup</h3>
             </div>
           </div>
 
           <div className="alert-list">
-            <div className="alert-item">
-              <strong>4 items missing GST profile</strong>
-              <span>These should be fixed before cashier billing begins</span>
-            </div>
-            <div className="alert-item">
-              <strong>6 items missing area-wise pricing</strong>
-              <span>Set AC, Non-AC, and Self Service prices before outlet launch</span>
-            </div>
-            <div className="alert-item">
-              <strong>2 items missing kitchen station</strong>
-              <span>KOT routing will fail for those items</span>
-            </div>
-            {menuData.menuAlerts.map((alert) => (
+            {dynamicAlerts.map((alert) => (
               <div key={alert.id} className="alert-item">
                 <strong>{alert.title}</strong>
                 <span>{alert.description}</span>
               </div>
             ))}
+            {dynamicAlerts.length === 0 ? (
+              <div className="alert-item">
+                <strong>No pending menu cleanup items</strong>
+                <span>Tax, pricing, and kitchen mapping are currently in a good state.</span>
+              </div>
+            ) : null}
           </div>
         </article>
       </section>
