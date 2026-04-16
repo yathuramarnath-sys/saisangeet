@@ -1,4 +1,5 @@
 import { api } from "../../lib/api";
+import { discountsSeedData } from "./discounts.seed";
 
 function formatCurrency(value) {
   return `Rs ${Number(value || 0).toFixed(0)}`;
@@ -74,21 +75,25 @@ function buildDiscountAlerts(rules = [], summary, orders = []) {
 }
 
 export async function fetchDiscountData() {
-  const [settings, summary, orders] = await Promise.all([
-    api.get("/settings/discounts"),
-    api.get("/operations/summary"),
-    api.get("/operations/orders")
-  ]);
+  try {
+    const [settings, summary, orders] = await Promise.all([
+      api.get("/settings/discounts"),
+      api.get("/operations/summary"),
+      api.get("/operations/orders")
+    ]);
 
-  return {
-    rules: (settings.rules || []).map(normalizeRule),
-    approvalPolicy: settings.approvalPolicy || [],
-    defaults: settings.defaults || {},
-    activity: buildDiscountActivity(orders),
-    alerts: buildDiscountAlerts(settings.rules || [], summary, orders),
-    summary,
-    orders
-  };
+    return {
+      rules: (settings.rules || []).map(normalizeRule),
+      approvalPolicy: settings.approvalPolicy || [],
+      defaults: settings.defaults || {},
+      activity: buildDiscountActivity(orders),
+      alerts: buildDiscountAlerts(settings.rules || [], summary, orders),
+      summary,
+      orders
+    };
+  } catch (_error) {
+    return discountsSeedData;
+  }
 }
 
 export async function createDiscountRule(payload) {

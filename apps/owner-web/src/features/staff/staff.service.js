@@ -1,4 +1,5 @@
 import { api } from "../../lib/api";
+import { staffSeedData } from "./staff.seed";
 import { loadRestaurantState } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
 import { sharedAreas } from "../../../../../packages/shared-types/src/restaurantFlow.js";
 
@@ -328,39 +329,49 @@ function buildAlerts(staff, roles, permissionPolicies) {
 }
 
 export async function fetchStaffData() {
-  const state = loadRestaurantState();
+  try {
+    const state = loadRestaurantState();
 
-  const [roles, permissions, users, outlets] = await Promise.all([
-    api.get("/roles"),
-    api.get("/permissions"),
-    api.get("/users"),
-    api.get("/outlets")
-  ]);
+    const [roles, permissions, users, outlets] = await Promise.all([
+      api.get("/roles"),
+      api.get("/permissions"),
+      api.get("/users"),
+      api.get("/outlets")
+    ]);
 
-  const normalizedRoles = normalizeRoles(roles);
-  const normalizedPermissions = normalizePermissions(permissions);
-  const normalizedStaff = normalizeStaff(users);
-  const permissionEditor = buildPermissionEditor(state);
-  const financialControls = buildFinancialControls(state);
-  const accessMatrix = buildAccessMatrix(normalizedRoles, state.permissionPolicies || {});
-  const tableAccess = buildTableAccess(outlets, state.permissionPolicies || {});
-  const alerts = buildAlerts(normalizedStaff, normalizedRoles, state.permissionPolicies || {});
+    const normalizedRoles = normalizeRoles(roles);
+    const normalizedPermissions = normalizePermissions(permissions);
+    const normalizedStaff = normalizeStaff(users);
+    const permissionEditor = buildPermissionEditor(state);
+    const financialControls = buildFinancialControls(state);
+    const accessMatrix = buildAccessMatrix(normalizedRoles, state.permissionPolicies || {});
+    const tableAccess = buildTableAccess(outlets, state.permissionPolicies || {});
+    const alerts = buildAlerts(normalizedStaff, normalizedRoles, state.permissionPolicies || {});
 
-  return {
-    roles: normalizedRoles,
-    permissions: normalizedPermissions,
-    accessMatrix,
-    permissionEditor,
-    financialControls,
-    staff: normalizedStaff,
-    tableAccess,
-    alerts,
-    outlets,
-    policyValues: {
-      cashierDiscountLimitPercent: state.permissionPolicies?.["cashier-discount-limit-percent"] ?? 5,
-      cashierVoidLimitAmount: state.permissionPolicies?.["cashier-void-limit-amount"] ?? 200
-    }
-  };
+    return {
+      roles: normalizedRoles,
+      permissions: normalizedPermissions,
+      accessMatrix,
+      permissionEditor,
+      financialControls,
+      staff: normalizedStaff,
+      tableAccess,
+      alerts,
+      outlets,
+      policyValues: {
+        cashierDiscountLimitPercent: state.permissionPolicies?.["cashier-discount-limit-percent"] ?? 5,
+        cashierVoidLimitAmount: state.permissionPolicies?.["cashier-void-limit-amount"] ?? 200
+      }
+    };
+  } catch (_error) {
+    return {
+      ...staffSeedData,
+      roles: staffSeedData.roles.map((role) => ({ permissions: [], ...role })),
+      financialControls: buildFinancialControls({}),
+      outlets: [],
+      policyValues: { cashierDiscountLimitPercent: 5, cashierVoidLimitAmount: 200 }
+    };
+  }
 }
 
 export async function createStaffMember(payload) {

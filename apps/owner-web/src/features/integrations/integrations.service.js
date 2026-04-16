@@ -1,7 +1,21 @@
 import { api } from "../../lib/api";
+import { integrationsSeedData } from "./integrations.seed";
 
 export async function fetchIntegrationsData() {
-  return api.get("/integrations");
+  try {
+    return await api.get("/integrations");
+  } catch (_error) {
+    return {
+      ...integrationsSeedData,
+      zohoBooks: {},
+      accountMapping: {},
+      outletMappings: [],
+      vendorMappings: [],
+      purchaseEntries: [],
+      syncLog: [],
+      syncPreview: { packets: [], totals: {} }
+    };
+  }
 }
 
 export async function updateZohoBooksSettings(payload) {

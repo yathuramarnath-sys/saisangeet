@@ -47,8 +47,9 @@ export async function fetchOutletPageData() {
       devices: appConfig.devices || []
     };
   } catch (_error) {
+    const emptyConfig = { devices: [], taxProfiles: [], receiptTemplates: [] };
     return {
-      outlets: outletSeedData,
+      outlets: outletSeedData.map((outlet) => normalizeOutlet(outlet, emptyConfig)),
       taxProfiles: [],
       receiptTemplates: [],
       devices: []
