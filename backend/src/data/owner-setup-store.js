@@ -194,6 +194,137 @@ function createDefaultMenuAssignments(outlets = []) {
   ];
 }
 
+function createDefaultDiscountRules() {
+  return [
+    {
+      id: "discount-lunch",
+      name: "Lunch Promo",
+      discountType: "percentage",
+      discountScope: "order",
+      value: 10,
+      outletScope: "All Outlets",
+      appliesToRole: "Cashier",
+      requiresApproval: false,
+      timeWindow: "12:00 PM - 03:00 PM",
+      isActive: true,
+      notes: "Lunch hour bill discount"
+    },
+    {
+      id: "discount-takeaway",
+      name: "Takeaway Saver",
+      discountType: "flat",
+      discountScope: "order",
+      value: 50,
+      outletScope: "Selected Outlets",
+      appliesToRole: "Cashier",
+      requiresApproval: false,
+      timeWindow: "Always on",
+      isActive: true,
+      notes: "Takeaway bills above minimum threshold"
+    }
+  ];
+}
+
+function createDefaultDiscountApprovalPolicy() {
+  return [
+    {
+      id: "approval-cashier",
+      role: "Cashier",
+      manualDiscountLimit: 5,
+      orderVoid: "Not allowed",
+      billDelete: "Not allowed",
+      approvalRoute: "Above 5% goes to Manager / Owner",
+      status: "Protected"
+    },
+    {
+      id: "approval-manager",
+      role: "Manager",
+      manualDiscountLimit: 15,
+      orderVoid: "Allowed with note",
+      billDelete: "Allowed with reason",
+      approvalRoute: "Above 15% goes to Owner",
+      status: "Sensitive"
+    },
+    {
+      id: "approval-owner",
+      role: "Owner",
+      manualDiscountLimit: 100,
+      orderVoid: "Allowed",
+      billDelete: "Allowed",
+      approvalRoute: "Final authority",
+      status: "Full access"
+    }
+  ];
+}
+
+function createDefaultDiscountDefaults() {
+  return {
+    cashierLimitPercent: 5,
+    managerLimitPercent: 15,
+    reasonRequired: true,
+    auditLogEnabled: true,
+    allowRuleStacking: false
+  };
+}
+
+function createDefaultIntegrations(outlets = []) {
+  return {
+    zohoBooks: {
+      enabled: true,
+      organizationId: "",
+      clientId: "",
+      clientSecret: "",
+      redirectUri: "",
+      dataCenter: "IN",
+      refreshToken: "",
+      connectionStatus: "Needs setup",
+      lastSyncAt: "Not synced yet",
+      autoSyncSales: true,
+      autoSyncPurchases: true,
+      autoSyncDayClose: true
+    },
+    accountMapping: {
+      cashSalesAccount: "Cash In Hand",
+      cardSalesAccount: "Bank Account",
+      upiSalesAccount: "Bank Account",
+      cashOutExpenseAccount: "Outlet Expenses",
+      dayCloseShortageAccount: "Revenue Loss",
+      vendorPayableAccount: "Accounts Payable",
+      purchaseExpenseAccount: "Kitchen Purchase"
+    },
+    outletMappings: outlets.map((outlet) => ({
+      id: `integration-${outlet.id}`,
+      outletId: outlet.id,
+      outletName: outlet.name,
+      zohoBooksEnabled: true,
+      salesContactName: `${outlet.name} Walk-In Sales`,
+      branchLabel: outlet.code || outlet.name
+    })),
+    vendorMappings: [
+      {
+        id: "vendor-a1",
+        vendorName: "A1 Traders",
+        zohoContactName: "A1 Traders",
+        purchaseCategory: "Vegetables",
+        isActive: true
+      }
+    ],
+    purchaseEntries: [
+      {
+        id: "purchase-entry-1",
+        outletId: outlets[0]?.id || "outlet-indiranagar",
+        vendorName: "A1 Traders",
+        itemName: "Vegetable Purchase",
+        amount: 3200,
+        expenseAccount: "Kitchen Purchase",
+        status: "Queued",
+        createdAt: "Today"
+      }
+    ],
+    syncLog: []
+  };
+}
+
 function createDefaultData() {
   const taxProfiles = [
     { id: "tax-5", name: "GST 5%", cgstRate: 2.5, sgstRate: 2.5, igstRate: 5, cessRate: 0, isInclusive: false, isDefault: true },
@@ -210,6 +341,12 @@ function createDefaultData() {
       isActive: true,
       hours: "8:00 AM - 11:00 PM",
       services: ["Dine-in", "Takeaway", "Delivery"],
+      workAreas: ["AC", "Non-AC", "Self Service"],
+      tables: [
+        { id: "indr-t1", workArea: "AC", name: "T1", seats: 4 },
+        { id: "indr-t2", workArea: "Non-AC", name: "T2", seats: 6 }
+      ],
+      reportEmail: "indiranagar-reports@saisangeet.in",
       defaultTaxProfileId: "tax-5",
       receiptTemplateId: "receipt-dine-in"
     },
@@ -223,6 +360,12 @@ function createDefaultData() {
       isActive: true,
       hours: "9:00 AM - 11:30 PM",
       services: ["Dine-in", "Takeaway"],
+      workAreas: ["AC", "Non-AC", "Only Takeaway"],
+      tables: [
+        { id: "kora-t1", workArea: "AC", name: "A1", seats: 4 },
+        { id: "kora-t2", workArea: "Only Takeaway", name: "P1", seats: 2 }
+      ],
+      reportEmail: "koramangala-reports@saisangeet.in",
       defaultTaxProfileId: "tax-5",
       receiptTemplateId: "receipt-dine-in"
     }
@@ -384,7 +527,13 @@ function createDefaultData() {
       ],
       menuGroups: createDefaultMenuGroups(),
       menuAssignments: createDefaultMenuAssignments(outlets)
-    }
+    },
+    discounts: {
+      rules: createDefaultDiscountRules(),
+      approvalPolicy: createDefaultDiscountApprovalPolicy(),
+      defaults: createDefaultDiscountDefaults()
+    },
+    integrations: createDefaultIntegrations(outlets)
   };
 }
 
@@ -393,6 +542,14 @@ function normalizeOwnerSetupData(data) {
   const defaultPermissions = createDefaultPermissions();
   const defaultRoles = createDefaultRoles();
   next.devices = next.devices || [];
+  next.outlets = (next.outlets || []).map((outlet) => ({
+    hours: "9:00 AM - 11:00 PM",
+    services: ["Dine-in", "Takeaway"],
+    workAreas: ["AC", "Non-AC", "Self Service"],
+    tables: [],
+    reportEmail: "",
+    ...outlet
+  }));
   next.permissions = defaultPermissions.map((permission) => {
     const existing = (next.permissions || []).find((item) => item.code === permission.code);
     return existing ? { ...permission, ...existing } : permission;
@@ -439,6 +596,48 @@ function normalizeOwnerSetupData(data) {
       ...assignment
     })
   );
+  next.discounts = next.discounts || {};
+  next.discounts.rules = (next.discounts.rules || createDefaultDiscountRules()).map((rule) => ({
+    discountType: "percentage",
+    discountScope: "order",
+    value: 0,
+    outletScope: "All Outlets",
+    appliesToRole: "Cashier",
+    requiresApproval: false,
+    timeWindow: "Always on",
+    isActive: true,
+    notes: "",
+    ...rule
+  }));
+  next.discounts.approvalPolicy = (next.discounts.approvalPolicy || createDefaultDiscountApprovalPolicy())
+    .filter((row) => row.role !== "Captain")
+    .map((row) => ({
+      manualDiscountLimit: 0,
+      orderVoid: "Not allowed",
+      billDelete: "Not allowed",
+      approvalRoute: "Owner approval",
+      status: "Protected",
+      ...row
+    }));
+  next.discounts.defaults = {
+    ...createDefaultDiscountDefaults(),
+    ...(next.discounts.defaults || {})
+  };
+  next.integrations = next.integrations || createDefaultIntegrations(next.outlets || []);
+  next.integrations.zohoBooks = {
+    ...createDefaultIntegrations(next.outlets || []).zohoBooks,
+    ...(next.integrations.zohoBooks || {})
+  };
+  next.integrations.accountMapping = {
+    ...createDefaultIntegrations(next.outlets || []).accountMapping,
+    ...(next.integrations.accountMapping || {})
+  };
+  next.integrations.outletMappings =
+    next.integrations.outletMappings ||
+    createDefaultIntegrations(next.outlets || []).outletMappings;
+  next.integrations.vendorMappings = next.integrations.vendorMappings || [];
+  next.integrations.purchaseEntries = next.integrations.purchaseEntries || [];
+  next.integrations.syncLog = next.integrations.syncLog || [];
 
   if (!next.devices.some((device) => device.deviceType === "Kitchen Printer")) {
     next.devices.push({

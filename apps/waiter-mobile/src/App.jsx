@@ -45,6 +45,98 @@ function mapOrderArrayToRecord(orders = []) {
   return Object.fromEntries((orders || []).map((order) => [order.tableId, order]));
 }
 
+function slugify(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildTableAreasFromOutlet(outlet) {
+  if (!outlet?.tables?.length) {
+    return mobileAreas;
+  }
+
+  return (outlet.workAreas || [])
+    .map((workArea) => {
+      const tables = (outlet.tables || [])
+        .filter((table) => table.workArea === workArea)
+        .map((table) => ({
+          id: table.id,
+          number: table.name,
+          seats: table.seats,
+          seatLabels:
+            table.seatLabels || Array.from({ length: Number(table.seats || 0) }, (_, index) => `${table.name}S${index + 1}`),
+          guests: 0,
+          status: "open",
+          captain: "Open"
+        }));
+
+      return tables.length
+        ? {
+            id: `${slugify(outlet.name)}-${slugify(workArea)}`,
+            name: workArea,
+            tables
+          }
+        : null;
+    })
+    .filter(Boolean);
+}
+
+function pickOperationsOutlet(outlets = []) {
+  if (!outlets.length) {
+    return null;
+  }
+
+  return outlets.find((outlet) => (outlet.tables || []).length > 0) || outlets[0];
+}
+
+function buildBlankOrder(table, areaName, outletName, fallbackOrderNumber = 10050) {
+  return {
+    tableId: table.id,
+    tableNumber: table.number,
+    orderNumber: fallbackOrderNumber,
+    kotNumber: `KOT-${fallbackOrderNumber}`,
+    outletName,
+    areaName,
+    captain: table.captain || "Open",
+    assignedWaiter: "Waiter Priya",
+    guests: 0,
+    pickupStatus: "new",
+    notes: "Open table",
+    statusNote: "Open table",
+    auditTrail: [],
+    items: [],
+    seatLabels: table.seatLabels || []
+  };
+}
+
+function ensureOrdersForAreas(currentOrders, tableAreas, outletName) {
+  const next = normalizeOrders(currentOrders);
+  let fallbackOrderNumber = Math.max(10040, ...Object.values(next).map((order) => order.orderNumber || 10040)) + 1;
+
+  tableAreas.forEach((area) => {
+    area.tables.forEach((table) => {
+      if (!next[table.id]) {
+        next[table.id] = buildBlankOrder(table, area.name, outletName, fallbackOrderNumber);
+        fallbackOrderNumber += 1;
+      } else {
+        next[table.id] = {
+          ...next[table.id],
+          tableId: table.id,
+          tableNumber: table.number,
+          areaName: area.name,
+          outletName,
+          seatLabels: table.seatLabels || next[table.id].seatLabels || []
+        };
+      }
+    });
+  });
+
+  return next;
+}
+
 function findNextEmptyTableId(currentTableId, ordersByTable, tableAreas) {
   const tableIds = tableAreas.flatMap((area) => area.tables.map((table) => table.id));
   return tableIds.find((tableId) => tableId !== currentTableId && (ordersByTable[tableId]?.items || []).length === 0);
@@ -85,10 +177,12 @@ function parsePriceLabel(value) {
 }
 
 export function App() {
+  const [tableAreas, setTableAreas] = useState(mobileAreas);
   const [selectedRoleId, setSelectedRoleId] = useState("captain");
   const [selectedAreaId, setSelectedAreaId] = useState("ac-hall-1");
   const [selectedCategoryId, setSelectedCategoryId] = useState("starters");
   const [selectedTableId, setSelectedTableId] = useState("t1");
+  const [selectedSeatLabel, setSelectedSeatLabel] = useState("");
   const [selectedLineId, setSelectedLineId] = useState("line-1");
   const [ordersByTable, setOrdersByTable] = useState(buildInitialOrders);
   const [mobileBanner, setMobileBanner] = useState("Captain controls table orders");
@@ -101,8 +195,8 @@ export function App() {
   const [configuredOutletName, setConfiguredOutletName] = useState(activeOutletName);
 
   const profile = staffProfiles.find((item) => item.id === selectedRoleId);
-  const selectedArea = mobileAreas.find((area) => area.id === selectedAreaId);
-  const currentOrder = ordersByTable[selectedTableId];
+  const selectedArea = tableAreas.find((area) => area.id === selectedAreaId) || tableAreas[0];
+  const currentOrder = ordersByTable[selectedTableId] || Object.values(ordersByTable)[0];
 
   const visibleItems = useMemo(
     () =>
@@ -182,11 +276,19 @@ export function App() {
 
         setClosingLocked(summary.closingState?.approved || false);
         setPermissionPolicies(summary.permissionPolicies || {});
+        const configuredOutlet = pickOperationsOutlet(appConfig.outlets || []);
+        const outletName = configuredOutlet?.name || activeOutletName;
+        const nextAreas = buildTableAreasFromOutlet(configuredOutlet);
+        setTableAreas(nextAreas);
         setOrdersByTable((current) =>
-          normalizeOrders({
-            ...current,
-            ...mapOrderArrayToRecord(orders)
-          })
+          ensureOrdersForAreas(
+            {
+              ...current,
+              ...mapOrderArrayToRecord(orders)
+            },
+            nextAreas,
+            outletName
+          )
         );
         const nextCategories =
           appConfig.menu?.categories?.map((category) => ({
@@ -200,9 +302,19 @@ export function App() {
             price: parsePriceLabel(item.pricing?.[0]?.dineIn),
             categoryId: item.categoryId
           })) || mobileMenuItems;
-        setConfiguredOutletName(appConfig.outlets?.[0]?.name || activeOutletName);
+        setConfiguredOutletName(outletName);
         setMenuCategories(nextCategories);
         setMenuCatalog(nextMenuItems);
+        const firstAreaId = nextAreas[0]?.id;
+        const firstTableId = nextAreas[0]?.tables[0]?.id;
+        if (firstAreaId) {
+          setSelectedAreaId((current) => (nextAreas.some((area) => area.id === current) ? current : firstAreaId));
+        }
+        if (firstTableId) {
+          setSelectedTableId((current) =>
+            nextAreas.some((area) => area.tables.some((table) => table.id === current)) ? current : firstTableId
+          );
+        }
         if (nextCategories[0]) {
           setSelectedCategoryId((current) =>
             nextCategories.some((category) => category.id === current) ? current : nextCategories[0].id
@@ -220,6 +332,14 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const availableSeats = currentOrder?.seatLabels || [];
+
+    if (selectedSeatLabel && !availableSeats.includes(selectedSeatLabel)) {
+      setSelectedSeatLabel("");
+    }
+  }, [currentOrder, selectedSeatLabel]);
+
   function selectRole(roleId) {
     setSelectedRoleId(roleId);
     setMobileBanner(roleId === "captain" ? "Captain controls table orders" : "Waiter handles pickup and delivery");
@@ -227,22 +347,24 @@ export function App() {
 
   function selectArea(areaId) {
     setSelectedAreaId(areaId);
-    const firstTableId = mobileAreas.find((area) => area.id === areaId)?.tables[0]?.id;
+    const firstTableId = tableAreas.find((area) => area.id === areaId)?.tables[0]?.id;
 
     if (firstTableId) {
       setSelectedTableId(firstTableId);
+      setSelectedSeatLabel("");
       setSelectedLineId(ordersByTable[firstTableId].items[0]?.id || null);
     }
   }
 
   function selectTable(tableId) {
     setSelectedTableId(tableId);
+    setSelectedSeatLabel("");
     setSelectedLineId(ordersByTable[tableId].items[0]?.id || null);
     setMobileBanner(`Working on ${ordersByTable[tableId].tableNumber}`);
   }
 
   function addItem(item) {
-    if (selectedRoleId !== "captain" || closingLocked) {
+    if (!["captain", "waiter"].includes(selectedRoleId) || closingLocked) {
       return;
     }
 
@@ -266,6 +388,7 @@ export function App() {
         name: item.name,
         price: item.price,
         quantity: 1,
+        seatLabel: selectedSeatLabel,
         note: "",
         sentToKot: false
       };
@@ -291,6 +414,7 @@ export function App() {
         name: item.name,
         price: item.price,
         quantity: 1,
+        seatLabel: selectedSeatLabel,
         note: "",
         sentToKot: false,
         stationId: item.stationId,
@@ -316,12 +440,13 @@ export function App() {
         name: item.name,
         price: item.price,
         quantity: 1,
+        seatLabel: selectedSeatLabel,
         note: "",
         sentToKot: false,
         stationId: item.stationId,
         stationName: item.stationName,
-        actorName: "Captain Karthik",
-        actorRole: "Captain"
+        actorName: profile.name,
+        actorRole: profile.role
       })
       .then((nextOrder) => {
         setOrdersByTable((current) =>
@@ -333,7 +458,7 @@ export function App() {
       })
       .catch(() => {});
 
-    setMobileBanner(`${item.name} added`);
+    setMobileBanner(`${item.name} added${selectedSeatLabel ? ` to ${selectedSeatLabel}` : " to whole table"}`);
   }
 
   function applyInstruction(instruction) {
@@ -597,7 +722,7 @@ export function App() {
       return;
     }
 
-    const targetTableId = findNextEmptyTableId(selectedTableId, ordersByTable, mobileAreas);
+    const targetTableId = findNextEmptyTableId(selectedTableId, ordersByTable, tableAreas);
     if (!targetTableId) {
       return;
     }
@@ -655,7 +780,7 @@ export function App() {
     const result = createDemoOrder();
 
     if (result.tableId) {
-      const demoArea = mobileAreas.find((area) => area.tables.some((table) => table.id === result.tableId));
+      const demoArea = tableAreas.find((area) => area.tables.some((table) => table.id === result.tableId));
       if (demoArea) {
         setSelectedAreaId(demoArea.id);
       }
@@ -675,7 +800,7 @@ export function App() {
             [nextOrder.tableId]: nextOrder
           })
         );
-        const demoArea = mobileAreas.find((area) => area.tables.some((table) => table.id === nextOrder.tableId));
+        const demoArea = tableAreas.find((area) => area.tables.some((table) => table.id === nextOrder.tableId));
         if (demoArea) {
           setSelectedAreaId(demoArea.id);
         }
@@ -776,7 +901,7 @@ export function App() {
             </div>
 
             <div className="area-tabs">
-              {mobileAreas.map((area) => (
+              {tableAreas.map((area) => (
                 <button
                   key={area.id}
                   type="button"
@@ -803,6 +928,10 @@ export function App() {
                     <span>{table.guests ? `${table.guests} guests` : "Open table"}</span>
                     <span>{table.seats} seats</span>
                     <em>{order.assignedWaiter}</em>
+                    <em>
+                      {(table.seatLabels || []).slice(0, 3).join(", ")}
+                      {(table.seatLabels || []).length > 3 ? " ..." : ""}
+                    </em>
                   </button>
                 );
               })}
@@ -857,6 +986,48 @@ export function App() {
                 <span>Total</span>
                 <strong>{currency(currentTotal)}</strong>
               </div>
+              <div>
+                <span>Seats</span>
+                <strong>{(currentOrder.seatLabels || []).length}</strong>
+              </div>
+            </div>
+
+            <div className="seat-selection-card">
+              <div className="seat-selection-head">
+                <div>
+                  <p className="eyebrow">Order Mode</p>
+                  <h3>{selectedSeatLabel || "Table Wise"}</h3>
+                </div>
+                <div className="permission-note">
+                  {(currentOrder.seatLabels || []).length ? `${(currentOrder.seatLabels || []).length} seats ready` : "No seats created"}
+                </div>
+              </div>
+
+              <p className="seat-selection-copy">
+                Choose <strong>Table Wise</strong> for one group, or choose a seat if the captain wants seat-wise ordering.
+              </p>
+
+              <div className="seat-selection-grid">
+                <button
+                  type="button"
+                  className={`seat-choice ${selectedSeatLabel === "" ? "active" : ""}`}
+                  onClick={() => setSelectedSeatLabel("")}
+                >
+                  <strong>Table Wise</strong>
+                  <span>Take one order for the full table</span>
+                </button>
+                {(currentOrder.seatLabels || []).map((seatLabel) => (
+                  <button
+                    key={seatLabel}
+                    type="button"
+                    className={`seat-choice ${selectedSeatLabel === seatLabel ? "active" : ""}`}
+                    onClick={() => setSelectedSeatLabel(seatLabel)}
+                  >
+                    <strong>{seatLabel}</strong>
+                    <span>Take order for this seat</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="audit-stack">
@@ -886,6 +1057,7 @@ export function App() {
                       <span>
                         Qty {item.quantity} • {currency(item.price)}
                       </span>
+                      <p>{item.seatLabel || "Whole table"}</p>
                       <p>{item.note || "Add kitchen note"}</p>
                     </div>
                     <em>{item.sentToKot ? "KOT Sent" : "Pending"}</em>

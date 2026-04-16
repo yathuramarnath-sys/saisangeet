@@ -15,6 +15,9 @@ async function createOutlet(payload) {
     isActive: payload.isActive ?? true,
     hours: payload.hours || "9:00 AM - 11:00 PM",
     services: payload.services || ["Dine-in", "Takeaway"],
+    workAreas: payload.workAreas || ["AC", "Non-AC", "Self Service"],
+    tables: payload.tables || [],
+    reportEmail: payload.reportEmail || "",
     defaultTaxProfileId: payload.defaultTaxProfileId || null,
     receiptTemplateId: payload.receiptTemplateId || null
   };

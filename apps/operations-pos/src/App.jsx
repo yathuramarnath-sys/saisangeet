@@ -210,12 +210,118 @@ function mapOrderArrayToRecord(orders = []) {
   return Object.fromEntries((orders || []).map((order) => [order.tableId, order]));
 }
 
+function buildTableAreasFromOutlet(outlet) {
+  if (!outlet?.tables?.length) {
+    return areas;
+  }
+
+  return (outlet.workAreas || [])
+    .map((workArea) => {
+      const tables = (outlet.tables || [])
+        .filter((table) => table.workArea === workArea)
+        .map((table) => ({
+          id: table.id,
+          number: table.name,
+          seats: table.seats,
+          seatLabels:
+            table.seatLabels || Array.from({ length: Number(table.seats || 0) }, (_, index) => `${table.name}S${index + 1}`),
+          status: "available",
+          captain: "Open",
+          guests: 0
+        }));
+
+      return tables.length
+        ? {
+            id: `${slugify(outlet.name)}-${slugify(workArea)}`,
+            name: workArea,
+            tables
+          }
+        : null;
+    })
+    .filter(Boolean);
+}
+
+function pickOperationsOutlet(outlets = []) {
+  if (!outlets.length) {
+    return null;
+  }
+
+  return outlets.find((outlet) => (outlet.tables || []).length > 0) || outlets[0];
+}
+
+function buildBlankOrder(table, areaName, outletName, fallbackOrderNumber = 10050) {
+  return {
+    tableId: table.id,
+    tableNumber: table.number,
+    orderNumber: fallbackOrderNumber,
+    kotNumber: `KOT-${fallbackOrderNumber}`,
+    outletName,
+    areaName,
+    captain: table.captain || "Open",
+    assignedWaiter: "Waiter Priya",
+    guests: 0,
+    pickupStatus: "new",
+    payments: [],
+    billSplitCount: 1,
+    printCount: 0,
+    lastPrintLabel: "Not printed yet",
+    isClosed: false,
+    closedAt: null,
+    serviceChargeEnabled: false,
+    serviceChargeRate: 0.1,
+    billRequested: false,
+    billRequestedAt: null,
+    notes: "Open table",
+    discountAmount: 0,
+    discountOverrideRequested: false,
+    discountApprovalStatus: "Within cashier 5% limit",
+    discountApprovedBy: "Not needed",
+    voidRequested: false,
+    voidReason: "Not requested",
+    voidApprovedBy: "Pending",
+    reprintReason: "Not requested",
+    reprintApprovedBy: "Not needed",
+    reprintLog: [],
+    deletedBillLog: [],
+    controlAlerts: [],
+    auditTrail: [],
+    items: [],
+    seatLabels: table.seatLabels || []
+  };
+}
+
+function ensureOrdersForAreas(currentOrders, tableAreas, outletName) {
+  const next = normalizeOrderMap(currentOrders);
+  let fallbackOrderNumber = Math.max(10040, ...Object.values(next).map((order) => order.orderNumber || 10040)) + 1;
+
+  tableAreas.forEach((area) => {
+    area.tables.forEach((table) => {
+      if (!next[table.id]) {
+        next[table.id] = buildBlankOrder(table, area.name, outletName, fallbackOrderNumber);
+        fallbackOrderNumber += 1;
+      } else {
+        next[table.id] = {
+          ...next[table.id],
+          tableId: table.id,
+          tableNumber: table.number,
+          areaName: area.name,
+          outletName,
+          seatLabels: table.seatLabels || next[table.id].seatLabels || []
+        };
+      }
+    });
+  });
+
+  return next;
+}
+
 function findNextEmptyTableId(currentTableId, ordersByTable, tableAreas) {
   const tableIds = tableAreas.flatMap((area) => area.tables.map((table) => table.id));
   return tableIds.find((tableId) => tableId !== currentTableId && (ordersByTable[tableId]?.items || []).length === 0);
 }
 
 export function App() {
+  const [tableAreas, setTableAreas] = useState(areas);
   const [selectedTableId, setSelectedTableId] = useState("t1");
   const [selectedCategoryId, setSelectedCategoryId] = useState("starters");
   const [selectedLineId, setSelectedLineId] = useState("line-2");
@@ -240,7 +346,7 @@ export function App() {
   const [posMenuItems, setPosMenuItems] = useState(menuItems);
   const [activeOutletName, setActiveOutletName] = useState(defaultOutletName);
 
-  const currentOrder = ordersByTable[selectedTableId];
+  const currentOrder = ordersByTable[selectedTableId] || Object.values(ordersByTable)[0];
   const currentFinancials = getOrderFinancials(currentOrder);
   const cashierTableSetupEnabled = permissionPolicies["cashier-table-setup"] !== false;
   const cashierDiscountLimitPercent = Number(permissionPolicies["cashier-discount-limit-percent"] || 5);
@@ -340,11 +446,19 @@ export function App() {
 
         setClosingLocked(summary.closingState?.approved || false);
         setPermissionPolicies(summary.permissionPolicies || {});
+        const configuredOutlet = pickOperationsOutlet(appConfig.outlets || []);
+        const firstOutlet = configuredOutlet?.name || defaultOutletName;
+        const nextAreas = buildTableAreasFromOutlet(configuredOutlet);
+        setTableAreas(nextAreas);
         setOrdersByTable((current) =>
-          normalizeOrderMap({
-            ...current,
-            ...mapOrderArrayToRecord(orders)
-          })
+          ensureOrdersForAreas(
+            {
+              ...current,
+              ...mapOrderArrayToRecord(orders)
+            },
+            nextAreas,
+            firstOutlet
+          )
         );
         setPosBusinessProfile({
           name: appConfig.businessProfile?.tradeName || appConfig.businessProfile?.legalName || defaultBusinessProfile.name,
@@ -354,7 +468,6 @@ export function App() {
               .join(", ") || defaultBusinessProfile.address,
           gstin: appConfig.businessProfile?.gstin || defaultBusinessProfile.gstin
         });
-        const firstOutlet = appConfig.outlets?.[0]?.name || defaultOutletName;
         setActiveOutletName(firstOutlet);
         const nextCategories =
           appConfig.menu?.categories?.map((category) => ({
@@ -372,6 +485,12 @@ export function App() {
           })) || menuItems;
         setPosCategories(nextCategories);
         setPosMenuItems(nextMenuItems);
+        const firstTableId = nextAreas[0]?.tables[0]?.id;
+        if (firstTableId) {
+          setSelectedTableId((current) =>
+            nextAreas.some((area) => area.tables.some((table) => table.id === current)) ? current : firstTableId
+          );
+        }
         if (nextCategories[0]) {
           setSelectedCategoryId((current) =>
             nextCategories.some((category) => category.id === current) ? current : nextCategories[0].id
@@ -961,7 +1080,7 @@ export function App() {
       return;
     }
 
-    const targetTableId = findNextEmptyTableId(selectedTableId, ordersByTable, areas);
+    const targetTableId = findNextEmptyTableId(selectedTableId, ordersByTable, tableAreas);
     if (!targetTableId) {
       return;
     }
@@ -1102,7 +1221,7 @@ export function App() {
             </button>
           </div>
 
-          {areas.map((area) => (
+          {tableAreas.map((area) => (
             <section key={area.id} className="area-section">
               <div className="area-header">
                 <h3>{area.name}</h3>
@@ -1121,6 +1240,10 @@ export function App() {
                     <span>{table.seats} seats</span>
                     <span>{table.guests ? `${table.guests} guests` : "Open table"}</span>
                     <em>{table.captain}</em>
+                    <em>
+                      {(table.seatLabels || []).slice(0, 3).join(", ")}
+                      {(table.seatLabels || []).length > 3 ? " ..." : ""}
+                    </em>
                   </button>
                 ))}
               </div>
@@ -1139,6 +1262,7 @@ export function App() {
             <div className="order-meta">
               <span>Captain: {currentOrder.captain}</span>
               <span>Guests: {currentOrder.guests}</span>
+              <span>Seats: {(currentOrder.seatLabels || []).length}</span>
             </div>
           </div>
 
@@ -1196,6 +1320,7 @@ export function App() {
                     <span>
                       Qty {item.quantity} • {currency(item.price)}
                     </span>
+                    <p>{item.seatLabel || "Whole table"}</p>
                     <p>{item.note}</p>
                   </div>
                   <div className="line-actions">

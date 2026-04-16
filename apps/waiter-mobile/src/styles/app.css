@@ -135,6 +135,73 @@ button {
   color: #7a4a00;
 }
 
+.seat-selection-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(17, 19, 23, 0.04);
+}
+
+.seat-selection-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.seat-selection-head h3 {
+  margin: 4px 0 0;
+  font-size: 1.05rem;
+}
+
+.seat-selection-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.seat-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.seat-choice {
+  min-height: 56px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text);
+  padding: 12px 14px;
+  cursor: pointer;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.seat-choice strong {
+  font-size: 0.94rem;
+}
+
+.seat-choice span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.seat-choice.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 12px 24px rgba(17, 19, 23, 0.16);
+}
+
+.seat-choice.active span {
+  color: rgba(255, 255, 255, 0.82);
+}
+
 .mobile-table-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -303,12 +370,14 @@ button {
   .mobile-table-grid,
   .instruction-grid,
   .table-summary,
+  .seat-selection-grid,
   .mobile-sticky-bar,
   .queue-actions,
   .mobile-stats-grid {
     grid-template-columns: 1fr;
   }
 
+  .seat-selection-head,
   .mobile-topbar,
   .section-head,
   .menu-item-card,

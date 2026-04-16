@@ -292,8 +292,28 @@ body {
   border-color: #111317;
 }
 
+.toggle-row {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.toggle-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  box-shadow: none;
+}
+
 .full-width {
   width: 100%;
+}
+
+.mobile-banner {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(17, 19, 23, 0.07);
+  color: var(--text);
+  font-weight: 700;
 }
 
 .panel-empty {
