@@ -2,11 +2,39 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "owner-web",
+      "name": "Owner Dashboard",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "4173"],
       "port": 4173,
       "cwd": "apps/owner-web"
+    },
+    {
+      "name": "Operations POS",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "4174"],
+      "port": 4174,
+      "cwd": "apps/operations-pos"
+    },
+    {
+      "name": "Waiter Mobile",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "4175"],
+      "port": 4175,
+      "cwd": "apps/waiter-mobile"
+    },
+    {
+      "name": "Kitchen Display",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "4176"],
+      "port": 4176,
+      "cwd": "apps/kitchen-display"
+    },
+    {
+      "name": "Backend API",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["src/server.js"],
+      "port": 4000,
+      "cwd": "backend"
     }
   ]
 }
