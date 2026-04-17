@@ -1,0 +1,9 @@
+node_modules/
+.run/
+dist/
+*.log
+*.pid
+.DS_Store
+.env
+.env.local
+.vite/

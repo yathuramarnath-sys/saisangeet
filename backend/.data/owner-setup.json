@@ -462,7 +462,10 @@
       ],
       "outletName": "All Outlets",
       "isActive": true,
-      "pin": "1234"
+      "pin": "1234",
+      "email": "owner@restaurant.com",
+      "phone": null,
+      "passwordHash": "$2b$10$lRlp3.RYkr.Qe2.Lr9gS7uo7fyDoQRJBLis8QxtQViLFhDbbac96C"
     },
     {
       "id": "user-manager-1",
@@ -473,7 +476,10 @@
       ],
       "outletName": "Indiranagar",
       "isActive": true,
-      "pin": "2244"
+      "pin": "2244",
+      "email": "manager@restaurant.com",
+      "phone": null,
+      "passwordHash": "$2b$10$9lPOhC2vubtZA2.gL4BFSucqPZTZpXAoQz/2tlnI7XTE3TnMSrJhe"
     },
     {
       "id": "user-1776228273746",
