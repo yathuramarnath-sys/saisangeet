@@ -1,7 +1,8 @@
 import { useState } from "react";
 import {
   OUTLETS, MONTHS,
-  dayEndSeed, itemSalesSeed, gstSeed, paymentSeed, discountVoidSeed, staffSalesSeed
+  dayEndSeed, itemSalesSeed, gstSeed, paymentSeed, discountVoidSeed, staffSalesSeed,
+  categorySalesSeed
 } from "./reports.seed";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -581,10 +582,190 @@ function EmailTrigger() {
   );
 }
 
+// ── 7. Category-wise Report ──────────────────────────────────────────────────
+function CategoryReport({ date }) {
+  const d = categorySalesSeed;
+  const [expanded, setExpanded] = useState(null);
+  const [view, setView]         = useState("revenue"); // revenue | qty | orders
+  const totalAmt   = d.categories.reduce((s, c) => s + c.amount, 0);
+  const totalQty   = d.categories.reduce((s, c) => s + c.qty, 0);
+  const totalOrders= d.categories.reduce((s, c) => s + c.orders, 0);
+
+  const sorted = [...d.categories].sort((a, b) =>
+    view === "revenue" ? b.amount - a.amount :
+    view === "qty"     ? b.qty    - a.qty    : b.orders - a.orders
+  );
+
+  const maxVal = sorted[0]
+    ? (view === "revenue" ? sorted[0].amount : view === "qty" ? sorted[0].qty : sorted[0].orders)
+    : 1;
+
+  function exportCSV() {
+    downloadCSV(`CategorySales_${date}`,
+      ["Category", "Items", "Qty Sold", "Orders", "Avg Rate (₹)", "Amount (₹)", "% of Sales"],
+      d.categories.map(c => [c.name, c.itemCount, c.qty, c.orders, c.avgRate, c.amount, pct(c.amount, totalAmt)])
+    );
+  }
+
+  return (
+    <div className="rpt-body">
+      <ExportBar onPDF={printReport} onCSV={exportCSV} />
+
+      {/* KPIs */}
+      <div className="rpt-kpi-row">
+        <KpiCard dark label="Total Revenue"   value={fmt(totalAmt)}    sub={`${d.categories.length} categories`} />
+        <KpiCard      label="Total Qty Sold"  value={totalQty.toLocaleString("en-IN")} sub="all categories" />
+        <KpiCard      label="Total Orders"    value={totalOrders.toLocaleString("en-IN")} sub="with category items" />
+        <KpiCard      label="Best Category"   value={sorted[0]?.name}  sub={fmt(sorted[0]?.amount)} />
+        <KpiCard      label="Least Sold"      value={sorted[sorted.length-1]?.name} sub={fmt(sorted[sorted.length-1]?.amount)} />
+      </div>
+
+      {/* Visual bar chart */}
+      <div className="panel rpt-panel">
+        <div className="rpt-panel-toprow">
+          <SectionHead title="Category Performance" eyebrow="Visual breakdown" />
+          <div className="rpt-cat-tabs">
+            {[["revenue","By Revenue"],["qty","By Qty"],["orders","By Orders"]].map(([v,l]) => (
+              <button key={v} className={`rpt-cat-tab${view===v?" active":""}`} onClick={() => setView(v)}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div className="rpt-cat-bars">
+          {sorted.map(c => {
+            const val = view === "revenue" ? c.amount : view === "qty" ? c.qty : c.orders;
+            const w   = Math.round((val / maxVal) * 100);
+            return (
+              <div key={c.name} className="rpt-cat-bar-row">
+                <div className="rpt-cat-bar-label">
+                  <span className="rpt-cat-dot" style={{ background: c.color }} />
+                  <strong>{c.name}</strong>
+                  <span className="rpt-cat-items-count">{c.itemCount} item{c.itemCount > 1 ? "s" : ""}</span>
+                </div>
+                <div className="rpt-cat-bar-track">
+                  <div className="rpt-cat-bar-fill" style={{ width: `${w}%`, background: c.color }} />
+                </div>
+                <span className="rpt-cat-bar-val">
+                  {view === "revenue" ? fmt(val) : val.toLocaleString("en-IN")}
+                </span>
+                <span className="rpt-cat-bar-pct">
+                  {pct(val, view === "revenue" ? totalAmt : view === "qty" ? totalQty : totalOrders)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Summary table */}
+      <div className="panel rpt-panel">
+        <SectionHead title="Category Summary" eyebrow="All categories" />
+        <RptTable
+          cols={["Category", "Items", "Qty Sold", "Orders", "Avg Rate (₹)", "Revenue (₹)", "% of Sales", "Top Item"]}
+          rows={d.categories.map(c => [
+            <span className="rpt-cat-name-cell">
+              <span className="rpt-cat-dot" style={{ background: c.color }} />{c.name}
+            </span>,
+            c.itemCount,
+            c.qty.toLocaleString("en-IN"),
+            c.orders.toLocaleString("en-IN"),
+            fmt(c.avgRate),
+            <strong>{fmt(c.amount)}</strong>,
+            pct(c.amount, totalAmt),
+            <span className="rpt-top-item">{c.topItem.name}</span>
+          ])}
+          foot={["Total", d.categories.reduce((s,c)=>s+c.itemCount,0),
+            totalQty.toLocaleString("en-IN"),
+            totalOrders.toLocaleString("en-IN"), "",
+            fmt(totalAmt), "100%", ""]}
+        />
+      </div>
+
+      {/* Session-wise per category */}
+      <div className="panel rpt-panel">
+        <SectionHead title="Session-wise Breakdown" eyebrow="Breakfast · Lunch · Dinner per category" />
+        <RptTable
+          cols={["Category", "Breakfast (₹)", "Lunch (₹)", "Dinner (₹)", "Total (₹)"]}
+          rows={d.categories.map(c => [
+            <span className="rpt-cat-name-cell">
+              <span className="rpt-cat-dot" style={{ background: c.color }} />{c.name}
+            </span>,
+            fmt(c.sessions.Breakfast),
+            fmt(c.sessions.Lunch),
+            fmt(c.sessions.Dinner),
+            <strong>{fmt(c.amount)}</strong>
+          ])}
+          foot={["Total",
+            fmt(d.categories.reduce((s,c)=>s+c.sessions.Breakfast,0)),
+            fmt(d.categories.reduce((s,c)=>s+c.sessions.Lunch,0)),
+            fmt(d.categories.reduce((s,c)=>s+c.sessions.Dinner,0)),
+            fmt(totalAmt)]}
+        />
+      </div>
+
+      {/* Outlet-wise per category */}
+      <div className="panel rpt-panel">
+        <SectionHead title="Outlet-wise Breakdown" eyebrow="Revenue per branch per category" />
+        <RptTable
+          cols={["Category", "Indiranagar (₹)", "Koramangala (₹)", "HSR Layout (₹)", "Whitefield (₹)", "Total (₹)"]}
+          rows={d.categories.map(c => [
+            <span className="rpt-cat-name-cell">
+              <span className="rpt-cat-dot" style={{ background: c.color }} />{c.name}
+            </span>,
+            fmt(c.outlets["Indiranagar"]),
+            fmt(c.outlets["Koramangala"]),
+            fmt(c.outlets["HSR Layout"]),
+            fmt(c.outlets["Whitefield"]),
+            <strong>{fmt(c.amount)}</strong>
+          ])}
+          foot={["Total",
+            fmt(d.categories.reduce((s,c)=>s+c.outlets["Indiranagar"],0)),
+            fmt(d.categories.reduce((s,c)=>s+c.outlets["Koramangala"],0)),
+            fmt(d.categories.reduce((s,c)=>s+c.outlets["HSR Layout"],0)),
+            fmt(d.categories.reduce((s,c)=>s+c.outlets["Whitefield"],0)),
+            fmt(totalAmt)]}
+        />
+      </div>
+
+      {/* Drilldown — click category to expand items */}
+      <div className="panel rpt-panel">
+        <SectionHead title="Item Drilldown" eyebrow="Click a category to see its items" />
+        {d.categories.map(c => (
+          <div key={c.name} className="rpt-drilldown-section">
+            <button className="rpt-drilldown-toggle" onClick={() => setExpanded(expanded === c.name ? null : c.name)}>
+              <span className="rpt-cat-dot" style={{ background: c.color }} />
+              <strong>{c.name}</strong>
+              <span className="rpt-drilldown-meta">{c.itemCount} items · {fmt(c.amount)} · {pct(c.amount, totalAmt)}</span>
+              <span className="rpt-drilldown-arrow">{expanded === c.name ? "▲" : "▼"}</span>
+            </button>
+            {expanded === c.name && (
+              <RptTable
+                cols={["Item Name", "Qty Sold", "Orders", "Rate (₹)", "Amount (₹)", "% of Category"]}
+                rows={[...d.items[c.name]].sort((a,b) => b.amount - a.amount).map(item => [
+                  item.name,
+                  item.qty.toLocaleString("en-IN"),
+                  item.orders.toLocaleString("en-IN"),
+                  fmt(item.rate),
+                  <strong>{fmt(item.amount)}</strong>,
+                  pct(item.amount, c.amount)
+                ])}
+                foot={["Total",
+                  d.items[c.name].reduce((s,i)=>s+i.qty,0).toLocaleString("en-IN"),
+                  d.items[c.name].reduce((s,i)=>s+i.orders,0).toLocaleString("en-IN"), "",
+                  fmt(d.items[c.name].reduce((s,i)=>s+i.amount,0)), "100%"]}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Reports Shell ────────────────────────────────────────────────────────────
 const REPORTS = [
   { key: "day-end",    label: "Day End Summary"  },
   { key: "item-sales", label: "Item Sales"        },
+  { key: "category",   label: "Category-wise"     },
   { key: "gst",        label: "GST Report"        },
   { key: "payments",   label: "Payment Report"    },
   { key: "discounts",  label: "Discount & Void"   },
@@ -639,6 +820,7 @@ export function ReportsPage() {
 
       {active === "day-end"    && <DayEndSummary outlet={outlet} date={date} />}
       {active === "item-sales" && <ItemSalesReport outlet={outlet} date={date} />}
+      {active === "category"   && <CategoryReport date={date} />}
       {active === "gst"        && <GSTReport outlet={outlet} month={month} />}
       {active === "payments"   && <PaymentReport outlet={outlet} date={date} />}
       {active === "discounts"  && <DiscountVoidReport date={date} />}

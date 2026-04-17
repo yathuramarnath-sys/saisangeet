@@ -2389,3 +2389,31 @@ body {
   .rpt-body { padding: 0 !important; }
   .panel { box-shadow: none !important; border: 1px solid #ddd !important; }
 }
+
+/* ── Category-wise report ────────────────────────────── */
+.rpt-cat-bars { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+.rpt-cat-bar-row { display: grid; grid-template-columns: 160px 1fr 90px 56px; gap: 0 12px; align-items: center; }
+.rpt-cat-bar-label { display: flex; align-items: center; gap: 8px; }
+.rpt-cat-bar-label strong { font-size: 13px; }
+.rpt-cat-items-count { font-size: 11px; color: #aaa; }
+.rpt-cat-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.rpt-cat-bar-track { height: 12px; background: #f0f0f0; border-radius: 6px; overflow: hidden; }
+.rpt-cat-bar-fill  { height: 100%; border-radius: 6px; transition: width .4s ease; }
+.rpt-cat-bar-val   { font-size: 13px; font-weight: 800; text-align: right; }
+.rpt-cat-bar-pct   { font-size: 11px; color: #aaa; text-align: right; }
+
+.rpt-cat-name-cell { display: flex; align-items: center; gap: 7px; }
+.rpt-top-item { font-size: 12px; color: #666; font-style: italic; }
+
+/* Drilldown */
+.rpt-drilldown-section { border-bottom: 1px solid #f0f0f0; }
+.rpt-drilldown-section:last-child { border-bottom: none; }
+.rpt-drilldown-toggle {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 12px 0; background: none; border: none; cursor: pointer;
+  font-family: inherit; text-align: left;
+}
+.rpt-drilldown-toggle strong { font-size: 14px; }
+.rpt-drilldown-meta { flex: 1; font-size: 12px; color: #888; margin-left: 4px; }
+.rpt-drilldown-arrow { font-size: 11px; color: #aaa; }
+.rpt-drilldown-section .rpt-table-wrap { margin: 0 0 12px; }

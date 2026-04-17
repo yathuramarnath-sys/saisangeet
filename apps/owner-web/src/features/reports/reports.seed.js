@@ -162,3 +162,69 @@ export const staffSalesSeed = [
   { cashier: "Arjun",   outlet: "HSR Layout",   session: "Full Day",     orders: 72,  sales: 56800, discounts: 1680, voids: 0, cashIn: 0,    cashOut: 300, openingCash: 4000, closingCash: 59700, variance: 800  },
   { cashier: "Karthik", outlet: "Whitefield",   session: "Lunch",        orders: 58,  sales: 38280, discounts: 1600, voids: 0, cashIn: 1000, cashOut: 0,   openingCash: 6000, closingCash: 45280, variance: 0    }
 ];
+
+// ── Category-wise Report ─────────────────────────────────────────────────────
+export const categorySalesSeed = {
+  categories: [
+    {
+      name: "Mains",     color: "#1a7a3a", itemCount: 5,
+      qty: 1109, orders: 824, amount: 391920, avgRate: 268,
+      topItem: { name: "Veg Biryani", amount: 203280 },
+      sessions: { Breakfast: 48200, Lunch: 168400, Dinner: 175320 },
+      outlets:  { Indiranagar: 112400, Koramangala: 98200, "HSR Layout": 94800, Whitefield: 86520 }
+    },
+    {
+      name: "Starters",  color: "#FF5722", itemCount: 2,
+      qty: 1023, orders: 742, amount: 222180, avgRate: 214,
+      topItem: { name: "Paneer Tikka", amount: 152160 },
+      sessions: { Breakfast: 18400, Lunch: 92600, Dinner: 111180 },
+      outlets:  { Indiranagar: 68400, Koramangala: 54200, "HSR Layout": 52800, Whitefield: 46780 }
+    },
+    {
+      name: "Breads",    color: "#FF9800", itemCount: 2,
+      qty: 2104, orders: 1534, amount: 71200, avgRate: 34,
+      topItem: { name: "Butter Naan", amount: 49600 },
+      sessions: { Breakfast: 12400, Lunch: 28600, Dinner: 30200 },
+      outlets:  { Indiranagar: 22400, Koramangala: 18200, "HSR Layout": 16800, Whitefield: 13800 }
+    },
+    {
+      name: "Drinks",    color: "#2196F3", itemCount: 3,
+      qty: 688, orders: 512, amount: 74120, avgRate: 60,
+      topItem: { name: "Masala Chai", amount: 29120 },
+      sessions: { Breakfast: 24800, Lunch: 24420, Dinner: 24900 },
+      outlets:  { Indiranagar: 24200, Koramangala: 19800, "HSR Layout": 16400, Whitefield: 13720 }
+    },
+    {
+      name: "Desserts",  color: "#9C27B0", itemCount: 1,
+      qty: 412, orders: 342, amount: 49440, avgRate: 120,
+      topItem: { name: "Gulab Jamun", amount: 49440 },
+      sessions: { Breakfast: 2400, Lunch: 18200, Dinner: 28840 },
+      outlets:  { Indiranagar: 16200, Koramangala: 12800, "HSR Layout": 11400, Whitefield: 9040 }
+    }
+  ],
+  // Item drilldown per category
+  items: {
+    Mains:    [
+      { name: "Veg Biryani",   qty: 847, orders: 612, rate: 240, amount: 203280 },
+      { name: "Dal Makhani",   qty: 521, orders: 421, rate: 220, amount: 114620 },
+      { name: "Palak Paneer",  qty: 468, orders: 388, rate: 260, amount: 121680 },
+      { name: "Kadai Chicken", qty: 412, orders: 356, rate: 320, amount: 131840 }
+    ],
+    Starters: [
+      { name: "Paneer Tikka",  qty: 634, orders: 498, rate: 240, amount: 152160 },
+      { name: "Crispy Corn",   qty: 389, orders: 312, rate: 180, amount:  70020 }
+    ],
+    Breads:   [
+      { name: "Butter Naan",   qty: 1240, orders: 892, rate:  40, amount: 49600 },
+      { name: "Tandoori Roti", qty:  864, orders: 642, rate:  25, amount: 21600 }
+    ],
+    Drinks:   [
+      { name: "Masala Chai",     qty: 728, orders: 588, rate:  40, amount: 29120 },
+      { name: "Cold Coffee",     qty: 342, orders: 298, rate:  80, amount: 27360 },
+      { name: "Sweet Lime Soda", qty: 298, orders: 254, rate:  60, amount: 17880 }
+    ],
+    Desserts: [
+      { name: "Gulab Jamun", qty: 412, orders: 342, rate: 120, amount: 49440 }
+    ]
+  }
+};
