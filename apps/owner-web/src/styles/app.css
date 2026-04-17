@@ -2161,3 +2161,140 @@ body {
 .shift-short-rows span  { color: #777; }
 .shortage-line { border-top: 1px dashed #ecc; padding-top: 6px; margin-top: 2px; font-weight: 700; }
 .shift-short-note { font-size: 12px; color: #888; font-style: italic; margin: 0; }
+
+/* ── Reports ─────────────────────────────────────────── */
+.rpt-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 24px 12px; flex-wrap: wrap; gap: 10px;
+}
+.rpt-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.rpt-nav-btn {
+  padding: 8px 18px; border: 1px solid #e0e0e0; border-radius: 22px;
+  font-size: 13px; font-weight: 700; background: #fff; color: #777; cursor: pointer;
+  transition: all .15s;
+}
+.rpt-nav-btn.active { background: #111; color: #fff; border-color: #111; }
+.rpt-filters { display: flex; gap: 10px; }
+.rpt-date-input, .rpt-outlet-select {
+  padding: 8px 12px; border: 1px solid #ddd; border-radius: 10px;
+  font-size: 13px; font-family: inherit; background: #fff; outline: none;
+}
+.rpt-date-input:focus, .rpt-outlet-select:focus { border-color: #1a7a3a; }
+
+.rpt-body { display: flex; flex-direction: column; gap: 16px; padding: 0 24px 40px; }
+.rpt-panel { margin: 0; }
+.rpt-section-head { margin-bottom: 14px; }
+.rpt-section-head h3 { margin: 0; }
+.rpt-section-head .eyebrow { margin-bottom: 2px; }
+
+/* KPIs */
+.rpt-kpi-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.rpt-kpi {
+  flex: 1; min-width: 140px;
+  background: #fff; border: 1px solid #e8e8e8; border-radius: 14px;
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 3px;
+}
+.rpt-kpi-hi { background: #111; color: #fff; border-color: #111; }
+.rpt-kpi-hi .rpt-kpi-label, .rpt-kpi-hi .rpt-kpi-sub { color: rgba(255,255,255,.6); }
+.rpt-kpi-label { font-size: 11.5px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+.rpt-kpi-value { font-size: 22px; font-weight: 800; line-height: 1.15; }
+.rpt-kpi-sub   { font-size: 12px; color: #999; }
+
+/* Two-col layout */
+.rpt-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .rpt-two-col { grid-template-columns: 1fr; } }
+
+/* Bar rows */
+.rpt-bars { display: flex; flex-direction: column; gap: 10px; }
+.rpt-bar-row { display: grid; grid-template-columns: 80px 1fr 40px 80px; gap: 8px; align-items: center; font-size: 13px; }
+.rpt-bar-label { font-weight: 600; font-size: 12.5px; }
+.rpt-bar-track { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+.rpt-bar-fill  { height: 100%; border-radius: 4px; transition: width .3s ease; }
+.rpt-bar-count { text-align: right; color: #888; font-size: 12px; }
+.rpt-bar-amt   { text-align: right; font-weight: 700; font-size: 12.5px; }
+.rpt-panel-total {
+  display: flex; justify-content: space-between;
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid #eee;
+  font-size: 13px; font-weight: 700;
+}
+
+/* Order types */
+.rpt-order-types { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.rpt-type-card {
+  display: flex; align-items: center; gap: 12px;
+  background: #f9f9f9; border-radius: 10px; padding: 10px 14px;
+}
+.rpt-type-icon { font-size: 20px; width: 32px; text-align: center; }
+.rpt-type-info { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.rpt-type-info strong { font-size: 13px; }
+.rpt-type-info span   { font-size: 12px; color: #888; }
+.rpt-type-right { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.rpt-type-right strong { font-size: 14px; font-weight: 800; }
+.rpt-type-right span   { font-size: 11px; color: #aaa; }
+
+/* Categories */
+.rpt-cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.rpt-cat-card {
+  background: #f9f9f9; border: 1px solid #eee; border-radius: 12px;
+  padding: 14px; display: flex; flex-direction: column; gap: 4px;
+}
+.rpt-cat-card strong { font-size: 14px; }
+.rpt-cat-qty { font-size: 11px; color: #888; }
+.rpt-cat-amt { font-size: 16px; font-weight: 800; }
+.rpt-cat-bar { height: 6px; background: #e8e8e8; border-radius: 4px; overflow: hidden; margin-top: 2px; }
+.rpt-cat-pct { font-size: 11px; color: #aaa; }
+
+/* Tables */
+.rpt-table-wrap { overflow-x: auto; }
+.rpt-items-cols {
+  display: grid;
+  grid-template-columns: 32px 1fr 100px 70px 80px 90px 110px;
+  gap: 0 8px; align-items: center;
+}
+.rpt-cancel-cols {
+  display: grid;
+  grid-template-columns: 70px 120px 90px 1fr 80px;
+  gap: 0 8px; align-items: center;
+}
+.rpt-table-head {
+  padding: 7px 14px; font-size: 11px; font-weight: 700;
+  color: #888; text-transform: uppercase; letter-spacing: .3px;
+  border-bottom: 2px solid #eee; white-space: nowrap;
+}
+.rpt-table-row {
+  padding: 9px 14px; border-bottom: 1px solid #f5f5f5;
+  font-size: 13px;
+}
+.rpt-row-alt { background: #fafafa; }
+.rpt-table-foot {
+  padding: 9px 14px; border-top: 2px solid #eee;
+  font-size: 13px; background: #f5f5f5;
+}
+.rpt-row-num { color: #bbb; font-size: 12px; }
+.rpt-tag {
+  display: inline-block; font-size: 11px; background: #f0f0f0;
+  color: #555; padding: 2px 8px; border-radius: 20px;
+}
+.rpt-inline-bar {
+  display: inline-block; width: 60px; height: 6px;
+  background: #f0f0f0; border-radius: 3px; overflow: hidden; vertical-align: middle; margin-right: 5px;
+}
+.rpt-pct-label { font-size: 11px; color: #aaa; vertical-align: middle; }
+.rpt-muted { color: #aaa; font-size: 12px; }
+
+/* Summary lists (tax, discount) */
+.rpt-summary-list { display: flex; flex-direction: column; gap: 0; }
+.rpt-summary-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px;
+}
+.rpt-summary-row span { color: #555; }
+.rpt-summary-row strong { font-size: 14px; }
+.rpt-summary-total {
+  border-top: 2px solid #ddd; border-bottom: none;
+  margin-top: 4px; padding-top: 10px; font-weight: 700;
+}
+.rpt-summary-total span   { color: #111; font-weight: 700; font-size: 14px; }
+.rpt-summary-total strong { font-size: 16px; }
+.rpt-disc-count { font-size: 11px; color: #aaa; font-style: normal; }
+.rpt-disc-amt   { color: #d32f2f; font-weight: 700; }

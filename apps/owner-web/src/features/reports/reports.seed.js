@@ -1,235 +1,79 @@
-export const reportsSeedData = {
-  popupAlert: {
-    title: "2 control issues need owner review",
-    description: "One high discount override and one deleted bill were approved today.",
-    cta: "Open reports"
+export const OUTLETS = ["All Outlets", "Indiranagar", "Koramangala", "HSR Layout", "Whitefield"];
+
+// Day End Summary seed — realistic one-day snapshot
+export const dayEndSeed = {
+  summary: {
+    totalSales:     245680,
+    totalOrders:    312,
+    avgOrderValue:  787,
+    netAfterDiscount: 238420,
+    totalTax:       11920,
+    totalDiscount:  7260,
+    totalCancelled: 3,
+    cancelledValue: 1840
   },
-  outletComparison: [
-    {
-      id: "indiranagar",
-      outlet: "Indiranagar",
-      sales: "Rs 82,000",
-      profit: "Rs 22,100",
-      expenses: "Rs 13,200",
-      status: "Strong"
-    },
-    {
-      id: "koramangala",
-      outlet: "Koramangala",
-      sales: "Rs 61,500",
-      profit: "Rs 12,900",
-      expenses: "Rs 14,300",
-      status: "Review",
-      warning: true
-    },
-    {
-      id: "hsr-layout",
-      outlet: "HSR Layout",
-      sales: "Rs 54,300",
-      profit: "Rs 14,600",
-      expenses: "Rs 9,800",
-      status: "Healthy"
-    },
-    {
-      id: "whitefield",
-      outlet: "Whitefield",
-      sales: "Rs 47,200",
-      profit: "Rs 12,200",
-      expenses: "Rs 8,900",
-      status: "Healthy"
-    }
+
+  paymentModes: [
+    { mode: "Cash",    orders: 98,  amount: 74200  },
+    { mode: "UPI",     orders: 134, amount: 108640 },
+    { mode: "Card",    orders: 42,  amount: 38940  },
+    { mode: "Swiggy",  orders: 21,  amount: 14820  },
+    { mode: "Zomato",  orders: 17,  amount: 9080   }
   ],
-  insights: [
-    {
-      id: "profit-item",
-      title: "Top profit item",
-      description: "Paneer Tikka generated the highest profit today across all outlets."
-    },
-    {
-      id: "best-time",
-      title: "Best selling time",
-      description: "Sales peak happened between 7 PM and 9 PM at 3 outlets."
-    },
-    {
-      id: "outlet-alert",
-      title: "Outlet alert",
-      description: "Koramangala profit dropped 18% compared to yesterday."
-    },
-    {
-      id: "cash-review",
-      title: "Cash review",
-      description: "One shift mismatch should be resolved before daily closing report goes out."
-    }
+
+  orderTypes: [
+    { type: "Dine In",   orders: 186, amount: 168400 },
+    { type: "Takeaway",  orders: 84,  amount: 52840  },
+    { type: "Delivery",  orders: 42,  amount: 24440  }
   ],
-  closingSummary: [
-    {
-      id: "sales-payments",
-      title: "Sales & Payments",
-      status: "Included",
-      meta: "Total sales, order count, cash vs UPI vs card summary"
-    },
-    {
-      id: "profit-expenses",
-      title: "Profit & Expenses",
-      status: "Included",
-      meta: "Outlet-wise profit, expense ratio, and exception highlights"
-    },
-    {
-      id: "risk-alerts",
-      title: "Risk Alerts",
-      status: "Conditional",
-      meta: "Cash mismatch, deleted bills, discount overrides, and stock exceptions",
-      warning: true
-    }
+
+  sessions: [
+    { session: "Breakfast", orders: 54,  amount: 28960  },
+    { session: "Lunch",     orders: 138, amount: 102480 },
+    { session: "Dinner",    orders: 120, amount: 114240 }
   ],
-  closingCenter: {
-    blockers: [
-      {
-        id: "blocker-shift",
-        title: "HSR Layout cash mismatch still open",
-        detail: "Closing mail should wait until manager confirms the short cash review."
-      },
-      {
-        id: "blocker-override",
-        title: "One high discount override needs owner review",
-        detail: "Koramangala cashier override was approved above the normal threshold."
-      }
-    ],
-    checklist: [
-      {
-        id: "sales-lock",
-        title: "All outlets sales synced",
-        status: "Done"
-      },
-      {
-        id: "tax-ready",
-        title: "GST totals verified",
-        status: "Done"
-      },
-      {
-        id: "cash-review",
-        title: "Cash mismatch resolved",
-        status: "Pending"
-      },
-      {
-        id: "risk-review",
-        title: "Deleted bills and overrides reviewed",
-        status: "Pending"
-      }
-    ],
-    ownerSummary: [
-      {
-        id: "closing-sales",
-        label: "Net sales",
-        value: "Rs 2,45,000"
-      },
-      {
-        id: "closing-tax",
-        label: "GST total",
-        value: "Rs 12,420"
-      },
-      {
-        id: "closing-deleted",
-        label: "Deleted bills",
-        value: "2 approved"
-      },
-      {
-        id: "closing-overrides",
-        label: "Discount overrides",
-        value: "4 today"
-      }
-    ]
+
+  categories: [
+    { category: "Starters", qty: 284, amount: 62480  },
+    { category: "Mains",    qty: 412, amount: 118640 },
+    { category: "Drinks",   qty: 198, amount: 24840  },
+    { category: "Desserts", qty: 86,  amount: 12960  },
+    { category: "Breads",   qty: 324, amount: 12960  }
+  ],
+
+  items: [
+    { name: "Paneer Tikka",     category: "Starters", qty: 98,  rate: 240, amount: 23520 },
+    { name: "Veg Biryani",      category: "Mains",    qty: 124, rate: 240, amount: 29760 },
+    { name: "Butter Naan",      category: "Breads",   qty: 218, rate:  40, amount:  8720 },
+    { name: "Dal Makhani",      category: "Mains",    qty: 86,  rate: 220, amount: 18920 },
+    { name: "Masala Chai",      category: "Drinks",   qty: 142, rate:  40, amount:  5680 },
+    { name: "Crispy Corn",      category: "Starters", qty: 76,  rate: 180, amount: 13680 },
+    { name: "Cold Coffee",      category: "Drinks",   qty: 56,  rate:  80, amount:  4480 },
+    { name: "Sweet Lime Soda",  category: "Drinks",   qty: 48,  rate:  60, amount:  2880 },
+    { name: "Gulab Jamun",      category: "Desserts", qty: 64,  rate: 120, amount:  7680 },
+    { name: "Palak Paneer",     category: "Mains",    qty: 68,  rate: 260, amount: 17680 },
+    { name: "Kadai Chicken",    category: "Mains",    qty: 54,  rate: 320, amount: 17280 },
+    { name: "Tandoori Roti",    category: "Breads",   qty: 106, rate:  25, amount:  2650 }
+  ],
+
+  tax: {
+    taxableAmount: 233760,
+    cgst:           5844,
+    sgst:           5844,
+    igst:              0,
+    cess:              0,
+    totalTax:       11688
   },
-  controlSummary: [
-    {
-      id: "discount-overrides",
-      title: "Discount overrides",
-      value: "4 today",
-      detail: "1 above limit still needs owner review",
-      status: "Review"
-    },
-    {
-      id: "deleted-bills",
-      title: "Deleted bills",
-      value: "2 approved",
-      detail: "Koramangala and HSR Layout",
-      status: "Review"
-    },
-    {
-      id: "cash-mismatch",
-      title: "Cash mismatch",
-      value: "Rs 1,200",
-      detail: "HSR Layout shift still open",
-      status: "Conditional"
-    },
-    {
-      id: "unauthorized-actions",
-      title: "Unauthorized actions",
-      value: "3 alerts",
-      detail: "Discount attempts blocked at cashier level",
-      status: "Strong"
-    }
+
+  discounts: [
+    { type: "Member discount (10%)", count: 42, amount: 4200 },
+    { type: "Happy Hour (5%)",       count: 28, amount: 1680 },
+    { type: "Manual override",       count:  6, amount: 1380 }
   ],
-  approvalLog: [
-    {
-      id: "approval-1",
-      outlet: "Koramangala",
-      tableNumber: "T4",
-      orderNumber: 10041,
-      action: "Discount approved",
-      actor: "Manager OTP",
-      approvalMode: "OTP",
-      amount: "Rs 150",
-      time: "7:48 PM"
-    },
-    {
-      id: "approval-2",
-      outlet: "HSR Layout",
-      tableNumber: "T2",
-      orderNumber: 10031,
-      action: "Void approved",
-      actor: "Owner OTP",
-      approvalMode: "OTP",
-      amount: "Bill #10031",
-      time: "8:05 PM"
-    },
-    {
-      id: "approval-3",
-      outlet: "Indiranagar",
-      tableNumber: "Counter",
-      orderNumber: 10055,
-      action: "Cash mismatch flagged",
-      actor: "System alert",
-      approvalMode: "System",
-      amount: "Rs 1,200",
-      time: "8:22 PM"
-    }
-  ],
-  alerts: [
-    {
-      id: "closing-email-wait",
-      title: "Closing email should wait for one unresolved shift",
-      description: "HSR Layout cash mismatch is still open"
-    },
-    {
-      id: "profit-target",
-      title: "Koramangala profit trend is below target",
-      description: "Add this automatically to owner email summary"
-    },
-    {
-      id: "deleted-bill-owner",
-      title: "Deleted bill approved at HSR Layout",
-      description: "Include deleted-bill reason and manager name in owner report"
-    },
-    {
-      id: "discount-owner",
-      title: "High discount override approved at Koramangala",
-      description: "Owner should review approval pattern for cashier training"
-    },
-    {
-      id: "gst-ready",
-      title: "GST report and sales summary are ready",
-      description: "Monthly export can be generated anytime"
-    }
+
+  cancellations: [
+    { bill: "#3041", outlet: "Koramangala", amount: 680,  reason: "Customer changed mind",   time: "1:14 PM" },
+    { bill: "#3087", outlet: "Indiranagar", amount: 840,  reason: "Wrong order entered",     time: "7:42 PM" },
+    { bill: "#3112", outlet: "HSR Layout",  amount: 320,  reason: "Item unavailable",         time: "9:05 PM" }
   ]
 };
