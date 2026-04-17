@@ -315,32 +315,123 @@ export function TaxesReceiptsPage() {
           </Section>
 
           {/* Receipt Preview */}
-          <Section title="Receipt Preview" eyebrow="Sample Bill">
-            <div className="tax-receipt-preview">
-              <div className="trp-header">
-                <strong>{business.tradeName}</strong>
-                <span>{business.address}</span>
-                <span>GSTIN: {business.gstin}</span>
-                <span>Ph: {business.phone}</span>
+          <Section title="Receipt Preview" eyebrow="Sample Bill — Live Preview">
+            <div className="trp-shell">
+              <div className="trp-paper">
+
+                {/* Restaurant Header */}
+                <div className="trp-logo-circle">{business.tradeName?.[0] || "A"}</div>
+                <div className="trp-brand">{business.tradeName}</div>
+                <div className="trp-brand-sub">{business.address}</div>
+                <div className="trp-brand-sub">Ph: {business.phone}</div>
+                <div className="trp-brand-sub">GSTIN: {business.gstin}</div>
+
+                <div className="trp-dash" />
+
+                {/* Bill Meta */}
+                <div className="trp-meta-grid">
+                  <div><span>Bill No</span><strong>#0042</strong></div>
+                  <div><span>Date</span><strong>17 Apr 2026</strong></div>
+                  <div><span>Time</span><strong>1:32 PM</strong></div>
+                  <div><span>Table</span><strong>T-04</strong></div>
+                  <div><span>Type</span><strong>Dine In</strong></div>
+                  <div><span>Cashier</span><strong>Ravi</strong></div>
+                </div>
+
+                <div className="trp-dash" />
+
+                {/* Items header */}
+                <div className="trp-items-head">
+                  <span className="trp-col-item">Item</span>
+                  <span className="trp-col-qty">Qty</span>
+                  <span className="trp-col-rate">Rate</span>
+                  <span className="trp-col-amt">Amt</span>
+                </div>
+                <div className="trp-thin" />
+
+                {/* Items */}
+                {[
+                  { name: "Paneer Tikka",    qty: 2, rate: 240, amt: 480 },
+                  { name: "Veg Biryani",     qty: 1, rate: 240, amt: 240 },
+                  { name: "Butter Naan",     qty: 3, rate:  40, amt: 120 },
+                  { name: "Masala Chai",     qty: 2, rate:  30, amt:  60 }
+                ].map(item => (
+                  <div key={item.name} className="trp-item-row">
+                    <span className="trp-col-item">
+                      {item.name}
+                      {receipt.showItemDesc && <span className="trp-item-desc">Chef's special recipe</span>}
+                    </span>
+                    <span className="trp-col-qty">{item.qty}</span>
+                    <span className="trp-col-rate">{item.rate}</span>
+                    <span className="trp-col-amt">{item.amt}</span>
+                  </div>
+                ))}
+
+                <div className="trp-dash" />
+
+                {/* Totals */}
+                <div className="trp-total-block">
+                  <div className="trp-total-row"><span>Subtotal</span><span>₹900</span></div>
+                  <div className="trp-total-row discount"><span>Discount (Member 10%)</span><span>– ₹90</span></div>
+                  <div className="trp-total-row muted"><span>Taxable Amount</span><span>₹810</span></div>
+
+                  {receipt.showGstBreakdown ? (
+                    <>
+                      <div className="trp-total-row muted"><span>CGST @ 2.5%</span><span>₹20.25</span></div>
+                      <div className="trp-total-row muted"><span>SGST @ 2.5%</span><span>₹20.25</span></div>
+                    </>
+                  ) : (
+                    <div className="trp-total-row muted"><span>GST @ 5%</span><span>₹40.50</span></div>
+                  )}
+
+                  {receipt.showSavings && (
+                    <div className="trp-total-row saved"><span>★ You saved</span><span>₹90.00</span></div>
+                  )}
+
+                  <div className="trp-dash" />
+                  <div className="trp-grand-total">
+                    <span>TOTAL</span>
+                    <span>₹850.50</span>
+                  </div>
+                </div>
+
+                <div className="trp-dash" />
+
+                {/* Payment */}
+                <div className="trp-payment-row">
+                  <span>💳 UPI Payment</span>
+                  <span>₹850.50</span>
+                </div>
+                <div className="trp-payment-row muted"><span>Txn: UPI2026041701234</span></div>
+
+                {/* QR block */}
+                {receipt.showQR && (
+                  <div className="trp-qr-block">
+                    <div className="trp-qr-box">
+                      <div className="trp-qr-inner">
+                        <div className="trp-qr-grid">
+                          {Array.from({ length: 25 }).map((_, i) => (
+                            <div key={i} className={`trp-qr-cell${[0,1,2,3,4,6,12,18,20,21,22,23,24,7,14].includes(i) ? " filled" : ""}`} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <span>Scan to pay or reorder</span>
+                  </div>
+                )}
+
+                <div className="trp-dash" />
+
+                {/* Footer */}
+                <div className="trp-footer-block">
+                  <span className="trp-footer-msg">{receipt.footerNote}</span>
+                  <span className="trp-powered">Powered by RestaurantOS</span>
+                </div>
+
               </div>
-              <div className="trp-line" />
-              <div className="trp-row"><span>Paneer Tikka × 2</span><span>₹480</span></div>
-              <div className="trp-row"><span>Veg Biryani × 1</span><span>₹240</span></div>
-              <div className="trp-line" />
-              <div className="trp-row muted"><span>Subtotal</span><span>₹720</span></div>
-              {receipt.showGstBreakdown ? (
-                <>
-                  <div className="trp-row muted"><span>CGST 2.5%</span><span>₹18</span></div>
-                  <div className="trp-row muted"><span>SGST 2.5%</span><span>₹18</span></div>
-                </>
-              ) : (
-                <div className="trp-row muted"><span>GST 5%</span><span>₹36</span></div>
-              )}
-              {receipt.showSavings && <div className="trp-row green"><span>You saved</span><span>₹40</span></div>}
-              <div className="trp-row bold"><span>Total</span><span>₹756</span></div>
-              {receipt.showQR && <div className="trp-qr">[ QR Payment ]</div>}
-              <div className="trp-line" />
-              <div className="trp-footer">{receipt.footerNote}</div>
+
+              {/* Paper tear edge */}
+              <div className="trp-tear" />
             </div>
           </Section>
 
