@@ -1,29 +1,54 @@
-const { listDevices } = require("./devices.repository");
+const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
 
 async function fetchDevices() {
-  return listDevices();
+  return getOwnerSetupData().devices;
 }
 
 async function createLinkToken(payload) {
+  const codeRoot = (payload.outletCode || "LINK").replace(/[^A-Z0-9]/gi, "").toUpperCase();
   return {
-    message: "Create device link token implementation pending",
-    payload
+    linkCode: `${codeRoot}-${String(Date.now()).slice(-4)}`,
+    expiresInMinutes: 15
   };
 }
 
 async function linkDevice(payload) {
-  return {
-    message: "Link device implementation pending",
-    payload
+  const device = {
+    id: `device-${Date.now()}`,
+    deviceName: payload.deviceName,
+    deviceType: payload.deviceType || "POS Terminal",
+    outletName: payload.outletName || "Outlet pending",
+    status: "active",
+    linkCode: payload.linkCode || ""
   };
+
+  updateOwnerSetupData((current) => ({
+    ...current,
+    devices: [...current.devices, device]
+  }));
+
+  return device;
 }
 
 async function updateDeviceStatus(id, payload) {
-  return {
-    message: "Update device status implementation pending",
-    deviceId: id,
-    payload
-  };
+  let updatedDevice = null;
+
+  updateOwnerSetupData((current) => ({
+    ...current,
+    devices: current.devices.map((device) => {
+      if (device.id !== id) {
+        return device;
+      }
+
+      updatedDevice = {
+        ...device,
+        ...payload
+      };
+      return updatedDevice;
+    })
+  }));
+
+  return updatedDevice || null;
 }
 
 module.exports = {

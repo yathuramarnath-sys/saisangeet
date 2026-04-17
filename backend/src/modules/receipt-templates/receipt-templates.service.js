@@ -1,14 +1,25 @@
-const { listReceiptTemplates } = require("./receipt-templates.repository");
+const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
 
 async function fetchReceiptTemplates() {
-  return listReceiptTemplates();
+  return getOwnerSetupData().receiptTemplates;
 }
 
 async function createReceiptTemplate(payload) {
-  return {
-    message: "Create receipt template implementation pending",
-    payload
+  const template = {
+    id: `receipt-${Date.now()}`,
+    name: payload.name,
+    showQrPayment: payload.showQrPayment !== false,
+    showTaxBreakdown: payload.showTaxBreakdown !== false,
+    footerNote: payload.footerNote || "",
+    outletName: payload.outletName || "All Outlets"
   };
+
+  updateOwnerSetupData((current) => ({
+    ...current,
+    receiptTemplates: [...current.receiptTemplates, template]
+  }));
+
+  return template;
 }
 
 module.exports = {

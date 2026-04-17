@@ -1,4 +1,5 @@
 const { ApiError } = require("../../utils/api-error");
+const { getOwnerSetupData } = require("../../data/owner-setup-store");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -43,7 +44,7 @@ function appendReprintLog(order, actor, reason) {
   ].slice(0, 5);
 }
 
-const tableCatalog = [
+const defaultTableCatalog = [
   { tableId: "t1", tableNumber: "T1", areaName: "AC Hall 1", outletName: "Indiranagar", captain: "Captain Karthik" },
   { tableId: "t2", tableNumber: "T2", areaName: "AC Hall 1", outletName: "Koramangala", captain: "Captain Karthik" },
   { tableId: "t3", tableNumber: "T3", areaName: "Non-AC Hall", outletName: "HSR Layout", captain: "Captain Karthik" },
@@ -53,8 +54,31 @@ const tableCatalog = [
   { tableId: "s4", tableNumber: "S4", areaName: "Self Service", outletName: "Indiranagar", captain: "Captain Karthik" }
 ];
 
+function buildOwnerTableCatalog() {
+  const data = getOwnerSetupData();
+  const outlets = data.outlets || [];
+  const ownerTables = outlets.flatMap((outlet) =>
+    (outlet.tables || []).map((table) => ({
+      tableId: table.id,
+      tableNumber: table.name,
+      areaName: table.workArea,
+      outletName: outlet.name,
+      captain: "Open",
+      seatLabels:
+        table.seatLabels ||
+        Array.from({ length: Number(table.seats || 0) }, (_, index) => `${table.name}S${index + 1}`)
+    }))
+  );
+
+  return ownerTables.length ? ownerTables : defaultTableCatalog;
+}
+
+function getTableCatalog() {
+  return buildOwnerTableCatalog();
+}
+
 function getTableMeta(tableId) {
-  return tableCatalog.find((table) => table.tableId === tableId);
+  return getTableCatalog().find((table) => table.tableId === tableId);
 }
 
 function buildEmptyOrder(tableId, fallbackOrderNumber = 10030) {
@@ -72,6 +96,7 @@ function buildEmptyOrder(tableId, fallbackOrderNumber = 10030) {
     outletName: tableMeta.outletName,
     areaName: tableMeta.areaName,
     captain: tableMeta.captain,
+    seatLabels: tableMeta.seatLabels || [],
     assignedWaiter: "Waiter Priya",
     guests: 0,
     pickupStatus: "new",
@@ -120,6 +145,7 @@ function buildInitialState() {
           outlet: "Koramangala",
           openingCash: "Rs 5,000",
           expectedClose: "Rs 21,450",
+          varianceAmount: 0,
           status: "Open"
         },
         {
@@ -128,6 +154,7 @@ function buildInitialState() {
           outlet: "Indiranagar",
           openingCash: "Rs 8,000",
           expectedClose: "Rs 32,200",
+          varianceAmount: 0,
           status: "Open"
         },
         {
@@ -136,6 +163,7 @@ function buildInitialState() {
           outlet: "HSR Layout",
           openingCash: "Rs 7,000",
           expectedClose: "Rs 26,300",
+          varianceAmount: -1200,
           status: "Mismatch",
           warning: true
         },
@@ -145,6 +173,7 @@ function buildInitialState() {
           outlet: "Whitefield",
           openingCash: "Rs 8,000",
           expectedClose: "Rs 28,110",
+          varianceAmount: 0,
           status: "Closed"
         }
       ],
@@ -341,7 +370,7 @@ function buildInitialState() {
 }
 
 let state = buildInitialState();
-tableCatalog.forEach((table, index) => {
+getTableCatalog().forEach((table, index) => {
   if (!state.orders[table.tableId]) {
     state.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
   }
@@ -353,7 +382,7 @@ function getState() {
 
 function resetState() {
   state = buildInitialState();
-  tableCatalog.forEach((table, index) => {
+  getTableCatalog().forEach((table, index) => {
     if (!state.orders[table.tableId]) {
       state.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
     }
@@ -363,7 +392,7 @@ function resetState() {
 
 function hydrateState(nextState) {
   state = clone(nextState);
-  tableCatalog.forEach((table, index) => {
+  getTableCatalog().forEach((table, index) => {
     if (!state.orders[table.tableId]) {
       state.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
     }
@@ -488,6 +517,7 @@ function nextOrderNumber() {
 }
 
 function createDemoOrder(actor = "System") {
+  const tableCatalog = getTableCatalog();
   const targetTable =
     tableCatalog.find((table) => {
       const order = state.orders[table.tableId];
@@ -588,6 +618,7 @@ function addOrderItem(tableId, payload, actor = "System") {
     name: payload.name,
     quantity: payload.quantity || 1,
     price: payload.price || 0,
+    seatLabel: payload.seatLabel || "",
     note: payload.note || "",
     sentToKot: payload.sentToKot || false,
     stationId: payload.stationId || "main",
@@ -618,6 +649,10 @@ function updateOrderItem(tableId, itemId, payload, actor = "System") {
 
   if (payload.sentToKot !== undefined) {
     item.sentToKot = payload.sentToKot;
+  }
+
+  if (payload.seatLabel !== undefined) {
+    item.seatLabel = payload.seatLabel;
   }
 
   order.notes = payload.note ? `Instruction added: ${payload.note}` : "Order updated";

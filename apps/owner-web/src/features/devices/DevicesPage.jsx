@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchDevicesData } from "./devices.service";
+import { createDeviceLinkCode, fetchDevicesData, linkDevice } from "./devices.service";
 
 function statusClass(status) {
   return status === "Review" ? "warning" : "online";
@@ -13,6 +13,7 @@ export function DevicesPage() {
     alerts: []
   });
   const [loading, setLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +34,43 @@ export function DevicesPage() {
     };
   }, []);
 
+  async function reloadDevices() {
+    const result = await fetchDevicesData();
+    setDeviceData(result);
+    setLoading(false);
+  }
+
+  async function handleGenerateCode(event) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const outletName = formData.get("outletName");
+    const deviceType = formData.get("deviceType");
+    const deviceName = formData.get("deviceName");
+    const linkCode = await createDeviceLinkCode({
+      outletCode: String(outletName).slice(0, 4),
+      deviceType
+    });
+
+    await linkDevice({
+      deviceName,
+      deviceType,
+      outletName,
+      linkCode: linkCode.linkCode
+    });
+
+    await reloadDevices();
+    setDeviceData((current) => ({
+      ...current,
+      linkCode: {
+        code: linkCode.linkCode,
+        outlet: outletName,
+        expiresAt: `${linkCode.expiresInMinutes} minutes`
+      }
+    }));
+    setStatusMessage("Device linked and code generated.");
+    event.currentTarget.reset();
+  }
+
   return (
     <>
       <header className="topbar">
@@ -50,6 +88,7 @@ export function DevicesPage() {
           </button>
         </div>
       </header>
+      {statusMessage ? <section className="panel"><p>{statusMessage}</p></section> : null}
 
       <section className="hero-panel devices-hero">
         <div>
@@ -171,10 +210,14 @@ export function DevicesPage() {
             </div>
           </div>
 
-          <form className="simple-form">
+          <form className="simple-form" onSubmit={handleGenerateCode}>
+            <label>
+              Device name
+              <input type="text" name="deviceName" defaultValue="New POS Counter" required />
+            </label>
             <label>
               Device type
-              <select defaultValue="POS terminal">
+              <select name="deviceType" defaultValue="POS terminal">
                 <option>POS terminal</option>
                 <option>Captain tablet</option>
                 <option>Kitchen screen</option>
@@ -185,7 +228,7 @@ export function DevicesPage() {
             </label>
             <label>
               Outlet
-              <select defaultValue="Indiranagar">
+              <select name="outletName" defaultValue="Indiranagar">
                 <option>Indiranagar</option>
                 <option>Koramangala</option>
                 <option>HSR Layout</option>
@@ -198,7 +241,7 @@ export function DevicesPage() {
                 <option>Takeaway Standard</option>
               </select>
             </label>
-            <button type="button" className="primary-btn full-width">
+            <button type="submit" className="primary-btn full-width">
               Generate Code
             </button>
           </form>

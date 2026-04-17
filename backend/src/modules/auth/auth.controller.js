@@ -6,18 +6,23 @@ async function loginHandler(req, res) {
 }
 
 function meHandler(req, res) {
-  res.json(
-    req.user || {
-      id: null,
-      fullName: null,
-      outletId: null,
-      roles: [],
-      permissions: []
-    }
-  );
+  res.json({
+    id: req.user.sub,
+    fullName: req.user.fullName,
+    outletId: req.user.outletId,
+    roles: req.user.roles,
+    permissions: req.user.permissions
+  });
+}
+
+function logoutHandler(_req, res) {
+  // JWT is stateless; client drops the token. This endpoint
+  // exists so future refresh-token revocation can be added here.
+  res.json({ ok: true });
 }
 
 module.exports = {
   loginHandler,
-  meHandler
+  meHandler,
+  logoutHandler
 };

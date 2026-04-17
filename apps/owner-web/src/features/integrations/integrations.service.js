@@ -1,30 +1,47 @@
 import { api } from "../../lib/api";
 import { integrationsSeedData } from "./integrations.seed";
 
-function normalizeService(service) {
-  return {
-    id: service.id,
-    name: service.name,
-    status: service.status || "Connected",
-    meta: [
-      `Purpose: ${service.category || "Platform integration"}`,
-      `Sync mode: ${service.syncMode || "Automatic"}`,
-      `Health: ${service.health || "Healthy"}`
-    ],
-    actions: ["Reconnect", "Open", "Mapping"]
-  };
-}
-
 export async function fetchIntegrationsData() {
   try {
-    const services = await api.get("/integrations");
-
-    return {
-      services: services.map(normalizeService),
-      mapping: integrationsSeedData.mapping,
-      alerts: integrationsSeedData.alerts
-    };
+    return await api.get("/integrations");
   } catch (_error) {
-    return integrationsSeedData;
+    return {
+      ...integrationsSeedData,
+      zohoBooks: {},
+      accountMapping: {},
+      outletMappings: [],
+      vendorMappings: [],
+      purchaseEntries: [],
+      syncLog: [],
+      syncPreview: { packets: [], totals: {} }
+    };
   }
+}
+
+export async function updateZohoBooksSettings(payload) {
+  return api.patch("/integrations/zoho-books", payload);
+}
+
+export async function updateZohoAccountMapping(payload) {
+  return api.patch("/integrations/account-mapping", payload);
+}
+
+export async function createVendorMapping(payload) {
+  return api.post("/integrations/vendors", payload);
+}
+
+export async function updateVendorMapping(vendorId, payload) {
+  return api.patch(`/integrations/vendors/${vendorId}`, payload);
+}
+
+export async function deleteVendorMapping(vendorId) {
+  return api.delete(`/integrations/vendors/${vendorId}`);
+}
+
+export async function createPurchaseEntry(payload) {
+  return api.post("/integrations/purchase-entries", payload);
+}
+
+export async function runZohoSync() {
+  return api.post("/integrations/zoho-books/run-sync", {});
 }

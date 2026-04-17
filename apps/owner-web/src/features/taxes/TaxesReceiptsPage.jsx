@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchTaxesData } from "./taxes.service";
+import { createReceiptTemplate, createTaxProfile, fetchTaxesData } from "./taxes.service";
 
 function ToggleRow({ title, description, enabled = false }) {
   return (
@@ -23,6 +23,7 @@ export function TaxesReceiptsPage() {
     outletDefaults: [],
     alerts: []
   });
+  const [statusMessage, setStatusMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +43,36 @@ export function TaxesReceiptsPage() {
     };
   }, []);
 
+  async function reloadTaxData() {
+    const result = await fetchTaxesData();
+    setTaxData(result);
+  }
+
+  async function handleCreateTaxProfile() {
+    await createTaxProfile({
+      name: `GST ${taxData.profiles.length * 3 + 6}%`,
+      cgstRate: 3,
+      sgstRate: 3,
+      igstRate: 6,
+      cessRate: 0,
+      isInclusive: false
+    });
+    await reloadTaxData();
+    setStatusMessage("New tax profile added.");
+  }
+
+  async function handleCreateTemplate() {
+    await createReceiptTemplate({
+      name: `Receipt Template ${taxData.receiptTemplates.length + 1}`,
+      showQrPayment: true,
+      showTaxBreakdown: true,
+      footerNote: "Thank you, visit again",
+      outletName: "All Outlets"
+    });
+    await reloadTaxData();
+    setStatusMessage("Receipt template added.");
+  }
+
   const activeProfile = taxData.profiles.find((profile) => profile.active) || taxData.profiles[0];
 
   return (
@@ -53,14 +84,15 @@ export function TaxesReceiptsPage() {
         </div>
 
         <div className="topbar-actions">
-          <button type="button" className="secondary-btn">
-            Preview Receipt
+          <button type="button" className="secondary-btn" onClick={handleCreateTemplate}>
+            Add Receipt Template
           </button>
-          <button type="button" className="primary-btn">
-            Save Profile
+          <button type="button" className="primary-btn" onClick={handleCreateTaxProfile}>
+            Add Tax Profile
           </button>
         </div>
       </header>
+      {statusMessage ? <section className="panel"><p>{statusMessage}</p></section> : null}
 
       <section className="print-profile-layout">
         <aside className="print-preview-shell">
@@ -219,6 +251,20 @@ export function TaxesReceiptsPage() {
             </div>
 
             <div className="mini-stack">
+              {taxData.profiles.map((profile) => (
+                <div key={profile.id} className="mini-card">
+                  <span>Tax profile</span>
+                  <strong>{profile.name}</strong>
+                  <span>{profile.summary}</span>
+                </div>
+              ))}
+              {taxData.receiptTemplates.map((template) => (
+                <div key={template.id} className="mini-card">
+                  <span>Receipt template</span>
+                  <strong>{template.name}</strong>
+                  <span>{template.outletName || "All Outlets"}</span>
+                </div>
+              ))}
               <div className="mini-card">
                 <span>GST profile</span>
                 <strong>{activeProfile?.name || "GST 5%"}</strong>

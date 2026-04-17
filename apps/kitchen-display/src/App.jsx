@@ -1,442 +1,217 @@
-import { useEffect, useMemo, useState } from "react";
-
-import { kotTickets, stations } from "./data/kds.seed";
-import {
-  buildAuditEntry,
-  createDemoOrder,
-  loadRestaurantState,
-  subscribeRestaurantState,
-  updateRestaurantOrders
-} from "../../../packages/shared-types/src/mockRestaurantStore.js";
+import { useEffect, useRef, useState } from "react";
+import { io } from "socket.io-client";
 import { api } from "./lib/api";
 
-const statusColumns = [
-  { id: "new", label: "New" },
-  { id: "preparing", label: "Preparing" },
-  { id: "ready", label: "Ready" }
-];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function buildInitialTickets() {
-  const sharedOrders = loadRestaurantState().orders;
-  return JSON.parse(JSON.stringify(syncTicketsFromOrders(sharedOrders)));
+function elapsedLabel(createdAt) {
+  if (!createdAt) return "0s";
+  const secs = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
+  if (secs < 60) return `${secs}s`;
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
 }
 
-function formatElapsed(ageMinutes = 0) {
-  return `${String(ageMinutes).padStart(2, "0")}:00`;
+function urgencyClass(createdAt) {
+  if (!createdAt) return "";
+  const secs = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
+  if (secs > 600) return "urgent";
+  if (secs > 300) return "warning";
+  return "";
 }
 
-function getPriorityLevel(ageMinutes = 0) {
-  if (ageMinutes >= 6) {
-    return "urgent";
-  }
+// ─── KOT Card ─────────────────────────────────────────────────────────────────
 
-  if (ageMinutes >= 4) {
-    return "attention";
-  }
+function KotCard({ ticket, onAdvance }) {
+  const [elapsed, setElapsed] = useState(elapsedLabel(ticket.createdAt));
 
-  return "normal";
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(elapsedLabel(ticket.createdAt)), 10000);
+    return () => clearInterval(id);
+  }, [ticket.createdAt]);
+
+  const urgency = urgencyClass(ticket.createdAt);
+  const nextLabel = ticket.status === "new" ? "Start Cooking" : ticket.status === "preparing" ? "Mark Ready" : null;
+
+  return (
+    <div className={`kot-card status-${ticket.status}${urgency ? ` ${urgency}` : ""}`}>
+      <div className="kot-card-head">
+        <div className="kot-head-left">
+          <span className="kot-number">KOT {ticket.kotNumber || ticket.id?.slice(-3)}</span>
+          {ticket.station && <span className="kot-station">{ticket.station}</span>}
+        </div>
+        <div className="kot-head-right">
+          <span className={`kot-timer${urgency ? ` ${urgency}` : ""}`}>{elapsed}</span>
+          <span className="kot-table">T{ticket.tableNumber}</span>
+        </div>
+      </div>
+
+      <div className="kot-items">
+        {(ticket.items || []).map((item, idx) => (
+          <div key={item.id || idx} className="kot-item">
+            <span className="kot-item-qty">{item.quantity}×</span>
+            <div className="kot-item-info">
+              <span className="kot-item-name">{item.name}</span>
+              {item.note && <span className="kot-item-note">{item.note}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {nextLabel && (
+        <button
+          className={`kot-action-btn action-${ticket.status}`}
+          onClick={() => onAdvance(ticket.id, ticket.status)}
+        >
+          {nextLabel}
+        </button>
+      )}
+
+      {ticket.status === "ready" && (
+        <div className="kot-ready-banner">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Ready to serve
+        </div>
+      )}
+    </div>
+  );
 }
 
-function syncTicketsFromOrders(orders) {
-  const orderMap = orders || {};
-  const sourceTickets = Object.values(orderMap)
-    .filter((order) => order.items.length > 0)
-    .map((order) => ({
-      id: order.kotNumber.toLowerCase(),
-      kotNumber: order.kotNumber,
-      tableId: order.tableId,
-      tableNumber: order.tableNumber,
-      areaName: order.areaName,
-      stationId: order.items[0].stationId,
-      stationName: order.items[0].stationName,
-      captain: order.captain,
-      waiter: order.assignedWaiter,
-      status:
-        order.pickupStatus === "preparing"
-          ? "preparing"
-          : order.pickupStatus === "ready"
-            ? "ready"
-            : order.pickupStatus === "delivered"
-              ? "ready"
-              : "new",
-      ageMinutes: order.ageMinutes || 0,
-      elapsed: formatElapsed(order.ageMinutes || 0),
-      priority: getPriorityLevel(order.ageMinutes || 0),
-      items: order.items.map((item, index) => ({
-        id: `${order.kotNumber}-item-${index + 1}`,
-        name: item.name,
-        quantity: item.quantity,
-        note: item.note
-      }))
-    }));
+// ─── Column ───────────────────────────────────────────────────────────────────
 
-  return sourceTickets.length > 0 ? sourceTickets : JSON.parse(JSON.stringify(kotTickets));
+function KotColumn({ label, tickets, onAdvance, colorKey }) {
+  return (
+    <div className="kds-column">
+      <div className={`kds-col-head col-${colorKey}`}>
+        <span>{label}</span>
+        <span className="kds-col-count">{tickets.length}</span>
+      </div>
+      <div className="kds-col-body">
+        {tickets.length === 0 && (
+          <div className="kds-empty">
+            {label === "New" ? "Waiting for orders…" : "Nothing here"}
+          </div>
+        )}
+        {tickets.map((t) => (
+          <KotCard key={t.id} ticket={t} onAdvance={onAdvance} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
-function mapOrderArrayToRecord(orders = []) {
-  return Object.fromEntries((orders || []).map((order) => [order.tableId, order]));
-}
-
-function ticketClass(status, selected) {
-  return `ticket-card ${status} ${selected ? "selected" : ""}`;
-}
-
-function appendAudit(order, entry) {
-  order.auditTrail = [entry, ...(order.auditTrail || [])].slice(0, 6);
-}
+// ─── App ──────────────────────────────────────────────────────────────────────
 
 export function App() {
-  const [selectedStationId, setSelectedStationId] = useState("all");
-  const [selectedTicketId, setSelectedTicketId] = useState("kot-10031");
-  const [tickets, setTickets] = useState(buildInitialTickets);
-  const [banner, setBanner] = useState("Kitchen queue is live");
-  const [closingLocked, setClosingLocked] = useState(loadRestaurantState().closingState?.approved || false);
-  const [permissionPolicies, setPermissionPolicies] = useState(loadRestaurantState().permissionPolicies || {});
-
-  const visibleTickets = useMemo(
-    () =>
-      tickets.filter((ticket) => selectedStationId === "all" || ticket.stationId === selectedStationId),
-    [selectedStationId, tickets]
-  );
-
-  const selectedTicket = visibleTickets.find((ticket) => ticket.id === selectedTicketId) || visibleTickets[0] || tickets[0];
-  const selectedOrderAudit = useMemo(() => {
-    if (!selectedTicket) {
-      return [];
-    }
-
-    return (loadRestaurantState().orders[selectedTicket.tableId]?.auditTrail || []).slice(0, 4);
-  }, [selectedTicket, tickets]);
-  const urgentCount = useMemo(
-    () => visibleTickets.filter((ticket) => ticket.priority === "urgent").length,
-    [visibleTickets]
-  );
-  const kitchenKotControlEnabled = permissionPolicies["kitchen-kot-control"] !== false;
+  const [tickets, setTickets] = useState([]);
+  const [outlet, setOutlet] = useState(null);
+  const [station, setStation] = useState("All");
+  const [stations, setStations] = useState(["All"]);
+  const socketRef = useRef(null);
 
   useEffect(() => {
-    return subscribeRestaurantState((nextState) => {
-      setClosingLocked(nextState.closingState?.approved || false);
-      setPermissionPolicies(nextState.permissionPolicies || {});
-      const nextTickets = syncTicketsFromOrders(nextState.orders);
-      setTickets(nextTickets);
-      if (nextTickets[0] && !nextTickets.some((ticket) => ticket.id === selectedTicketId)) {
-        setSelectedTicketId(nextTickets[0].id);
-      }
-    });
-  }, [selectedTicketId]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadFromApi() {
+    async function bootstrap() {
       try {
-        const [summary, orders] = await Promise.all([
-          api.get("/operations/summary"),
-          api.get("/operations/orders")
+        const outlets = await api.get("/outlets");
+        const target = outlets[0];
+        if (!target) throw new Error("No outlet");
+        setOutlet(target);
+
+        const kots = await api.get(`/operations/kots?outletId=${target.id}`).catch(() => []);
+        if (kots.length) {
+          setTickets(kots);
+          setStations(["All", ...new Set(kots.map((k) => k.station).filter(Boolean))]);
+        }
+
+        const socket = io("http://localhost:4000", { query: { outletId: target.id } });
+        socketRef.current = socket;
+
+        socket.on("kot:new", (kot) => {
+          setTickets((prev) => {
+            if (prev.find((t) => t.id === kot.id)) return prev;
+            return [{ ...kot, status: "new", createdAt: new Date().toISOString() }, ...prev];
+          });
+          if (kot.station) {
+            setStations((prev) => prev.includes(kot.station) ? prev : [...prev, kot.station]);
+          }
+        });
+
+        socket.on("kot:status", ({ id, status }) => {
+          setTickets((prev) => prev.map((t) => t.id === id ? { ...t, status } : t));
+        });
+
+      } catch (err) {
+        // Demo fallback
+        const now = Date.now();
+        setTickets([
+          { id: "d1", kotNumber: "001", tableNumber: "3", station: "Hot", status: "new",
+            createdAt: new Date(now - 90000).toISOString(),
+            items: [{ id: "i1", name: "Paneer Butter Masala", quantity: 2, note: "Less spicy" }, { id: "i2", name: "Butter Naan", quantity: 3 }] },
+          { id: "d2", kotNumber: "002", tableNumber: "7", station: "Beverages", status: "preparing",
+            createdAt: new Date(now - 240000).toISOString(),
+            items: [{ id: "i3", name: "Masala Chai", quantity: 2 }, { id: "i4", name: "Cold Coffee", quantity: 1, note: "No sugar" }] },
+          { id: "d3", kotNumber: "003", tableNumber: "1", station: "Hot", status: "new",
+            createdAt: new Date(now - 420000).toISOString(),
+            items: [{ id: "i5", name: "Dal Makhani", quantity: 1 }, { id: "i6", name: "Jeera Rice", quantity: 2 }] },
+          { id: "d4", kotNumber: "004", tableNumber: "5", station: "Hot", status: "ready",
+            createdAt: new Date(now - 600000).toISOString(),
+            items: [{ id: "i7", name: "Chicken Tikka", quantity: 1 }] }
         ]);
-
-        if (cancelled) {
-          return;
-        }
-
-        setClosingLocked(summary.closingState?.approved || false);
-        setPermissionPolicies(summary.permissionPolicies || {});
-        const nextTickets = syncTicketsFromOrders(mapOrderArrayToRecord(orders));
-        setTickets(nextTickets);
-        if (nextTickets[0] && !nextTickets.some((ticket) => ticket.id === selectedTicketId)) {
-          setSelectedTicketId(nextTickets[0].id);
-        }
-      } catch {
-        // Keep current local mock flow when backend is unavailable.
+        setStations(["All", "Hot", "Beverages"]);
       }
     }
 
-    loadFromApi();
+    bootstrap();
+    return () => socketRef.current?.disconnect();
+  }, []);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedTicketId]);
-
-  function filterByStation(stationId) {
-    setSelectedStationId(stationId);
-    const nextVisible = tickets.filter((ticket) => stationId === "all" || ticket.stationId === stationId);
-    if (nextVisible[0]) {
-      setSelectedTicketId(nextVisible[0].id);
-    }
+  async function handleAdvance(id, currentStatus) {
+    const nextStatus = currentStatus === "new" ? "preparing" : "ready";
+    setTickets((prev) => prev.map((t) => t.id === id ? { ...t, status: nextStatus } : t));
+    socketRef.current?.emit("kot:status", { id, status: nextStatus });
+    try {
+      await api.patch(`/operations/kots/${id}/status`, { status: nextStatus });
+    } catch (_) {}
   }
 
-  function updateTicketStatus(ticketId, status) {
-    if (closingLocked || !kitchenKotControlEnabled) {
-      return;
-    }
-
-    setTickets((current) =>
-      current.map((ticket) =>
-        ticket.id === ticketId
-          ? {
-              ...ticket,
-              status
-            }
-          : ticket
-      )
-    );
-
-    setSelectedTicketId(ticketId);
-
-    if (status === "preparing") {
-      setBanner("KOT moved to preparing");
-    } else if (status === "ready") {
-      setBanner("KOT ready for waiter pickup");
-    } else {
-      setBanner("KOT moved back to new");
-    }
-
-    updateRestaurantOrders((current) => {
-      const next = structuredClone(current);
-      const selected = Object.values(next).find((order) => order.kotNumber.toLowerCase() === ticketId);
-      if (selected) {
-        selected.pickupStatus = status === "preparing" ? "preparing" : status === "ready" ? "ready" : "new";
-        selected.notes =
-          status === "preparing"
-            ? "KOT accepted by kitchen"
-            : status === "ready"
-              ? "Ready for pickup"
-              : "KOT moved back to new";
-        appendAudit(
-          selected,
-          buildAuditEntry(
-            status === "preparing" ? "Accepted in kitchen" : status === "ready" ? "Marked ready" : "Moved to new",
-            "Chef Manoj",
-            "Now"
-          )
-        );
-      }
-      return next;
-    });
-
-    if (selectedTicket?.tableId) {
-      api
-        .post(`/operations/orders/${selectedTicket.tableId}/status`, {
-          pickupStatus: status,
-          actorName: "Chef Manoj",
-          actorRole: "Kitchen"
-        })
-        .then(() => api.get("/operations/orders"))
-        .then((orders) => {
-          const nextTickets = syncTicketsFromOrders(mapOrderArrayToRecord(orders));
-          setTickets(nextTickets);
-        })
-        .catch(() => {});
-    }
-  }
-
-  function markPickedUp(ticketId) {
-    if (closingLocked || !kitchenKotControlEnabled) {
-      return;
-    }
-
-    setTickets((current) => current.filter((ticket) => ticket.id !== ticketId));
-    setBanner("Waiter pickup completed");
-    const nextTicket = tickets.find((ticket) => ticket.id !== ticketId);
-    if (nextTicket) {
-      setSelectedTicketId(nextTicket.id);
-    }
-
-    updateRestaurantOrders((current) => {
-      const next = structuredClone(current);
-      const selected = Object.values(next).find((order) => order.kotNumber.toLowerCase() === ticketId);
-      if (selected) {
-        selected.pickupStatus = "picked";
-        selected.notes = "Picked from kitchen";
-        appendAudit(selected, buildAuditEntry("Waiter pickup confirmed", "Chef Manoj", "Now"));
-      }
-      return next;
-    });
-
-    if (selectedTicket?.tableId) {
-      api
-        .post(`/operations/orders/${selectedTicket.tableId}/status`, {
-          pickupStatus: "picked",
-          actorName: "Chef Manoj",
-          actorRole: "Kitchen"
-        })
-        .then(() => api.get("/operations/orders"))
-        .then((orders) => {
-          const nextTickets = syncTicketsFromOrders(mapOrderArrayToRecord(orders));
-          setTickets(nextTickets);
-        })
-        .catch(() => {});
-    }
-  }
-
-  function handleCreateDemoOrder() {
-    if (closingLocked || !kitchenKotControlEnabled) {
-      return;
-    }
-
-    const result = createDemoOrder();
-
-    if (result.orderNumber) {
-      setBanner(`Demo KOT created: KOT-${result.orderNumber}`);
-      setSelectedTicketId(`kot-${result.orderNumber}`);
-    }
-  }
+  const filtered = station === "All" ? tickets : tickets.filter((t) => t.station === station);
+  const newTickets       = filtered.filter((t) => t.status === "new");
+  const preparingTickets = filtered.filter((t) => t.status === "preparing");
+  const readyTickets     = filtered.filter((t) => t.status === "ready");
 
   return (
     <div className="kds-shell">
-      <header className="kds-topbar">
-        <div>
-          <p className="eyebrow">Kitchen Display</p>
-          <h1>KOT Board</h1>
+      <header className="kds-header">
+        <div className="kds-header-left">
+          <div className="kds-brand-mark">K</div>
+          <div>
+            <strong>Kitchen Display</strong>
+            <p>{outlet?.name || "Restaurant OS"}</p>
+          </div>
         </div>
-        <div className="kds-station-strip" role="tablist" aria-label="Kitchen stations">
-          {stations.map((station) => (
-            <button
-              key={station.id}
-              type="button"
-              className={`station-chip ${station.id === selectedStationId ? "active" : ""}`}
-              onClick={() => filterByStation(station.id)}
-            >
-              {station.name}
-            </button>
-          ))}
+
+        {stations.length > 1 && (
+          <div className="kds-stations">
+            {stations.map((s) => (
+              <button
+                key={s}
+                className={`kds-station-btn${station === s ? " active" : ""}`}
+                onClick={() => setStation(s)}
+              >{s}</button>
+            ))}
+          </div>
+        )}
+
+        <div className="kds-live">
+          <span className="kds-live-dot" />
+          Live
         </div>
-        <button type="button" className="secondary-btn" onClick={handleCreateDemoOrder} disabled={closingLocked || !kitchenKotControlEnabled}>
-          Create Demo Order
-        </button>
       </header>
 
-      <div className="kds-banner">{banner}</div>
-      {closingLocked ? <div className="kds-banner">Day closed • Kitchen queue is view-only now</div> : null}
-      {!closingLocked && !kitchenKotControlEnabled ? <div className="kds-banner">Kitchen KOT control disabled by owner • Queue is view-only now</div> : null}
-
-      <section className="kds-summary-row">
-        {statusColumns.map((column) => (
-          <div key={column.id} className="summary-card">
-            <span>{column.label}</span>
-            <strong>{visibleTickets.filter((ticket) => ticket.status === column.id).length}</strong>
-          </div>
-        ))}
-        <div className="summary-card urgent">
-          <span>Urgent</span>
-          <strong>{urgentCount}</strong>
-        </div>
-      </section>
-
-      <section className="kds-grid">
-        {statusColumns.map((column) => (
-          <section key={column.id} className="kds-column">
-            <div className="column-head">
-              <h2>{column.label}</h2>
-              <span>{visibleTickets.filter((ticket) => ticket.status === column.id).length} KOTs</span>
-            </div>
-
-            <div className="ticket-stack">
-              {visibleTickets.filter((ticket) => ticket.status === column.id).map((ticket) => (
-                <button
-                  key={ticket.id}
-                  type="button"
-                  className={`${ticketClass(ticket.status, ticket.id === selectedTicketId)} ${ticket.priority}`}
-                  onClick={() => setSelectedTicketId(ticket.id)}
-                >
-                  <div className="ticket-head">
-                    <strong>{ticket.kotNumber}</strong>
-                    <span>{ticket.elapsed}</span>
-                  </div>
-                  <span>
-                    {ticket.tableNumber} • {ticket.areaName}
-                  </span>
-                  <span>{ticket.stationName}</span>
-                  <span className={`priority-tag ${ticket.priority}`}>{ticket.priority === "urgent" ? "Urgent" : ticket.priority === "attention" ? "Watch" : "On Time"}</span>
-                  <em>{ticket.waiter}</em>
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
-      </section>
-
-      <section className="kds-detail-card">
-        <div className="column-head">
-          <div>
-            <p className="eyebrow">Selected KOT</p>
-            <h2>{selectedTicket?.kotNumber || "No ticket selected"}</h2>
-          </div>
-          {selectedTicket ? <span className={`status-pill ${selectedTicket.status}`}>{selectedTicket.status}</span> : null}
-        </div>
-
-        {selectedTicket ? (
-          <>
-            <div className="detail-meta">
-              <div>
-                <span>Table</span>
-                <strong>{selectedTicket.tableNumber}</strong>
-              </div>
-              <div>
-                <span>Captain</span>
-                <strong>{selectedTicket.captain}</strong>
-              </div>
-              <div>
-                <span>Waiter</span>
-                <strong>{selectedTicket.waiter}</strong>
-              </div>
-              <div>
-                <span>Station</span>
-                <strong>{selectedTicket.stationName}</strong>
-              </div>
-              <div>
-                <span>Age</span>
-                <strong>{selectedTicket.elapsed}</strong>
-              </div>
-              <div>
-                <span>Priority</span>
-                <strong>{selectedTicket.priority}</strong>
-              </div>
-            </div>
-
-            <div className="detail-items">
-              <div className="detail-audit-list">
-                {selectedOrderAudit.map((entry) => (
-                  <article key={entry.id} className="detail-item-card">
-                    <div>
-                      <strong>{entry.label}</strong>
-                      <span>{entry.actor}</span>
-                    </div>
-                    <p>{entry.time}</p>
-                  </article>
-                ))}
-              </div>
-              {selectedTicket.items.map((item) => (
-                <article key={item.id} className="detail-item-card">
-                  <div>
-                    <strong>{item.name}</strong>
-                    <span>Qty {item.quantity}</span>
-                  </div>
-                  <p>{item.note}</p>
-                </article>
-              ))}
-            </div>
-
-            <div className="detail-actions">
-              <button type="button" className="secondary-btn" onClick={() => updateTicketStatus(selectedTicket.id, "new")} disabled={closingLocked || !kitchenKotControlEnabled}>
-                Back to New
-              </button>
-              <button type="button" className="secondary-btn" onClick={() => updateTicketStatus(selectedTicket.id, "preparing")} disabled={closingLocked || !kitchenKotControlEnabled}>
-                Start Preparing
-              </button>
-              <button type="button" className="primary-btn" onClick={() => updateTicketStatus(selectedTicket.id, "ready")} disabled={closingLocked || !kitchenKotControlEnabled}>
-                Mark Ready
-              </button>
-              <button type="button" className="ghost-btn" onClick={() => markPickedUp(selectedTicket.id)} disabled={closingLocked || !kitchenKotControlEnabled}>
-                Waiter Picked Up
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="empty-state">No KOT in this station right now.</div>
-        )}
-      </section>
+      <div className="kds-columns">
+        <KotColumn label="New" tickets={newTickets} onAdvance={handleAdvance} colorKey="new" />
+        <KotColumn label="Preparing" tickets={preparingTickets} onAdvance={handleAdvance} colorKey="preparing" />
+        <KotColumn label="Ready" tickets={readyTickets} onAdvance={handleAdvance} colorKey="ready" />
+      </div>
     </div>
   );
 }
