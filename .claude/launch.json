@@ -7,6 +7,27 @@
       "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "4173"],
       "port": 4173,
       "cwd": "apps/owner-web"
+    },
+    {
+      "name": "operations-pos",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "4174"],
+      "port": 4174,
+      "cwd": "apps/operations-pos"
+    },
+    {
+      "name": "waiter-mobile",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "4175"],
+      "port": 4175,
+      "cwd": "apps/waiter-mobile"
+    },
+    {
+      "name": "kitchen-display",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "4176"],
+      "port": 4176,
+      "cwd": "apps/kitchen-display"
     }
   ]
 }

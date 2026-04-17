@@ -1,394 +1,396 @@
-import { useEffect, useState } from "react";
-
-import { subscribeRestaurantState } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
+import { useState } from "react";
 import {
-  addProductionWaste,
-  addPurchaseStock,
-  fetchInventoryData,
-  issueToKitchen,
-  runDiningCountCheck,
-  runProductionCountCheck,
-  toggleDiningItemStatus,
-  toggleProductionStock
-} from "./inventory.service";
+  INVENTORY_TRACKING_KEY,
+  INVENTORY_WASTAGE_KEY,
+  OUTLETS,
+  SESSIONS,
+  UNITS,
+  defaultTracking,
+  menuCatalog,
+  wastageLogSeed
+} from "./inventory.seed";
 
-function statusClass(status) {
-  return ["Low Stock", "Critical", "Out of Stock"].includes(status) ? "warning" : "online";
+// ── localStorage helpers ──────────────────────────────────────────────────────
+
+const WASTAGE_SIDES_KEY = "pos_wastage_sides";
+
+function loadTracking() {
+  try { return JSON.parse(localStorage.getItem(INVENTORY_TRACKING_KEY) || "null") || defaultTracking; }
+  catch { return defaultTracking; }
+}
+function saveTracking(list) { localStorage.setItem(INVENTORY_TRACKING_KEY, JSON.stringify(list)); }
+
+function loadWastage() {
+  try { return JSON.parse(localStorage.getItem(INVENTORY_WASTAGE_KEY) || "null") || wastageLogSeed; }
+  catch { return wastageLogSeed; }
+}
+function saveWastage(list) { localStorage.setItem(INVENTORY_WASTAGE_KEY, JSON.stringify(list)); }
+
+function loadSides() {
+  try { return JSON.parse(localStorage.getItem(WASTAGE_SIDES_KEY) || "null") || ["Sambar", "Kuruma", "Rice", "Dal Fry"]; }
+  catch { return []; }
+}
+function saveSides(list) { localStorage.setItem(WASTAGE_SIDES_KEY, JSON.stringify(list)); }
+
+// ── Toggle ────────────────────────────────────────────────────────────────────
+
+function Toggle({ on, onChange, size = 36 }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)}
+      style={{
+        width: size, height: size * 0.6, borderRadius: size * 0.3,
+        border: "none", cursor: "pointer", background: on ? "#1a7a3a" : "#ccc",
+        position: "relative", flexShrink: 0, transition: "background 0.2s"
+      }}>
+      <span style={{
+        position: "absolute", top: size * 0.08,
+        left: on ? size * 0.42 : size * 0.07,
+        width: size * 0.44, height: size * 0.44,
+        borderRadius: "50%", background: "#fff", transition: "left 0.2s"
+      }} />
+    </button>
+  );
 }
 
+// ── Stock badge ───────────────────────────────────────────────────────────────
+
+function StockBadge({ current, opening }) {
+  if (!opening) return <span className="inv-badge neutral">—</span>;
+  const pct = current / opening;
+  if (current === 0)  return <span className="inv-badge out">Out</span>;
+  if (pct < 0.25)     return <span className="inv-badge low">Low · {current}</span>;
+  return <span className="inv-badge ok">{current}</span>;
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export function InventoryPage() {
-  const [inventoryData, setInventoryData] = useState({
-    accessCards: [],
-    alerts: [],
-    diningItems: [],
-    productionItems: [],
-    wasteLog: [],
-    issueLog: [],
-    purchaseLog: [],
-    countLog: [],
-    varianceLog: [],
-    dailySummary: []
+  const [tracking,      setTracking]      = useState(loadTracking);
+  const [wastage,       setWastage]       = useState(loadWastage);
+  const [sides,         setSides]         = useState(loadSides);
+  const [activeSession, setActiveSession] = useState("Lunch");
+  const [activeCat,     setActiveCat]     = useState("All");
+  const [msg,           setMsg]           = useState("");
+
+  // Wastage form
+  const [form, setForm] = useState({
+    item: "", unit: "Pcs", qty: "", pricePerUnit: "",
+    session: "Lunch", branch: "Indiranagar"
   });
+  const [newSide, setNewSide] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
+  function flash(t) { setMsg(t); setTimeout(() => setMsg(""), 3000); }
 
-    async function load() {
-      const result = await fetchInventoryData();
+  // ── Category filter ──────────────────────────────────────────────────────────
 
-      if (!cancelled) {
-        setInventoryData(result);
-      }
-    }
+  const categories = ["All", ...new Set(menuCatalog.map(m => m.category))];
+  const filteredCatalog = activeCat === "All"
+    ? menuCatalog
+    : menuCatalog.filter(m => m.category === activeCat);
 
-    load();
+  // ── Tracking toggle helpers ──────────────────────────────────────────────────
 
-    const unsubscribe = subscribeRestaurantState(load);
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
+  function getT(id) {
+    return tracking.find(t => t.id === id) || {
+      id, trackingEnabled: false, posVisible: false, online: true, unit: "Pcs",
+      sessions: { Breakfast: { opening: 0, current: 0 }, Lunch: { opening: 0, current: 0 }, Dinner: { opening: 0, current: 0 } }
     };
-  }, []);
+  }
 
-  const lowDiningCount = inventoryData.diningItems.filter((item) => item.status !== "Available").length;
-  const productionRiskCount = inventoryData.productionItems.filter((item) => item.status !== "Healthy").length;
+  function updateT(id, changes) {
+    const exists = tracking.find(t => t.id === id);
+    const next = exists
+      ? tracking.map(t => t.id === id ? { ...t, ...changes } : t)
+      : [...tracking, { ...getT(id), ...changes }];
+    setTracking(next);
+    saveTracking(next);
+  }
+
+  function updateStock(id, session, field, val) {
+    const t = getT(id);
+    const next = tracking.find(x => x.id === id)
+      ? tracking.map(x => x.id !== id ? x : {
+          ...x, sessions: { ...x.sessions, [session]: { ...x.sessions[session], [field]: Math.max(0, Number(val) || 0) } }
+        })
+      : [...tracking, { ...t, sessions: { ...t.sessions, [session]: { ...t.sessions[session], [field]: Math.max(0, Number(val) || 0) } } }];
+    setTracking(next);
+    saveTracking(next);
+  }
+
+  // ── Wastage entry ─────────────────────────────────────────────────────────────
+
+  const autoValue = form.qty && form.pricePerUnit
+    ? (Number(form.qty) * Number(form.pricePerUnit)).toFixed(2)
+    : "";
+
+  function handleWastageSubmit(e) {
+    e.preventDefault();
+    if (!form.item || !form.qty) return;
+    const entry = {
+      id: `w-${Date.now()}`,
+      item: form.item, qty: Number(form.qty),
+      pricePerUnit: Number(form.pricePerUnit) || 0,
+      value: Number(autoValue) || 0,
+      unit: form.unit, session: form.session, branch: form.branch,
+      enteredBy: "Manager",
+      time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+    };
+    const next = [entry, ...wastage];
+    setWastage(next); saveWastage(next);
+    setForm(f => ({ ...f, item: "", qty: "", pricePerUnit: "" }));
+    flash(`Wastage logged — ${entry.item}, ${entry.qty} ${entry.unit}, ₹${entry.value}`);
+  }
+
+  function handleAddSide(e) {
+    e.preventDefault();
+    const name = newSide.trim();
+    if (!name || sides.includes(name)) return;
+    const next = [...sides, name];
+    setSides(next); saveSides(next);
+    setNewSide("");
+  }
+
+  // ── Derived ───────────────────────────────────────────────────────────────────
+
+  const trackedItems    = tracking.filter(t => t.trackingEnabled);
+  const totalWastageVal = wastage.reduce((s, w) => s + (w.value || 0), 0);
+  const lowCount = trackedItems.filter(t => {
+    const s = t.sessions[activeSession];
+    return s?.opening > 0 && s.current / s.opening < 0.25;
+  }).length;
+
+  // All item names for wastage dropdown: menu items + sides
+  const wastageItemNames = [...menuCatalog.map(m => m.name), ...sides];
 
   return (
     <>
       <header className="topbar">
-        <div>
-          <p className="eyebrow">Stock Control • Two-Layer Inventory</p>
-          <h2>Inventory</h2>
-        </div>
-
+        <div><p className="eyebrow">Owner Setup</p><h2>Inventory</h2></div>
         <div className="topbar-actions">
-          <button type="button" className="secondary-btn">
-            Category Entry
-          </button>
-          <button type="button" className="primary-btn">
-            Item Entry
-          </button>
+          <span className="status online">{trackedItems.length} items tracked</span>
         </div>
       </header>
 
-      <section className="hero-panel">
-        <div>
-          <p className="hero-label">Inventory workflow</p>
-          <h3>Split dining availability and kitchen production stock cleanly</h3>
-          <p className="hero-copy">
-            Sales inventory stays independent for POS and waiter ordering. Kitchen inventory is a
-            separate optional module for raw materials, waste, issue, and kitchen-side control.
-            Keep sales stock entry simple with category-wise or item-wise updates before shift start
-            and again during service whenever needed.
-          </p>
+      {/* Stats */}
+      <div className="devices-stats" style={{ marginBottom: 20 }}>
+        <div className="dev-stat"><strong>{trackedItems.length}</strong><span>Tracked</span></div>
+        <div className={`dev-stat ${lowCount > 0 ? "warn" : ""}`}><strong>{lowCount}</strong><span>Low stock</span></div>
+        <div className="dev-stat bad"><strong>{trackedItems.filter(t => !t.online).length}</strong><span>Offline items</span></div>
+        <div className="dev-stat"><strong>₹{totalWastageVal.toLocaleString()}</strong><span>Wastage value</span></div>
+      </div>
+
+      {msg && <div className="mobile-banner">{msg}</div>}
+
+      {/* ── Section 1: Enable Tracking — Category-wise ──────────────────────── */}
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="panel-head" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+          <div>
+            <p className="eyebrow">Menu Items</p>
+            <h3>Enable Inventory Tracking</h3>
+          </div>
+          <div className="inv-session-tabs">
+            {categories.map(c => (
+              <button key={c} className={`inv-session-tab${activeCat === c ? " active" : ""}`}
+                onClick={() => setActiveCat(c)}>{c}</button>
+            ))}
+          </div>
         </div>
 
-        <div className="hero-stats">
-          <div>
-            <span>Dining alerts</span>
-            <strong>{lowDiningCount}</strong>
-          </div>
-          <div>
-            <span>Production risks</span>
-            <strong>{productionRiskCount}</strong>
-          </div>
-          <div>
-            <span>Captain mobile</span>
-            <strong className="positive">Live alerts</strong>
-          </div>
+        {/* Column headers */}
+        <div className="inv-toggle-head">
+          <span>Item</span>
+          <span>Tracking</span>
+          <span>Show in POS</span>
+          <span>Online</span>
+        </div>
+
+        <div className="inv-catalog">
+          {filteredCatalog.map(item => {
+            const t = getT(item.id);
+            return (
+              <div key={item.id} className={`inv-catalog-row${t.trackingEnabled ? " enabled" : ""}`}>
+                <div className="inv-catalog-info">
+                  <strong>{item.name}</strong>
+                  <span>{item.category}</span>
+                </div>
+                <div className="inv-three-toggles">
+                  <label className="inv-toggle-col">
+                    <Toggle on={t.trackingEnabled} onChange={v => updateT(item.id, { trackingEnabled: v })} />
+                    <span>{t.trackingEnabled ? "On" : "Off"}</span>
+                  </label>
+                  <label className="inv-toggle-col">
+                    <Toggle on={t.posVisible} onChange={v => updateT(item.id, { posVisible: v })} />
+                    <span>{t.posVisible ? "Yes" : "No"}</span>
+                  </label>
+                  <label className="inv-toggle-col">
+                    <Toggle on={t.online !== false} onChange={v => updateT(item.id, { online: v })} />
+                    <span>{t.online !== false ? "Live" : "Off"}</span>
+                  </label>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
-      <section className="metrics-grid">
-        {inventoryData.accessCards.map((card) => (
-          <article key={card.id} className="metric-card">
-            <span className="metric-label">{card.title}</span>
-            <strong>{card.roles}</strong>
-            <p>{card.detail}</p>
-          </article>
-        ))}
+      {/* ── Section 2: Session stock ─────────────────────────────────────────── */}
+      {trackedItems.length > 0 && (
+        <section className="panel" style={{ marginBottom: 20 }}>
+          <div className="panel-head" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+            <div><p className="eyebrow">Session Stock</p><h3>Update Stock by Session</h3></div>
+            <div className="inv-session-tabs">
+              {SESSIONS.map(s => (
+                <button key={s} className={`inv-session-tab${activeSession === s ? " active" : ""}`}
+                  onClick={() => setActiveSession(s)}>{s}</button>
+              ))}
+            </div>
+          </div>
+          <div className="inv-stock-table">
+            <div className="inv-stock-head">
+              <span>Item</span><span>Unit</span>
+              <span>Opening qty</span><span>Current qty</span>
+              <span>Status</span><span>POS</span>
+            </div>
+            {trackedItems.map(t => {
+              const meta = menuCatalog.find(m => m.id === t.id);
+              const sess = t.sessions?.[activeSession] || { opening: 0, current: 0 };
+              return (
+                <div key={t.id} className="inv-stock-row">
+                  <span className="inv-item-name">{meta?.name || t.id}</span>
+                  <span>
+                    <select className="inv-unit-select" value={t.unit}
+                      onChange={e => updateT(t.id, { unit: e.target.value })}>
+                      {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </span>
+                  <span>
+                    <input className="inv-qty-input" type="number" min="0" value={sess.opening}
+                      onChange={e => updateStock(t.id, activeSession, "opening", e.target.value)} />
+                  </span>
+                  <span>
+                    <input className="inv-qty-input" type="number" min="0" value={sess.current}
+                      onChange={e => updateStock(t.id, activeSession, "current", e.target.value)} />
+                  </span>
+                  <span><StockBadge current={sess.current} opening={sess.opening} /></span>
+                  <span><Toggle on={t.posVisible} onChange={v => updateT(t.id, { posVisible: v })} size={32} /></span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="inv-hint">Cashier or Manager updates at shift start and mid-service</p>
+        </section>
+      )}
+
+      {/* ── Section 3: Wastage entry ─────────────────────────────────────────── */}
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="panel-head">
+          <div><p className="eyebrow">Waste Control</p><h3>Production Wastage Entry</h3></div>
+        </div>
+
+        <form className="inv-wastage-form" onSubmit={handleWastageSubmit}>
+          {/* Row 1: Item / Unit / Qty / Price per unit / Auto value */}
+          <label>
+            Item
+            <input list="wastage-items" placeholder="Select or type item name…"
+              value={form.item} required
+              onChange={e => setForm(f => ({ ...f, item: e.target.value }))} />
+            <datalist id="wastage-items">
+              {wastageItemNames.map(n => <option key={n} value={n} />)}
+            </datalist>
+          </label>
+
+          <label>
+            Pcs / Ltr / Kg
+            <select value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}>
+              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </label>
+
+          <label>
+            Quantity
+            <input type="number" min="0" placeholder="e.g. 3" value={form.qty} required
+              onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} />
+          </label>
+
+          <label>
+            Price per {form.unit} (₹)
+            <input type="number" min="0" placeholder="Cost of one unit" value={form.pricePerUnit}
+              onChange={e => setForm(f => ({ ...f, pricePerUnit: e.target.value }))} />
+          </label>
+
+          <label>
+            Total wastage value
+            <div className="inv-auto-value">
+              {autoValue ? `₹${Number(autoValue).toLocaleString()}` : "—"}
+            </div>
+          </label>
+
+          <label>
+            Session
+            <select value={form.session} onChange={e => setForm(f => ({ ...f, session: e.target.value }))}>
+              {SESSIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+
+          <label>
+            Branch
+            <select value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}>
+              {OUTLETS.filter(o => o !== "All Branches").map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </label>
+
+          <div className="inv-wastage-submit" style={{ gridColumn: "1 / -1" }}>
+            <button type="submit" className="primary-btn">Log Wastage</button>
+          </div>
+        </form>
+
+        {/* Add sides for wastage dropdown */}
+        <div className="inv-sides-strip">
+          <span>Sides / extras in wastage list:</span>
+          <div className="inv-sides-chips">
+            {sides.map(s => (
+              <span key={s} className="inv-side-chip">
+                {s}
+                <button onClick={() => { const n = sides.filter(x => x !== s); setSides(n); saveSides(n); }}>✕</button>
+              </span>
+            ))}
+          </div>
+          <form onSubmit={handleAddSide} className="inv-sides-add">
+            <input placeholder="Add side…" value={newSide}
+              onChange={e => setNewSide(e.target.value)} />
+            <button type="submit" className="ghost-chip" disabled={!newSide.trim()}>+ Add</button>
+          </form>
+        </div>
       </section>
 
-      <section className="metrics-grid">
-        <article className="metric-card">
-          <span className="metric-label">Quick Entry Mode</span>
-          <strong>Category-wise or item-wise</strong>
-          <p>Cashier or manager can load stock quickly before shift opening or update it mid-shift.</p>
-        </article>
-        <article className="metric-card">
-          <span className="metric-label">Shift Timing</span>
-          <strong>Opening and in-between</strong>
-          <p>Designed for simple stock entry before service starts and fast correction during live billing.</p>
-        </article>
-      </section>
-
-      <section className="metrics-grid">
-        {inventoryData.dailySummary.map((item) => (
-          <article key={item.id} className="metric-card">
-            <span className="metric-label">{item.label}</span>
-            <strong>{item.value}</strong>
-            <p>{item.helper}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="dashboard-grid reports-layout">
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Dining Inventory</p>
-              <h3>Sales Inventory • Cashier and Manager Access</h3>
-            </div>
+      {/* ── Section 4: Wastage log ───────────────────────────────────────────── */}
+      {wastage.length > 0 && (
+        <section className="panel">
+          <div className="panel-head" style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div><p className="eyebrow">Wastage History</p><h3>All Wastage Entries</h3></div>
+            <strong style={{ color:"#d32f2f", fontSize:"0.9rem" }}>₹{totalWastageVal.toLocaleString()} total</strong>
           </div>
-
-          <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Item</span>
-              <span>Outlet</span>
-              <span>Status</span>
-              <span>Qty</span>
-              <span>Threshold</span>
-              <span>Alert</span>
-              <span>Action</span>
+          <div className="inv-log-table">
+            <div className="inv-log-head">
+              <span>Item</span><span>Qty</span><span>Unit</span>
+              <span>₹/unit</span><span>Value (₹)</span>
+              <span>Session</span><span>Branch</span><span>Time</span>
             </div>
-            {inventoryData.diningItems.map((item) => (
-              <div key={item.id} className="staff-row">
-                <span>{item.name}</span>
-                <span>{item.outlet}</span>
-                <span className={`status ${statusClass(item.status)}`}>{item.status}</span>
-                <span>{item.quantityLabel}</span>
-                <span>{item.threshold} portions</span>
-                <span>{item.alert}</span>
-                <span>
-                  <div className="topbar-actions">
-                    <button type="button" className="ghost-btn" onClick={() => toggleDiningItemStatus(item.id)}>
-                      {item.status === "Out of Stock" ? "Mark Available" : "Mark Out Of Stock"}
-                    </button>
-                    <button type="button" className="secondary-btn" onClick={() => runDiningCountCheck(item.id)}>
-                      Count Check
-                    </button>
-                  </div>
-                </span>
+            {wastage.map(w => (
+              <div key={w.id} className="inv-log-row">
+                <span>{w.item}</span>
+                <span>{w.qty ?? w.amount}</span>
+                <span>{w.unit}</span>
+                <span>₹{w.pricePerUnit ?? "—"}</span>
+                <span style={{ fontWeight: 700, color: "#d32f2f" }}>₹{(w.value || 0).toLocaleString()}</span>
+                <span>{w.session}</span>
+                <span>{w.branch}</span>
+                <span>{w.time}</span>
               </div>
             ))}
           </div>
-        </article>
-
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Kitchen Production</p>
-              <h3>Kitchen Inventory • Store Incharge and Manager Access</h3>
-            </div>
-          </div>
-
-          <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Raw Material</span>
-              <span>Unit</span>
-              <span>Status</span>
-              <span>Qty</span>
-              <span>Threshold</span>
-              <span>Action</span>
-            </div>
-            {inventoryData.productionItems.map((item) => (
-              <div key={item.id} className="staff-row">
-                <span>{item.name}</span>
-                <span>{item.unit}</span>
-                <span className={`status ${statusClass(item.status)}`}>{item.status}</span>
-                <span>{item.quantityLabel}</span>
-                <span>{item.threshold} {item.unit}</span>
-                <span>
-                  <div className="topbar-actions">
-                    <button type="button" className="ghost-btn" onClick={() => toggleProductionStock(item.id)}>
-                      {item.status === "Healthy" ? "Mark Low Stock" : "Restock"}
-                    </button>
-                    <button type="button" className="secondary-btn" onClick={() => addProductionWaste(item.id)}>
-                      Waste 0.5
-                    </button>
-                    <button type="button" className="secondary-btn" onClick={() => issueToKitchen(item.id)}>
-                      Issue 1
-                    </button>
-                    <button type="button" className="secondary-btn" onClick={() => addPurchaseStock(item.id)}>
-                      Inward 5
-                    </button>
-                    <button type="button" className="secondary-btn" onClick={() => runProductionCountCheck(item.id)}>
-                      Count Check
-                    </button>
-                  </div>
-                </span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Physical Count</p>
-              <h3>Daily Stock Count Log</h3>
-            </div>
-          </div>
-
-          <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Item</span>
-              <span>Type</span>
-              <span>System</span>
-              <span>Counted</span>
-              <span>Variance</span>
-              <span>Actor</span>
-              <span>Time</span>
-            </div>
-            {inventoryData.countLog.map((row) => (
-              <div key={row.id} className="staff-row">
-                <span>{row.itemName}</span>
-                <span>{row.category}</span>
-                <span>{row.systemQuantity}</span>
-                <span>{row.countedQuantity}</span>
-                <span>{row.variance}</span>
-                <span>{row.actor}</span>
-                <span>{row.time}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Variance Review</p>
-              <h3>Missing Stock Alert Report</h3>
-            </div>
-          </div>
-
-          <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Item</span>
-              <span>Type</span>
-              <span>Variance</span>
-              <span>Severity</span>
-              <span>Note</span>
-              <span>Actor</span>
-              <span>Time</span>
-            </div>
-            {inventoryData.varianceLog.map((row) => (
-              <div key={row.id} className="staff-row">
-                <span>{row.itemName}</span>
-                <span>{row.category}</span>
-                <span>{row.variance}</span>
-                <span className={`status ${row.severity === "Missing" ? "warning" : "online"}`}>{row.severity}</span>
-                <span>{row.note}</span>
-                <span>{row.actor}</span>
-                <span>{row.time}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Store To Kitchen</p>
-              <h3>Production Issue Log</h3>
-            </div>
-          </div>
-
-          <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Item</span>
-              <span>Qty</span>
-              <span>Destination</span>
-              <span>Actor</span>
-              <span>Time</span>
-            </div>
-            {inventoryData.issueLog.map((row) => (
-              <div key={row.id} className="staff-row">
-                <span>{row.itemName}</span>
-                <span>{row.amount}</span>
-                <span>{row.destination}</span>
-                <span>{row.actor}</span>
-                <span>{row.time}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Purchase Inward</p>
-              <h3>Stock Entry Log</h3>
-            </div>
-          </div>
-
-          <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Item</span>
-              <span>Qty</span>
-              <span>Vendor</span>
-              <span>Actor</span>
-              <span>Time</span>
-            </div>
-            {inventoryData.purchaseLog.map((row) => (
-              <div key={row.id} className="staff-row">
-                <span>{row.itemName}</span>
-                <span>{row.amount}</span>
-                <span>{row.vendor}</span>
-                <span>{row.actor}</span>
-                <span>{row.time}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Waste Control</p>
-              <h3>Kitchen Waste Entry Log</h3>
-            </div>
-          </div>
-
-          <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Item</span>
-              <span>Amount</span>
-              <span>Reason</span>
-              <span>Actor</span>
-              <span>Time</span>
-            </div>
-            {inventoryData.wasteLog.map((row) => (
-              <div key={row.id} className="staff-row">
-                <span>{row.itemName}</span>
-                <span>{row.amount}</span>
-                <span>{row.reason}</span>
-                <span>{row.actor}</span>
-                <span>{row.time}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Owner Notes</p>
-              <h3>Workflow Alerts</h3>
-            </div>
-          </div>
-
-          <div className="alert-list">
-            {inventoryData.alerts.map((alert) => (
-              <div key={alert.id} className="alert-item">
-                <strong>{alert.title}</strong>
-                <span>{alert.description}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
+        </section>
+      )}
     </>
   );
 }

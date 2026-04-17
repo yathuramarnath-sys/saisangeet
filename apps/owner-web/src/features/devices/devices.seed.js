@@ -1,80 +1,98 @@
-export const devicesSeedData = {
-  linkCode: {
-    code: "POS24190",
+export const DEVICE_ROLES = [
+  { value: "billing",    label: "Billing Counter" },
+  { value: "kitchen",    label: "Kitchen Station" },
+  { value: "dining",     label: "Dining Hall" },
+  { value: "bar",        label: "Bar / Beverages" },
+  { value: "unassigned", label: "Unassigned" }
+];
+
+// Default station suggestions — user can also type a custom name
+export const STATION_SUGGESTIONS = [
+  "Grill Station",
+  "Main Kitchen",
+  "Beverages",
+  "Desserts",
+  "AC Hall 1",
+  "Family Hall",
+  "Rooftop",
+  "Billing Counter 1",
+  "Billing Counter 2"
+];
+
+// Shared localStorage key — POS reads this to know which printer/KDS is assigned where
+export const DEVICES_SHARED_KEY = "pos_devices_assignments";
+
+export const PRINTER_MODELS = ["Epson TM-T82", "TVS RP 3160 Gold", "Other"];
+
+export const devicesSeedData = [
+  {
+    id: "printer-001",
+    name: "Billing Counter Printer",
+    type: "printer",
+    model: "Epson TM-T82",
+    ip: "192.168.1.101",
+    mac: "00:26:B9:AA:12:01",
+    status: "online",
+    role: "billing",
+    station: null,
     outlet: "Indiranagar",
-    expiresAt: "10:15 AM"
+    paperLow: false,
+    lastSeen: new Date().toISOString()
   },
-  devices: [
-    {
-      id: "front-counter-pos-1",
-      name: "Front Counter POS 1",
-      type: "POS terminal",
-      outlet: "Indiranagar",
-      setup: "Receipt + tax synced",
-      status: "Active"
-    },
-    {
-      id: "captain-tab-2",
-      name: "Captain Tab 2",
-      type: "Captain tablet",
-      outlet: "Indiranagar",
-      setup: "Menu + KOT synced",
-      status: "Active"
-    },
-    {
-      id: "kitchen-screen-1",
-      name: "Kitchen Screen 1",
-      type: "KDS",
-      outlet: "HSR Layout",
-      setup: "KOT display synced",
-      status: "Active"
-    },
-    {
-      id: "kitchen-printer-1",
-      name: "Kitchen Printer 1",
-      type: "Printer",
-      outlet: "Koramangala",
-      setup: "Routing review pending",
-      status: "Review",
-      warning: true
-    },
-    {
-      id: "paytm-counter-1",
-      name: "Paytm Counter QR",
-      type: "Payment QR",
-      outlet: "Whitefield",
-      setup: "Settlement linked",
-      status: "Active"
-    },
-    {
-      id: "phonepe-soundbox-1",
-      name: "PhonePe Soundbox 1",
-      type: "Payment device",
-      outlet: "Indiranagar",
-      setup: "UPI alerts + outlet linked",
-      status: "Active"
-    }
-  ],
-  alerts: [
-    {
-      id: "kitchen-routing",
-      title: "Kitchen printer routing not finalized",
-      description: "Koramangala printer is linked but not assigned to the correct station"
-    },
-    {
-      id: "link-code",
-      title: "1 link code expires soon",
-      description: "Generate a fresh code if the terminal is not linked in time"
-    },
-    {
-      id: "captain-tablet",
-      title: "Captain tablet missing at Whitefield",
-      description: "Link a tablet for faster order taking on the floor"
-    },
-    {
-      id: "payment-device",
-      title: "Paytm QR pending assignment at Koramangala",
-      description: "Assign the payment partner device before enabling full UPI flow"
-    }
-  ]
-};
+  {
+    id: "printer-002",
+    name: "Kitchen Printer",
+    type: "printer",
+    model: "TVS RP 3160 Gold",
+    ip: "192.168.1.102",
+    mac: "00:26:B9:AA:12:02",
+    status: "online",
+    role: "kitchen",
+    station: "main",
+    outlet: "Indiranagar",
+    paperLow: true,
+    lastSeen: new Date().toISOString()
+  },
+  {
+    id: "kds-001",
+    name: "Grill Station Screen",
+    type: "kds",
+    model: "KDS Display",
+    ip: "192.168.1.110",
+    mac: "00:26:B9:AA:12:10",
+    status: "online",
+    role: "kitchen",
+    station: "grill",
+    outlet: "Indiranagar",
+    paperLow: false,
+    lastSeen: new Date().toISOString()
+  },
+  {
+    id: "kds-002",
+    name: "Beverages Screen",
+    type: "kds",
+    model: "KDS Display",
+    ip: "192.168.1.111",
+    mac: "00:26:B9:AA:12:11",
+    status: "offline",
+    role: "kitchen",
+    station: "beverages",
+    outlet: "Indiranagar",
+    paperLow: false,
+    lastSeen: new Date(Date.now() - 18 * 60 * 1000).toISOString()
+  },
+  {
+    id: "printer-003",
+    name: "New Printer",
+    type: "printer",
+    model: "Epson TM-T82",
+    ip: "192.168.1.115",
+    mac: "00:26:B9:AA:12:15",
+    status: "online",
+    role: "unassigned",
+    station: null,
+    outlet: "Indiranagar",
+    paperLow: false,
+    lastSeen: new Date().toISOString()
+  }
+];

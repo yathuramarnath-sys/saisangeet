@@ -105,14 +105,17 @@ function TableScreen({ areas, orders, onSelectTable }) {
 
 function OrderScreen({ order, tableLabel, categories, menuItems, instructions, onBack, onSendKOT, onRequestBill, onUpdateOrder }) {
   const [screen, setScreen] = useState("order"); // "order" | "menu" | "note"
-  const [activeCat, setActiveCat] = useState(categories[0]?.name);
+  const [activeCat, setActiveCat] = useState(categories[0]?.id || categories[0]?.name);
   const [noteItemIdx, setNoteItemIdx] = useState(null);
   const [noteValue, setNoteValue] = useState("");
   const [search, setSearch] = useState("");
 
   const displayItems = search.trim()
     ? menuItems.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
-    : menuItems.filter((i) => (i.category || i.categoryName) === activeCat && i.isActive !== false);
+    : menuItems.filter((i) => {
+        const cat = i.categoryId || i.category || i.categoryName || "";
+        return cat === activeCat && i.isActive !== false;
+      });
 
   function addItem(item) {
     const items = [...(order.items || [])];

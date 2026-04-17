@@ -1,330 +1,361 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import {
+  DEVICE_ROLES,
+  DEVICES_SHARED_KEY,
+  PRINTER_MODELS,
+  STATION_SUGGESTIONS,
+  devicesSeedData
+} from "./devices.seed";
 
-import { createDeviceLinkCode, fetchDevicesData, linkDevice } from "./devices.service";
+const LOCAL_KEY = "pos_local_devices";
 
-function statusClass(status) {
-  return status === "Review" ? "warning" : "online";
+function loadDevices() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LOCAL_KEY) || "null");
+    return saved || devicesSeedData;
+  } catch {
+    return devicesSeedData;
+  }
+}
+
+// Write to shared key so POS/Captain app can read printer assignments
+function syncToPOS(list) {
+  const assignments = list.map(d => ({
+    id: d.id, name: d.name, type: d.type, model: d.model,
+    ip: d.ip, role: d.role, station: d.station, status: d.status
+  }));
+  localStorage.setItem(DEVICES_SHARED_KEY, JSON.stringify(assignments));
+}
+
+function saveDevices(list) {
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(list));
+  syncToPOS(list);
+}
+
+function timeAgo(iso) {
+  if (!iso) return "Unknown";
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (secs < 60) return "Just now";
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  return `${Math.floor(secs / 3600)}h ago`;
+}
+
+function StatusDot({ status }) {
+  const colors = { online: "#1a7a3a", warning: "#e67e00", offline: "#d32f2f" };
+  const glows  = { online: "rgba(26,122,58,0.18)", warning: "rgba(230,126,0,0.18)", offline: "rgba(211,47,47,0.18)" };
+  const c = colors[status] || colors.offline;
+  return (
+    <span style={{
+      display: "inline-block", width: 10, height: 10, borderRadius: "50%",
+      background: c, flexShrink: 0, boxShadow: `0 0 0 3px ${glows[status] || glows.offline}`
+    }} />
+  );
+}
+
+function DeviceCard({ device, onUpdate, onRemove, onTestPrint }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({
+    name: device.name, role: device.role,
+    station: device.station, model: device.model
+  });
+
+  function saveEdit() {
+    onUpdate(device.id, draft);
+    setEditing(false);
+  }
+
+  const roleLabel    = DEVICE_ROLES.find(r => r.value === device.role)?.label || "Unassigned";
+  const stationLabel = device.station || "";
+  const isOffline    = device.status === "offline";
+
+  return (
+    <div className={`device-card${isOffline ? " device-offline" : ""}${device.paperLow && !isOffline ? " device-warning" : ""}`}>
+      <div className="device-card-top">
+        <div className="device-card-left">
+          <span className="device-icon">{device.type === "printer" ? "🖨️" : "🖥️"}</span>
+          <div className="device-card-info">
+            {editing ? (
+              <input className="device-name-input" value={draft.name} autoFocus
+                onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
+            ) : (
+              <strong>{device.name}</strong>
+            )}
+            <span className="device-meta">{device.model} · {device.ip}</span>
+          </div>
+        </div>
+        <div className="device-card-right">
+          <StatusDot status={device.status} />
+          <span className={`device-status-text status-text-${device.status}`}>
+            {isOffline ? "Offline" : "Online"}
+          </span>
+        </div>
+      </div>
+
+      {isOffline && (
+        <div className="device-alert offline-alert">
+          ⚠️ Offline {timeAgo(device.lastSeen)} — POS &amp; Captain app alerted
+        </div>
+      )}
+      {device.paperLow && !isOffline && (
+        <div className="device-alert paper-alert">
+          🧻 Paper low — reload soon
+        </div>
+      )}
+
+      {editing ? (
+        <div className="device-edit-form">
+          <label>
+            Assign to
+            <select value={draft.role}
+              onChange={e => setDraft(d => ({ ...d, role: e.target.value, station: "" }))}>
+              {DEVICE_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+          </label>
+          {draft.role !== "unassigned" && (
+            <label>
+              Station / Location name
+              <input
+                list="station-suggestions"
+                placeholder="e.g. Grill Station, AC Hall 1, Billing Counter 2…"
+                value={draft.station || ""}
+                onChange={e => setDraft(d => ({ ...d, station: e.target.value }))}
+              />
+              <datalist id="station-suggestions">
+                {STATION_SUGGESTIONS.map(s => <option key={s} value={s} />)}
+              </datalist>
+              <span className="combo-hint">Choose a suggestion or type your own</span>
+            </label>
+          )}
+          {device.type === "printer" && (
+            <label>
+              Printer model
+              <select value={draft.model}
+                onChange={e => setDraft(d => ({ ...d, model: e.target.value }))}>
+                {PRINTER_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </label>
+          )}
+          <div className="device-form-actions">
+            <button className="primary-btn" onClick={saveEdit}>Save</button>
+            <button className="ghost-chip" onClick={() => setEditing(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div className="device-assignment">
+          <span className="device-role-chip">
+            {roleLabel}{stationLabel ? ` · ${stationLabel}` : ""}
+          </span>
+          <span className="device-last-seen">Last seen {timeAgo(device.lastSeen)}</span>
+        </div>
+      )}
+
+      {!editing && (
+        <div className="device-actions">
+          <button className="ghost-chip" onClick={() => setEditing(true)}>Edit</button>
+          {device.type === "printer" && !isOffline && (
+            <button className="ghost-chip" onClick={() => onTestPrint(device)}>Test Print</button>
+          )}
+          <button className="ghost-chip danger-chip" onClick={() => onRemove(device.id)}>Remove</button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function DevicesPage() {
-  const [deviceData, setDeviceData] = useState({
-    linkCode: null,
-    devices: [],
-    alerts: []
+  const [devices, setDevices]   = useState(loadDevices);
+  const [msg, setMsg]           = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [addOpen, setAddOpen]   = useState(false);
+  const [newDev, setNewDev]     = useState({
+    name: "", type: "printer", model: "Epson TM-T82",
+    ip: "", role: "unassigned", station: null
   });
-  const [loading, setLoading] = useState(true);
-  const [statusMessage, setStatusMessage] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
+  function flash(text) { setMsg(text); setTimeout(() => setMsg(""), 3000); }
 
-    async function load() {
-      const result = await fetchDevicesData();
+  function handleUpdate(id, changes) {
+    const next = devices.map(d => d.id === id ? { ...d, ...changes } : d);
+    setDevices(next); saveDevices(next); flash("Device updated.");
+  }
 
-      if (!cancelled) {
-        setDeviceData(result);
-        setLoading(false);
-      }
+  function handleRemove(id) {
+    const next = devices.filter(d => d.id !== id);
+    setDevices(next); saveDevices(next); flash("Device removed.");
+  }
+
+  function handleTestPrint(device) { flash(`Test print sent to "${device.name}".`); }
+
+  async function handleScan() {
+    setScanning(true);
+    await new Promise(r => setTimeout(r, 2200));
+    const exists = devices.find(d => d.ip === "192.168.1.120");
+    if (!exists) {
+      const found = {
+        id: `disc-${Date.now()}`, name: "Discovered Printer", type: "printer",
+        model: "Epson TM-T82", ip: "192.168.1.120", mac: "00:26:B9:AA:12:20",
+        status: "online", role: "unassigned", station: null,
+        outlet: "Indiranagar", paperLow: false, lastSeen: new Date().toISOString()
+      };
+      const next = [...devices, found];
+      setDevices(next); saveDevices(next);
+      flash("Found 1 new device on network — assign it below.");
+    } else {
+      flash("All devices up to date. No new devices found.");
     }
+    setScanning(false);
+  }
 
-    load();
-
-    return () => {
-      cancelled = true;
+  function handleAddManual(e) {
+    e.preventDefault();
+    const device = {
+      ...newDev, id: `manual-${Date.now()}`, mac: "",
+      status: "online", paperLow: false, lastSeen: new Date().toISOString()
     };
-  }, []);
-
-  async function reloadDevices() {
-    const result = await fetchDevicesData();
-    setDeviceData(result);
-    setLoading(false);
+    const next = [...devices, device];
+    setDevices(next); saveDevices(next);
+    setNewDev({ name: "", type: "printer", model: "Epson TM-T82", ip: "", role: "unassigned", station: null });
+    setAddOpen(false);
+    flash(`"${device.name}" added.`);
   }
 
-  async function handleGenerateCode(event) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const outletName = formData.get("outletName");
-    const deviceType = formData.get("deviceType");
-    const deviceName = formData.get("deviceName");
-    const linkCode = await createDeviceLinkCode({
-      outletCode: String(outletName).slice(0, 4),
-      deviceType
-    });
+  const total      = devices.length;
+  const online     = devices.filter(d => d.status === "online").length;
+  const offline    = devices.filter(d => d.status === "offline").length;
+  const unassigned = devices.filter(d => d.role === "unassigned").length;
 
-    await linkDevice({
-      deviceName,
-      deviceType,
-      outletName,
-      linkCode: linkCode.linkCode
-    });
-
-    await reloadDevices();
-    setDeviceData((current) => ({
-      ...current,
-      linkCode: {
-        code: linkCode.linkCode,
-        outlet: outletName,
-        expiresAt: `${linkCode.expiresInMinutes} minutes`
-      }
-    }));
-    setStatusMessage("Device linked and code generated.");
-    event.currentTarget.reset();
-  }
+  const sections = [
+    { key: "billing",    label: "Billing Counter",              icon: "🧾", list: devices.filter(d => d.role === "billing") },
+    { key: "kitchen",    label: "Kitchen Stations",             icon: "👨‍🍳", list: devices.filter(d => d.role === "kitchen") },
+    { key: "dining",     label: "Dining Halls",                 icon: "🍽️", list: devices.filter(d => d.role === "dining") },
+    { key: "bar",        label: "Bar / Beverages",              icon: "🍹", list: devices.filter(d => d.role === "bar") },
+    { key: "unassigned", label: "Unassigned — assign these now", icon: "📦", list: devices.filter(d => d.role === "unassigned"), warn: true }
+  ];
 
   return (
     <>
       <header className="topbar">
         <div>
-          <p className="eyebrow">Owner Setup • Devices</p>
+          <p className="eyebrow">Owner Setup</p>
           <h2>Devices</h2>
         </div>
-
         <div className="topbar-actions">
-          <button type="button" className="secondary-btn">
-            Refresh Status
-          </button>
-          <button type="button" className="primary-btn">
-            Generate Link Code
+          <button className="ghost-btn" onClick={() => setAddOpen(v => !v)}>+ Add Manually</button>
+          <button className="primary-btn" onClick={handleScan} disabled={scanning}>
+            {scanning ? "Scanning…" : "Scan Network"}
           </button>
         </div>
       </header>
-      {statusMessage ? <section className="panel"><p>{statusMessage}</p></section> : null}
 
-      <section className="hero-panel devices-hero">
-        <div>
-          <p className="hero-label">Simple linking</p>
-          <h3>Connect POS devices without network complexity</h3>
-          <p className="hero-copy">
-            Generate a code, install the app, connect on the same network, and assign the device
-            to an outlet. Printers, kitchen screens, and payment devices should feel easy to onboard.
-          </p>
+      {/* Stats */}
+      <div className="devices-stats">
+        <div className="dev-stat"><strong>{total}</strong><span>Total</span></div>
+        <div className="dev-stat ok"><strong>{online}</strong><span>Online</span></div>
+        <div className={`dev-stat ${offline > 0 ? "bad" : ""}`}><strong>{offline}</strong><span>Offline</span></div>
+        <div className={`dev-stat ${unassigned > 0 ? "warn" : ""}`}><strong>{unassigned}</strong><span>Unassigned</span></div>
+      </div>
+
+      {/* Offline banner */}
+      {offline > 0 && (
+        <div className="devices-offline-banner">
+          <strong>⚠️ {offline} device{offline > 1 ? "s" : ""} offline</strong>
+          <span>
+            {devices.filter(d => d.status === "offline").map(d => d.name).join(", ")}
+            {" "}— POS and Captain app have been alerted
+          </span>
         </div>
+      )}
 
-        <div className="hero-stats">
-          <div>
-            <span>Linked devices</span>
-            <strong>6</strong>
-          </div>
-          <div>
-            <span>Pending link</span>
-            <strong>1</strong>
-          </div>
-          <div>
-            <span>Setup health</span>
-            <strong className="positive">92%</strong>
-          </div>
+      {msg && <div className="mobile-banner">{msg}</div>}
+
+      {/* Scan animation */}
+      {scanning && (
+        <div className="scan-box">
+          <div className="scan-ring" />
+          <p>Scanning local network for printers and KDS screens…</p>
         </div>
-      </section>
+      )}
 
-      <section className="metrics-grid">
-        <article className="metric-card">
-          <span className="metric-label">POS terminals</span>
-          <strong>2</strong>
-          <p>Front billing counters active</p>
-        </article>
-        <article className="metric-card">
-          <span className="metric-label">Captain tablets</span>
-          <strong>2</strong>
-          <p>Floor staff order-taking devices</p>
-        </article>
-        <article className="metric-card warning">
-          <span className="metric-label">Printer issues</span>
-          <strong>1</strong>
-          <p>Kitchen printer needs routing review</p>
-        </article>
-        <article className="metric-card">
-          <span className="metric-label">Payment devices</span>
-          <strong>2</strong>
-          <p>Paytm and PhonePe linked to counters</p>
-        </article>
-      </section>
-
-      <section className="dashboard-grid devices-layout">
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Fast Onboarding</p>
-              <h3>Link Code</h3>
-            </div>
-            <button type="button" className="ghost-btn">
-              Generate new
-            </button>
-          </div>
-
-          <div className="device-link-card">
-            <div className="device-code">{deviceData.linkCode?.code || "POS24190"}</div>
-            <p>Use this code on a new terminal within 15 minutes.</p>
-            <div className="mini-stack">
-              <div className="mini-card">
-                <span>Outlet</span>
-                <strong>{deviceData.linkCode?.outlet || "Indiranagar"}</strong>
-              </div>
-              <div className="mini-card">
-                <span>Expires</span>
-                <strong>{deviceData.linkCode?.expiresAt || "10:15 AM"}</strong>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Device Registry</p>
-              <h3>Linked Devices</h3>
-            </div>
-            <button type="button" className="ghost-btn">
-              Manage all
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="panel-empty">Loading devices...</div>
-          ) : (
-            <div className="staff-table">
-              <div className="staff-row staff-head">
-                <span>Device</span>
-                <span>Type</span>
-                <span>Outlet</span>
-                <span>Setup</span>
-                <span>Status</span>
-              </div>
-              {deviceData.devices.map((device) => (
-                <div key={device.id} className="staff-row">
-                  <span>{device.name}</span>
-                  <span>{device.type}</span>
-                  <span>{device.outlet}</span>
-                  <span>{device.setup}</span>
-                  <span className={`status ${statusClass(device.status)}`}>{device.status}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
-
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Quick Link</p>
-              <h3>New Device</h3>
-            </div>
-          </div>
-
-          <form className="simple-form" onSubmit={handleGenerateCode}>
+      {/* Manual add form */}
+      {addOpen && (
+        <form className="panel device-add-panel" onSubmit={handleAddManual}>
+          <div className="panel-head"><h3>Add Device Manually</h3></div>
+          <div className="device-form-grid">
             <label>
               Device name
-              <input type="text" name="deviceName" defaultValue="New POS Counter" required />
+              <input required placeholder="e.g. Bar Printer" value={newDev.name}
+                onChange={e => setNewDev(d => ({ ...d, name: e.target.value }))} />
             </label>
             <label>
-              Device type
-              <select name="deviceType" defaultValue="POS terminal">
-                <option>POS terminal</option>
-                <option>Captain tablet</option>
-                <option>Kitchen screen</option>
-                <option>Printer</option>
-                <option>Paytm QR</option>
-                <option>PhonePe device</option>
+              Type
+              <select value={newDev.type} onChange={e => setNewDev(d => ({ ...d, type: e.target.value }))}>
+                <option value="printer">Printer</option>
+                <option value="kds">KDS Screen</option>
               </select>
+            </label>
+            {newDev.type === "printer" && (
+              <label>
+                Model
+                <select value={newDev.model} onChange={e => setNewDev(d => ({ ...d, model: e.target.value }))}>
+                  {PRINTER_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </label>
+            )}
+            <label>
+              IP Address
+              <input placeholder="192.168.1.xxx" value={newDev.ip}
+                onChange={e => setNewDev(d => ({ ...d, ip: e.target.value }))} />
             </label>
             <label>
-              Outlet
-              <select name="outletName" defaultValue="Indiranagar">
-                <option>Indiranagar</option>
-                <option>Koramangala</option>
-                <option>HSR Layout</option>
+              Assign to
+              <select value={newDev.role}
+                onChange={e => setNewDev(d => ({ ...d, role: e.target.value, station: null }))}>
+                {DEVICE_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </label>
-            <label>
-              Default receipt template
-              <select defaultValue="Dine-In Standard">
-                <option>Dine-In Standard</option>
-                <option>Takeaway Standard</option>
-              </select>
-            </label>
-            <button type="submit" className="primary-btn full-width">
-              Generate Code
-            </button>
-          </form>
-        </article>
-
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Setup Rules</p>
-              <h3>Defaults</h3>
-            </div>
+            {newDev.role !== "unassigned" && (
+              <label>
+                Station / Location name
+                <input
+                  list="station-suggestions-add"
+                  placeholder="e.g. Grill Station, AC Hall 1…"
+                  value={newDev.station || ""}
+                  onChange={e => setNewDev(d => ({ ...d, station: e.target.value }))}
+                />
+                <datalist id="station-suggestions-add">
+                  {STATION_SUGGESTIONS.map(s => <option key={s} value={s} />)}
+                </datalist>
+                <span className="combo-hint">Choose a suggestion or type your own</span>
+              </label>
+            )}
           </div>
-
-          <div className="mini-stack">
-            <div className="mini-card">
-              <span>Setup mode</span>
-              <strong>Same network first</strong>
-            </div>
-            <div className="mini-card">
-              <span>Printer setup</span>
-              <strong>Auto-detect where possible</strong>
-            </div>
-            <div className="mini-card">
-              <span>Manual IP entry</span>
-              <strong>Hidden in advanced mode</strong>
-            </div>
-            <div className="mini-card">
-              <span>Outlet assignment</span>
-              <strong>Required</strong>
-            </div>
-            <div className="mini-card">
-              <span>Payment device setup</span>
-              <strong>Outlet + cashier mapping</strong>
-            </div>
+          <div className="device-form-actions">
+            <button type="submit" className="primary-btn">Add Device</button>
+            <button type="button" className="ghost-chip" onClick={() => setAddOpen(false)}>Cancel</button>
           </div>
-        </article>
+        </form>
+      )}
 
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Device Journey</p>
-              <h3>How Linking Works</h3>
-            </div>
-          </div>
-
-          <div className="journey-grid">
-            <div className="journey-step">
-              <strong>1. Generate code</strong>
-              <span>Owner creates a link code for a specific outlet and device type.</span>
-            </div>
-            <div className="journey-step">
-              <strong>2. Install app</strong>
-              <span>Open the POS or captain app on the device and enter the code.</span>
-            </div>
-            <div className="journey-step">
-              <strong>3. Detect devices</strong>
-              <span>System finds supported printers and linked services on the same network.</span>
-            </div>
-            <div className="journey-step">
-              <strong>4. Start work</strong>
-              <span>Menu, taxes, receipt templates, outlet settings, and payment preferences sync automatically.</span>
-            </div>
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Action Needed</p>
-              <h3>Device Alerts</h3>
-            </div>
-          </div>
-
-          <div className="alert-list">
-            {deviceData.alerts.map((alert) => (
-              <div key={alert.id} className="alert-item">
-                <strong>{alert.title}</strong>
-                <span>{alert.description}</span>
+      {/* Device sections */}
+      {sections.map(({ key, label, icon, list, warn }) =>
+        list.length > 0 && (
+          <section key={key} className="devices-section">
+            <div className={`devices-section-head${warn ? " warn-head" : ""}`}>
+              <span className="section-icon">{icon}</span>
+              <div>
+                <h3>{label}</h3>
+                <p>{list.length} device{list.length !== 1 ? "s" : ""}</p>
               </div>
-            ))}
-          </div>
-        </article>
-      </section>
+            </div>
+            <div className="devices-grid">
+              {list.map(device => (
+                <DeviceCard key={device.id} device={device}
+                  onUpdate={handleUpdate} onRemove={handleRemove} onTestPrint={handleTestPrint} />
+              ))}
+            </div>
+          </section>
+        )
+      )}
     </>
   );
 }
