@@ -1,81 +1,87 @@
-export const shiftsSeedData = {
-  shifts: [
-    {
-      id: "arjun-koramangala",
-      cashier: "Arjun",
-      outlet: "Koramangala",
-      openingCash: "Rs 5,000",
-      expectedClose: "Rs 21,450",
-      status: "Open"
-    },
-    {
-      id: "priya-indiranagar",
-      cashier: "Priya",
-      outlet: "Indiranagar",
-      openingCash: "Rs 8,000",
-      expectedClose: "Rs 32,200",
-      status: "Open"
-    },
-    {
-      id: "ramesh-hsr",
-      cashier: "Ramesh",
-      outlet: "HSR Layout",
-      openingCash: "Rs 7,000",
-      expectedClose: "Rs 26,300",
-      status: "Mismatch",
-      warning: true
-    },
-    {
-      id: "manoj-whitefield",
-      cashier: "Manoj",
-      outlet: "Whitefield",
-      openingCash: "Rs 8,000",
-      expectedClose: "Rs 28,110",
-      status: "Closed"
-    }
-  ],
-  movements: [
-    {
-      id: "cash-in-1",
-      cashier: "Arjun",
-      type: "Cash In",
-      amount: "Rs 500",
-      reason: "Change refill",
-      status: "Approved"
-    },
-    {
-      id: "cash-out-1",
-      cashier: "Priya",
-      type: "Cash Out",
-      amount: "Rs 850",
-      reason: "Petty expense",
-      status: "Manager check",
-      warning: true
-    },
-    {
-      id: "cash-out-2",
-      cashier: "Ramesh",
-      type: "Cash Out",
-      amount: "Rs 300",
-      reason: "Courier payout",
-      status: "Approved"
-    }
-  ],
-  alerts: [
-    {
-      id: "hsr-short",
-      title: "HSR Layout shift short by Rs 1,200",
-      description: "Manager must review before final closing"
-    },
-    {
-      id: "petty-range",
-      title: "2 cash-out entries exceed normal petty range",
-      description: "Check approval and reason entries"
-    },
-    {
-      id: "not-closed",
-      title: "One cashier has not closed shift",
-      description: "Prompt closing before end-of-day report generation"
-    }
-  ]
-};
+// Shared localStorage keys — POS reads/writes these
+export const ACTIVE_SHIFTS_KEY   = "pos_active_shifts";
+export const CASH_MOVEMENTS_KEY  = "pos_cash_movements";
+export const SHIFT_HISTORY_KEY   = "pos_shift_history";
+
+export const OUTLETS  = ["Indiranagar", "Koramangala", "HSR Layout", "Whitefield"];
+export const SESSIONS = ["Breakfast", "Lunch", "Dinner", "Full Day"];
+export const CASHIERS = ["Ravi", "Priya", "Arjun", "Ramesh", "Karthik", "Sunita"];
+export const CASH_OUT_REASONS = ["Petty expense", "Vendor payment", "Courier payout", "Staff advance", "Utility bill", "Other"];
+export const CASH_IN_REASONS  = ["Change refill", "Float top-up", "Manager deposit", "Other"];
+
+// Seed data shown on first load
+export const seedActiveShifts = [
+  {
+    id: "shift-001",
+    cashier: "Ravi",
+    outlet: "Indiranagar",
+    session: "Lunch",
+    openingCash: 5000,
+    cashIn: 500,
+    cashOut: 200,
+    sales: 14800,
+    startedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    status: "open"
+  },
+  {
+    id: "shift-002",
+    cashier: "Priya",
+    outlet: "Koramangala",
+    session: "Lunch",
+    openingCash: 8000,
+    cashIn: 0,
+    cashOut: 850,
+    sales: 21300,
+    startedAt: new Date(Date.now() - 2.5 * 60 * 60 * 1000).toISOString(),
+    status: "open"
+  },
+  {
+    id: "shift-003",
+    cashier: "Arjun",
+    outlet: "HSR Layout",
+    session: "Breakfast",
+    openingCash: 4000,
+    cashIn: 0,
+    cashOut: 300,
+    sales: 9200,
+    startedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    status: "mismatch",
+    closingCash: 11700,
+    expectedCash: 12900,
+    variance: -1200,
+    closedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString()
+  }
+];
+
+export const seedMovements = [
+  {
+    id: "mv-001", shiftId: "shift-001", cashier: "Ravi",
+    outlet: "Indiranagar", type: "in",
+    amount: 500, reason: "Change refill",
+    authorizedBy: "Manager", time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: "mv-002", shiftId: "shift-002", cashier: "Priya",
+    outlet: "Koramangala", type: "out",
+    amount: 850, reason: "Petty expense",
+    authorizedBy: "Manager", time: new Date(Date.now() - 90 * 60 * 1000).toISOString()
+  },
+  {
+    id: "mv-003", shiftId: "shift-003", cashier: "Arjun",
+    outlet: "HSR Layout", type: "out",
+    amount: 300, reason: "Courier payout",
+    authorizedBy: "Manager", time: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+  }
+];
+
+export const seedHistory = [
+  {
+    id: "hist-001", cashier: "Ramesh", outlet: "Whitefield",
+    session: "Breakfast", openingCash: 6000,
+    cashIn: 0, cashOut: 0, sales: 11200,
+    closingCash: 17200, expectedCash: 17200, variance: 0,
+    startedAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+    closedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    status: "closed"
+  }
+];
