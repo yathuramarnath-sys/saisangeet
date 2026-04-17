@@ -4,48 +4,43 @@ export const staffSeedData = {
       id: "captain",
       name: "Captain",
       summary: "Orders, KOT, move table, split bill request",
+      permissions: ["operations.kot.send", "operations.table.move", "operations.bill.split"],
       active: true
     },
     {
       id: "waiter",
       name: "Waiter",
-      summary: "Orders and kitchen instructions only"
+      summary: "Take orders and request bill only",
+      permissions: ["operations.kot.send", "operations.bill.request"],
+      active: true
     },
     {
       id: "cashier",
       name: "Cashier",
-      summary: "Billing, payments, invoice print, and optional table setup"
+      summary: "Billing, payments, invoice print",
+      permissions: ["operations.bill.split", "operations.bill.edit", "operations.bill.cancel", "operations.table.create"],
+      active: true
     },
     {
       id: "manager",
       name: "Manager",
-      summary: "Reports, approvals, outlet oversight"
-    },
-    {
-      id: "store-incharge",
-      name: "Store Incharge",
-      summary: "Kitchen production inventory only"
-    },
-    {
-      id: "kitchen",
-      name: "Kitchen",
-      summary: "KOT and preparation view only"
+      summary: "Reports, discount approvals, outlet oversight",
+      permissions: ["operations.discount.approve", "operations.bill.cancel", "reports.view", "users.manage", "floor.area.manage"],
+      active: true
     }
   ],
   permissions: [
-    { id: "take-orders", name: "Take orders", status: "Enabled" },
-    { id: "send-kot", name: "Send KOT", status: "Enabled" },
-    { id: "move-table", name: "Move table", status: "Enabled" },
-    { id: "split-bill-request", name: "Split bill request", status: "Enabled" },
-    { id: "add-kitchen-note", name: "Add kitchen note", status: "Enabled" },
-    {
-      id: "create-tables",
-      name: "Create tables",
-      status: "Enabled when owner allows cashier setup access"
-    },
-    { id: "approve-discount", name: "Approve discount", status: "Disabled", disabled: true },
-    { id: "delete-bill", name: "Delete bill", status: "Disabled", disabled: true },
-    { id: "access-reports", name: "Access reports", status: "Disabled", disabled: true }
+    { id: "take-orders", code: "operations.kot.send", name: "Send KOT", workflowArea: "Operations" },
+    { id: "request-bill", code: "operations.bill.request", name: "Request Bill", workflowArea: "Operations" },
+    { id: "move-table", code: "operations.table.move", name: "Move Table", workflowArea: "Operations" },
+    { id: "split-bill", code: "operations.bill.split", name: "Split Bill", workflowArea: "Operations" },
+    { id: "edit-bill", code: "operations.bill.edit", name: "Edit Bill", workflowArea: "Operations" },
+    { id: "cancel-bill", code: "operations.bill.cancel", name: "Cancel Bill", workflowArea: "Operations" },
+    { id: "approve-discount", code: "operations.discount.approve", name: "Approve Discount", workflowArea: "Operations" },
+    { id: "create-tables", code: "operations.table.create", name: "Create Tables", workflowArea: "Operations" },
+    { id: "view-reports", code: "reports.view", name: "View Reports", workflowArea: "Reports" },
+    { id: "manage-staff", code: "users.manage", name: "Manage Staff", workflowArea: "Management" },
+    { id: "area-setup", code: "floor.area.manage", name: "Area Setup", workflowArea: "Management" }
   ],
   accessMatrix: [
     {
@@ -56,7 +51,7 @@ export const staffSeedData = {
       discountOverride: "Approve",
       voidApproval: "Approve",
       reports: "Full access",
-      tableControl: "Allow or block cashier setup"
+      tableControl: "Full control"
     },
     {
       id: "manager",
@@ -97,65 +92,9 @@ export const staffSeedData = {
       voidApproval: "No access",
       reports: "No access",
       tableControl: "Pickup and deliver only"
-    },
-    {
-      id: "store-incharge",
-      role: "Store Incharge",
-      outletScope: "Assigned store",
-      closeDay: "No access",
-      discountOverride: "No access",
-      voidApproval: "No access",
-      reports: "Production stock only",
-      tableControl: "Production items only"
-    },
-    {
-      id: "kitchen",
-      role: "Kitchen",
-      outletScope: "Assigned station",
-      closeDay: "No access",
-      discountOverride: "No access",
-      voidApproval: "No access",
-      reports: "No access",
-      tableControl: "KOT status update or view-only"
     }
   ],
-  permissionEditor: [
-    {
-      id: "cashier-table-setup",
-      label: "Cashier can create tables",
-      role: "Cashier",
-      detail: "Allow cashier to add table name and seats in AC, Non-AC, and Self Service areas.",
-      enabled: true
-    },
-    {
-      id: "manager-close-day",
-      label: "Manager can approve closing day",
-      role: "Manager",
-      detail: "Let manager approve final closing and reopen the next business day.",
-      enabled: true
-    },
-    {
-      id: "captain-move-table",
-      label: "Captain can move table",
-      role: "Captain",
-      detail: "Allow captain to shift guests between tables before billing.",
-      enabled: true
-    },
-    {
-      id: "waiter-request-bill",
-      label: "Waiter can request bill",
-      role: "Waiter",
-      detail: "Let waiter trigger bill request to cashier after service is delivered.",
-      enabled: true
-    },
-    {
-      id: "kitchen-kot-control",
-      label: "Kitchen can update KOT status",
-      role: "Kitchen",
-      detail: "Allow kitchen to move tickets between New, Preparing, Ready, and pickup states.",
-      enabled: true
-    }
-  ],
+  permissionEditor: [],
   staff: [
     {
       id: "karthik",
@@ -163,7 +102,9 @@ export const staffSeedData = {
       role: "Captain",
       outlet: "Indiranagar",
       login: "PIN",
-      status: "Active"
+      status: "Active",
+      mobileNumber: "9876500001",
+      pin: "1234"
     },
     {
       id: "naveen",
@@ -171,15 +112,19 @@ export const staffSeedData = {
       role: "Waiter",
       outlet: "Indiranagar",
       login: "PIN",
-      status: "Active"
+      status: "Active",
+      mobileNumber: "9876500002",
+      pin: "2345"
     },
     {
       id: "arjun",
       name: "Arjun",
       role: "Cashier",
       outlet: "Koramangala",
-      login: "Password + PIN",
-      status: "Active"
+      login: "PIN",
+      status: "Active",
+      mobileNumber: "9876500003",
+      pin: "3456"
     },
     {
       id: "meera",
@@ -187,36 +132,22 @@ export const staffSeedData = {
       role: "Manager",
       outlet: "HSR Layout",
       login: "Password",
-      status: "Approval pending",
-      warning: true
+      status: "Inactive",
+      mobileNumber: "9876500004",
+      pin: ""
     }
   ],
-  tableAccess: [
-    { id: "ac-t1", area: "AC Hall 1", table: "T1", seats: 4, createdBy: "Cashier", status: "Allowed" },
-    { id: "ac-t2", area: "AC Hall 1", table: "T2", seats: 6, createdBy: "Cashier", status: "Allowed" },
-    { id: "nonac-t5", area: "Non-AC Hall", table: "T5", seats: 8, createdBy: "Cashier", status: "Allowed" },
-    { id: "self-s3", area: "Self Service", table: "S3", seats: 4, createdBy: "Cashier", status: "Allowed" }
-  ],
+  tableAccess: [],
   alerts: [
-    {
-      id: "cashier-table-setup",
-      title: "Cashier table setup is enabled",
-      description: "They can create areas like AC Hall 1 and add tables with 4 to 8 seats"
-    },
     {
       id: "default-pin",
       title: "2 staff still using default PIN",
       description: "Force PIN reset before next shift"
     },
     {
-      id: "wrong-role",
-      title: "1 waiter has cashier permission by mistake",
-      description: "Review role assignment for Koramangala outlet"
-    },
-    {
-      id: "manager-approval",
-      title: "Manager approval pending",
-      description: "Enable discount override for HSR Layout manager"
+      id: "manager-inactive",
+      title: "Manager account inactive",
+      description: "Meera (HSR Layout) needs activation before shift"
     }
   ]
 };

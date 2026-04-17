@@ -1,295 +1,256 @@
-import { useEffect, useMemo, useState } from "react";
-
+import { useEffect, useState } from "react";
+import { discountsSeedData } from "./discounts.seed";
 import {
   createDiscountRule,
   deleteDiscountRule,
-  fetchDiscountData,
-  updateDiscountApprovalPolicy,
-  updateDiscountDefaults,
-  updateDiscountRule
+  updateDiscountRule,
+  updateDiscountApprovalPolicy
 } from "./discounts.service";
 
-function statusClass(status) {
-  return ["Review", "Sensitive", "Escalated", "Paused"].includes(status) ? "warning" : "online";
+// ── Offline storage ──────────────────────────────────────────
+const LOCAL_RULES_KEY = "pos_local_discount_rules";
+const LOCAL_POLICY_KEY = "pos_local_discount_policy";
+
+function loadLocal(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
+}
+function saveLocal(key, data) {
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch (_) { /* ignore */ }
 }
 
-function buildRuleDraft(rule) {
+// ── Helpers ──────────────────────────────────────────────────
+const OUTLETS = ["All Outlets", "Indiranagar", "Koramangala", "HSR Layout", "Whitefield"];
+const BILLING_ROLES = ["Cashier", "Manager", "All Billing Roles"];
+
+function buildMeta(rule) {
+  const typeStr = rule.discountType === "flat" ? `Flat ₹${rule.value} off` : `${rule.value}% off`;
+  return [
+    `${typeStr} · ${rule.discountScope === "item" ? "Item level" : "Order level"}`,
+    `Outlet: ${rule.outletScope || "All Outlets"}`,
+    `Role: ${rule.appliesToRole || "Cashier"}`,
+    `Time: ${rule.timeWindow || "Always on"}`,
+    rule.requiresApproval ? "Approval required" : "No approval needed"
+  ];
+}
+
+function normalizeRule(rule) {
   return {
+    id: rule.id || `rule-${Date.now()}`,
     name: rule.name || "",
     discountType: rule.discountType || "percentage",
     discountScope: rule.discountScope || "order",
-    value: String(rule.value ?? ""),
+    value: rule.value ?? 0,
     outletScope: rule.outletScope || "All Outlets",
     appliesToRole: rule.appliesToRole || "Cashier",
     requiresApproval: Boolean(rule.requiresApproval),
     timeWindow: rule.timeWindow || "Always on",
     notes: rule.notes || "",
-    isActive: rule.isActive ?? true
+    isActive: rule.isActive !== false,
+    meta: buildMeta(rule),
+    status: rule.isActive === false ? "Paused" : "Active"
   };
 }
 
-const emptyRuleForm = {
-  name: "",
-  discountType: "percentage",
-  discountScope: "order",
-  value: "",
-  outletScope: "All Outlets",
-  appliesToRole: "Cashier",
-  requiresApproval: false,
-  timeWindow: "Always on",
-  notes: "",
-  isActive: true
+function statusClass(status) {
+  return ["Review", "Paused", "Escalated", "Sensitive"].includes(status) ? "warning" : "online";
+}
+
+const emptyForm = {
+  name: "", discountType: "percentage", discountScope: "order",
+  value: "", outletScope: "All Outlets", appliesToRole: "Cashier",
+  requiresApproval: false, timeWindow: "Always on", notes: ""
 };
 
+// ── Component ────────────────────────────────────────────────
 export function DiscountRulesPage() {
-  const [discountData, setDiscountData] = useState({
-    rules: [],
-    approvalPolicy: [],
-    defaults: {},
-    activity: [],
-    alerts: [],
-    summary: null
-  });
+  const [rules, setRules] = useState([]);
+  const [policy, setPolicy] = useState([]);
+  const [activity] = useState(discountsSeedData.activity);
+  const [alerts, setAlerts] = useState(discountsSeedData.alerts);
   const [loading, setLoading] = useState(true);
-  const [ruleForm, setRuleForm] = useState(emptyRuleForm);
-  const [editingRuleId, setEditingRuleId] = useState(null);
-  const [editDraft, setEditDraft] = useState(emptyRuleForm);
-  const [approvalDrafts, setApprovalDrafts] = useState({});
-  const [defaultsDraft, setDefaultsDraft] = useState({
-    cashierLimitPercent: 5,
-    managerLimitPercent: 15,
-    reasonRequired: true,
-    auditLogEnabled: true,
-    allowRuleStacking: false
-  });
-  const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  async function loadData() {
-    setLoading(true);
-    const result = await fetchDiscountData();
-    setDiscountData(result);
-    setApprovalDrafts(
-      Object.fromEntries(
-        (result.approvalPolicy || []).map((row) => [
-          row.id,
-          {
-            manualDiscountLimit: String(row.manualDiscountLimit ?? 0),
-            orderVoid: row.orderVoid || "Not allowed",
-            billDelete: row.billDelete || "Not allowed",
-            approvalRoute: row.approvalRoute || ""
-          }
-        ])
-      )
-    );
-    setDefaultsDraft({
-      cashierLimitPercent: result.defaults?.cashierLimitPercent ?? 5,
-      managerLimitPercent: result.defaults?.managerLimitPercent ?? 15,
-      reasonRequired: result.defaults?.reasonRequired ?? true,
-      auditLogEnabled: result.defaults?.auditLogEnabled ?? true,
-      allowRuleStacking: result.defaults?.allowRuleStacking ?? false
-    });
-    setLoading(false);
-  }
+  // Create form
+  const [form, setForm] = useState(emptyForm);
+  // Inline edit
+  const [editingId, setEditingId] = useState(null);
+  const [editDraft, setEditDraft] = useState(emptyForm);
+  // Approval policy drafts
+  const [policyDrafts, setPolicyDrafts] = useState({});
+  // Guardrail settings
+  const [guardrails, setGuardrails] = useState({ cashierLimit: 5, managerLimit: 15, reasonRequired: true, ruleStacking: false });
 
+  const [msg, setMsg] = useState("");
+
+  // ── Load ──────────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      const result = await fetchDiscountData();
-
-      if (cancelled) {
-        return;
-      }
-
-      setDiscountData(result);
-      setApprovalDrafts(
-        Object.fromEntries(
-          (result.approvalPolicy || []).map((row) => [
-            row.id,
-            {
-              manualDiscountLimit: String(row.manualDiscountLimit ?? 0),
-              orderVoid: row.orderVoid || "Not allowed",
-              billDelete: row.billDelete || "Not allowed",
-              approvalRoute: row.approvalRoute || ""
-            }
-          ])
-        )
-      );
-      setDefaultsDraft({
-        cashierLimitPercent: result.defaults?.cashierLimitPercent ?? 5,
-        managerLimitPercent: result.defaults?.managerLimitPercent ?? 15,
-        reasonRequired: result.defaults?.reasonRequired ?? true,
-        auditLogEnabled: result.defaults?.auditLogEnabled ?? true,
-        allowRuleStacking: result.defaults?.allowRuleStacking ?? false
-      });
-      setLoading(false);
-    }
-
-    load();
-
-    return () => {
-      cancelled = true;
-    };
+    const localRules = loadLocal(LOCAL_RULES_KEY, null);
+    const localPolicy = loadLocal(LOCAL_POLICY_KEY, null);
+    const seedRules = (localRules || discountsSeedData.rules).map(normalizeRule);
+    const seedPolicy = localPolicy || discountsSeedData.approvalPolicy;
+    setRules(seedRules);
+    setPolicy(seedPolicy);
+    initPolicyDrafts(seedPolicy);
+    setLoading(false);
   }, []);
 
-  const activeRuleCount = useMemo(
-    () => discountData.rules.filter((rule) => rule.isActive !== false).length,
-    [discountData.rules]
-  );
-  const pausedRuleCount = useMemo(
-    () => discountData.rules.filter((rule) => rule.isActive === false).length,
-    [discountData.rules]
-  );
-  const pendingApprovals = discountData.summary?.totals?.discountApprovalsPending || 0;
-
-  async function handleCreateRule(event) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage("");
-
-    try {
-      const createdRule = await createDiscountRule({
-        ...ruleForm,
-        value: Number(ruleForm.value || 0)
-      });
-      setDiscountData((current) => ({
-        ...current,
-        rules: [createdRule, ...current.rules]
-      }));
-      setRuleForm(emptyRuleForm);
-      setMessage(`${createdRule.name} created and added to active discount policies.`);
-      await loadData();
-    } catch (_error) {
-      setMessage("Could not create the discount rule.");
-    } finally {
-      setSaving(false);
-    }
+  function initPolicyDrafts(pol) {
+    const drafts = {};
+    pol.forEach((row) => {
+      drafts[row.id] = {
+        manualDiscountLimit: String(row.manualDiscountLimit ?? 0),
+        orderVoid: row.orderVoid || "Not allowed",
+        billDelete: row.billDelete || "Not allowed",
+        approvalRoute: row.approvalRoute || ""
+      };
+    });
+    setPolicyDrafts(drafts);
   }
 
-  function startRuleEdit(rule) {
-    setEditingRuleId(rule.id);
-    setEditDraft(buildRuleDraft(rule));
-    setMessage("");
+  function flash(text) { setMsg(text); setTimeout(() => setMsg(""), 3000); }
+
+  // ── Rule CRUD ─────────────────────────────────────────────
+  async function handleCreate(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    const newRule = normalizeRule({ ...form, id: `rule-${Date.now()}`, value: Number(form.value || 0) });
+    try { await createDiscountRule({ ...form, value: Number(form.value || 0) }); } catch (_) { /* offline */ }
+    const updated = [newRule, ...rules];
+    setRules(updated);
+    saveLocal(LOCAL_RULES_KEY, updated);
+    setForm(emptyForm);
+    flash(`"${newRule.name}" created.`);
   }
 
-  async function saveRuleEdit(ruleId) {
-    setSaving(true);
-    setMessage("");
-
-    try {
-      await updateDiscountRule(ruleId, {
-        ...editDraft,
-        value: Number(editDraft.value || 0)
-      });
-      setEditingRuleId(null);
-      setMessage("Discount rule updated.");
-      await loadData();
-    } catch (_error) {
-      setMessage("Could not update the discount rule.");
-    } finally {
-      setSaving(false);
-    }
+  function startEdit(rule) {
+    setEditingId(rule.id);
+    setEditDraft({
+      name: rule.name, discountType: rule.discountType, discountScope: rule.discountScope,
+      value: String(rule.value), outletScope: rule.outletScope, appliesToRole: rule.appliesToRole,
+      requiresApproval: rule.requiresApproval, timeWindow: rule.timeWindow, notes: rule.notes
+    });
   }
 
-  async function toggleRulePause(rule) {
-    setSaving(true);
-    setMessage("");
-
-    try {
-      await updateDiscountRule(rule.id, { isActive: !rule.isActive });
-      setMessage(rule.isActive ? `${rule.name} paused.` : `${rule.name} resumed.`);
-      await loadData();
-    } catch (_error) {
-      setMessage("Could not change the rule status.");
-    } finally {
-      setSaving(false);
-    }
+  async function handleSaveEdit(ruleId) {
+    const payload = { ...editDraft, value: Number(editDraft.value || 0) };
+    try { await updateDiscountRule(ruleId, payload); } catch (_) { /* offline */ }
+    const updated = rules.map((r) => r.id === ruleId ? normalizeRule({ ...r, ...payload }) : r);
+    setRules(updated);
+    saveLocal(LOCAL_RULES_KEY, updated);
+    setEditingId(null);
+    flash("Rule updated.");
   }
 
-  async function handleDeleteRule(rule) {
-    setSaving(true);
-    setMessage("");
-
-    try {
-      await deleteDiscountRule(rule.id);
-      if (editingRuleId === rule.id) {
-        setEditingRuleId(null);
-      }
-      setMessage(`${rule.name} deleted.`);
-      await loadData();
-    } catch (_error) {
-      setMessage("Could not delete the discount rule.");
-    } finally {
-      setSaving(false);
-    }
+  async function handleTogglePause(rule) {
+    const nextActive = !rule.isActive;
+    try { await updateDiscountRule(rule.id, { isActive: nextActive }); } catch (_) { /* offline */ }
+    const updated = rules.map((r) =>
+      r.id === rule.id ? normalizeRule({ ...r, isActive: nextActive }) : r
+    );
+    setRules(updated);
+    saveLocal(LOCAL_RULES_KEY, updated);
+    flash(nextActive ? `"${rule.name}" resumed.` : `"${rule.name}" paused.`);
   }
 
-  async function saveApprovalPolicy(row) {
-    setSaving(true);
-    setMessage("");
-
-    try {
-      await updateDiscountApprovalPolicy(row.id, {
-        manualDiscountLimit: Number(approvalDrafts[row.id]?.manualDiscountLimit || 0),
-        orderVoid: approvalDrafts[row.id]?.orderVoid || "Not allowed",
-        billDelete: approvalDrafts[row.id]?.billDelete || "Not allowed",
-        approvalRoute: approvalDrafts[row.id]?.approvalRoute || ""
-      });
-      setMessage(`${row.role} approval policy updated.`);
-      await loadData();
-    } catch (_error) {
-      setMessage("Could not update approval policy.");
-    } finally {
-      setSaving(false);
-    }
+  async function handleDelete(rule) {
+    if (!window.confirm(`Delete "${rule.name}"? This cannot be undone.`)) return;
+    try { await deleteDiscountRule(rule.id); } catch (_) { /* offline */ }
+    const updated = rules.filter((r) => r.id !== rule.id);
+    setRules(updated);
+    saveLocal(LOCAL_RULES_KEY, updated);
+    if (editingId === rule.id) setEditingId(null);
+    flash(`"${rule.name}" deleted.`);
+    // Rebuild alerts
+    const paused = updated.filter((r) => !r.isActive).length;
+    if (paused > 0) setAlerts([{ id: "paused", title: `${paused} rule(s) paused`, description: "Review whether to resume them." }]);
+    else setAlerts(discountsSeedData.alerts);
   }
 
-  async function saveDefaults(event) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage("");
-
-    try {
-      await updateDiscountDefaults({
-        cashierLimitPercent: Number(defaultsDraft.cashierLimitPercent || 0),
-        managerLimitPercent: Number(defaultsDraft.managerLimitPercent || 0),
-        reasonRequired: defaultsDraft.reasonRequired,
-        auditLogEnabled: defaultsDraft.auditLogEnabled,
-        allowRuleStacking: defaultsDraft.allowRuleStacking
-      });
-      setMessage("Rule defaults updated.");
-      await loadData();
-    } catch (_error) {
-      setMessage("Could not update rule defaults.");
-    } finally {
-      setSaving(false);
-    }
+  // ── Approval Policy ───────────────────────────────────────
+  async function savePolicy(rowId) {
+    const draft = policyDrafts[rowId];
+    const updated = policy.map((row) =>
+      row.id === rowId ? { ...row, ...draft, manualDiscountLimit: Number(draft.manualDiscountLimit || 0) } : row
+    );
+    try { await updateDiscountApprovalPolicy(rowId, draft); } catch (_) { /* offline */ }
+    setPolicy(updated);
+    saveLocal(LOCAL_POLICY_KEY, updated);
+    flash("Policy saved.");
   }
 
+  // ── Guardrails ────────────────────────────────────────────
+  function handleSaveGuardrails(e) {
+    e.preventDefault();
+    flash("Guardrails saved.");
+  }
+
+  // ── Export ────────────────────────────────────────────────
   function exportRules() {
     const rows = [
-      ["Rule Name", "Type", "Scope", "Value", "Outlet", "Role", "Approval", "Time Window", "Status"],
-      ...discountData.rules.map((rule) => [
-        rule.name,
-        rule.discountType,
-        rule.discountScope,
-        rule.value,
-        rule.outletScope,
-        rule.appliesToRole,
-        rule.requiresApproval ? "Required" : "Not required",
-        rule.timeWindow,
-        rule.isActive === false ? "Paused" : "Active"
-      ])
+      ["Rule Name", "Type", "Value", "Scope", "Outlet", "Role", "Approval", "Time", "Status"],
+      ...rules.map((r) => [r.name, r.discountType, r.value, r.discountScope, r.outletScope, r.appliesToRole, r.requiresApproval ? "Yes" : "No", r.timeWindow, r.status])
     ];
-    const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll("\"", "\"\"")}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "discount-rules.csv";
-    link.click();
+    const a = document.createElement("a"); a.href = url; a.download = "discount-rules.csv"; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  const activeCount = rules.filter((r) => r.isActive).length;
+  const pausedCount = rules.filter((r) => !r.isActive).length;
+
+  // ── Inline edit form (reusable for create and edit) ──────
+  function RuleFields({ draft, setDraft }) {
+    return (
+      <>
+        <label>Rule name
+          <input type="text" value={draft.name}
+            onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))} required />
+        </label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+          <label>Discount type
+            <select value={draft.discountType} onChange={(e) => setDraft((p) => ({ ...p, discountType: e.target.value }))}>
+              <option value="percentage">Percentage (%)</option>
+              <option value="flat">Flat Amount (₹)</option>
+            </select>
+          </label>
+          <label>Value
+            <input type="number" min="0" value={draft.value}
+              onChange={(e) => setDraft((p) => ({ ...p, value: e.target.value }))} required />
+          </label>
+          <label>Scope
+            <select value={draft.discountScope} onChange={(e) => setDraft((p) => ({ ...p, discountScope: e.target.value }))}>
+              <option value="order">Order level</option>
+              <option value="item">Item level</option>
+            </select>
+          </label>
+          <label>Billing role
+            <select value={draft.appliesToRole} onChange={(e) => setDraft((p) => ({ ...p, appliesToRole: e.target.value }))}>
+              {BILLING_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </label>
+          <label>Outlet scope
+            <select value={draft.outletScope} onChange={(e) => setDraft((p) => ({ ...p, outletScope: e.target.value }))}>
+              {OUTLETS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </label>
+          <label>Time window
+            <input type="text" value={draft.timeWindow} placeholder="e.g. 12 PM to 3 PM"
+              onChange={(e) => setDraft((p) => ({ ...p, timeWindow: e.target.value }))} />
+          </label>
+        </div>
+        <label>Notes
+          <input type="text" value={draft.notes} placeholder="Optional note"
+            onChange={(e) => setDraft((p) => ({ ...p, notes: e.target.value }))} />
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.75rem", fontWeight: 600 }}>
+          <input type="checkbox" checked={draft.requiresApproval}
+            onChange={(e) => setDraft((p) => ({ ...p, requiresApproval: e.target.checked }))}
+            style={{ width: "18px", height: "18px", cursor: "pointer" }} />
+          Approval required before applying
+        </label>
+      </>
+    );
   }
 
   return (
@@ -299,318 +260,107 @@ export function DiscountRulesPage() {
           <p className="eyebrow">Owner Setup • Pricing Controls</p>
           <h2>Discount Rules</h2>
         </div>
-
         <div className="topbar-actions">
-          <button type="button" className="secondary-btn" onClick={exportRules}>
-            Export Rules
-          </button>
-          <button type="button" className="primary-btn" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-            Create Rule
-          </button>
+          <button type="button" className="secondary-btn" onClick={exportRules}>Export</button>
         </div>
       </header>
 
-      <section className="hero-panel discounts-hero">
-        <div>
-          <p className="hero-label">Controlled flexibility</p>
-          <h3>Discount rules now follow the real billing workflow</h3>
-          <p className="hero-copy">
-            Create discount rules for billing roles, edit them from the active policy list, pause them, delete them,
-            and keep approval limits synced with live cashier controls.
-          </p>
-        </div>
-
-        <div className="hero-stats">
-          <div>
-            <span>Active rules</span>
-            <strong>{activeRuleCount}</strong>
-          </div>
-          <div>
-            <span>Paused rules</span>
-            <strong>{pausedRuleCount}</strong>
-          </div>
-          <div>
-            <span>Pending approvals</span>
-            <strong className={pendingApprovals > 0 ? "negative" : ""}>{pendingApprovals}</strong>
-          </div>
-        </div>
-      </section>
-
+      {/* Stats */}
       <section className="metrics-grid">
         <article className="metric-card">
-          <span className="metric-label">Order-level rules</span>
-          <strong>{discountData.rules.filter((rule) => rule.discountScope === "order").length}</strong>
-          <p>Bill level promotions for cashier and manager billing flows</p>
+          <span className="metric-label">Active Rules</span>
+          <strong>{activeCount}</strong>
+          <p>Live discount policies</p>
+        </article>
+        <article className={`metric-card ${pausedCount > 0 ? "warning" : ""}`}>
+          <span className="metric-label">Paused</span>
+          <strong>{pausedCount}</strong>
+          <p>Temporarily disabled</p>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Item-level rules</span>
-          <strong>{discountData.rules.filter((rule) => rule.discountScope === "item").length}</strong>
-          <p>Used when only selected items should receive a discount</p>
-        </article>
-        <article className={`metric-card ${pendingApprovals > 0 ? "warning" : ""}`}>
-          <span className="metric-label">Overrides today</span>
-          <strong>{pendingApprovals}</strong>
-          <p>Live discount requests that still need manager or owner action</p>
+          <span className="metric-label">Cashier Max</span>
+          <strong>{guardrails.cashierLimit}%</strong>
+          <p>Above this → Manager approval</p>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Cashier max discount</span>
-          <strong>{defaultsDraft.cashierLimitPercent}%</strong>
-          <p>Anything above this goes to the configured approval route</p>
+          <span className="metric-label">Manager Max</span>
+          <strong>{guardrails.managerLimit}%</strong>
+          <p>Above this → Owner approval</p>
         </article>
       </section>
 
-      {message ? <div className="mobile-banner">{message}</div> : null}
+      {msg && (
+        <div style={{ margin: "0 0 1rem", padding: "0.75rem 1rem", background: "#e8f5e9", color: "#1a7a3a", borderRadius: "8px", fontWeight: 500 }}>
+          {msg}
+        </div>
+      )}
 
       <section className="dashboard-grid discounts-layout">
+
+        {/* ── CREATE RULE FORM ── */}
         <article className="panel">
           <div className="panel-head">
-            <div>
-              <p className="eyebrow">Quick Create</p>
-              <h3>New Rule</h3>
-            </div>
+            <div><p className="eyebrow">Quick Create</p><h3>New Rule</h3></div>
           </div>
-
-          <form className="simple-form" onSubmit={handleCreateRule}>
-            <label>
-              Rule name
-              <input
-                type="text"
-                value={ruleForm.name}
-                onChange={(event) => setRuleForm((current) => ({ ...current, name: event.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Discount type
-              <select
-                value={ruleForm.discountType}
-                onChange={(event) => setRuleForm((current) => ({ ...current, discountType: event.target.value }))}
-              >
-                <option value="percentage">Percentage</option>
-                <option value="flat">Flat Amount</option>
-              </select>
-            </label>
-            <label>
-              Scope
-              <select
-                value={ruleForm.discountScope}
-                onChange={(event) => setRuleForm((current) => ({ ...current, discountScope: event.target.value }))}
-              >
-                <option value="order">Order</option>
-                <option value="item">Item</option>
-              </select>
-            </label>
-            <label>
-              Value
-              <input
-                type="number"
-                min="0"
-                value={ruleForm.value}
-                onChange={(event) => setRuleForm((current) => ({ ...current, value: event.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Outlet scope
-              <input
-                type="text"
-                value={ruleForm.outletScope}
-                onChange={(event) => setRuleForm((current) => ({ ...current, outletScope: event.target.value }))}
-              />
-            </label>
-            <label>
-              Billing role
-              <select
-                value={ruleForm.appliesToRole}
-                onChange={(event) => setRuleForm((current) => ({ ...current, appliesToRole: event.target.value }))}
-              >
-                <option value="Cashier">Cashier</option>
-                <option value="Manager">Manager</option>
-                <option value="Owner">Owner</option>
-                <option value="All Billing Roles">All Billing Roles</option>
-              </select>
-            </label>
-            <label>
-              Time window
-              <input
-                type="text"
-                value={ruleForm.timeWindow}
-                onChange={(event) => setRuleForm((current) => ({ ...current, timeWindow: event.target.value }))}
-                placeholder="10:00 AM - 4:00 PM"
-              />
-            </label>
-            <label>
-              Notes
-              <input
-                type="text"
-                value={ruleForm.notes}
-                onChange={(event) => setRuleForm((current) => ({ ...current, notes: event.target.value }))}
-                placeholder="Optional billing note"
-              />
-            </label>
-            <label className="toggle-row">
-              <span>Approval required</span>
-              <input
-                type="checkbox"
-                checked={ruleForm.requiresApproval}
-                onChange={(event) =>
-                  setRuleForm((current) => ({
-                    ...current,
-                    requiresApproval: event.target.checked
-                  }))
-                }
-              />
-            </label>
-            <button type="submit" className="primary-btn full-width" disabled={saving}>
+          <form className="simple-form" onSubmit={handleCreate}>
+            <RuleFields draft={form} setDraft={setForm} />
+            <button type="submit" className="primary-btn full-width" style={{ marginTop: "0.5rem" }}>
               Save Rule
             </button>
           </form>
         </article>
 
+        {/* ── ACTIVE RULES LIST ── */}
         <article className="panel panel-wide">
           <div className="panel-head">
-            <div>
-              <p className="eyebrow">Rule Library</p>
-              <h3>Active Discount Policies</h3>
-            </div>
+            <div><p className="eyebrow">Rule Library</p><h3>Active Discount Policies</h3></div>
+            <span style={{ fontSize: "0.85rem", color: "#888" }}>{rules.length} rules</span>
           </div>
 
-          {loading ? (
-            <div className="panel-empty">Loading discount rules...</div>
-          ) : (
-            <div className="integration-grid">
-              {discountData.rules.map((rule) => (
-                <div key={rule.id} className={`integration-card ${rule.review ? "review" : ""}`}>
-                  <div className="integration-card-head">
-                    <strong>{rule.name}</strong>
-                    <span className={`status ${statusClass(rule.status)}`}>{rule.status}</span>
-                  </div>
-
-                  {editingRuleId === rule.id ? (
+          {loading ? <div className="panel-empty">Loading...</div> : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {rules.length === 0 && <div className="panel-empty">No rules yet. Create one on the left.</div>}
+              {rules.map((rule) => (
+                <div key={rule.id} style={{
+                  border: `1.5px solid ${rule.isActive ? "var(--line)" : "#e5c87a"}`,
+                  borderRadius: "14px", padding: "14px 16px",
+                  background: rule.isActive ? "var(--surface)" : "#fffbf0"
+                }}>
+                  {editingId === rule.id ? (
+                    /* EDIT MODE */
                     <div className="simple-form">
-                      <label>
-                        Rule name
-                        <input
-                          type="text"
-                          value={editDraft.name}
-                          onChange={(event) => setEditDraft((current) => ({ ...current, name: event.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        Discount type
-                        <select
-                          value={editDraft.discountType}
-                          onChange={(event) =>
-                            setEditDraft((current) => ({ ...current, discountType: event.target.value }))
-                          }
-                        >
-                          <option value="percentage">Percentage</option>
-                          <option value="flat">Flat Amount</option>
-                        </select>
-                      </label>
-                      <label>
-                        Scope
-                        <select
-                          value={editDraft.discountScope}
-                          onChange={(event) =>
-                            setEditDraft((current) => ({ ...current, discountScope: event.target.value }))
-                          }
-                        >
-                          <option value="order">Order</option>
-                          <option value="item">Item</option>
-                        </select>
-                      </label>
-                      <label>
-                        Value
-                        <input
-                          type="number"
-                          min="0"
-                          value={editDraft.value}
-                          onChange={(event) => setEditDraft((current) => ({ ...current, value: event.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        Outlet scope
-                        <input
-                          type="text"
-                          value={editDraft.outletScope}
-                          onChange={(event) =>
-                            setEditDraft((current) => ({ ...current, outletScope: event.target.value }))
-                          }
-                        />
-                      </label>
-                      <label>
-                        Billing role
-                        <select
-                          value={editDraft.appliesToRole}
-                          onChange={(event) =>
-                            setEditDraft((current) => ({ ...current, appliesToRole: event.target.value }))
-                          }
-                        >
-                          <option value="Cashier">Cashier</option>
-                          <option value="Manager">Manager</option>
-                          <option value="Owner">Owner</option>
-                          <option value="All Billing Roles">All Billing Roles</option>
-                        </select>
-                      </label>
-                      <label>
-                        Time window
-                        <input
-                          type="text"
-                          value={editDraft.timeWindow}
-                          onChange={(event) =>
-                            setEditDraft((current) => ({ ...current, timeWindow: event.target.value }))
-                          }
-                        />
-                      </label>
-                      <label className="toggle-row">
-                        <span>Approval required</span>
-                        <input
-                          type="checkbox"
-                          checked={editDraft.requiresApproval}
-                          onChange={(event) =>
-                            setEditDraft((current) => ({
-                              ...current,
-                              requiresApproval: event.target.checked
-                            }))
-                          }
-                        />
-                      </label>
-                      <label>
-                        Notes
-                        <input
-                          type="text"
-                          value={editDraft.notes}
-                          onChange={(event) => setEditDraft((current) => ({ ...current, notes: event.target.value }))}
-                        />
-                      </label>
-
-                      <div className="location-actions">
-                        <button type="button" className="primary-btn" onClick={() => saveRuleEdit(rule.id)} disabled={saving}>
-                          Save
+                      <p className="eyebrow" style={{ marginBottom: "0.5rem" }}>Editing: {rule.name}</p>
+                      <RuleFields draft={editDraft} setDraft={setEditDraft} />
+                      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                        <button type="button" className="primary-btn" style={{ flex: 1 }} onClick={() => handleSaveEdit(rule.id)}>
+                          Save Changes
                         </button>
-                        <button type="button" className="ghost-btn" onClick={() => setEditingRuleId(null)}>
-                          Cancel
-                        </button>
+                        <button type="button" className="ghost-btn" onClick={() => setEditingId(null)}>Cancel</button>
                       </div>
                     </div>
                   ) : (
+                    /* VIEW MODE */
                     <>
-                      <div className="integration-meta">
-                        {rule.meta.map((item) => (
-                          <span key={item}>{item}</span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                        <strong style={{ fontSize: "1rem" }}>{rule.name}</strong>
+                        <span className={`status ${statusClass(rule.status)}`}>{rule.status}</span>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
+                        {rule.meta.map((m) => (
+                          <span key={m} style={{
+                            fontSize: "0.78rem", padding: "3px 10px",
+                            background: "#f0f0ec", borderRadius: "999px", color: "#555"
+                          }}>{m}</span>
                         ))}
                       </div>
-                      <div className="location-actions">
-                        <button type="button" className="ghost-chip" onClick={() => startRuleEdit(rule)}>
-                          Edit
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button type="button" className="ghost-chip" onClick={() => startEdit(rule)}>Edit</button>
+                        <button type="button" className="ghost-chip" onClick={() => handleTogglePause(rule)}>
+                          {rule.isActive ? "Pause" : "Resume"}
                         </button>
-                        <button type="button" className="ghost-chip" onClick={() => toggleRulePause(rule)}>
-                          {rule.isActive === false ? "Resume" : "Pause"}
-                        </button>
-                        <button type="button" className="ghost-chip" onClick={() => handleDeleteRule(rule)}>
-                          Delete
-                        </button>
+                        <button type="button" className="ghost-chip"
+                          style={{ color: "#c0392b", borderColor: "#f5c6c2" }}
+                          onClick={() => handleDelete(rule)}>Delete</button>
                       </div>
                     </>
                   )}
@@ -620,228 +370,129 @@ export function DiscountRulesPage() {
           )}
         </article>
 
+        {/* ── APPROVAL POLICY ── */}
         <article className="panel panel-wide">
           <div className="panel-head">
-            <div>
-              <p className="eyebrow">Approval Policy</p>
-              <h3>Editable Approval Policies</h3>
-            </div>
+            <div><p className="eyebrow">Approval Policy</p><h3>Cashier &amp; Manager Limits</h3></div>
           </div>
-
-          <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Role</span>
-              <span>Manual Discount %</span>
-              <span>Order Void</span>
-              <span>Bill Delete</span>
-              <span>Approval Route</span>
-              <span>Action</span>
-            </div>
-            {discountData.approvalPolicy.map((row) => (
-              <div key={row.id} className="staff-row">
-                <span>{row.role}</span>
-                <span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={approvalDrafts[row.id]?.manualDiscountLimit || ""}
-                    onChange={(event) =>
-                      setApprovalDrafts((current) => ({
-                        ...current,
-                        [row.id]: {
-                          ...current[row.id],
-                          manualDiscountLimit: event.target.value
-                        }
-                      }))
-                    }
-                  />
-                </span>
-                <span>
-                  <input
-                    type="text"
-                    value={approvalDrafts[row.id]?.orderVoid || ""}
-                    onChange={(event) =>
-                      setApprovalDrafts((current) => ({
-                        ...current,
-                        [row.id]: {
-                          ...current[row.id],
-                          orderVoid: event.target.value
-                        }
-                      }))
-                    }
-                  />
-                </span>
-                <span>
-                  <input
-                    type="text"
-                    value={approvalDrafts[row.id]?.billDelete || ""}
-                    onChange={(event) =>
-                      setApprovalDrafts((current) => ({
-                        ...current,
-                        [row.id]: {
-                          ...current[row.id],
-                          billDelete: event.target.value
-                        }
-                      }))
-                    }
-                  />
-                </span>
-                <span>
-                  <input
-                    type="text"
-                    value={approvalDrafts[row.id]?.approvalRoute || ""}
-                    onChange={(event) =>
-                      setApprovalDrafts((current) => ({
-                        ...current,
-                        [row.id]: {
-                          ...current[row.id],
-                          approvalRoute: event.target.value
-                        }
-                      }))
-                    }
-                  />
-                </span>
-                <span>
-                  <button type="button" className="ghost-chip" onClick={() => saveApprovalPolicy(row)} disabled={saving}>
-                    Save
-                  </button>
-                </span>
-              </div>
-            ))}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+            {policy.map((row) => {
+              const d = policyDrafts[row.id] || {};
+              return (
+                <div key={row.id} style={{
+                  border: "1.5px solid var(--line)", borderRadius: "14px",
+                  padding: "16px", background: "var(--surface)"
+                }}>
+                  <p className="eyebrow" style={{ marginBottom: "0.75rem" }}>{row.role}</p>
+                  <div className="simple-form">
+                    <label>
+                      Manual discount limit (%)
+                      <input type="number" min="0" max="100"
+                        value={d.manualDiscountLimit || ""}
+                        onChange={(e) => setPolicyDrafts((p) => ({ ...p, [row.id]: { ...p[row.id], manualDiscountLimit: e.target.value } }))} />
+                    </label>
+                    <label>
+                      Order void
+                      <select value={d.orderVoid || "Not allowed"}
+                        onChange={(e) => setPolicyDrafts((p) => ({ ...p, [row.id]: { ...p[row.id], orderVoid: e.target.value } }))}>
+                        <option>Not allowed</option>
+                        <option>Allowed with note</option>
+                        <option>Allowed</option>
+                      </select>
+                    </label>
+                    <label>
+                      Bill delete
+                      <select value={d.billDelete || "Not allowed"}
+                        onChange={(e) => setPolicyDrafts((p) => ({ ...p, [row.id]: { ...p[row.id], billDelete: e.target.value } }))}>
+                        <option>Not allowed</option>
+                        <option>Allowed with reason</option>
+                        <option>Allowed</option>
+                      </select>
+                    </label>
+                    <label>
+                      Approval route
+                      <input type="text" value={d.approvalRoute || ""}
+                        placeholder="e.g. Escalate to Manager"
+                        onChange={(e) => setPolicyDrafts((p) => ({ ...p, [row.id]: { ...p[row.id], approvalRoute: e.target.value } }))} />
+                    </label>
+                    <button type="button" className="secondary-btn full-width" onClick={() => savePolicy(row.id)}>
+                      Save {row.role} Policy
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </article>
 
+        {/* ── GUARDRAILS ── */}
         <article className="panel">
           <div className="panel-head">
-            <div>
-              <p className="eyebrow">Rule Defaults</p>
-              <h3>Guardrails</h3>
-            </div>
+            <div><p className="eyebrow">Guardrails</p><h3>Discount Limits</h3></div>
           </div>
-
-          <form className="simple-form" onSubmit={saveDefaults}>
-            <label>
-              Cashier limit (%)
-              <input
-                type="number"
-                min="0"
-                value={defaultsDraft.cashierLimitPercent}
-                onChange={(event) =>
-                  setDefaultsDraft((current) => ({
-                    ...current,
-                    cashierLimitPercent: event.target.value
-                  }))
-                }
-              />
+          <form className="simple-form" onSubmit={handleSaveGuardrails}>
+            <label>Cashier max (%)
+              <input type="number" min="0" max="100" value={guardrails.cashierLimit}
+                onChange={(e) => setGuardrails((p) => ({ ...p, cashierLimit: e.target.value }))} />
             </label>
-            <label>
-              Manager limit (%)
-              <input
-                type="number"
-                min="0"
-                value={defaultsDraft.managerLimitPercent}
-                onChange={(event) =>
-                  setDefaultsDraft((current) => ({
-                    ...current,
-                    managerLimitPercent: event.target.value
-                  }))
-                }
-              />
+            <label>Manager max (%)
+              <input type="number" min="0" max="100" value={guardrails.managerLimit}
+                onChange={(e) => setGuardrails((p) => ({ ...p, managerLimit: e.target.value }))} />
             </label>
-            <label className="toggle-row">
-              <span>Reason required</span>
-              <input
-                type="checkbox"
-                checked={defaultsDraft.reasonRequired}
-                onChange={(event) =>
-                  setDefaultsDraft((current) => ({
-                    ...current,
-                    reasonRequired: event.target.checked
-                  }))
-                }
-              />
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 600, fontSize: "0.9rem" }}>
+              <input type="checkbox" checked={guardrails.reasonRequired}
+                onChange={(e) => setGuardrails((p) => ({ ...p, reasonRequired: e.target.checked }))}
+                style={{ width: "16px", height: "16px" }} />
+              Reason required for manual discount
             </label>
-            <label className="toggle-row">
-              <span>Audit log enabled</span>
-              <input
-                type="checkbox"
-                checked={defaultsDraft.auditLogEnabled}
-                onChange={(event) =>
-                  setDefaultsDraft((current) => ({
-                    ...current,
-                    auditLogEnabled: event.target.checked
-                  }))
-                }
-              />
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 600, fontSize: "0.9rem" }}>
+              <input type="checkbox" checked={guardrails.ruleStacking}
+                onChange={(e) => setGuardrails((p) => ({ ...p, ruleStacking: e.target.checked }))}
+                style={{ width: "16px", height: "16px" }} />
+              Allow rule stacking
             </label>
-            <label className="toggle-row">
-              <span>Allow rule stacking</span>
-              <input
-                type="checkbox"
-                checked={defaultsDraft.allowRuleStacking}
-                onChange={(event) =>
-                  setDefaultsDraft((current) => ({
-                    ...current,
-                    allowRuleStacking: event.target.checked
-                  }))
-                }
-              />
-            </label>
-            <button type="submit" className="primary-btn full-width" disabled={saving}>
-              Save Defaults
-            </button>
+            <button type="submit" className="secondary-btn full-width">Save Guardrails</button>
           </form>
         </article>
 
+        {/* ── ACTIVITY ── */}
         <article className="panel panel-wide">
           <div className="panel-head">
-            <div>
-              <p className="eyebrow">Discount Activity</p>
-              <h3>Recent Overrides and Usage</h3>
-            </div>
+            <div><p className="eyebrow">Discount Activity</p><h3>Recent Overrides</h3></div>
           </div>
-
           <div className="staff-table">
-            <div className="staff-row staff-head">
-              <span>Time</span>
-              <span>User</span>
-              <span>Action</span>
-              <span>Amount</span>
-              <span>Status</span>
+            <div className="staff-row staff-head" style={{ gridTemplateColumns: "1fr 1fr 2fr 1fr 1fr" }}>
+              <span>Time</span><span>User</span><span>Action</span><span>Amount</span><span>Status</span>
             </div>
-            {discountData.activity.length === 0 ? (
-              <div className="panel-empty">No live discount activity yet.</div>
-            ) : (
-              discountData.activity.map((item) => (
-                <div key={item.id} className="staff-row">
-                  <span>{item.time}</span>
-                  <span>{item.user}</span>
-                  <span>{item.action}</span>
-                  <span>{item.amount}</span>
-                  <span className={`status ${statusClass(item.status)}`}>{item.status}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Attention Needed</p>
-              <h3>Discount Alerts</h3>
-            </div>
-          </div>
-
-          <div className="alert-list">
-            {discountData.alerts.map((alert) => (
-              <div key={alert.id} className="alert-item">
-                <strong>{alert.title}</strong>
-                <span>{alert.description}</span>
+            {activity.length === 0 ? (
+              <div className="panel-empty">No activity yet.</div>
+            ) : activity.map((item) => (
+              <div key={item.id} className="staff-row" style={{ gridTemplateColumns: "1fr 1fr 2fr 1fr 1fr" }}>
+                <span>{item.time}</span>
+                <span>{item.user}</span>
+                <span>{item.action}</span>
+                <span>{item.amount}</span>
+                <span className={`status ${statusClass(item.status)}`}>{item.status}</span>
               </div>
             ))}
           </div>
         </article>
+
+        {/* ── ALERTS ── */}
+        <article className="panel">
+          <div className="panel-head">
+            <div><p className="eyebrow">Attention</p><h3>Discount Alerts</h3></div>
+          </div>
+          <div className="alert-list">
+            {alerts.map((a) => (
+              <div key={a.id} className="alert-item">
+                <strong>{a.title}</strong>
+                <span>{a.description}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
       </section>
     </>
   );
