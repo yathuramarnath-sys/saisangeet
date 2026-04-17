@@ -2298,3 +2298,94 @@ body {
 .rpt-summary-total strong { font-size: 16px; }
 .rpt-disc-count { font-size: 11px; color: #aaa; font-style: normal; }
 .rpt-disc-amt   { color: #d32f2f; font-weight: 700; }
+
+/* ── Reports extra ───────────────────────────────────── */
+.rpt-export-bar {
+  display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 4px;
+}
+.rpt-export-btn {
+  padding: 7px 16px; border: 1px solid #ddd; border-radius: 22px;
+  font-size: 12px; font-weight: 700; background: #fff; cursor: pointer;
+  color: #444; transition: all .15s;
+}
+.rpt-export-btn:hover { background: #111; color: #fff; border-color: #111; }
+
+/* Table */
+.rpt-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rpt-tbl th {
+  padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 700;
+  color: #888; text-transform: uppercase; letter-spacing: .3px;
+  border-bottom: 2px solid #eee; white-space: nowrap; background: #fafafa;
+}
+.rpt-tbl td { padding: 9px 12px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+.rpt-tbl tr.alt td { background: #fafafa; }
+.rpt-tbl tfoot td { background: #f0f0f0; border-top: 2px solid #ddd; padding: 9px 12px; }
+.rpt-rank-badge {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #f0f0f0; color: #555; font-size: 11px; font-weight: 800;
+}
+.rpt-var-ok   { color: #1a7a3a; font-weight: 700; }
+.rpt-badge-ok   { font-size: 11px; background: #e8f5e9; color: #1a7a3a; padding: 2px 8px; border-radius: 20px; font-weight: 700; }
+.rpt-badge-warn { font-size: 11px; background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 20px; font-weight: 700; }
+
+/* Category filter tabs */
+.rpt-panel-toprow { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+.rpt-panel-toprow .rpt-section-head { margin-bottom: 0; }
+.rpt-cat-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.rpt-cat-tab {
+  padding: 5px 12px; border: 1px solid #e0e0e0; border-radius: 20px;
+  font-size: 12px; font-weight: 600; background: #fff; color: #777; cursor: pointer;
+}
+.rpt-cat-tab.active { background: #111; color: #fff; border-color: #111; }
+
+/* Payment mode list */
+.rpt-pay-mode-list { display: flex; flex-direction: column; gap: 14px; }
+.rpt-pay-mode-row { display: flex; align-items: center; gap: 12px; }
+.rpt-pay-icon { font-size: 20px; width: 32px; text-align: center; flex-shrink: 0; }
+.rpt-pay-info { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.rpt-pay-info strong { font-size: 13px; font-weight: 700; }
+.rpt-pay-bar-track { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+.rpt-pay-bar-fill  { height: 100%; border-radius: 4px; }
+.rpt-pay-nums { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
+.rpt-pay-nums strong { font-size: 14px; font-weight: 800; }
+.rpt-pay-nums span   { font-size: 11px; color: #aaa; }
+
+/* Hourly bars */
+.rpt-hourly-bars { display: flex; flex-direction: column; gap: 8px; }
+.rpt-hourly-row  { display: flex; align-items: center; gap: 8px; }
+.rpt-hourly-label { font-size: 12px; color: #888; width: 44px; flex-shrink: 0; }
+.rpt-hourly-stack { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.rpt-hourly-amt   { font-size: 12px; font-weight: 700; width: 68px; text-align: right; flex-shrink: 0; }
+.rpt-hourly-legend { display: flex; gap: 12px; margin-top: 10px; font-size: 12px; color: #666; }
+.leg-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+
+/* Email trigger */
+.rpt-email-panel { max-width: 560px; }
+.rpt-email-note  { font-size: 13px; color: #777; margin: -8px 0 16px; line-height: 1.55; }
+.rpt-email-form  { display: flex; flex-direction: column; gap: 14px; }
+.rpt-email-form label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; color: #555; }
+.rpt-email-form input, .rpt-email-form select {
+  padding: 9px 12px; border: 1px solid #ddd; border-radius: 9px;
+  font-size: 14px; font-family: inherit; outline: none;
+}
+.rpt-email-form input:focus, .rpt-email-form select:focus { border-color: #1a7a3a; }
+.rpt-email-reports { display: flex; flex-direction: column; gap: 8px; }
+.rpt-email-reports-label { font-size: 13px; font-weight: 600; color: #555; }
+.rpt-email-checkboxes { display: flex; flex-wrap: wrap; gap: 8px; }
+.rpt-email-check {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 6px 12px; border: 1px solid #e0e0e0; border-radius: 22px;
+  font-size: 13px; font-weight: 600; color: #444;
+  transition: all .15s;
+}
+.rpt-email-check:has(input:checked) { background: #e8f5e9; border-color: #1a7a3a; color: #1a7a3a; }
+.rpt-email-check input { width: 14px; height: 14px; accent-color: #1a7a3a; }
+
+/* Print styles */
+@media print {
+  .sidebar, .topbar, .rpt-toolbar, .rpt-export-bar { display: none !important; }
+  .main-content { height: auto !important; overflow: visible !important; }
+  .rpt-body { padding: 0 !important; }
+  .panel { box-shadow: none !important; border: 1px solid #ddd !important; }
+}
