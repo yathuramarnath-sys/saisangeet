@@ -1,26 +1,38 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1";
-const DEMO_HEADERS = {
-  "x-demo-user-name": import.meta.env.VITE_DEMO_USER_NAME || "Owner Demo",
-  "x-demo-user-role": import.meta.env.VITE_DEMO_USER_ROLE || "Owner",
-  "x-demo-user-permissions":
-    import.meta.env.VITE_DEMO_USER_PERMISSIONS ||
-    "reports.view,operations.kot.send,operations.bill.request,operations.discount.approve,operations.void.approve"
-};
+
+function getToken() {
+  return localStorage.getItem("pos_token");
+}
 
 async function request(path, options = {}) {
+  const token = getToken();
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {})
+  };
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...DEMO_HEADERS,
-      ...(options.headers || {})
-    },
-    ...options
+    ...options,
+    headers
   });
 
+  if (response.status === 401) {
+    localStorage.removeItem("pos_token");
+    window.location.href = "/login";
+    throw new Error("Session expired. Please log in again.");
+  }
+
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || `Request failed: ${response.status}`);
+    let message = `Request failed: ${response.status}`;
+    try {
+      const body = await response.json();
+      message = body.message || message;
+    } catch (_) {
+      // ignore parse error
+    }
+    throw new Error(message);
   }
 
   return response.json();
@@ -29,13 +41,11 @@ async function request(path, options = {}) {
 export const api = {
   get: (path) => request(path),
   post: (path, body) =>
-    request(path, {
-      method: "POST",
-      body: JSON.stringify(body)
-    }),
+    request(path, { method: "POST", body: JSON.stringify(body) }),
   patch: (path, body) =>
-    request(path, {
-      method: "PATCH",
-      body: JSON.stringify(body)
-    })
+    request(path, { method: "PATCH", body: JSON.stringify(body) }),
+  put: (path, body) =>
+    request(path, { method: "PUT", body: JSON.stringify(body) }),
+  delete: (path) =>
+    request(path, { method: "DELETE" })
 };

@@ -98,6 +98,64 @@ const defaultPermissionPolicies = {
   "cashier-discount-limit-percent": 5,
   "cashier-void-limit-amount": 200
 };
+const defaultMenuControls = {
+  "paneer-tikka": {
+    salesAvailability: "Available",
+    outletAvailability: {
+      Indiranagar: true,
+      Koramangala: true,
+      "HSR Layout": false
+    }
+  },
+  "chicken-lollipop": {
+    salesAvailability: "Available",
+    outletAvailability: {
+      Indiranagar: true,
+      Koramangala: true,
+      "HSR Layout": true
+    }
+  },
+  "masala-papad": {
+    salesAvailability: "Sold Out",
+    outletAvailability: {
+      Indiranagar: false,
+      Koramangala: true,
+      "HSR Layout": false
+    }
+  },
+  "corn-cheese-balls": {
+    salesAvailability: "Available",
+    outletAvailability: {
+      Indiranagar: true,
+      Koramangala: false,
+      "HSR Layout": true
+    }
+  },
+  "veg-biryani": {
+    salesAvailability: "Available",
+    outletAvailability: {
+      Indiranagar: true,
+      Koramangala: true,
+      "HSR Layout": true
+    }
+  },
+  "butter-naan": {
+    salesAvailability: "Sold Out",
+    outletAvailability: {
+      Indiranagar: true,
+      Koramangala: true,
+      "HSR Layout": true
+    }
+  },
+  "sweet-lime": {
+    salesAvailability: "Available",
+    outletAvailability: {
+      Indiranagar: true,
+      Koramangala: true,
+      "HSR Layout": true
+    }
+  }
+};
 const defaultInventory = {
   diningItems: [
     {
@@ -362,6 +420,7 @@ function buildDefaultState() {
     cashShifts: clone(defaultCashShifts),
     inventory: clone(defaultInventory),
     permissionPolicies: clone(defaultPermissionPolicies),
+    menuControls: clone(defaultMenuControls),
     closingState: {
       approved: false,
       approvedAt: null,
@@ -451,6 +510,10 @@ export function loadRestaurantState() {
         ...clone(defaultPermissionPolicies),
         ...(parsed.permissionPolicies || {})
       },
+      menuControls: {
+        ...clone(defaultMenuControls),
+        ...(parsed.menuControls || {})
+      },
       closingState:
         parsed.closingState || {
           approved: false,
@@ -507,6 +570,18 @@ export function updatePermissionPolicies(updater) {
     permissionPolicies: {
       ...clone(defaultPermissionPolicies),
       ...nextPolicies
+    }
+  });
+}
+
+export function updateMenuControls(updater) {
+  const currentState = loadRestaurantState();
+  const nextMenuControls = updater(clone(currentState.menuControls || defaultMenuControls));
+  return saveRestaurantState({
+    ...currentState,
+    menuControls: {
+      ...clone(defaultMenuControls),
+      ...nextMenuControls
     }
   });
 }

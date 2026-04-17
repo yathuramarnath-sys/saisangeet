@@ -32,3 +32,11 @@ export async function fetchTaxesData() {
     };
   }
 }
+
+export async function createTaxProfile(payload) {
+  return api.post("/settings/tax-profiles", payload);
+}
+
+export async function createReceiptTemplate(payload) {
+  return api.post("/settings/receipt-templates", payload);
+}
