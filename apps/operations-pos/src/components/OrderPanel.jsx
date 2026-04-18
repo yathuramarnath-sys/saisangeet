@@ -104,6 +104,7 @@ export function OrderPanel({
   onOrderNoteChange,
   onCompToggle,
   onVoidItem,
+  onReprintKOT,
 }) {
   const [showTransfer, setShowTransfer] = useState(false);
   const [showNote,     setShowNote]     = useState(false);
@@ -352,6 +353,17 @@ export function OrderPanel({
                     <polyline points="9 11 12 14 22 4"/>
                   </svg>
                   Send KOT ({unsentItems.length})
+                </button>
+              )}
+              {unsentItems.length === 0 && hasItems && onReprintKOT && (
+                <button type="button" className="pos-btn kot" onClick={onReprintKOT}
+                  title="Reprint last KOT to kitchen printer">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="1 4 1 10 7 10"/>
+                    <path d="M3.51 15a9 9 0 1 0 .49-3.36"/>
+                  </svg>
+                  Reprint KOT
                 </button>
               )}
               {hasItems && (

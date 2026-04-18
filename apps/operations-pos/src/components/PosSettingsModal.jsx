@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { printKOT } from "../lib/kotPrint";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    POS Settings Modal
@@ -75,6 +76,15 @@ function PrinterTab() {
               </div>
             </div>
             <div className="pset-printer-actions">
+              <button type="button" className="pset-txt-btn"
+                title="Print a test KOT to verify this printer"
+                onClick={() => printKOT(
+                  { outletName: "Test Print", tableNumber: "T1", areaName: "Main Hall", kotNumber: "KOT-0001", guests: 2, isCounter: false },
+                  [{ name: "Paneer Tikka", quantity: 2, note: "Less spicy" }, { name: "Butter Naan", quantity: 3, note: "" }],
+                  p, 1
+                )}>
+                🖨 Test
+              </button>
               {!p.isDefault && (
                 <button type="button" className="pset-txt-btn" onClick={() => setDefault(p.id)}>
                   Set Default

@@ -17,6 +17,7 @@ import { PastOrdersModal }    from "./components/PastOrdersModal";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
+import { printKOT, getKotPrinter, kotAutoSendEnabled } from "./lib/kotPrint";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -292,26 +293,50 @@ export default function App() {
   async function handleSendKOT() {
     if (!selectedTableId) return;
     const order  = orders[selectedTableId];
-    const unsent = (order.items || []).filter((i) => !i.sentToKot);
-    if (!unsent.length) return;
+    const unsent = (order.items || []).filter((i) => !i.sentToKot && !i.isVoided);
+    if (!unsent.length) { showToast("No new items to send"); return; }
 
+    // ── 1. Mark items as sent ─────────────────────────────────────────────
+    // Build a KOT sequence number (increment per order)
+    const kotSeq = (order.kotCount || 0) + 1;
     mutateOrder(selectedTableId, (o) => {
-      o.items = o.items.map((i) => ({ ...i, sentToKot: true }));
+      o.items    = o.items.map((i) => ({ ...i, sentToKot: true }));
+      o.kotCount = kotSeq;
       return o;
     });
-    showToast("KOT sent to kitchen");
 
+    // ── 2. Print KOT ─────────────────────────────────────────────────────
+    const printer = getKotPrinter();
+    if (kotAutoSendEnabled()) {
+      printKOT(order, unsent, printer, kotSeq);
+    }
+
+    const printerLabel = printer ? ` → ${printer.name}` : "";
+    showToast(`🖨️ KOT #${kotSeq} printed${printerLabel}`);
+
+    // ── 3. Also send via API / socket ─────────────────────────────────────
     try {
       await api.post("/operations/kot", {
         outletId:    outlet?.id,
         orderId:     order.id,
         tableId:     order.tableId,
         tableNumber: order.tableNumber,
+        kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,
         items:       unsent
       });
     } catch (err) {
       console.error("KOT send failed:", err.message);
     }
+  }
+
+  function handleReprintKOT() {
+    if (!selectedTableId) return;
+    const order = orders[selectedTableId];
+    const sentItems = (order.items || []).filter(i => i.sentToKot && !i.isVoided);
+    if (!sentItems.length) { showToast("No items sent yet"); return; }
+    const printer = getKotPrinter();
+    printKOT(order, sentItems, printer, order.kotCount || 1);
+    showToast(`🖨️ KOT reprinted → ${printer?.name || "Kitchen"}`);
   }
 
   async function handleRequestBill() {
@@ -766,6 +791,7 @@ export default function App() {
           onOrderNoteChange={handleOrderNoteChange}
           onCompToggle={handleCompToggle}
           onVoidItem={handleVoidItem}
+          onReprintKOT={handleReprintKOT}
         />
         )}
       </div>
