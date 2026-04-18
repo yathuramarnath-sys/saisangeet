@@ -1,0 +1,19 @@
+{
+  "name": "saisangeet-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Saisangeet Restaurant Management Platform",
+  "scripts": {
+    "dev":            "npm run dev --workspace=apps/owner-web",
+    "build":          "npm run build --workspace=apps/owner-web",
+    "build:pos":      "npm run build --workspace=apps/operations-pos",
+    "build:kitchen":  "npm run build --workspace=apps/kitchen-display",
+    "build:waiter":   "npm run build --workspace=apps/waiter-mobile",
+    "build:all":      "npm run build --workspace=apps/owner-web && npm run build --workspace=apps/operations-pos",
+    "preview":        "npm run preview --workspace=apps/owner-web"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
