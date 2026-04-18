@@ -330,20 +330,42 @@ export default function App() {
   async function handleSettle(paymentsInput) {
     if (!selectedTableId) return;
     const order       = orders[selectedTableId];
+    const tableId     = selectedTableId;
     const newPayments = Array.isArray(paymentsInput) ? paymentsInput : [paymentsInput];
 
-    mutateOrder(selectedTableId, (o) => {
-      o.payments = [...(o.payments || []), ...newPayments];
-      const paid     = o.payments.reduce((s, p) => s + p.amount, 0);
-      const subtotal = o.items.reduce((s, i) => s + i.price * i.quantity, 0);
-      const disc     = Math.min(o.discountAmount || 0, subtotal);
-      const total    = Math.round((subtotal - disc) * 1.05);
-      if (paid >= total) {
-        o.isClosed = true;
-        o.closedAt = new Date().toISOString();
-      }
-      return o;
-    });
+    // Build the fully-paid order snapshot
+    const allPayments = [...(order.payments || []), ...newPayments];
+    const subtotal    = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+    const disc        = Math.min(order.discountAmount || 0, subtotal);
+    const total       = Math.round((subtotal - disc) * 1.05);
+    const paid        = allPayments.reduce((s, p) => s + p.amount, 0);
+
+    if (paid < total) {
+      // Partial — just record without closing
+      mutateOrder(tableId, (o) => { o.payments = allPayments; return o; });
+      setShowPayment(false);
+      showToast(`Payment recorded · ₹${newPayments.reduce((s,p)=>s+p.amount,0)}`);
+      return;
+    }
+
+    // ── Full settlement ───────────────────────────────────────────────────
+    const closedOrder = {
+      ...structuredClone(order),
+      payments: allPayments,
+      isClosed: true,
+      closedAt: new Date().toISOString(),
+    };
+
+    // 1. Save to pos_closed_orders in localStorage
+    try {
+      const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+      prev.unshift(closedOrder);
+      // Keep last 500 orders
+      localStorage.setItem("pos_closed_orders", JSON.stringify(prev.slice(0, 500)));
+    } catch {}
+
+    // 2. Temporarily mark as closed so UI shows ✓ for 1.5 s
+    setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
 
     for (const p of newPayments) {
       try {
@@ -361,8 +383,20 @@ export default function App() {
     }
 
     setShowPayment(false);
-    const totalPaid = newPayments.reduce((s, p) => s + p.amount, 0);
-    showToast(`Payment recorded · ₹${totalPaid}`);
+    setSelectedTableId(null);
+    showToast("✓ Bill settled · Table is ready");
+
+    // 3. After 1.5 s reset the table to a fresh blank order
+    setTimeout(() => {
+      setOrders(prev => {
+        const area = tableAreas.find(a => a.tables.some(t => t.id === tableId));
+        const table = area?.tables.find(t => t.id === tableId);
+        if (!table || !area) return prev;
+        const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
+        const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
+        return { ...prev, [tableId]: fresh };
+      });
+    }, 1500);
   }
 
   async function handlePaySplit(amount) {

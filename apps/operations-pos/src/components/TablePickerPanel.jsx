@@ -5,8 +5,10 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
 
   function tableStatus(tableId) {
     const o = orders[tableId];
+    // After handleSettle the order is reset to a blank order; isClosed won't exist.
+    // We only show "closed" briefly before the reset — but the table is still clickable.
     if (!o || !o.items?.length) return "available";
-    if (o.isClosed)      return "closed";
+    if (o.isClosed)      return "available";   // brief settle flash → treat as available
     if (o.isOnHold)      return "hold";
     if (o.voidRequested) return "void";
     if (o.billRequested) return "bill";
@@ -26,12 +28,12 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
     : tableAreas;
 
   const STATUS_COLORS = {
-    available: { bg: "#E9F7EF", border: "#27AE60", text: "#27AE60", label: "Free"     },
-    occupied:  { bg: "#FEF9E7", border: "#E67E22", text: "#E67E22", label: "Occupied" },
-    hold:      { bg: "#FFFBEB", border: "#D97706", text: "#D97706", label: "On Hold"  },
-    bill:      { bg: "#EBF5FB", border: "#2980B9", text: "#2980B9", label: "Bill Req" },
-    void:      { bg: "#FDEDEC", border: "#C0392B", text: "#C0392B", label: "Void"     },
-    closed:    { bg: "#F2F3F4", border: "#BDC3C7", text: "#BDC3C7", label: "Closed"   },
+    available: { bg: "#ffffff", border: "#E2E8F0", text: "#374151",  label: "Free",     dot: "#10B981" },
+    occupied:  { bg: "#FF6600", border: "#FF6600", text: "#ffffff",  label: "Occupied", dot: "#FF6600" },
+    hold:      { bg: "#F59E0B", border: "#F59E0B", text: "#ffffff",  label: "On Hold",  dot: "#F59E0B" },
+    bill:      { bg: "#3B82F6", border: "#3B82F6", text: "#ffffff",  label: "Bill",     dot: "#3B82F6" },
+    void:      { bg: "#EF4444", border: "#EF4444", text: "#ffffff",  label: "Void",     dot: "#EF4444" },
+    closed:    { bg: "#F1F5F9", border: "#E2E8F0", text: "#94A3B8",  label: "Closed",   dot: "#94A3B8" },
   };
 
   // Summary counts
@@ -101,22 +103,24 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
                 const col    = STATUS_COLORS[st] || STATUS_COLORS.available;
                 const total  = tableTotal(table.id);
                 const guests = orders[table.id]?.guests || 0;
-                const isOpen = st !== "closed";
+                const isOpen = true; // tables are always clickable; closed state is reset instantly
                 return (
                   <button
                     key={table.id}
                     type="button"
                     className={`tpp-table-btn${!isOpen ? " closed" : ""}`}
                     style={{
-                      background:   col.bg,
-                      borderColor:  col.border,
-                      color:        col.text
+                      background:  col.bg,
+                      borderColor: col.border,
+                      color:       col.text
                     }}
                     disabled={!isOpen}
                     onClick={() => isOpen && onSelectTable(table.id)}
                   >
+                    {/* Status dot */}
+                    <span className="tpp-status-dot" style={{ background: col.dot || col.border }} />
                     <span className="tpp-table-num">{table.number}</span>
-                    <span className="tpp-table-status">{col.label}</span>
+                    <span className="tpp-table-status" style={{ color: st === "available" ? col.dot : col.text }}>{col.label}</span>
                     {total !== null && <span className="tpp-table-amt">₹{total}</span>}
                     {guests > 0 && <span className="tpp-table-guests">{guests}p</span>}
                   </button>

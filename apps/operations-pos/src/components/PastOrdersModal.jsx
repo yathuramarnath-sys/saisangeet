@@ -147,8 +147,14 @@ export function PastOrdersModal({ orders, onClose, onEditPayment }) {
   const [editOrder, setEditOrder] = useState(null);
   const [expanded,  setExpanded]  = useState(null);
 
-  // Collect all closed orders from current session
+  // Read from pos_closed_orders localStorage (persistent across table resets)
+  // Fall back to current session orders if localStorage is empty
   const closedOrders = useMemo(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+      if (stored.length > 0) return stored;
+    } catch {}
+    // Fallback: in-memory orders (first run or localStorage cleared)
     return Object.values(orders || {})
       .filter(o => o.isClosed && o.items?.length)
       .sort((a, b) => new Date(b.closedAt || 0) - new Date(a.closedAt || 0));
