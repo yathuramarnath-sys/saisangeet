@@ -2,8 +2,9 @@ export function TableGrid({ areas, orders, selectedTableId, onSelectTable }) {
   function tableStatus(tableId) {
     const order = orders[tableId];
     if (!order || !order.items?.length) return "available";
-    if (order.isClosed) return "closed";
+    if (order.isClosed)     return "closed";
     if (order.voidRequested) return "void";
+    if (order.isOnHold)     return "hold";
     if (order.billRequested) return "bill";
     return "occupied";
   }
@@ -23,6 +24,7 @@ export function TableGrid({ areas, orders, selectedTableId, onSelectTable }) {
   const statusLabels = {
     available: "Free",
     occupied:  "Occupied",
+    hold:      "On Hold",
     bill:      "Bill Req",
     void:      "Void",
     closed:    "Closed"

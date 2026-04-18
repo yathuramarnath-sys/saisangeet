@@ -6,9 +6,10 @@ import { MenuPanel }       from "./components/MenuPanel";
 import { OrderPanel }      from "./components/OrderPanel";
 import { PaymentSheet }    from "./components/PaymentSheet";
 import { SplitBillSheet }  from "./components/SplitBillSheet";
-import { ShiftGate }       from "./components/ShiftGate";
+import { ShiftGate }           from "./components/ShiftGate";
 import { CashMovementModal, CloseShiftModal } from "./components/ShiftModals";
-import { CounterPanel }    from "./components/CounterPanel";
+import { CounterPanel }        from "./components/CounterPanel";
+import { AdvanceOrderModal }   from "./components/AdvanceOrderModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
 
@@ -117,6 +118,7 @@ export default function App() {
   const [showCashIn,       setShowCashIn]       = useState(false);
   const [showCashOut,      setShowCashOut]      = useState(false);
   const [showCloseShift,   setShowCloseShift]   = useState(false);
+  const [showAdvanceOrder, setShowAdvanceOrder] = useState(false);
   const [counterTicketNum, setCounterTicketNum] = useState(1);
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
@@ -377,6 +379,65 @@ export default function App() {
     setSelectedTableId(ticketId);
   }
 
+  // ── Hold order ────────────────────────────────────────────────────────────
+  function handleHoldToggle() {
+    if (!selectedTableId) return;
+    mutateOrder(selectedTableId, o => {
+      o.isOnHold = !o.isOnHold;
+      return o;
+    });
+    const isNowHeld = !orders[selectedTableId]?.isOnHold;
+    showToast(isNowHeld ? "Order put on hold" : "Order resumed");
+  }
+
+  // ── Transfer table ─────────────────────────────────────────────────────────
+  function handleTransferTable(toTableId) {
+    if (!selectedTableId || !toTableId || selectedTableId === toTableId) return;
+    setOrders(prev => {
+      const fromOrder = prev[selectedTableId];
+      const toOrder   = prev[toTableId];
+      if (!fromOrder || !toOrder) return prev;
+      const next = { ...prev };
+      // Move order items/data to new table
+      next[toTableId]     = { ...fromOrder, tableId: toTableId, tableNumber: toOrder.tableNumber, areaName: toOrder.areaName };
+      // Clear the from-table
+      next[selectedTableId] = { ...toOrder, items: [], payments: [], discountAmount: 0,
+        billRequested: false, isOnHold: false, isClosed: false };
+      return next;
+    });
+    setSelectedTableId(toTableId);
+    showToast(`Order transferred to Table ${orders[toTableId]?.tableNumber || toTableId}`);
+  }
+
+  // ── Order note ────────────────────────────────────────────────────────────
+  function handleOrderNoteChange(note) {
+    if (!selectedTableId) return;
+    mutateOrder(selectedTableId, o => { o.orderNote = note; return o; });
+  }
+
+  // ── Comp item toggle ──────────────────────────────────────────────────────
+  function handleCompToggle(idx) {
+    if (!selectedTableId) return;
+    mutateOrder(selectedTableId, o => {
+      if (o.items[idx]) o.items[idx].isComp = !o.items[idx].isComp;
+      return o;
+    });
+  }
+
+  // ── Void item ─────────────────────────────────────────────────────────────
+  function handleVoidItem(idx, reason) {
+    if (!selectedTableId) return;
+    mutateOrder(selectedTableId, o => {
+      if (o.items[idx]) {
+        o.items[idx].isVoided   = true;
+        o.items[idx].voidReason = reason;
+        o.items[idx].sentToKot  = true; // treat as sent so it can't be re-sent
+      }
+      return o;
+    });
+    showToast("Item voided");
+  }
+
   // ── Shift callbacks ───────────────────────────────────────────────────────
   function handleShiftStarted(shift) {
     setActiveShift(shift);
@@ -443,6 +504,10 @@ export default function App() {
               <span className="pos-shift-session">{activeShift.session}</span>
             </div>
             <div className="pos-shift-actions">
+              <button type="button" className="pos-shift-btn adv"
+                onClick={() => setShowAdvanceOrder(true)}>
+                📅 Advance
+              </button>
               <button type="button" className="pos-shift-btn in"
                 onClick={() => setShowCashIn(true)}>
                 ↑ In
@@ -526,6 +591,8 @@ export default function App() {
         <OrderPanel
           order={selectedOrder}
           tableLabel={tableLabel}
+          tableAreas={tableAreas}
+          orders={orders}
           onChangeQty={handleChangeQty}
           onRemoveItem={handleRemoveItem}
           onNoteChange={handleNoteChange}
@@ -535,6 +602,11 @@ export default function App() {
           onOpenSplitBill={() => setShowSplitBill(true)}
           onGuestsChange={handleGuestsChange}
           onDiscountChange={handleDiscountChange}
+          onHoldToggle={handleHoldToggle}
+          onTransferTable={handleTransferTable}
+          onOrderNoteChange={handleOrderNoteChange}
+          onCompToggle={handleCompToggle}
+          onVoidItem={handleVoidItem}
         />
       </div>
 
@@ -575,6 +647,14 @@ export default function App() {
           type="out"
           onClose={() => setShowCashOut(false)}
           onSaved={handleMovementSaved}
+        />
+      )}
+
+      {/* ── Advance Order modal ───────────────────────────────────────────── */}
+      {showAdvanceOrder && (
+        <AdvanceOrderModal
+          onClose={() => setShowAdvanceOrder(false)}
+          onSaved={() => showToast("Advance order booked ✓")}
         />
       )}
 
