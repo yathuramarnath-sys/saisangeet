@@ -1,4 +1,4 @@
-import { reportsSeedData } from "./reports.seed";
+import * as reportsSeedData from "./reports.seed";
 import { loadRestaurantState, subscribeRestaurantState, updateClosingState } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
 import { api } from "../../lib/api";
 

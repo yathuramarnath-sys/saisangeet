@@ -12,9 +12,8 @@ const PALETTE = [
   { bg: "#2C3E50", light: "#EAECEE" },
 ];
 
-export function MenuPanel({ categories, menuItems, onAddItem }) {
-  const [activeCat, setActiveCat] = useState(null);
-  const [search,    setSearch]    = useState("");
+export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem }) {
+  const [search, setSearch] = useState("");
 
   // Assign a palette color to each category
   const catColors = useMemo(() => {
@@ -25,7 +24,7 @@ export function MenuPanel({ categories, menuItems, onAddItem }) {
     return map;
   }, [categories]);
 
-  const activeCategory = activeCat || categories[0]?.name;
+  const activeCategory = activeCategoryProp || categories[0]?.name;
   const activeCatId    = categories.find(c => c.name === activeCategory)?.id || activeCategory?.toLowerCase();
   const activeColor    = catColors[activeCategory] || PALETTE[0];
 
@@ -85,44 +84,12 @@ export function MenuPanel({ categories, menuItems, onAddItem }) {
         )}
       </div>
 
-      {/* ── Category tabs — colorful Square-style ───────────────────────────── */}
-      {!search && (
-        <div className="menu-cats">
-          {categories.map((cat) => {
-            const color   = catColors[cat.name] || PALETTE[0];
-            const isActive = activeCategory === cat.name;
-            return (
-              <button
-                key={cat.name}
-                type="button"
-                className="menu-cat-chip"
-                style={{
-                  background:   isActive ? color.bg : color.light,
-                  color:        isActive ? "#fff"   : color.bg,
-                  borderColor:  isActive ? color.bg : "transparent",
-                  boxShadow:    isActive ? `0 4px 14px ${color.bg}44` : "none"
-                }}
-                onClick={() => setActiveCat(cat.name)}
-              >
-                <span className="cat-chip-name">{cat.name}</span>
-                <span className="cat-chip-count"
-                  style={{ background: isActive ? "rgba(255,255,255,0.25)" : `${color.bg}22`, color: isActive ? "#fff" : color.bg }}>
-                  {catCounts[cat.name] || 0}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── Active category label ───────────────────────────────────────────── */}
-      {!search && (
-        <div className="menu-cat-heading"
-          style={{ borderLeftColor: activeColor.bg, color: activeColor.bg }}>
-          {activeCategory}
-          <span className="menu-cat-count">{filtered.length} items</span>
-        </div>
-      )}
+      {/* ── Active category heading ─────────────────────────────────────────── */}
+      <div className="menu-cat-heading"
+        style={{ borderLeftColor: search ? "#888" : activeColor.bg, color: search ? "#666" : activeColor.bg }}>
+        {search ? `Results for "${search}"` : activeCategory}
+        <span className="menu-cat-count">{filtered.length} item{filtered.length !== 1 ? "s" : ""}</span>
+      </div>
 
       {/* ── Items grid — 3 columns, colorful tiles ──────────────────────────── */}
       <div className="menu-items-grid">

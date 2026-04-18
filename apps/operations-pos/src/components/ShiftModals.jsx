@@ -138,10 +138,93 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
   );
 }
 
+/* ── Shift Closing Receipt (printable) ────────────────────────────────────── */
+function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, allOrders }) {
+  const totalOrders = Object.values(allOrders || {}).filter(o => o.isClosed).length;
+  const totalSales  = Object.values(allOrders || {}).reduce((s, o) => {
+    if (!o.isClosed) return s;
+    const sub  = (o.items || []).filter(i => !i.isVoided && !i.isComp)
+                                 .reduce((ss, i) => ss + i.price * i.quantity, 0);
+    const disc = Math.min(o.discountAmount || 0, sub);
+    return s + (sub - disc);
+  }, 0);
+  const payments = Object.values(allOrders || {}).reduce((acc, o) => {
+    if (!o.isClosed) return acc;
+    (o.payments || []).forEach(p => {
+      acc[p.method] = (acc[p.method] || 0) + p.amount;
+    });
+    return acc;
+  }, {});
+  const fmt = n => "₹" + Math.abs(n).toLocaleString("en-IN");
+  const now = new Date();
+
+  return (
+    <div className="shift-receipt" id="shift-receipt-print">
+      <div className="sr-header">
+        <div className="sr-logo">🍽</div>
+        <div className="sr-outlet">{shift.outlet}</div>
+        <div className="sr-title">SHIFT CLOSING REPORT</div>
+        <div className="sr-meta">
+          {now.toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" })}
+          {" · "}
+          {now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", hour12:true })}
+        </div>
+      </div>
+
+      <div className="sr-divider">{'─'.repeat(32)}</div>
+
+      <div className="sr-row"><span>Cashier</span><span>{shift.cashier}</span></div>
+      <div className="sr-row"><span>Session</span><span>{shift.session}</span></div>
+      <div className="sr-row"><span>Started</span><span>
+        {new Date(shift.startedAt).toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", hour12:true })}
+      </span></div>
+      <div className="sr-row"><span>Closed</span><span>
+        {now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", hour12:true })}
+      </span></div>
+
+      <div className="sr-divider">{'─'.repeat(32)}</div>
+      <div className="sr-section-title">CASH REGISTER</div>
+      <div className="sr-row"><span>Opening Cash</span><span>{fmt(shift.openingCash||0)}</span></div>
+      <div className="sr-row green"><span>+ Cash In</span><span>{fmt(shift.cashIn||0)}</span></div>
+      <div className="sr-row red"><span>− Cash Out</span><span>{fmt(shift.cashOut||0)}</span></div>
+      <div className="sr-row"><span>Cash Sales</span><span>{fmt(cashSales)}</span></div>
+      <div className="sr-row bold"><span>Expected in Drawer</span><span>{fmt(expectedCash)}</span></div>
+      <div className="sr-row bold"><span>Counted</span><span>{fmt(closingNum)}</span></div>
+      <div className={`sr-row bold ${variance === 0 ? "ok" : variance < 0 ? "short" : "over"}`}>
+        <span>Variance</span>
+        <span>{variance === 0 ? "✓ MATCH" : variance > 0 ? `+${fmt(variance)} OVER` : `${fmt(variance)} SHORT`}</span>
+      </div>
+
+      <div className="sr-divider">{'─'.repeat(32)}</div>
+      <div className="sr-section-title">SALES SUMMARY</div>
+      <div className="sr-row"><span>Total Orders</span><span>{totalOrders}</span></div>
+      <div className="sr-row bold"><span>Total Sales</span><span>{fmt(totalSales)}</span></div>
+
+      {Object.keys(payments).length > 0 && (
+        <>
+          <div className="sr-divider">{'─'.repeat(32)}</div>
+          <div className="sr-section-title">PAYMENT BREAKDOWN</div>
+          {Object.entries(payments).map(([method, amt]) => (
+            <div key={method} className="sr-row">
+              <span>{method.charAt(0).toUpperCase() + method.slice(1)}</span>
+              <span>{fmt(amt)}</span>
+            </div>
+          ))}
+        </>
+      )}
+
+      <div className="sr-divider">{'─'.repeat(32)}</div>
+      <div className="sr-footer">Thank you · Have a great day!</div>
+      <div className="sr-footer sm">Powered by Restaurant OS</div>
+    </div>
+  );
+}
+
 /* ── Close Shift modal ────────────────────────────────────────────────────── */
 export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
   const [closingCash, setClosingCash] = useState("0");
   const [note,        setNote]        = useState("");
+  const [showReceipt, setShowReceipt] = useState(false);
 
   // Cash sales from closed orders this shift
   const cashSales = Object.values(orders || {})
@@ -189,7 +272,72 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
     localStorage.setItem("pos_active_shifts", JSON.stringify(active.filter(s => s.id !== shift.id)));
     localStorage.setItem("pos_shift_history",  JSON.stringify([...history, closed]));
 
+    setShowReceipt(true); // show receipt before final close
+  }
+
+  function handlePrintAndExit() {
+    const el = document.getElementById("shift-receipt-print");
+    if (el) {
+      const w = window.open("", "_blank");
+      w.document.write(`
+        <html><head><title>Shift Report</title>
+        <style>
+          body { font-family: 'Courier New', monospace; font-size: 12px; padding: 16px; max-width: 300px; margin: 0 auto; }
+          .sr-header { text-align: center; margin-bottom: 8px; }
+          .sr-logo { font-size: 24px; }
+          .sr-outlet { font-weight: bold; font-size: 14px; }
+          .sr-title { font-size: 11px; letter-spacing: 1px; margin-top: 4px; }
+          .sr-meta { font-size: 10px; color: #555; }
+          .sr-divider { color: #aaa; margin: 6px 0; }
+          .sr-section-title { font-size: 10px; letter-spacing: 1.5px; color: #888; margin: 8px 0 4px; }
+          .sr-row { display: flex; justify-content: space-between; margin: 2px 0; font-size: 12px; }
+          .sr-row.bold { font-weight: bold; }
+          .sr-row.ok { color: #27AE60; }
+          .sr-row.short { color: #C0392B; }
+          .sr-row.over { color: #E67E22; }
+          .sr-row.green { color: #27AE60; }
+          .sr-row.red { color: #C0392B; }
+          .sr-footer { text-align: center; margin-top: 8px; font-size: 11px; }
+          .sr-footer.sm { font-size: 10px; color: #aaa; }
+        </style></head><body>${el.innerHTML}</body></html>
+      `);
+      w.document.close();
+      w.focus();
+      w.print();
+      w.close();
+    }
     onShiftClosed();
+  }
+
+  // After shift closed — show receipt screen
+  if (showReceipt) {
+    return (
+      <div className="sm-overlay">
+        <div className="sm-modal">
+          <div className="sm-head">
+            <div><h3>✓ Shift Closed</h3><p className="sm-sub">Print shift summary below</p></div>
+          </div>
+          <div className="sm-body" style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
+            <ShiftReceipt
+              shift={shift}
+              cashSales={cashSales}
+              expectedCash={expectedCash}
+              closingNum={closingNum}
+              variance={variance}
+              allOrders={orders}
+            />
+          </div>
+          <div className="sm-footer">
+            <button type="button" className="sm-btn-cancel" onClick={onShiftClosed}>
+              Skip Print
+            </button>
+            <button type="button" className="sm-btn-action close-ok" onClick={handlePrintAndExit}>
+              🖨 Print &amp; Exit
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

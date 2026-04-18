@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
-import { TableGrid }       from "./components/TableGrid";
-import { MenuPanel }       from "./components/MenuPanel";
-import { OrderPanel }      from "./components/OrderPanel";
-import { PaymentSheet }    from "./components/PaymentSheet";
-import { SplitBillSheet }  from "./components/SplitBillSheet";
-import { ShiftGate }           from "./components/ShiftGate";
+import { MenuPanel }          from "./components/MenuPanel";
+import { OrderPanel }         from "./components/OrderPanel";
+import { PaymentSheet }       from "./components/PaymentSheet";
+import { SplitBillSheet }     from "./components/SplitBillSheet";
+import { ShiftGate }          from "./components/ShiftGate";
 import { CashMovementModal, CloseShiftModal } from "./components/ShiftModals";
-import { CounterPanel }        from "./components/CounterPanel";
-import { AdvanceOrderModal }   from "./components/AdvanceOrderModal";
+import { AdvanceOrderModal }  from "./components/AdvanceOrderModal";
+import { PosLogin }           from "./components/PosLogin";
+import { CategorySidebar }    from "./components/CategorySidebar";
+import { TablePickerPanel }   from "./components/TablePickerPanel";
+import { CustomerFormModal }  from "./components/CustomerFormModal";
+import { PosSettingsModal }   from "./components/PosSettingsModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
 
@@ -115,11 +118,15 @@ export default function App() {
 
   // ── Shift state ───────────────────────────────────────────────────────────
   const [activeShift,      setActiveShift]      = useState(() => loadActiveShift());
+  const [cashierName,      setCashierName]      = useState(null);
+  const [activeCategory,   setActiveCategory]   = useState(null);
   const [showCashIn,       setShowCashIn]       = useState(false);
   const [showCashOut,      setShowCashOut]      = useState(false);
   const [showCloseShift,   setShowCloseShift]   = useState(false);
   const [showAdvanceOrder, setShowAdvanceOrder] = useState(false);
-  const [counterTicketNum, setCounterTicketNum] = useState(1);
+  const [counterTicketNum,   setCounterTicketNum]   = useState(1);
+  const [showCustomerForm,   setShowCustomerForm]   = useState(false);
+  const [showSettings,       setShowSettings]       = useState(false);
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -409,6 +416,14 @@ export default function App() {
     showToast(`Order transferred to Table ${orders[toTableId]?.tableNumber || toTableId}`);
   }
 
+  // ── Customer details ──────────────────────────────────────────────────────
+  function handleSaveCustomer(data) {
+    if (!selectedTableId) return;
+    mutateOrder(selectedTableId, o => { o.customer = data; return o; });
+    setShowCustomerForm(false);
+    showToast("Customer details saved");
+  }
+
   // ── Order note ────────────────────────────────────────────────────────────
   function handleOrderNoteChange(note) {
     if (!selectedTableId) return;
@@ -466,9 +481,20 @@ export default function App() {
     { id: "delivery", label: "Delivery" }
   ];
 
-  // ── Shift Gate (no active shift) ──────────────────────────────────────────
+  // ── POS Login (no cashier selected) ───────────────────────────────────────
+  if (!cashierName) {
+    return <PosLogin outletName={outlet?.name} onLogin={name => setCashierName(name)} />;
+  }
+
+  // ── Shift Gate (cashier logged in, no active shift) ────────────────────────
   if (!activeShift) {
-    return <ShiftGate outletName={outlet?.name} onShiftStarted={handleShiftStarted} />;
+    return (
+      <ShiftGate
+        outletName={outlet?.name}
+        cashierName={cashierName}
+        onShiftStarted={handleShiftStarted}
+      />
+    );
   }
 
   // ─── Main POS UI ──────────────────────────────────────────────────────────
@@ -520,74 +546,59 @@ export default function App() {
                 onClick={() => setShowCloseShift(true)}>
                 End Shift
               </button>
+              <button type="button" className="pos-shift-btn settings"
+                onClick={() => setShowSettings(true)}
+                title="Settings">
+                ⚙
+              </button>
+              <button type="button" className="pos-shift-btn customer"
+                onClick={() => selectedTableId ? setShowCustomerForm(true) : showToast("Select a table first")}
+                title="Customer Details">
+                👤
+              </button>
+              <button type="button" className="pos-shift-btn logout"
+                onClick={() => { setCashierName(null); setActiveShift(null); setSelectedTableId(null); }}
+                title="Log out">
+                ⏻
+              </button>
             </div>
           </div>
           <Clock />
         </div>
       </div>
 
-      {/* ── Left: Floor / Table / Counter panel ─────────────────────────── */}
+      {/* ── Left: Category Sidebar ───────────────────────────────────────── */}
       <div className="pos-left">
-        {isCounterMode ? (
-          <CounterPanel
-            orders={orders}
-            selectedId={selectedTableId}
-            onSelect={setSelectedTableId}
-            onNewOrder={handleNewCounterOrder}
-            mode={serviceMode}
-          />
-        ) : (
-          <>
-            {tableAreas.length > 0 && (
-              <div className="pos-area-tabs">
-                <button
-                  type="button"
-                  className={`pos-area-tab${!activeArea ? " active" : ""}`}
-                  onClick={() => setActiveArea(null)}
-                >All</button>
-                {tableAreas.map((area) => (
-                  <button
-                    key={area.id}
-                    type="button"
-                    className={`pos-area-tab${activeArea === area.id ? " active" : ""}`}
-                    onClick={() => setActiveArea(area.id)}
-                  >{area.name}</button>
-                ))}
-              </div>
-            )}
-            <div className="pos-left-scroll">
-              <TableGrid
-                areas={filteredAreas}
-                orders={orders}
-                selectedTableId={selectedTableId}
-                onSelectTable={setSelectedTableId}
-              />
-            </div>
-            <div className="pos-legend">
-              {[
-                { cls: "available", label: "Free"     },
-                { cls: "occupied",  label: "Occupied" },
-                { cls: "bill",      label: "Bill"     },
-                { cls: "void",      label: "Void"     }
-              ].map((l) => (
-                <span key={l.cls} className={`pos-legend-item legend-${l.cls}`}>{l.label}</span>
-              ))}
-            </div>
-          </>
-        )}
+        <CategorySidebar
+          categories={categories}
+          menuItems={menuItems}
+          activeCategory={activeCategory || categories[0]?.name}
+          onSelect={setActiveCategory}
+          outletName={outlet?.name}
+        />
       </div>
 
-      {/* ── Center: Menu panel ───────────────────────────────────────────── */}
+      {/* ── Center: Menu Items ───────────────────────────────────────────── */}
       <div className="pos-center">
         <MenuPanel
           categories={categories}
           menuItems={menuItems}
+          activeCategory={activeCategory || categories[0]?.name}
           onAddItem={handleAddItem}
         />
       </div>
 
-      {/* ── Right: Order panel ───────────────────────────────────────────── */}
+      {/* ── Right: Table Picker or Order Panel ───────────────────────────── */}
       <div className="pos-right">
+        {!selectedTableId ? (
+          <TablePickerPanel
+            tableAreas={tableAreas}
+            orders={orders}
+            onSelectTable={setSelectedTableId}
+            serviceMode={serviceMode}
+            onNewCounterOrder={handleNewCounterOrder}
+          />
+        ) : (
         <OrderPanel
           order={selectedOrder}
           tableLabel={tableLabel}
@@ -608,6 +619,7 @@ export default function App() {
           onCompToggle={handleCompToggle}
           onVoidItem={handleVoidItem}
         />
+        )}
       </div>
 
       {/* ── Payment sheet ─────────────────────────────────────────────────── */}
@@ -665,6 +677,25 @@ export default function App() {
           orders={orders}
           onClose={() => setShowCloseShift(false)}
           onShiftClosed={handleShiftClosed}
+        />
+      )}
+
+      {/* ── Customer Form modal ───────────────────────────────────────────── */}
+      {showCustomerForm && (
+        <CustomerFormModal
+          order={selectedOrder}
+          serviceMode={serviceMode}
+          onSave={handleSaveCustomer}
+          onClose={() => setShowCustomerForm(false)}
+        />
+      )}
+
+      {/* ── POS Settings modal ────────────────────────────────────────────── */}
+      {showSettings && (
+        <PosSettingsModal
+          cashierName={cashierName}
+          activeShift={activeShift}
+          onClose={() => setShowSettings(false)}
         />
       )}
 

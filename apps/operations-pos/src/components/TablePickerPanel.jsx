@@ -1,0 +1,141 @@
+import { useState } from "react";
+
+export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder }) {
+  const [activeArea, setActiveArea] = useState(null);
+
+  function tableStatus(tableId) {
+    const o = orders[tableId];
+    if (!o || !o.items?.length) return "available";
+    if (o.isClosed)      return "closed";
+    if (o.isOnHold)      return "hold";
+    if (o.voidRequested) return "void";
+    if (o.billRequested) return "bill";
+    return "occupied";
+  }
+
+  function tableTotal(tableId) {
+    const o = orders[tableId];
+    if (!o?.items?.length) return null;
+    const sub  = o.items.filter(i => !i.isVoided && !i.isComp).reduce((s, i) => s + i.price * i.quantity, 0);
+    const disc = Math.min(o.discountAmount || 0, sub);
+    return Math.round((sub - disc) * 1.05);
+  }
+
+  const filtered = activeArea
+    ? tableAreas.filter(a => a.id === activeArea)
+    : tableAreas;
+
+  const STATUS_COLORS = {
+    available: { bg: "#E9F7EF", border: "#27AE60", text: "#27AE60", label: "Free"     },
+    occupied:  { bg: "#FEF9E7", border: "#E67E22", text: "#E67E22", label: "Occupied" },
+    hold:      { bg: "#FFFBEB", border: "#D97706", text: "#D97706", label: "On Hold"  },
+    bill:      { bg: "#EBF5FB", border: "#2980B9", text: "#2980B9", label: "Bill Req" },
+    void:      { bg: "#FDEDEC", border: "#C0392B", text: "#C0392B", label: "Void"     },
+    closed:    { bg: "#F2F3F4", border: "#BDC3C7", text: "#BDC3C7", label: "Closed"   },
+  };
+
+  // Summary counts
+  const allTables    = tableAreas.flatMap(a => a.tables);
+  const freeCount    = allTables.filter(t => tableStatus(t.id) === "available").length;
+  const occupiedCount = allTables.filter(t => tableStatus(t.id) === "occupied" || tableStatus(t.id) === "bill").length;
+  const holdCount    = allTables.filter(t => tableStatus(t.id) === "hold").length;
+
+  if (serviceMode !== "dine-in") {
+    return (
+      <div className="tpp">
+        <div className="tpp-head">
+          <h3>{serviceMode === "delivery" ? "🛵 Delivery" : "🛍 Takeaway"}</h3>
+          <p>Create a numbered ticket for this order</p>
+        </div>
+        <button type="button" className="tpp-new-order-btn" onClick={onNewCounterOrder}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          New {serviceMode === "delivery" ? "Delivery" : "Takeaway"} Order
+        </button>
+        <p className="tpp-hint">Each order gets a ticket number (#001, #002…)</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tpp">
+      {/* Header */}
+      <div className="tpp-head">
+        <h3>🪑 Select Table</h3>
+        <p>Pick a table to start billing</p>
+      </div>
+
+      {/* Status summary */}
+      <div className="tpp-summary">
+        <div className="tpp-sum-pill free">{freeCount} Free</div>
+        <div className="tpp-sum-pill occ">{occupiedCount} Occupied</div>
+        {holdCount > 0 && <div className="tpp-sum-pill hold">{holdCount} On Hold</div>}
+      </div>
+
+      {/* Area tabs */}
+      {tableAreas.length > 1 && (
+        <div className="tpp-area-tabs">
+          <button type="button"
+            className={`tpp-area-tab${!activeArea ? " active" : ""}`}
+            onClick={() => setActiveArea(null)}>All</button>
+          {tableAreas.map(a => (
+            <button key={a.id} type="button"
+              className={`tpp-area-tab${activeArea === a.id ? " active" : ""}`}
+              onClick={() => setActiveArea(a.id)}>
+              {a.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Table grid */}
+      <div className="tpp-areas">
+        {filtered.map(area => (
+          <div key={area.id} className="tpp-area">
+            <p className="tpp-area-label">{area.name}</p>
+            <div className="tpp-table-grid">
+              {area.tables.map(table => {
+                const st     = tableStatus(table.id);
+                const col    = STATUS_COLORS[st] || STATUS_COLORS.available;
+                const total  = tableTotal(table.id);
+                const guests = orders[table.id]?.guests || 0;
+                const isOpen = st !== "closed";
+                return (
+                  <button
+                    key={table.id}
+                    type="button"
+                    className={`tpp-table-btn${!isOpen ? " closed" : ""}`}
+                    style={{
+                      background:   col.bg,
+                      borderColor:  col.border,
+                      color:        col.text
+                    }}
+                    disabled={!isOpen}
+                    onClick={() => isOpen && onSelectTable(table.id)}
+                  >
+                    <span className="tpp-table-num">{table.number}</span>
+                    <span className="tpp-table-status">{col.label}</span>
+                    {total !== null && <span className="tpp-table-amt">₹{total}</span>}
+                    {guests > 0 && <span className="tpp-table-guests">{guests}p</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Legend */}
+      <div className="tpp-legend">
+        {Object.entries(STATUS_COLORS).slice(0, 4).map(([key, val]) => (
+          <span key={key} className="tpp-legend-item"
+            style={{ background: val.bg, color: val.text, borderColor: val.border }}>
+            {val.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -132,6 +132,72 @@ export function OverviewPage() {
         </article>
       </section>
 
+      {/* ── App Launcher ──────────────────────────────────────────────────── */}
+      <section className="app-launcher-section">
+        <div className="app-launcher-head">
+          <h3>Launch Applications</h3>
+          <p>Open any terminal from here. Each app runs independently.</p>
+        </div>
+        <div className="app-launcher-grid">
+          {[
+            {
+              icon:  "🖥",
+              name:  "POS Terminal",
+              desc:  "Billing · Orders · Shifts · Payments",
+              port:  4174,
+              color: "#FF5733",
+              bg:    "#FFF0ED",
+            },
+            {
+              icon:  "📱",
+              name:  "Waiter App",
+              desc:  "Table orders · KOT · Guest requests",
+              port:  4175,
+              color: "#27AE60",
+              bg:    "#E9F7EF",
+            },
+            {
+              icon:  "👨‍🍳",
+              name:  "Kitchen Display",
+              desc:  "Live KOT queue · Station-wise view",
+              port:  4176,
+              color: "#E67E22",
+              bg:    "#FEF5E7",
+            },
+            {
+              icon:  "📊",
+              name:  "Reports & Analytics",
+              desc:  "Sales · GST · Shifts · Staff",
+              path:  "/reports",
+              color: "#2980B9",
+              bg:    "#EBF5FB",
+            },
+          ].map((app) => (
+            <button
+              key={app.name}
+              type="button"
+              className="app-launch-card"
+              style={{ "--app-color": app.color, "--app-bg": app.bg }}
+              onClick={() => {
+                if (app.path) navigate(app.path);
+                else window.open(`http://localhost:${app.port}`, "_blank");
+              }}
+            >
+              <div className="alc-icon-wrap" style={{ background: app.bg, color: app.color }}>
+                {app.icon}
+              </div>
+              <div className="alc-body">
+                <div className="alc-name">{app.name}</div>
+                <div className="alc-desc">{app.desc}</div>
+              </div>
+              <div className="alc-arrow" style={{ color: app.color }}>
+                {app.port ? `localhost:${app.port}` : "Internal"} →
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section className="dashboard-grid">
         <article className="panel panel-large">
           <div className="panel-head">
