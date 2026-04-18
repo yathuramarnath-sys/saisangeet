@@ -13,6 +13,8 @@ import { CategorySidebar }    from "./components/CategorySidebar";
 import { TablePickerPanel }   from "./components/TablePickerPanel";
 import { CustomerFormModal }  from "./components/CustomerFormModal";
 import { PosSettingsModal }   from "./components/PosSettingsModal";
+import { PastOrdersModal }    from "./components/PastOrdersModal";
+import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
 
@@ -127,6 +129,8 @@ export default function App() {
   const [counterTicketNum,   setCounterTicketNum]   = useState(1);
   const [showCustomerForm,   setShowCustomerForm]   = useState(false);
   const [showSettings,       setShowSettings]       = useState(false);
+  const [showPastOrders,     setShowPastOrders]     = useState(false);
+  const [showOnlineOrders,   setShowOnlineOrders]   = useState(false);
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -416,6 +420,67 @@ export default function App() {
     showToast(`Order transferred to Table ${orders[toTableId]?.tableNumber || toTableId}`);
   }
 
+  // ── Edit payment on closed order ─────────────────────────────────────────
+  function handleEditPayment(order, newPayments) {
+    setOrders(prev => {
+      const updated = { ...prev };
+      const key = Object.keys(updated).find(k => updated[k]?.orderNumber === order.orderNumber);
+      if (!key) return prev;
+      updated[key] = {
+        ...updated[key],
+        payments: newPayments.map(p => ({ method: p.method, amount: p.amount })),
+        paymentCorrectedAt: new Date().toISOString()
+      };
+      return updated;
+    });
+    showToast("Payment method corrected ✓");
+  }
+
+  // ── Accept online order → auto-create order + KOT ─────────────────────────
+  function handleAcceptOnlineOrder(onlineOrder) {
+    const ticketId  = `online-${Date.now()}`;
+    const area      = { id: "online", name: onlineOrder.platform };
+    const fakeTable = { id: ticketId, number: onlineOrder.orderId };
+    const orderNum  = Math.max(10050, ...Object.values(orders).map(o => o.orderNumber || 10050)) + 1;
+
+    const posItems = onlineOrder.items.map((item, i) => ({
+      id:         `item-${Date.now()}-${i}`,
+      menuItemId: `online-${i}`,
+      name:       item.name,
+      price:      item.price,
+      quantity:   item.quantity,
+      sentToKot:  true,   // auto-sent
+      note:       onlineOrder.notes || ""
+    }));
+
+    const newOrder = {
+      ...buildBlankOrder(fakeTable, area, outlet?.name || "Outlet", orderNum),
+      isCounter:      true,
+      isOnlineOrder:  true,
+      onlinePlatform: onlineOrder.platform,
+      onlineOrderId:  onlineOrder.orderId,
+      ticketNumber:   onlineOrder.orderId,
+      items:          posItems,
+      customer:       onlineOrder.customer,
+      billRequested:  true,
+      billRequestedAt: new Date().toISOString(),
+    };
+
+    setOrders(prev => ({ ...prev, [ticketId]: newOrder }));
+    setSelectedTableId(ticketId);
+    setShowOnlineOrders(false);
+
+    // Post KOT to kitchen
+    api.post("/operations/kot", {
+      outletId:    outlet?.id,
+      tableId:     ticketId,
+      tableNumber: onlineOrder.orderId,
+      items:       posItems
+    }).catch(() => {});
+
+    showToast(`✓ ${onlineOrder.platform} order accepted · KOT sent`);
+  }
+
   // ── Customer details ──────────────────────────────────────────────────────
   function handleSaveCustomer(data) {
     if (!selectedTableId) return;
@@ -497,73 +562,122 @@ export default function App() {
     );
   }
 
+  // ── Quick stats ───────────────────────────────────────────────────────────
+  const onlineOrders = (() => {
+    try { return (JSON.parse(localStorage.getItem("pos_online_orders") || "[]") || []).filter(o => o.status === "pending"); }
+    catch { return []; }
+  })();
+  const openTables = Object.values(orders).filter(o => o.items?.length && !o.isClosed && !o.isOnHold).length;
+  const pendingKOT = Object.values(orders).reduce((s, o) => s + (o.items || []).filter(i => !i.sentToKot && !i.isVoided).length, 0);
+
   // ─── Main POS UI ──────────────────────────────────────────────────────────
   return (
     <div className="pos-shell">
-      {/* ── Top bar ──────────────────────────────────────────────────────── */}
-      <div className="pos-topbar">
-        <div className="pos-topbar-brand">
-          <span className="pos-topbar-name">{outlet?.name || "Restaurant OS"}</span>
-          <span className="pos-topbar-sub">POS Terminal</span>
-        </div>
 
-        <div className="pos-topbar-center">
-          <div className="pos-mode-pills">
-            {SERVICE_MODES.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                className={`pos-mode-pill${serviceMode === m.id ? " active" : ""}`}
-                onClick={() => { setServiceMode(m.id); setSelectedTableId(null); }}
-              >
-                {m.label}
-              </button>
-            ))}
+      {/* ── Row 1: Brand bar ─────────────────────────────────────────────── */}
+      <div className="pos-brand-bar">
+        {/* Brand */}
+        <div className="pbb-brand">
+          <span className="pbb-icon">🍽</span>
+          <div>
+            <div className="pbb-name">{outlet?.name || "Restaurant OS"}</div>
+            <div className="pbb-sub">POS Terminal</div>
           </div>
         </div>
 
-        <div className="pos-topbar-right">
-          {/* Shift info + controls */}
-          <div className="pos-shift-bar">
-            <div className="pos-shift-info">
-              <span className="pos-shift-cashier">{activeShift.cashier}</span>
-              <span className="pos-shift-session">{activeShift.session}</span>
-            </div>
-            <div className="pos-shift-actions">
-              <button type="button" className="pos-shift-btn adv"
-                onClick={() => setShowAdvanceOrder(true)}>
-                📅 Advance
-              </button>
-              <button type="button" className="pos-shift-btn in"
-                onClick={() => setShowCashIn(true)}>
-                ↑ In
-              </button>
-              <button type="button" className="pos-shift-btn out"
-                onClick={() => setShowCashOut(true)}>
-                ↓ Out
-              </button>
-              <button type="button" className="pos-shift-btn end"
-                onClick={() => setShowCloseShift(true)}>
-                End Shift
-              </button>
-              <button type="button" className="pos-shift-btn settings"
-                onClick={() => setShowSettings(true)}
-                title="Settings">
-                ⚙
-              </button>
-              <button type="button" className="pos-shift-btn customer"
-                onClick={() => selectedTableId ? setShowCustomerForm(true) : showToast("Select a table first")}
-                title="Customer Details">
-                👤
-              </button>
-              <button type="button" className="pos-shift-btn logout"
-                onClick={() => { setCashierName(null); setActiveShift(null); setSelectedTableId(null); }}
-                title="Log out">
-                ⏻
-              </button>
+        {/* Service mode pills */}
+        <div className="pbb-modes">
+          {SERVICE_MODES.map((m) => (
+            <button key={m.id} type="button"
+              className={`pbb-mode-pill${serviceMode === m.id ? " active" : ""}`}
+              onClick={() => { setServiceMode(m.id); setSelectedTableId(null); }}>
+              {m.id === "dine-in" ? "🪑" : m.id === "takeaway" ? "🛍" : "🛵"} {m.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Right: cashier + clock */}
+        <div className="pbb-right">
+          <div className="pbb-cashier-chip">
+            <div className="pbb-avatar">{cashierName?.[0]}</div>
+            <div>
+              <div className="pbb-cashier-name">{activeShift.cashier}</div>
+              <div className="pbb-session">{activeShift.session}</div>
             </div>
           </div>
           <Clock />
+        </div>
+      </div>
+
+      {/* ── Row 2: Action toolbar ─────────────────────────────────────────── */}
+      <div className="pos-action-bar">
+        {/* Left group: order actions */}
+        <div className="pab-group">
+          <button type="button" className="pab-btn orange"
+            onClick={() => setShowOnlineOrders(true)}>
+            <span className="pab-icon">📦</span>
+            <span className="pab-label">Online Orders</span>
+            {onlineOrders.length > 0 && (
+              <span className="pab-badge">{onlineOrders.length}</span>
+            )}
+          </button>
+          <button type="button" className="pab-btn blue"
+            onClick={() => setShowPastOrders(true)}>
+            <span className="pab-icon">📋</span>
+            <span className="pab-label">Past Orders</span>
+          </button>
+          <button type="button" className="pab-btn purple"
+            onClick={() => setShowAdvanceOrder(true)}>
+            <span className="pab-icon">📅</span>
+            <span className="pab-label">Advance</span>
+          </button>
+          <button type="button" className="pab-btn teal"
+            onClick={() => selectedTableId ? setShowCustomerForm(true) : showToast("Select a table first")}>
+            <span className="pab-icon">👤</span>
+            <span className="pab-label">Customer</span>
+          </button>
+        </div>
+
+        {/* Center: quick stats */}
+        <div className="pab-stats">
+          <div className="pab-stat">
+            <span className="pab-stat-val">{openTables}</span>
+            <span className="pab-stat-lbl">Open Tables</span>
+          </div>
+          <div className="pab-stat-divider" />
+          <div className="pab-stat">
+            <span className={`pab-stat-val${pendingKOT > 0 ? " warn" : ""}`}>{pendingKOT}</span>
+            <span className="pab-stat-lbl">Pending KOT</span>
+          </div>
+        </div>
+
+        {/* Right group: shift actions */}
+        <div className="pab-group">
+          <button type="button" className="pab-btn green"
+            onClick={() => setShowCashIn(true)}>
+            <span className="pab-icon">↑</span>
+            <span className="pab-label">Cash In</span>
+          </button>
+          <button type="button" className="pab-btn red"
+            onClick={() => setShowCashOut(true)}>
+            <span className="pab-icon">↓</span>
+            <span className="pab-label">Cash Out</span>
+          </button>
+          <button type="button" className="pab-btn gray"
+            onClick={() => setShowSettings(true)}>
+            <span className="pab-icon">⚙️</span>
+            <span className="pab-label">Settings</span>
+          </button>
+          <button type="button" className="pab-btn dark"
+            onClick={() => setShowCloseShift(true)}>
+            <span className="pab-icon">⏹</span>
+            <span className="pab-label">End Shift</span>
+          </button>
+          <button type="button" className="pab-btn logout-btn"
+            onClick={() => { setCashierName(null); setActiveShift(null); setSelectedTableId(null); }}
+            title="Logout">
+            <span className="pab-icon">⏻</span>
+          </button>
         </div>
       </div>
 
@@ -677,6 +791,23 @@ export default function App() {
           orders={orders}
           onClose={() => setShowCloseShift(false)}
           onShiftClosed={handleShiftClosed}
+        />
+      )}
+
+      {/* ── Past Orders modal ─────────────────────────────────────────────── */}
+      {showPastOrders && (
+        <PastOrdersModal
+          orders={orders}
+          onClose={() => setShowPastOrders(false)}
+          onEditPayment={handleEditPayment}
+        />
+      )}
+
+      {/* ── Online Orders panel ───────────────────────────────────────────── */}
+      {showOnlineOrders && (
+        <OnlineOrdersPanel
+          onAccept={handleAcceptOnlineOrder}
+          onClose={() => setShowOnlineOrders(false)}
         />
       )}
 
