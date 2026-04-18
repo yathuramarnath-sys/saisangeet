@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
-import { TableGrid }     from "./components/TableGrid";
-import { MenuPanel }     from "./components/MenuPanel";
-import { OrderPanel }    from "./components/OrderPanel";
-import { PaymentSheet }  from "./components/PaymentSheet";
-import { SplitBillSheet } from "./components/SplitBillSheet";
+import { TableGrid }       from "./components/TableGrid";
+import { MenuPanel }       from "./components/MenuPanel";
+import { OrderPanel }      from "./components/OrderPanel";
+import { PaymentSheet }    from "./components/PaymentSheet";
+import { SplitBillSheet }  from "./components/SplitBillSheet";
+import { ShiftGate }       from "./components/ShiftGate";
+import { CashMovementModal, CloseShiftModal } from "./components/ShiftModals";
+import { CounterPanel }    from "./components/CounterPanel";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
 
@@ -18,22 +21,23 @@ function parsePriceNumber(value) {
 
 function buildBlankOrder(table, area, outletName, orderNumber) {
   return {
-    tableId:         table.id,
-    tableNumber:     table.number,
+    tableId:        table.id,
+    tableNumber:    table.number,
     orderNumber,
-    kotNumber:       `KOT-${orderNumber}`,
+    kotNumber:      `KOT-${orderNumber}`,
     outletName,
-    areaName:        area.name,
-    guests:          0,
-    items:           [],
-    payments:        [],
-    billSplitCount:  1,
-    isClosed:        false,
-    billRequested:   false,
-    discountAmount:  0,
-    voidRequested:   false,
-    voidReason:      "",
-    auditTrail:      []
+    areaName:       area.name,
+    guests:         0,
+    items:          [],
+    payments:       [],
+    billSplitCount: 1,
+    isClosed:       false,
+    billRequested:  false,
+    discountAmount: 0,
+    voidRequested:  false,
+    voidReason:     "",
+    auditTrail:     [],
+    isCounter:      false
   };
 }
 
@@ -70,7 +74,15 @@ function buildAreasFromOutlet(outlet) {
   });
 }
 
-// ── Clock component ────────────────────────────────────────────────────────────
+// Load active shift from localStorage
+function loadActiveShift() {
+  try {
+    const shifts = JSON.parse(localStorage.getItem("pos_active_shifts") || "[]");
+    return (Array.isArray(shifts) ? shifts : []).find(s => s.status === "open") || null;
+  } catch { return null; }
+}
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
 function Clock() {
   const [time, setTime] = useState(() => new Date());
   useEffect(() => {
@@ -99,6 +111,13 @@ export default function App() {
   const [serviceMode,     setServiceMode]     = useState("dine-in");
   const [toast,           setToast]           = useState(null);
   const socketRef = useRef(null);
+
+  // ── Shift state ───────────────────────────────────────────────────────────
+  const [activeShift,      setActiveShift]      = useState(() => loadActiveShift());
+  const [showCashIn,       setShowCashIn]       = useState(false);
+  const [showCashOut,      setShowCashOut]      = useState(false);
+  const [showCloseShift,   setShowCloseShift]   = useState(false);
+  const [counterTicketNum, setCounterTicketNum] = useState(1);
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -139,7 +158,6 @@ export default function App() {
           )
         );
 
-        // Socket.io
         const socket = io("http://localhost:4000", { query: { outletId: target.id } });
         socketRef.current = socket;
 
@@ -186,9 +204,16 @@ export default function App() {
     ? tableAreas.filter((a) => a.id === activeArea)
     : tableAreas;
 
-  const tableLabel = selectedTable
-    ? `Table ${selectedTable.number} · ${selectedTable.areaName}`
-    : "";
+  const isCounterMode = serviceMode === "takeaway" || serviceMode === "delivery";
+
+  const tableLabel = useMemo(() => {
+    if (!selectedTableId) return "";
+    if (selectedOrder?.isCounter) {
+      return `${serviceMode === "delivery" ? "Delivery" : "Takeaway"} #${String(selectedOrder.ticketNumber || "").padStart(3, "0")}`;
+    }
+    if (selectedTable) return `Table ${selectedTable.number} · ${selectedTable.areaName}`;
+    return "";
+  }, [selectedTableId, selectedTable, selectedOrder, serviceMode]);
 
   // ── Order mutations ───────────────────────────────────────────────────────
   function mutateOrder(tableId, updater) {
@@ -225,8 +250,8 @@ export default function App() {
   function handleChangeQty(idx, qty) {
     if (!selectedTableId) return;
     mutateOrder(selectedTableId, (order) => {
-      if (qty <= 0) { order.items.splice(idx, 1); }
-      else          { order.items[idx].quantity = qty; }
+      if (qty <= 0) order.items.splice(idx, 1);
+      else          order.items[idx].quantity = qty;
       return order;
     });
   }
@@ -286,14 +311,13 @@ export default function App() {
     showToast("Bill requested");
     try {
       await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: selectedTableId });
-    } catch (_) {}
+    } catch {}
   }
 
-  // Accepts either a single payment object OR an array of payments
   async function handleSettle(paymentsInput) {
     if (!selectedTableId) return;
-    const order        = orders[selectedTableId];
-    const newPayments  = Array.isArray(paymentsInput) ? paymentsInput : [paymentsInput];
+    const order       = orders[selectedTableId];
+    const newPayments = Array.isArray(paymentsInput) ? paymentsInput : [paymentsInput];
 
     mutateOrder(selectedTableId, (o) => {
       o.payments = [...(o.payments || []), ...newPayments];
@@ -302,13 +326,12 @@ export default function App() {
       const disc     = Math.min(o.discountAmount || 0, subtotal);
       const total    = Math.round((subtotal - disc) * 1.05);
       if (paid >= total) {
-        o.isClosed  = true;
-        o.closedAt  = new Date().toISOString();
+        o.isClosed = true;
+        o.closedAt = new Date().toISOString();
       }
       return o;
     });
 
-    // Persist each payment to backend
     for (const p of newPayments) {
       try {
         await api.post("/operations/payment", {
@@ -329,12 +352,45 @@ export default function App() {
     showToast(`Payment recorded · ₹${totalPaid}`);
   }
 
-  // Split bill: open payment sheet pre-loaded with a specific amount
   async function handlePaySplit(amount) {
     if (!selectedTableId) return;
-    // Record as a cash payment for the split amount
     await handleSettle([{ method: "cash", amount, reference: undefined }]);
     showToast(`Split payment · ₹${amount}`);
+  }
+
+  // ── Counter order ─────────────────────────────────────────────────────────
+  function handleNewCounterOrder() {
+    const ticketNum = counterTicketNum;
+    const ticketId  = `counter-${Date.now()}`;
+    const area      = { id: "counter", name: serviceMode === "delivery" ? "Delivery" : "Takeaway" };
+    const fakeTable = { id: ticketId, number: String(ticketNum).padStart(3, "0") };
+    const orderNum  = Math.max(10050, ...Object.values(orders).map(o => o.orderNumber || 10050)) + 1;
+
+    const newOrder = {
+      ...buildBlankOrder(fakeTable, area, outlet?.name || "Outlet", orderNum),
+      isCounter:    true,
+      ticketNumber: ticketNum
+    };
+
+    setOrders(prev => ({ ...prev, [ticketId]: newOrder }));
+    setCounterTicketNum(n => n + 1);
+    setSelectedTableId(ticketId);
+  }
+
+  // ── Shift callbacks ───────────────────────────────────────────────────────
+  function handleShiftStarted(shift) {
+    setActiveShift(shift);
+  }
+
+  function handleMovementSaved(movement, updatedShift) {
+    setActiveShift(updatedShift || activeShift);
+    showToast(`${movement.type === "in" ? "Cash In" : "Cash Out"} · ₹${movement.amount}`);
+  }
+
+  function handleShiftClosed() {
+    setActiveShift(null);
+    setSelectedTableId(null);
+    showToast("Shift closed");
   }
 
   function showToast(message) {
@@ -342,12 +398,19 @@ export default function App() {
     setTimeout(() => setToast(null), 2500);
   }
 
+  // ── Service modes ─────────────────────────────────────────────────────────
   const SERVICE_MODES = [
-    { id: "dine-in",   label: "Dine-In"  },
-    { id: "takeaway",  label: "Takeaway" },
-    { id: "delivery",  label: "Delivery" }
+    { id: "dine-in",  label: "Dine-In"  },
+    { id: "takeaway", label: "Takeaway" },
+    { id: "delivery", label: "Delivery" }
   ];
 
+  // ── Shift Gate (no active shift) ──────────────────────────────────────────
+  if (!activeShift) {
+    return <ShiftGate outletName={outlet?.name} onShiftStarted={handleShiftStarted} />;
+  }
+
+  // ─── Main POS UI ──────────────────────────────────────────────────────────
   return (
     <div className="pos-shell">
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
@@ -364,7 +427,7 @@ export default function App() {
                 key={m.id}
                 type="button"
                 className={`pos-mode-pill${serviceMode === m.id ? " active" : ""}`}
-                onClick={() => setServiceMode(m.id)}
+                onClick={() => { setServiceMode(m.id); setSelectedTableId(null); }}
               >
                 {m.label}
               </button>
@@ -373,55 +436,80 @@ export default function App() {
         </div>
 
         <div className="pos-topbar-right">
+          {/* Shift info + controls */}
+          <div className="pos-shift-bar">
+            <div className="pos-shift-info">
+              <span className="pos-shift-cashier">{activeShift.cashier}</span>
+              <span className="pos-shift-session">{activeShift.session}</span>
+            </div>
+            <div className="pos-shift-actions">
+              <button type="button" className="pos-shift-btn in"
+                onClick={() => setShowCashIn(true)}>
+                ↑ In
+              </button>
+              <button type="button" className="pos-shift-btn out"
+                onClick={() => setShowCashOut(true)}>
+                ↓ Out
+              </button>
+              <button type="button" className="pos-shift-btn end"
+                onClick={() => setShowCloseShift(true)}>
+                End Shift
+              </button>
+            </div>
+          </div>
           <Clock />
-          <span className="pos-topbar-cashier">
-            {outlet?.cashierName || "Cashier"}
-          </span>
         </div>
       </div>
 
-      {/* ── Left: Floor / Table panel ────────────────────────────────────── */}
+      {/* ── Left: Floor / Table / Counter panel ─────────────────────────── */}
       <div className="pos-left">
-        {/* Area tabs */}
-        {tableAreas.length > 0 && (
-          <div className="pos-area-tabs">
-            <button
-              type="button"
-              className={`pos-area-tab${!activeArea ? " active" : ""}`}
-              onClick={() => setActiveArea(null)}
-            >All</button>
-            {tableAreas.map((area) => (
-              <button
-                key={area.id}
-                type="button"
-                className={`pos-area-tab${activeArea === area.id ? " active" : ""}`}
-                onClick={() => setActiveArea(area.id)}
-              >{area.name}</button>
-            ))}
-          </div>
-        )}
-
-        {/* Table grid */}
-        <div className="pos-left-scroll">
-          <TableGrid
-            areas={filteredAreas}
+        {isCounterMode ? (
+          <CounterPanel
             orders={orders}
-            selectedTableId={selectedTableId}
-            onSelectTable={setSelectedTableId}
+            selectedId={selectedTableId}
+            onSelect={setSelectedTableId}
+            onNewOrder={handleNewCounterOrder}
+            mode={serviceMode}
           />
-        </div>
-
-        {/* Status legend */}
-        <div className="pos-legend">
-          {[
-            { cls: "available", label: "Free"     },
-            { cls: "occupied",  label: "Occupied" },
-            { cls: "bill",      label: "Bill"     },
-            { cls: "void",      label: "Void"     }
-          ].map((l) => (
-            <span key={l.cls} className={`pos-legend-item legend-${l.cls}`}>{l.label}</span>
-          ))}
-        </div>
+        ) : (
+          <>
+            {tableAreas.length > 0 && (
+              <div className="pos-area-tabs">
+                <button
+                  type="button"
+                  className={`pos-area-tab${!activeArea ? " active" : ""}`}
+                  onClick={() => setActiveArea(null)}
+                >All</button>
+                {tableAreas.map((area) => (
+                  <button
+                    key={area.id}
+                    type="button"
+                    className={`pos-area-tab${activeArea === area.id ? " active" : ""}`}
+                    onClick={() => setActiveArea(area.id)}
+                  >{area.name}</button>
+                ))}
+              </div>
+            )}
+            <div className="pos-left-scroll">
+              <TableGrid
+                areas={filteredAreas}
+                orders={orders}
+                selectedTableId={selectedTableId}
+                onSelectTable={setSelectedTableId}
+              />
+            </div>
+            <div className="pos-legend">
+              {[
+                { cls: "available", label: "Free"     },
+                { cls: "occupied",  label: "Occupied" },
+                { cls: "bill",      label: "Bill"     },
+                { cls: "void",      label: "Void"     }
+              ].map((l) => (
+                <span key={l.cls} className={`pos-legend-item legend-${l.cls}`}>{l.label}</span>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Center: Menu panel ───────────────────────────────────────────── */}
@@ -470,7 +558,37 @@ export default function App() {
         />
       )}
 
-      {/* ── Toast notification ────────────────────────────────────────────── */}
+      {/* ── Cash In modal ─────────────────────────────────────────────────── */}
+      {showCashIn && (
+        <CashMovementModal
+          shift={activeShift}
+          type="in"
+          onClose={() => setShowCashIn(false)}
+          onSaved={handleMovementSaved}
+        />
+      )}
+
+      {/* ── Cash Out modal ────────────────────────────────────────────────── */}
+      {showCashOut && (
+        <CashMovementModal
+          shift={activeShift}
+          type="out"
+          onClose={() => setShowCashOut(false)}
+          onSaved={handleMovementSaved}
+        />
+      )}
+
+      {/* ── Close Shift modal ─────────────────────────────────────────────── */}
+      {showCloseShift && (
+        <CloseShiftModal
+          shift={activeShift}
+          orders={orders}
+          onClose={() => setShowCloseShift(false)}
+          onShiftClosed={handleShiftClosed}
+        />
+      )}
+
+      {/* ── Toast ─────────────────────────────────────────────────────────── */}
       {toast && (
         <div className="pos-toast" role="status">{toast}</div>
       )}
