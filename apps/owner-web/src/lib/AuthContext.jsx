@@ -56,6 +56,13 @@ export function AuthProvider({ children }) {
     return result.user;
   }, []);
 
+  const signup = useCallback(async (fields) => {
+    const result = await api.post("/auth/signup", fields);
+    localStorage.setItem("pos_token", result.token);
+    setUser(result.user);
+    return result.user;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout", {});
@@ -66,7 +73,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, signup }}>
       {children}
     </AuthContext.Provider>
   );

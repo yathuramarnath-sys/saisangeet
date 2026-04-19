@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 
 export function LoginPage() {
@@ -115,7 +115,8 @@ export function LoginPage() {
         </form>
 
         <p className="login-footer">
-          Restaurant OS · Indian POS Platform
+          New to DineXPOS?{" "}
+          <Link to="/signup" className="signup-signin-link">Create your account →</Link>
         </p>
       </div>
 
