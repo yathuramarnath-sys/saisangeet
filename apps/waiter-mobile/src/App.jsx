@@ -1,14 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
-import { api } from "./lib/api";
+import { api }       from "./lib/api";
 import { printBill } from "./lib/printBill";
 import {
   mobileAreas      as seedAreas,
   mobileCategories as seedCategories,
   mobileMenuItems  as seedMenuItems,
-  mobileInstructions as seedInstructions
 } from "./data/mobile.seed";
+
+// ─── Staff Profiles (PIN-protected) ──────────────────────────────────────────
+
+const STAFF = [
+  { id: "s1", name: "Karthik", role: "Captain", pin: "1234", avatar: "K" },
+  { id: "s2", name: "Priya",   role: "Waiter",  pin: "2345", avatar: "P" },
+  { id: "s3", name: "Rahul",   role: "Waiter",  pin: "3456", avatar: "R" },
+  { id: "s4", name: "Devi",    role: "Waiter",  pin: "4567", avatar: "D" },
+  { id: "s5", name: "Ravi",    role: "Waiter",  pin: "5678", avatar: "V" },
+];
+
+const NUMPAD_KEYS = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -19,9 +30,11 @@ const QUICK_NOTES = [
 
 const STATUS_LABEL = { open: "Free", hold: "Hold", bill: "Bill", running: "Running" };
 
-// seat colour palette: index 0 = shared (grey), 1..4 per person
-const SEAT_BG   = ["#e5e7eb", "#dbeafe", "#dcfce7", "#fef9c3", "#fce7f3"];
-const SEAT_TEXT = ["#374151", "#1d4ed8", "#15803d", "#854d0e", "#9d174d"];
+const SEAT_BG   = ["#e5e7eb","#dbeafe","#dcfce7","#fef9c3","#fce7f3"];
+const SEAT_TEXT = ["#374151","#1d4ed8","#15803d","#854d0e","#9d174d"];
+
+const AVATAR_COLORS = ["#111317","#1d4ed8","#15803d","#b45309","#7c3aed","#be123c"];
+function avatarBg(name = "") { return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]; }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -38,36 +51,243 @@ function buildBlankOrder(table, area) {
     guests:        0,
     items:         [],
     billRequested: false,
-    isOnHold:      false
+    isOnHold:      false,
   };
+}
+
+function tableStatusOf(orders, tableId) {
+  const o = orders[tableId];
+  if (!o?.items?.length) return "open";
+  if (o.isOnHold)        return "hold";
+  if (o.billRequested)   return "bill";
+  return "running";
+}
+
+// ─── Screen: Login ────────────────────────────────────────────────────────────
+
+function LoginScreen({ outletName, onLogin }) {
+  const [selected, setSelected] = useState(null);
+  const [pin,      setPin]      = useState("");
+  const [error,    setError]    = useState("");
+  const [shake,    setShake]    = useState(false);
+
+  function triggerShake() {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  }
+
+  function handleDigit(d) {
+    if (pin.length >= 4) return;
+    const next = pin + d;
+    setPin(next);
+    setError("");
+    if (next.length === 4) {
+      setTimeout(() => {
+        if (next === selected.pin) {
+          onLogin(selected);
+        } else {
+          triggerShake();
+          setError("Wrong PIN — try again");
+          setTimeout(() => setPin(""), 400);
+        }
+      }, 150);
+    }
+  }
+
+  function handleDel() {
+    setPin((p) => p.slice(0, -1));
+    setError("");
+  }
+
+  // ── Staff selection ──────────────────────────────────────────────────────
+  if (!selected) {
+    return (
+      <div className="login-page">
+        <div className="login-brand">
+          <span className="login-brand-mark">C</span>
+          <h1 className="login-brand-title">Captain App</h1>
+          <p className="login-brand-sub">{outletName || "Select your profile"}</p>
+        </div>
+        <div className="staff-grid">
+          {STAFF.map((s) => (
+            <button
+              key={s.id}
+              className="staff-card"
+              onClick={() => { setSelected(s); setPin(""); setError(""); }}
+            >
+              <span className="staff-avatar" style={{ background: avatarBg(s.name) }}>
+                {s.avatar}
+              </span>
+              <span className="staff-name">{s.name}</span>
+              <span className="staff-role">{s.role}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── PIN entry ─────────────────────────────────────────────────────────────
+  return (
+    <div className="login-page">
+      <button className="back-btn" style={{ alignSelf: "flex-start", padding: "14px 18px" }}
+        onClick={() => { setSelected(null); setPin(""); setError(""); }}>
+        ← Back
+      </button>
+
+      <div className="pin-profile">
+        <span className="pin-avatar" style={{ background: avatarBg(selected.name) }}>
+          {selected.avatar}
+        </span>
+        <p className="pin-name">{selected.name}</p>
+        <p className="pin-role-label">{selected.role}</p>
+      </div>
+
+      <div className={`pin-dots-row${shake ? " shake" : ""}`}>
+        {[0,1,2,3].map((i) => (
+          <span key={i} className={`pin-dot${pin.length > i ? " filled" : ""}`} />
+        ))}
+      </div>
+
+      {error
+        ? <p className="pin-error">{error}</p>
+        : <p className="pin-hint">Enter your 4-digit PIN</p>
+      }
+
+      <div className="numpad">
+        {NUMPAD_KEYS.map((k, i) => (
+          <button
+            key={i}
+            className={`numpad-key${k === "" ? " invisible" : ""}${k === "⌫" ? " del-key" : ""}`}
+            onClick={() => k === "⌫" ? handleDel() : k && handleDigit(k)}
+            disabled={k === ""}
+          >
+            {k === "⌫" ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/>
+                <line x1="18" y1="9" x2="12" y2="15"/>
+                <line x1="12" y1="9" x2="18" y2="15"/>
+              </svg>
+            ) : k}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal: Table Transfer ────────────────────────────────────────────────────
+
+function TableTransferModal({ currentTableId, areas, orders, onTransfer, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+        <span className="sheet-handle" />
+        <h3 className="sheet-title">Transfer Table</h3>
+        <p className="sheet-sub">Move this order to an empty table</p>
+        <div className="sheet-body">
+          {areas.map((area) => {
+            const others = area.tables.filter((t) => t.id !== currentTableId);
+            if (!others.length) return null;
+            return (
+              <div key={area.id} className="sheet-area-block">
+                <p className="sheet-area-head">{area.name}</p>
+                <div className="transfer-chips">
+                  {others.map((t) => {
+                    const st = tableStatusOf(orders, t.id);
+                    const isOpen = st === "open";
+                    return (
+                      <button
+                        key={t.id}
+                        className={`transfer-chip status-${st}${!isOpen ? " disabled" : ""}`}
+                        onClick={() => isOpen && onTransfer(currentTableId, t.id)}
+                        disabled={!isOpen}
+                      >
+                        <span className="tc-num">{t.number}</span>
+                        <span className="tc-label">{STATUS_LABEL[st] || st}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal: Table Merge ───────────────────────────────────────────────────────
+
+function TableMergeModal({ currentTableId, currentOrder, areas, orders, onMerge, onClose }) {
+  const occupied = [];
+  areas.forEach((area) => {
+    area.tables.forEach((t) => {
+      if (t.id !== currentTableId && (orders[t.id]?.items?.length > 0)) {
+        occupied.push({ table: t, area, order: orders[t.id] });
+      }
+    });
+  });
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+        <span className="sheet-handle" />
+        <h3 className="sheet-title">Merge Tables</h3>
+        <p className="sheet-sub">
+          Combine another table's items into&nbsp;
+          <strong>Table {currentOrder?.tableNumber}</strong>
+        </p>
+        <div className="sheet-body">
+          {occupied.length === 0 ? (
+            <p className="no-items" style={{ padding: "28px 0", textAlign: "center" }}>
+              No other occupied tables
+            </p>
+          ) : (
+            occupied.map(({ table, area, order: o }) => {
+              const sub = (o.items || []).reduce((s, i) => s + i.price * i.quantity, 0);
+              return (
+                <button
+                  key={table.id}
+                  className="merge-row"
+                  onClick={() => onMerge(currentTableId, table.id)}
+                >
+                  <div className="merge-row-info">
+                    <strong className="merge-table-num">Table {table.number}</strong>
+                    <span className="merge-area-name">{area.name}</span>
+                  </div>
+                  <div className="merge-row-right">
+                    <span className="merge-summary">
+                      {o.items?.length || 0} items · ₹{Math.round(sub * 1.05)}
+                    </span>
+                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Screen: Table Floor ──────────────────────────────────────────────────────
 
 function TableScreen({ areas, orders, onSelectTable }) {
   const [activeArea, setActiveArea] = useState(null);
-
-  const visibleAreas = activeArea
-    ? areas.filter((a) => a.id === activeArea)
-    : areas;
-
-  function tableStatus(tableId) {
-    const o = orders[tableId];
-    if (!o?.items?.length) return "open";
-    if (o.isOnHold)        return "hold";
-    if (o.billRequested)   return "bill";
-    return "running";
-  }
+  const visible = activeArea ? areas.filter((a) => a.id === activeArea) : areas;
 
   return (
     <div className="w-screen">
-      {/* Area filter tabs */}
       {areas.length > 1 && (
         <div className="area-tabs">
-          <button
-            className={`area-tab${!activeArea ? " active" : ""}`}
-            onClick={() => setActiveArea(null)}
-          >All</button>
+          <button className={`area-tab${!activeArea ? " active" : ""}`} onClick={() => setActiveArea(null)}>
+            All
+          </button>
           {areas.map((a) => (
             <button
               key={a.id}
@@ -77,25 +297,23 @@ function TableScreen({ areas, orders, onSelectTable }) {
           ))}
         </div>
       )}
-
-      {/* Table grid */}
       <div className="table-list">
-        {visibleAreas.map((area) => (
+        {visible.map((area) => (
           <div key={area.id} className="table-area-section">
             <p className="table-area-head">{area.name}</p>
             <div className="table-chips">
               {area.tables.map((table) => {
-                const status = tableStatus(table.id);
-                const count  = orders[table.id]?.items?.length || 0;
+                const st    = tableStatusOf(orders, table.id);
+                const count = orders[table.id]?.items?.length || 0;
                 return (
                   <button
                     key={table.id}
-                    className={`table-chip status-${status}`}
+                    className={`table-chip status-${st}`}
                     onClick={() => onSelectTable(table.id, area)}
                   >
                     <span className="table-chip-num">{table.number}</span>
                     {count > 0 && <span className="table-chip-badge">{count}</span>}
-                    <span className="table-chip-status">{STATUS_LABEL[status]}</span>
+                    <span className="table-chip-status">{STATUS_LABEL[st]}</span>
                   </button>
                 );
               })}
@@ -111,7 +329,7 @@ function TableScreen({ areas, orders, onSelectTable }) {
 
 function SplitBillScreen({ order, outletName, onBack }) {
   const [seats,       setSeats]       = useState(2);
-  const [assignments, setAssignments] = useState({}); // { [itemId]: 0..N }
+  const [assignments, setAssignments] = useState({});
 
   const items = order.items || [];
 
@@ -125,7 +343,6 @@ function SplitBillScreen({ order, outletName, onBack }) {
 
   function changeSeatCount(n) {
     setSeats(n);
-    // Clamp any assignments that exceed the new count back to "shared"
     setAssignments((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((id) => { if (next[id] > n) next[id] = 0; });
@@ -134,29 +351,16 @@ function SplitBillScreen({ order, outletName, onBack }) {
   }
 
   function getItemsForSeat(seatNum) {
-    // seatNum 0 = all items; else items assigned to that seat OR shared (0)
     return items.filter((i) => {
       const a = assignments[i.id] ?? 0;
       return seatNum === 0 ? true : (a === 0 || a === seatNum);
     });
   }
 
-  function handlePrintSeat(seatNum) {
-    const seatItems = getItemsForSeat(seatNum);
-    if (!seatItems.length) return;
-    printBill(order, seatItems, outletName, { seatLabel: `Person ${seatNum}` });
-  }
-
-  function handlePrintAll() {
-    printBill(order, items, outletName);
-  }
-
-  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const total    = Math.round(subtotal * 1.05);
+  const total = Math.round(items.reduce((s, i) => s + i.price * i.quantity, 0) * 1.05);
 
   return (
     <div className="w-screen split-screen">
-      {/* Header */}
       <div className="split-head">
         <button className="back-btn" onClick={onBack}>← Back</button>
         <div>
@@ -165,11 +369,10 @@ function SplitBillScreen({ order, outletName, onBack }) {
         </div>
       </div>
 
-      {/* Person count selector */}
       <div className="split-count-bar">
         <span className="split-count-label">Split between</span>
         <div className="split-count-btns">
-          {[2, 3, 4].map((n) => (
+          {[2,3,4].map((n) => (
             <button
               key={n}
               className={`split-count-btn${seats === n ? " active" : ""}`}
@@ -179,9 +382,8 @@ function SplitBillScreen({ order, outletName, onBack }) {
         </div>
       </div>
 
-      <p className="split-hint">Tap an item to assign it — grey means shared by all</p>
+      <p className="split-hint">Tap an item to assign it — grey = shared by all</p>
 
-      {/* Item assignment list */}
       <div className="split-item-list">
         {items.map((item) => {
           const seat = assignments[item.id] ?? 0;
@@ -196,13 +398,8 @@ function SplitBillScreen({ order, outletName, onBack }) {
                 {item.note && <span className="split-item-note">{item.note}</span>}
               </div>
               <div className="split-item-right">
-                <span className="split-item-price">
-                  ×{item.quantity} · ₹{(item.price * item.quantity).toFixed(0)}
-                </span>
-                <span
-                  className="split-seat-badge"
-                  style={{ background: SEAT_BG[seat], color: SEAT_TEXT[seat] }}
-                >
+                <span className="split-item-price">×{item.quantity} · ₹{(item.price * item.quantity).toFixed(0)}</span>
+                <span className="split-seat-badge" style={{ background: SEAT_BG[seat], color: SEAT_TEXT[seat] }}>
                   {seat === 0 ? "All" : `P${seat}`}
                 </span>
               </div>
@@ -211,25 +408,24 @@ function SplitBillScreen({ order, outletName, onBack }) {
         })}
       </div>
 
-      {/* Print buttons */}
       <div className="split-print-area">
         <div className="split-print-grid">
           {Array.from({ length: seats }, (_, i) => i + 1).map((n) => {
-            const count = getItemsForSeat(n).length;
+            const cnt = getItemsForSeat(n).length;
             return (
               <button
                 key={n}
                 className="waiter-btn split-person-btn"
-                onClick={() => handlePrintSeat(n)}
-                disabled={count === 0}
+                onClick={() => { const si = getItemsForSeat(n); if (si.length) printBill(order, si, outletName, { seatLabel: `Person ${n}` }); }}
+                disabled={cnt === 0}
               >
                 🖨️ Person {n}
-                <span className="split-person-count">{count} items</span>
+                <span className="split-person-count">{cnt} items</span>
               </button>
             );
           })}
         </div>
-        <button className="waiter-btn bill" onClick={handlePrintAll}>
+        <button className="waiter-btn bill" onClick={() => printBill(order, items, outletName)}>
           Print Full Bill
         </button>
       </div>
@@ -240,11 +436,11 @@ function SplitBillScreen({ order, outletName, onBack }) {
 // ─── Screen: Order ────────────────────────────────────────────────────────────
 
 function OrderScreen({
-  order, tableLabel, categories, menuItems,
-  outletName, onBack, onSendKOT, onRequestBill,
-  onPrintBill, onToggleHold, onUpdateOrder
+  order, tableLabel, categories, menuItems, outletName,
+  onBack, onSendKOT, onRequestBill, onPrintBill,
+  onToggleHold, onTransfer, onMerge, onUpdateOrder
 }) {
-  const [screen,      setScreen]      = useState("order"); // "order" | "menu" | "note" | "split"
+  const [screen,      setScreen]      = useState("order");
   const [activeCat,   setActiveCat]   = useState(categories[0]?.name || "");
   const [noteItemIdx, setNoteItemIdx] = useState(null);
   const [noteValue,   setNoteValue]   = useState("");
@@ -264,13 +460,13 @@ function OrderScreen({
       items[idx] = { ...items[idx], quantity: items[idx].quantity + 1 };
     } else {
       items.push({
-        id:        `item-${Date.now()}-${Math.random().toString(16).slice(2, 5)}`,
+        id:        `item-${Date.now()}-${Math.random().toString(16).slice(2,5)}`,
         menuItemId: item.id,
         name:      item.name,
         price:     parsePriceNumber(item.price || item.basePrice),
         quantity:  1,
         sentToKot: false,
-        note:      ""
+        note:      "",
       });
     }
     onUpdateOrder({ ...order, items });
@@ -298,19 +494,13 @@ function OrderScreen({
     setScreen("order");
   }
 
-  const unsentCount  = (order.items || []).filter((i) => !i.sentToKot).length;
-  const totalAmount  = (order.items || []).reduce((s, i) => s + i.price * i.quantity, 0);
-  const hasItems     = (order.items || []).length > 0;
+  const unsentCount = (order.items || []).filter((i) => !i.sentToKot).length;
+  const totalAmount = (order.items || []).reduce((s, i) => s + i.price * i.quantity, 0);
+  const hasItems    = (order.items || []).length > 0;
 
   // ── Split screen ───────────────────────────────────────────────────────────
   if (screen === "split") {
-    return (
-      <SplitBillScreen
-        order={order}
-        outletName={outletName}
-        onBack={() => setScreen("order")}
-      />
-    );
+    return <SplitBillScreen order={order} outletName={outletName} onBack={() => setScreen("order")} />;
   }
 
   // ── Note screen ────────────────────────────────────────────────────────────
@@ -350,9 +540,8 @@ function OrderScreen({
           <button className="back-btn" onClick={() => setScreen("order")}>← Back</button>
           <h2>Add Items</h2>
         </div>
-
         <div className="menu-search-bar">
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input
@@ -363,7 +552,6 @@ function OrderScreen({
           />
           {search && <button onClick={() => setSearch("")}>✕</button>}
         </div>
-
         {!search && (
           <div className="menu-cat-scroll">
             {categories.map((c) => (
@@ -375,7 +563,6 @@ function OrderScreen({
             ))}
           </div>
         )}
-
         <div className="menu-item-list">
           {displayItems.map((item) => {
             const price = parsePriceNumber(item.price || item.basePrice);
@@ -404,7 +591,9 @@ function OrderScreen({
       <div className="order-head">
         <div className="order-head-row">
           <button className="back-btn" onClick={onBack}>← Tables</button>
-          {order.isOnHold && <span className="hold-tag">ON HOLD</span>}
+          <div className="order-head-actions">
+            {order.isOnHold && <span className="hold-tag">⏸ ON HOLD</span>}
+          </div>
         </div>
         <div className="order-head-info">
           <h2 className="order-table-title">{tableLabel}</h2>
@@ -412,9 +601,7 @@ function OrderScreen({
             {order.areaName} ·&nbsp;
             <input
               className="guests-inline"
-              type="number"
-              min="0"
-              max="20"
+              type="number" min="0" max="20"
               value={order.guests || ""}
               placeholder="0"
               onChange={(e) => onUpdateOrder({ ...order, guests: Number(e.target.value) })}
@@ -428,7 +615,7 @@ function OrderScreen({
       <div className="order-item-list">
         {!hasItems && (
           <div className="empty-order">
-            <svg width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" opacity=".3">
+            <svg width="38" height="38" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" opacity=".3">
               <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
               <rect x="9" y="3" width="6" height="4" rx="1"/>
               <path d="M9 12h6M9 16h4"/>
@@ -442,14 +629,10 @@ function OrderScreen({
             <div className="order-row-info">
               <span className="order-row-name">{item.name}</span>
               {item.sentToKot && <span className="kot-badge">KOT ✓</span>}
-              {item.note ? (
-                <button
-                  className="note-chip active"
-                  onClick={() => !item.sentToKot && openNote(idx)}
-                >{item.note}</button>
-              ) : !item.sentToKot && (
-                <button className="note-chip" onClick={() => openNote(idx)}>+ note</button>
-              )}
+              {item.note
+                ? <button className="note-chip active" onClick={() => !item.sentToKot && openNote(idx)}>{item.note}</button>
+                : !item.sentToKot && <button className="note-chip" onClick={() => openNote(idx)}>+ note</button>
+              }
             </div>
             <div className="order-row-right">
               {!item.sentToKot ? (
@@ -469,28 +652,20 @@ function OrderScreen({
 
       {/* Add items bar */}
       <div className="add-items-bar">
-        <button className="add-items-btn" onClick={() => setScreen("menu")}>
-          + Add Items
-        </button>
-        {totalAmount > 0 && (
-          <span className="running-total">₹{Math.round(totalAmount * 1.05)}</span>
-        )}
+        <button className="add-items-btn" onClick={() => setScreen("menu")}>+ Add Items</button>
+        {totalAmount > 0 && <span className="running-total">₹{Math.round(totalAmount * 1.05)}</span>}
       </div>
 
       {/* Action buttons */}
       <div className="order-actions">
-        {/* Send KOT — only when unsent items exist */}
+        {/* Send KOT */}
         {unsentCount > 0 && (
           <button className="waiter-btn kot" onClick={onSendKOT}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-              <path d="M8 12l2 2 4-4"/>
-            </svg>
-            Send KOT ({unsentCount} item{unsentCount > 1 ? "s" : ""})
+            🍽️ Send KOT ({unsentCount} item{unsentCount > 1 ? "s" : ""})
           </button>
         )}
 
-        {/* Hold + Print Bill — shown when items exist */}
+        {/* Hold + Print */}
         {hasItems && (
           <div className="action-row-2">
             <button
@@ -499,35 +674,40 @@ function OrderScreen({
             >
               {order.isOnHold ? "▶ Resume" : "⏸ Hold"}
             </button>
-            <button
-              className="waiter-btn half-btn print-idle"
-              onClick={onPrintBill}
-            >
+            <button className="waiter-btn half-btn print-idle" onClick={onPrintBill}>
               🖨️ Print Bill
             </button>
           </div>
         )}
 
+        {/* Transfer + Merge */}
+        <div className="action-row-2">
+          <button className="waiter-btn half-btn table-action" onClick={onTransfer}>
+            ⇄ Transfer
+          </button>
+          <button
+            className="waiter-btn half-btn table-action"
+            onClick={onMerge}
+            disabled={!hasItems}
+            style={{ opacity: hasItems ? 1 : 0.4 }}
+          >
+            ⊕ Merge
+          </button>
+        </div>
+
         {/* Split Bill */}
         {hasItems && (
           <button className="waiter-btn split-idle" onClick={() => setScreen("split")}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
-            </svg>
-            Split Bill
+            ✂ Split Bill
           </button>
         )}
 
-        {/* Request Bill / Bill-requested banner */}
+        {/* Request Bill */}
         {hasItems && !order.billRequested && (
-          <button className="waiter-btn bill" onClick={onRequestBill}>
-            Request Bill
-          </button>
+          <button className="waiter-btn bill" onClick={onRequestBill}>Request Bill</button>
         )}
         {order.billRequested && (
-          <div className="bill-requested-banner">
-            ✓ Bill requested — awaiting cashier
-          </div>
+          <div className="bill-requested-banner">✓ Bill requested — awaiting cashier</div>
         )}
       </div>
     </div>
@@ -537,6 +717,7 @@ function OrderScreen({
 // ─── App root ─────────────────────────────────────────────────────────────────
 
 export function App() {
+  const [loggedInStaff,   setLoggedInStaff]   = useState(null);
   const [areas,           setAreas]           = useState(seedAreas);
   const [categories,      setCategories]      = useState(seedCategories);
   const [menuItems,       setMenuItems]       = useState(seedMenuItems);
@@ -545,6 +726,8 @@ export function App() {
   const [selectedArea,    setSelectedArea]    = useState(null);
   const [outlet,          setOutlet]          = useState(null);
   const [toast,           setToast]           = useState(null);
+  const [showTransfer,    setShowTransfer]    = useState(false);
+  const [showMerge,       setShowMerge]       = useState(false);
   const socketRef = useRef(null);
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
@@ -558,66 +741,49 @@ export function App() {
 
         const [cats, items] = await Promise.all([
           api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),
-          api.get(`/menu/items?outletId=${target.id}`).catch(() => [])
+          api.get(`/menu/items?outletId=${target.id}`).catch(() => []),
         ]);
-
         if (cats.length)  setCategories(cats);
-        if (items.length) setMenuItems(items.map((i) => ({
-          ...i,
-          price: parsePriceNumber(i.basePrice || i.price)
-        })));
+        if (items.length) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
 
         const socket = io("http://localhost:4000", { query: { outletId: target.id } });
         socketRef.current = socket;
-
-        socket.on("order:updated", (o) =>
-          setOrders((prev) => ({ ...prev, [o.tableId]: o }))
-        );
-
+        socket.on("order:updated", (o) => setOrders((p) => ({ ...p, [o.tableId]: o })));
         socket.on("kot:sent", ({ tableId }) =>
-          setOrders((prev) => {
-            if (!prev[tableId]) return prev;
-            return {
-              ...prev,
-              [tableId]: {
-                ...prev[tableId],
-                items: prev[tableId].items.map((i) => ({ ...i, sentToKot: true }))
-              }
-            };
+          setOrders((p) => {
+            if (!p[tableId]) return p;
+            return { ...p, [tableId]: { ...p[tableId], items: p[tableId].items.map((i) => ({ ...i, sentToKot: true })) } };
           })
         );
       } catch (err) {
         console.error("Waiter bootstrap failed:", err.message);
       }
     }
-
     bootstrap();
     return () => socketRef.current?.disconnect();
   }, []);
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  function showToast(msg) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2200);
-  }
+  // ── Utils ──────────────────────────────────────────────────────────────────
+  function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2400); }
 
   function handleSelectTable(tableId, area) {
     setOrders((prev) => {
       if (prev[tableId]) return prev;
-      const table = area.tables.find((t) => t.id === tableId);
-      if (!table) return prev;
-      return { ...prev, [tableId]: buildBlankOrder(table, area) };
+      const t = area.tables.find((x) => x.id === tableId);
+      if (!t) return prev;
+      return { ...prev, [tableId]: buildBlankOrder(t, area) };
     });
     setSelectedTableId(tableId);
     setSelectedArea(area);
+    setShowTransfer(false);
+    setShowMerge(false);
   }
 
   function handleUpdateOrder(nextOrder) {
-    setOrders((prev) => ({ ...prev, [nextOrder.tableId]: nextOrder }));
+    setOrders((p) => ({ ...p, [nextOrder.tableId]: nextOrder }));
     socketRef.current?.emit("order:update", { outletId: outlet?.id, order: nextOrder });
   }
 
@@ -626,23 +792,11 @@ export function App() {
     if (!order) return;
     const unsent = (order.items || []).filter((i) => !i.sentToKot);
     if (!unsent.length) return;
-
-    handleUpdateOrder({
-      ...order,
-      items: order.items.map((i) => ({ ...i, sentToKot: true }))
-    });
+    handleUpdateOrder({ ...order, items: order.items.map((i) => ({ ...i, sentToKot: true })) });
     showToast("🍽️ KOT sent to kitchen");
-
     try {
-      await api.post("/operations/kot", {
-        outletId:    outlet?.id,
-        tableId:     order.tableId,
-        tableNumber: order.tableNumber,
-        items:       unsent
-      });
-    } catch (err) {
-      console.error("KOT failed:", err.message);
-    }
+      await api.post("/operations/kot", { outletId: outlet?.id, tableId: order.tableId, tableNumber: order.tableNumber, items: unsent });
+    } catch (e) { console.error("KOT:", e.message); }
   }
 
   async function handleRequestBill() {
@@ -650,12 +804,7 @@ export function App() {
     if (!order) return;
     handleUpdateOrder({ ...order, billRequested: true });
     showToast("Bill requested — cashier notified");
-    try {
-      await api.post("/operations/bill-request", {
-        outletId: outlet?.id,
-        tableId:  selectedTableId
-      });
-    } catch (_) {}
+    try { await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: selectedTableId }); } catch (_) {}
   }
 
   function handlePrintBill() {
@@ -673,40 +822,106 @@ export function App() {
     showToast(next.isOnHold ? "⏸ Order on hold" : "▶ Order resumed");
   }
 
-  // ── Derived state ──────────────────────────────────────────────────────────
+  // ── Table Transfer ─────────────────────────────────────────────────────────
+  function handleTableTransfer(fromId, toId) {
+    const fromOrder = orders[fromId];
+    if (!fromOrder) return;
 
+    // Find destination table + area
+    let toTable = null, toArea = null;
+    for (const area of areas) {
+      const t = area.tables.find((x) => x.id === toId);
+      if (t) { toTable = t; toArea = area; break; }
+    }
+    if (!toTable || !toArea) return;
+
+    const movedOrder = { ...fromOrder, tableId: toId, tableNumber: toTable.number, areaName: toArea.name };
+
+    setOrders((prev) => {
+      const next = { ...prev };
+      // Free old table
+      const fromArea = areas.find((a) => a.tables.some((t) => t.id === fromId));
+      const fromTable = fromArea?.tables.find((t) => t.id === fromId);
+      next[fromId] = fromTable && fromArea ? buildBlankOrder(fromTable, fromArea) : undefined;
+      if (!next[fromId]) delete next[fromId];
+      // Set new table
+      next[toId] = movedOrder;
+      return next;
+    });
+
+    setSelectedTableId(toId);
+    setSelectedArea(toArea);
+    setShowTransfer(false);
+    showToast(`✓ Order moved to Table ${toTable.number}`);
+  }
+
+  // ── Table Merge ────────────────────────────────────────────────────────────
+  function handleTableMerge(currentId, mergeFromId) {
+    const current   = orders[currentId];
+    const mergeFrom = orders[mergeFromId];
+    if (!current || !mergeFrom) return;
+
+    const mergedOrder = {
+      ...current,
+      items:  [...(current.items || []), ...(mergeFrom.items || [])],
+      guests: (current.guests || 0) + (mergeFrom.guests || 0),
+    };
+
+    // Find mergeFrom table to reset it
+    let mfTable = null, mfArea = null;
+    for (const area of areas) {
+      const t = area.tables.find((x) => x.id === mergeFromId);
+      if (t) { mfTable = t; mfArea = area; break; }
+    }
+
+    setOrders((prev) => ({
+      ...prev,
+      [currentId]:   mergedOrder,
+      [mergeFromId]: mfTable && mfArea ? buildBlankOrder(mfTable, mfArea) : prev[mergeFromId],
+    }));
+
+    const fromNum = mergeFrom.tableNumber || mergeFromId;
+    setShowMerge(false);
+    showToast(`✓ Table ${fromNum} merged into this order`);
+  }
+
+  // ── Derived state ──────────────────────────────────────────────────────────
   const selectedOrder = selectedTableId ? orders[selectedTableId] : null;
   const selectedTable = selectedTableId && selectedArea
-    ? selectedArea.tables.find((t) => t.id === selectedTableId)
-    : null;
+    ? selectedArea.tables.find((t) => t.id === selectedTableId) : null;
   const tableLabel = selectedTable ? `Table ${selectedTable.number}` : "";
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  // Login gate
+  if (!loggedInStaff) {
+    return <LoginScreen outletName={outlet?.name} onLogin={setLoggedInStaff} />;
+  }
+
   return (
     <div className="waiter-app">
+      {/* Header */}
       <header className="waiter-header">
         <div className="waiter-header-inner">
           <div className="waiter-brand">
-            <span className="waiter-brand-mark">C</span>
+            <span className="waiter-brand-mark" style={{ background: avatarBg(loggedInStaff.name) }}>
+              {loggedInStaff.avatar}
+            </span>
             <div>
-              <strong>Captain App</strong>
-              <p>{outlet?.name || "Restaurant"}</p>
+              <strong>{loggedInStaff.name}</strong>
+              <p>{loggedInStaff.role} · {outlet?.name || "Restaurant"}</p>
             </div>
           </div>
-          <div className="waiter-header-right">
-            <span className="online-dot" title="Online" />
-          </div>
+          <button className="logout-btn" onClick={() => { setLoggedInStaff(null); setSelectedTableId(null); }}>
+            Sign out
+          </button>
         </div>
       </header>
 
+      {/* Main content */}
       <main className="waiter-main">
         {!selectedTableId ? (
-          <TableScreen
-            areas={areas}
-            orders={orders}
-            onSelectTable={handleSelectTable}
-          />
+          <TableScreen areas={areas} orders={orders} onSelectTable={handleSelectTable} />
         ) : (
           <OrderScreen
             order={selectedOrder || buildBlankOrder(
@@ -722,10 +937,35 @@ export function App() {
             onRequestBill={handleRequestBill}
             onPrintBill={handlePrintBill}
             onToggleHold={handleToggleHold}
+            onTransfer={() => setShowTransfer(true)}
+            onMerge={() => setShowMerge(true)}
             onUpdateOrder={handleUpdateOrder}
           />
         )}
       </main>
+
+      {/* Transfer modal */}
+      {showTransfer && selectedTableId && (
+        <TableTransferModal
+          currentTableId={selectedTableId}
+          areas={areas}
+          orders={orders}
+          onTransfer={handleTableTransfer}
+          onClose={() => setShowTransfer(false)}
+        />
+      )}
+
+      {/* Merge modal */}
+      {showMerge && selectedTableId && (
+        <TableMergeModal
+          currentTableId={selectedTableId}
+          currentOrder={selectedOrder}
+          areas={areas}
+          orders={orders}
+          onMerge={handleTableMerge}
+          onClose={() => setShowMerge(false)}
+        />
+      )}
 
       {toast && <div className="waiter-toast">{toast}</div>}
     </div>
