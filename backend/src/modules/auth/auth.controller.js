@@ -1,4 +1,4 @@
-const { login, signup, isSignupAvailable } = require("./auth.service");
+const { login, signup, isSignupAvailable, saveSignupInterest } = require("./auth.service");
 
 async function loginHandler(req, res) {
   const result = await login(req.body);
@@ -30,10 +30,16 @@ function logoutHandler(_req, res) {
   res.json({ ok: true });
 }
 
+async function signupInterestHandler(req, res) {
+  const result = await saveSignupInterest(req.body);
+  res.json(result);
+}
+
 module.exports = {
   loginHandler,
   signupAvailableHandler,
   signupHandler,
+  signupInterestHandler,
   meHandler,
   logoutHandler
 };
