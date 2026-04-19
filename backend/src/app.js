@@ -15,6 +15,7 @@ const ALLOWED_ORIGINS = [
   // Production — dinexpos.in subdomains
   "https://dinexpos.in",
   "https://www.dinexpos.in",
+  "https://app.dinexpos.in",
   "https://pos.dinexpos.in",
   "https://captain.dinexpos.in",
   "https://kds.dinexpos.in",

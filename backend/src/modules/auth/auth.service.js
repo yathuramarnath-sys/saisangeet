@@ -135,8 +135,35 @@ async function signup({ fullName, email, phone, password, businessName }) {
   };
 }
 
+// ── Signup Interest (landing page lead capture) ──────────────────────────────
+async function saveSignupInterest({ name, restaurant, phone, email, outlets, message }) {
+  if (!name || !email) {
+    throw new ApiError(400, "INTEREST_MISSING_FIELDS", "Name and email are required");
+  }
+
+  // Append lead to the store's signupLeads array (non-critical — ignore DB errors)
+  try {
+    updateOwnerSetupData((data) => {
+      data.signupLeads = data.signupLeads || [];
+      data.signupLeads.push({
+        name,
+        restaurant,
+        phone,
+        email: email.toLowerCase().trim(),
+        outlets,
+        message,
+        submittedAt: new Date().toISOString()
+      });
+      return data;
+    });
+  } catch (_) { /* best-effort */ }
+
+  return { ok: true };
+}
+
 module.exports = {
   login,
   signup,
-  isSignupAvailable
+  isSignupAvailable,
+  saveSignupInterest
 };
