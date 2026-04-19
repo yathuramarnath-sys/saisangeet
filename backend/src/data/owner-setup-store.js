@@ -399,6 +399,10 @@ function createDefaultData() {
         id: "user-owner",
         fullName: "Amarnath",
         name: "Amarnath",
+        email: "owner@saisangeet.in",
+        phone: "+919876543210",
+        // bcrypt hash of "owner123"
+        passwordHash: "$2b$10$uswTO4ArQdqk.uheoYOzfOw77V78BVImuTjD7ya7TSXU04iqK.GuK",
         roles: ["Owner"],
         outletName: "All Outlets",
         isActive: true,

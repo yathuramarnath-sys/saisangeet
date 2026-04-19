@@ -180,7 +180,9 @@ export default function App() {
           )
         );
 
-        const socket = io("http://localhost:4000", { query: { outletId: target.id } });
+        const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
+          .replace("/api/v1", "");
+        const socket = io(socketUrl, { query: { outletId: target.id } });
         socketRef.current = socket;
 
         socket.on("order:updated", (updatedOrder) => {

@@ -911,7 +911,9 @@ export function App() {
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
 
-        const socket = io("http://localhost:4000", { query: { outletId: target.id } });
+        const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
+          .replace("/api/v1", "");
+        const socket = io(socketUrl, { query: { outletId: target.id } });
         socketRef.current = socket;
         socket.on("order:updated", (o) => setOrders((p) => ({ ...p, [o.tableId]: o })));
         socket.on("kot:sent", ({ tableId }) =>
