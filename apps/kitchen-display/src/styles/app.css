@@ -976,3 +976,208 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
 }
 
 .kds-settings-save:hover { background: #4ade80; }
+
+/* ─── Stock tab badge on sidebar nav item ────────────────────────────────── */
+
+.kds-stab.has-badge { color: var(--kds-urgent); }
+
+.kds-stab-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--kds-urgent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  padding: 0 5px;
+}
+
+/* ─── Stock tab — section wrapper ────────────────────────────────────────── */
+
+.kds-stock-section {
+  gap: 0 !important;
+  padding-bottom: 24px;
+}
+
+/* ── Summary bar ─────────────────────────────────────────────────────────── */
+
+.kds-stock-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--kds-bg);
+  border: 1px solid var(--kds-border-s);
+  border-radius: 11px;
+  margin-bottom: 14px;
+}
+
+.kds-stock-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  min-width: 64px;
+}
+
+.kds-stock-stat.available { background: rgba(52,211,153,0.08); }
+.kds-stock-stat.soldout   { background: rgba(239,68,68,0.1); }
+
+.kds-stock-stat-num {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--kds-text);
+}
+
+.kds-stock-stat.available .kds-stock-stat-num { color: var(--kds-ready); }
+.kds-stock-stat.soldout   .kds-stock-stat-num { color: var(--kds-urgent); }
+
+.kds-stock-stat-lbl {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--kds-muted);
+}
+
+.kds-stock-reset-btn {
+  margin-left: auto;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: rgba(239,68,68,0.1);
+  color: var(--kds-urgent);
+  border: 1px solid rgba(239,68,68,0.3);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 100ms;
+  white-space: nowrap;
+}
+
+.kds-stock-reset-btn:hover { background: rgba(239,68,68,0.2); }
+
+/* ── Category block ──────────────────────────────────────────────────────── */
+
+.kds-stock-cat {
+  border: 1px solid var(--kds-border-s);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.kds-stock-cat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--kds-surface-2);
+  border-bottom: 1px solid var(--kds-border);
+}
+
+.kds-stock-cat-name {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--kds-text);
+}
+
+.kds-stock-cat-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--kds-muted);
+}
+
+/* ── Item row ─────────────────────────────────────────────────────────────── */
+
+.kds-stock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--kds-border);
+  background: var(--kds-surface);
+  transition: background 80ms;
+}
+
+.kds-stock-row:last-child { border-bottom: none; }
+.kds-stock-row:hover { background: var(--kds-surface-2); }
+.kds-stock-row.soldout { background: rgba(239,68,68,0.04); }
+
+.kds-stock-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.kds-stock-item-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--kds-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kds-stock-row.soldout .kds-stock-item-name {
+  text-decoration: line-through;
+  color: var(--kds-muted);
+}
+
+.kds-stock-soldout-time {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--kds-urgent);
+  opacity: 0.8;
+}
+
+/* ── Available / Sold-Out pill toggle ────────────────────────────────────── */
+
+.kds-stock-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 30px;
+  border: 1.5px solid;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 150ms;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.kds-stock-pill.on {
+  color: var(--kds-ready);
+  border-color: rgba(52,211,153,0.35);
+  background: rgba(52,211,153,0.08);
+}
+
+.kds-stock-pill.on:hover { background: rgba(52,211,153,0.16); }
+
+.kds-stock-pill.off {
+  color: var(--kds-urgent);
+  border-color: rgba(239,68,68,0.4);
+  background: rgba(239,68,68,0.08);
+}
+
+.kds-stock-pill.off:hover { background: rgba(239,68,68,0.16); }
+
+.kds-stock-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}

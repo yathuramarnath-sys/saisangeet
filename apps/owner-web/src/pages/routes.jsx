@@ -7,7 +7,6 @@ import { DiscountRulesPage } from "../features/discounts/DiscountRulesPage";
 import { InventoryPage } from "../features/inventory/InventoryPage";
 import { IntegrationsPage } from "../features/integrations/IntegrationsPage";
 import { MenuPage } from "../features/menu/MenuPage";
-import { StockAvailabilityPage } from "../features/stock/StockAvailabilityPage";
 import { OutletsPage } from "../features/outlets/OutletsPage";
 import { ReportsPage } from "../features/reports/ReportsPage";
 import { ShiftsCashPage } from "../features/shifts/ShiftsCashPage";
@@ -32,10 +31,6 @@ export function AppRoutes() {
 
     if (item.mode === "react" && item.id === "menu") {
       return <MenuPage />;
-    }
-
-    if (item.mode === "react" && item.id === "stock") {
-      return <StockAvailabilityPage />;
     }
 
     if (item.mode === "react" && item.id === "staff") {

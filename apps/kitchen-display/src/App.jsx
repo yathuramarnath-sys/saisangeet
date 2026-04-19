@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { api } from "./lib/api";
+import {
+  getStockState,
+  setItemAvailability,
+  subscribeStock,
+  resetAllToAvailable,
+} from "../../../packages/shared-types/src/stockAvailability.js";
+import {
+  sharedCategories,
+  sharedMenuItems,
+} from "../../../packages/shared-types/src/restaurantFlow.js";
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
 
@@ -92,6 +102,7 @@ const SETTING_TABS = [
   { id: "alerts",   label: "Timers & Alerts", icon: "⏱" },
   { id: "actions",  label: "Auto Actions",  icon: "⚡" },
   { id: "stations", label: "Stations",      icon: "🍳" },
+  { id: "stock",    label: "Stock",         icon: "📦" },
 ];
 
 function Toggle({ value, onChange }) {
@@ -118,8 +129,25 @@ function SettingRow({ label, sub, children }) {
 }
 
 function KdsSettingsPanel({ settings, onUpdate, onClose }) {
-  const [tab,       setTab]       = useState("display");
+  const [tab,        setTab]        = useState("display");
   const [newStation, setNewStation] = useState("");
+  const [stockState, setStockState] = useState(() => getStockState());
+
+  // Keep in sync with POS / Captain App changes in other tabs
+  useEffect(() => {
+    const unsub = subscribeStock(s => setStockState({ ...s }));
+    return unsub;
+  }, []);
+
+  function toggleStock(itemId, available) {
+    setItemAvailability(itemId, available);
+    setStockState(getStockState());
+  }
+
+  function resetAllStock() {
+    resetAllToAvailable();
+    setStockState({});
+  }
 
   function set(key, val) { onUpdate({ ...settings, [key]: val }); }
 
@@ -282,6 +310,88 @@ function KdsSettingsPanel({ settings, onUpdate, onClose }) {
     </div>
   );
 
+  // ── Stock ──────────────────────────────────────────────────────────────────
+  const soldOutCount = Object.keys(stockState).length;
+
+  // Group sharedMenuItems by category
+  const stockCategories = sharedCategories.map(cat => ({
+    ...cat,
+    items: sharedMenuItems.filter(i => i.categoryId === cat.id),
+  }));
+
+  const StockTab = () => (
+    <div className="kds-settings-section kds-stock-section">
+
+      {/* Summary bar */}
+      <div className="kds-stock-summary">
+        <div className="kds-stock-stat">
+          <span className="kds-stock-stat-num">{sharedMenuItems.length}</span>
+          <span className="kds-stock-stat-lbl">Total</span>
+        </div>
+        <div className="kds-stock-stat available">
+          <span className="kds-stock-stat-num">{sharedMenuItems.length - soldOutCount}</span>
+          <span className="kds-stock-stat-lbl">Available</span>
+        </div>
+        <div className={`kds-stock-stat${soldOutCount > 0 ? " soldout" : ""}`}>
+          <span className="kds-stock-stat-num">{soldOutCount}</span>
+          <span className="kds-stock-stat-lbl">Sold Out</span>
+        </div>
+        {soldOutCount > 0 && (
+          <button className="kds-stock-reset-btn" onClick={resetAllStock}>
+            Reset all
+          </button>
+        )}
+      </div>
+
+      <p className="kds-section-sub" style={{ marginBottom: 12 }}>
+        Turn items OFF when they run out — POS, Captain &amp; Online will block them instantly.
+        Items auto-reset <strong>next day</strong>.
+      </p>
+
+      {/* Category-wise item list */}
+      {stockCategories.map(cat => (
+        <div key={cat.id} className="kds-stock-cat">
+
+          {/* Category header */}
+          <div className="kds-stock-cat-head">
+            <span className="kds-stock-cat-name">{cat.name}</span>
+            <span className="kds-stock-cat-count">
+              {cat.items.filter(i => stockState[i.id]?.available === false).length > 0
+                ? `${cat.items.filter(i => stockState[i.id]?.available === false).length} sold out`
+                : `${cat.items.length} items`}
+            </span>
+          </div>
+
+          {/* Item rows */}
+          {cat.items.map(item => {
+            const avail = stockState[item.id]?.available !== false;
+            const soldAt = stockState[item.id]?.soldOutAt;
+            return (
+              <div key={item.id} className={`kds-stock-row${!avail ? " soldout" : ""}`}>
+                <div className="kds-stock-item-info">
+                  <span className="kds-stock-item-name">{item.name}</span>
+                  {!avail && soldAt && (
+                    <span className="kds-stock-soldout-time">
+                      Sold out {new Date(soldAt).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})} · resets tomorrow
+                    </span>
+                  )}
+                </div>
+                {/* Toggle pill */}
+                <button
+                  className={`kds-stock-pill${avail ? " on" : " off"}`}
+                  onClick={() => toggleStock(item.id, !avail)}
+                >
+                  <span className="kds-stock-pill-dot" />
+                  <span>{avail ? "Available" : "Sold Out"}</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="kds-settings-overlay" onClick={onClose}>
       <div className="kds-settings-panel" onClick={e => e.stopPropagation()}>
@@ -300,10 +410,13 @@ function KdsSettingsPanel({ settings, onUpdate, onClose }) {
           <nav className="kds-settings-nav">
             {SETTING_TABS.map(t => (
               <button key={t.id}
-                className={`kds-stab${tab === t.id ? " active" : ""}`}
+                className={`kds-stab${tab === t.id ? " active" : ""}${t.id === "stock" && soldOutCount > 0 ? " has-badge" : ""}`}
                 onClick={() => setTab(t.id)}>
                 <span className="kds-stab-icon">{t.icon}</span>
                 <span>{t.label}</span>
+                {t.id === "stock" && soldOutCount > 0 && (
+                  <span className="kds-stab-badge">{soldOutCount}</span>
+                )}
               </button>
             ))}
           </nav>
@@ -314,6 +427,7 @@ function KdsSettingsPanel({ settings, onUpdate, onClose }) {
             {tab === "alerts"   && <AlertsTab />}
             {tab === "actions"  && <ActionsTab />}
             {tab === "stations" && <StationsTab />}
+            {tab === "stock"    && <StockTab />}
           </div>
         </div>
 
