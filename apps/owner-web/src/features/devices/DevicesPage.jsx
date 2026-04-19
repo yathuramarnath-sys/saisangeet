@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../../lib/api";
+import { useAuth } from "../../lib/AuthContext";
 import {
   DEVICE_ROLES,
   DEVICES_SHARED_KEY,
@@ -145,6 +147,9 @@ function DeviceCard({ device, onUpdate, onRemove, onTestPrint }) {
           <span className="device-role-chip">
             {roleLabel}{stationLabel ? ` · ${stationLabel}` : ""}
           </span>
+          {device.outlet && (
+            <span className="device-outlet-badge">📍 {device.outlet}</span>
+          )}
           <span className="device-last-seen">Last seen {timeAgo(device.lastSeen)}</span>
         </div>
       )}
@@ -163,14 +168,37 @@ function DeviceCard({ device, onUpdate, onRemove, onTestPrint }) {
 }
 
 export function DevicesPage() {
-  const [devices, setDevices]   = useState(loadDevices);
-  const [msg, setMsg]           = useState("");
-  const [scanning, setScanning] = useState(false);
-  const [addOpen, setAddOpen]   = useState(false);
-  const [newDev, setNewDev]     = useState({
+  const { user } = useAuth();
+  const [devices, setDevices]     = useState(loadDevices);
+  const [outlets, setOutlets]     = useState([]);
+  const [activeOutlet, setActiveOutlet] = useState("all");
+  const [msg, setMsg]             = useState("");
+  const [scanning, setScanning]   = useState(false);
+  const [addOpen, setAddOpen]     = useState(false);
+  const [newDev, setNewDev]       = useState({
     name: "", type: "printer", model: "Epson TM-T82",
-    ip: "", role: "unassigned", station: null
+    ip: "", role: "unassigned", station: null, outlet: ""
   });
+
+  // Fetch outlet list from backend
+  useEffect(() => {
+    api.get("/outlets")
+      .then((list) => {
+        setOutlets(list || []);
+        // Manager is locked to their own outlet
+        const isManager = (user?.roles || []).includes("Manager") && !((user?.roles || []).includes("Owner"));
+        if (isManager && user?.outletId) {
+          const myOutlet = (list || []).find(o => o.id === user.outletId);
+          if (myOutlet) setActiveOutlet(myOutlet.name);
+        }
+        // Pre-fill new device outlet with first outlet
+        if (list?.length) setNewDev(d => ({ ...d, outlet: list[0].name }));
+      })
+      .catch(() => {});
+  }, [user]);
+
+  const isOwner   = (user?.roles || []).includes("Owner");
+  const isManager = !isOwner && (user?.roles || []).includes("Manager");
 
   function flash(text) { setMsg(text); setTimeout(() => setMsg(""), 3000); }
 
@@ -219,17 +247,22 @@ export function DevicesPage() {
     flash(`"${device.name}" added.`);
   }
 
-  const total      = devices.length;
-  const online     = devices.filter(d => d.status === "online").length;
-  const offline    = devices.filter(d => d.status === "offline").length;
-  const unassigned = devices.filter(d => d.role === "unassigned").length;
+  // Filter by selected outlet tab
+  const visibleDevices = activeOutlet === "all"
+    ? devices
+    : devices.filter(d => d.outlet === activeOutlet);
+
+  const total      = visibleDevices.length;
+  const online     = visibleDevices.filter(d => d.status === "online").length;
+  const offline    = visibleDevices.filter(d => d.status === "offline").length;
+  const unassigned = visibleDevices.filter(d => d.role === "unassigned").length;
 
   const sections = [
-    { key: "billing",    label: "Billing Counter",              icon: "🧾", list: devices.filter(d => d.role === "billing") },
-    { key: "kitchen",    label: "Kitchen Stations",             icon: "👨‍🍳", list: devices.filter(d => d.role === "kitchen") },
-    { key: "dining",     label: "Dining Halls",                 icon: "🍽️", list: devices.filter(d => d.role === "dining") },
-    { key: "bar",        label: "Bar / Beverages",              icon: "🍹", list: devices.filter(d => d.role === "bar") },
-    { key: "unassigned", label: "Unassigned — assign these now", icon: "📦", list: devices.filter(d => d.role === "unassigned"), warn: true }
+    { key: "billing",    label: "Billing Counter",               icon: "🧾", list: visibleDevices.filter(d => d.role === "billing") },
+    { key: "kitchen",    label: "Kitchen Stations",              icon: "👨‍🍳", list: visibleDevices.filter(d => d.role === "kitchen") },
+    { key: "dining",     label: "Dining Halls",                  icon: "🍽️", list: visibleDevices.filter(d => d.role === "dining") },
+    { key: "bar",        label: "Bar / Beverages",               icon: "🍹", list: visibleDevices.filter(d => d.role === "bar") },
+    { key: "unassigned", label: "Unassigned — assign these now", icon: "📦", list: visibleDevices.filter(d => d.role === "unassigned"), warn: true }
   ];
 
   return (
@@ -247,6 +280,39 @@ export function DevicesPage() {
         </div>
       </header>
 
+      {/* Outlet tabs */}
+      {outlets.length > 0 && (
+        <div className="device-outlet-tabs">
+          {isOwner && (
+            <button
+              className={`device-outlet-tab${activeOutlet === "all" ? " active" : ""}`}
+              onClick={() => setActiveOutlet("all")}
+            >
+              All Outlets
+              <span className="device-outlet-tab-count">{devices.length}</span>
+            </button>
+          )}
+          {outlets.map(outlet => (
+            <button
+              key={outlet.id}
+              className={`device-outlet-tab${activeOutlet === outlet.name ? " active" : ""}${outlet.isActive === false ? " inactive-outlet" : ""}`}
+              onClick={() => !isManager && setActiveOutlet(outlet.name)}
+              disabled={isManager && activeOutlet !== outlet.name}
+              title={isManager ? "You can only view your assigned outlet" : outlet.name}
+            >
+              {outlet.name}
+              {outlet.isActive === false && <span className="device-outlet-tab-off"> (off)</span>}
+              <span className="device-outlet-tab-count">
+                {devices.filter(d => d.outlet === outlet.name).length}
+              </span>
+            </button>
+          ))}
+          {isManager && (
+            <span className="device-outlet-tab-locked">🔒 Showing your outlet only</span>
+          )}
+        </div>
+      )}
+
       {/* Stats */}
       <div className="devices-stats">
         <div className="dev-stat"><strong>{total}</strong><span>Total</span></div>
@@ -258,9 +324,9 @@ export function DevicesPage() {
       {/* Offline banner */}
       {offline > 0 && (
         <div className="devices-offline-banner">
-          <strong>⚠️ {offline} device{offline > 1 ? "s" : ""} offline</strong>
+          <strong>⚠️ {offline} device{offline > 1 ? "s" : ""} offline{activeOutlet !== "all" ? ` at ${activeOutlet}` : ""}</strong>
           <span>
-            {devices.filter(d => d.status === "offline").map(d => d.name).join(", ")}
+            {visibleDevices.filter(d => d.status === "offline").map(d => d.name).join(", ")}
             {" "}— POS and Captain app have been alerted
           </span>
         </div>
@@ -285,6 +351,18 @@ export function DevicesPage() {
               Device name
               <input required placeholder="e.g. Bar Printer" value={newDev.name}
                 onChange={e => setNewDev(d => ({ ...d, name: e.target.value }))} />
+            </label>
+            <label>
+              Outlet
+              <select value={newDev.outlet}
+                onChange={e => setNewDev(d => ({ ...d, outlet: e.target.value }))}>
+                {outlets.map(o => (
+                  <option key={o.id} value={o.name}>{o.name}</option>
+                ))}
+                {outlets.length === 0 && (
+                  <option value="">No outlets configured</option>
+                )}
+              </select>
             </label>
             <label>
               Type
