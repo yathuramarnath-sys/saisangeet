@@ -506,23 +506,38 @@ function OrderScreen({
   // ── Note screen ────────────────────────────────────────────────────────────
   if (screen === "note") {
     const item = order.items?.[noteItemIdx];
+
+    // Parse current value into set of selected chips
+    const selectedChips = noteValue
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    function toggleChip(n) {
+      const already = selectedChips.includes(n);
+      const next = already
+        ? selectedChips.filter((c) => c !== n)
+        : [...selectedChips, n];
+      setNoteValue(next.join(", "));
+    }
+
     return (
       <div className="w-screen note-screen">
         <button className="back-btn" onClick={() => setScreen("order")}>← Back</button>
         <h2 className="note-title">{item?.name}</h2>
-        <p className="note-subtitle">Add kitchen instruction</p>
+        <p className="note-subtitle">Choose one or more instructions</p>
         <div className="quick-notes">
           {QUICK_NOTES.map((n) => (
             <button
               key={n}
-              className={`quick-note-chip${noteValue === n ? " active" : ""}`}
-              onClick={() => setNoteValue(n)}
+              className={`quick-note-chip${selectedChips.includes(n) ? " active" : ""}`}
+              onClick={() => toggleChip(n)}
             >{n}</button>
           ))}
         </div>
         <textarea
           className="note-input"
-          placeholder="Custom instruction…"
+          placeholder="Or type a custom instruction…"
           value={noteValue}
           onChange={(e) => setNoteValue(e.target.value)}
           rows={3}
