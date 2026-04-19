@@ -4,8 +4,10 @@ const crypto = require("crypto");
 
 const { env } = require("../../config/env");
 const { ApiError } = require("../../utils/api-error");
-const { findUserByIdentifier } = require("./auth.repository");
-const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { findUserByIdentifier, getTenantForIdentifier } = require("./auth.repository");
+const { getOwnerSetupData, updateOwnerSetupData, createTenantFile } = require("../../data/owner-setup-store");
+const { createBlankTenantData } = require("../../data/blank-tenant-data");
+const { registerUserInIndex } = require("../../data/users-index");
 const { sendWelcomeEmail } = require("../../utils/email");
 
 async function login({ identifier, password }) {
@@ -24,11 +26,14 @@ async function login({ identifier, password }) {
     throw new ApiError(401, "AUTH_INVALID_CREDENTIALS", "Invalid credentials");
   }
 
+  const tenantId = getTenantForIdentifier(identifier);
+
   const tokenPayload = {
-    sub: user.id,
-    outletId: user.outletId,
-    fullName: user.fullName,
-    roles: user.roles,
+    sub:         user.id,
+    tenantId,
+    outletId:    user.outletId,
+    fullName:    user.fullName,
+    roles:       user.roles,
     permissions: user.permissions
   };
 
@@ -137,7 +142,7 @@ async function signup({ fullName, email, phone, password, businessName }) {
   };
 }
 
-// ── Signup Interest (landing page lead capture + auto credentials) ───────────
+// ── Signup Interest (landing page lead capture + isolated tenant creation) ────
 async function saveSignupInterest({ name, restaurant, phone, email, outlets, message }) {
   if (!name || !email) {
     throw new ApiError(400, "INTEREST_MISSING_FIELDS", "Name and email are required");
@@ -149,60 +154,33 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
   // Generate a memorable temp password: e.g. "Dine@4827"
   const tempPassword = "Dine@" + crypto.randomInt(1000, 9999);
   const passwordHash = await bcrypt.hash(tempPassword, 10);
-  const userId = `user-owner-${Date.now()}`;
+  const userId   = `user-owner-${Date.now()}`;
+  const tenantId = `tenant-${Date.now()}`;
 
-  // Save lead AND create a real user account so they can actually log in
-  updateOwnerSetupData((data) => {
-    // 1. Save lead record
-    data.signupLeads = data.signupLeads || [];
-    data.signupLeads.push({
-      name,
-      restaurant,
-      phone: cleanPhone,
-      email: cleanEmail,
-      outlets,
-      message,
-      submittedAt: new Date().toISOString()
-    });
-
-    // 2. Update business profile with restaurant name
-    data.businessProfile = data.businessProfile || {};
-    if (restaurant) {
-      data.businessProfile.tradeName = restaurant;
-      data.businessProfile.legalName = restaurant;
-    }
-    if (cleanEmail) data.businessProfile.email = cleanEmail;
-    if (cleanPhone) data.businessProfile.phone = cleanPhone;
-
-    // 3. Create/replace the owner user entry so login works
-    const ownerIndex = (data.users || []).findIndex((u) =>
-      (u.roles || []).includes("Owner")
-    );
-    const ownerEntry = {
-      id: ownerIndex >= 0 ? (data.users[ownerIndex].id || userId) : userId,
-      fullName: name,
-      name,
-      email: cleanEmail,
-      phone: cleanPhone,
-      passwordHash,
-      roles: ["Owner"],
-      outletName: "All Outlets",
-      isActive: true,
-      pin: "0000"
-    };
-
-    if (ownerIndex >= 0) {
-      data.users[ownerIndex] = ownerEntry;
-    } else {
-      data.users = [ownerEntry, ...(data.users || [])];
-    }
-
-    return data;
+  // 1. Create a brand-new isolated tenant file with BLANK data
+  const tenantData = createBlankTenantData({
+    ownerName:      name,
+    ownerEmail:     cleanEmail,
+    ownerPhone:     cleanPhone,
+    restaurantName: restaurant || "",
+    passwordHash,
+    userId
   });
 
-  // Send welcome email with credentials (non-blocking)
+  // 2. Save lead info inside the new tenant
+  tenantData.signupLeads = [{
+    name, restaurant, phone: cleanPhone, email: cleanEmail,
+    outlets, message, submittedAt: new Date().toISOString()
+  }];
+
+  createTenantFile(tenantId, tenantData);
+
+  // 3. Register email (+ phone) → tenantId in global index so login works
+  registerUserInIndex(cleanEmail, cleanPhone, tenantId);
+
+  // 4. Send welcome email (non-blocking)
   sendWelcomeEmail({
-    to: cleanEmail,
+    to:         cleanEmail,
     name,
     restaurant: restaurant || "your restaurant",
     tempPassword

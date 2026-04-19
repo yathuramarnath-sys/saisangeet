@@ -1,8 +1,20 @@
 const fs = require("fs");
 const path = require("path");
 
-const DATA_DIR = path.join(__dirname, "..", "..", ".data");
-const DATA_FILE = path.join(DATA_DIR, "owner-setup.json");
+const { getCurrentTenantId } = require("./tenant-context");
+
+const DATA_DIR       = path.join(__dirname, "..", "..", ".data");
+const TENANTS_DIR    = path.join(DATA_DIR, "tenants");
+const DEFAULT_FILE   = path.join(DATA_DIR, "owner-setup.json");   // Amarnath / admin tenant
+
+function getTenantFile(tenantId) {
+  if (!tenantId || tenantId === "default") return DEFAULT_FILE;
+  if (!fs.existsSync(TENANTS_DIR)) fs.mkdirSync(TENANTS_DIR, { recursive: true });
+  return path.join(TENANTS_DIR, `${tenantId}.json`);
+}
+
+// Keep DATA_FILE alias for backward compat (used in ensureDataFile below)
+const DATA_FILE = DEFAULT_FILE;
 
 function createDefaultPermissions() {
   return [
@@ -732,25 +744,32 @@ function normalizeOwnerSetupData(data) {
   return next;
 }
 
-function ensureDataFile() {
+function ensureDataFile(file) {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
-
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(createDefaultData(), null, 2));
+  if (!fs.existsSync(file)) {
+    // Only auto-seed the default (admin) tenant with sample data
+    if (file === DEFAULT_FILE) {
+      fs.writeFileSync(file, JSON.stringify(createDefaultData(), null, 2));
+    }
   }
 }
 
 function readData() {
-  ensureDataFile();
-  const raw = fs.readFileSync(DATA_FILE, "utf8");
+  const tenantId = getCurrentTenantId();
+  const file     = getTenantFile(tenantId);
+  ensureDataFile(file);
+  if (!fs.existsSync(file)) return normalizeOwnerSetupData({});
+  const raw = fs.readFileSync(file, "utf8");
   return normalizeOwnerSetupData(JSON.parse(raw));
 }
 
 function writeData(data) {
-  ensureDataFile();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  const tenantId = getCurrentTenantId();
+  const file     = getTenantFile(tenantId);
+  ensureDataFile(file);
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
   return data;
 }
 
@@ -764,7 +783,18 @@ function updateOwnerSetupData(updater) {
   return writeData(next);
 }
 
+/**
+ * Create a brand-new tenant file with blank starting data.
+ * Called once during enrollment.
+ */
+function createTenantFile(tenantId, initialData) {
+  if (!fs.existsSync(TENANTS_DIR)) fs.mkdirSync(TENANTS_DIR, { recursive: true });
+  const file = path.join(TENANTS_DIR, `${tenantId}.json`);
+  fs.writeFileSync(file, JSON.stringify(initialData, null, 2));
+}
+
 module.exports = {
   getOwnerSetupData,
-  updateOwnerSetupData
+  updateOwnerSetupData,
+  createTenantFile
 };
