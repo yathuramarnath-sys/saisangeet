@@ -14,13 +14,10 @@ const env = {
     process.env.DATABASE_URL ||
     "postgresql://postgres:postgres@localhost:5432/restaurant_pos",
 
-  // Email (nodemailer)
-  smtpHost:    process.env.SMTP_HOST || "smtp.gmail.com",
-  smtpPort:    Number(process.env.SMTP_PORT || 587),
-  smtpUser:    process.env.SMTP_USER || "",
-  smtpPass:    process.env.SMTP_PASS || "",
-  emailFrom:   process.env.EMAIL_FROM || "DineXPOS <hello@dinexpos.in>",
-  appUrl:      process.env.APP_URL   || "https://app.dinexpos.in"
+  // Email (Resend)
+  resendApiKey: process.env.RESEND_API_KEY || "",
+  emailFrom:    process.env.EMAIL_FROM || "DineXPOS <hello@dinexpos.in>",
+  appUrl:       process.env.APP_URL    || "https://app.dinexpos.in"
 };
 
 module.exports = {
