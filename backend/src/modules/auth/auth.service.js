@@ -1,10 +1,12 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 const { env } = require("../../config/env");
 const { ApiError } = require("../../utils/api-error");
 const { findUserByIdentifier } = require("./auth.repository");
 const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { sendWelcomeEmail } = require("../../utils/email");
 
 async function login({ identifier, password }) {
   if (!identifier || !password) {
@@ -135,13 +137,18 @@ async function signup({ fullName, email, phone, password, businessName }) {
   };
 }
 
-// ── Signup Interest (landing page lead capture) ──────────────────────────────
+// ── Signup Interest (landing page lead capture + auto credentials) ───────────
 async function saveSignupInterest({ name, restaurant, phone, email, outlets, message }) {
   if (!name || !email) {
     throw new ApiError(400, "INTEREST_MISSING_FIELDS", "Name and email are required");
   }
 
-  // Append lead to the store's signupLeads array (non-critical — ignore DB errors)
+  const cleanEmail = email.toLowerCase().trim();
+
+  // Generate a memorable temp password: e.g. "Dine@4827"
+  const tempPassword = "Dine@" + crypto.randomInt(1000, 9999);
+
+  // Save lead to store
   try {
     updateOwnerSetupData((data) => {
       data.signupLeads = data.signupLeads || [];
@@ -149,14 +156,23 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
         name,
         restaurant,
         phone,
-        email: email.toLowerCase().trim(),
+        email: cleanEmail,
         outlets,
         message,
+        tempPassword,            // keep for admin reference
         submittedAt: new Date().toISOString()
       });
       return data;
     });
   } catch (_) { /* best-effort */ }
+
+  // Send welcome email with credentials (non-blocking — never fail the request)
+  sendWelcomeEmail({
+    to: cleanEmail,
+    name,
+    restaurant: restaurant || "your restaurant",
+    tempPassword
+  }).catch((err) => console.error("[email] Failed to send welcome email:", err.message));
 
   return { ok: true };
 }
