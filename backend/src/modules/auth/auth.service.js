@@ -144,29 +144,63 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
   }
 
   const cleanEmail = email.toLowerCase().trim();
+  const cleanPhone = phone ? phone.replace(/\s/g, "") : null;
 
   // Generate a memorable temp password: e.g. "Dine@4827"
   const tempPassword = "Dine@" + crypto.randomInt(1000, 9999);
+  const passwordHash = await bcrypt.hash(tempPassword, 10);
+  const userId = `user-owner-${Date.now()}`;
 
-  // Save lead to store
-  try {
-    updateOwnerSetupData((data) => {
-      data.signupLeads = data.signupLeads || [];
-      data.signupLeads.push({
-        name,
-        restaurant,
-        phone,
-        email: cleanEmail,
-        outlets,
-        message,
-        tempPassword,            // keep for admin reference
-        submittedAt: new Date().toISOString()
-      });
-      return data;
+  // Save lead AND create a real user account so they can actually log in
+  updateOwnerSetupData((data) => {
+    // 1. Save lead record
+    data.signupLeads = data.signupLeads || [];
+    data.signupLeads.push({
+      name,
+      restaurant,
+      phone: cleanPhone,
+      email: cleanEmail,
+      outlets,
+      message,
+      submittedAt: new Date().toISOString()
     });
-  } catch (_) { /* best-effort */ }
 
-  // Send welcome email with credentials (non-blocking — never fail the request)
+    // 2. Update business profile with restaurant name
+    data.businessProfile = data.businessProfile || {};
+    if (restaurant) {
+      data.businessProfile.tradeName = restaurant;
+      data.businessProfile.legalName = restaurant;
+    }
+    if (cleanEmail) data.businessProfile.email = cleanEmail;
+    if (cleanPhone) data.businessProfile.phone = cleanPhone;
+
+    // 3. Create/replace the owner user entry so login works
+    const ownerIndex = (data.users || []).findIndex((u) =>
+      (u.roles || []).includes("Owner")
+    );
+    const ownerEntry = {
+      id: ownerIndex >= 0 ? (data.users[ownerIndex].id || userId) : userId,
+      fullName: name,
+      name,
+      email: cleanEmail,
+      phone: cleanPhone,
+      passwordHash,
+      roles: ["Owner"],
+      outletName: "All Outlets",
+      isActive: true,
+      pin: "0000"
+    };
+
+    if (ownerIndex >= 0) {
+      data.users[ownerIndex] = ownerEntry;
+    } else {
+      data.users = [ownerEntry, ...(data.users || [])];
+    }
+
+    return data;
+  });
+
+  // Send welcome email with credentials (non-blocking)
   sendWelcomeEmail({
     to: cleanEmail,
     name,
