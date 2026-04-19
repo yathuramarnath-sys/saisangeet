@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { api } from "./lib/api";
 
-// ─── Audio alert (triple beep for new KOT) ───────────────────────────────────
+// ─── Audio ────────────────────────────────────────────────────────────────────
 
 function playNewKotAlert() {
   try {
@@ -10,10 +10,8 @@ function playNewKotAlert() {
     [0, 0.18, 0.36].forEach((delay) => {
       const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type            = "sine";
-      osc.frequency.value = 880;
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = "sine"; osc.frequency.value = 880;
       gain.gain.setValueAtTime(0, ctx.currentTime + delay);
       gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + delay + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.16);
@@ -23,25 +21,49 @@ function playNewKotAlert() {
   } catch (_) {}
 }
 
+// ─── Settings helpers ─────────────────────────────────────────────────────────
+
+const DEFAULT_SETTINGS = {
+  columns:         3,
+  cardSize:        "normal",   // compact | normal | large
+  showSource:      true,
+  showArea:        true,
+  soundEnabled:    true,
+  flashOnNew:      true,
+  warnMinutes:     5,
+  urgentMinutes:   10,
+  autoBumpSeconds: 0,          // 0 = off | 30 | 60 | 120
+  stations: [
+    { id: "hot",       name: "Hot",       color: "#ef4444" },
+    { id: "grill",     name: "Grill",     color: "#f97316" },
+    { id: "beverages", name: "Beverages", color: "#3b82f6" },
+    { id: "cold",      name: "Cold",      color: "#06b6d4" },
+  ],
+};
+
+function loadSettings() {
+  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("kds_settings") || "{}") }; }
+  catch { return { ...DEFAULT_SETTINGS }; }
+}
+function saveSettings(s) {
+  try { localStorage.setItem("kds_settings", JSON.stringify(s)); } catch (_) {}
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function elapsedLabel(createdAt) {
   if (!createdAt) return "0:00";
   const secs = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
 }
 
-function urgencyLevel(createdAt) {
+function urgencyLevel(createdAt, warnMin, urgentMin) {
   if (!createdAt) return 0;
   const secs = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
-  if (secs > 600) return 2; // red / urgent
-  if (secs > 300) return 1; // amber / warning
+  if (secs > urgentMin * 60) return 2;
+  if (secs > warnMin   * 60) return 1;
   return 0;
 }
-
-// ─── Source config ────────────────────────────────────────────────────────────
 
 const SOURCE = {
   pos:     { label: "POS",     color: "#60a5fa", bg: "rgba(96,165,250,0.14)"  },
@@ -49,99 +71,300 @@ const SOURCE = {
   online:  { label: "Online",  color: "#a78bfa", bg: "rgba(167,139,250,0.14)" },
 };
 
-// ─── Demo tickets (all 3 sources) ────────────────────────────────────────────
+// ─── Demo data ────────────────────────────────────────────────────────────────
 
 function makeDemoTickets() {
-  const now = Date.now();
+  const n = Date.now();
   return [
-    {
-      id: "d1", kotNumber: "001", tableNumber: "3", areaName: "AC Hall 1",
-      station: "Hot", source: "pos", status: "new",
-      createdAt: new Date(now - 95000).toISOString(), doneItems: [],
-      items: [
-        { id: "d1-1", name: "Paneer Butter Masala", quantity: 2, note: "Less spicy" },
-        { id: "d1-2", name: "Butter Naan",          quantity: 3 },
-      ],
-    },
-    {
-      id: "d2", kotNumber: "002", tableNumber: "7", areaName: "Family Hall",
-      station: "Beverages", source: "captain", status: "preparing",
-      createdAt: new Date(now - 245000).toISOString(), doneItems: ["d2-1"],
-      items: [
-        { id: "d2-1", name: "Masala Chai",  quantity: 2 },
-        { id: "d2-2", name: "Cold Coffee",  quantity: 1, note: "No sugar" },
-      ],
-    },
-    {
-      id: "d3", kotNumber: "003", tableNumber: "—", areaName: "Swiggy",
-      station: "Hot", source: "online", status: "new",
-      createdAt: new Date(now - 425000).toISOString(), doneItems: [],
-      items: [
-        { id: "d3-1", name: "Dal Makhani", quantity: 1 },
-        { id: "d3-2", name: "Jeera Rice",  quantity: 2 },
-        { id: "d3-3", name: "Raita",       quantity: 1, note: "No onion" },
-      ],
-    },
-    {
-      id: "d4", kotNumber: "004", tableNumber: "5", areaName: "AC Hall 1",
-      station: "Hot", source: "captain", status: "ready",
-      createdAt: new Date(now - 610000).toISOString(), doneItems: ["d4-1", "d4-2"],
-      items: [
-        { id: "d4-1", name: "Chicken Tikka",  quantity: 1 },
-        { id: "d4-2", name: "Roomali Roti",   quantity: 2 },
-      ],
-    },
-    {
-      id: "d5", kotNumber: "005", tableNumber: "2", areaName: "Family Hall",
-      station: "Grill", source: "pos", status: "preparing",
-      createdAt: new Date(now - 185000).toISOString(), doneItems: [],
-      items: [
-        { id: "d5-1", name: "Veg Seekh Kebab",   quantity: 2, note: "Extra mint chutney" },
-        { id: "d5-2", name: "Tandoori Roti",      quantity: 4 },
-      ],
-    },
-    {
-      id: "d6", kotNumber: "006", tableNumber: "—", areaName: "Zomato",
-      station: "Beverages", source: "online", status: "new",
-      createdAt: new Date(now - 60000).toISOString(), doneItems: [],
-      items: [
-        { id: "d6-1", name: "Mango Lassi",   quantity: 2 },
-        { id: "d6-2", name: "Sweet Lassi",   quantity: 1 },
-      ],
-    },
+    { id:"d1", kotNumber:"001", tableNumber:"3",  areaName:"AC Hall 1",   station:"Hot",       source:"pos",     status:"new",      createdAt:new Date(n-95000).toISOString(),  doneItems:[], items:[{id:"d1-1",name:"Paneer Butter Masala",quantity:2,note:"Less spicy"},{id:"d1-2",name:"Butter Naan",quantity:3}] },
+    { id:"d2", kotNumber:"002", tableNumber:"7",  areaName:"Family Hall", station:"Beverages", source:"captain", status:"preparing", createdAt:new Date(n-245000).toISOString(), doneItems:["d2-1"], items:[{id:"d2-1",name:"Masala Chai",quantity:2},{id:"d2-2",name:"Cold Coffee",quantity:1,note:"No sugar"}] },
+    { id:"d3", kotNumber:"003", tableNumber:"—",  areaName:"Swiggy",      station:"Hot",       source:"online",  status:"new",      createdAt:new Date(n-425000).toISOString(), doneItems:[], items:[{id:"d3-1",name:"Dal Makhani",quantity:1},{id:"d3-2",name:"Jeera Rice",quantity:2},{id:"d3-3",name:"Raita",quantity:1,note:"No onion"}] },
+    { id:"d4", kotNumber:"004", tableNumber:"5",  areaName:"AC Hall 1",   station:"Hot",       source:"captain", status:"ready",     createdAt:new Date(n-610000).toISOString(), doneItems:["d4-1","d4-2"], items:[{id:"d4-1",name:"Chicken Tikka",quantity:1},{id:"d4-2",name:"Roomali Roti",quantity:2}] },
+    { id:"d5", kotNumber:"005", tableNumber:"2",  areaName:"Family Hall", station:"Grill",     source:"pos",     status:"preparing", createdAt:new Date(n-185000).toISOString(), doneItems:[], items:[{id:"d5-1",name:"Veg Seekh Kebab",quantity:2,note:"Extra mint chutney"},{id:"d5-2",name:"Tandoori Roti",quantity:4}] },
+    { id:"d6", kotNumber:"006", tableNumber:"—",  areaName:"Zomato",      station:"Beverages", source:"online",  status:"new",      createdAt:new Date(n-60000).toISOString(),  doneItems:[], items:[{id:"d6-1",name:"Mango Lassi",quantity:2},{id:"d6-2",name:"Sweet Lassi",quantity:1}] },
   ];
+}
+
+// ─── Settings Panel ───────────────────────────────────────────────────────────
+
+const SETTING_TABS = [
+  { id: "display",  label: "Display",       icon: "⊞" },
+  { id: "alerts",   label: "Timers & Alerts", icon: "⏱" },
+  { id: "actions",  label: "Auto Actions",  icon: "⚡" },
+  { id: "stations", label: "Stations",      icon: "🍳" },
+];
+
+function Toggle({ value, onChange }) {
+  return (
+    <button
+      className={`kds-toggle${value ? " on" : ""}`}
+      onClick={() => onChange(!value)}
+    >
+      <span className="kds-toggle-thumb" />
+    </button>
+  );
+}
+
+function SettingRow({ label, sub, children }) {
+  return (
+    <div className="kds-setting-row">
+      <div className="kds-setting-label">
+        <span>{label}</span>
+        {sub && <p>{sub}</p>}
+      </div>
+      <div className="kds-setting-control">{children}</div>
+    </div>
+  );
+}
+
+function KdsSettingsPanel({ settings, onUpdate, onClose }) {
+  const [tab,       setTab]       = useState("display");
+  const [newStation, setNewStation] = useState("");
+
+  function set(key, val) { onUpdate({ ...settings, [key]: val }); }
+
+  // ── Display ────────────────────────────────────────────────────────────────
+  const DisplayTab = () => (
+    <div className="kds-settings-section">
+      <SettingRow label="Columns" sub="Number of status columns on screen">
+        <div className="kds-seg">
+          {[2,3,4].map(n => (
+            <button key={n} className={`kds-seg-btn${settings.columns === n ? " active" : ""}`}
+              onClick={() => set("columns", n)}>{n}</button>
+          ))}
+        </div>
+      </SettingRow>
+
+      <SettingRow label="Card Size" sub="Size of each KOT ticket card">
+        <div className="kds-seg">
+          {["compact","normal","large"].map(s => (
+            <button key={s} className={`kds-seg-btn${settings.cardSize === s ? " active" : ""}`}
+              onClick={() => set("cardSize", s)}>{s.charAt(0).toUpperCase()+s.slice(1)}</button>
+          ))}
+        </div>
+      </SettingRow>
+
+      <SettingRow label="Show Source Badge" sub="Display POS / Captain / Online on each card">
+        <Toggle value={settings.showSource} onChange={v => set("showSource", v)} />
+      </SettingRow>
+
+      <SettingRow label="Show Area Name" sub="Show seating area below table number">
+        <Toggle value={settings.showArea} onChange={v => set("showArea", v)} />
+      </SettingRow>
+    </div>
+  );
+
+  // ── Alerts ─────────────────────────────────────────────────────────────────
+  const AlertsTab = () => (
+    <div className="kds-settings-section">
+      <SettingRow label="Sound Alert" sub="Triple beep when a new KOT arrives">
+        <Toggle value={settings.soundEnabled} onChange={v => set("soundEnabled", v)} />
+      </SettingRow>
+
+      <SettingRow label="Flash on New Order" sub="Card briefly flashes when it appears">
+        <Toggle value={settings.flashOnNew} onChange={v => set("flashOnNew", v)} />
+      </SettingRow>
+
+      <SettingRow label="Warning Timer" sub="Card turns amber after this many minutes">
+        <div className="kds-seg">
+          {[3,5,7,10].map(n => (
+            <button key={n} className={`kds-seg-btn${settings.warnMinutes === n ? " active" : ""}`}
+              onClick={() => set("warnMinutes", n)}>{n}m</button>
+          ))}
+        </div>
+      </SettingRow>
+
+      <SettingRow label="Urgent Timer" sub="Card turns red and pulses after this many minutes">
+        <div className="kds-seg">
+          {[7,10,15,20].map(n => (
+            <button key={n} className={`kds-seg-btn${settings.urgentMinutes === n ? " active" : ""}`}
+              onClick={() => set("urgentMinutes", n)}>{n}m</button>
+          ))}
+        </div>
+      </SettingRow>
+    </div>
+  );
+
+  // ── Auto Actions ───────────────────────────────────────────────────────────
+  const ActionsTab = () => (
+    <div className="kds-settings-section">
+      <SettingRow label="Auto-Bump" sub="Automatically remove Ready tickets after this time (0 = off)">
+        <div className="kds-seg">
+          {[0,30,60,120].map(n => (
+            <button key={n} className={`kds-seg-btn${settings.autoBumpSeconds === n ? " active" : ""}`}
+              onClick={() => set("autoBumpSeconds", n)}>
+              {n === 0 ? "Off" : n < 60 ? `${n}s` : `${n/60}m`}
+            </button>
+          ))}
+        </div>
+      </SettingRow>
+
+      <div className="kds-setting-note">
+        {settings.autoBumpSeconds === 0
+          ? "Auto-bump is OFF. Staff must manually press BUMP."
+          : `Ready tickets will be bumped automatically after ${settings.autoBumpSeconds < 60 ? settings.autoBumpSeconds+"s" : settings.autoBumpSeconds/60+"min"}.`}
+      </div>
+    </div>
+  );
+
+  // ── Stations ───────────────────────────────────────────────────────────────
+  const STATION_COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899"];
+
+  const StationsTab = () => (
+    <div className="kds-settings-section">
+      <p className="kds-section-label">Kitchen Stations</p>
+      <p className="kds-section-sub">Orders are routed to stations based on menu category. Each station can have its own printer.</p>
+
+      <div className="kds-station-list">
+        {(settings.stations || []).map((st, idx) => (
+          <div key={st.id} className="kds-station-item">
+            <div className="kds-station-color-row">
+              {STATION_COLORS.map(c => (
+                <button key={c} className={`kds-color-dot${st.color === c ? " active" : ""}`}
+                  style={{ background: c }}
+                  onClick={() => {
+                    const next = [...settings.stations];
+                    next[idx] = { ...st, color: c };
+                    set("stations", next);
+                  }} />
+              ))}
+            </div>
+            <div className="kds-station-name-row">
+              <span className="kds-station-dot" style={{ background: st.color }} />
+              <input
+                className="kds-station-input"
+                value={st.name}
+                onChange={e => {
+                  const next = [...settings.stations];
+                  next[idx] = { ...st, name: e.target.value };
+                  set("stations", next);
+                }}
+              />
+              <button className="kds-station-del"
+                onClick={() => set("stations", settings.stations.filter((_, i) => i !== idx))}>
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="kds-add-station-row">
+        <input
+          className="kds-station-input"
+          placeholder="New station name…"
+          value={newStation}
+          onChange={e => setNewStation(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && newStation.trim()) {
+              set("stations", [...(settings.stations||[]), {
+                id: newStation.toLowerCase().replace(/\s+/g,"-"),
+                name: newStation.trim(),
+                color: STATION_COLORS[(settings.stations||[]).length % STATION_COLORS.length],
+              }]);
+              setNewStation("");
+            }
+          }}
+        />
+        <button className="kds-add-station-btn"
+          onClick={() => {
+            if (!newStation.trim()) return;
+            set("stations", [...(settings.stations||[]), {
+              id: newStation.toLowerCase().replace(/\s+/g,"-"),
+              name: newStation.trim(),
+              color: STATION_COLORS[(settings.stations||[]).length % STATION_COLORS.length],
+            }]);
+            setNewStation("");
+          }}>
+          + Add
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="kds-settings-overlay" onClick={onClose}>
+      <div className="kds-settings-panel" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="kds-settings-head">
+          <div>
+            <h2 className="kds-settings-title">KDS Settings</h2>
+            <p className="kds-settings-sub">Customize your kitchen display</p>
+          </div>
+          <button className="kds-settings-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Body */}
+        <div className="kds-settings-body">
+          {/* Sidebar nav */}
+          <nav className="kds-settings-nav">
+            {SETTING_TABS.map(t => (
+              <button key={t.id}
+                className={`kds-stab${tab === t.id ? " active" : ""}`}
+                onClick={() => setTab(t.id)}>
+                <span className="kds-stab-icon">{t.icon}</span>
+                <span>{t.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          {/* Content */}
+          <div className="kds-settings-content">
+            {tab === "display"  && <DisplayTab />}
+            {tab === "alerts"   && <AlertsTab />}
+            {tab === "actions"  && <ActionsTab />}
+            {tab === "stations" && <StationsTab />}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="kds-settings-foot">
+          <button className="kds-settings-reset"
+            onClick={() => { onUpdate({ ...DEFAULT_SETTINGS }); }}>
+            Reset to defaults
+          </button>
+          <button className="kds-settings-save" onClick={onClose}>
+            Save & Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── KOT Card ─────────────────────────────────────────────────────────────────
 
-function KotCard({ ticket, onAdvance, onBump, onToggleItem }) {
+function KotCard({ ticket, settings, onAdvance, onBump, onToggleItem, flash }) {
   const [elapsed, setElapsed] = useState(() => elapsedLabel(ticket.createdAt));
-  const [urgency, setUrgency] = useState(() => urgencyLevel(ticket.createdAt));
+  const [urgency, setUrgency] = useState(() => urgencyLevel(ticket.createdAt, settings.warnMinutes, settings.urgentMinutes));
 
   useEffect(() => {
     const id = setInterval(() => {
       setElapsed(elapsedLabel(ticket.createdAt));
-      setUrgency(urgencyLevel(ticket.createdAt));
+      setUrgency(urgencyLevel(ticket.createdAt, settings.warnMinutes, settings.urgentMinutes));
     }, 1000);
     return () => clearInterval(id);
-  }, [ticket.createdAt]);
+  }, [ticket.createdAt, settings.warnMinutes, settings.urgentMinutes]);
 
   const src       = SOURCE[ticket.source] || SOURCE.pos;
   const doneItems = ticket.doneItems || [];
   const allDone   = ticket.items.length > 0 && doneItems.length >= ticket.items.length;
   const urgClass  = urgency === 2 ? " urgent" : urgency === 1 ? " warning" : "";
+  const sizeClass = ` size-${settings.cardSize || "normal"}`;
 
   return (
-    <div className={`kot-card status-${ticket.status}${urgClass}`}>
+    <div className={`kot-card status-${ticket.status}${urgClass}${sizeClass}${flash ? " flash-in" : ""}`}>
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="kot-card-head">
         <div className="kot-head-left">
           <div className="kot-head-row">
             <span className="kot-number">#{ticket.kotNumber || ticket.id?.slice(-4)}</span>
-            <span className="kot-src-badge" style={{ color: src.color, background: src.bg }}>
-              {src.label}
-            </span>
+            {settings.showSource && (
+              <span className="kot-src-badge" style={{ color: src.color, background: src.bg }}>
+                {src.label}
+              </span>
+            )}
           </div>
           {ticket.station && <span className="kot-station">{ticket.station}</span>}
         </div>
@@ -151,39 +374,34 @@ function KotCard({ ticket, onAdvance, onBump, onToggleItem }) {
           </span>
           <div className="kot-table-row">
             <span className="kot-table">T{ticket.tableNumber}</span>
-            {ticket.areaName && (
+            {settings.showArea && ticket.areaName && (
               <span className="kot-area">{ticket.areaName}</span>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Items ──────────────────────────────────────────────────── */}
+      {/* Items */}
       <div className="kot-items">
         {(ticket.items || []).map((item) => {
           const done = doneItems.includes(item.id);
           return (
-            <button
-              key={item.id}
+            <button key={item.id}
               className={`kot-item${done ? " done" : ""}${ticket.status !== "ready" ? " tappable" : ""}`}
               onClick={() => ticket.status !== "ready" && onToggleItem(ticket.id, item.id)}
             >
-              <span className={`kot-check${done ? " checked" : ""}`}>
-                {done ? "✓" : "○"}
-              </span>
+              <span className={`kot-check${done ? " checked" : ""}`}>{done ? "✓" : "○"}</span>
               <span className="kot-item-qty">{item.quantity}×</span>
               <div className="kot-item-body">
                 <span className="kot-item-name">{item.name}</span>
-                {item.note && (
-                  <span className="kot-item-note">⚠ {item.note}</span>
-                )}
+                {item.note && <span className="kot-item-note">⚠ {item.note}</span>}
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* ── Action footer ──────────────────────────────────────────── */}
+      {/* Action */}
       <div className="kot-foot">
         {ticket.status === "new" && (
           <button className="kot-action start" onClick={() => onAdvance(ticket.id, "new")}>
@@ -191,10 +409,8 @@ function KotCard({ ticket, onAdvance, onBump, onToggleItem }) {
           </button>
         )}
         {ticket.status === "preparing" && (
-          <button
-            className={`kot-action ready${allDone ? " all-done" : ""}`}
-            onClick={() => onAdvance(ticket.id, "preparing")}
-          >
+          <button className={`kot-action ready${allDone ? " all-done" : ""}`}
+            onClick={() => onAdvance(ticket.id, "preparing")}>
             {allDone ? "✓ All Done — Mark Ready" : "Mark Ready"}
           </button>
         )}
@@ -210,7 +426,7 @@ function KotCard({ ticket, onAdvance, onBump, onToggleItem }) {
 
 // ─── Column ───────────────────────────────────────────────────────────────────
 
-function KdsColumn({ label, colorKey, emptyMsg, tickets, onAdvance, onBump, onToggleItem }) {
+function KdsColumn({ label, colorKey, emptyMsg, tickets, settings, onAdvance, onBump, onToggleItem, newIds }) {
   return (
     <div className="kds-column">
       <div className={`kds-col-head col-${colorKey}`}>
@@ -218,16 +434,11 @@ function KdsColumn({ label, colorKey, emptyMsg, tickets, onAdvance, onBump, onTo
         <span className="kds-col-badge">{tickets.length}</span>
       </div>
       <div className="kds-col-body">
-        {tickets.length === 0 && (
-          <div className="kds-empty">{emptyMsg}</div>
-        )}
+        {tickets.length === 0 && <div className="kds-empty">{emptyMsg}</div>}
         {tickets.map((t) => (
-          <KotCard
-            key={t.id}
-            ticket={t}
-            onAdvance={onAdvance}
-            onBump={onBump}
-            onToggleItem={onToggleItem}
+          <KotCard key={t.id} ticket={t} settings={settings}
+            onAdvance={onAdvance} onBump={onBump} onToggleItem={onToggleItem}
+            flash={settings.flashOnNew && newIds.has(t.id)}
           />
         ))}
       </div>
@@ -238,17 +449,24 @@ function KdsColumn({ label, colorKey, emptyMsg, tickets, onAdvance, onBump, onTo
 // ─── App root ─────────────────────────────────────────────────────────────────
 
 export function App() {
-  const [tickets,     setTickets]     = useState([]);
-  const [outlet,      setOutlet]      = useState(null);
-  const [station,     setStation]     = useState("All");
-  const [stations,    setStations]    = useState(["All"]);
-  const [servedCount, setServedCount] = useState(0);
-  const socketRef    = useRef(null);
-  const audioReady   = useRef(false);
+  const [settings,     setSettings]     = useState(loadSettings);
+  const [tickets,      setTickets]      = useState([]);
+  const [outlet,       setOutlet]       = useState(null);
+  const [stationTab,   setStationTab]   = useState("All");
+  const [servedCount,  setServedCount]  = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [newIds,       setNewIds]       = useState(new Set());
+  const socketRef  = useRef(null);
+  const audioReady = useRef(false);
 
-  // Unlock Web Audio on first tap (browser requirement)
+  // Persist settings on change
+  useEffect(() => saveSettings(settings), [settings]);
+
+  function updateSettings(next) { setSettings(next); }
+
   function unlockAudio() { audioReady.current = true; }
 
+  // Bootstrap
   useEffect(() => {
     async function bootstrap() {
       try {
@@ -258,80 +476,85 @@ export function App() {
         setOutlet(target);
 
         const kots = await api.get(`/operations/kots?outletId=${target.id}`).catch(() => []);
-        if (kots.length) {
-          setTickets(kots.map((k) => ({ ...k, doneItems: [] })));
-          setStations(["All", ...new Set(kots.map((k) => k.station).filter(Boolean))]);
-        } else {
-          throw new Error("empty"); // fall to demo
-        }
+        if (!kots.length) throw new Error("empty");
+        setTickets(kots.map(k => ({ ...k, doneItems: [] })));
 
         const socket = io("http://localhost:4000", { query: { outletId: target.id } });
         socketRef.current = socket;
 
-        // New KOT from any source (POS / Captain / Online)
         socket.on("kot:new", (kot) => {
-          setTickets((prev) => {
-            if (prev.find((t) => t.id === kot.id)) return prev;
-            return [
-              { ...kot, status: "new", createdAt: new Date().toISOString(), doneItems: [] },
-              ...prev,
-            ];
+          setTickets(prev => {
+            if (prev.find(t => t.id === kot.id)) return prev;
+            return [{ ...kot, status: "new", createdAt: new Date().toISOString(), doneItems: [] }, ...prev];
           });
-          setStations((prev) =>
-            kot.station && !prev.includes(kot.station) ? [...prev, kot.station] : prev
-          );
-          if (audioReady.current) playNewKotAlert();
+          if (audioReady.current && settings.soundEnabled) playNewKotAlert();
+          // flash effect
+          setNewIds(prev => new Set([...prev, kot.id]));
+          setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(kot.id); return n; }), 1200);
         });
 
         socket.on("kot:status", ({ id, status }) => {
-          setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+          setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
         });
 
       } catch (_) {
-        // Demo fallback — shows all 3 sources
         setTickets(makeDemoTickets());
-        setStations(["All", "Hot", "Beverages", "Grill"]);
       }
     }
-
     bootstrap();
     return () => socketRef.current?.disconnect();
   }, []);
 
+  // Auto-bump effect
+  useEffect(() => {
+    if (!settings.autoBumpSeconds) return;
+    const id = setInterval(() => {
+      const cutoff = Date.now() - settings.autoBumpSeconds * 1000;
+      setTickets(prev => {
+        const toBump = prev.filter(t => t.status === "ready" && new Date(t.createdAt).getTime() < cutoff - (settings.autoBumpSeconds * 1000));
+        if (!toBump.length) return prev;
+        setServedCount(n => n + toBump.length);
+        return prev.filter(t => !toBump.find(b => b.id === t.id));
+      });
+    }, 5000);
+    return () => clearInterval(id);
+  }, [settings.autoBumpSeconds]);
+
   async function handleAdvance(id, cur) {
     const next = cur === "new" ? "preparing" : "ready";
-    setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status: next } : t)));
+    setTickets(prev => prev.map(t => t.id === id ? { ...t, status: next } : t));
     socketRef.current?.emit("kot:status", { id, status: next });
     try { await api.patch(`/operations/kots/${id}/status`, { status: next }); } catch (_) {}
   }
 
   function handleBump(id) {
-    setTickets((prev) => prev.filter((t) => t.id !== id));
-    setServedCount((n) => n + 1);
+    setTickets(prev => prev.filter(t => t.id !== id));
+    setServedCount(n => n + 1);
     socketRef.current?.emit("kot:bumped", { id });
   }
 
   function handleToggleItem(ticketId, itemId) {
-    setTickets((prev) =>
-      prev.map((t) => {
-        if (t.id !== ticketId) return t;
-        const done = t.doneItems || [];
-        const next = done.includes(itemId)
-          ? done.filter((x) => x !== itemId)
-          : [...done, itemId];
-        return { ...t, doneItems: next };
-      })
-    );
+    setTickets(prev => prev.map(t => {
+      if (t.id !== ticketId) return t;
+      const done = t.doneItems || [];
+      return { ...t, doneItems: done.includes(itemId) ? done.filter(x => x !== itemId) : [...done, itemId] };
+    }));
   }
 
-  const base  = station === "All" ? tickets : tickets.filter((t) => t.station === station);
-  const newT  = base.filter((t) => t.status === "new");
-  const prepT = base.filter((t) => t.status === "preparing");
-  const readT = base.filter((t) => t.status === "ready");
+  // Build station tabs from live tickets + settings
+  const stationNames = ["All", ...(settings.stations || []).map(s => s.name)];
+
+  const base  = stationTab === "All" ? tickets : tickets.filter(t => t.station === stationTab);
+  const newT  = base.filter(t => t.status === "new");
+  const prepT = base.filter(t => t.status === "preparing");
+  const readT = base.filter(t => t.status === "ready");
+
+  const colProps = { settings, onAdvance: handleAdvance, onBump: handleBump, onToggleItem: handleToggleItem, newIds };
 
   return (
-    <div className="kds-shell" onClick={unlockAudio}>
-      {/* ── Header ────────────────────────────────────────────────── */}
+    <div className="kds-shell" onClick={unlockAudio} style={{ "--kds-cols": settings.columns }}>
+
+      {/* ── Header ──────────────────────────────────────────────── */}
       <header className="kds-header">
         <div className="kds-header-left">
           <div className="kds-brand-mark">KDS</div>
@@ -342,30 +565,25 @@ export function App() {
         </div>
 
         {/* Source legend */}
-        <div className="kds-source-legend">
-          {Object.entries(SOURCE).map(([key, cfg]) => (
-            <span
-              key={key}
-              className="kds-src-pill"
-              style={{ color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.color}33` }}
-            >
-              {cfg.label}
-            </span>
-          ))}
-        </div>
-
-        {/* Station tabs */}
-        {stations.length > 1 && (
-          <div className="kds-stations">
-            {stations.map((s) => (
-              <button
-                key={s}
-                className={`kds-station-btn${station === s ? " active" : ""}`}
-                onClick={() => setStation(s)}
-              >{s}</button>
+        {settings.showSource && (
+          <div className="kds-source-legend">
+            {Object.entries(SOURCE).map(([k, c]) => (
+              <span key={k} className="kds-src-pill"
+                style={{ color: c.color, background: c.bg, border:`1px solid ${c.color}33` }}>
+                {c.label}
+              </span>
             ))}
           </div>
         )}
+
+        {/* Station tabs */}
+        <div className="kds-stations">
+          {stationNames.map(s => (
+            <button key={s}
+              className={`kds-station-btn${stationTab === s ? " active" : ""}`}
+              onClick={() => setStationTab(s)}>{s}</button>
+          ))}
+        </div>
 
         <div className="kds-header-right">
           {servedCount > 0 && (
@@ -375,30 +593,36 @@ export function App() {
             <span className="kds-live-dot" />
             <span>{newT.length + prepT.length + readT.length} active</span>
           </div>
+          {/* Settings button */}
+          <button className="kds-settings-btn" onClick={e => { e.stopPropagation(); setShowSettings(true); }}
+            title="KDS Settings">
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
         </div>
       </header>
 
-      {/* ── Columns ───────────────────────────────────────────────── */}
-      <div className="kds-columns">
-        <KdsColumn
-          label="New Orders"   colorKey="new"
-          emptyMsg="Waiting for orders…"
-          tickets={newT}
-          onAdvance={handleAdvance} onBump={handleBump} onToggleItem={handleToggleItem}
-        />
-        <KdsColumn
-          label="Preparing"    colorKey="preparing"
-          emptyMsg="Nothing cooking right now"
-          tickets={prepT}
-          onAdvance={handleAdvance} onBump={handleBump} onToggleItem={handleToggleItem}
-        />
-        <KdsColumn
-          label="Ready to Serve" colorKey="ready"
-          emptyMsg="No items ready yet"
-          tickets={readT}
-          onAdvance={handleAdvance} onBump={handleBump} onToggleItem={handleToggleItem}
-        />
+      {/* ── Columns ─────────────────────────────────────────────── */}
+      <div className="kds-columns" style={{ gridTemplateColumns: `repeat(${settings.columns}, 1fr)` }}>
+        <KdsColumn label="New Orders"    colorKey="new"      emptyMsg="Waiting for orders…"       tickets={newT}  {...colProps} />
+        <KdsColumn label="Preparing"     colorKey="preparing" emptyMsg="Nothing cooking right now" tickets={prepT} {...colProps} />
+        <KdsColumn label="Ready to Serve" colorKey="ready"   emptyMsg="No items ready yet"        tickets={readT} {...colProps} />
+        {/* Extra columns when > 3 — show served/extra slots */}
+        {settings.columns === 4 && (
+          <KdsColumn label="Served Today" colorKey="served"  emptyMsg={`${servedCount} orders bumped`} tickets={[]} {...colProps} />
+        )}
       </div>
+
+      {/* ── Settings Panel ──────────────────────────────────────── */}
+      {showSettings && (
+        <KdsSettingsPanel
+          settings={settings}
+          onUpdate={updateSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 }
