@@ -441,7 +441,7 @@ function OrderScreen({
   onToggleHold, onTransfer, onMerge, onUpdateOrder
 }) {
   const [screen,      setScreen]      = useState("order");
-  const [activeCat,   setActiveCat]   = useState(categories[0]?.name || "");
+  const [activeCat,   setActiveCat]   = useState(categories[0]?.id || categories[0]?.name || "");
   const [noteItemIdx, setNoteItemIdx] = useState(null);
   const [noteValue,   setNoteValue]   = useState("");
   const [search,      setSearch]      = useState("");
@@ -450,7 +450,7 @@ function OrderScreen({
     ? menuItems.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
     : menuItems.filter((i) => {
         const cat = i.categoryId || i.category || i.categoryName || "";
-        return cat === activeCat && i.isActive !== false;
+        return (cat === activeCat || cat.toLowerCase() === activeCat.toLowerCase()) && i.isActive !== false;
       });
 
   function addItem(item) {
@@ -556,9 +556,9 @@ function OrderScreen({
           <div className="menu-cat-scroll">
             {categories.map((c) => (
               <button
-                key={c.name}
-                className={`menu-cat-chip${activeCat === c.name ? " active" : ""}`}
-                onClick={() => setActiveCat(c.name)}
+                key={c.id || c.name}
+                className={`menu-cat-chip${activeCat === (c.id || c.name) ? " active" : ""}`}
+                onClick={() => setActiveCat(c.id || c.name)}
               >{c.name}</button>
             ))}
           </div>
