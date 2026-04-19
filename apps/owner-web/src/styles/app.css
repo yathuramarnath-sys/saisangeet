@@ -2851,3 +2851,345 @@ body {
 .avail-toggle-label {
   letter-spacing: 0.01em;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   App Store Page
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Intro banner */
+.as-intro-banner {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: linear-gradient(135deg, #eff6ff, #f0fdf4);
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin: 0 0 28px;
+}
+.as-intro-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 2px;
+}
+.as-intro-banner strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e3a5f;
+  margin-bottom: 4px;
+}
+.as-intro-banner p {
+  font-size: 13.5px;
+  color: #374151;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Section */
+.as-section {
+  margin-bottom: 40px;
+}
+.as-section-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 18px;
+}
+.as-section-head h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+.as-section-head p {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  width: 100%;
+}
+.as-step-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  background: #111827;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 99px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.as-loading {
+  color: #9ca3af;
+  font-size: 14px;
+  padding: 24px 0;
+}
+
+/* Apps grid */
+.as-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.as-app-card {
+  background: var(--app-bg);
+  border: 1.5px solid var(--app-border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.as-app-icon {
+  font-size: 36px;
+  line-height: 1;
+}
+.as-app-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.as-app-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: #111827;
+}
+.as-app-tag {
+  font-size: 12.5px;
+  color: #6b7280;
+}
+.as-platform-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.as-platform-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #374151;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+.as-platform-btn:hover:not(.current) {
+  border-color: var(--app-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-color) 12%, transparent);
+}
+.as-platform-btn.current {
+  background: #f9fafb;
+  cursor: default;
+  opacity: 0.7;
+}
+.as-platform-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.as-platform-label {
+  flex: 1;
+}
+.as-platform-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.as-platform-tag.dl {
+  color: #2563eb;
+}
+.as-platform-tag.open {
+  color: #059669;
+}
+.as-app-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 6px;
+  border-top: 1px solid var(--app-border);
+}
+.as-app-who {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--app-color);
+}
+.as-app-note {
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+/* Link-code grid */
+.as-link-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.as-link-card {
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.as-link-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.as-link-outlet-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.as-link-outlet-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.18);
+  flex-shrink: 0;
+}
+.as-link-outlet-name {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+.as-link-outlet-code {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+.as-link-badge {
+  padding: 3px 10px;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 99px;
+}
+.as-link-code-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.as-link-code {
+  flex: 1;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  color: #0f172a;
+  font-family: 'Courier New', monospace;
+}
+.as-link-copy-btn {
+  padding: 8px 16px;
+  background: #0f172a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.as-link-copy-btn:hover { background: #1e293b; }
+.as-link-copy-btn.copied {
+  background: #15803d;
+}
+.as-link-hint {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+}
+.as-link-hint strong { color: #374151; }
+.as-link-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.as-link-usage {
+  display: flex;
+  gap: 6px;
+}
+.as-link-usage-item {
+  padding: 4px 10px;
+  background: #f1f5f9;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+.as-regen-btn {
+  background: none;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+.as-regen-btn:hover {
+  border-color: #94a3b8;
+  color: #374151;
+}
+
+/* Quick guide */
+.as-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.as-guide-card {
+  background: #f9fafb;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.as-guide-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+.as-guide-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+.as-guide-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.as-guide-steps li {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+}

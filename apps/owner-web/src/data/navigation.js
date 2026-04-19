@@ -10,5 +10,6 @@ export const navigation = [
   { id: "inventory", label: "Inventory", path: "/inventory", mode: "react" },
   { id: "taxes", label: "Taxes & Receipts", path: "/taxes-receipts", mode: "react" },
   { id: "shifts", label: "Shifts & Cash Control", path: "/shifts-cash", mode: "react" },
-  { id: "reports", label: "Reports", path: "/reports", mode: "react" }
+  { id: "reports",   label: "Reports",               path: "/reports",    mode: "react" },
+  { id: "appstore",  label: "App Store",              path: "/app-store",  mode: "react" }
 ];

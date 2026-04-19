@@ -12,6 +12,7 @@ import { ReportsPage } from "../features/reports/ReportsPage";
 import { ShiftsCashPage } from "../features/shifts/ShiftsCashPage";
 import { StaffPage } from "../features/staff/StaffPage";
 import { TaxesReceiptsPage } from "../features/taxes/TaxesReceiptsPage";
+import { AppStorePage } from "../features/appstore/AppStorePage";
 import { OverviewPage } from "../features/overview/OverviewPage";
 import { PrototypePage } from "./PrototypePage";
 
@@ -63,6 +64,10 @@ export function AppRoutes() {
 
     if (item.mode === "react" && item.id === "reports") {
       return <ReportsPage />;
+    }
+
+    if (item.mode === "react" && item.id === "appstore") {
+      return <AppStorePage />;
     }
 
     return <PrototypePage prototypeFile={item.prototypeFile} />;
