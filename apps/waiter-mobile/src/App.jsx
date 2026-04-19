@@ -4,6 +4,10 @@ import { io } from "socket.io-client";
 import { api }       from "./lib/api";
 import { printBill } from "./lib/printBill";
 import {
+  getStockState,
+  subscribeStock,
+} from "../../../packages/shared-types/src/stockAvailability.js";
+import {
   mobileAreas      as seedAreas,
   mobileCategories as seedCategories,
   mobileMenuItems  as seedMenuItems,
@@ -445,6 +449,13 @@ function OrderScreen({
   const [noteItemIdx, setNoteItemIdx] = useState(null);
   const [noteValue,   setNoteValue]   = useState("");
   const [search,      setSearch]      = useState("");
+  const [stockState,  setStockState]  = useState(() => getStockState());
+
+  // Keep stock state in sync with Owner Web / other tabs
+  useEffect(() => {
+    const unsub = subscribeStock((s) => setStockState({ ...s }));
+    return unsub;
+  }, []);
 
   const displayItems = search.trim()
     ? menuItems.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
@@ -580,16 +591,23 @@ function OrderScreen({
         )}
         <div className="menu-item-list">
           {displayItems.map((item) => {
-            const price = parsePriceNumber(item.price || item.basePrice);
+            const price   = parsePriceNumber(item.price || item.basePrice);
+            const soldOut = stockState[item.id]?.available === false;
             return (
-              <button key={item.id} className="menu-item-row" onClick={() => addItem(item)}>
+              <button
+                key={item.id}
+                className={`menu-item-row${soldOut ? " item-sold-out" : ""}`}
+                onClick={() => !soldOut && addItem(item)}
+                disabled={soldOut}
+              >
                 <div className="menu-item-info">
                   {item.isVeg !== undefined && (
                     <span className={`veg-badge ${item.isVeg ? "veg" : "nonveg"}`} />
                   )}
                   <span className="menu-item-name">{item.name}</span>
+                  {soldOut && <span className="sold-out-chip">SOLD OUT</span>}
                 </div>
-                <span className="menu-item-price">₹{price}</span>
+                {!soldOut && <span className="menu-item-price">₹{price}</span>}
               </button>
             );
           })}

@@ -1,4 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getStockState,
+  subscribeStock,
+} from "../../../../packages/shared-types/src/stockAvailability.js";
 
 // Category → emoji mapping
 const CAT_EMOJI = {
@@ -72,7 +76,14 @@ const PALETTE = [
 ];
 
 export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem }) {
-  const [search, setSearch] = useState("");
+  const [search,      setSearch]      = useState("");
+  const [stockState,  setStockState]  = useState(() => getStockState());
+
+  // Keep stock state in sync with other tabs / windows
+  useEffect(() => {
+    const unsub = subscribeStock((s) => setStockState({ ...s }));
+    return unsub;
+  }, []);
 
   const catColors = useMemo(() => {
     const map = {};
@@ -156,23 +167,26 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
           </div>
         )}
         {filtered.map((item) => {
-          const price = typeof item.price === "number"
+          const price   = typeof item.price === "number"
             ? item.price
             : Number(String(item.price || item.basePrice || "").replace(/[^\d.]/g, "")) || 0;
-          const color = search ? PALETTE[0] : itemCatColor(item);
-          const emoji = getItemEmoji(item.name);
+          const color   = search ? PALETTE[0] : itemCatColor(item);
+          const emoji   = getItemEmoji(item.name);
+          const soldOut = stockState[item.id]?.available === false;
 
           return (
             <button
               key={item.id}
               type="button"
-              className="menu-food-card"
-              onClick={() => onAddItem({ ...item, price })}
+              className={`menu-food-card${soldOut ? " sold-out" : ""}`}
+              onClick={() => !soldOut && onAddItem({ ...item, price })}
+              disabled={soldOut}
+              title={soldOut ? "Sold Out — not available right now" : undefined}
             >
               {/* Emoji icon area */}
-              <div className="mfc-icon-area" style={{ background: color.grad }}>
-                <span className="mfc-emoji">{emoji}</span>
-                {item.isVeg !== undefined && (
+              <div className="mfc-icon-area" style={{ background: soldOut ? "#e5e7eb" : color.grad }}>
+                <span className="mfc-emoji">{soldOut ? "🚫" : emoji}</span>
+                {item.isVeg !== undefined && !soldOut && (
                   <span className={`mfc-veg-badge ${item.isVeg ? "veg" : "nonveg"}`}>
                     {item.isVeg ? "●" : "●"}
                   </span>
@@ -182,10 +196,14 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
               {/* Info */}
               <div className="mfc-info">
                 <span className="mfc-name">{item.name}</span>
-                <div className="mfc-bottom">
-                  <span className="mfc-price" style={{ color: color.bg }}>₹{price}</span>
-                  <span className="mfc-add-btn" style={{ background: color.bg }}>+</span>
-                </div>
+                {soldOut ? (
+                  <div className="mfc-soldout-label">SOLD OUT</div>
+                ) : (
+                  <div className="mfc-bottom">
+                    <span className="mfc-price" style={{ color: color.bg }}>₹{price}</span>
+                    <span className="mfc-add-btn" style={{ background: color.bg }}>+</span>
+                  </div>
+                )}
               </div>
             </button>
           );

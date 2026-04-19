@@ -1377,3 +1377,31 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
 
 .waiter-btn.table-action:active { background: var(--w-text); color: #fff; }
+
+/* ─── Sold Out — menu items ──────────────────────────────────────────────── */
+
+.menu-item-row.item-sold-out {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #fafafa;
+}
+
+.menu-item-row.item-sold-out .menu-item-name {
+  text-decoration: line-through;
+  color: var(--w-muted);
+}
+
+.sold-out-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
