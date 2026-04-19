@@ -462,7 +462,10 @@
       ],
       "outletName": "All Outlets",
       "isActive": true,
-      "pin": "1234"
+      "pin": "1234",
+      "email": "owner@dinexpos.in",
+      "phone": "+919876543210",
+      "passwordHash": "$2b$10$bjVPBecA/HBu5pb7vY6yOOp1SQ4HAbLKpFzBPNFwndd88PaNEEpe."
     },
     {
       "id": "user-manager-1",
