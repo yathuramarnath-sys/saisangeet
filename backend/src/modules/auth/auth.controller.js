@@ -1,8 +1,17 @@
-const { login } = require("./auth.service");
+const { login, signup, isSignupAvailable } = require("./auth.service");
 
 async function loginHandler(req, res) {
   const result = await login(req.body);
   res.json(result);
+}
+
+function signupAvailableHandler(_req, res) {
+  res.json({ available: isSignupAvailable() });
+}
+
+async function signupHandler(req, res) {
+  const result = await signup(req.body);
+  res.status(201).json(result);
 }
 
 function meHandler(req, res) {
@@ -23,6 +32,8 @@ function logoutHandler(_req, res) {
 
 module.exports = {
   loginHandler,
+  signupAvailableHandler,
+  signupHandler,
   meHandler,
   logoutHandler
 };
