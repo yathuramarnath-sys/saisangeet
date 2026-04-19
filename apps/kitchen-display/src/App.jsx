@@ -59,6 +59,160 @@ function saveSettings(s) {
   try { localStorage.setItem("kds_settings", JSON.stringify(s)); } catch (_) {}
 }
 
+// ─── KDS Branch Config (localStorage) ────────────────────────────────────────
+
+const KDS_LS_KEY = "kds_branch_config";
+
+function loadKdsBranchConfig() {
+  try { return JSON.parse(localStorage.getItem(KDS_LS_KEY) || "null"); }
+  catch { return null; }
+}
+function saveKdsBranchConfig(cfg) {
+  localStorage.setItem(KDS_LS_KEY, JSON.stringify(cfg));
+}
+function clearKdsBranchConfig() {
+  localStorage.removeItem(KDS_LS_KEY);
+}
+
+// ─── KDS Branch Setup Screen ──────────────────────────────────────────────────
+
+function KdsBranchSetupScreen({ onComplete }) {
+  const [code,     setCode]     = useState("");
+  const [status,   setStatus]   = useState("idle");
+  const [result,   setResult]   = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function handleVerify(e) {
+    e.preventDefault();
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) return;
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      const data = await api.post("/devices/resolve-link-code", {
+        linkCode:   trimmed,
+        deviceType: "KDS",
+      });
+      setResult(data);
+      setStatus("success");
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(err?.message || "Invalid link code — check with your manager.");
+    }
+  }
+
+  function handleConfirm() {
+    const config = {
+      outletId:     result.outletId,
+      outletCode:   result.outletCode,
+      outletName:   result.outletName,
+      configuredAt: new Date().toISOString(),
+    };
+    saveKdsBranchConfig(config);
+    onComplete(config);
+  }
+
+  return (
+    <div style={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      background: "linear-gradient(135deg, #0a0c10 0%, #111827 100%)",
+      fontFamily: "'Manrope', sans-serif", padding: 24,
+    }}>
+      <div style={{
+        background: "#111827", border: "1px solid #1f2937", borderRadius: 20,
+        padding: "48px 40px", width: "100%", maxWidth: 420,
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+        boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: "50%",
+          background: "linear-gradient(135deg, #ef4444, #dc2626)",
+          color: "#fff", fontSize: 22, fontWeight: 800,
+          display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4,
+        }}>KDS</div>
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: "#f9fafb", margin: 0 }}>Kitchen Display</h1>
+        <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 16px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          Station Setup
+        </p>
+
+        {status !== "success" ? (
+          <>
+            <p style={{ fontSize: 14, color: "#9ca3af", textAlign: "center", margin: "0 0 20px", lineHeight: 1.6 }}>
+              Enter the branch link code from<br />
+              <strong style={{ color: "#e5e7eb" }}>Owner Web → Outlets → Link Device</strong>
+            </p>
+            <form style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }} onSubmit={handleVerify}>
+              <input
+                style={{
+                  width: "100%", padding: "16px 18px", fontSize: 22, fontWeight: 700,
+                  letterSpacing: "0.12em", textAlign: "center",
+                  background: "#0a0c10", border: `2px solid ${status === "error" ? "#ef4444" : "#1f2937"}`,
+                  borderRadius: 12, color: "#f9fafb", outline: "none",
+                  fontFamily: "monospace", boxSizing: "border-box",
+                }}
+                type="text" value={code}
+                onChange={e => { setCode(e.target.value.toUpperCase()); setStatus("idle"); }}
+                placeholder="e.g. INDR-1001" maxLength={20}
+                autoFocus autoComplete="off" spellCheck={false}
+              />
+              {status === "error" && (
+                <p style={{ color: "#f87171", fontSize: 13, textAlign: "center", margin: 0 }}>⚠ {errorMsg}</p>
+              )}
+              <button
+                style={{
+                  width: "100%", padding: 15,
+                  background: status === "loading" ? "#374151" : "linear-gradient(135deg, #ef4444, #dc2626)",
+                  color: "#fff", border: "none", borderRadius: 12,
+                  fontSize: 15, fontWeight: 700, cursor: "pointer",
+                  opacity: (status === "loading" || !code.trim()) ? 0.5 : 1,
+                  fontFamily: "'Manrope', sans-serif",
+                }}
+                type="submit" disabled={status === "loading" || !code.trim()}
+              >
+                {status === "loading" ? "Verifying…" : "Connect Station →"}
+              </button>
+            </form>
+            <p style={{ fontSize: 12, color: "#4b5563", textAlign: "center", margin: "4px 0 0" }}>
+              Code looks like <code style={{ background: "#0a0c10", padding: "1px 6px", borderRadius: 4, color: "#9ca3af" }}>ABCD-1234</code>
+            </p>
+          </>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%" }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: "50%",
+              background: "linear-gradient(135deg, #10b981, #059669)",
+              color: "#fff", fontSize: 28, display: "flex", alignItems: "center",
+              justifyContent: "center", fontWeight: 700, marginBottom: 4,
+            }}>✓</div>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: "#f9fafb", margin: 0 }}>{result.outletName}</h2>
+            <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 12px" }}>
+              {result.tables?.length || 0} tables · KDS ready
+            </p>
+            <button
+              style={{
+                width: "100%", padding: 15,
+                background: "linear-gradient(135deg, #10b981, #059669)",
+                color: "#fff", border: "none", borderRadius: 12,
+                fontSize: 15, fontWeight: 700, cursor: "pointer",
+                fontFamily: "'Manrope', sans-serif",
+              }}
+              onClick={handleConfirm}
+            >
+              Start Kitchen Display →
+            </button>
+            <button
+              style={{ background: "none", border: "none", color: "#6b7280", fontSize: 13, cursor: "pointer", padding: 8, textDecoration: "underline" }}
+              onClick={() => { setStatus("idle"); setResult(null); setCode(""); }}
+            >
+              ← Wrong outlet?
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function elapsedLabel(createdAt) {
@@ -128,7 +282,7 @@ function SettingRow({ label, sub, children }) {
   );
 }
 
-function KdsSettingsPanel({ settings, onUpdate, onClose }) {
+function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletName }) {
   const [tab,        setTab]        = useState("display");
   const [newStation, setNewStation] = useState("");
   const [stockState, setStockState] = useState(() => getStockState());
@@ -431,6 +585,23 @@ function KdsSettingsPanel({ settings, onUpdate, onClose }) {
           </div>
         </div>
 
+        {/* Device info */}
+        {outletName && (
+          <div style={{ padding: "12px 24px 0", borderTop: "1px solid #1f2937", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 12, color: "#6b7280" }}>
+              🔗 Connected to <strong style={{ color: "#9ca3af" }}>{outletName}</strong>
+            </span>
+            {onForgetDevice && (
+              <button
+                style={{ background: "none", border: "none", color: "#ef4444", fontSize: 12, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                onClick={onForgetDevice}
+              >
+                Forget device
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Footer */}
         <div className="kds-settings-foot">
           <button className="kds-settings-reset"
@@ -563,6 +734,7 @@ function KdsColumn({ label, colorKey, emptyMsg, tickets, settings, onAdvance, on
 // ─── App root ─────────────────────────────────────────────────────────────────
 
 export function App() {
+  const [branchConfig,  setBranchConfig]  = useState(() => loadKdsBranchConfig());
   const [settings,     setSettings]     = useState(loadSettings);
   const [tickets,      setTickets]      = useState([]);
   const [outlet,       setOutlet]       = useState(null);
@@ -582,10 +754,11 @@ export function App() {
 
   // Bootstrap
   useEffect(() => {
+    if (!branchConfig) return;
     async function bootstrap() {
       try {
         const outlets = await api.get("/outlets");
-        const target  = outlets[0];
+        const target  = outlets.find((o) => o.id === branchConfig.outletId) || outlets[0];
         if (!target) throw new Error("no outlet");
         setOutlet(target);
 
@@ -617,7 +790,7 @@ export function App() {
     }
     bootstrap();
     return () => socketRef.current?.disconnect();
-  }, []);
+  }, [branchConfig]);
 
   // Auto-bump effect
   useEffect(() => {
@@ -664,6 +837,11 @@ export function App() {
   const readT = base.filter(t => t.status === "ready");
 
   const colProps = { settings, onAdvance: handleAdvance, onBump: handleBump, onToggleItem: handleToggleItem, newIds };
+
+  // Branch setup gate (all hooks above — safe)
+  if (!branchConfig) {
+    return <KdsBranchSetupScreen onComplete={(cfg) => setBranchConfig(cfg)} />;
+  }
 
   return (
     <div className="kds-shell" onClick={unlockAudio} style={{ "--kds-cols": settings.columns }}>
@@ -735,6 +913,12 @@ export function App() {
           settings={settings}
           onUpdate={updateSettings}
           onClose={() => setShowSettings(false)}
+          outletName={outlet?.name || branchConfig?.outletName}
+          onForgetDevice={() => {
+            clearKdsBranchConfig();
+            setBranchConfig(null);
+            setShowSettings(false);
+          }}
         />
       )}
     </div>

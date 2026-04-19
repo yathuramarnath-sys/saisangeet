@@ -2,7 +2,8 @@ const {
   fetchDevices,
   createLinkToken,
   linkDevice,
-  updateDeviceStatus
+  updateDeviceStatus,
+  resolveLinkCode,
 } = require("./devices.service");
 
 async function listDevicesHandler(_req, res) {
@@ -25,9 +26,19 @@ async function updateDeviceStatusHandler(req, res) {
   res.json(result);
 }
 
+async function resolveLinkCodeHandler(req, res) {
+  try {
+    const result = await resolveLinkCode(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 400).json({ error: err.message });
+  }
+}
+
 module.exports = {
   listDevicesHandler,
   createLinkTokenHandler,
   linkDeviceHandler,
-  updateDeviceStatusHandler
+  updateDeviceStatusHandler,
+  resolveLinkCodeHandler,
 };

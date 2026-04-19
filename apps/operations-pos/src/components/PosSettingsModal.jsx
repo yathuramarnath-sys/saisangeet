@@ -358,6 +358,35 @@ function CashierTab({ cashierName, activeShift }) {
           </div>
         ))}
       </div>
+
+      {/* ── Forget device ────────────────────────────────────────────────── */}
+      <div className="pset-section-head" style={{ marginTop: 28 }}>
+        <div><h4>Device Setup</h4><p>Branch link code and device registration</p></div>
+      </div>
+      <div className="pset-device-info">
+        {(() => {
+          try {
+            const cfg = JSON.parse(localStorage.getItem("pos_branch_config") || "null");
+            return cfg ? (
+              <p className="pset-device-branch">
+                <span>Connected:</span> <strong>{cfg.outletName}</strong>
+                <span className="pset-device-code"> · {cfg.outletCode}</span>
+              </p>
+            ) : <p style={{ color: "#ef4444", fontSize: 13 }}>No branch linked</p>;
+          } catch { return null; }
+        })()}
+        <button
+          className="pset-forget-btn"
+          onClick={() => {
+            if (window.confirm("Unlink this device? You will need a new branch code on next launch.")) {
+              localStorage.removeItem("pos_branch_config");
+              window.location.reload();
+            }
+          }}
+        >
+          🔗 Forget this device &amp; re-link
+        </button>
+      </div>
     </div>
   );
 }

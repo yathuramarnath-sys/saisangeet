@@ -9,6 +9,11 @@ import { ShiftGate }          from "./components/ShiftGate";
 import { CashMovementModal, CloseShiftModal } from "./components/ShiftModals";
 import { AdvanceOrderModal }  from "./components/AdvanceOrderModal";
 import { PosLogin }           from "./components/PosLogin";
+import {
+  BranchSetupScreen,
+  loadBranchConfig,
+  clearBranchConfig,
+} from "./components/BranchSetupScreen";
 import { CategorySidebar }    from "./components/CategorySidebar";
 import { TablePickerPanel }   from "./components/TablePickerPanel";
 import { CustomerFormModal }  from "./components/CustomerFormModal";
@@ -106,6 +111,7 @@ function Clock() {
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [branchConfig,    setBranchConfig]    = useState(() => loadBranchConfig());
   const [outlet,          setOutlet]          = useState(null);
   const [tableAreas,      setTableAreas]      = useState(seedAreas);
   const [categories,      setCategories]      = useState(seedCategories);
@@ -135,11 +141,13 @@ export default function App() {
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!branchConfig) return;   // wait — BranchSetupScreen handles this first
     async function bootstrap() {
       try {
-        const outletCode = localStorage.getItem("pos_outlet_code");
-        const outlets    = await api.get("/outlets");
-        const target     = outletCode ? outlets.find((o) => o.code === outletCode) : outlets[0];
+        const outlets = await api.get("/outlets");
+        const target  = outlets.find((o) => o.id === branchConfig.outletId)
+                     || outlets.find((o) => o.code === branchConfig.outletCode)
+                     || outlets[0];
         if (!target) return;
 
         setOutlet(target);
@@ -197,7 +205,7 @@ export default function App() {
 
     bootstrap();
     return () => { socketRef.current?.disconnect(); };
-  }, []);
+  }, [branchConfig]);
 
   useEffect(() => {
     setOrders((prev) => ensureOrders(prev, tableAreas, outlet?.name || "Outlet"));
@@ -606,8 +614,17 @@ export default function App() {
   ];
 
   // ── POS Login (no cashier selected) ───────────────────────────────────────
+  // ── Branch setup gate (first launch) ─────────────────────────────────────
+  if (!branchConfig) {
+    return (
+      <BranchSetupScreen
+        onComplete={(cfg) => setBranchConfig(cfg)}
+      />
+    );
+  }
+
   if (!cashierName) {
-    return <PosLogin outletName={outlet?.name} onLogin={name => setCashierName(name)} />;
+    return <PosLogin outletName={outlet?.name || branchConfig.outletName} onLogin={name => setCashierName(name)} />;
   }
 
   // ── Shift Gate (cashier logged in, no active shift) ────────────────────────

@@ -7,7 +7,8 @@ const {
   listDevicesHandler,
   createLinkTokenHandler,
   linkDeviceHandler,
-  updateDeviceStatusHandler
+  updateDeviceStatusHandler,
+  resolveLinkCodeHandler,
 } = require("./devices.controller");
 
 const devicesRouter = express.Router();
@@ -19,6 +20,9 @@ devicesRouter.post(
   requirePermission("devices.manage"),
   asyncHandler(createLinkTokenHandler)
 );
+// Public — no auth — called by POS / Captain App / KDS on first launch
+devicesRouter.post("/resolve-link-code", asyncHandler(resolveLinkCodeHandler));
+
 devicesRouter.post("/link", asyncHandler(linkDeviceHandler));
 devicesRouter.patch(
   "/:id/status",

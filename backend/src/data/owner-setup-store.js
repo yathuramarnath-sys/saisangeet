@@ -406,12 +406,76 @@ function createDefaultData() {
       },
       {
         id: "user-manager-1",
-        fullName: "Priya Manager",
-        name: "Priya Manager",
+        fullName: "Priya",
+        name: "Priya",
         roles: ["Manager"],
-        outletName: "Indiranagar",
+        outletName: "All Outlets",
         isActive: true,
         pin: "2244"
+      },
+      /* ── Captain / Waiter / Cashier staff ── */
+      {
+        id: "user-captain-1",
+        fullName: "Karthik",
+        name: "Karthik",
+        roles: ["Captain"],
+        outletName: "Indiranagar",
+        isActive: true,
+        pin: "1234"
+      },
+      {
+        id: "user-waiter-1",
+        fullName: "Rahul",
+        name: "Rahul",
+        roles: ["Waiter"],
+        outletName: "Indiranagar",
+        isActive: true,
+        pin: "2345"
+      },
+      {
+        id: "user-waiter-2",
+        fullName: "Devi",
+        name: "Devi",
+        roles: ["Waiter"],
+        outletName: "Indiranagar",
+        isActive: true,
+        pin: "3456"
+      },
+      {
+        id: "user-cashier-1",
+        fullName: "Ravi",
+        name: "Ravi",
+        roles: ["Cashier"],
+        outletName: "Indiranagar",
+        isActive: true,
+        pin: "4321"
+      },
+      {
+        id: "user-cashier-2",
+        fullName: "Sunita",
+        name: "Sunita",
+        roles: ["Cashier"],
+        outletName: "Indiranagar",
+        isActive: true,
+        pin: "5678"
+      },
+      {
+        id: "user-captain-2",
+        fullName: "Arjun",
+        name: "Arjun",
+        roles: ["Captain"],
+        outletName: "Koramangala",
+        isActive: true,
+        pin: "1111"
+      },
+      {
+        id: "user-cashier-3",
+        fullName: "Meena",
+        name: "Meena",
+        roles: ["Cashier"],
+        outletName: "Koramangala",
+        isActive: true,
+        pin: "2222"
       }
     ],
     taxProfiles,
