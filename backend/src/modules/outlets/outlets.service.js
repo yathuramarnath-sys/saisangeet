@@ -51,8 +51,17 @@ async function updateOutletSettings(id, payload) {
   return updatedOutlet || null;
 }
 
+async function deleteOutlet(id) {
+  updateOwnerSetupData((current) => ({
+    ...current,
+    outlets: current.outlets.filter((outlet) => outlet.id !== id)
+  }));
+  return { ok: true };
+}
+
 module.exports = {
   fetchOutlets,
   createOutlet,
-  updateOutletSettings
+  updateOutletSettings,
+  deleteOutlet
 };

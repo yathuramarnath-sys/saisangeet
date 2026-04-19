@@ -44,7 +44,8 @@ function toggleOutlet(item, outletName) {
 function buildDefaultItemDraft(menuData) {
   return {
     categoryName: menuData.categories[0]?.name || "",
-    station: menuData.stations[0]?.name || ""
+    station: menuData.stations[0]?.name || "",
+    selectedOutlets: [] // empty = all outlets
   };
 }
 
@@ -350,7 +351,10 @@ export function MenuPage() {
         station: formData.get("station"),
         trackInventory: formData.get("trackInventory"),
         entryStyle: formData.get("entryStyle"),
-        foodType: formData.get("foodType")
+        foodType: formData.get("foodType"),
+        outletAvailability: itemDraft.selectedOutlets?.length
+          ? itemDraft.selectedOutlets.map((name) => ({ outlet: name, enabled: true }))
+          : availableOutlets.map((o) => ({ outlet: o.name, enabled: true }))
       });
       const result = await reloadMenu();
       form.reset();
@@ -1665,6 +1669,47 @@ export function MenuPage() {
                 <option>Optional later</option>
               </select>
             </label>
+            {/* Outlet availability */}
+            {availableOutlets.length > 0 && (
+              <div className="menu-outlet-avail">
+                <span className="menu-outlet-avail-label">Available at outlets</span>
+                <div className="menu-outlet-avail-options">
+                  <label className={`menu-outlet-chip${!itemDraft.selectedOutlets?.length ? " selected" : ""}`}>
+                    <input
+                      type="radio"
+                      name="outletScope"
+                      checked={!itemDraft.selectedOutlets?.length}
+                      onChange={() => updateItemDraft("selectedOutlets", [])}
+                    />
+                    <span>✓ All outlets</span>
+                  </label>
+                  {availableOutlets.map((outlet) => {
+                    const checked = (itemDraft.selectedOutlets || []).includes(outlet.name);
+                    return (
+                      <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const current = itemDraft.selectedOutlets || [];
+                            const next = e.target.checked
+                              ? [...current, outlet.name]
+                              : current.filter((n) => n !== outlet.name);
+                            updateItemDraft("selectedOutlets", next);
+                          }}
+                        />
+                        <span>{outlet.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="menu-outlet-avail-hint">
+                  {!itemDraft.selectedOutlets?.length
+                    ? "This item will be available at all outlets."
+                    : `Available at: ${(itemDraft.selectedOutlets || []).join(", ") || "none selected"}`}
+                </p>
+              </div>
+            )}
             {saveMessage ? <p>{saveMessage}</p> : null}
             {saveError ? <p>{saveError}</p> : null}
             <button type="submit" className="primary-btn full-width">
