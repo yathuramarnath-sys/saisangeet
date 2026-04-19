@@ -12,8 +12,10 @@
  *  • Staff can also manually flip an item back ON at any time.
  *
  * Key:  "stock_availability"
- * Shape: { [itemId]: { available: false, soldOutAt: ISO, resetDay: "Mon Apr 21 2026" } }
+ * Shape: { [itemId]: { available: false, soldOutAt: ISO, resetDay: "2026-04-21" } }
  * Only SOLD-OUT items are stored — absent keys mean Available.
+ *
+ * NOTE: resetDay uses ISO "YYYY-MM-DD" so lexicographic >= comparison is correct.
  */
 
 const STORAGE_KEY  = "stock_availability";
@@ -21,13 +23,13 @@ const EVENT_NAME   = "stock:changed";
 
 // ─── internal helpers ────────────────────────────────────────────────────────
 
-function todayString() {
-  return new Date().toDateString();           // e.g. "Sun Apr 20 2026"
+/** Returns "YYYY-MM-DD" for today — compares correctly as a plain string. */
+function isoDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function tomorrowString() {
-  return new Date(Date.now() + 86_400_000).toDateString();
-}
+function todayString()    { return isoDate(); }
+function tomorrowString() { return isoDate(new Date(Date.now() + 86_400_000)); }
 
 /** Read raw state from localStorage, pruning auto-reset items. */
 function readState() {

@@ -372,7 +372,7 @@ function KdsSettingsPanel({ settings, onUpdate, onClose }) {
                   <span className="kds-stock-item-name">{item.name}</span>
                   {!avail && soldAt && (
                     <span className="kds-stock-soldout-time">
-                      Sold out {new Date(soldAt).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})} · resets tomorrow
+                      ⏱ {new Date(soldAt).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})} · auto-resets tomorrow
                     </span>
                   )}
                 </div>
