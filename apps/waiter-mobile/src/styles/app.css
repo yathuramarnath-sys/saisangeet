@@ -1,4 +1,5 @@
 /* ─── Waiter / Captain App ─── Mobile-first ────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -11,14 +12,16 @@
   --w-muted: #62666f;
   --w-shadow: 0 2px 12px rgba(17,19,23,0.07);
 
-  --c-open: #16a34a;
-  --c-open-bg: #f0fdf4;
-  --c-running: #d97706;
+  --c-open:       #16a34a;
+  --c-open-bg:    #f0fdf4;
+  --c-running:    #d97706;
   --c-running-bg: #fffbeb;
-  --c-bill: #2563eb;
-  --c-bill-bg: #eff6ff;
+  --c-bill:       #2563eb;
+  --c-bill-bg:    #eff6ff;
+  --c-hold:       #7c3aed;
+  --c-hold-bg:    #f5f3ff;
 
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 15px;
   color: var(--w-text);
   -webkit-font-smoothing: antialiased;
@@ -223,7 +226,32 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   color: var(--c-bill);
   border-color: rgba(37,99,235,0.15);
 }
+.table-chip.status-hold {
+  background: var(--c-hold-bg);
+  color: var(--c-hold);
+  border-color: rgba(124,58,237,0.18);
+}
 .table-chip:active { transform: scale(0.95); }
+
+/* badge (item count dot) */
+.table-chip-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.table-chip-badge::after {
+  content: attr(data-v);
+  color: #fff;
+}
+/* override: just show text directly */
+.table-chip-badge { color: inherit; background: rgba(0,0,0,0.12); color: inherit; font-size: 0.72rem; padding: 0 5px; border-radius: 10px; height: 18px; }
 
 /* ─── Back button ────────────────────────────────────────────────────────── */
 
@@ -680,3 +708,268 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--w-border-strong); border-radius: 99px; }
+
+/* ─── Order head (with hold tag row) ─────────────────────────────────────── */
+
+.order-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.order-head-info { display: flex; flex-direction: column; gap: 3px; }
+
+.hold-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--c-hold-bg);
+  color: var(--c-hold);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border: 1.5px solid rgba(124,58,237,0.2);
+}
+
+.qty-val {
+  min-width: 20px;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* ─── Action button rows ─────────────────────────────────────────────────── */
+
+/* 2-column row: Hold + Print Bill */
+.action-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.waiter-btn.half-btn {
+  padding: 14px 8px;
+  font-size: 0.88rem;
+}
+
+/* Hold button states */
+.waiter-btn.hold-idle {
+  background: var(--w-bg);
+  color: var(--w-text);
+  border: 1.5px solid var(--w-border-strong);
+}
+
+.waiter-btn.hold-active {
+  background: var(--c-hold-bg);
+  color: var(--c-hold);
+  border: 1.5px solid rgba(124,58,237,0.25);
+}
+
+/* Print Bill button */
+.waiter-btn.print-idle {
+  background: var(--w-bg);
+  color: var(--w-text);
+  border: 1.5px solid var(--w-border-strong);
+}
+
+/* Split Bill button */
+.waiter-btn.split-idle {
+  background: var(--w-bg);
+  color: var(--w-text);
+  border: 1.5px solid var(--w-border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.waiter-btn.kot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* ─── Split Bill screen ───────────────────────────────────────────────────── */
+
+.split-screen {
+  display: flex;
+  flex-direction: column;
+  background: var(--w-bg);
+  height: 100%;
+  overflow: hidden;
+}
+
+.split-head {
+  background: var(--w-surface);
+  border-bottom: 1px solid var(--w-border);
+  padding: 14px 16px 12px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.split-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.split-sub {
+  font-size: 0.82rem;
+  color: var(--w-muted);
+}
+
+.split-count-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--w-surface);
+  border-bottom: 1px solid var(--w-border);
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.split-count-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--w-muted);
+  white-space: nowrap;
+}
+
+.split-count-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.split-count-btn {
+  padding: 8px 13px;
+  border-radius: 10px;
+  border: 1.5px solid var(--w-border);
+  background: var(--w-bg);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--w-muted);
+  transition: all 100ms;
+}
+
+.split-count-btn.active {
+  background: var(--w-text);
+  border-color: var(--w-text);
+  color: #fff;
+}
+
+.split-hint {
+  font-size: 0.78rem;
+  color: var(--w-muted);
+  padding: 8px 16px;
+  background: var(--w-bg);
+  flex-shrink: 0;
+}
+
+.split-item-list {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--w-surface);
+  border-bottom: 1px solid var(--w-border);
+}
+
+.split-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--w-border);
+  width: 100%;
+  text-align: left;
+  gap: 10px;
+  transition: background 80ms;
+}
+
+.split-item-row:active { background: var(--w-bg); }
+
+.split-item-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.split-item-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.split-item-note {
+  font-size: 0.78rem;
+  color: var(--w-muted);
+}
+
+.split-item-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.split-item-price {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--w-muted);
+}
+
+.split-seat-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0 8px;
+  transition: all 120ms;
+}
+
+.split-print-area {
+  padding: 12px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--w-surface);
+  border-top: 1px solid var(--w-border);
+  flex-shrink: 0;
+}
+
+.split-print-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.waiter-btn.split-person-btn {
+  background: var(--c-bill-bg);
+  color: var(--c-bill);
+  border: 1.5px solid rgba(37,99,235,0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 8px;
+  font-size: 0.88rem;
+}
+
+.waiter-btn.split-person-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.split-person-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
