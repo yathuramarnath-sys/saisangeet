@@ -1,7 +1,8 @@
 const {
   fetchOutlets,
   createOutlet,
-  updateOutletSettings
+  updateOutletSettings,
+  deleteOutlet
 } = require("./outlets.service");
 
 async function listOutletsHandler(_req, res) {
@@ -19,8 +20,14 @@ async function updateOutletSettingsHandler(req, res) {
   res.json(result);
 }
 
+async function deleteOutletHandler(req, res) {
+  const result = await deleteOutlet(req.params.id);
+  res.json(result);
+}
+
 module.exports = {
   listOutletsHandler,
   createOutletHandler,
-  updateOutletSettingsHandler
+  updateOutletSettingsHandler,
+  deleteOutletHandler
 };

@@ -3,8 +3,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createOutlet,
   createOutletLinkCode,
+  deleteOutlet,
   fetchOutletPageData,
   linkOutletDevice,
+  toggleOutletActive,
   updateOutlet
 } from "./outlets.service";
 
@@ -307,6 +309,36 @@ export function OutletsPage() {
     }
   }
 
+  async function handleToggleOutletActive(outlet) {
+    try {
+      setStatusError("");
+      await toggleOutletActive(outlet.id, !outlet.isActive);
+      await reloadOutlets();
+      setStatusMessage(`${outlet.name} ${outlet.isActive ? "disabled" : "enabled"}.`);
+    } catch (error) {
+      setStatusError(error.message || "Unable to update outlet status.");
+    }
+  }
+
+  async function handleDeleteOutlet(outlet) {
+    const confirmed = window.confirm(
+      `Remove "${outlet.name}"?\n\nThis will permanently delete the outlet and cannot be undone.`
+    );
+    if (!confirmed) return;
+    try {
+      setStatusError("");
+      await deleteOutlet(outlet.id);
+      if (editingOutletId === outlet.id) {
+        setEditingOutletId("");
+        setEditDraft(null);
+      }
+      await reloadOutlets();
+      setStatusMessage(`${outlet.name} has been removed.`);
+    } catch (error) {
+      setStatusError(error.message || "Unable to remove outlet.");
+    }
+  }
+
   async function handleLinkDevice() {
     if (!activeOutlet || !editDraft?.deviceName || !editDraft?.linkCode) {
       setStatusError("Generate a link code and enter device name before linking.");
@@ -418,10 +450,15 @@ export function OutletsPage() {
           ) : (
             <div className="outlet-cards">
               {outlets.map((outlet) => (
-                <div key={outlet.id} className="location-card">
+                <div key={outlet.id} className={`location-card${outlet.isActive === false ? " outlet-inactive" : ""}`}>
                   <div className="location-card-head">
                     <div>
-                      <strong>{outlet.name}</strong>
+                      <strong>
+                        {outlet.name}
+                        {outlet.isActive === false && (
+                          <span className="outlet-inactive-badge">Disabled</span>
+                        )}
+                      </strong>
                       <span>
                         {outlet.city} • {outlet.code}
                       </span>
@@ -448,6 +485,22 @@ export function OutletsPage() {
                     </button>
                     <button type="button" className="ghost-chip" onClick={() => startEditingOutlet(outlet)}>
                       Receipt
+                    </button>
+                    <button
+                      type="button"
+                      className={`ghost-chip${outlet.isActive ? "" : " ghost-chip-active"}`}
+                      onClick={() => handleToggleOutletActive(outlet)}
+                      title={outlet.isActive ? "Disable this outlet" : "Re-enable this outlet"}
+                    >
+                      {outlet.isActive ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-chip ghost-chip-danger"
+                      onClick={() => handleDeleteOutlet(outlet)}
+                      title="Permanently remove this outlet"
+                    >
+                      Remove
                     </button>
                   </div>
                 </div>

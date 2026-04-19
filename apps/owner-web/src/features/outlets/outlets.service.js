@@ -72,3 +72,11 @@ export async function createOutletLinkCode(payload) {
 export async function linkOutletDevice(payload) {
   return api.post("/devices/link", payload);
 }
+
+export async function toggleOutletActive(id, isActive) {
+  return api.patch(`/outlets/${id}/settings`, { isActive });
+}
+
+export async function deleteOutlet(id) {
+  return api.delete(`/outlets/${id}`);
+}

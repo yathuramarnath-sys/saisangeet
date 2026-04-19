@@ -6,7 +6,8 @@ const { asyncHandler } = require("../../utils/async-handler");
 const {
   listOutletsHandler,
   createOutletHandler,
-  updateOutletSettingsHandler
+  updateOutletSettingsHandler,
+  deleteOutletHandler
 } = require("./outlets.controller");
 
 const outletsRouter = express.Router();
@@ -23,6 +24,12 @@ outletsRouter.patch(
   requireAuth,
   requirePermission("outlets.manage"),
   asyncHandler(updateOutletSettingsHandler)
+);
+outletsRouter.delete(
+  "/:id",
+  requireAuth,
+  requirePermission("outlets.manage"),
+  asyncHandler(deleteOutletHandler)
 );
 
 module.exports = {
