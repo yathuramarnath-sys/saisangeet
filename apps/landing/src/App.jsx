@@ -278,10 +278,10 @@ export function App() {
             {submitted ? (
               <div className="lp-enroll-success">
                 <div className="lp-success-icon">🎉</div>
-                <h3>You're on the list!</h3>
-                <p>We've received your details. Our team will reach out within 24 hours to set up your account.</p>
-                <a href={`${APP_URL}/signup`} className="lp-btn-primary" style={{ marginTop: 16, display: "inline-block" }}>
-                  Set up now →
+                <h3>Check your inbox!</h3>
+                <p>Your login credentials have been sent to your email. Sign in to get started.</p>
+                <a href={`${APP_URL}/login`} className="lp-btn-primary" style={{ marginTop: 16, display: "inline-block" }}>
+                  Sign in to DineXPOS →
                 </a>
               </div>
             ) : (
