@@ -153,6 +153,8 @@ export function MenuPage() {
   const [inventoryFilter, setInventoryFilter] = useState("Any");
   const [foodTypeFilter, setFoodTypeFilter] = useState("Any");
   const [showImportPanel, setShowImportPanel] = useState(false);
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [routingDrafts, setRoutingDrafts] = useState({});
   const formRef = useRef(null);
 
@@ -760,6 +762,68 @@ export function MenuPage() {
     }
   }
 
+  async function handleBulkDelete() {
+    if (selectedItems.size === 0) return;
+    if (!window.confirm(`Delete ${selectedItems.size} item${selectedItems.size > 1 ? "s" : ""}? This cannot be undone.`)) {
+      return;
+    }
+
+    setBulkDeleting(true);
+    setSaveError("");
+    setSaveMessage("");
+
+    let deletedCount = 0;
+    const errors = [];
+
+    for (const id of selectedItems) {
+      try {
+        await deleteCustomMenuItem(id);
+        deletedCount++;
+      } catch (err) {
+        errors.push(id);
+      }
+    }
+
+    await reloadMenu();
+    setSelectedItems(new Set());
+    setBulkDeleting(false);
+
+    if (errors.length > 0) {
+      setSaveError(`Deleted ${deletedCount} item${deletedCount !== 1 ? "s" : ""}. ${errors.length} failed.`);
+    } else {
+      setSaveMessage(`${deletedCount} item${deletedCount !== 1 ? "s" : ""} deleted.`);
+    }
+  }
+
+  function toggleItemSelection(id) {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll(filteredIds) {
+    setSelectedItems((prev) => {
+      const allSelected = filteredIds.every((id) => prev.has(id));
+      if (allSelected) {
+        // Deselect all filtered items
+        const next = new Set(prev);
+        filteredIds.forEach((id) => next.delete(id));
+        return next;
+      } else {
+        // Select all filtered items
+        const next = new Set(prev);
+        filteredIds.forEach((id) => next.add(id));
+        return next;
+      }
+    });
+  }
+
   function toggleInventoryTracking(itemId) {
     updateInventoryState((current) => ({
       ...current,
@@ -962,8 +1026,38 @@ export function MenuPage() {
             </button>
           </div>
 
+          {selectedItems.size > 0 && (
+            <div className="bulk-action-bar">
+              <span className="bulk-action-count">{selectedItems.size} item{selectedItems.size > 1 ? "s" : ""} selected</span>
+              <button
+                type="button"
+                className="danger-btn"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting ? "Deleting…" : `Delete ${selectedItems.size} item${selectedItems.size > 1 ? "s" : ""}`}
+              </button>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => setSelectedItems(new Set())}
+                disabled={bulkDeleting}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           <div className="menu-library-table">
             <div className="menu-library-row head">
+              <span className="col-check">
+                <input
+                  type="checkbox"
+                  title="Select all"
+                  checked={filteredLibraryItems.length > 0 && filteredLibraryItems.every((item) => selectedItems.has(item.id))}
+                  onChange={() => toggleSelectAll(filteredLibraryItems.map((item) => item.id))}
+                />
+              </span>
               <span>Item</span>
               <span>Reporting category</span>
               <span>Status</span>
@@ -971,7 +1065,14 @@ export function MenuPage() {
               <span>Actions</span>
             </div>
             {filteredLibraryItems.map((item) => (
-              <div key={`library-${item.id}`} className="menu-library-row">
+              <div key={`library-${item.id}`} className={`menu-library-row${selectedItems.has(item.id) ? " row-selected" : ""}`}>
+                <span className="col-check">
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.has(item.id)}
+                    onChange={() => toggleItemSelection(item.id)}
+                  />
+                </span>
                 <span>
                   <strong>{item.name}</strong>
                 </span>
