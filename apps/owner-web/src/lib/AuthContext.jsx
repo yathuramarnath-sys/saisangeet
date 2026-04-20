@@ -66,9 +66,13 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout", {});
+    } catch (_) {
+      // ignore — e.g. expired token; we still need to clear local state
     } finally {
       localStorage.removeItem("pos_token");
       setUser(null);
+      // Hard redirect so BrowserRouter is re-initialised cleanly from /login
+      window.location.href = "/login";
     }
   }, []);
 

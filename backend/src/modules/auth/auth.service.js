@@ -21,6 +21,12 @@ async function login({ identifier, password }) {
     throw new ApiError(401, "AUTH_INVALID_CREDENTIALS", "Invalid credentials");
   }
 
+  if (!user.passwordHash) {
+    // Account exists but no password was ever set (e.g. seeded without hash).
+    // Treat as invalid credentials — user should re-signup or reset password.
+    throw new ApiError(401, "AUTH_INVALID_CREDENTIALS", "Invalid credentials");
+  }
+
   const passwordMatch = await bcrypt.compare(String(password), user.passwordHash);
   if (!passwordMatch) {
     throw new ApiError(401, "AUTH_INVALID_CREDENTIALS", "Invalid credentials");
@@ -114,6 +120,14 @@ async function signup({ fullName, email, phone, password, businessName }) {
     }
     return data;
   });
+
+  // Register email (+ phone) → "default" tenant in the global index
+  // so future logins can resolve the tenant quickly
+  registerUserInIndex(
+    email.toLowerCase().trim(),
+    phone ? phone.replace(/\s/g, "") : null,
+    "default"
+  );
 
   // Build the response token using the same shape as login
   const allPerms = (getOwnerSetupData().permissions || []).map((p) => p.code);
