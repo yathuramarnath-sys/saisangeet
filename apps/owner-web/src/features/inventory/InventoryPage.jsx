@@ -1,33 +1,36 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../../lib/api";
 import {
   INVENTORY_TRACKING_KEY,
   INVENTORY_WASTAGE_KEY,
-  OUTLETS,
   SESSIONS,
   UNITS,
-  defaultTracking,
-  menuCatalog,
-  wastageLogSeed
 } from "./inventory.seed";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   INVENTORY PAGE
+   Outlets and menu items are loaded live from the API.
+   Tracking config and wastage log are persisted in localStorage (POS reads them).
+───────────────────────────────────────────────────────────────────────────── */
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 
 const WASTAGE_SIDES_KEY = "pos_wastage_sides";
 
 function loadTracking() {
-  try { return JSON.parse(localStorage.getItem(INVENTORY_TRACKING_KEY) || "null") || defaultTracking; }
-  catch { return defaultTracking; }
+  try { return JSON.parse(localStorage.getItem(INVENTORY_TRACKING_KEY) || "null") || []; }
+  catch { return []; }
 }
 function saveTracking(list) { localStorage.setItem(INVENTORY_TRACKING_KEY, JSON.stringify(list)); }
 
 function loadWastage() {
-  try { return JSON.parse(localStorage.getItem(INVENTORY_WASTAGE_KEY) || "null") || wastageLogSeed; }
-  catch { return wastageLogSeed; }
+  try { return JSON.parse(localStorage.getItem(INVENTORY_WASTAGE_KEY) || "null") || []; }
+  catch { return []; }
 }
 function saveWastage(list) { localStorage.setItem(INVENTORY_WASTAGE_KEY, JSON.stringify(list)); }
 
 function loadSides() {
-  try { return JSON.parse(localStorage.getItem(WASTAGE_SIDES_KEY) || "null") || ["Sambar", "Kuruma", "Rice", "Dal Fry"]; }
+  try { return JSON.parse(localStorage.getItem(WASTAGE_SIDES_KEY) || "null") || []; }
   catch { return []; }
 }
 function saveSides(list) { localStorage.setItem(WASTAGE_SIDES_KEY, JSON.stringify(list)); }
@@ -65,19 +68,55 @@ function StockBadge({ current, opening }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function InventoryPage() {
+  // Live data from API
+  const [outlets,       setOutlets]       = useState([]);
+  const [menuCatalog,   setMenuCatalog]   = useState([]);
+  const [loading,       setLoading]       = useState(true);
+
+  // localStorage-persisted state
   const [tracking,      setTracking]      = useState(loadTracking);
   const [wastage,       setWastage]       = useState(loadWastage);
   const [sides,         setSides]         = useState(loadSides);
+
+  // UI state
   const [activeSession, setActiveSession] = useState("Lunch");
   const [activeCat,     setActiveCat]     = useState("All");
   const [msg,           setMsg]           = useState("");
+  const [newSide,       setNewSide]       = useState("");
 
-  // Wastage form
+  // Wastage form — branch filled from first outlet once loaded
   const [form, setForm] = useState({
     item: "", unit: "Pcs", qty: "", pricePerUnit: "",
-    session: "Lunch", branch: "Indiranagar"
+    session: "Lunch", branch: ""
   });
-  const [newSide, setNewSide] = useState("");
+
+  // ── Load outlets + menu items from API ──────────────────────────────────────
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      api.get("/outlets").catch(() => []),
+      api.get("/menu/items").catch(() => [])
+    ]).then(([outletList, itemList]) => {
+      const activeOutlets = (outletList || []).filter(o => o.isActive !== false);
+      setOutlets(activeOutlets);
+
+      // Normalise menu items: keep id, name, category
+      const catalog = (itemList || []).map(item => ({
+        id:       item.id,
+        name:     item.name,
+        category: item.categoryName || item.category || "General"
+      }));
+      setMenuCatalog(catalog);
+
+      // Pre-select first outlet in wastage form
+      if (activeOutlets.length > 0) {
+        setForm(f => ({ ...f, branch: f.branch || activeOutlets[0].name }));
+      }
+
+      setLoading(false);
+    });
+  }, []);
 
   function flash(t) { setMsg(t); setTimeout(() => setMsg(""), 3000); }
 
@@ -93,7 +132,11 @@ export function InventoryPage() {
   function getT(id) {
     return tracking.find(t => t.id === id) || {
       id, trackingEnabled: false, posVisible: false, online: true, unit: "Pcs",
-      sessions: { Breakfast: { opening: 0, current: 0 }, Lunch: { opening: 0, current: 0 }, Dinner: { opening: 0, current: 0 } }
+      sessions: {
+        Breakfast: { opening: 0, current: 0 },
+        Lunch:     { opening: 0, current: 0 },
+        Dinner:    { opening: 0, current: 0 }
+      }
     };
   }
 
@@ -110,9 +153,19 @@ export function InventoryPage() {
     const t = getT(id);
     const next = tracking.find(x => x.id === id)
       ? tracking.map(x => x.id !== id ? x : {
-          ...x, sessions: { ...x.sessions, [session]: { ...x.sessions[session], [field]: Math.max(0, Number(val) || 0) } }
+          ...x,
+          sessions: {
+            ...x.sessions,
+            [session]: { ...x.sessions[session], [field]: Math.max(0, Number(val) || 0) }
+          }
         })
-      : [...tracking, { ...t, sessions: { ...t.sessions, [session]: { ...t.sessions[session], [field]: Math.max(0, Number(val) || 0) } } }];
+      : [...tracking, {
+          ...t,
+          sessions: {
+            ...t.sessions,
+            [session]: { ...t.sessions[session], [field]: Math.max(0, Number(val) || 0) }
+          }
+        }];
     setTracking(next);
     saveTracking(next);
   }
@@ -159,8 +212,10 @@ export function InventoryPage() {
     return s?.opening > 0 && s.current / s.opening < 0.25;
   }).length;
 
-  // All item names for wastage dropdown: menu items + sides
+  // All item names for wastage dropdown: menu items + custom sides
   const wastageItemNames = [...menuCatalog.map(m => m.name), ...sides];
+
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -181,7 +236,7 @@ export function InventoryPage() {
 
       {msg && <div className="mobile-banner">{msg}</div>}
 
-      {/* ── Section 1: Enable Tracking — Category-wise ──────────────────────── */}
+      {/* ── Section 1: Enable Tracking ──────────────────────────────────────── */}
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="panel-head" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
           <div>
@@ -196,41 +251,50 @@ export function InventoryPage() {
           </div>
         </div>
 
-        {/* Column headers */}
-        <div className="inv-toggle-head">
-          <span>Item</span>
-          <span>Tracking</span>
-          <span>Show in POS</span>
-          <span>Online</span>
-        </div>
-
-        <div className="inv-catalog">
-          {filteredCatalog.map(item => {
-            const t = getT(item.id);
-            return (
-              <div key={item.id} className={`inv-catalog-row${t.trackingEnabled ? " enabled" : ""}`}>
-                <div className="inv-catalog-info">
-                  <strong>{item.name}</strong>
-                  <span>{item.category}</span>
-                </div>
-                <div className="inv-three-toggles">
-                  <label className="inv-toggle-col">
-                    <Toggle on={t.trackingEnabled} onChange={v => updateT(item.id, { trackingEnabled: v })} />
-                    <span>{t.trackingEnabled ? "On" : "Off"}</span>
-                  </label>
-                  <label className="inv-toggle-col">
-                    <Toggle on={t.posVisible} onChange={v => updateT(item.id, { posVisible: v })} />
-                    <span>{t.posVisible ? "Yes" : "No"}</span>
-                  </label>
-                  <label className="inv-toggle-col">
-                    <Toggle on={t.online !== false} onChange={v => updateT(item.id, { online: v })} />
-                    <span>{t.online !== false ? "Live" : "Off"}</span>
-                  </label>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {loading ? (
+          <p className="inv-hint" style={{ padding: "20px 0" }}>Loading menu items…</p>
+        ) : menuCatalog.length === 0 ? (
+          <div className="inv-empty-state">
+            <span>🍽️</span>
+            <p>No menu items found. Go to <strong>Menu</strong> and add items first — they'll appear here for tracking.</p>
+          </div>
+        ) : (
+          <>
+            <div className="inv-toggle-head">
+              <span>Item</span>
+              <span>Tracking</span>
+              <span>Show in POS</span>
+              <span>Online</span>
+            </div>
+            <div className="inv-catalog">
+              {filteredCatalog.map(item => {
+                const t = getT(item.id);
+                return (
+                  <div key={item.id} className={`inv-catalog-row${t.trackingEnabled ? " enabled" : ""}`}>
+                    <div className="inv-catalog-info">
+                      <strong>{item.name}</strong>
+                      <span>{item.category}</span>
+                    </div>
+                    <div className="inv-three-toggles">
+                      <label className="inv-toggle-col">
+                        <Toggle on={t.trackingEnabled} onChange={v => updateT(item.id, { trackingEnabled: v })} />
+                        <span>{t.trackingEnabled ? "On" : "Off"}</span>
+                      </label>
+                      <label className="inv-toggle-col">
+                        <Toggle on={t.posVisible} onChange={v => updateT(item.id, { posVisible: v })} />
+                        <span>{t.posVisible ? "Yes" : "No"}</span>
+                      </label>
+                      <label className="inv-toggle-col">
+                        <Toggle on={t.online !== false} onChange={v => updateT(item.id, { online: v })} />
+                        <span>{t.online !== false ? "Live" : "Off"}</span>
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </section>
 
       {/* ── Section 2: Session stock ─────────────────────────────────────────── */}
@@ -288,7 +352,6 @@ export function InventoryPage() {
         </div>
 
         <form className="inv-wastage-form" onSubmit={handleWastageSubmit}>
-          {/* Row 1: Item / Unit / Qty / Price per unit / Auto value */}
           <label>
             Item
             <input list="wastage-items" placeholder="Select or type item name…"
@@ -334,17 +397,24 @@ export function InventoryPage() {
 
           <label>
             Branch
-            <select value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}>
-              {OUTLETS.filter(o => o !== "All Branches").map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
+            {loading ? (
+              <select disabled><option>Loading…</option></select>
+            ) : outlets.length === 0 ? (
+              <select disabled><option>No branches found — create one in Outlets</option></select>
+            ) : (
+              <select value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}>
+                {outlets.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+              </select>
+            )}
           </label>
 
           <div className="inv-wastage-submit" style={{ gridColumn: "1 / -1" }}>
-            <button type="submit" className="primary-btn">Log Wastage</button>
+            <button type="submit" className="primary-btn"
+              disabled={outlets.length === 0}>Log Wastage</button>
           </div>
         </form>
 
-        {/* Add sides for wastage dropdown */}
+        {/* Add custom sides / extras to wastage dropdown */}
         <div className="inv-sides-strip">
           <span>Sides / extras in wastage list:</span>
           <div className="inv-sides-chips">

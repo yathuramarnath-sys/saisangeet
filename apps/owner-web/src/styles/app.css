@@ -1711,6 +1711,19 @@ body {
 }
 
 /* ── Inventory ─────────────────────────────────────────── */
+.inv-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.inv-empty-state span { font-size: 2.2rem; }
+.inv-empty-state p strong { color: #333; }
+
 .inv-catalog { display: flex; flex-direction: column; gap: 8px; }
 
 .inv-catalog-row {
