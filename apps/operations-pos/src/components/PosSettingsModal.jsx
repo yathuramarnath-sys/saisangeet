@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../lib/api";
 import { printKOT, loadPrinters } from "../lib/kotPrint";
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -26,18 +27,28 @@ const BLANK_FORM = { name: "", type: "KOT Printer", conn: "Network (IP)", ip: ""
 const IS_ELECTRON = typeof window !== "undefined" && !!window.electronAPI;
 
 function PrinterTab() {
-  const [printers,     setPrinters]     = useState(() => load("pos_printers", []));
-  const [adding,       setAdding]       = useState(false);
-  const [editId,       setEditId]       = useState(null);
-  const [form,         setForm]         = useState(BLANK_FORM);
-  const [scanning,     setScanning]     = useState(false);
-  const [scanResults,  setScanResults]  = useState(null); // null = not scanned yet
-
-  // Kitchen stations from Owner Web (fetched on POS boot, stored in localStorage)
-  const kitchenStations = (() => {
+  const [printers,      setPrinters]      = useState(() => load("pos_printers", []));
+  const [adding,        setAdding]        = useState(false);
+  const [editId,        setEditId]        = useState(null);
+  const [form,          setForm]          = useState(BLANK_FORM);
+  const [scanning,      setScanning]      = useState(false);
+  const [scanResults,   setScanResults]   = useState(null);
+  // Kitchen stations — fetch fresh from API on mount; fall back to localStorage cache
+  const [kitchenStations, setKitchenStations] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pos_kitchen_stations") || "[]"); }
     catch { return []; }
-  })();
+  });
+
+  useEffect(() => {
+    api.get("/kitchen-stations")
+      .then((stations) => {
+        if (Array.isArray(stations) && stations.length > 0) {
+          setKitchenStations(stations);
+          localStorage.setItem("pos_kitchen_stations", JSON.stringify(stations));
+        }
+      })
+      .catch(() => { /* keep cached value */ });
+  }, []);
 
   function persist(updated) {
     setPrinters(updated);
