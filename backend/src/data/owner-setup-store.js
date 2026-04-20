@@ -499,12 +499,7 @@ function createDefaultData() {
       { id: "receipt-dine-in", name: "Dine-In Standard", showQrPayment: true, showTaxBreakdown: true, footerNote: "Thank you, visit again", outletName: "All Outlets" },
       { id: "receipt-takeaway", name: "Takeaway Standard", showQrPayment: true, showTaxBreakdown: true, footerNote: "Packed with care", outletName: "All Outlets" }
     ],
-      devices: [
-      { id: "device-1", deviceName: "Front Cashier POS", deviceType: "POS Terminal", outletName: "Indiranagar", status: "active", linkCode: "INDR-1001" },
-      { id: "device-2", deviceName: "Billing Counter 2", deviceType: "POS Terminal", outletName: "Koramangala", status: "inactive", linkCode: "KORA-1002" },
-      { id: "device-3", deviceName: "Kitchen Printer 1", deviceType: "Kitchen Printer", outletName: "Indiranagar", status: "active", linkCode: "KPR-1003" },
-      { id: "device-4", deviceName: "Hot Kitchen Display", deviceType: "Kitchen Display", outletName: "Indiranagar", status: "active", linkCode: "KDS-1004" }
-    ],
+      devices: [],
     menu: {
       config: createDefaultMenuConfig(taxProfiles),
       pricingProfiles: createDefaultPricingProfiles(),
@@ -719,28 +714,7 @@ function normalizeOwnerSetupData(data) {
   next.integrations.purchaseEntries = next.integrations.purchaseEntries || [];
   next.integrations.syncLog = next.integrations.syncLog || [];
 
-  if (!next.devices.some((device) => device.deviceType === "Kitchen Printer")) {
-    next.devices.push({
-      id: "device-kitchen-printer-default",
-      deviceName: "Kitchen Printer 1",
-      deviceType: "Kitchen Printer",
-      outletName: next.outlets?.[0]?.name || "Main Outlet",
-      status: "active",
-      linkCode: "KPR-DEFAULT"
-    });
-  }
-
-  if (!next.devices.some((device) => device.deviceType === "Kitchen Display")) {
-    next.devices.push({
-      id: "device-kitchen-display-default",
-      deviceName: "Hot Kitchen Display",
-      deviceType: "Kitchen Display",
-      outletName: next.outlets?.[0]?.name || "Main Outlet",
-      status: "active",
-      linkCode: "KDS-DEFAULT"
-    });
-  }
-
+  // No auto-injected devices — owner adds their own from the App Store page
   return next;
 }
 

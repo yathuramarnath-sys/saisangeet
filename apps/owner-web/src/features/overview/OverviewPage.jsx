@@ -212,26 +212,35 @@ export function OverviewPage() {
         <article className="panel">
           <div className="panel-head">
             <div>
-              <p className="eyebrow">Devices</p>
-              <h3>POS Linking</h3>
+              <p className="eyebrow">App Setup</p>
+              <h3>Install &amp; Link Devices</h3>
             </div>
-            <button type="button" className="ghost-btn" onClick={() => navigate("/devices")}>
-              Generate code
+            <button type="button" className="ghost-btn" onClick={() => navigate("/app-store")}>
+              App Store →
             </button>
           </div>
 
-          <div className="device-card">
-            <div className="device-code">{appConfig.devices[0]?.linkCode || "No code yet"}</div>
-            <p>Use the Devices screen to create outlet-linked POS access codes.</p>
-          </div>
-
-          <ul className="plain-list">
-            {appConfig.devices.slice(0, 3).map((device) => (
-              <li key={device.id}>
-                {device.deviceName} <span className={`status ${device.status === "active" ? "online" : "pending"}`}>{device.status}</span>
-              </li>
-            ))}
-          </ul>
+          {appConfig.outlets.length === 0 ? (
+            <div className="overview-link-empty">
+              <span className="overview-link-icon">📲</span>
+              <p>Set up your outlets first, then go to <strong>App Store</strong> to generate branch link codes for POS, Captain App and KDS.</p>
+              <button className="primary-btn" onClick={() => navigate("/outlets")}>
+                Set up outlets →
+              </button>
+            </div>
+          ) : (
+            <ul className="plain-list compact">
+              {appConfig.outlets.slice(0, 3).map(outlet => (
+                <li key={outlet.id}>
+                  <span>{outlet.name}</span>
+                  <span className="status online">Ready for linking</span>
+                </li>
+              ))}
+              {appConfig.outlets.length > 3 && (
+                <li><span style={{ color: "#9ca3af", fontSize: 12 }}>+{appConfig.outlets.length - 3} more outlets</span></li>
+              )}
+            </ul>
+          )}
         </article>
 
         <article className="panel panel-wide">
