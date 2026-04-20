@@ -1,0 +1,37 @@
+{
+  "name": "DineX POS",
+  "short_name": "DineX POS",
+  "description": "Restaurant point-of-sale terminal — billing, KOT, payments",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0f172a",
+  "theme_color": "#1849a9",
+  "lang": "en",
+  "categories": ["business", "food"],
+  "icons": [
+    {
+      "src": "/icon-pos.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-pos.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "New Order",
+      "short_name": "Order",
+      "description": "Start a new billing order",
+      "url": "/billing",
+      "icons": [{ "src": "/icon-pos.svg", "sizes": "any" }]
+    }
+  ]
+}

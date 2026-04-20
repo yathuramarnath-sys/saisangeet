@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BulkImportPanel } from "./BulkImportPanel";
 
 import {
   subscribeRestaurantState,
@@ -6,7 +7,6 @@ import {
   updateMenuControls
 } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
 import {
-  bulkImportMenuItems,
   createMenuAssignment,
   createCustomMenuItem,
   createMenuCategory,
@@ -98,26 +98,6 @@ function buildDefaultPricingProfileDraft() {
   };
 }
 
-function parseMenuImportText(text) {
-  const lines = String(text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length < 2) {
-    return [];
-  }
-
-  const headers = lines[0].split(",").map((header) => header.trim());
-
-  return lines.slice(1).map((line) => {
-    const values = line.split(",").map((value) => value.trim());
-    return headers.reduce((row, header, index) => {
-      row[header] = values[index] || "";
-      return row;
-    }, {});
-  });
-}
 
 export function MenuPage() {
   const [menuData, setMenuData] = useState({
@@ -172,10 +152,11 @@ export function MenuPage() {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [inventoryFilter, setInventoryFilter] = useState("Any");
   const [foodTypeFilter, setFoodTypeFilter] = useState("Any");
-  const [importSummary, setImportSummary] = useState("");
+  const [showImportPanel, setShowImportPanel] = useState(false);
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [routingDrafts, setRoutingDrafts] = useState({});
   const formRef = useRef(null);
-  const importInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -303,9 +284,9 @@ export function MenuPage() {
       const next = { ...current };
       result.categories.forEach((category) => {
         next[category.id] = next[category.id] || {
-          station: category.station || "Main kitchen",
-          printerTarget: category.printerTarget || "Kitchen Printer 1",
-          displayTarget: category.displayTarget || "Hot Kitchen Display"
+          station: category.station || (result.stations[0]?.name || ""),
+          printerTarget: category.printerTarget || "",
+          displayTarget: category.displayTarget || ""
         };
       });
       return next;
@@ -475,9 +456,6 @@ export function MenuPage() {
     setRoutingDrafts((current) => ({
       ...current,
       [categoryId]: {
-        station: current[categoryId]?.station || "Main kitchen",
-        printerTarget: current[categoryId]?.printerTarget || "Kitchen Printer 1",
-        displayTarget: current[categoryId]?.displayTarget || "Hot Kitchen Display",
         ...current[categoryId],
         [field]: value
       }
@@ -485,10 +463,36 @@ export function MenuPage() {
   }
 
   function updateItemDraft(field, value) {
-    setItemDraft((current) => ({
-      ...current,
-      [field]: value
-    }));
+    setItemDraft((current) => {
+      const next = { ...current, [field]: value };
+
+      // When category changes, auto-fill the station from that category's routing assignment
+      if (field === "categoryName") {
+        const matchedCategory = menuData.categories.find(
+          (cat) => cat.name.toLowerCase() === String(value).toLowerCase()
+        );
+        if (matchedCategory) {
+          const assignedStation =
+            routingDrafts[matchedCategory.id]?.station ||
+            matchedCategory.station ||
+            "";
+          if (assignedStation) {
+            next.station = assignedStation;
+            next.stationAutoFilled = true;
+          }
+        } else {
+          // Typed a new/unknown category — clear auto-fill flag but keep manual entry
+          next.stationAutoFilled = false;
+        }
+      }
+
+      // If user manually edits station, clear the auto-fill flag
+      if (field === "station") {
+        next.stationAutoFilled = false;
+      }
+
+      return next;
+    });
   }
 
   async function handleSaveRouting(categoryId) {
@@ -603,42 +607,6 @@ export function MenuPage() {
     }
   }
 
-  async function handleBulkImportSelection(event) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      setSaveError("");
-      setSaveMessage("");
-      setImportSummary("");
-
-      if (!file.name.toLowerCase().endsWith(".csv")) {
-        setSaveMessage(
-          "Bulk import access is enabled for PDF/Excel/CSV. Automatic item creation currently runs from CSV template files."
-        );
-        event.target.value = "";
-        return;
-      }
-
-      const text = await file.text();
-      const rows = parseMenuImportText(text);
-
-      if (rows.length === 0) {
-        throw new Error("The selected CSV file does not contain import rows.");
-      }
-
-      const result = await bulkImportMenuItems(rows);
-      await reloadMenu();
-      setImportSummary(`${file.name}: ${result.importedCount} items imported.`);
-      setSaveMessage("Bulk import completed.");
-      event.target.value = "";
-    } catch (error) {
-      setSaveError(error.message || "Unable to import menu items from the selected file.");
-    }
-  }
 
   function startEditingGroup(menuGroup) {
     setGroupDraft({
@@ -817,6 +785,68 @@ export function MenuPage() {
     }
   }
 
+  async function handleBulkDelete() {
+    if (selectedItems.size === 0) return;
+    if (!window.confirm(`Delete ${selectedItems.size} item${selectedItems.size > 1 ? "s" : ""}? This cannot be undone.`)) {
+      return;
+    }
+
+    setBulkDeleting(true);
+    setSaveError("");
+    setSaveMessage("");
+
+    let deletedCount = 0;
+    const errors = [];
+
+    for (const id of selectedItems) {
+      try {
+        await deleteCustomMenuItem(id);
+        deletedCount++;
+      } catch (err) {
+        errors.push(id);
+      }
+    }
+
+    await reloadMenu();
+    setSelectedItems(new Set());
+    setBulkDeleting(false);
+
+    if (errors.length > 0) {
+      setSaveError(`Deleted ${deletedCount} item${deletedCount !== 1 ? "s" : ""}. ${errors.length} failed.`);
+    } else {
+      setSaveMessage(`${deletedCount} item${deletedCount !== 1 ? "s" : ""} deleted.`);
+    }
+  }
+
+  function toggleItemSelection(id) {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll(filteredIds) {
+    setSelectedItems((prev) => {
+      const allSelected = filteredIds.every((id) => prev.has(id));
+      if (allSelected) {
+        // Deselect all filtered items
+        const next = new Set(prev);
+        filteredIds.forEach((id) => next.delete(id));
+        return next;
+      } else {
+        // Select all filtered items
+        const next = new Set(prev);
+        filteredIds.forEach((id) => next.add(id));
+        return next;
+      }
+    });
+  }
+
   function toggleInventoryTracking(itemId) {
     updateInventoryState((current) => ({
       ...current,
@@ -913,17 +943,10 @@ export function MenuPage() {
         </div>
 
         <div className="topbar-actions">
-          <input
-            ref={importInputRef}
-            type="file"
-            accept=".csv,.xls,.xlsx,.pdf"
-            style={{ display: "none" }}
-            onChange={handleBulkImportSelection}
-          />
           <button
             type="button"
             className="secondary-btn"
-            onClick={() => importInputRef.current?.click()}
+            onClick={() => setShowImportPanel(true)}
           >
             Bulk Import
           </button>
@@ -1026,10 +1049,38 @@ export function MenuPage() {
             </button>
           </div>
 
-          {importSummary ? <p>{importSummary}</p> : null}
+          {selectedItems.size > 0 && (
+            <div className="bulk-action-bar">
+              <span className="bulk-action-count">{selectedItems.size} item{selectedItems.size > 1 ? "s" : ""} selected</span>
+              <button
+                type="button"
+                className="danger-btn"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting ? "Deleting…" : `Delete ${selectedItems.size} item${selectedItems.size > 1 ? "s" : ""}`}
+              </button>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => setSelectedItems(new Set())}
+                disabled={bulkDeleting}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
 
           <div className="menu-library-table">
             <div className="menu-library-row head">
+              <span className="col-check">
+                <input
+                  type="checkbox"
+                  title="Select all"
+                  checked={filteredLibraryItems.length > 0 && filteredLibraryItems.every((item) => selectedItems.has(item.id))}
+                  onChange={() => toggleSelectAll(filteredLibraryItems.map((item) => item.id))}
+                />
+              </span>
               <span>Item</span>
               <span>Reporting category</span>
               <span>Status</span>
@@ -1037,7 +1088,14 @@ export function MenuPage() {
               <span>Actions</span>
             </div>
             {filteredLibraryItems.map((item) => (
-              <div key={`library-${item.id}`} className="menu-library-row">
+              <div key={`library-${item.id}`} className={`menu-library-row${selectedItems.has(item.id) ? " row-selected" : ""}`}>
+                <span className="col-check">
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.has(item.id)}
+                    onChange={() => toggleItemSelection(item.id)}
+                  />
+                </span>
                 <span>
                   <strong>{item.name}</strong>
                 </span>
@@ -1486,20 +1544,31 @@ export function MenuPage() {
           <div className="panel-head">
             <div>
               <p className="eyebrow">Kitchen Routing</p>
-              <h3>Category to Printer / Display</h3>
+              <h3>Category → Station Assignment</h3>
             </div>
           </div>
 
+          {menuData.stations.length === 0 ? (
+            <p className="muted-hint">Add kitchen stations above first, then assign categories here.</p>
+          ) : categoryGroups.length === 0 ? (
+            <p className="muted-hint">Create menu categories first, then assign them to stations here.</p>
+          ) : (
           <div className="mini-stack">
-            {categoryGroups.map((category) => (
+            {categoryGroups.map((category) => {
+              const draft = routingDrafts[category.id] || {};
+              const stationValue = draft.station || category.station || "";
+              const printerValue = draft.printerTarget || category.printerTarget || "";
+              const displayValue = draft.displayTarget || category.displayTarget || "";
+              return (
               <div key={`${category.id}-routing`} className="mini-card">
                 <strong>{category.name}</strong>
                 <label>
                   Kitchen station
                   <select
-                    value={routingDrafts[category.id]?.station || category.station || "Main kitchen"}
+                    value={stationValue}
                     onChange={(event) => updateRoutingDraft(category.id, "station", event.target.value)}
                   >
+                    <option value="">— select station —</option>
                     {menuData.stations.map((station) => (
                       <option key={station.id} value={station.name}>
                         {station.name}
@@ -1510,10 +1579,12 @@ export function MenuPage() {
                 <label>
                   Printer target
                   <select
-                    value={routingDrafts[category.id]?.printerTarget || category.printerTarget || "Kitchen Printer 1"}
+                    value={printerValue}
                     onChange={(event) => updateRoutingDraft(category.id, "printerTarget", event.target.value)}
                   >
+                    <option value="">— select printer —</option>
                     <option>Kitchen Printer 1</option>
+                    <option>Kitchen Printer 2</option>
                     <option>Bar Printer</option>
                     <option>No printer</option>
                   </select>
@@ -1521,10 +1592,12 @@ export function MenuPage() {
                 <label>
                   Display target
                   <select
-                    value={routingDrafts[category.id]?.displayTarget || category.displayTarget || "Hot Kitchen Display"}
+                    value={displayValue}
                     onChange={(event) => updateRoutingDraft(category.id, "displayTarget", event.target.value)}
                   >
+                    <option value="">— select display —</option>
                     <option>Hot Kitchen Display</option>
+                    <option>Cold Kitchen Display</option>
                     <option>Drinks Display</option>
                     <option>No display</option>
                   </select>
@@ -1533,8 +1606,10 @@ export function MenuPage() {
                   Save Routing
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
+          )}
         </article>
 
         <article ref={formRef} className="panel">
@@ -1548,7 +1623,7 @@ export function MenuPage() {
           <form className="simple-form" onSubmit={handleSaveItem}>
             <label>
               Item name
-              <input type="text" name="itemName" defaultValue="Gobi Manchurian" required />
+              <input type="text" name="itemName" placeholder="e.g. Paneer Butter Masala" required />
             </label>
             <label>
               Category
@@ -1576,15 +1651,23 @@ export function MenuPage() {
             </label>
             <label>
               AC dine-in price
-              <input type="number" name="acDineIn" defaultValue="190" min="0" required />
+              <input type="number" name="acDineIn" defaultValue="0" min="0" required />
+            </label>
+            <label>
+              Non-AC dine-in price
+              <input type="number" name="nonAcDineIn" defaultValue="0" min="0" required />
+            </label>
+            <label>
+              Self service dine-in price
+              <input type="number" name="selfDineIn" defaultValue="0" min="0" required />
             </label>
             <label>
               Takeaway price
-              <input type="number" name="takeawayPrice" defaultValue="185" min="0" required />
+              <input type="number" name="takeawayPrice" defaultValue="0" min="0" required />
             </label>
             <label>
               Delivery price
-              <input type="number" name="deliveryPrice" defaultValue="205" min="0" required />
+              <input type="number" name="deliveryPrice" defaultValue="0" min="0" required />
             </label>
             <label>
               Tax mode
@@ -1594,24 +1677,8 @@ export function MenuPage() {
               </select>
             </label>
             <label>
-              Tax rate
+              Tax rate (%)
               <input type="number" name="taxRate" defaultValue="5" min="0" step="0.01" required />
-            </label>
-            <label>
-              Available from
-              <input type="time" name="availableFrom" defaultValue="10:00" />
-            </label>
-            <label>
-              Available to
-              <input type="time" name="availableTo" defaultValue="16:00" />
-            </label>
-            <label>
-              Non-AC dine-in price
-              <input type="number" name="nonAcDineIn" defaultValue="180" min="0" required />
-            </label>
-            <label>
-              Self service dine-in price
-              <input type="number" name="selfDineIn" defaultValue="170" min="0" required />
             </label>
             <label>
               Takeaway parcel charge
@@ -1638,6 +1705,14 @@ export function MenuPage() {
               <input type="number" name="deliveryParcelChargeValue" defaultValue="0" min="0" />
             </label>
             <label>
+              Available from
+              <input type="time" name="availableFrom" />
+            </label>
+            <label>
+              Available to
+              <input type="time" name="availableTo" />
+            </label>
+            <label>
               Kitchen station
               <input
                 type="text"
@@ -1645,9 +1720,11 @@ export function MenuPage() {
                 list="menu-station-options"
                 value={itemDraft.station}
                 onChange={(event) => updateItemDraft("station", event.target.value)}
-                placeholder="Choose or type a new station"
-                required
+                placeholder="Auto-filled from category routing"
               />
+              {itemDraft.stationAutoFilled && itemDraft.station && (
+                <span className="field-hint">Auto-assigned from category · <button type="button" className="inline-link" onClick={() => updateItemDraft("station", "")}>Change</button></span>
+              )}
             </label>
             <datalist id="menu-station-options">
               {availableStationNames.map((stationNameOption) => (
@@ -1656,14 +1733,14 @@ export function MenuPage() {
             </datalist>
             <label>
               Track inventory
-              <select name="trackInventory" defaultValue="Enabled">
+              <select name="trackInventory" defaultValue="Disabled">
                 <option>Enabled</option>
                 <option>Disabled</option>
               </select>
             </label>
             <label>
               Entry style
-              <select name="entryStyle" defaultValue="Item wise">
+              <select name="entryStyle" defaultValue="Optional later">
                 <option>Item wise</option>
                 <option>Category wise</option>
                 <option>Optional later</option>
@@ -1775,6 +1852,14 @@ export function MenuPage() {
           </div>
         </article>
       </section>
+
+      {/* ── Bulk Import Panel ─────────────────────────────────────────────── */}
+      {showImportPanel && (
+        <BulkImportPanel
+          onClose={() => setShowImportPanel(false)}
+          onImportDone={() => reloadMenu()}
+        />
+      )}
     </>
   );
 }

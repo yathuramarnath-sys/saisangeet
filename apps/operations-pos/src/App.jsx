@@ -22,7 +22,7 @@ import { PastOrdersModal }    from "./components/PastOrdersModal";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
-import { printKOT, getKotPrinter, kotAutoSendEnabled } from "./lib/kotPrint";
+import { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } from "./lib/kotPrint";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +86,52 @@ function buildAreasFromOutlet(outlet) {
   });
 }
 
+// ── KOT offline queue ─────────────────────────────────────────────────────
+const KOT_QUEUE_KEY = "pos_kot_queue";
+
+function loadKotQueue() {
+  try { return JSON.parse(localStorage.getItem(KOT_QUEUE_KEY) || "[]"); }
+  catch { return []; }
+}
+
+function saveKotQueue(queue) {
+  try { localStorage.setItem(KOT_QUEUE_KEY, JSON.stringify(queue)); } catch (_) {}
+}
+
+async function flushKotQueue(outletId) {
+  const queue = loadKotQueue();
+  if (!queue.length) return;
+  const failed = [];
+  for (const payload of queue) {
+    try {
+      await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1"}/operations/kot`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, outletId }) }
+      );
+    } catch (_) {
+      failed.push(payload);
+    }
+  }
+  saveKotQueue(failed);
+}
+
+// ── Active orders persistence ─────────────────────────────────────────────
+const ORDERS_KEY = "pos_active_orders";
+
+function loadSavedOrders() {
+  try {
+    return JSON.parse(localStorage.getItem(ORDERS_KEY) || "null") || {};
+  } catch { return {}; }
+}
+
+function saveOrdersToStorage(ordersMap) {
+  try {
+    localStorage.setItem(ORDERS_KEY, JSON.stringify(ordersMap));
+  } catch (e) {
+    console.warn("Could not persist orders:", e.message);
+  }
+}
+
 // Load active shift from localStorage
 function loadActiveShift() {
   try {
@@ -116,8 +162,9 @@ export default function App() {
   const [tableAreas,      setTableAreas]      = useState(seedAreas);
   const [categories,      setCategories]      = useState(seedCategories);
   const [menuItems,       setMenuItems]       = useState(seedMenuItems);
-  const [orders,          setOrders]          = useState({});
+  const [orders,          setOrders]          = useState(() => loadSavedOrders());
   const [selectedTableId, setSelectedTableId] = useState(null);
+  const [isOnline,        setIsOnline]        = useState(() => navigator.onLine);
   const [showPayment,     setShowPayment]     = useState(false);
   const [showSplitBill,   setShowSplitBill]   = useState(false);
   const [activeArea,      setActiveArea]      = useState(null);
@@ -133,7 +180,10 @@ export default function App() {
   const [showCashOut,      setShowCashOut]      = useState(false);
   const [showCloseShift,   setShowCloseShift]   = useState(false);
   const [showAdvanceOrder, setShowAdvanceOrder] = useState(false);
-  const [counterTicketNum,   setCounterTicketNum]   = useState(1);
+  const [counterTicketNum,   setCounterTicketNum]   = useState(() => {
+    try { return parseInt(localStorage.getItem("pos_counter_ticket_num") || "1", 10); }
+    catch { return 1; }
+  });
   const [showCustomerForm,   setShowCustomerForm]   = useState(false);
   const [showSettings,       setShowSettings]       = useState(false);
   const [showPastOrders,     setShowPastOrders]     = useState(false);
@@ -171,14 +221,25 @@ export default function App() {
         }
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
-        const orderMap   = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
-        setOrders((prev) =>
-          ensureOrders(
-            { ...prev, ...orderMap },
+        const apiMap     = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
+
+        // Merge: localStorage (already in state) wins for tables with active items.
+        // API fills in any tables the local copy doesn't know about.
+        setOrders((prev) => {
+          const merged = { ...apiMap };
+          Object.entries(prev).forEach(([tableId, savedOrder]) => {
+            // If we have a locally saved order with items, keep it — it's more
+            // up-to-date than what the cloud returned (POS is source of truth).
+            if (savedOrder?.items?.length > 0) {
+              merged[tableId] = savedOrder;
+            }
+          });
+          return ensureOrders(
+            merged,
             target.tables?.length ? buildAreasFromOutlet(target) : seedAreas,
             target.name
-          )
-        );
+          );
+        });
 
         const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
           .replace("/api/v1", "");
@@ -186,7 +247,11 @@ export default function App() {
         socketRef.current = socket;
 
         socket.on("order:updated", (updatedOrder) => {
-          setOrders((prev) => ({ ...prev, [updatedOrder.tableId]: updatedOrder }));
+          setOrders((prev) => {
+            const next = { ...prev, [updatedOrder.tableId]: updatedOrder };
+            saveOrdersToStorage(next);
+            return next;
+          });
         });
 
         socket.on("kot:sent", ({ tableId }) => {
@@ -200,8 +265,15 @@ export default function App() {
         });
 
       } catch (err) {
-        console.error("POS bootstrap failed:", err.message);
-        setOrders(ensureOrders({}, seedAreas, "Outlet"));
+        console.error("POS bootstrap failed (offline?):", err.message);
+        // Restore last known orders from localStorage so no active table is lost
+        setOrders((prev) =>
+          ensureOrders(
+            Object.keys(prev).length ? prev : loadSavedOrders(),
+            tableAreas,
+            outlet?.name || "Outlet"
+          )
+        );
       }
     }
 
@@ -212,6 +284,31 @@ export default function App() {
   useEffect(() => {
     setOrders((prev) => ensureOrders(prev, tableAreas, outlet?.name || "Outlet"));
   }, [tableAreas, outlet]);
+
+  // Auto-save every order change to localStorage — belt-and-suspenders
+  useEffect(() => {
+    if (Object.keys(orders).length > 0) saveOrdersToStorage(orders);
+  }, [orders]);
+
+  // Persist counter ticket number across refreshes
+  useEffect(() => {
+    localStorage.setItem("pos_counter_ticket_num", String(counterTicketNum));
+  }, [counterTicketNum]);
+
+  // Track online / offline + flush queued KOTs when connection returns
+  useEffect(() => {
+    const goOnline = () => {
+      setIsOnline(true);
+      flushKotQueue(outlet?.id).catch(() => {});
+    };
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online",  goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online",  goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, [outlet]);
 
   // ── Derived state ─────────────────────────────────────────────────────────
   const selectedOrder = selectedTableId ? orders[selectedTableId] : null;
@@ -315,27 +412,45 @@ export default function App() {
       return o;
     });
 
-    // ── 2. Print KOT ─────────────────────────────────────────────────────
-    const printer = getKotPrinter();
+    // ── 2. Print KOT — grouped by station so each kitchen gets its own ticket ──
     if (kotAutoSendEnabled()) {
-      printKOT(order, unsent, printer, kotSeq);
+      // Group unsent items by their kitchen station
+      const stationGroups = {};
+      unsent.forEach(item => {
+        const st = item.station || "__default__";
+        if (!stationGroups[st]) stationGroups[st] = [];
+        stationGroups[st].push(item);
+      });
+
+      Object.entries(stationGroups).forEach(([stationName, stItems]) => {
+        const printer = stationName === "__default__"
+          ? getKotPrinter()
+          : getKotPrinterForStation(stationName);
+        printKOT(order, stItems, printer, kotSeq);
+      });
     }
 
+    const printer = getKotPrinter();
     const printerLabel = printer ? ` → ${printer.name}` : "";
     showToast(`🖨️ KOT #${kotSeq} printed${printerLabel}`);
 
-    // ── 3. Also send via API / socket ─────────────────────────────────────
+    // ── 3. Also send via API / socket — queue if offline ─────────────────
+    const kotPayload = {
+      outletId:    outlet?.id,
+      orderId:     order.id,
+      tableId:     order.tableId,
+      tableNumber: order.tableNumber,
+      kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,
+      items:       unsent
+    };
     try {
-      await api.post("/operations/kot", {
-        outletId:    outlet?.id,
-        orderId:     order.id,
-        tableId:     order.tableId,
-        tableNumber: order.tableNumber,
-        kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,
-        items:       unsent
-      });
+      await api.post("/operations/kot", kotPayload);
     } catch (err) {
-      console.error("KOT send failed:", err.message);
+      // Offline or server unreachable — queue for retry when connection returns
+      const queue = loadKotQueue();
+      queue.push(kotPayload);
+      saveKotQueue(queue);
+      console.warn("KOT queued (offline):", kotPayload.kotNumber);
     }
   }
 
@@ -651,6 +766,18 @@ export default function App() {
   // ─── Main POS UI ──────────────────────────────────────────────────────────
   return (
     <div className="pos-shell">
+
+      {/* ── Offline banner ───────────────────────────────────────────────── */}
+      {!isOnline && (
+        <div className="pos-offline-banner">
+          {(() => {
+            const q = loadKotQueue().length;
+            return q > 0
+              ? `📡 Offline — ${q} KOT${q > 1 ? "s" : ""} queued, will sync when connection returns. Printing unaffected.`
+              : "📡 No internet — operating on local network. Orders & printing unaffected.";
+          })()}
+        </div>
+      )}
 
       {/* ── Row 1: Brand bar ─────────────────────────────────────────────── */}
       <div className="pos-brand-bar">

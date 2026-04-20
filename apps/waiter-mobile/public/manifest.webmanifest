@@ -1,0 +1,28 @@
+{
+  "name": "DineX Captain",
+  "short_name": "DineX Captain",
+  "description": "Captain & waiter app — table orders, KOT sending, status updates",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2e1065",
+  "theme_color": "#7c3aed",
+  "lang": "en",
+  "categories": ["business", "food"],
+  "icons": [
+    {
+      "src": "/icon-captain.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-captain.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": []
+}

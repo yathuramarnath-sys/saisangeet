@@ -460,69 +460,94 @@ async function updatePricingProfile(id, payload) {
 async function bulkImportMenuItems(payload) {
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
   const createdItems = [];
+  const errors = [];
+
+  // Use the customer's actual outlets for outletAvailability
+  const outlets = getOwnerSetupData().outlets || [];
+  const outletAvailability = outlets.map((o) => ({ outlet: o.name, enabled: true }));
+
+  // Use customer's actual work areas from outlets (or default to standard 3)
+  const allWorkAreas = [...new Set(
+    outlets.flatMap((o) => o.workAreas || ["AC", "Non-AC", "Self Service"])
+  )];
+  const pricingAreas = allWorkAreas.length > 0
+    ? allWorkAreas
+    : ["AC", "Non-AC", "Self Service"];
 
   for (const row of rows) {
+    const itemName    = String(row.itemName    || "").trim();
     const categoryName = String(row.categoryName || row.category || "Imported").trim();
-    const stationName = String(row.station || "Main kitchen").trim();
+    const stationName  = String(row.station      || "Main kitchen").trim();
 
-    let category = fetchMenuCategoriesSync().find((entry) => slugify(entry.name) === slugify(categoryName));
-    if (!category) {
-      category = await createMenuCategory({ name: categoryName });
+    if (!itemName || !categoryName) {
+      errors.push({ row, reason: "Missing item name or category" });
+      continue;
     }
 
-    let station = fetchMenuStationsSync().find((entry) => slugify(entry.name) === slugify(stationName));
-    if (!station) {
-      station = await createMenuStation({ name: stationName });
+    try {
+      let category = fetchMenuCategoriesSync().find(
+        (entry) => slugify(entry.name) === slugify(categoryName)
+      );
+      if (!category) {
+        category = await createMenuCategory({ name: categoryName });
+      }
+
+      let station = fetchMenuStationsSync().find(
+        (entry) => slugify(entry.name) === slugify(stationName)
+      );
+      if (!station) {
+        station = await createMenuStation({ name: stationName });
+      }
+
+      const taxRate   = Number(row.taxRate   || 5);
+      const taxMode   = row.taxMode === "Inclusive" ? "Inclusive" : "Exclusive";
+      const gstLabel  = `GST ${taxRate}%`;
+      const rwTakeaway = `Rs ${Number(row.takeawayPrice || 0)}`;
+      const rwDelivery = `Rs ${Number(row.deliveryPrice || 0)}`;
+
+      // Build area-wise pricing using customer's actual work areas
+      const areaRawPrices = {
+        "AC":           Number(row.acDineIn   || row.nonAcDineIn || row.selfDineIn || 0),
+        "Non-AC":       Number(row.nonAcDineIn || row.acDineIn   || row.selfDineIn || 0),
+        "Self Service": Number(row.selfDineIn  || row.acDineIn   || row.nonAcDineIn || 0),
+      };
+
+      const pricing = pricingAreas.map((area) => ({
+        area,
+        dineIn:   `Rs ${areaRawPrices[area] ?? areaRawPrices["AC"] ?? 0}`,
+        takeaway: rwTakeaway,
+        delivery: rwDelivery,
+      }));
+
+      createdItems.push(
+        await createMenuItem({
+          categoryId:        category.id,
+          name:              itemName,
+          station:           station.name,
+          foodType:          row.foodType || "Veg",
+          taxMode,
+          taxRate,
+          gstLabel,
+          takeawayPrice:     rwTakeaway,
+          deliveryPrice:     rwDelivery,
+          outletAvailability,
+          pricing,
+          parcelCharges: {
+            takeaway: { type: "None", value: 0 },
+            delivery: { type: "None", value: 0 },
+          },
+        })
+      );
+    } catch (err) {
+      errors.push({ row, reason: err.message || "Failed to create item" });
     }
-
-    const takeawayPrice = `Rs ${Number(row.takeawayPrice || 0)}`;
-    const deliveryPrice = `Rs ${Number(row.deliveryPrice || 0)}`;
-
-    createdItems.push(
-      await createMenuItem({
-        categoryId: category.id,
-        name: row.itemName,
-        station: station.name,
-        foodType: row.foodType || "Veg",
-        takeawayPrice,
-        deliveryPrice,
-        parcelCharges: {
-          takeaway: {
-            type: row.takeawayParcelChargeType || "None",
-            value: Number(row.takeawayParcelChargeValue || 0)
-          },
-          delivery: {
-            type: row.deliveryParcelChargeType || "None",
-            value: Number(row.deliveryParcelChargeValue || 0)
-          }
-        },
-        pricing: [
-          {
-            area: "AC",
-            dineIn: `Rs ${Number(row.acDineIn || 0)}`,
-            takeaway: takeawayPrice,
-            delivery: deliveryPrice
-          },
-          {
-            area: "Non-AC",
-            dineIn: `Rs ${Number(row.nonAcDineIn || 0)}`,
-            takeaway: takeawayPrice,
-            delivery: deliveryPrice
-          },
-          {
-            area: "Self Service",
-            dineIn: `Rs ${Number(row.selfDineIn || 0)}`,
-            takeaway: takeawayPrice,
-            delivery: deliveryPrice
-          }
-        ]
-      })
-    );
   }
 
   return {
     importedCount: createdItems.length,
-    createdItems
+    errorCount:    errors.length,
+    errors,
+    createdItems,
   };
 }
 

@@ -20,11 +20,17 @@ const APPS = [
     bg: "#eff6ff",
     border: "#bfdbfe",
     platforms: [
-      { label: "Windows (.exe)", icon: "🪟", file: "RestaurantOS-POS-Setup.exe" },
-      { label: "Web App",        icon: "🌐", file: null, url: "http://localhost:5173" },
+      {
+        label: "Open Web App",
+        icon: "🌐",
+        file: null,
+        url: "https://pos.dinexpos.in",
+        install: true,
+        installHint: "On Windows: Chrome menu → 'Install DineX POS' → launches as desktop app. On Android: Chrome menu → 'Add to Home Screen'."
+      },
     ],
     who: "Cashier / Manager",
-    note: "Runs on any Windows PC or in a Chrome tab on the billing counter.",
+    note: "Works on any Windows PC, Android tablet, or Chrome browser — no installation needed.",
   },
   {
     id: "captain",
@@ -35,40 +41,52 @@ const APPS = [
     bg: "#f0fdf4",
     border: "#bbf7d0",
     platforms: [
-      { label: "Android APK",    icon: "🤖", file: "RestaurantOS-Captain.apk" },
-      { label: "Web App",        icon: "🌐", file: null, url: "http://localhost:5174" },
+      {
+        label: "Open Web App",
+        icon: "🌐",
+        file: null,
+        url: "https://captain.dinexpos.in",
+        install: true,
+        installHint: "On Android: open in Chrome → tap ⋮ menu → 'Add to Home Screen'. It works like a native app — full screen, no browser bar."
+      },
     ],
     who: "Captain / Waiter",
-    note: "Install APK on Android tablets; or open the web app URL on any device.",
+    note: "Best on Android phone or tablet. Add to Home Screen for the native app experience.",
   },
   {
     id: "kds",
     name: "Kitchen Display",
-    tagline: "KOT queue, item status, station filters",
+    tagline: "KOT queue, item status, preparation timers",
     icon: "📺",
     color: "#dc2626",
     bg: "#fff1f2",
     border: "#fecdd3",
     platforms: [
-      { label: "Android APK",    icon: "🤖", file: "RestaurantOS-KDS.apk" },
-      { label: "Web App",        icon: "🌐", file: null, url: "http://localhost:5175" },
+      {
+        label: "Open Web App",
+        icon: "🌐",
+        file: null,
+        url: "https://kds.dinexpos.in",
+        install: true,
+        installHint: "On Android TV / tablet: open in Chrome → tap ⋮ menu → 'Add to Home Screen'. Press F11 on Windows for full-screen kiosk mode."
+      },
     ],
     who: "Kitchen staff",
-    note: "Mount a screen at each station; runs on Android or any browser in full-screen.",
+    note: "Mount a screen at each station. Works on Android, Windows, or any smart TV with Chrome.",
   },
   {
     id: "owner",
-    name: "Owner Web",
+    name: "Owner Dashboard",
     tagline: "Menu, staff, reports, settings — you are here",
     icon: "⚙️",
     color: "#7c3aed",
     bg: "#f5f3ff",
     border: "#ddd6fe",
     platforms: [
-      { label: "Web App (this)", icon: "🌐", file: null, url: null, current: true },
+      { label: "app.dinexpos.in", icon: "🌐", file: null, url: null, current: true },
     ],
     who: "Owner / Admin",
-    note: "No installation needed — just bookmark this URL.",
+    note: "No installation needed — just bookmark this page.",
   },
 ];
 
@@ -154,31 +172,52 @@ function LinkCodeCard({ outlet }) {
 // ─── Download / launch button ─────────────────────────────────────────────────
 
 function PlatformBtn({ platform, appColor }) {
+  const [showHint, setShowHint] = useState(false);
+
   function handleClick() {
     if (platform.current) return; // already here
     if (platform.url)  { window.open(platform.url, "_blank"); return; }
     if (platform.file) {
-      // In a real deployment this would point to a real download URL.
-      // For now show an alert so it's wired up and obvious.
       alert(`Download: ${platform.file}\n\nIn production this will trigger the actual installer download.`);
     }
   }
 
   return (
-    <button
-      className={`as-platform-btn${platform.current ? " current" : ""}`}
-      onClick={handleClick}
-      style={platform.current ? {} : { "--app-color": appColor }}
-    >
-      <span className="as-platform-icon">{platform.icon}</span>
-      <span className="as-platform-label">{platform.label}</span>
-      {platform.current
-        ? <span className="as-platform-tag">You're here</span>
-        : platform.file
-          ? <span className="as-platform-tag dl">↓ Download</span>
-          : <span className="as-platform-tag open">Open ↗</span>
-      }
-    </button>
+    <div className="as-platform-btn-wrap">
+      <button
+        className={`as-platform-btn${platform.current ? " current" : ""}`}
+        onClick={handleClick}
+        style={platform.current ? {} : { "--app-color": appColor }}
+      >
+        <span className="as-platform-icon">{platform.icon}</span>
+        <span className="as-platform-label">{platform.label}</span>
+        {platform.current
+          ? <span className="as-platform-tag">You're here</span>
+          : platform.file
+            ? <span className="as-platform-tag dl">↓ Download</span>
+            : <span className="as-platform-tag open">Open ↗</span>
+        }
+      </button>
+
+      {/* "How to install" hint toggle */}
+      {platform.install && (
+        <>
+          <button
+            className="as-install-hint-btn"
+            onClick={() => setShowHint(v => !v)}
+            title="How to install as an app"
+          >
+            📲 How to install
+          </button>
+          {showHint && (
+            <div className="as-install-hint-box">
+              <strong>Install as App</strong>
+              <p>{platform.installHint}</p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

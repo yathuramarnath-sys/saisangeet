@@ -31,6 +31,19 @@ function playNewKotAlert() {
   } catch (_) {}
 }
 
+// ─── Ticket persistence ───────────────────────────────────────────────────────
+
+const KDS_TICKETS_KEY = "kds_active_tickets";
+
+function loadSavedTickets() {
+  try { return JSON.parse(localStorage.getItem(KDS_TICKETS_KEY) || "null") || []; }
+  catch { return []; }
+}
+
+function saveTickets(tickets) {
+  try { localStorage.setItem(KDS_TICKETS_KEY, JSON.stringify(tickets)); } catch (_) {}
+}
+
 // ─── Settings helpers ─────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS = {
@@ -736,17 +749,21 @@ function KdsColumn({ label, colorKey, emptyMsg, tickets, settings, onAdvance, on
 export function App() {
   const [branchConfig,  setBranchConfig]  = useState(() => loadKdsBranchConfig());
   const [settings,     setSettings]     = useState(loadSettings);
-  const [tickets,      setTickets]      = useState([]);
+  const [tickets,      setTickets]      = useState(() => loadSavedTickets());
   const [outlet,       setOutlet]       = useState(null);
   const [stationTab,   setStationTab]   = useState("All");
   const [servedCount,  setServedCount]  = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [newIds,       setNewIds]       = useState(new Set());
+  const [connState,    setConnState]    = useState("connecting"); // connecting | live | offline
   const socketRef  = useRef(null);
   const audioReady = useRef(false);
 
   // Persist settings on change
   useEffect(() => saveSettings(settings), [settings]);
+
+  // Persist active tickets on every change — KDS survives refresh / internet drop
+  useEffect(() => { saveTickets(tickets); }, [tickets]);
 
   function updateSettings(next) { setSettings(next); }
 
@@ -755,43 +772,76 @@ export function App() {
   // Bootstrap
   useEffect(() => {
     if (!branchConfig) return;
+
+    const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
+      .replace("/api/v1", "");
+    const socket = io(socketUrl, {
+      query: { outletId: branchConfig.outletId },
+      reconnectionDelay:    1000,
+      reconnectionDelayMax: 8000,
+    });
+    socketRef.current = socket;
+
+    // ── Connection lifecycle ──────────────────────────────────────────────
+    socket.on("connect", async () => {
+      setConnState("live");
+      // Re-fetch any KOTs we missed while offline
+      try {
+        const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}`);
+        if (kots?.length) {
+          setTickets(prev => {
+            const existingIds = new Set(prev.map(t => t.id));
+            const missed = kots
+              .filter(k => !existingIds.has(k.id) && k.status !== "bumped")
+              .map(k => ({ ...k, doneItems: [] }));
+            return missed.length ? [...missed, ...prev] : prev;
+          });
+        }
+      } catch (_) {}
+    });
+
+    socket.on("disconnect", () => setConnState("offline"));
+    socket.on("connect_error", () => setConnState("offline"));
+
+    // ── Incoming KOTs ─────────────────────────────────────────────────────
+    socket.on("kot:new", (kot) => {
+      setTickets(prev => {
+        if (prev.find(t => t.id === kot.id)) return prev;
+        return [{ ...kot, status: "new", createdAt: new Date().toISOString(), doneItems: [] }, ...prev];
+      });
+      if (audioReady.current && settings.soundEnabled) playNewKotAlert();
+      setNewIds(prev => new Set([...prev, kot.id]));
+      setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(kot.id); return n; }), 1200);
+    });
+
+    socket.on("kot:status", ({ id, status }) => {
+      setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+    });
+
+    // Initial load
     async function bootstrap() {
       try {
         const outlets = await api.get("/outlets");
         const target  = outlets.find((o) => o.id === branchConfig.outletId) || outlets[0];
-        if (!target) throw new Error("no outlet");
-        setOutlet(target);
+        if (target) setOutlet(target);
 
-        const kots = await api.get(`/operations/kots?outletId=${target.id}`).catch(() => []);
-        if (!kots.length) throw new Error("empty");
-        setTickets(kots.map(k => ({ ...k, doneItems: [] })));
-
-        const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
-          .replace("/api/v1", "");
-        const socket = io(socketUrl, { query: { outletId: target.id } });
-        socketRef.current = socket;
-
-        socket.on("kot:new", (kot) => {
-          setTickets(prev => {
-            if (prev.find(t => t.id === kot.id)) return prev;
-            return [{ ...kot, status: "new", createdAt: new Date().toISOString(), doneItems: [] }, ...prev];
-          });
-          if (audioReady.current && settings.soundEnabled) playNewKotAlert();
-          // flash effect
-          setNewIds(prev => new Set([...prev, kot.id]));
-          setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(kot.id); return n; }), 1200);
-        });
-
-        socket.on("kot:status", ({ id, status }) => {
-          setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-        });
-
+        const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}`).catch(() => []);
+        if (kots?.length) {
+          setTickets(kots.map(k => ({ ...k, doneItems: k.doneItems || [] })));
+        } else if (!loadSavedTickets().length) {
+          // No saved tickets and API returned nothing — show demo so screen isn't blank
+          setTickets(makeDemoTickets());
+        }
+        // If we have saved tickets, keep them (already in state from useState init)
       } catch (_) {
-        setTickets(makeDemoTickets());
+        // Offline at start — keep whatever is in localStorage (already in state)
+        // Only fall back to demo if localStorage was also empty
+        setTickets(prev => prev.length ? prev : makeDemoTickets());
       }
     }
+
     bootstrap();
-    return () => socketRef.current?.disconnect();
+    return () => { socket.disconnect(); };
   }, [branchConfig]);
 
   // Auto-bump effect
@@ -848,6 +898,13 @@ export function App() {
   return (
     <div className="kds-shell" onClick={unlockAudio} style={{ "--kds-cols": settings.columns }}>
 
+      {/* ── Offline banner ──────────────────────────────────────── */}
+      {connState === "offline" && (
+        <div className="kds-offline-banner">
+          📡 Cloud disconnected — showing last known tickets. New KOTs will appear when reconnected.
+        </div>
+      )}
+
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className="kds-header">
         <div className="kds-header-left">
@@ -883,9 +940,13 @@ export function App() {
           {servedCount > 0 && (
             <div className="kds-served-pill">{servedCount} bumped</div>
           )}
-          <div className="kds-live">
+          <div className={`kds-live kds-live-${connState}`}>
             <span className="kds-live-dot" />
-            <span>{newT.length + prepT.length + readT.length} active</span>
+            <span>
+              {connState === "live"       ? `${newT.length + prepT.length + readT.length} active` :
+               connState === "offline"    ? "Reconnecting…" :
+                                            "Connecting…"}
+            </span>
           </div>
           {/* Settings button */}
           <button className="kds-settings-btn" onClick={e => { e.stopPropagation(); setShowSettings(true); }}

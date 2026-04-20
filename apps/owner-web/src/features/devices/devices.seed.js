@@ -1,26 +1,4 @@
-export const DEVICE_ROLES = [
-  { value: "billing",    label: "Billing Counter" },
-  { value: "kitchen",    label: "Kitchen Station" },
-  { value: "dining",     label: "Dining Hall" },
-  { value: "bar",        label: "Bar / Beverages" },
-  { value: "unassigned", label: "Unassigned" }
-];
-
-export const STATION_SUGGESTIONS = [
-  "Grill Station",
-  "Main Kitchen",
-  "Beverages",
-  "Desserts",
-  "AC Hall 1",
-  "Family Hall",
-  "Rooftop",
-  "Billing Counter 1",
-  "Billing Counter 2"
-];
-
+// Shared localStorage key — POS / Captain / KDS read station→printer routing from here
+// The POS terminal writes to this key after printer config is saved in Settings → Printers.
+// Owner-web reads from this key to show the status board.
 export const DEVICES_SHARED_KEY = "pos_devices_assignments";
-
-export const PRINTER_MODELS = ["Epson TM-T82", "TVS RP 3160 Gold", "Other"];
-
-// No seed devices — each customer starts empty
-export const devicesSeedData = [];
