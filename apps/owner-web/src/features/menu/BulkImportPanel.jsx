@@ -97,10 +97,11 @@ function parseCSV(text) {
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
+// validateRow receives a NORMALIZED row (output of normalizeRow)
 function validateRow(row) {
   const errors = [];
-  if (!row.itemName?.trim()) errors.push("Item name missing");
-  if (!row.category?.trim()) errors.push("Category missing");
+  if (!row.itemName?.trim())     errors.push("Item name missing");
+  if (!row.categoryName?.trim()) errors.push("Category missing");
   const anyPrice =
     Number(row.acDineIn) ||
     Number(row.nonAcDineIn) ||
