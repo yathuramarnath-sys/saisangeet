@@ -28,22 +28,30 @@ export function AuthProvider({ children }) {
     api.get("/auth/me")
       .then((u) => setUser(u))
       .catch((err) => {
-        const isNetworkError = err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError");
+        const msg = err.message || "";
+        const isNetworkError =
+          msg.includes("Network error") ||
+          msg.includes("Failed to fetch") ||
+          msg.includes("NetworkError") ||
+          msg.includes("Load failed");
+
         if (isNetworkError) {
-          // Backend offline — trust the locally stored token
+          // Backend temporarily unreachable (restarting, no internet) —
+          // trust the locally stored token so user isn't kicked out
           const payload = decodeJwtPayload(token);
           if (payload && payload.exp * 1000 > Date.now()) {
             setUser({
-              id: payload.sub,
-              fullName: payload.fullName || "Owner",
-              outletId: payload.outletId || null,
-              roles: payload.roles || [],
+              id:          payload.sub,
+              fullName:    payload.fullName    || "Owner",
+              outletId:    payload.outletId    || null,
+              roles:       payload.roles       || [],
               permissions: payload.permissions || []
             });
             return;
           }
         }
-        // 401 or invalid token — clear it
+
+        // Genuine session expiry — clear token (api.js already redirected to /login)
         localStorage.removeItem("pos_token");
       })
       .finally(() => setLoading(false));

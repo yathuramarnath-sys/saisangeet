@@ -43,7 +43,7 @@ async function login({ identifier, password }) {
     permissions: user.permissions
   };
 
-  const token = jwt.sign(tokenPayload, env.jwtSecret, { expiresIn: "8h" });
+  const token = jwt.sign(tokenPayload, env.jwtSecret, { expiresIn: "30d" });
 
   return {
     token,
@@ -140,7 +140,7 @@ async function signup({ fullName, email, phone, password, businessName }) {
     permissions: allPerms
   };
 
-  const token = jwt.sign(tokenPayload, env.jwtSecret, { expiresIn: "8h" });
+  const token = jwt.sign(tokenPayload, env.jwtSecret, { expiresIn: "30d" });
 
   return {
     token,
