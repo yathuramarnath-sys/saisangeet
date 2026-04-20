@@ -1,5 +1,4 @@
 import { api } from "../../lib/api";
-import { outletSeedData } from "./outlets.seed";
 
 function normalizeOutlet(outlet, appConfig) {
   const linkedDevices = (appConfig.devices || []).filter((device) => device.outletName === outlet.name);
@@ -47,9 +46,8 @@ export async function fetchOutletPageData() {
       devices: appConfig.devices || []
     };
   } catch (_error) {
-    const emptyConfig = { devices: [], taxProfiles: [], receiptTemplates: [] };
     return {
-      outlets: outletSeedData.map((outlet) => normalizeOutlet(outlet, emptyConfig)),
+      outlets: [],
       taxProfiles: [],
       receiptTemplates: [],
       devices: []

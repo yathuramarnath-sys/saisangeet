@@ -68,18 +68,18 @@ function buildEditDraft(outlet) {
 
 function buildCreateDraft(pageData) {
   return {
-    name: "Electronic City",
-    code: "BLR-05",
-    city: "Bengaluru",
-    state: "Karnataka",
-    gstin: "29ABCDE1234F1Z5",
+    name: "",
+    code: "",
+    city: "",
+    state: "",
+    gstin: "",
     openingTime: "09:00",
     closingTime: "23:00",
-    reportEmail: "ecity-reports@saisangeet.in",
-    defaultTaxProfileId: pageData.taxProfiles?.[0]?.id || "tax-5",
+    reportEmail: "",
+    defaultTaxProfileId: pageData.taxProfiles?.[0]?.id || "",
     receiptTemplateId: pageData.receiptTemplates?.[0]?.id || "",
-    workAreas: ["AC", "Non-AC", "Self Service"],
-    tables: [buildEmptyTableRow("AC")],
+    workAreas: [],
+    tables: [],
     services: ["Dine-in", "Takeaway"]
   };
 }
