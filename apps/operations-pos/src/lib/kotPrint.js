@@ -7,7 +7,7 @@
    ══════════════════════════════════════════════════════════════════════════════ */
 
 /** Load printers from localStorage */
-function loadPrinters() {
+export function loadPrinters() {
   try {
     return JSON.parse(localStorage.getItem("pos_printers") || "[]");
   } catch {
@@ -24,6 +24,22 @@ function loadDisplaySettings() {
   }
 }
 
+/**
+ * Find the printer assigned to a specific kitchen station.
+ * Falls back to default KOT printer if no station match found.
+ */
+export function getKotPrinterForStation(stationName) {
+  const printers = loadPrinters();
+  if (stationName) {
+    const match = printers.find(
+      p => p.station && p.station.toLowerCase() === stationName.toLowerCase()
+        && (p.type === "KOT Printer" || p.type === "Both")
+    );
+    if (match) return match;
+  }
+  return getKotPrinter();
+}
+
 /** Find the best KOT printer — prefers isDefault, falls back to first KOT/Both printer */
 export function getKotPrinter() {
   const printers = loadPrinters();
@@ -32,9 +48,15 @@ export function getKotPrinter() {
   return kotPrinters.find(p => p.isDefault) || kotPrinters[0];
 }
 
-/** Find the best Bill printer */
+/** Find the best Bill printer (Bills & KOTs station, or Bill Printer type) */
 export function getBillPrinter() {
   const printers = loadPrinters();
+  // Prefer printer on "Bills & KOTs" station
+  const billingStation = printers.find(
+    p => p.station && /bill|kot/i.test(p.station)
+      && (p.type === "Bill Printer" || p.type === "Both")
+  );
+  if (billingStation) return billingStation;
   const billPrinters = printers.filter(p => p.type === "Bill Printer" || p.type === "Both");
   if (!billPrinters.length) return printers.find(p => p.isDefault) || null;
   return billPrinters.find(p => p.isDefault) || billPrinters[0];

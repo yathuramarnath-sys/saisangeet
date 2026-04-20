@@ -22,7 +22,7 @@ import { PastOrdersModal }    from "./components/PastOrdersModal";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
-import { printKOT, getKotPrinter, kotAutoSendEnabled } from "./lib/kotPrint";
+import { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } from "./lib/kotPrint";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -412,12 +412,25 @@ export default function App() {
       return o;
     });
 
-    // ── 2. Print KOT ─────────────────────────────────────────────────────
-    const printer = getKotPrinter();
+    // ── 2. Print KOT — grouped by station so each kitchen gets its own ticket ──
     if (kotAutoSendEnabled()) {
-      printKOT(order, unsent, printer, kotSeq);
+      // Group unsent items by their kitchen station
+      const stationGroups = {};
+      unsent.forEach(item => {
+        const st = item.station || "__default__";
+        if (!stationGroups[st]) stationGroups[st] = [];
+        stationGroups[st].push(item);
+      });
+
+      Object.entries(stationGroups).forEach(([stationName, stItems]) => {
+        const printer = stationName === "__default__"
+          ? getKotPrinter()
+          : getKotPrinterForStation(stationName);
+        printKOT(order, stItems, printer, kotSeq);
+      });
     }
 
+    const printer = getKotPrinter();
     const printerLabel = printer ? ` → ${printer.name}` : "";
     showToast(`🖨️ KOT #${kotSeq} printed${printerLabel}`);
 

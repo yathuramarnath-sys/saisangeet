@@ -1436,6 +1436,41 @@ body {
 .dev-stat.bad strong  { color: #d32f2f; }
 .dev-stat.warn strong { color: #e67e00; }
 
+/* ── Devices setup guide banner ────────────────────────────────────────── */
+.devices-setup-banner {
+  background: #f0f7ff;
+  border: 1.5px solid #bfd9f7;
+  border-radius: 14px;
+  padding: 14px 18px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  font-size: 0.86rem;
+}
+.devices-setup-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 2px; }
+.devices-setup-banner strong { color: #1a4a7a; display: block; margin-bottom: 4px; font-size: 0.9rem; }
+.devices-setup-banner p { color: #4a6080; margin: 0; line-height: 1.55; }
+
+/* ── POS sync badge in topbar ──────────────────────────────────────────── */
+.devices-sync-badge {
+  font-size: 0.78rem;
+  color: #666;
+  background: #f3f3f3;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+/* ── Station routing "Configure on POS" hint ───────────────────────────── */
+.srt-assign-hint {
+  font-size: 0.75rem;
+  color: #999;
+  font-style: italic;
+  white-space: nowrap;
+}
+
 .devices-offline-banner {
   background: #fdecea;
   border: 1.5px solid #f5c2c2;
