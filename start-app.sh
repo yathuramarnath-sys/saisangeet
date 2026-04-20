@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="/Users/amarnath/Documents/New project"
+ROOT_DIR="/Users/amarnath/Documents/New project update 1"
 RUN_DIR="$ROOT_DIR/.run"
 BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/apps/owner-web"
