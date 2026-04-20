@@ -3194,6 +3194,51 @@ body {
   line-height: 1.5;
 }
 
+/* ── App Store — install hint ───────────────────────────────────────────── */
+.as-platform-btn-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.as-install-hint-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+.as-install-hint-btn:hover {
+  color: #374151;
+}
+.as-install-hint-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  color: #166534;
+  line-height: 1.6;
+}
+.as-install-hint-box strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 5px;
+  color: #14532d;
+}
+.as-install-hint-box p {
+  margin: 0;
+}
+
 /* ── Signup Page ────────────────────────────────────────────────────────── */
 .signup-steps {
   display: flex;
