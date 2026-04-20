@@ -1,26 +1,14 @@
-export const DEVICE_ROLES = [
-  { value: "billing",    label: "Billing Counter" },
-  { value: "kitchen",    label: "Kitchen Station" },
-  { value: "dining",     label: "Dining Hall" },
-  { value: "bar",        label: "Bar / Beverages" },
-  { value: "unassigned", label: "Unassigned" }
-];
-
-export const STATION_SUGGESTIONS = [
-  "Grill Station",
-  "Main Kitchen",
-  "Beverages",
-  "Desserts",
-  "AC Hall 1",
-  "Family Hall",
-  "Rooftop",
-  "Billing Counter 1",
-  "Billing Counter 2"
-];
-
+// Shared localStorage key — POS / Captain / KDS read station→printer routing from here
 export const DEVICES_SHARED_KEY = "pos_devices_assignments";
 
-export const PRINTER_MODELS = ["Epson TM-T82", "TVS RP 3160 Gold", "Other"];
+export const PRINTER_MODELS = [
+  "Epson TM-T82",
+  "Epson TM-T88",
+  "TVS RP 3160 Gold",
+  "TVS RP 45 Shoppe",
+  "Bixolon SRP-350",
+  "Other"
+];
 
 // No seed devices — each customer starts empty
 export const devicesSeedData = [];

@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
 import {
-  DEVICE_ROLES,
   DEVICES_SHARED_KEY,
   PRINTER_MODELS,
-  STATION_SUGGESTIONS,
   devicesSeedData
 } from "./devices.seed";
 
@@ -20,13 +18,17 @@ function loadDevices() {
   }
 }
 
-// Write to shared key so POS/Captain app can read printer assignments
+// Sync to shared localStorage key so POS / Captain / KDS can read printer routing
 function syncToPOS(list) {
-  const assignments = list.map(d => ({
-    id: d.id, name: d.name, type: d.type, model: d.model,
-    ip: d.ip, role: d.role, station: d.station, status: d.status
-  }));
-  localStorage.setItem(DEVICES_SHARED_KEY, JSON.stringify(assignments));
+  // Build station → printer map for fast lookup in POS
+  const stationMap = {};
+  list.filter(d => d.type === "printer" && d.station).forEach(d => {
+    stationMap[d.station] = {
+      id: d.id, name: d.name, model: d.model,
+      ip: d.ip, status: d.status
+    };
+  });
+  localStorage.setItem(DEVICES_SHARED_KEY, JSON.stringify({ devices: list, stationMap }));
 }
 
 function saveDevices(list) {
@@ -35,7 +37,7 @@ function saveDevices(list) {
 }
 
 function timeAgo(iso) {
-  if (!iso) return "Unknown";
+  if (!iso) return "Never";
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (secs < 60) return "Just now";
   if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
@@ -49,16 +51,107 @@ function StatusDot({ status }) {
   return (
     <span style={{
       display: "inline-block", width: 10, height: 10, borderRadius: "50%",
-      background: c, flexShrink: 0, boxShadow: `0 0 0 3px ${glows[status] || glows.offline}`
+      background: c, flexShrink: 0,
+      boxShadow: `0 0 0 3px ${glows[status] || glows.offline}`
     }} />
   );
 }
 
-function DeviceCard({ device, onUpdate, onRemove, onTestPrint }) {
+// ── Station Routing Panel ────────────────────────────────────────────────────
+function StationRoutingPanel({ stations, devices, onAssign }) {
+  if (stations.length === 0) {
+    return (
+      <div className="panel srt-empty-panel">
+        <p className="srt-empty-msg">
+          <span>🏗️</span>
+          No kitchen stations yet. Go to <strong>Menu → Stations</strong> to create stations
+          like <em>Hot Kitchen</em>, <em>Bar</em>, or <em>Bills &amp; KOTs</em> — then come
+          back here to assign a printer to each one.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel srt-panel">
+      <div className="panel-head">
+        <div>
+          <p className="eyebrow">Printer Routing</p>
+          <h3>Station → Printer Assignment</h3>
+        </div>
+        <p className="srt-subtitle">
+          Each station routes KOTs (and bills for Bills &amp; KOTs) to its assigned printer.
+        </p>
+      </div>
+
+      <div className="srt-grid">
+        {stations.map(station => {
+          const printer = devices.find(
+            d => d.type === "printer" && d.station === station.name
+          );
+          const isBilling = /bill|kot/i.test(station.name);
+          const isOnline  = printer?.status === "online";
+          const isOffline = printer?.status === "offline";
+
+          return (
+            <div
+              key={station.id}
+              className={`srt-row${!printer ? " srt-row-unassigned" : ""}${isOffline ? " srt-row-offline" : ""}`}
+            >
+              <div className="srt-station">
+                <span className="srt-station-icon">{isBilling ? "🧾" : "🍳"}</span>
+                <div>
+                  <strong>{station.name}</strong>
+                  {isBilling && (
+                    <span className="srt-badge">KOTs &amp; Bills</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="srt-arrow">→</div>
+
+              <div className="srt-printer">
+                {printer ? (
+                  <>
+                    <StatusDot status={printer.status} />
+                    <div className="srt-printer-info">
+                      <strong>{printer.name}</strong>
+                      <span className="srt-printer-meta">
+                        {printer.model} · {printer.ip || "IP pending"}
+                        {isOffline && <span className="srt-offline-tag"> · Offline</span>}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <span className="srt-no-printer">No printer assigned</span>
+                )}
+              </div>
+
+              <button
+                className={`ghost-chip srt-assign-btn${!printer ? " srt-assign-btn-warn" : ""}`}
+                onClick={() => onAssign(station.name)}
+              >
+                {printer ? "Change" : "Assign Printer"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="srt-hint">
+        💡 To add a new station (e.g. <em>Bills &amp; KOTs</em>), go to{" "}
+        <strong>Menu → Stations</strong>. Categories assigned to that station will
+        automatically route to its printer.
+      </p>
+    </div>
+  );
+}
+
+// ── Device Card ──────────────────────────────────────────────────────────────
+function DeviceCard({ device, stations, onUpdate, onRemove, onTestPrint }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({
-    name: device.name, role: device.role,
-    station: device.station, model: device.model
+  const [draft, setDraft]     = useState({
+    name: device.name, station: device.station || "", model: device.model
   });
 
   function saveEdit() {
@@ -66,9 +159,7 @@ function DeviceCard({ device, onUpdate, onRemove, onTestPrint }) {
     setEditing(false);
   }
 
-  const roleLabel    = DEVICE_ROLES.find(r => r.value === device.role)?.label || "Unassigned";
-  const stationLabel = device.station || "";
-  const isOffline    = device.status === "offline";
+  const isOffline = device.status === "offline";
 
   return (
     <div className={`device-card${isOffline ? " device-offline" : ""}${device.paperLow && !isOffline ? " device-warning" : ""}`}>
@@ -82,7 +173,9 @@ function DeviceCard({ device, onUpdate, onRemove, onTestPrint }) {
             ) : (
               <strong>{device.name}</strong>
             )}
-            <span className="device-meta">{device.model} · {device.ip}</span>
+            <span className="device-meta">
+              {device.model}{device.ip ? ` · ${device.ip}` : ""}
+            </span>
           </div>
         </div>
         <div className="device-card-right">
@@ -107,27 +200,20 @@ function DeviceCard({ device, onUpdate, onRemove, onTestPrint }) {
       {editing ? (
         <div className="device-edit-form">
           <label>
-            Assign to
-            <select value={draft.role}
-              onChange={e => setDraft(d => ({ ...d, role: e.target.value, station: "" }))}>
-              {DEVICE_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+            Display name
+            <input value={draft.name}
+              onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
+          </label>
+          <label>
+            Assigned to station
+            <select value={draft.station}
+              onChange={e => setDraft(d => ({ ...d, station: e.target.value }))}>
+              <option value="">— Unassigned —</option>
+              {stations.map(s => (
+                <option key={s.id} value={s.name}>{s.name}</option>
+              ))}
             </select>
           </label>
-          {draft.role !== "unassigned" && (
-            <label>
-              Station / Location name
-              <input
-                list="station-suggestions"
-                placeholder="e.g. Grill Station, AC Hall 1, Billing Counter 2…"
-                value={draft.station || ""}
-                onChange={e => setDraft(d => ({ ...d, station: e.target.value }))}
-              />
-              <datalist id="station-suggestions">
-                {STATION_SUGGESTIONS.map(s => <option key={s} value={s} />)}
-              </datalist>
-              <span className="combo-hint">Choose a suggestion or type your own</span>
-            </label>
-          )}
           {device.type === "printer" && (
             <label>
               Printer model
@@ -144,11 +230,13 @@ function DeviceCard({ device, onUpdate, onRemove, onTestPrint }) {
         </div>
       ) : (
         <div className="device-assignment">
-          <span className="device-role-chip">
-            {roleLabel}{stationLabel ? ` · ${stationLabel}` : ""}
-          </span>
+          {device.station ? (
+            <span className="device-role-chip">📍 {device.station}</span>
+          ) : (
+            <span className="device-role-chip unassigned-chip">⚠️ No station assigned</span>
+          )}
           {device.outlet && (
-            <span className="device-outlet-badge">📍 {device.outlet}</span>
+            <span className="device-outlet-badge">🏠 {device.outlet}</span>
           )}
           <span className="device-last-seen">Last seen {timeAgo(device.lastSeen)}</span>
         </div>
@@ -167,40 +255,96 @@ function DeviceCard({ device, onUpdate, onRemove, onTestPrint }) {
   );
 }
 
+// ── Quick Assign Modal ────────────────────────────────────────────────────────
+// Shown when user clicks "Assign Printer" on a station row
+function QuickAssignModal({ stationName, devices, onConfirm, onClose }) {
+  const [selectedId, setSelectedId] = useState("");
+  const printers = devices.filter(d => d.type === "printer");
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <h3>Assign Printer → <em>{stationName}</em></h3>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {printers.length === 0 ? (
+          <p className="muted-hint">No printers added yet. Use <strong>Add Device</strong> to add one first.</p>
+        ) : (
+          <div className="modal-body">
+            <label>
+              Choose printer
+              <select value={selectedId} onChange={e => setSelectedId(e.target.value)}>
+                <option value="">— select —</option>
+                <option value="__none__">Remove assignment</option>
+                {printers.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.model}{p.station && p.station !== stationName ? ` · currently → ${p.station}` : ""})
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        <div className="device-form-actions">
+          <button
+            className="primary-btn"
+            disabled={!selectedId}
+            onClick={() => { onConfirm(stationName, selectedId); onClose(); }}
+          >
+            Confirm
+          </button>
+          <button className="ghost-chip" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export function DevicesPage() {
   const { user } = useAuth();
-  const [devices, setDevices]     = useState(loadDevices);
-  const [outlets, setOutlets]     = useState([]);
+  const [devices, setDevices]           = useState(loadDevices);
+  const [stations, setStations]         = useState([]);
+  const [outlets, setOutlets]           = useState([]);
   const [activeOutlet, setActiveOutlet] = useState("all");
-  const [msg, setMsg]             = useState("");
-  const [scanning, setScanning]   = useState(false);
-  const [addOpen, setAddOpen]     = useState(false);
-  const [newDev, setNewDev]       = useState({
+  const [msg, setMsg]                   = useState("");
+  const [scanning, setScanning]         = useState(false);
+  const [addOpen, setAddOpen]           = useState(false);
+  const [assignModal, setAssignModal]   = useState(null); // station name string
+  const [newDev, setNewDev]             = useState({
     name: "", type: "printer", model: "Epson TM-T82",
-    ip: "", role: "unassigned", station: null, outlet: ""
+    ip: "", station: "", outlet: ""
   });
-
-  // Fetch outlet list from backend
-  useEffect(() => {
-    api.get("/outlets")
-      .then((list) => {
-        setOutlets(list || []);
-        // Manager is locked to their own outlet
-        const isManager = (user?.roles || []).includes("Manager") && !((user?.roles || []).includes("Owner"));
-        if (isManager && user?.outletId) {
-          const myOutlet = (list || []).find(o => o.id === user.outletId);
-          if (myOutlet) setActiveOutlet(myOutlet.name);
-        }
-        // Pre-fill new device outlet with first outlet
-        if (list?.length) setNewDev(d => ({ ...d, outlet: list[0].name }));
-      })
-      .catch(() => {});
-  }, [user]);
 
   const isOwner   = (user?.roles || []).includes("Owner");
   const isManager = !isOwner && (user?.roles || []).includes("Manager");
 
-  function flash(text) { setMsg(text); setTimeout(() => setMsg(""), 3000); }
+  useEffect(() => {
+    // Load outlets + stations in parallel
+    Promise.all([
+      api.get("/outlets").catch(() => []),
+      api.get("/menu/stations").catch(() => [])
+    ]).then(([outletList, stationList]) => {
+      setOutlets(outletList || []);
+      setStations(stationList || []);
+
+      // Manager locked to their outlet
+      if (isManager && user?.outletId) {
+        const mine = (outletList || []).find(o => o.id === user.outletId);
+        if (mine) setActiveOutlet(mine.name);
+      }
+
+      // Pre-fill outlet for new device
+      if (outletList?.length) {
+        setNewDev(d => ({ ...d, outlet: outletList[0].name }));
+      }
+    });
+  }, [user, isManager]);
+
+  function flash(text) { setMsg(text); setTimeout(() => setMsg(""), 3500); }
 
   function handleUpdate(id, changes) {
     const next = devices.map(d => d.id === id ? { ...d, ...changes } : d);
@@ -208,26 +352,50 @@ export function DevicesPage() {
   }
 
   function handleRemove(id) {
+    if (!window.confirm("Remove this device?")) return;
     const next = devices.filter(d => d.id !== id);
     setDevices(next); saveDevices(next); flash("Device removed.");
   }
 
   function handleTestPrint(device) { flash(`Test print sent to "${device.name}".`); }
 
+  // Called from StationRoutingPanel "Assign Printer" button
+  function handleQuickAssign(stationName, printerId) {
+    if (!printerId) return;
+    const next = devices.map(d => {
+      if (printerId === "__none__") {
+        // Remove assignment from whichever printer was on this station
+        return d.station === stationName ? { ...d, station: "" } : d;
+      }
+      if (d.id === printerId) return { ...d, station: stationName };
+      // If another printer had this station, clear it
+      if (d.type === "printer" && d.station === stationName) return { ...d, station: "" };
+      return d;
+    });
+    setDevices(next); saveDevices(next);
+    flash(printerId === "__none__"
+      ? `Printer unassigned from "${stationName}".`
+      : `Printer assigned to "${stationName}".`
+    );
+  }
+
   async function handleScan() {
     setScanning(true);
     await new Promise(r => setTimeout(r, 2200));
-    const exists = devices.find(d => d.ip === "192.168.1.120");
+    // Simulate discovery — in production this would call a network scan API
+    const tempIp = "192.168.1.120";
+    const exists = devices.find(d => d.ip === tempIp);
     if (!exists) {
       const found = {
         id: `disc-${Date.now()}`, name: "Discovered Printer", type: "printer",
-        model: "Epson TM-T82", ip: "192.168.1.120", mac: "00:26:B9:AA:12:20",
-        status: "online", role: "unassigned", station: null,
-        outlet: "Indiranagar", paperLow: false, lastSeen: new Date().toISOString()
+        model: "Epson TM-T82", ip: tempIp, mac: "00:26:B9:AA:12:20",
+        status: "online", station: "",
+        outlet: outlets[0]?.name || "",
+        paperLow: false, lastSeen: new Date().toISOString()
       };
       const next = [...devices, found];
       setDevices(next); saveDevices(next);
-      flash("Found 1 new device on network — assign it below.");
+      flash("Found 1 new device on network — assign it to a station.");
     } else {
       flash("All devices up to date. No new devices found.");
     }
@@ -242,12 +410,11 @@ export function DevicesPage() {
     };
     const next = [...devices, device];
     setDevices(next); saveDevices(next);
-    setNewDev({ name: "", type: "printer", model: "Epson TM-T82", ip: "", role: "unassigned", station: null });
+    setNewDev({ name: "", type: "printer", model: "Epson TM-T82", ip: "", station: "", outlet: outlets[0]?.name || "" });
     setAddOpen(false);
-    flash(`"${device.name}" added.`);
+    flash(`"${device.name}" added — assign it to a station in the routing panel.`);
   }
 
-  // Filter by selected outlet tab
   const visibleDevices = activeOutlet === "all"
     ? devices
     : devices.filter(d => d.outlet === activeOutlet);
@@ -255,25 +422,17 @@ export function DevicesPage() {
   const total      = visibleDevices.length;
   const online     = visibleDevices.filter(d => d.status === "online").length;
   const offline    = visibleDevices.filter(d => d.status === "offline").length;
-  const unassigned = visibleDevices.filter(d => d.role === "unassigned").length;
-
-  const sections = [
-    { key: "billing",    label: "Billing Counter",               icon: "🧾", list: visibleDevices.filter(d => d.role === "billing") },
-    { key: "kitchen",    label: "Kitchen Stations",              icon: "👨‍🍳", list: visibleDevices.filter(d => d.role === "kitchen") },
-    { key: "dining",     label: "Dining Halls",                  icon: "🍽️", list: visibleDevices.filter(d => d.role === "dining") },
-    { key: "bar",        label: "Bar / Beverages",               icon: "🍹", list: visibleDevices.filter(d => d.role === "bar") },
-    { key: "unassigned", label: "Unassigned — assign these now", icon: "📦", list: visibleDevices.filter(d => d.role === "unassigned"), warn: true }
-  ];
+  const unassigned = visibleDevices.filter(d => !d.station).length;
 
   return (
     <>
       <header className="topbar">
         <div>
           <p className="eyebrow">Owner Setup</p>
-          <h2>Devices</h2>
+          <h2>Devices &amp; Printer Routing</h2>
         </div>
         <div className="topbar-actions">
-          <button className="ghost-btn" onClick={() => setAddOpen(v => !v)}>+ Add Manually</button>
+          <button className="ghost-btn" onClick={() => setAddOpen(v => !v)}>+ Add Device</button>
           <button className="primary-btn" onClick={handleScan} disabled={scanning}>
             {scanning ? "Scanning…" : "Scan Network"}
           </button>
@@ -298,7 +457,6 @@ export function DevicesPage() {
               className={`device-outlet-tab${activeOutlet === outlet.name ? " active" : ""}${outlet.isActive === false ? " inactive-outlet" : ""}`}
               onClick={() => !isManager && setActiveOutlet(outlet.name)}
               disabled={isManager && activeOutlet !== outlet.name}
-              title={isManager ? "You can only view your assigned outlet" : outlet.name}
             >
               {outlet.name}
               {outlet.isActive === false && <span className="device-outlet-tab-off"> (off)</span>}
@@ -308,23 +466,27 @@ export function DevicesPage() {
             </button>
           ))}
           {isManager && (
-            <span className="device-outlet-tab-locked">🔒 Showing your outlet only</span>
+            <span className="device-outlet-tab-locked">🔒 Your outlet only</span>
           )}
         </div>
       )}
 
       {/* Stats */}
       <div className="devices-stats">
-        <div className="dev-stat"><strong>{total}</strong><span>Total</span></div>
+        <div className="dev-stat"><strong>{total}</strong><span>Devices</span></div>
         <div className="dev-stat ok"><strong>{online}</strong><span>Online</span></div>
-        <div className={`dev-stat ${offline > 0 ? "bad" : ""}`}><strong>{offline}</strong><span>Offline</span></div>
-        <div className={`dev-stat ${unassigned > 0 ? "warn" : ""}`}><strong>{unassigned}</strong><span>Unassigned</span></div>
+        <div className={`dev-stat ${offline > 0 ? "bad" : ""}`}>
+          <strong>{offline}</strong><span>Offline</span>
+        </div>
+        <div className={`dev-stat ${unassigned > 0 ? "warn" : ""}`}>
+          <strong>{unassigned}</strong><span>Unassigned</span>
+        </div>
       </div>
 
       {/* Offline banner */}
       {offline > 0 && (
         <div className="devices-offline-banner">
-          <strong>⚠️ {offline} device{offline > 1 ? "s" : ""} offline{activeOutlet !== "all" ? ` at ${activeOutlet}` : ""}</strong>
+          <strong>⚠️ {offline} device{offline > 1 ? "s" : ""} offline</strong>
           <span>
             {visibleDevices.filter(d => d.status === "offline").map(d => d.name).join(", ")}
             {" "}— POS and Captain app have been alerted
@@ -334,7 +496,6 @@ export function DevicesPage() {
 
       {msg && <div className="mobile-banner">{msg}</div>}
 
-      {/* Scan animation */}
       {scanning && (
         <div className="scan-box">
           <div className="scan-ring" />
@@ -342,39 +503,57 @@ export function DevicesPage() {
         </div>
       )}
 
-      {/* Manual add form */}
+      {/* ── Station Routing Panel ── */}
+      <StationRoutingPanel
+        stations={stations}
+        devices={visibleDevices}
+        onAssign={(stationName) => setAssignModal(stationName)}
+      />
+
+      {/* Quick Assign Modal */}
+      {assignModal && (
+        <QuickAssignModal
+          stationName={assignModal}
+          devices={visibleDevices}
+          onConfirm={handleQuickAssign}
+          onClose={() => setAssignModal(null)}
+        />
+      )}
+
+      {/* ── Add Device Form ── */}
       {addOpen && (
         <form className="panel device-add-panel" onSubmit={handleAddManual}>
-          <div className="panel-head"><h3>Add Device Manually</h3></div>
+          <div className="panel-head"><h3>Add Device</h3></div>
           <div className="device-form-grid">
             <label>
               Device name
-              <input required placeholder="e.g. Bar Printer" value={newDev.name}
+              <input required placeholder="e.g. Hot Kitchen Printer" value={newDev.name}
                 onChange={e => setNewDev(d => ({ ...d, name: e.target.value }))} />
             </label>
-            <label>
-              Outlet
-              <select value={newDev.outlet}
-                onChange={e => setNewDev(d => ({ ...d, outlet: e.target.value }))}>
-                {outlets.map(o => (
-                  <option key={o.id} value={o.name}>{o.name}</option>
-                ))}
-                {outlets.length === 0 && (
-                  <option value="">No outlets configured</option>
-                )}
-              </select>
-            </label>
+            {outlets.length > 0 && (
+              <label>
+                Outlet
+                <select value={newDev.outlet}
+                  onChange={e => setNewDev(d => ({ ...d, outlet: e.target.value }))}>
+                  {outlets.map(o => (
+                    <option key={o.id} value={o.name}>{o.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               Type
-              <select value={newDev.type} onChange={e => setNewDev(d => ({ ...d, type: e.target.value }))}>
+              <select value={newDev.type}
+                onChange={e => setNewDev(d => ({ ...d, type: e.target.value }))}>
                 <option value="printer">Printer</option>
                 <option value="kds">KDS Screen</option>
               </select>
             </label>
             {newDev.type === "printer" && (
               <label>
-                Model
-                <select value={newDev.model} onChange={e => setNewDev(d => ({ ...d, model: e.target.value }))}>
+                Printer model
+                <select value={newDev.model}
+                  onChange={e => setNewDev(d => ({ ...d, model: e.target.value }))}>
                   {PRINTER_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </label>
@@ -385,27 +564,15 @@ export function DevicesPage() {
                 onChange={e => setNewDev(d => ({ ...d, ip: e.target.value }))} />
             </label>
             <label>
-              Assign to
-              <select value={newDev.role}
-                onChange={e => setNewDev(d => ({ ...d, role: e.target.value, station: null }))}>
-                {DEVICE_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              Assign to station
+              <select value={newDev.station}
+                onChange={e => setNewDev(d => ({ ...d, station: e.target.value }))}>
+                <option value="">— Unassigned —</option>
+                {stations.map(s => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
+                ))}
               </select>
             </label>
-            {newDev.role !== "unassigned" && (
-              <label>
-                Station / Location name
-                <input
-                  list="station-suggestions-add"
-                  placeholder="e.g. Grill Station, AC Hall 1…"
-                  value={newDev.station || ""}
-                  onChange={e => setNewDev(d => ({ ...d, station: e.target.value }))}
-                />
-                <datalist id="station-suggestions-add">
-                  {STATION_SUGGESTIONS.map(s => <option key={s} value={s} />)}
-                </datalist>
-                <span className="combo-hint">Choose a suggestion or type your own</span>
-              </label>
-            )}
           </div>
           <div className="device-form-actions">
             <button type="submit" className="primary-btn">Add Device</button>
@@ -414,25 +581,34 @@ export function DevicesPage() {
         </form>
       )}
 
-      {/* Device sections */}
-      {sections.map(({ key, label, icon, list, warn }) =>
-        list.length > 0 && (
-          <section key={key} className="devices-section">
-            <div className={`devices-section-head${warn ? " warn-head" : ""}`}>
-              <span className="section-icon">{icon}</span>
-              <div>
-                <h3>{label}</h3>
-                <p>{list.length} device{list.length !== 1 ? "s" : ""}</p>
-              </div>
+      {/* ── Device Cards ── */}
+      {visibleDevices.length === 0 ? (
+        <div className="panel devices-empty">
+          <span className="devices-empty-icon">🖨️</span>
+          <p>No devices yet. Add a printer manually or scan your network.</p>
+        </div>
+      ) : (
+        <section className="devices-section">
+          <div className="devices-section-head">
+            <span className="section-icon">🖨️</span>
+            <div>
+              <h3>All Devices</h3>
+              <p>{visibleDevices.length} device{visibleDevices.length !== 1 ? "s" : ""}</p>
             </div>
-            <div className="devices-grid">
-              {list.map(device => (
-                <DeviceCard key={device.id} device={device}
-                  onUpdate={handleUpdate} onRemove={handleRemove} onTestPrint={handleTestPrint} />
-              ))}
-            </div>
-          </section>
-        )
+          </div>
+          <div className="devices-grid">
+            {visibleDevices.map(device => (
+              <DeviceCard
+                key={device.id}
+                device={device}
+                stations={stations}
+                onUpdate={handleUpdate}
+                onRemove={handleRemove}
+                onTestPrint={handleTestPrint}
+              />
+            ))}
+          </div>
+        </section>
       )}
     </>
   );
