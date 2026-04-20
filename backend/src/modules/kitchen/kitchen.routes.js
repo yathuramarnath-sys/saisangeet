@@ -5,7 +5,7 @@ const { listHandler, createHandler, updateHandler, deleteHandler } = require("./
 
 const kitchenRouter = express.Router();
 
-kitchenRouter.get("/",       requireAuth, asyncHandler(listHandler));
+kitchenRouter.get("/",       asyncHandler(listHandler)); // public — POS reads this without auth
 kitchenRouter.post("/",      requireAuth, asyncHandler(createHandler));
 kitchenRouter.patch("/:id",  requireAuth, asyncHandler(updateHandler));
 kitchenRouter.delete("/:id", requireAuth, asyncHandler(deleteHandler));

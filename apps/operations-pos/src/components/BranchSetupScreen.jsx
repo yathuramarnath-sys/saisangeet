@@ -57,6 +57,10 @@ export function BranchSetupScreen({ onComplete }) {
       configuredAt:  new Date().toISOString(),
     };
     saveBranchConfig(config);
+    // Save kitchen stations immediately so printer setup works right away
+    if (result.kitchenStations?.length) {
+      localStorage.setItem("pos_kitchen_stations", JSON.stringify(result.kitchenStations));
+    }
     onComplete(config);
   }
 

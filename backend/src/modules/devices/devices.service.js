@@ -150,13 +150,22 @@ async function resolveLinkCode(payload) {
     )
   }));
 
+  // Include kitchen stations so POS can populate the printer-setup dropdown immediately
+  const kitchenStations = (data.menu?.stations || []).map((s) => ({
+    id:         s.id,
+    name:       s.name,
+    outletId:   s.outletId || "all",
+    categories: s.categories || []
+  }));
+
   return {
-    outletId:   outlet.id,
-    outletCode: outlet.code,
-    outletName: outlet.name,
-    workAreas:  outlet.workAreas || [],
-    tables:     outlet.tables    || [],
+    outletId:        outlet.id,
+    outletCode:      outlet.code,
+    outletName:      outlet.name,
+    workAreas:       outlet.workAreas || [],
+    tables:          outlet.tables    || [],
     staff,
+    kitchenStations,
   };
 }
 
