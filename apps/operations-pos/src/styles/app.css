@@ -78,6 +78,25 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   overflow: hidden;
 }
 
+/* ─── Offline banner ─────────────────────────────────────────────────────── */
+.pos-offline-banner {
+  grid-column: 1 / -1;
+  background: #1c1c1e;
+  color: #ffd60a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 5px 16px;
+  letter-spacing: 0.2px;
+  /* sits above the brand bar without shifting layout */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  line-height: 1.6;
+}
+
 /* ─── Top bar ─────────────────────────────────────────────────────────────── */
 
 .pos-topbar {
