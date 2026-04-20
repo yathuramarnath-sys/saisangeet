@@ -86,6 +86,35 @@ function buildAreasFromOutlet(outlet) {
   });
 }
 
+// ── KOT offline queue ─────────────────────────────────────────────────────
+const KOT_QUEUE_KEY = "pos_kot_queue";
+
+function loadKotQueue() {
+  try { return JSON.parse(localStorage.getItem(KOT_QUEUE_KEY) || "[]"); }
+  catch { return []; }
+}
+
+function saveKotQueue(queue) {
+  try { localStorage.setItem(KOT_QUEUE_KEY, JSON.stringify(queue)); } catch (_) {}
+}
+
+async function flushKotQueue(outletId) {
+  const queue = loadKotQueue();
+  if (!queue.length) return;
+  const failed = [];
+  for (const payload of queue) {
+    try {
+      await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1"}/operations/kot`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, outletId }) }
+      );
+    } catch (_) {
+      failed.push(payload);
+    }
+  }
+  saveKotQueue(failed);
+}
+
 // ── Active orders persistence ─────────────────────────────────────────────
 const ORDERS_KEY = "pos_active_orders";
 
@@ -266,9 +295,12 @@ export default function App() {
     localStorage.setItem("pos_counter_ticket_num", String(counterTicketNum));
   }, [counterTicketNum]);
 
-  // Track online / offline status
+  // Track online / offline + flush queued KOTs when connection returns
   useEffect(() => {
-    const goOnline  = () => setIsOnline(true);
+    const goOnline = () => {
+      setIsOnline(true);
+      flushKotQueue(outlet?.id).catch(() => {});
+    };
     const goOffline = () => setIsOnline(false);
     window.addEventListener("online",  goOnline);
     window.addEventListener("offline", goOffline);
@@ -276,7 +308,7 @@ export default function App() {
       window.removeEventListener("online",  goOnline);
       window.removeEventListener("offline", goOffline);
     };
-  }, []);
+  }, [outlet]);
 
   // ── Derived state ─────────────────────────────────────────────────────────
   const selectedOrder = selectedTableId ? orders[selectedTableId] : null;
@@ -389,18 +421,23 @@ export default function App() {
     const printerLabel = printer ? ` → ${printer.name}` : "";
     showToast(`🖨️ KOT #${kotSeq} printed${printerLabel}`);
 
-    // ── 3. Also send via API / socket ─────────────────────────────────────
+    // ── 3. Also send via API / socket — queue if offline ─────────────────
+    const kotPayload = {
+      outletId:    outlet?.id,
+      orderId:     order.id,
+      tableId:     order.tableId,
+      tableNumber: order.tableNumber,
+      kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,
+      items:       unsent
+    };
     try {
-      await api.post("/operations/kot", {
-        outletId:    outlet?.id,
-        orderId:     order.id,
-        tableId:     order.tableId,
-        tableNumber: order.tableNumber,
-        kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,
-        items:       unsent
-      });
+      await api.post("/operations/kot", kotPayload);
     } catch (err) {
-      console.error("KOT send failed:", err.message);
+      // Offline or server unreachable — queue for retry when connection returns
+      const queue = loadKotQueue();
+      queue.push(kotPayload);
+      saveKotQueue(queue);
+      console.warn("KOT queued (offline):", kotPayload.kotNumber);
     }
   }
 
@@ -720,7 +757,12 @@ export default function App() {
       {/* ── Offline banner ───────────────────────────────────────────────── */}
       {!isOnline && (
         <div className="pos-offline-banner">
-          📡 No internet — operating on local network. Orders &amp; printing unaffected.
+          {(() => {
+            const q = loadKotQueue().length;
+            return q > 0
+              ? `📡 Offline — ${q} KOT${q > 1 ? "s" : ""} queued, will sync when connection returns. Printing unaffected.`
+              : "📡 No internet — operating on local network. Orders & printing unaffected.";
+          })()}
         </div>
       )}
 

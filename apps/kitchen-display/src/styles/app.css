@@ -172,6 +172,30 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
   animation: livePulse 2s ease infinite;
 }
 
+/* Connection state colour overrides */
+.kds-live-live    .kds-live-dot { background: #34d399; animation: livePulse 2s ease infinite; }
+.kds-live-offline .kds-live-dot { background: #f87171; animation: none; }
+.kds-live-connecting .kds-live-dot { background: #fbbf24; animation: livePulse 1s ease infinite; }
+
+.kds-live-offline    { color: #f87171; }
+.kds-live-connecting { color: #fbbf24; }
+
+/* KDS offline banner */
+.kds-offline-banner {
+  background: #1c1c1e;
+  color: #ffd60a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 5px 16px;
+  letter-spacing: 0.2px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+
 @keyframes livePulse {
   0%, 100% { opacity: 1;    transform: scale(1); }
   50%       { opacity: 0.5; transform: scale(0.85); }
