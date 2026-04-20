@@ -323,6 +323,35 @@ body {
   border-color: #111317;
 }
 
+.field-hint {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--primary, #1849a9);
+  margin-top: -4px;
+}
+
+.inline-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: inherit;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.inline-link:hover {
+  opacity: 1;
+}
+
+.muted-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 12px 0;
+}
+
 .toggle-row {
   grid-template-columns: 1fr auto;
   align-items: center;
