@@ -6,28 +6,8 @@ const {
 } = require("../operations/operations.memory-store");
 const { syncOperationsState, persistOperationsState } = require("../operations/operations.state");
 
-const defaultInsights = [
-  {
-    id: "profit-item",
-    title: "Top profit item",
-    description: "Paneer Tikka generated the highest profit today across outlets."
-  },
-  {
-    id: "best-time",
-    title: "Best selling time",
-    description: "Sales peak happened between 7 PM and 9 PM."
-  },
-  {
-    id: "outlet-alert",
-    title: "Outlet alert",
-    description: "Koramangala profit dropped 18% compared to yesterday."
-  },
-  {
-    id: "cash-review",
-    title: "Cash review",
-    description: "One shift mismatch should be resolved before daily closing report goes out."
-  }
-];
+// Insights are generated from live sales data — empty until POS goes live
+const defaultInsights = [];
 
 function formatCurrency(value) {
   return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
@@ -141,8 +121,8 @@ function buildClosingCenter(orders) {
       }
     ],
     ownerSummary: [
-      { id: "closing-sales", label: "Net sales", value: "Rs 2,45,000" },
-      { id: "closing-tax", label: "GST total", value: "Rs 12,420" },
+      { id: "closing-sales", label: "Net sales", value: "Rs 0" },
+      { id: "closing-tax", label: "GST total", value: "Rs 0" },
       { id: "closing-deleted", label: "Deleted bills", value: `${deletedBills} approved` },
       { id: "closing-overrides", label: "Discount overrides", value: `${pendingOverrides} pending review` }
     ]
@@ -150,19 +130,7 @@ function buildClosingCenter(orders) {
 }
 
 function buildAlerts(orders) {
-  const baseAlerts = [
-    {
-      id: "closing-email-wait",
-      title: "Closing email should wait for one unresolved shift",
-      description: "HSR Layout cash mismatch is still open"
-    },
-    {
-      id: "profit-target",
-      title: "Koramangala profit trend is below target",
-      description: "Add this automatically to owner email summary"
-    }
-  ];
-
+  // Only real-time alerts from live POS activity — nothing hardcoded
   const liveAlerts = Object.values(orders)
     .flatMap((order) =>
       (order.controlAlerts || []).map((message, index) => ({
@@ -185,7 +153,7 @@ function buildAlerts(orders) {
     description: `${entry.reason} requires manager or owner OTP approval`
   }));
 
-  return [...baseAlerts, ...liveAlerts, ...reprintAlerts, ...voidAlerts];
+  return [...liveAlerts, ...reprintAlerts, ...voidAlerts];
 }
 
 function buildOwnerSummary() {
@@ -205,32 +173,8 @@ function buildOwnerSummary() {
         : `${pendingOverrides} discount overrides and ${deletedBillCount} deleted bills were recorded in live operations.`,
       cta: "Open reports"
     },
-    outletComparison: [
-      {
-        id: "indiranagar",
-        outlet: "Indiranagar",
-        sales: "Rs 82,000",
-        profit: "Rs 22,100",
-        expenses: "Rs 13,200",
-        status: "Strong"
-      },
-      {
-        id: "koramangala",
-        outlet: "Koramangala",
-        sales: "Rs 61,500",
-        profit: "Rs 12,900",
-        expenses: "Rs 14,300",
-        status: "Review"
-      },
-      {
-        id: "hsr-layout",
-        outlet: "HSR Layout",
-        sales: "Rs 54,300",
-        profit: "Rs 14,600",
-        expenses: "Rs 9,800",
-        status: "Healthy"
-      }
-    ],
+    // Outlet comparison comes from live sales — populated once POS is active
+    outletComparison: [],
     insights: defaultInsights,
     closingSummary: [
       {

@@ -49,12 +49,6 @@ export function OverviewPage() {
   const totalSales = reportSummary?.salesOverview?.todaySales || reportSummary?.salesToday || 0;
   const totalOrders = reportSummary?.salesOverview?.todayOrders || reportSummary?.ordersToday || 0;
   const profitTrend = reportSummary?.salesOverview?.profitTrend || "+0%";
-  const alerts = [
-    ...(reportSummary?.alerts || []),
-    ...(appConfig.taxProfiles || []).length === 0
-      ? [{ id: "tax-missing", title: "Tax profiles missing", description: "Create GST profiles before POS rollout." }]
-      : []
-  ].slice(0, 4);
 
   const controlTiles = [
     { title: "Business Info", copy: "GSTIN, address, branding, invoice header", path: "/business" },
@@ -120,11 +114,6 @@ export function OverviewPage() {
           <strong>{appConfig.menu.items.length}</strong>
           <p>{appConfig.menu.categories.length} categories ready for service</p>
         </article>
-        <article className="metric-card warning">
-          <span className="metric-label">Alerts</span>
-          <strong>{alerts.length}</strong>
-          <p>Review setup and operating risks before rollout</p>
-        </article>
         <article className="metric-card">
           <span className="metric-label">Staff active</span>
           <strong>{appConfig.roles.length}</strong>
@@ -141,36 +130,36 @@ export function OverviewPage() {
         <div className="app-launcher-grid">
           {[
             {
-              icon:  "🖥",
+              icon:  "🖥️",
               name:  "POS Terminal",
               desc:  "Billing · Orders · Shifts · Payments",
-              port:  4174,
-              color: "#FF5733",
-              bg:    "#FFF0ED",
+              url:   "https://pos.dinexpos.in",
+              color: "#2563eb",
+              bg:    "#eff6ff",
             },
             {
               icon:  "📱",
-              name:  "Waiter App",
+              name:  "Captain App",
               desc:  "Table orders · KOT · Guest requests",
-              port:  4175,
-              color: "#27AE60",
-              bg:    "#E9F7EF",
+              url:   "https://captain.dinexpos.in",
+              color: "#059669",
+              bg:    "#f0fdf4",
             },
             {
-              icon:  "👨‍🍳",
+              icon:  "📺",
               name:  "Kitchen Display",
               desc:  "Live KOT queue · Station-wise view",
-              port:  4176,
-              color: "#E67E22",
-              bg:    "#FEF5E7",
+              url:   "https://kds.dinexpos.in",
+              color: "#dc2626",
+              bg:    "#fff1f2",
             },
             {
               icon:  "📊",
               name:  "Reports & Analytics",
               desc:  "Sales · GST · Shifts · Staff",
               path:  "/reports",
-              color: "#2980B9",
-              bg:    "#EBF5FB",
+              color: "#7c3aed",
+              bg:    "#f5f3ff",
             },
           ].map((app) => (
             <button
@@ -180,7 +169,7 @@ export function OverviewPage() {
               style={{ "--app-color": app.color, "--app-bg": app.bg }}
               onClick={() => {
                 if (app.path) navigate(app.path);
-                else window.open(`http://localhost:${app.port}`, "_blank");
+                else window.open(app.url, "_blank");
               }}
             >
               <div className="alc-icon-wrap" style={{ background: app.bg, color: app.color }}>
@@ -191,7 +180,7 @@ export function OverviewPage() {
                 <div className="alc-desc">{app.desc}</div>
               </div>
               <div className="alc-arrow" style={{ color: app.color }}>
-                {app.port ? `localhost:${app.port}` : "Internal"} →
+                {app.url ? new URL(app.url).hostname : "Internal"} →
               </div>
             </button>
           ))}
@@ -243,34 +232,6 @@ export function OverviewPage() {
               </li>
             ))}
           </ul>
-        </article>
-
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Today&apos;s Watchlist</p>
-              <h3>Alerts</h3>
-            </div>
-            <button type="button" className="ghost-btn" onClick={() => navigate("/reports")}>
-              Resolve
-            </button>
-          </div>
-
-          <div className="alert-list">
-            {alerts.length === 0 ? (
-              <div className="alert-item">
-                <strong>No major alerts</strong>
-                <span>Owner setup and control layers look stable.</span>
-              </div>
-            ) : (
-              alerts.map((alert) => (
-                <div key={alert.id} className="alert-item">
-                  <strong>{alert.title}</strong>
-                  <span>{alert.description}</span>
-                </div>
-              ))
-            )}
-          </div>
         </article>
 
         <article className="panel panel-wide">
