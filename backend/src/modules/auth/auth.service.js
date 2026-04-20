@@ -204,6 +204,44 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
 }
 
 /**
+ * Change password for the currently authenticated user.
+ */
+async function changePassword({ userId, currentPassword, newPassword }) {
+  if (!currentPassword || !newPassword) {
+    throw new ApiError(400, "CHANGE_PWD_MISSING", "Current and new password are required");
+  }
+  if (newPassword.length < 6) {
+    throw new ApiError(400, "CHANGE_PWD_WEAK", "New password must be at least 6 characters");
+  }
+
+  // Find the user in the current tenant context
+  const data = getOwnerSetupData();
+  const userEntry = (data.users || []).find((u) => u.id === userId);
+
+  if (!userEntry) {
+    throw new ApiError(404, "CHANGE_PWD_NOT_FOUND", "User not found");
+  }
+
+  if (!userEntry.passwordHash) {
+    throw new ApiError(400, "CHANGE_PWD_NO_PASSWORD", "No password set for this account — set a password via account setup");
+  }
+
+  const match = await bcrypt.compare(String(currentPassword), userEntry.passwordHash);
+  if (!match) {
+    throw new ApiError(401, "CHANGE_PWD_WRONG", "Current password is incorrect");
+  }
+
+  const newHash = await bcrypt.hash(String(newPassword), 10);
+  updateOwnerSetupData((d) => {
+    const idx = (d.users || []).findIndex((u) => u.id === userId);
+    if (idx >= 0) d.users[idx] = { ...d.users[idx], passwordHash: newHash };
+    return d;
+  });
+
+  return { ok: true };
+}
+
+/**
  * One-time owner password reset.
  * Protected by RESET_SECRET env variable — set it in Railway, call the endpoint once, done.
  * Works even when signup is "closed" (owner already exists).
@@ -242,5 +280,6 @@ module.exports = {
   signup,
   isSignupAvailable,
   saveSignupInterest,
+  changePassword,
   resetOwnerPassword
 };

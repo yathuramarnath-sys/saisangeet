@@ -1,4 +1,4 @@
-const { login, signup, isSignupAvailable, saveSignupInterest, resetOwnerPassword } = require("./auth.service");
+const { login, signup, isSignupAvailable, saveSignupInterest, changePassword, resetOwnerPassword } = require("./auth.service");
 
 async function loginHandler(req, res) {
   const result = await login(req.body);
@@ -35,6 +35,14 @@ async function signupInterestHandler(req, res) {
   res.json(result);
 }
 
+async function changePasswordHandler(req, res) {
+  const result = await changePassword({
+    userId: req.user.sub,
+    ...req.body
+  });
+  res.json(result);
+}
+
 async function resetOwnerHandler(req, res) {
   const result = await resetOwnerPassword(req.body);
   res.json(result);
@@ -47,5 +55,6 @@ module.exports = {
   signupInterestHandler,
   meHandler,
   logoutHandler,
+  changePasswordHandler,
   resetOwnerHandler
 };

@@ -1108,6 +1108,123 @@ body {
   background: rgba(17,19,23,0.07);
 }
 
+/* ── Sidebar user button + dropdown menu ─────────────────────────────────── */
+.sidebar-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  border-radius: 10px;
+  transition: background 120ms;
+}
+.sidebar-user-btn:hover { background: rgba(17,19,23,0.06); }
+
+.sidebar-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+.sidebar-user-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1.5px solid #e8e8e8;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  overflow: hidden;
+  z-index: 100;
+}
+.sidebar-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 11px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #222;
+  text-align: left;
+  transition: background 120ms;
+}
+.sidebar-menu-item:hover { background: #f5f5f5; }
+.sidebar-menu-item.danger { color: #c62828; }
+.sidebar-menu-item.danger:hover { background: #fdecea; }
+.sidebar-menu-divider { height: 1px; background: #f0f0f0; margin: 2px 0; }
+
+/* ── Change Password Modal ───────────────────────────────────────────────── */
+.cpw-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.cpw-box {
+  background: #fff;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+.cpw-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #f1f1f1;
+}
+.cpw-head h3 { font-size: 1rem; font-weight: 800; margin: 0; }
+.cpw-close {
+  background: #f1f5f9; border: none; width: 30px; height: 30px;
+  border-radius: 50%; font-size: 13px; cursor: pointer; display: grid;
+  place-items: center;
+}
+.cpw-close:hover { background: #e2e8f0; }
+.cpw-body { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 14px; }
+.cpw-field {
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 0.83rem; font-weight: 700; color: #374151;
+}
+.cpw-field input {
+  width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb;
+  border-radius: 10px; font-size: 0.9rem; font-family: inherit;
+  outline: none; transition: border-color 150ms;
+}
+.cpw-field input:focus { border-color: #1a7a3a; }
+.cpw-pw-wrap { position: relative; }
+.cpw-show-toggle {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.82rem; color: #6b7280; font-weight: 500; cursor: pointer;
+}
+.cpw-error {
+  background: #fdecea; border: 1px solid #f5c2c2;
+  border-radius: 10px; padding: 10px 14px;
+  font-size: 0.84rem; color: #c62828;
+}
+.cpw-success {
+  background: #f0fdf4; border: 1px solid #a7d7b3;
+  border-radius: 10px; padding: 14px;
+  font-size: 0.88rem; color: #1a7a3a; font-weight: 600;
+}
+.cpw-actions { display: flex; gap: 10px; margin-top: 4px; }
+.cpw-actions .primary-btn { flex: 1; }
+.cpw-actions .ghost-btn { flex-shrink: 0; }
+
 .sidebar {
   display: flex;
   flex-direction: column;
