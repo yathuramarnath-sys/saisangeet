@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BulkImportPanel } from "./BulkImportPanel";
 
 import {
   subscribeRestaurantState,
@@ -6,7 +7,6 @@ import {
   updateMenuControls
 } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
 import {
-  bulkImportMenuItems,
   createMenuAssignment,
   createCustomMenuItem,
   createMenuCategory,
@@ -98,26 +98,6 @@ function buildDefaultPricingProfileDraft() {
   };
 }
 
-function parseMenuImportText(text) {
-  const lines = String(text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length < 2) {
-    return [];
-  }
-
-  const headers = lines[0].split(",").map((header) => header.trim());
-
-  return lines.slice(1).map((line) => {
-    const values = line.split(",").map((value) => value.trim());
-    return headers.reduce((row, header, index) => {
-      row[header] = values[index] || "";
-      return row;
-    }, {});
-  });
-}
 
 export function MenuPage() {
   const [menuData, setMenuData] = useState({
@@ -172,10 +152,9 @@ export function MenuPage() {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [inventoryFilter, setInventoryFilter] = useState("Any");
   const [foodTypeFilter, setFoodTypeFilter] = useState("Any");
-  const [importSummary, setImportSummary] = useState("");
+  const [showImportPanel, setShowImportPanel] = useState(false);
   const [routingDrafts, setRoutingDrafts] = useState({});
   const formRef = useRef(null);
-  const importInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -603,42 +582,6 @@ export function MenuPage() {
     }
   }
 
-  async function handleBulkImportSelection(event) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      setSaveError("");
-      setSaveMessage("");
-      setImportSummary("");
-
-      if (!file.name.toLowerCase().endsWith(".csv")) {
-        setSaveMessage(
-          "Bulk import access is enabled for PDF/Excel/CSV. Automatic item creation currently runs from CSV template files."
-        );
-        event.target.value = "";
-        return;
-      }
-
-      const text = await file.text();
-      const rows = parseMenuImportText(text);
-
-      if (rows.length === 0) {
-        throw new Error("The selected CSV file does not contain import rows.");
-      }
-
-      const result = await bulkImportMenuItems(rows);
-      await reloadMenu();
-      setImportSummary(`${file.name}: ${result.importedCount} items imported.`);
-      setSaveMessage("Bulk import completed.");
-      event.target.value = "";
-    } catch (error) {
-      setSaveError(error.message || "Unable to import menu items from the selected file.");
-    }
-  }
 
   function startEditingGroup(menuGroup) {
     setGroupDraft({
@@ -913,17 +856,10 @@ export function MenuPage() {
         </div>
 
         <div className="topbar-actions">
-          <input
-            ref={importInputRef}
-            type="file"
-            accept=".csv,.xls,.xlsx,.pdf"
-            style={{ display: "none" }}
-            onChange={handleBulkImportSelection}
-          />
           <button
             type="button"
             className="secondary-btn"
-            onClick={() => importInputRef.current?.click()}
+            onClick={() => setShowImportPanel(true)}
           >
             Bulk Import
           </button>
@@ -1025,8 +961,6 @@ export function MenuPage() {
               All filters
             </button>
           </div>
-
-          {importSummary ? <p>{importSummary}</p> : null}
 
           <div className="menu-library-table">
             <div className="menu-library-row head">
@@ -1775,6 +1709,14 @@ export function MenuPage() {
           </div>
         </article>
       </section>
+
+      {/* ── Bulk Import Panel ─────────────────────────────────────────────── */}
+      {showImportPanel && (
+        <BulkImportPanel
+          onClose={() => setShowImportPanel(false)}
+          onImportDone={() => reloadMenu()}
+        />
+      )}
     </>
   );
 }
