@@ -3485,6 +3485,39 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .pset-select { padding: 8px 10px; border-radius: 7px; border: 1.5px solid var(--sq-border); background: var(--sq-bg); font-size: 13px; font-family: "Manrope", sans-serif; color: var(--sq-text); outline: none; }
 .pset-select.sm { padding: 6px 9px; font-size: 12px; }
 .pset-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── Printer scan ── */
+.pset-scan-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px; padding: 12px 14px;
+  background: var(--sq-surface); border: 1.5px solid var(--sq-border);
+  border-radius: 10px;
+}
+.pset-scan-btn {
+  padding: 8px 16px; background: #2563eb; color: #fff;
+  border: none; border-radius: 8px; font-size: 12px; font-weight: 700;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.pset-scan-btn:hover   { background: #1d4ed8; }
+.pset-scan-btn:disabled { opacity: .6; cursor: wait; }
+.pset-scan-hint { font-size: 11.5px; color: var(--sq-muted); line-height: 1.4; }
+.pset-scan-empty {
+  font-size: 12.5px; color: var(--sq-muted); padding: 10px 14px;
+  background: var(--sq-surface); border-radius: 8px; margin-bottom: 14px;
+}
+.pset-scan-results { margin-bottom: 16px; }
+.pset-scan-results-label { font-size: 11.5px; font-weight: 700; color: var(--sq-muted); margin: 0 0 8px; text-transform: uppercase; letter-spacing: .03em; }
+.pset-scan-result-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 12px; margin-bottom: 6px;
+  background: var(--sq-bg); border: 1.5px solid var(--sq-border);
+  border-radius: 9px; cursor: pointer; text-align: left;
+  transition: border-color .12s;
+}
+.pset-scan-result-item:hover { border-color: #2563eb; background: #eff6ff; }
+.pset-scan-result-icon { font-size: 18px; flex-shrink: 0; }
+.pset-scan-result-item strong { display: block; font-size: 13px; font-weight: 700; color: var(--sq-text); }
+.pset-scan-result-ip { font-size: 11.5px; color: var(--sq-muted); }
 .pset-save-btn { padding: 8px 16px; background: var(--sq-black); color: #fff; border-radius: 8px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; }
 .pset-save-btn.sm { padding: 6px 12px; }
 .pset-save-btn:hover { background: #2a2a2a; }

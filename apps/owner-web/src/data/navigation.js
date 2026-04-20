@@ -3,6 +3,7 @@ export const navigation = [
   { id: "overview", label: "Overview", path: "/", mode: "react" },
   { id: "outlets", label: "Outlets", path: "/outlets", mode: "react" },
   { id: "menu", label: "Menu & Categories", path: "/menu", mode: "react" },
+  { id: "kitchen", label: "Kitchen Stations", path: "/kitchen-stations", mode: "react" },
   { id: "staff", label: "Staff & Roles", path: "/staff", mode: "react" },
   { id: "discounts", label: "Discount Rules", path: "/discount-rules", mode: "react" },
   { id: "integrations", label: "Integrations", path: "/integrations", mode: "react" },

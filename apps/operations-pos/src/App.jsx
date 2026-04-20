@@ -202,10 +202,16 @@ export default function App() {
 
         setOutlet(target);
 
-        const [cats, items] = await Promise.all([
+        const [cats, items, kitchenStations] = await Promise.all([
           api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),
-          api.get(`/menu/items?outletId=${target.id}`).catch(() => [])
+          api.get(`/menu/items?outletId=${target.id}`).catch(() => []),
+          api.get("/kitchen-stations").catch(() => [])
         ]);
+
+        // Store kitchen stations for POS Settings printer tab
+        if (kitchenStations.length) {
+          localStorage.setItem("pos_kitchen_stations", JSON.stringify(kitchenStations));
+        }
 
         if (cats.length)  setCategories(cats);
         if (items.length) {

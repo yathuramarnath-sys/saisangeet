@@ -17,6 +17,7 @@ const { operationsRouter } = require("../modules/operations/operations.routes");
 const { reportsRouter } = require("../modules/reports/reports.routes");
 const { shiftsRouter } = require("../modules/shifts/shifts.routes");
 const { setupRouter } = require("../modules/setup/setup.routes");
+const { kitchenRouter } = require("../modules/kitchen/kitchen.routes");
 
 const apiRouter = express.Router();
 
@@ -37,6 +38,7 @@ apiRouter.use("/operations", operationsRouter);
 apiRouter.use("/reports", reportsRouter);
 apiRouter.use("/shifts", shiftsRouter);
 apiRouter.use("/setup", setupRouter);
+apiRouter.use("/kitchen-stations", kitchenRouter);
 
 module.exports = {
   apiRouter

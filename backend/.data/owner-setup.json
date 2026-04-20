@@ -1265,15 +1265,21 @@
     "stations": [
       {
         "id": "station-1776252949381",
-        "name": "south indian"
+        "name": "South Indian",
+        "outletId": "all",
+        "categories": []
       },
       {
         "id": "station-1776253807079",
-        "name": "North Indian"
+        "name": "North Indian",
+        "outletId": "all",
+        "categories": []
       },
       {
         "id": "station-1776253866086",
-        "name": "Tandoor Staions"
+        "name": "Tandoor Station",
+        "outletId": "all",
+        "categories": []
       }
     ],
     "config": {

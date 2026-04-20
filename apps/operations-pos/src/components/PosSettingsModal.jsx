@@ -22,17 +22,26 @@ function save(key, val) {
 /* ─── Printer Tab ──────────────────────────────────────────────────────────── */
 const BLANK_FORM = { name: "", type: "KOT Printer", conn: "Network (IP)", ip: "", paper: "80mm", model: "Epson TM-T82", station: "" };
 
+// Detect if running inside Electron
+const IS_ELECTRON = typeof window !== "undefined" && !!window.electronAPI;
+
 function PrinterTab() {
-  // Start empty — staff configure their own printers at the outlet
-  const [printers, setPrinters] = useState(() => load("pos_printers", []));
-  const [adding,   setAdding]   = useState(false);
-  const [editId,   setEditId]   = useState(null);
-  const [form,     setForm]     = useState(BLANK_FORM);
+  const [printers,     setPrinters]     = useState(() => load("pos_printers", []));
+  const [adding,       setAdding]       = useState(false);
+  const [editId,       setEditId]       = useState(null);
+  const [form,         setForm]         = useState(BLANK_FORM);
+  const [scanning,     setScanning]     = useState(false);
+  const [scanResults,  setScanResults]  = useState(null); // null = not scanned yet
+
+  // Kitchen stations from Owner Web (fetched on POS boot, stored in localStorage)
+  const kitchenStations = (() => {
+    try { return JSON.parse(localStorage.getItem("pos_kitchen_stations") || "[]"); }
+    catch { return []; }
+  })();
 
   function persist(updated) {
     setPrinters(updated);
     save("pos_printers", updated);
-    // Sync station map to shared key so owner-web status board can read it
     syncToSharedKey(updated);
   }
 
@@ -41,34 +50,21 @@ function PrinterTab() {
       const existing = JSON.parse(localStorage.getItem("pos_devices_assignments") || "{}");
       const stationMap = {};
       list.filter(p => p.station).forEach(p => {
-        stationMap[p.station] = {
-          id: p.id, name: p.name, model: p.model || "",
-          ip: p.ip || "", status: "online"
-        };
+        stationMap[p.station] = { id: p.id, name: p.name, model: p.model || "", ip: p.ip || "", status: "online" };
       });
-      // Merge with existing device list (keep non-printer devices)
       const devices = list.map(p => ({
-        id: p.id, name: p.name, type: "printer",
-        model: p.model || "", ip: p.ip || "",
-        station: p.station || "", status: "online",
+        id: p.id, name: p.name, type: "printer", model: p.model || "",
+        ip: p.ip || "", station: p.station || "", status: "online",
         lastSeen: new Date().toISOString()
       }));
-      localStorage.setItem("pos_devices_assignments", JSON.stringify({
-        ...existing, devices, stationMap
-      }));
+      localStorage.setItem("pos_devices_assignments", JSON.stringify({ ...existing, devices, stationMap }));
     } catch { /* ignore */ }
   }
 
-  function openAdd() {
-    setForm(BLANK_FORM);
-    setEditId(null);
-    setAdding(true);
-  }
-
+  function openAdd() { setForm(BLANK_FORM); setEditId(null); setScanResults(null); setAdding(true); }
   function openEdit(p) {
     setForm({ name: p.name, type: p.type, conn: p.conn, ip: p.ip || "", paper: p.paper, model: p.model || "Epson TM-T82", station: p.station || "" });
-    setEditId(p.id);
-    setAdding(true);
+    setEditId(p.id); setScanResults(null); setAdding(true);
   }
 
   function savePrinter() {
@@ -78,8 +74,7 @@ function PrinterTab() {
     } else {
       persist([...printers, { ...form, id: `p${Date.now()}`, isDefault: printers.length === 0 }]);
     }
-    setAdding(false);
-    setEditId(null);
+    setAdding(false); setEditId(null); setScanResults(null);
   }
 
   function removePrinter(id) {
@@ -91,35 +86,60 @@ function PrinterTab() {
     persist(printers.map(p => ({ ...p, isDefault: p.id === id })));
   }
 
-  // Stations already configured in owner-web are written to pos_devices_assignments
-  const knownStations = (() => {
+  // ── Scan printers ─────────────────────────────────────────────────────────
+  async function handleScan() {
+    setScanning(true);
+    setScanResults(null);
     try {
-      const d = JSON.parse(localStorage.getItem("pos_devices_assignments") || "{}");
-      return Object.keys(d.stationMap || {});
-    } catch { return []; }
-  })();
+      if (IS_ELECTRON && window.electronAPI?.scanPrinters) {
+        // Electron: real network + USB scan via IPC
+        const found = await window.electronAPI.scanPrinters();
+        setScanResults(found || []);
+      } else {
+        // Web mode: probe common printer IPs on the local subnet
+        // We use a short-timeout fetch to see if port 9100 (ESC/POS) responds
+        const subnet = "192.168.1";
+        const candidates = Array.from({ length: 20 }, (_, i) => `${subnet}.${i + 100}`);
+        const found = [];
+        await Promise.all(
+          candidates.map((ip) =>
+            fetch(`http://${ip}:80`, { signal: AbortSignal.timeout(600), mode: "no-cors" })
+              .then(() => found.push({ ip, name: `Printer @ ${ip}`, conn: "Network (IP)", source: "scan" }))
+              .catch(() => {})
+          )
+        );
+        setScanResults(found);
+      }
+    } catch {
+      setScanResults([]);
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  function pickScannedPrinter(p) {
+    setForm(f => ({ ...f, ip: p.ip || f.ip, name: f.name || p.name, conn: "Network (IP)" }));
+    setScanResults(null);
+  }
 
   return (
     <div className="pset-section">
       <div className="pset-section-head">
         <div>
           <h4>Printer Setup</h4>
-          <p>Printers are configured here at the outlet — on the local network</p>
+          <p>Configure printers at the outlet and assign them to kitchen stations</p>
         </div>
         {!adding && (
-          <button type="button" className="pset-add-btn" onClick={openAdd}>
-            + Add Printer
-          </button>
+          <button type="button" className="pset-add-btn" onClick={openAdd}>+ Add Printer</button>
         )}
       </div>
 
-      {/* How routing works */}
       <div className="pset-routing-note">
-        <strong>How routing works:</strong> Assign each printer to a Kitchen Station.
-        When a KOT is sent, items route to the printer for their category's station.
-        Create a <em>Bills &amp; KOTs</em> station for your billing counter printer.
+        <strong>How routing works:</strong> Kitchen stations and their categories are set in
+        Owner Web → Kitchen Stations. Assign each printer to a station here — KOTs route automatically.
       </div>
 
+      {/* Printer list */}
       <div className="pset-printer-list">
         {printers.map(p => (
           <div key={p.id} className={`pset-printer-card${p.isDefault ? " default" : ""}`}>
@@ -132,38 +152,24 @@ function PrinterTab() {
               <div className="pset-printer-meta">
                 {p.type} · {p.conn === "Network (IP)" ? p.ip || "IP not set" : p.conn} · {p.paper}
               </div>
-              {p.station && (
-                <div className="pset-printer-station">📍 Station: {p.station}</div>
-              )}
+              {p.station && <div className="pset-printer-station">📍 {p.station}</div>}
             </div>
             <div className="pset-printer-actions">
               <button type="button" className="pset-txt-btn"
                 onClick={() => printKOT(
-                  { outletName: "Test Print", tableNumber: "T1", areaName: "Main Hall", kotNumber: "KOT-TEST", guests: 0, isCounter: false },
-                  [{ name: "Test Item 1", quantity: 1, note: "Test note" }, { name: "Test Item 2", quantity: 2 }],
-                  p, 1
-                )}>
-                🖨 Test
-              </button>
-              <button type="button" className="pset-txt-btn" onClick={() => openEdit(p)}>
-                Edit
-              </button>
+                  { outletName: "Test", tableNumber: "T1", areaName: "Main Hall", kotNumber: "KOT-TEST", guests: 0, isCounter: false },
+                  [{ name: "Test Item 1", quantity: 1, note: "" }, { name: "Test Item 2", quantity: 2 }], p, 1
+                )}>🖨 Test</button>
+              <button type="button" className="pset-txt-btn" onClick={() => openEdit(p)}>Edit</button>
               {!p.isDefault && (
-                <button type="button" className="pset-txt-btn" onClick={() => setDefault(p.id)}>
-                  Set Default
-                </button>
+                <button type="button" className="pset-txt-btn" onClick={() => setDefault(p.id)}>Set Default</button>
               )}
-              <button type="button" className="pset-icon-btn danger" onClick={() => removePrinter(p.id)}>
-                🗑
-              </button>
+              <button type="button" className="pset-icon-btn danger" onClick={() => removePrinter(p.id)}>🗑</button>
             </div>
           </div>
         ))}
         {printers.length === 0 && !adding && (
-          <div className="pset-empty">
-            No printers configured yet.<br />
-            Tap <strong>+ Add Printer</strong> to add your first printer.
-          </div>
+          <div className="pset-empty">No printers configured yet.<br />Tap <strong>+ Add Printer</strong> to begin.</div>
         )}
       </div>
 
@@ -171,6 +177,38 @@ function PrinterTab() {
       {adding && (
         <div className="pset-add-form">
           <h5 className="pset-form-title">{editId ? "Edit Printer" : "Add Printer"}</h5>
+
+          {/* ── Scan row ── */}
+          <div className="pset-scan-row">
+            <button type="button" className="pset-scan-btn" onClick={handleScan} disabled={scanning}>
+              {scanning ? "Scanning…" : IS_ELECTRON ? "🔍 Scan Network & USB" : "🔍 Scan Network"}
+            </button>
+            {!IS_ELECTRON && (
+              <span className="pset-scan-hint">
+                Scans 192.168.1.100–119 · For other IPs enter manually below
+              </span>
+            )}
+          </div>
+
+          {/* Scan results */}
+          {scanResults !== null && (
+            scanResults.length === 0 ? (
+              <div className="pset-scan-empty">No printers found on network. Enter IP address manually below.</div>
+            ) : (
+              <div className="pset-scan-results">
+                <p className="pset-scan-results-label">Found {scanResults.length} printer{scanResults.length !== 1 ? "s" : ""} — tap to select:</p>
+                {scanResults.map((p, i) => (
+                  <button key={i} type="button" className="pset-scan-result-item" onClick={() => pickScannedPrinter(p)}>
+                    <span className="pset-scan-result-icon">🖨️</span>
+                    <span>
+                      <strong>{p.name}</strong>
+                      <span className="pset-scan-result-ip">{p.ip}{p.usb ? " (USB)" : ""}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )
+          )}
 
           <div className="pset-form-row">
             <div className="pset-form-field">
@@ -180,36 +218,35 @@ function PrinterTab() {
             </div>
             <div className="pset-form-field">
               <label>Type</label>
-              <select className="pset-select" value={form.type}
-                onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+              <select className="pset-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
                 {PRINTER_TYPES.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
           </div>
 
+          {/* Kitchen station — dropdown from Owner Web stations */}
           <div className="pset-form-row">
             <div className="pset-form-field">
               <label>Kitchen station</label>
-              <input
-                className="pset-input"
-                list="pset-station-list"
-                placeholder="e.g. Hot Kitchen, Bar, Bills &amp; KOTs"
-                value={form.station}
-                onChange={e => setForm(f => ({ ...f, station: e.target.value }))}
-              />
-              <datalist id="pset-station-list">
-                {knownStations.map(s => <option key={s} value={s} />)}
-                <option value="Bills &amp; KOTs" />
-              </datalist>
-              <span className="pset-field-hint">KOTs for this station route to this printer</span>
+              <select className="pset-select" value={form.station} onChange={e => setForm(f => ({ ...f, station: e.target.value }))}>
+                <option value="">— select station —</option>
+                {kitchenStations.map(s => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
+                ))}
+                <option value="Bills & KOTs">Bills &amp; KOTs</option>
+              </select>
+              <span className="pset-field-hint">
+                {kitchenStations.length === 0
+                  ? "No stations found — create them in Owner Web → Kitchen Stations first"
+                  : "KOTs for this station's categories route to this printer"}
+              </span>
             </div>
           </div>
 
           <div className="pset-form-row">
             <div className="pset-form-field">
               <label>Connection</label>
-              <select className="pset-select" value={form.conn}
-                onChange={e => setForm(f => ({ ...f, conn: e.target.value }))}>
+              <select className="pset-select" value={form.conn} onChange={e => setForm(f => ({ ...f, conn: e.target.value }))}>
                 {PRINTER_CONNS.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
@@ -225,15 +262,13 @@ function PrinterTab() {
           <div className="pset-form-row">
             <div className="pset-form-field">
               <label>Printer model</label>
-              <select className="pset-select" value={form.model}
-                onChange={e => setForm(f => ({ ...f, model: e.target.value }))}>
+              <select className="pset-select" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))}>
                 {PRINTER_MODELS.map(m => <option key={m}>{m}</option>)}
               </select>
             </div>
             <div className="pset-form-field">
               <label>Paper size</label>
-              <select className="pset-select" value={form.paper}
-                onChange={e => setForm(f => ({ ...f, paper: e.target.value }))}>
+              <select className="pset-select" value={form.paper} onChange={e => setForm(f => ({ ...f, paper: e.target.value }))}>
                 {PAPER_SIZES.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
@@ -241,9 +276,7 @@ function PrinterTab() {
 
           <div className="pset-form-actions">
             <button type="button" className="pset-cancel-btn"
-              onClick={() => { setAdding(false); setEditId(null); }}>
-              Cancel
-            </button>
+              onClick={() => { setAdding(false); setEditId(null); setScanResults(null); }}>Cancel</button>
             <button type="button" className="pset-save-btn" onClick={savePrinter}>
               {editId ? "Save Changes" : "Add Printer"}
             </button>

@@ -14,6 +14,7 @@ import { StaffPage } from "../features/staff/StaffPage";
 import { TaxesReceiptsPage } from "../features/taxes/TaxesReceiptsPage";
 import { AppStorePage } from "../features/appstore/AppStorePage";
 import { OverviewPage } from "../features/overview/OverviewPage";
+import { KitchenStationsPage } from "../features/kitchen/KitchenStationsPage";
 import { PrototypePage } from "./PrototypePage";
 
 export function AppRoutes() {
@@ -64,6 +65,10 @@ export function AppRoutes() {
 
     if (item.mode === "react" && item.id === "reports") {
       return <ReportsPage />;
+    }
+
+    if (item.mode === "react" && item.id === "kitchen") {
+      return <KitchenStationsPage />;
     }
 
     if (item.mode === "react" && item.id === "appstore") {
