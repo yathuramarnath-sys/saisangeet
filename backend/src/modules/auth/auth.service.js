@@ -203,9 +203,44 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
   return { ok: true };
 }
 
+/**
+ * One-time owner password reset.
+ * Protected by RESET_SECRET env variable — set it in Railway, call the endpoint once, done.
+ * Works even when signup is "closed" (owner already exists).
+ */
+async function resetOwnerPassword({ secret, newPassword }) {
+  const expected = process.env.RESET_SECRET;
+  if (!expected || secret !== expected) {
+    throw new ApiError(403, "RESET_FORBIDDEN", "Invalid reset secret");
+  }
+  if (!newPassword || newPassword.length < 6) {
+    throw new ApiError(400, "RESET_WEAK_PASSWORD", "New password must be at least 6 characters");
+  }
+
+  const passwordHash = await bcrypt.hash(String(newPassword), 10);
+
+  updateOwnerSetupData((data) => {
+    const ownerIndex = (data.users || []).findIndex(
+      (u) => (u.roles || []).includes("Owner")
+    );
+    if (ownerIndex >= 0) {
+      data.users[ownerIndex] = { ...data.users[ownerIndex], passwordHash };
+    }
+    return data;
+  });
+
+  // Re-register in index so login works
+  const data = getOwnerSetupData();
+  const owner = (data.users || []).find((u) => (u.roles || []).includes("Owner"));
+  if (owner?.email) registerUserInIndex(owner.email, owner.phone || null, "default");
+
+  return { ok: true, message: "Owner password updated. Remove RESET_SECRET from env now." };
+}
+
 module.exports = {
   login,
   signup,
   isSignupAvailable,
-  saveSignupInterest
+  saveSignupInterest,
+  resetOwnerPassword
 };
