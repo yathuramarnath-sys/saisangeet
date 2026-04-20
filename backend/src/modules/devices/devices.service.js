@@ -6,10 +6,19 @@ async function fetchDevices() {
 
 async function createLinkToken(payload) {
   const codeRoot = (payload.outletCode || "LINK").replace(/[^A-Z0-9]/gi, "").toUpperCase();
-  return {
-    linkCode: `${codeRoot}-${String(Date.now()).slice(-4)}`,
-    expiresInMinutes: 15
-  };
+  const linkCode = `${codeRoot}-${String(Date.now()).slice(-4)}`;
+
+  // Store the token so resolveLinkCode can find which outlet it belongs to.
+  // We keep it for 24 hours; it's cleared once the device connects.
+  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+  updateOwnerSetupData((data) => {
+    // Prune expired tokens first to keep the list tidy
+    const live = (data.pendingLinkTokens || []).filter((t) => t.expiresAt > Date.now());
+    live.push({ linkCode, outletCode: payload.outletCode || "", expiresAt });
+    return { ...data, pendingLinkTokens: live };
+  });
+
+  return { linkCode, expiresInMinutes: 15 };
 }
 
 async function linkDevice(payload) {
@@ -73,14 +82,38 @@ async function resolveLinkCode(payload) {
     outlet = (data.outlets || []).find((o) => o.name === device.outletName);
   }
 
-  // ── 2. Fallback: parse outlet code from prefix (e.g. "INDR-1001" → "INDR")
+  // ── 2. Check pendingLinkTokens — the stored token always has the exact outletCode ──
+  if (!outlet) {
+    const token = (data.pendingLinkTokens || []).find(
+      (t) => t.linkCode && t.linkCode.toLowerCase() === raw.toLowerCase() && t.expiresAt > Date.now()
+    );
+    if (token) {
+      const stored = (token.outletCode || "").toUpperCase();
+      outlet = (data.outlets || []).find(
+        (o) =>
+          (o.code || "").toUpperCase() === stored ||
+          // Also try stripped form in case outletCode was stored with hyphens
+          (o.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "") === stored.replace(/[^A-Z0-9]/g, "")
+      );
+    }
+  }
+
+  // ── 3. Fallback: parse outlet code from prefix (handles both "INDR-1001" and "INDR001-1234")
   if (!outlet) {
     const parts   = raw.toUpperCase().split("-");
     const prefix  = parts.length >= 2 ? parts.slice(0, -1).join("-") : parts[0];
+    const prefixStripped = prefix.replace(/[^A-Z0-9]/g, "");
     outlet = (data.outlets || []).find(
-      (o) =>
-        (o.code || "").toUpperCase() === prefix ||
-        (o.name || "").toUpperCase().replace(/\s+/g, "").startsWith(prefix)
+      (o) => {
+        const code        = (o.code || "").toUpperCase();
+        const codeStripped = code.replace(/[^A-Z0-9]/g, "");
+        const name        = (o.name || "").toUpperCase().replace(/\s+/g, "");
+        return code === prefix ||
+               codeStripped === prefix ||
+               codeStripped === prefixStripped ||
+               name.startsWith(prefix) ||
+               name.startsWith(prefixStripped);
+      }
     );
   }
 
@@ -108,6 +141,14 @@ async function resolveLinkCode(payload) {
       pin:    u.pin || "0000",
       avatar: (u.fullName || u.name || "?")[0].toUpperCase(),
     }));
+
+  // ── 5. Consume the pending token so the same code can't be reused ─────────
+  updateOwnerSetupData((d) => ({
+    ...d,
+    pendingLinkTokens: (d.pendingLinkTokens || []).filter(
+      (t) => t.linkCode.toLowerCase() !== raw.toLowerCase()
+    )
+  }));
 
   return {
     outletId:   outlet.id,
