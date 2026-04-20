@@ -8,7 +8,7 @@ const { findUserByIdentifier, getTenantForIdentifier } = require("./auth.reposit
 const { getOwnerSetupData, updateOwnerSetupData, createTenantFile } = require("../../data/owner-setup-store");
 const { createBlankTenantData } = require("../../data/blank-tenant-data");
 const { registerUserInIndex } = require("../../data/users-index");
-const { sendWelcomeEmail } = require("../../utils/email");
+const { sendWelcomeEmail, sendPasswordResetEmail } = require("../../utils/email");
 
 async function login({ identifier, password }) {
   if (!identifier || !password) {
@@ -275,11 +275,95 @@ async function resetOwnerPassword({ secret, newPassword }) {
   return { ok: true, message: "Owner password updated. Remove RESET_SECRET from env now." };
 }
 
+/**
+ * Step 1 of forgot-password: accept an email, generate a short-lived token,
+ * store it on the user record, and send a reset link by email.
+ *
+ * We ALWAYS return { ok: true } regardless of whether the email exists —
+ * this prevents email-enumeration attacks.
+ */
+async function forgotPassword({ email }) {
+  if (!email) {
+    throw new ApiError(400, "FORGOT_PWD_MISSING", "Email is required");
+  }
+
+  const cleanEmail = email.toLowerCase().trim();
+  const user = await findUserByIdentifier(cleanEmail);
+
+  // Unknown email — silently succeed (anti-enumeration)
+  if (!user) return { ok: true };
+
+  // Generate a cryptographically-random token and a 1-hour expiry
+  const rawToken  = crypto.randomBytes(32).toString("hex");
+  const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
+
+  // Store token on user record
+  updateOwnerSetupData((data) => {
+    const idx = (data.users || []).findIndex((u) => u.id === user.id);
+    if (idx >= 0) {
+      data.users[idx] = {
+        ...data.users[idx],
+        resetToken:       rawToken,
+        resetTokenExpiry: expiresAt
+      };
+    }
+    return data;
+  });
+
+  const resetUrl = `${process.env.APP_URL || "https://app.dinexpos.in"}/reset-password?token=${rawToken}`;
+
+  // Non-blocking — log and continue even if email fails
+  sendPasswordResetEmail({ to: cleanEmail, name: user.fullName, resetUrl })
+    .catch((err) => console.error("[email] Failed to send reset email:", err.message));
+
+  return { ok: true };
+}
+
+/**
+ * Step 2 of forgot-password: validate the token and set a new password.
+ */
+async function resetPasswordByToken({ token, newPassword }) {
+  if (!token || !newPassword) {
+    throw new ApiError(400, "RESET_PWD_MISSING", "Token and new password are required");
+  }
+  if (newPassword.length < 6) {
+    throw new ApiError(400, "RESET_PWD_WEAK", "Password must be at least 6 characters");
+  }
+
+  const data = getOwnerSetupData();
+  const userEntry = (data.users || []).find(
+    (u) => u.resetToken === token && u.resetTokenExpiry > Date.now()
+  );
+
+  if (!userEntry) {
+    throw new ApiError(400, "RESET_PWD_INVALID", "This reset link is invalid or has expired. Please request a new one.");
+  }
+
+  const newHash = await bcrypt.hash(String(newPassword), 10);
+
+  updateOwnerSetupData((d) => {
+    const idx = (d.users || []).findIndex((u) => u.id === userEntry.id);
+    if (idx >= 0) {
+      d.users[idx] = {
+        ...d.users[idx],
+        passwordHash:     newHash,
+        resetToken:       null,
+        resetTokenExpiry: null
+      };
+    }
+    return d;
+  });
+
+  return { ok: true };
+}
+
 module.exports = {
   login,
   signup,
   isSignupAvailable,
   saveSignupInterest,
   changePassword,
-  resetOwnerPassword
+  resetOwnerPassword,
+  forgotPassword,
+  resetPasswordByToken
 };

@@ -5,6 +5,7 @@ import { OwnerLayout } from "./components/OwnerLayout";
 import { AppRoutes } from "./pages/routes";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ProtectedRoute } from "./pages/ProtectedRoute";
 
 export function App() {
@@ -14,6 +15,8 @@ export function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password"  element={<ForgotPasswordPage />} />
           <Route
             path="/*"
             element={

@@ -4330,6 +4330,26 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   text-align: center;
 }
 
+/* Forgot password link below sign-in button */
+.lp2-forgot-wrap {
+  margin-top: 16px;
+  text-align: center;
+}
+.lp2-forgot-link {
+  font-size: .85rem;
+  color: #FF5A1F;
+  text-decoration: none;
+  font-weight: 500;
+}
+.lp2-forgot-link:hover { text-decoration: underline; }
+
+/* Forgot password page — email-sent icon */
+.fpw-sent-icon {
+  font-size: 2.8rem;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
 @media (max-width: 480px) {
   .lp2-card {
     border: none;
