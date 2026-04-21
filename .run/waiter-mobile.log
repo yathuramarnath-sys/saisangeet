@@ -1,0 +1,21 @@
+
+> waiter-mobile@0.1.0 dev
+> vite --host 0.0.0.0 --port 4175
+
+1:57:27 PM [vite] (client) Re-optimizing dependencies because vite config has changed
+
+  VITE v7.3.2  ready in 592 ms
+
+  ➜  Local:   http://localhost:4175/
+  ➜  Network: http://192.168.68.104:4175/
+8:31:23 PM [vite] vite.config.js changed, restarting server...
+8:31:23 PM [vite] server restarted.
+8:34:09 PM [vite] (client) page reload electron-dist/mac-arm64/LICENSES.chromium.html
+8:34:10 PM [vite] (client) page reload electron-dist/mac-arm64/LICENSES.chromium.html
+npm error Lifecycle script `dev` failed with error:
+npm error code 143
+npm error path /Users/amarnath/Documents/New project update 1/apps/waiter-mobile
+npm error workspace waiter-mobile@0.1.0
+npm error location /Users/amarnath/Documents/New project update 1/apps/waiter-mobile
+npm error command failed
+npm error command sh -c vite --host 0.0.0.0 --port 4175

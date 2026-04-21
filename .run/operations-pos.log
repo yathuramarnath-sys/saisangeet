@@ -1,0 +1,27 @@
+
+> operations-pos@0.1.0 dev
+> vite --host 0.0.0.0 --port 4174
+
+1:57:27 PM [vite] (client) Re-optimizing dependencies because vite config has changed
+
+  VITE v7.3.2  ready in 459 ms
+
+  ➜  Local:   http://localhost:4174/
+  ➜  Network: http://192.168.68.104:4174/
+8:03:02 PM [vite] (client) hmr update /src/App.jsx
+8:04:12 PM [vite] (client) hmr update /src/components/PosSettingsModal.jsx
+8:05:10 PM [vite] (client) hmr update /src/styles/app.css
+8:15:29 PM [vite] (client) hmr update /src/components/BranchSetupScreen.jsx
+8:21:25 PM [vite] (client) hmr update /src/components/PosSettingsModal.jsx
+8:21:34 PM [vite] (client) hmr update /src/components/PosSettingsModal.jsx
+8:30:51 PM [vite] vite.config.js changed, restarting server...
+8:30:51 PM [vite] server restarted.
+8:33:42 PM [vite] (client) page reload electron-dist/mac-arm64/LICENSES.chromium.html
+8:33:44 PM [vite] (client) page reload electron-dist/mac-arm64/LICENSES.chromium.html
+npm error Lifecycle script `dev` failed with error:
+npm error code 143
+npm error path /Users/amarnath/Documents/New project update 1/apps/operations-pos
+npm error workspace operations-pos@0.1.0
+npm error location /Users/amarnath/Documents/New project update 1/apps/operations-pos
+npm error command failed
+npm error command sh -c vite --host 0.0.0.0 --port 4174

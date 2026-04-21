@@ -3,3 +3,5 @@ apps/*/package-lock.json
 node_modules/
 apps/*/node_modules/
 packages/*/node_modules/
+electron-dist/
+electron-dist/

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="#7c3aed"/>
+
+  <!-- Person head -->
+  <circle cx="256" cy="148" r="60" fill="white"/>
+
+  <!-- Body / uniform -->
+  <path d="M 148 460 Q 148 330 256 310 Q 364 330 364 460 Z" fill="white" opacity="0.9"/>
+
+  <!-- Collar / bow tie -->
+  <path d="M 230 310 L 256 340 L 282 310 Z" fill="#7c3aed" opacity="0.6"/>
+
+  <!-- Tray -->
+  <ellipse cx="350" cy="220" rx="72" ry="14" fill="white" opacity="0.85"/>
+  <rect x="282" y="220" width="4" height="60" rx="2" fill="white" opacity="0.7"/>
+
+  <!-- Item on tray (plate) -->
+  <ellipse cx="356" cy="210" rx="38" ry="8" fill="white"/>
+  <circle cx="356" cy="204" r="22" fill="#a78bfa"/>
+  <circle cx="356" cy="204" r="14" fill="#7c3aed" opacity="0.5"/>
+
+  <!-- Star badge -->
+  <circle cx="118" cy="118" r="44" fill="#f59e0b"/>
+  <text x="118" y="134" font-family="Arial, sans-serif" font-size="44" text-anchor="middle">★</text>
+</svg>
