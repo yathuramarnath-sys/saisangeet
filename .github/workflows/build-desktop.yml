@@ -3,45 +3,73 @@ name: Build Desktop Apps
 on:
   push:
     branches: [main]
-  workflow_dispatch: # allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
-  build-windows:
+  build-pos-windows:
     runs-on: windows-latest
-    strategy:
-      matrix:
-        app:
-          - name: operations-pos
-            label: POS
-          - name: kitchen-display
-            label: KDS
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
-        working-directory: apps/${{ matrix.app.name }}
+        working-directory: apps/operations-pos
         run: npm install
 
       - name: Build Vite app
-        working-directory: apps/${{ matrix.app.name }}
+        working-directory: apps/operations-pos
         run: npm run build
 
       - name: Build Windows EXE
-        working-directory: apps/${{ matrix.app.name }}
+        working-directory: apps/operations-pos
         run: npx electron-builder build --win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Windows installer
+      - name: Upload POS Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: DineX-${{ matrix.app.label }}-Windows
-          path: apps/${{ matrix.app.name }}/electron-dist/*.exe
+          name: DineX-POS-Windows
+          path: apps/operations-pos/electron-dist/*.exe
+          retention-days: 30
+
+  build-kds-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: apps/kitchen-display
+        run: npm install
+
+      - name: Build Vite app
+        working-directory: apps/kitchen-display
+        run: npm run build
+
+      - name: Build Windows EXE
+        working-directory: apps/kitchen-display
+        run: npx electron-builder build --win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload KDS Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: DineX-KDS-Windows
+          path: apps/kitchen-display/electron-dist/*.exe
           retention-days: 30
