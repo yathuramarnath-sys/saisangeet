@@ -1,4 +1,4 @@
-const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { getOwnerSetupData, updateOwnerSetupData, updateOwnerSetupDataNow } = require("../../data/owner-setup-store");
 
 async function fetchDevices() {
   return getOwnerSetupData().devices;
@@ -11,10 +11,11 @@ async function createLinkToken(payload) {
   const suffix    = String(Date.now()).slice(-4);
   const linkCode  = `${codeRoot}-${suffix}`;
 
-  // Store the token so resolveLinkCode can find which outlet it belongs to.
-  // Expires in 24 hours; consumed (deleted) once the device connects.
+  // Store the token and WAIT for Postgres to confirm before returning.
+  // This prevents tokens being lost when Railway redeploys the server
+  // between token generation and device connection.
   const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
-  updateOwnerSetupData((data) => {
+  await updateOwnerSetupDataNow((data) => {
     // Prune expired tokens first to keep the list tidy
     const live = (data.pendingLinkTokens || []).filter((t) => t.expiresAt > Date.now());
     live.push({ linkCode, outletCode: payload.outletCode || "", expiresAt });

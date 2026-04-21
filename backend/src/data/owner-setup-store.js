@@ -80,6 +80,25 @@ function persistToPostgres(tenantId, data) {
   });
 }
 
+/**
+ * Same as persistToPostgres but awaitable — used when the caller MUST ensure
+ * the data survives a server restart before returning a response (e.g. link tokens).
+ */
+async function persistToPostgresNow(tenantId, data) {
+  try {
+    const { query } = require("../db/pool");
+    await query(
+      `INSERT INTO tenant_settings (tenant_id, key, value, updated_at)
+       VALUES ($1, 'owner_setup', $2, NOW())
+       ON CONFLICT (tenant_id, key)
+       DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [tenantId, JSON.stringify(data)]
+    );
+  } catch (err) {
+    console.error("[store] Postgres sync write failed (non-fatal):", err.message);
+  }
+}
+
 // ── Core read / write ────────────────────────────────────────────────────────
 
 function readData() {
@@ -123,6 +142,21 @@ function updateOwnerSetupData(updater) {
 }
 
 /**
+ * Like updateOwnerSetupData but also awaits the Postgres write.
+ * Use this when the written data must survive a server restart before
+ * the HTTP response is sent — e.g. generating a device link token.
+ */
+async function updateOwnerSetupDataNow(updater) {
+  const tenantId = getCurrentTenantId();
+  const current  = readData();
+  const next     = updater(JSON.parse(JSON.stringify(current)));
+  _cache.set(tenantId, next);
+  writeToFile(tenantId, next);
+  await persistToPostgresNow(tenantId, next);
+  return next;
+}
+
+/**
  * Create a brand-new tenant file with blank starting data.
  * Called once during enrollment.
  */
@@ -137,6 +171,7 @@ function createTenantFile(tenantId, initialData) {
 module.exports = {
   getOwnerSetupData,
   updateOwnerSetupData,
+  updateOwnerSetupDataNow,
   createTenantFile,
   // Exported for migrate.js only:
   warmTenantCache,
