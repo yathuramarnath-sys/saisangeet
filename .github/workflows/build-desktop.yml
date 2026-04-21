@@ -17,9 +17,8 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
-        working-directory: apps/operations-pos
-        run: npm install
+      - name: Install POS dependencies
+        run: npm install --workspace=apps/operations-pos
 
       - name: Build Vite app
         working-directory: apps/operations-pos
@@ -27,7 +26,7 @@ jobs:
 
       - name: Build Windows EXE
         working-directory: apps/operations-pos
-        run: npx electron-builder build --win --publish never
+        run: npx electron-builder build --win --x64 --publish never
 
       - name: Upload POS Windows installer
         uses: actions/upload-artifact@v4
@@ -47,9 +46,8 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
-        working-directory: apps/kitchen-display
-        run: npm install
+      - name: Install KDS dependencies
+        run: npm install --workspace=apps/kitchen-display
 
       - name: Build Vite app
         working-directory: apps/kitchen-display
@@ -57,7 +55,7 @@ jobs:
 
       - name: Build Windows EXE
         working-directory: apps/kitchen-display
-        run: npx electron-builder build --win --publish never
+        run: npx electron-builder build --win --x64 --publish never
 
       - name: Upload KDS Windows installer
         uses: actions/upload-artifact@v4
