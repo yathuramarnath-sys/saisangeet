@@ -51,12 +51,17 @@ async function runMigrations() {
 
   await queryFn(`
     CREATE TABLE IF NOT EXISTS pending_link_tokens (
-      link_code  TEXT PRIMARY KEY,
+      link_code   TEXT PRIMARY KEY,
       outlet_code TEXT NOT NULL,
-      tenant_id  TEXT NOT NULL DEFAULT 'default',
-      expires_at TIMESTAMPTZ NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      outlet_id   TEXT NOT NULL DEFAULT '',
+      tenant_id   TEXT NOT NULL DEFAULT 'default',
+      expires_at  TIMESTAMPTZ NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+  // Add outlet_id column if it was created without it (idempotent)
+  await queryFn(`
+    ALTER TABLE pending_link_tokens ADD COLUMN IF NOT EXISTS outlet_id TEXT NOT NULL DEFAULT ''
   `);
 
   console.log("[migrate] Tables verified.");

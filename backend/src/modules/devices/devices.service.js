@@ -1,4 +1,5 @@
 const { getOwnerSetupData, updateOwnerSetupData, updateOwnerSetupDataNow } = require("../../data/owner-setup-store");
+const { getCurrentTenantId } = require("../../data/tenant-context");
 
 async function fetchDevices() {
   return getOwnerSetupData().devices;
@@ -10,22 +11,37 @@ async function createLinkToken(payload) {
   const codeRoot  = (payload.outletCode || "LINK").trim().toUpperCase();
   const suffix    = String(Date.now()).slice(-4);
   const linkCode  = `${codeRoot}-${suffix}`;
+  const tenantId  = getCurrentTenantId();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-  // Store the token and WAIT for Postgres to confirm before returning.
-  // This prevents tokens being lost when Railway redeploys the server
-  // between token generation and device connection.
-  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
-  await updateOwnerSetupDataNow((data) => {
-    // Prune expired tokens first to keep the list tidy
-    const live = (data.pendingLinkTokens || []).filter((t) => t.expiresAt > Date.now());
-    live.push({
-      linkCode,
-      outletCode: payload.outletCode || "",
-      outletId:   payload.outletId   || "",   // store ID so lookup never fails on code mismatch
-      expiresAt,
+  // ── Primary: write directly to the pending_link_tokens Postgres table ──────
+  // This survives server restarts — no dependency on in-memory cache.
+  let savedToDb = false;
+  try {
+    const { query } = require("../../db/pool");
+    await query(
+      `INSERT INTO pending_link_tokens (link_code, outlet_code, outlet_id, tenant_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (link_code) DO UPDATE
+         SET outlet_code = EXCLUDED.outlet_code,
+             outlet_id   = EXCLUDED.outlet_id,
+             expires_at  = EXCLUDED.expires_at`,
+      [linkCode, payload.outletCode || "", payload.outletId || "", tenantId, expiresAt]
+    );
+    savedToDb = true;
+  } catch (dbErr) {
+    console.warn("[devices] Postgres token insert failed, using cache fallback:", dbErr.message);
+  }
+
+  // ── Fallback: also store in owner_setup JSON (works if Postgres is down) ───
+  if (!savedToDb) {
+    const expiresAtMs = expiresAt.getTime();
+    updateOwnerSetupData((data) => {
+      const live = (data.pendingLinkTokens || []).filter((t) => t.expiresAt > Date.now());
+      live.push({ linkCode, outletCode: payload.outletCode || "", outletId: payload.outletId || "", expiresAt: expiresAtMs });
+      return { ...data, pendingLinkTokens: live };
     });
-    return { ...data, pendingLinkTokens: live };
-  });
+  }
 
   return { linkCode, expiresInHours: 24 };
 }
@@ -91,17 +107,43 @@ async function resolveLinkCode(payload) {
     outlet = (data.outlets || []).find((o) => o.name === device.outletName);
   }
 
-  // ── 2. Check pendingLinkTokens — token stores both outletId and outletCode ──
+  // ── 2a. Check Postgres pending_link_tokens table directly (most reliable) ───
+  if (!outlet) {
+    try {
+      const { query } = require("../../db/pool");
+      const result = await query(
+        `SELECT outlet_id, outlet_code FROM pending_link_tokens
+         WHERE LOWER(link_code) = LOWER($1) AND expires_at > NOW()`,
+        [raw]
+      );
+      if (result.rows[0]) {
+        const row = result.rows[0];
+        if (row.outlet_id) {
+          outlet = (data.outlets || []).find((o) => o.id === row.outlet_id);
+        }
+        if (!outlet && row.outlet_code) {
+          const stored = row.outlet_code.toUpperCase();
+          outlet = (data.outlets || []).find(
+            (o) =>
+              (o.code || "").toUpperCase() === stored ||
+              (o.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "") === stored.replace(/[^A-Z0-9]/g, "")
+          );
+        }
+      }
+    } catch (_dbErr) {
+      // Postgres unavailable — fall through to in-memory cache check
+    }
+  }
+
+  // ── 2b. Check in-memory pendingLinkTokens (fallback when Postgres is down) ─
   if (!outlet) {
     const token = (data.pendingLinkTokens || []).find(
       (t) => t.linkCode && t.linkCode.toLowerCase() === raw.toLowerCase() && t.expiresAt > Date.now()
     );
     if (token) {
-      // Prefer ID match (exact, never drifts)
       if (token.outletId) {
         outlet = (data.outlets || []).find((o) => o.id === token.outletId);
       }
-      // Fallback: code match (handles old tokens without outletId)
       if (!outlet && token.outletCode) {
         const stored = (token.outletCode || "").toUpperCase();
         outlet = (data.outlets || []).find(
@@ -156,6 +198,12 @@ async function resolveLinkCode(payload) {
     }));
 
   // ── 5. Consume the pending token so the same code can't be reused ─────────
+  // Delete from Postgres table
+  try {
+    const { query } = require("../../db/pool");
+    await query("DELETE FROM pending_link_tokens WHERE LOWER(link_code) = LOWER($1)", [raw]);
+  } catch (_) {}
+  // Also remove from in-memory cache fallback
   updateOwnerSetupData((d) => ({
     ...d,
     pendingLinkTokens: (d.pendingLinkTokens || []).filter(
