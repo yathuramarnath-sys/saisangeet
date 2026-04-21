@@ -11,8 +11,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          submodules: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,9 +27,7 @@ jobs:
 
       - name: Build Windows EXE
         working-directory: apps/operations-pos
-        run: npx electron-builder build --win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder build --win --publish never
 
       - name: Upload POS Windows installer
         uses: actions/upload-artifact@v4
@@ -45,8 +41,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          submodules: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -63,9 +57,7 @@ jobs:
 
       - name: Build Windows EXE
         working-directory: apps/kitchen-display
-        run: npx electron-builder build --win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder build --win --publish never
 
       - name: Upload KDS Windows installer
         uses: actions/upload-artifact@v4
