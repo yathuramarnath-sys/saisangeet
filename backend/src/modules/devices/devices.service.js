@@ -5,11 +5,14 @@ async function fetchDevices() {
 }
 
 async function createLinkToken(payload) {
-  const codeRoot = (payload.outletCode || "LINK").replace(/[^A-Z0-9]/gi, "").toUpperCase();
-  const linkCode = `${codeRoot}-${String(Date.now()).slice(-4)}`;
+  // Keep the outlet code exactly as stored (e.g. "MUM-1001") so the generated
+  // link code is readable and consistent: "MUM-1001-5678"
+  const codeRoot  = (payload.outletCode || "LINK").trim().toUpperCase();
+  const suffix    = String(Date.now()).slice(-4);
+  const linkCode  = `${codeRoot}-${suffix}`;
 
   // Store the token so resolveLinkCode can find which outlet it belongs to.
-  // We keep it for 24 hours; it's cleared once the device connects.
+  // Expires in 24 hours; consumed (deleted) once the device connects.
   const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
   updateOwnerSetupData((data) => {
     // Prune expired tokens first to keep the list tidy
@@ -18,7 +21,7 @@ async function createLinkToken(payload) {
     return { ...data, pendingLinkTokens: live };
   });
 
-  return { linkCode, expiresInMinutes: 15 };
+  return { linkCode, expiresInHours: 24 };
 }
 
 async function linkDevice(payload) {
@@ -98,23 +101,21 @@ async function resolveLinkCode(payload) {
     }
   }
 
-  // ── 3. Fallback: parse outlet code from prefix (handles both "INDR-1001" and "INDR001-1234")
+  // ── 3. Fallback: parse outlet code from prefix
+  //    Handles "MUM-1001-5678" → prefix "MUM-1001"
+  //    Also handles legacy stripped codes like "MUM1001-5678" → prefix "MUM1001"
   if (!outlet) {
-    const parts   = raw.toUpperCase().split("-");
-    const prefix  = parts.length >= 2 ? parts.slice(0, -1).join("-") : parts[0];
+    const parts          = raw.toUpperCase().split("-");
+    const prefix         = parts.length >= 2 ? parts.slice(0, -1).join("-") : parts[0];
     const prefixStripped = prefix.replace(/[^A-Z0-9]/g, "");
-    outlet = (data.outlets || []).find(
-      (o) => {
-        const code        = (o.code || "").toUpperCase();
-        const codeStripped = code.replace(/[^A-Z0-9]/g, "");
-        const name        = (o.name || "").toUpperCase().replace(/\s+/g, "");
-        return code === prefix ||
-               codeStripped === prefix ||
-               codeStripped === prefixStripped ||
-               name.startsWith(prefix) ||
-               name.startsWith(prefixStripped);
-      }
-    );
+    outlet = (data.outlets || []).find((o) => {
+      const code         = (o.code || "").toUpperCase();
+      const codeStripped = code.replace(/[^A-Z0-9]/g, "");
+      return (
+        code === prefix ||
+        codeStripped === prefixStripped
+      );
+    });
   }
 
   if (!outlet) {

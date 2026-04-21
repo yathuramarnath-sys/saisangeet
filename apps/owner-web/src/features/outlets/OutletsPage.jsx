@@ -48,7 +48,6 @@ function buildEditDraft(outlet) {
 
   return {
     name: outlet.name,
-    code: outlet.code,
     city: outlet.city,
     state: outlet.state,
     gstin: outlet.gstin,
@@ -69,7 +68,6 @@ function buildEditDraft(outlet) {
 function buildCreateDraft(pageData) {
   return {
     name: "",
-    code: "",
     city: "",
     state: "",
     gstin: "",
@@ -230,7 +228,6 @@ export function OutletsPage() {
       setStatusMessage("");
       await createOutlet({
         name: createDraft.name,
-        code: createDraft.code,
         city: createDraft.city,
         state: createDraft.state,
         gstin: createDraft.gstin,
@@ -263,7 +260,6 @@ export function OutletsPage() {
       setStatusMessage("");
       await updateOutlet(editingOutletId, {
         name: editDraft.name,
-        code: editDraft.code,
         city: editDraft.city,
         state: editDraft.state,
         gstin: editDraft.gstin,
@@ -525,16 +521,6 @@ export function OutletsPage() {
                 name="name"
                 value={createDraft.name}
                 onChange={(event) => setCreateDraft((current) => ({ ...current, name: event.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Outlet code
-              <input
-                type="text"
-                name="code"
-                value={createDraft.code}
-                onChange={(event) => setCreateDraft((current) => ({ ...current, code: event.target.value }))}
                 required
               />
             </label>
@@ -803,11 +789,13 @@ export function OutletsPage() {
                 />
               </label>
               <label>
-                Outlet code
+                Sync code
                 <input
                   type="text"
-                  value={editDraft.code}
-                  onChange={(event) => setEditDraft((current) => ({ ...current, code: event.target.value }))}
+                  value={activeOutlet?.code || ""}
+                  readOnly
+                  title="Auto-generated sync code — share this with your device setup team"
+                  style={{ background: "var(--surface-2, #f5f5f5)", cursor: "default", fontFamily: "monospace", fontWeight: 600, letterSpacing: "0.05em" }}
                 />
               </label>
               <label>

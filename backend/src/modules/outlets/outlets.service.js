@@ -4,10 +4,29 @@ async function fetchOutlets() {
   return getOwnerSetupData().outlets;
 }
 
+/**
+ * Auto-generate a unique outlet sync code from the city (or outlet name).
+ * Format: up to 4 uppercase letters from the city + "-" + 4-digit number starting at 1001.
+ * Example: city "Mumbai" → "MUM-1001", city "Indore" → "INDR-1001"
+ */
+function generateOutletCode(name, city, existingOutlets) {
+  const source = (city || name || "OUT").replace(/[^A-Za-z]/g, "").toUpperCase();
+  const prefix  = source.slice(0, 4);
+  const usedCodes = (existingOutlets || []).map((o) => (o.code || "").toUpperCase());
+  let num = 1001;
+  while (usedCodes.includes(`${prefix}-${num}`)) {
+    num++;
+  }
+  return `${prefix}-${num}`;
+}
+
 async function createOutlet(payload) {
+  const existingOutlets = getOwnerSetupData().outlets || [];
+  const code = generateOutletCode(payload.name, payload.city, existingOutlets);
+
   const outlet = {
     id: `outlet-${Date.now()}`,
-    code: payload.code,
+    code,
     name: payload.name,
     gstin: payload.gstin || "",
     city: payload.city || "",
