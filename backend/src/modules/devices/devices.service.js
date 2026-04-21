@@ -108,39 +108,53 @@ async function resolveLinkCode(payload) {
   }
 
   // ── 2a. Check Postgres pending_link_tokens table directly (most reliable) ───
-  // Also reads tenant_id from the token so we look in the RIGHT tenant's outlets,
-  // even when the POS sends no auth token (multi-tenant fix).
+  // Reads tenant_id from the token row, then loads that tenant's data DIRECTLY
+  // from Postgres — bypasses in-memory cache so Railway restarts can't break this.
   if (!outlet) {
     try {
       const { query } = require("../../db/pool");
-      const result = await query(
+
+      // Step 1: find the token
+      const tokenResult = await query(
         `SELECT outlet_id, outlet_code, tenant_id FROM pending_link_tokens
          WHERE LOWER(link_code) = LOWER($1) AND expires_at > NOW()`,
         [raw]
       );
-      if (result.rows[0]) {
-        const row = result.rows[0];
-        // Load the correct tenant's data (may differ from current request tenant)
-        const tokenTenantId = row.tenant_id || getCurrentTenantId();
-        const tenantData    = await new Promise((resolve) =>
-          runWithTenant(tokenTenantId, () => resolve(getOwnerSetupData()))
-        );
-        const outlets = tenantData.outlets || [];
 
+      if (tokenResult.rows[0]) {
+        const row           = tokenResult.rows[0];
+        const tokenTenantId = row.tenant_id || getCurrentTenantId();
+
+        // Step 2: load that tenant's full setup DIRECTLY from Postgres
+        const { warmTenantCache } = require("../../data/owner-setup-store");
+        const setupResult = await query(
+          `SELECT value FROM tenant_settings WHERE tenant_id = $1 AND key = 'owner_setup'`,
+          [tokenTenantId]
+        );
+
+        let tenantOutlets = [];
+        if (setupResult.rows[0]) {
+          const raw_setup = setupResult.rows[0].value;
+          // Refresh the in-memory cache while we're at it
+          warmTenantCache(tokenTenantId, raw_setup);
+          tenantOutlets = (raw_setup.outlets || []);
+          // Use this tenant's full data for the rest of the function
+          data = await new Promise((resolve) =>
+            runWithTenant(tokenTenantId, () => resolve(getOwnerSetupData()))
+          );
+        }
+
+        // Step 3: find the outlet
         if (row.outlet_id) {
-          outlet = outlets.find((o) => o.id === row.outlet_id);
+          outlet = tenantOutlets.find((o) => o.id === row.outlet_id);
         }
         if (!outlet && row.outlet_code) {
           const stored = row.outlet_code.toUpperCase();
-          outlet = outlets.find(
+          outlet = tenantOutlets.find(
             (o) =>
               (o.code || "").toUpperCase() === stored ||
               (o.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "") === stored.replace(/[^A-Z0-9]/g, "")
           );
-        }
-        // If outlet found in a different tenant, reload `data` for that tenant
-        if (outlet) {
-          data = tenantData;
         }
       }
     } catch (_dbErr) {
