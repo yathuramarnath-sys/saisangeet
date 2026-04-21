@@ -18,7 +18,12 @@ async function createLinkToken(payload) {
   await updateOwnerSetupDataNow((data) => {
     // Prune expired tokens first to keep the list tidy
     const live = (data.pendingLinkTokens || []).filter((t) => t.expiresAt > Date.now());
-    live.push({ linkCode, outletCode: payload.outletCode || "", expiresAt });
+    live.push({
+      linkCode,
+      outletCode: payload.outletCode || "",
+      outletId:   payload.outletId   || "",   // store ID so lookup never fails on code mismatch
+      expiresAt,
+    });
     return { ...data, pendingLinkTokens: live };
   });
 
@@ -86,19 +91,25 @@ async function resolveLinkCode(payload) {
     outlet = (data.outlets || []).find((o) => o.name === device.outletName);
   }
 
-  // ── 2. Check pendingLinkTokens — the stored token always has the exact outletCode ──
+  // ── 2. Check pendingLinkTokens — token stores both outletId and outletCode ──
   if (!outlet) {
     const token = (data.pendingLinkTokens || []).find(
       (t) => t.linkCode && t.linkCode.toLowerCase() === raw.toLowerCase() && t.expiresAt > Date.now()
     );
     if (token) {
-      const stored = (token.outletCode || "").toUpperCase();
-      outlet = (data.outlets || []).find(
-        (o) =>
-          (o.code || "").toUpperCase() === stored ||
-          // Also try stripped form in case outletCode was stored with hyphens
-          (o.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "") === stored.replace(/[^A-Z0-9]/g, "")
-      );
+      // Prefer ID match (exact, never drifts)
+      if (token.outletId) {
+        outlet = (data.outlets || []).find((o) => o.id === token.outletId);
+      }
+      // Fallback: code match (handles old tokens without outletId)
+      if (!outlet && token.outletCode) {
+        const stored = (token.outletCode || "").toUpperCase();
+        outlet = (data.outlets || []).find(
+          (o) =>
+            (o.code || "").toUpperCase() === stored ||
+            (o.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "") === stored.replace(/[^A-Z0-9]/g, "")
+        );
+      }
     }
   }
 

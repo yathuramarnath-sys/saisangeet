@@ -292,7 +292,7 @@ export function OutletsPage() {
     try {
       setStatusError("");
       setStatusMessage("");
-      const result = await createOutletLinkCode({ outletCode: outlet.code });
+      const result = await createOutletLinkCode({ outletCode: outlet.code, outletId: outlet.id });
       setEditingOutletId(outlet.id);
       setEditDraft((current) => ({
         ...(current && editingOutletId === outlet.id ? current : buildEditDraft(outlet)),
