@@ -18,7 +18,8 @@ jobs:
           node-version: 22
 
       - name: Install POS dependencies
-        run: npm install --workspace=apps/operations-pos
+        working-directory: apps/operations-pos
+        run: npm install
 
       - name: Build Vite app
         working-directory: apps/operations-pos
@@ -47,7 +48,8 @@ jobs:
           node-version: 22
 
       - name: Install KDS dependencies
-        run: npm install --workspace=apps/kitchen-display
+        working-directory: apps/kitchen-display
+        run: npm install
 
       - name: Build Vite app
         working-directory: apps/kitchen-display
