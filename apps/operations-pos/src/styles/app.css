@@ -4188,6 +4188,10 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .pab-btn.red      { background: #FDEDEC; color: #C0392B; }
 .pab-btn.gray     { background: #F2F3F4; color: #5D6D7E; }
 .pab-btn.dark     { background: #2C3E50; color: #fff; }
+.pab-btn.cyan     { background: #E0F7FA; color: #00838F; }
+.pab-btn.cyan:disabled { opacity: 0.6; cursor: not-allowed; }
+.pab-btn.syncing .pab-icon { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .pab-btn.logout-btn { background: #FDEDEC; color: #C0392B; padding: 6px 10px; }
 
 /* Stats in center */
@@ -4685,6 +4689,7 @@ body { background: var(--sq-bg); }
 .pab-btn.red     { background: #FEF2F2 !important; color: #DC2626 !important; border-color: #FECACA !important; }
 .pab-btn.gray    { background: #F8FAFC !important; color: #475569 !important; border-color: #E2E8F0 !important; }
 .pab-btn.dark    { background: #1A2332 !important; color: #fff !important; border-color: #1A2332 !important; }
+.pab-btn.cyan    { background: #ECFEFF !important; color: #0891B2 !important; border-color: #A5F3FC !important; }
 .pab-btn.logout-btn { background: #FEF2F2 !important; color: #DC2626 !important; border-color: #FECACA !important; }
 .pab-btn:hover   { transform: translateY(-1px) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; filter: none !important; }
 

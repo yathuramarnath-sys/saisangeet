@@ -818,6 +818,16 @@ export function App() {
       setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
     });
 
+    // ── Owner Web changed menu/stations — refresh station list ────────────
+    socket.on("sync:config", async () => {
+      try {
+        const stations = await api.get("/kitchen-stations").catch(() => null);
+        if (stations?.length) {
+          localStorage.setItem("kds_kitchen_stations", JSON.stringify(stations));
+        }
+      } catch (_) { /* non-critical */ }
+    });
+
     // Initial load
     async function bootstrap() {
       try {

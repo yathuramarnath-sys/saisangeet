@@ -188,6 +188,11 @@ export default function App() {
   const [showSettings,       setShowSettings]       = useState(false);
   const [showPastOrders,     setShowPastOrders]     = useState(false);
   const [showOnlineOrders,   setShowOnlineOrders]   = useState(false);
+  const [isSyncing,          setIsSyncing]          = useState(false);
+  const [lastSyncedAt,       setLastSyncedAt]       = useState(() => {
+    const s = localStorage.getItem("pos_last_synced");
+    return s ? new Date(s) : null;
+  });
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -270,6 +275,11 @@ export default function App() {
           showToast("KOT sent to kitchen");
         });
 
+        // ── Auto-sync when Owner Web changes menu / stations ──────────────────
+        socket.on("sync:config", () => {
+          syncMenuData(target.id);
+        });
+
       } catch (err) {
         console.error("POS bootstrap failed (offline?):", err.message);
         // Restore last known orders from localStorage so no active table is lost
@@ -286,6 +296,34 @@ export default function App() {
     bootstrap();
     return () => { socketRef.current?.disconnect(); };
   }, [branchConfig]);
+
+  // ── Menu sync (called by socket event OR manual Sync button) ─────────────
+  async function syncMenuData(outletId) {
+    if (!outletId && !outlet?.id) return;
+    const id = outletId || outlet.id;
+    setIsSyncing(true);
+    try {
+      const [cats, items, stations] = await Promise.all([
+        api.get(`/menu/categories?outletId=${id}`).catch(() => null),
+        api.get(`/menu/items?outletId=${id}`).catch(() => null),
+        api.get("/kitchen-stations").catch(() => null),
+      ]);
+      if (cats)    setCategories(cats);
+      if (items)   setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
+      if (stations?.length) {
+        localStorage.setItem("pos_kitchen_stations", JSON.stringify(stations));
+      }
+      const now = new Date();
+      setLastSyncedAt(now);
+      localStorage.setItem("pos_last_synced", now.toISOString());
+      showToast("Menu synced ✓");
+    } catch (err) {
+      showToast("Sync failed — check connection");
+      console.error("[sync]", err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  }
 
   useEffect(() => {
     setOrders((prev) => ensureOrders(prev, tableAreas, outlet?.name || "Outlet"));
@@ -873,6 +911,13 @@ export default function App() {
             onClick={() => setShowCashOut(true)}>
             <span className="pab-icon">↓</span>
             <span className="pab-label">Cash Out</span>
+          </button>
+          <button type="button" className={`pab-btn cyan${isSyncing ? " syncing" : ""}`}
+            onClick={() => syncMenuData()}
+            title={lastSyncedAt ? `Last synced: ${lastSyncedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}` : "Sync menu from server"}
+            disabled={isSyncing}>
+            <span className="pab-icon">{isSyncing ? "⏳" : "🔄"}</span>
+            <span className="pab-label">{isSyncing ? "Syncing…" : "Sync"}</span>
           </button>
           <button type="button" className="pab-btn gray"
             onClick={() => setShowSettings(true)}>

@@ -922,6 +922,17 @@ export function App() {
             return { ...p, [tableId]: { ...p[tableId], items: p[tableId].items.map((i) => ({ ...i, sentToKot: true })) } };
           })
         );
+        // ── Owner Web changed menu — re-fetch categories & items ─────────
+        socket.on("sync:config", async () => {
+          try {
+            const [cats, items] = await Promise.all([
+              api.get(`/menu/categories?outletId=${target.id}`).catch(() => null),
+              api.get(`/menu/items?outletId=${target.id}`).catch(() => null),
+            ]);
+            if (cats)  setCategories(cats);
+            if (items) setMenuItems(items);
+          } catch (_) { /* non-critical */ }
+        });
       } catch (err) {
         console.error("Waiter bootstrap failed:", err.message);
       }
