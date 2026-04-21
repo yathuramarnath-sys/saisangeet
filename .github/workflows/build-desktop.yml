@@ -1,0 +1,47 @@
+name: Build Desktop Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # allows manual trigger from GitHub UI
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        app:
+          - name: operations-pos
+            label: POS
+          - name: kitchen-display
+            label: KDS
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: apps/${{ matrix.app.name }}
+        run: npm install
+
+      - name: Build Vite app
+        working-directory: apps/${{ matrix.app.name }}
+        run: npm run build
+
+      - name: Build Windows EXE
+        working-directory: apps/${{ matrix.app.name }}
+        run: npx electron-builder build --win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: DineX-${{ matrix.app.label }}-Windows
+          path: apps/${{ matrix.app.name }}/electron-dist/*.exe
+          retention-days: 30
