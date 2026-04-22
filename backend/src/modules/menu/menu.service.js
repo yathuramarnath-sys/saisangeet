@@ -16,8 +16,30 @@ async function fetchMenuStations() {
   return getOwnerSetupData().menu.stations || [];
 }
 
+function extractPrice(str) {
+  return Number(String(str || "").replace(/[^\d.]/g, "")) || 0;
+}
+
+function computeItemPrice(item) {
+  // 1. Already has a numeric price field
+  if (typeof item.price === "number" && item.price > 0) return item.price;
+  // 2. Pricing array — use first entry's dine-in value
+  if (Array.isArray(item.pricing) && item.pricing.length) {
+    const first = item.pricing[0];
+    const p = extractPrice(first.dineIn || first.price || "");
+    if (p > 0) return p;
+  }
+  // 3. Takeaway / delivery flat fields
+  const tp = extractPrice(item.takeawayPrice || "");
+  if (tp > 0) return tp;
+  const dp = extractPrice(item.deliveryPrice || "");
+  if (dp > 0) return dp;
+  return 0;
+}
+
 async function fetchMenuItems() {
-  return getOwnerSetupData().menu.items;
+  const items = getOwnerSetupData().menu.items;
+  return items.map(item => ({ ...item, price: computeItemPrice(item) }));
 }
 
 async function fetchMenuConfig() {

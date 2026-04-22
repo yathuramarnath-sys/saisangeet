@@ -1,7 +1,14 @@
 import { useState } from "react";
 
-const SESSIONS  = ["Breakfast", "Lunch", "Dinner", "Full Day"];
-const CASHIERS  = ["Ravi", "Priya", "Arjun", "Ramesh", "Karthik", "Sunita"];
+const SESSIONS = ["Breakfast", "Lunch", "Dinner", "Full Day"];
+
+function loadStaffNames() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("pos_staff") || "null");
+    if (Array.isArray(saved) && saved.length) return saved.map(s => s.name);
+  } catch {}
+  return [];
+}
 
 /* ── Touch numpad ─────────────────────────────────────────────────────────── */
 function NumPad({ value, onChange, maxLen = 6 }) {
@@ -28,9 +35,12 @@ function NumPad({ value, onChange, maxLen = 6 }) {
 }
 
 /* ── ShiftGate ────────────────────────────────────────────────────────────── */
-export function ShiftGate({ outletName, onShiftStarted }) {
+export function ShiftGate({ outletName, cashierName, onShiftStarted }) {
+  const staffNames = loadStaffNames();
+  const defaultCashier = cashierName || staffNames[0] || "";
+
   const [session,     setSession]     = useState("Lunch");
-  const [cashier,     setCashier]     = useState(CASHIERS[0]);
+  const [cashier,     setCashier]     = useState(defaultCashier);
   const [openingCash, setOpeningCash] = useState("5000");
 
   const today = new Date().toLocaleDateString("en-IN", {
@@ -90,7 +100,10 @@ export function ShiftGate({ outletName, onShiftStarted }) {
           <span className="sg-label">Cashier</span>
           <select className="sg-select" value={cashier}
             onChange={e => setCashier(e.target.value)}>
-            {CASHIERS.map(c => <option key={c}>{c}</option>)}
+            {staffNames.length > 0
+              ? staffNames.map(c => <option key={c}>{c}</option>)
+              : <option>{cashier}</option>
+            }
           </select>
         </div>
 
