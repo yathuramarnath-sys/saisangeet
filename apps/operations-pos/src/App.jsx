@@ -791,17 +791,25 @@ export default function App() {
   // ── Shift callbacks ───────────────────────────────────────────────────────
   function handleShiftStarted(shift) {
     setActiveShift(shift);
+    // Sync to backend so Owner Web console can see live shift
+    api.post("/shifts/open", { shift }).catch(err => console.error("Shift open sync failed:", err.message));
   }
 
   function handleMovementSaved(movement, updatedShift) {
     setActiveShift(updatedShift || activeShift);
     showToast(`${movement.type === "in" ? "Cash In" : "Cash Out"} · ₹${movement.amount}`);
+    // Sync cash movement to backend
+    api.post("/shifts/movement", { movement }).catch(err => console.error("Movement sync failed:", err.message));
   }
 
-  function handleShiftClosed() {
+  function handleShiftClosed(closedShift) {
     setActiveShift(null);
     setSelectedTableId(null);
     showToast("Shift closed");
+    // Sync closed shift to backend so Owner Web shows the reconciliation
+    if (closedShift) {
+      api.post("/shifts/close", { shift: closedShift }).catch(err => console.error("Shift close sync failed:", err.message));
+    }
   }
 
   function showToast(message) {

@@ -221,9 +221,10 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
 
 /* ── Close Shift modal ────────────────────────────────────────────────────── */
 export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
-  const [closingCash, setClosingCash] = useState("0");
-  const [note,        setNote]        = useState("");
-  const [showReceipt, setShowReceipt] = useState(false);
+  const [closingCash,  setClosingCash]  = useState("0");
+  const [note,         setNote]         = useState("");
+  const [showReceipt,  setShowReceipt]  = useState(false);
+  const [closedRecord, setClosedRecord] = useState(null); // holds the closed shift object
 
   // Read all closed orders for this shift from pos_closed_orders.
   // (The `orders` state prop has already been reset to blank tables by the time
@@ -277,6 +278,7 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
     localStorage.setItem("pos_active_shifts", JSON.stringify(active.filter(s => s.id !== shift.id)));
     localStorage.setItem("pos_shift_history",  JSON.stringify([...history, closed]));
 
+    setClosedRecord(closed);
     setShowReceipt(true); // show receipt before final close
   }
 
@@ -311,7 +313,7 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
       w.print();
       w.close();
     }
-    onShiftClosed();
+    onShiftClosed(closedRecord);
   }
 
   // After shift closed — show receipt screen
@@ -333,7 +335,7 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
             />
           </div>
           <div className="sm-footer">
-            <button type="button" className="sm-btn-cancel" onClick={onShiftClosed}>
+            <button type="button" className="sm-btn-cancel" onClick={() => onShiftClosed(closedRecord)}>
               Skip Print
             </button>
             <button type="button" className="sm-btn-action close-ok" onClick={handlePrintAndExit}>
