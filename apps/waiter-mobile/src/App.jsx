@@ -457,8 +457,11 @@ function TableScreen({ areas, orders, onSelectTable }) {
             <p className="table-area-head">{area.name}</p>
             <div className="table-chips">
               {area.tables.map((table) => {
-                const st    = tableStatusOf(orders, table.id);
-                const count = orders[table.id]?.items?.length || 0;
+                const st     = tableStatusOf(orders, table.id);
+                const count  = orders[table.id]?.items?.length || 0;
+                const amount = (orders[table.id]?.items || []).reduce(
+                  (s, i) => s + (i.price || 0) * (i.quantity || 0), 0
+                );
                 return (
                   <button
                     key={table.id}
@@ -468,6 +471,9 @@ function TableScreen({ areas, orders, onSelectTable }) {
                     <span className="table-chip-num">{table.number}</span>
                     {count > 0 && <span className="table-chip-badge">{count}</span>}
                     <span className="table-chip-status">{STATUS_LABEL[st]}</span>
+                    {amount > 0 && (
+                      <span className="table-chip-amount">₹{Math.round(amount * 1.05)}</span>
+                    )}
                   </button>
                 );
               })}
@@ -631,7 +637,16 @@ function OrderScreen({
       });
     }
     onUpdateOrder({ ...order, items });
-    setScreen("order");
+    // Stay on menu — user presses "View Order" bar to go back
+  }
+
+  function removeOneFromMenu(menuItemId) {
+    const items = [...(order.items || [])];
+    const idx   = items.findIndex((i) => i.menuItemId === menuItemId && !i.sentToKot);
+    if (idx < 0) return;
+    if ((items[idx].quantity || 1) <= 1) items.splice(idx, 1);
+    else items[idx] = { ...items[idx], quantity: items[idx].quantity - 1 };
+    onUpdateOrder({ ...order, items });
   }
 
   function changeQty(idx, delta) {
@@ -741,15 +756,12 @@ function OrderScreen({
         )}
         <div className="menu-item-list">
           {displayItems.map((item) => {
-            const price   = parsePriceNumber(item.price || item.basePrice);
-            const soldOut = stockState[item.id]?.available === false;
+            const price    = parsePriceNumber(item.price || item.basePrice);
+            const soldOut  = stockState[item.id]?.available === false;
+            const cartItem = (order.items || []).find((i) => i.menuItemId === item.id && !i.sentToKot);
+            const cartQty  = cartItem ? cartItem.quantity : 0;
             return (
-              <button
-                key={item.id}
-                className={`menu-item-row${soldOut ? " item-sold-out" : ""}`}
-                onClick={() => !soldOut && addItem(item)}
-                disabled={soldOut}
-              >
+              <div key={item.id} className={`menu-item-row${soldOut ? " item-sold-out" : ""}`}>
                 <div className="menu-item-info">
                   {item.isVeg !== undefined && (
                     <span className={`veg-badge ${item.isVeg ? "veg" : "nonveg"}`} />
@@ -757,12 +769,47 @@ function OrderScreen({
                   <span className="menu-item-name">{item.name}</span>
                   {soldOut && <span className="sold-out-chip">SOLD OUT</span>}
                 </div>
-                {!soldOut && <span className="menu-item-price">₹{price}</span>}
-              </button>
+                <div className="menu-item-right">
+                  {!soldOut && <span className="menu-item-price">₹{price}</span>}
+                  {!soldOut && (
+                    cartQty > 0 ? (
+                      <div className="menu-cart-qty-ctrl">
+                        <button className="menu-cart-minus" onClick={() => removeOneFromMenu(item.id)}>−</button>
+                        <span className="menu-cart-num">{cartQty}</span>
+                        <button className="menu-cart-plus" onClick={() => addItem(item)}>+</button>
+                      </div>
+                    ) : (
+                      <button className="menu-item-add-btn" onClick={() => addItem(item)}>+</button>
+                    )
+                  )}
+                </div>
+              </div>
             );
           })}
           {displayItems.length === 0 && <p className="no-items">No items found</p>}
         </div>
+        {/* ── Floating cart bar — tap to return to order screen ── */}
+        {(() => {
+          const allItems   = order.items || [];
+          const unsentCnt  = allItems.filter((i) => !i.sentToKot).length;
+          const cartTotal  = allItems.reduce((s, i) => s + i.price * i.quantity, 0);
+          if (!allItems.length) return null;
+          return (
+            <div className="menu-cart-bar">
+              <button className="menu-cart-btn-main" onClick={() => setScreen("order")}>
+                <span>
+                  {unsentCnt > 0
+                    ? `${unsentCnt} unsent item${unsentCnt > 1 ? "s" : ""}`
+                    : `${allItems.length} item${allItems.length > 1 ? "s" : ""} in order`}
+                </span>
+                <div className="menu-cart-btn-right">
+                  <span>₹{Math.round(cartTotal * 1.05)}</span>
+                  <span className="menu-cart-chip">View Order →</span>
+                </div>
+              </button>
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -835,7 +882,12 @@ function OrderScreen({
 
       {/* Add items bar */}
       <div className="add-items-bar">
-        <button className="add-items-btn" onClick={() => setScreen("menu")}>+ Add Items</button>
+        <button className="add-items-btn" onClick={() => setScreen("menu")}>
+          + Add Items
+          {unsentCount > 0 && (
+            <span className="add-items-badge">{unsentCount}</span>
+          )}
+        </button>
         {totalAmount > 0 && <span className="running-total">₹{Math.round(totalAmount * 1.05)}</span>}
       </div>
 
@@ -1017,6 +1069,8 @@ export function App() {
     try {
       await api.post("/operations/kot", { outletId: outlet?.id, tableId: order.tableId, tableNumber: order.tableNumber, items: unsent });
     } catch (e) { console.error("KOT:", e.message); }
+    // Return to table view after KOT sent
+    setSelectedTableId(null);
   }
 
   async function handleRequestBill() {
@@ -1032,6 +1086,8 @@ export function App() {
     if (!order?.items?.length) { showToast("No items to print"); return; }
     printBill(order, order.items, outlet?.name);
     showToast("Printing bill…");
+    // Return to table view after bill print
+    setSelectedTableId(null);
   }
 
   function handleToggleHold() {

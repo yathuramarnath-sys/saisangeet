@@ -169,27 +169,28 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
 .table-chips {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
 }
 
 .table-chip {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 14px 8px;
-  border-radius: 16px;
+  gap: 3px;
+  padding: 16px 8px;
+  border-radius: 20px;
   border: 2px solid transparent;
   transition: all 110ms;
-  min-height: 80px;
+  min-height: 104px;
   justify-content: center;
 }
 
 .table-chip-num {
-  font-size: 1.1rem;
+  font-size: 1.45rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
 
 .table-chip-count {
@@ -207,8 +208,16 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
 
 .table-chip-status {
-  font-size: 0.73rem;
+  font-size: 0.72rem;
   font-weight: 700;
+  margin-top: 1px;
+}
+
+.table-chip-amount {
+  font-size: 0.72rem;
+  font-weight: 800;
+  opacity: 0.82;
+  letter-spacing: -0.01em;
 }
 
 .table-chip.status-open {
@@ -388,16 +397,17 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
 
 .qty-mini {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   border: 1.5px solid var(--w-border-strong);
   background: var(--w-bg);
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .qty-mini:active {
@@ -425,49 +435,58 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-top: 1px solid var(--w-border);
+  padding: 14px 16px;
+  border-top: 1.5px solid var(--w-border);
   background: var(--w-surface);
   flex-shrink: 0;
+  gap: 12px;
 }
 
 .add-items-btn {
-  padding: 12px 20px;
-  border-radius: 12px;
-  border: 1.5px solid var(--w-border-strong);
-  background: var(--w-bg);
-  font-size: 0.9rem;
+  padding: 13px 22px;
+  border-radius: 14px;
+  border: none;
+  background: var(--w-text);
+  font-size: 0.92rem;
   font-weight: 800;
-  color: var(--w-text);
-  transition: all 100ms;
+  color: #fff;
+  transition: opacity 100ms;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.add-items-btn:active {
-  background: var(--w-text);
-  color: #fff;
-  border-color: var(--w-text);
+.add-items-btn:active { opacity: 0.8; }
+
+.add-items-badge {
+  background: rgba(255,255,255,0.22);
+  padding: 2px 7px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .running-total {
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 800;
   color: var(--w-text);
+  flex-shrink: 0;
 }
 
 /* ─── Action buttons ─────────────────────────────────────────────────────── */
 
 .order-actions {
-  padding: 12px 16px 16px;
+  padding: 12px 16px 22px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
 .waiter-btn {
   width: 100%;
-  padding: 15px;
-  border-radius: 16px;
+  padding: 17px;
+  border-radius: 18px;
   font-size: 0.97rem;
   font-weight: 800;
   text-align: center;
@@ -481,9 +500,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
 
 .waiter-btn.kot {
-  background: var(--c-bill-bg);
-  color: var(--c-bill);
-  border: 1.5px solid rgba(37,99,235,0.2);
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  padding: 20px;
+  font-size: 1.02rem;
+  border-radius: 18px;
+  box-shadow: 0 6px 20px rgba(22,163,74,0.22);
 }
 
 .waiter-btn.bill {
@@ -557,11 +580,11 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 .menu-cat-scroll::-webkit-scrollbar { height: 0; }
 
 .menu-cat-chip {
-  padding: 8px 14px;
-  border-radius: 10px;
+  padding: 10px 18px;
+  border-radius: 12px;
   border: 1.5px solid var(--w-border);
   background: var(--w-bg);
-  font-size: 0.83rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--w-muted);
   white-space: nowrap;
@@ -584,19 +607,19 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 16px 16px;
   border-bottom: 1px solid var(--w-border);
   width: 100%;
-  transition: background 80ms;
+  min-height: 64px;
+  gap: 10px;
 }
-
-.menu-item-row:active { background: var(--w-bg); }
 
 .menu-item-info {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 1;
+  min-width: 0;
 }
 
 .veg-badge {
@@ -612,12 +635,6 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   font-size: 0.92rem;
   font-weight: 700;
   text-align: left;
-}
-
-.menu-item-price {
-  font-weight: 800;
-  font-size: 0.95rem;
-  flex-shrink: 0;
 }
 
 .no-items {
@@ -735,9 +752,10 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
 
 .qty-val {
-  min-width: 20px;
+  min-width: 28px;
   text-align: center;
-  font-weight: 700;
+  font-weight: 800;
+  font-size: 1rem;
 }
 
 /* ─── Action button rows ─────────────────────────────────────────────────── */
@@ -750,8 +768,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
 
 .waiter-btn.half-btn {
-  padding: 14px 8px;
-  font-size: 0.88rem;
+  padding: 16px 8px;
+  font-size: 0.9rem;
 }
 
 /* Hold button states */
@@ -1567,3 +1585,110 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   text-decoration: underline;
 }
 .branch-setup-back:hover { color: #94a3b8; }
+
+/* ─── Menu item add button & in-menu qty control ────────────────────────── */
+
+.menu-item-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.menu-item-price {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--w-text);
+  flex-shrink: 0;
+  min-width: 40px;
+  text-align: right;
+}
+
+.menu-item-add-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--w-text);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 80ms, opacity 80ms;
+  border: none;
+}
+.menu-item-add-btn:active { transform: scale(0.86); opacity: 0.85; }
+
+.menu-cart-qty-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.menu-cart-minus,
+.menu-cart-plus {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--w-border-strong);
+  background: var(--w-bg);
+  font-size: 1.15rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 80ms;
+  flex-shrink: 0;
+}
+.menu-cart-minus:active,
+.menu-cart-plus:active { background: var(--w-text); color: #fff; border-color: var(--w-text); }
+.menu-cart-num {
+  min-width: 26px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+/* ─── Menu floating cart bar ─────────────────────────────────────────────── */
+
+.menu-cart-bar {
+  padding: 12px 16px 16px;
+  border-top: 1.5px solid var(--w-border);
+  background: var(--w-surface);
+  flex-shrink: 0;
+}
+.menu-cart-btn-main {
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--w-text);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: opacity 100ms;
+  border: none;
+  box-shadow: 0 6px 18px rgba(17,19,23,0.15);
+}
+.menu-cart-btn-main:active { opacity: 0.82; }
+.menu-cart-btn-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+.menu-cart-chip {
+  background: rgba(255,255,255,0.2);
+  padding: 3px 9px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+/* ─── Order screen — item note chip (sent items no pointer) ─────────────── */
+.order-row.sent .note-chip { pointer-events: none; }

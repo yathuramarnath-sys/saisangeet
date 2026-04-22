@@ -511,6 +511,9 @@ export default function App() {
       saveKotQueue(queue);
       console.warn("KOT queued (offline):", kotPayload.kotNumber);
     }
+
+    // ── 4. Return to table view after KOT sent ────────────────────────────
+    setSelectedTableId(null);
   }
 
   function handleReprintKOT() {
@@ -743,6 +746,7 @@ export default function App() {
     if (!order?.items?.length) { showToast("No items to print"); return; }
     printBill(order, order.items, outlet?.name || branchConfig?.outletName);
     showToast("🖨️ Printing bill…");
+    setSelectedTableId(null);
   }
 
   // ── Order note ────────────────────────────────────────────────────────────
