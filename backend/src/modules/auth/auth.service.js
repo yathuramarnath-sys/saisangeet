@@ -5,10 +5,17 @@ const crypto = require("crypto");
 const { env } = require("../../config/env");
 const { ApiError } = require("../../utils/api-error");
 const { findUserByIdentifier, getTenantForIdentifier } = require("./auth.repository");
-const { getOwnerSetupData, updateOwnerSetupData, createTenantFile } = require("../../data/owner-setup-store");
+const {
+  getOwnerSetupData,
+  updateOwnerSetupData,
+  updateOwnerSetupDataNow,
+  createTenantFile,
+  findUserByResetToken,
+} = require("../../data/owner-setup-store");
 const { createBlankTenantData } = require("../../data/blank-tenant-data");
 const { registerUserInIndex } = require("../../data/users-index");
 const { sendWelcomeEmail, sendPasswordResetEmail } = require("../../utils/email");
+const { runWithTenant } = require("../../data/tenant-context");
 
 async function login({ identifier, password }) {
   if (!identifier || !password) {
@@ -22,8 +29,6 @@ async function login({ identifier, password }) {
   }
 
   if (!user.passwordHash) {
-    // Account exists but no password was ever set (e.g. seeded without hash).
-    // Treat as invalid credentials — user should re-signup or reset password.
     throw new ApiError(401, "AUTH_INVALID_CREDENTIALS", "Invalid credentials");
   }
 
@@ -60,7 +65,6 @@ async function login({ identifier, password }) {
 }
 
 // ── Is signup open? ──────────────────────────────────────────────────────────
-// Signup is available only when no owner with a passwordHash exists yet.
 function isSignupAvailable() {
   const data = getOwnerSetupData();
   const hasOwner = (data.users || []).some(
@@ -78,7 +82,6 @@ async function signup({ fullName, email, phone, password, businessName }) {
     throw new ApiError(403, "SIGNUP_CLOSED", "This platform already has an owner. Contact your administrator.");
   }
 
-  // Check email not already taken
   const existing = await findUserByIdentifier(email);
   if (existing) {
     throw new ApiError(409, "SIGNUP_EMAIL_TAKEN", "An account with this email already exists");
@@ -87,9 +90,8 @@ async function signup({ fullName, email, phone, password, businessName }) {
   const passwordHash = await bcrypt.hash(String(password), 10);
   const userId = `user-owner-${Date.now()}`;
 
-  // Write owner user + business name into the store
-  updateOwnerSetupData((data) => {
-    // Update business profile name
+  // Await the DB write so the account survives a server restart immediately
+  await updateOwnerSetupDataNow((data) => {
     if (businessName) {
       data.businessProfile = data.businessProfile || {};
       data.businessProfile.tradeName = businessName;
@@ -98,7 +100,6 @@ async function signup({ fullName, email, phone, password, businessName }) {
       if (phone) data.businessProfile.phone = phone;
     }
 
-    // Replace/update the owner user entry
     const ownerIndex = (data.users || []).findIndex((u) => (u.roles || []).includes("Owner"));
     const ownerEntry = {
       id: ownerIndex >= 0 ? (data.users[ownerIndex].id || userId) : userId,
@@ -121,15 +122,12 @@ async function signup({ fullName, email, phone, password, businessName }) {
     return data;
   });
 
-  // Register email (+ phone) → "default" tenant in the global index
-  // so future logins can resolve the tenant quickly
   registerUserInIndex(
     email.toLowerCase().trim(),
     phone ? phone.replace(/\s/g, "") : null,
     "default"
   );
 
-  // Build the response token using the same shape as login
   const allPerms = (getOwnerSetupData().permissions || []).map((p) => p.code);
 
   const tokenPayload = {
@@ -165,13 +163,11 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
   const cleanEmail = email.toLowerCase().trim();
   const cleanPhone = phone ? phone.replace(/\s/g, "") : null;
 
-  // Generate a memorable temp password: e.g. "Dine@4827"
   const tempPassword = "Dine@" + crypto.randomInt(1000, 9999);
   const passwordHash = await bcrypt.hash(tempPassword, 10);
   const userId   = `user-owner-${Date.now()}`;
   const tenantId = `tenant-${Date.now()}`;
 
-  // 1. Create a brand-new isolated tenant file with BLANK data
   const tenantData = createBlankTenantData({
     ownerName:      name,
     ownerEmail:     cleanEmail,
@@ -181,18 +177,14 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
     userId
   });
 
-  // 2. Save lead info inside the new tenant
   tenantData.signupLeads = [{
     name, restaurant, phone: cleanPhone, email: cleanEmail,
     outlets, message, submittedAt: new Date().toISOString()
   }];
 
   createTenantFile(tenantId, tenantData);
-
-  // 3. Register email (+ phone) → tenantId in global index so login works
   registerUserInIndex(cleanEmail, cleanPhone, tenantId);
 
-  // 4. Send welcome email (non-blocking)
   sendWelcomeEmail({
     to:         cleanEmail,
     name,
@@ -205,6 +197,7 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
 
 /**
  * Change password for the currently authenticated user.
+ * Runs inside the correct tenant context (set by authenticate middleware).
  */
 async function changePassword({ userId, currentPassword, newPassword }) {
   if (!currentPassword || !newPassword) {
@@ -214,16 +207,14 @@ async function changePassword({ userId, currentPassword, newPassword }) {
     throw new ApiError(400, "CHANGE_PWD_WEAK", "New password must be at least 6 characters");
   }
 
-  // Find the user in the current tenant context
   const data = getOwnerSetupData();
   const userEntry = (data.users || []).find((u) => u.id === userId);
 
   if (!userEntry) {
     throw new ApiError(404, "CHANGE_PWD_NOT_FOUND", "User not found");
   }
-
   if (!userEntry.passwordHash) {
-    throw new ApiError(400, "CHANGE_PWD_NO_PASSWORD", "No password set for this account — set a password via account setup");
+    throw new ApiError(400, "CHANGE_PWD_NO_PASSWORD", "No password set for this account");
   }
 
   const match = await bcrypt.compare(String(currentPassword), userEntry.passwordHash);
@@ -232,7 +223,9 @@ async function changePassword({ userId, currentPassword, newPassword }) {
   }
 
   const newHash = await bcrypt.hash(String(newPassword), 10);
-  updateOwnerSetupData((d) => {
+
+  // Await DB write — password change must survive a restart
+  await updateOwnerSetupDataNow((d) => {
     const idx = (d.users || []).findIndex((u) => u.id === userId);
     if (idx >= 0) d.users[idx] = { ...d.users[idx], passwordHash: newHash };
     return d;
@@ -242,9 +235,8 @@ async function changePassword({ userId, currentPassword, newPassword }) {
 }
 
 /**
- * One-time owner password reset.
- * Protected by RESET_SECRET env variable — set it in Railway, call the endpoint once, done.
- * Works even when signup is "closed" (owner already exists).
+ * One-time owner password reset via RESET_SECRET env var.
+ * Awaits the DB write so the change survives a server restart.
  */
 async function resetOwnerPassword({ secret, newPassword }) {
   const expected = process.env.RESET_SECRET;
@@ -257,7 +249,7 @@ async function resetOwnerPassword({ secret, newPassword }) {
 
   const passwordHash = await bcrypt.hash(String(newPassword), 10);
 
-  updateOwnerSetupData((data) => {
+  await updateOwnerSetupDataNow((data) => {
     const ownerIndex = (data.users || []).findIndex(
       (u) => (u.roles || []).includes("Owner")
     );
@@ -267,7 +259,6 @@ async function resetOwnerPassword({ secret, newPassword }) {
     return data;
   });
 
-  // Re-register in index so login works
   const data = getOwnerSetupData();
   const owner = (data.users || []).find((u) => (u.roles || []).includes("Owner"));
   if (owner?.email) registerUserInIndex(owner.email, owner.phone || null, "default");
@@ -276,11 +267,8 @@ async function resetOwnerPassword({ secret, newPassword }) {
 }
 
 /**
- * Step 1 of forgot-password: accept an email, generate a short-lived token,
- * store it on the user record, and send a reset link by email.
- *
- * We ALWAYS return { ok: true } regardless of whether the email exists —
- * this prevents email-enumeration attacks.
+ * Step 1 of forgot-password: generate a token and email a reset link.
+ * Runs the DB write inside the correct tenant's context.
  */
 async function forgotPassword({ email }) {
   if (!email) {
@@ -293,26 +281,36 @@ async function forgotPassword({ email }) {
   // Unknown email — silently succeed (anti-enumeration)
   if (!user) return { ok: true };
 
-  // Generate a cryptographically-random token and a 1-hour expiry
+  // Resolve the correct tenant for this user
+  const tenantId = getTenantForIdentifier(cleanEmail);
+
   const rawToken  = crypto.randomBytes(32).toString("hex");
   const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
 
-  // Store token on user record
-  updateOwnerSetupData((data) => {
-    const idx = (data.users || []).findIndex((u) => u.id === user.id);
-    if (idx >= 0) {
-      data.users[idx] = {
-        ...data.users[idx],
-        resetToken:       rawToken,
-        resetTokenExpiry: expiresAt
-      };
-    }
-    return data;
+  // Save token inside the correct tenant's data — awaited so it survives restart
+  await new Promise((resolve, reject) => {
+    runWithTenant(tenantId, async () => {
+      try {
+        await updateOwnerSetupDataNow((data) => {
+          const idx = (data.users || []).findIndex((u) => u.id === user.id);
+          if (idx >= 0) {
+            data.users[idx] = {
+              ...data.users[idx],
+              resetToken:       rawToken,
+              resetTokenExpiry: expiresAt
+            };
+          }
+          return data;
+        });
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    });
   });
 
   const resetUrl = `${process.env.APP_URL || "https://app.dinexpos.in"}/reset-password?token=${rawToken}`;
 
-  // Non-blocking — log and continue even if email fails
   sendPasswordResetEmail({ to: cleanEmail, name: user.fullName, resetUrl })
     .catch((err) => console.error("[email] Failed to send reset email:", err.message));
 
@@ -321,6 +319,7 @@ async function forgotPassword({ email }) {
 
 /**
  * Step 2 of forgot-password: validate the token and set a new password.
+ * Searches ALL tenant caches for the token — works regardless of which tenant the user is in.
  */
 async function resetPasswordByToken({ token, newPassword }) {
   if (!token || !newPassword) {
@@ -330,28 +329,37 @@ async function resetPasswordByToken({ token, newPassword }) {
     throw new ApiError(400, "RESET_PWD_WEAK", "Password must be at least 6 characters");
   }
 
-  const data = getOwnerSetupData();
-  const userEntry = (data.users || []).find(
-    (u) => u.resetToken === token && u.resetTokenExpiry > Date.now()
-  );
+  // Find which tenant has this token (searches all in-memory caches)
+  const found = findUserByResetToken(token);
 
-  if (!userEntry) {
+  if (!found) {
     throw new ApiError(400, "RESET_PWD_INVALID", "This reset link is invalid or has expired. Please request a new one.");
   }
 
+  const { tenantId, user: userEntry } = found;
   const newHash = await bcrypt.hash(String(newPassword), 10);
 
-  updateOwnerSetupData((d) => {
-    const idx = (d.users || []).findIndex((u) => u.id === userEntry.id);
-    if (idx >= 0) {
-      d.users[idx] = {
-        ...d.users[idx],
-        passwordHash:     newHash,
-        resetToken:       null,
-        resetTokenExpiry: null
-      };
-    }
-    return d;
+  // Update password inside the correct tenant's context — awaited so it survives restart
+  await new Promise((resolve, reject) => {
+    runWithTenant(tenantId, async () => {
+      try {
+        await updateOwnerSetupDataNow((d) => {
+          const idx = (d.users || []).findIndex((u) => u.id === userEntry.id);
+          if (idx >= 0) {
+            d.users[idx] = {
+              ...d.users[idx],
+              passwordHash:     newHash,
+              resetToken:       null,
+              resetTokenExpiry: null
+            };
+          }
+          return d;
+        });
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    });
   });
 
   return { ok: true };

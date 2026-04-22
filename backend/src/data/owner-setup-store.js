@@ -168,11 +168,27 @@ function createTenantFile(tenantId, initialData) {
   persistToPostgres(tenantId, normalized);
 }
 
+/**
+ * Search every cached tenant for a user that has the given reset token
+ * and whose expiry is still in the future.
+ * Returns { tenantId, user } or null.
+ */
+function findUserByResetToken(token) {
+  for (const [tenantId, data] of _cache) {
+    const user = (data.users || []).find(
+      (u) => u.resetToken === token && u.resetTokenExpiry > Date.now()
+    );
+    if (user) return { tenantId, user };
+  }
+  return null;
+}
+
 module.exports = {
   getOwnerSetupData,
   updateOwnerSetupData,
   updateOwnerSetupDataNow,
   createTenantFile,
+  findUserByResetToken,
   // Exported for migrate.js only:
   warmTenantCache,
 };

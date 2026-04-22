@@ -134,10 +134,59 @@ async function runMigrations() {
   // ── 4. Pre-warm in-memory caches ────────────────────────────────────────────
   await warmCachesFromDB(queryFn);
 
+  // ── 5. OWNER_PASSWORD override ───────────────────────────────────────────────
+  // If OWNER_PASSWORD is set in env, forcibly update every tenant's owner hash
+  // on startup. Set it in Railway, redeploy, log in, then remove it.
+  await applyOwnerPasswordOverride(queryFn);
+
   console.log("[migrate] Done.");
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function applyOwnerPasswordOverride(queryFn) {
+  const plain = process.env.OWNER_PASSWORD;
+  if (!plain) return; // env var not set — nothing to do
+
+  try {
+    const bcrypt = require("bcrypt");
+    const { warmTenantCache } = require("../data/owner-setup-store");
+    const { registerUserInIndex } = require("../data/users-index");
+
+    const hash = await bcrypt.hash(String(plain), 10);
+    console.log("[migrate] OWNER_PASSWORD set — applying password override to all tenants…");
+
+    // Load every tenant, patch the owner's hash, save back to Postgres + cache
+    const rows = await queryFn("SELECT tenant_id, value FROM tenant_settings WHERE key = 'owner_setup'");
+    for (const row of rows.rows) {
+      const data = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+      const users = data.users || [];
+      const ownerIdx = users.findIndex(u => (u.roles || []).includes("Owner"));
+      if (ownerIdx < 0) continue;
+
+      users[ownerIdx] = { ...users[ownerIdx], passwordHash: hash };
+      data.users = users;
+
+      // Save to Postgres
+      await queryFn(
+        `UPDATE tenant_settings SET value = $1, updated_at = NOW()
+         WHERE tenant_id = $2 AND key = 'owner_setup'`,
+        [JSON.stringify(data), row.tenant_id]
+      );
+
+      // Update in-memory cache so the running server reflects the change immediately
+      warmTenantCache(row.tenant_id, data);
+
+      // Ensure email is in users_index
+      const ownerEmail = users[ownerIdx].email;
+      if (ownerEmail) registerUserInIndex(ownerEmail, users[ownerIdx].phone || null, row.tenant_id);
+
+      console.log(`[migrate] ✅ Owner password updated for tenant ${row.tenant_id} (${ownerEmail || "no email"})`);
+    }
+  } catch (err) {
+    console.error("[migrate] OWNER_PASSWORD override failed:", err.message);
+  }
+}
 
 async function warmCachesFromDB(queryFn) {
   try {
