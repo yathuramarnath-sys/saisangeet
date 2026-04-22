@@ -58,10 +58,7 @@ function buildEditDraft(outlet) {
     closingTime,
     workAreas: outlet.workAreas || [],
     tables: outlet.tables || [],
-    services: outlet.services || [],
-    deviceName: "",
-    deviceType: "POS Terminal",
-    linkCode: ""
+    services: outlet.services || []
   };
 }
 
@@ -789,16 +786,6 @@ export function OutletsPage() {
                 />
               </label>
               <label>
-                Sync code
-                <input
-                  type="text"
-                  value={activeOutlet?.code || ""}
-                  readOnly
-                  title="Auto-generated sync code — share this with your device setup team"
-                  style={{ background: "var(--surface-2, #f5f5f5)", cursor: "default", fontFamily: "monospace", fontWeight: 600, letterSpacing: "0.05em" }}
-                />
-              </label>
-              <label>
                 City
                 <input
                   type="text"
@@ -1081,39 +1068,6 @@ export function OutletsPage() {
                 )}
               </div>
 
-              <label>
-                Device name
-                <input
-                  type="text"
-                  value={editDraft.deviceName}
-                  onChange={(event) => setEditDraft((current) => ({ ...current, deviceName: event.target.value }))}
-                  placeholder="Front Counter POS"
-                />
-              </label>
-              <label>
-                Device type
-                <select
-                  value={editDraft.deviceType}
-                  onChange={(event) => setEditDraft((current) => ({ ...current, deviceType: event.target.value }))}
-                >
-                  <option>POS Terminal</option>
-                  <option>Kitchen Printer</option>
-                  <option>Kitchen Display</option>
-                  <option>Payment Device</option>
-                </select>
-              </label>
-              <label>
-                Link code
-                <input type="text" value={editDraft.linkCode} readOnly placeholder="Generate link code first" />
-              </label>
-              <div className="entity-actions">
-                <button type="button" className="ghost-btn" onClick={() => handleGenerateLinkCode(activeOutlet)}>
-                  Generate link code
-                </button>
-                <button type="button" className="secondary-btn" onClick={handleLinkDevice}>
-                  Link device now
-                </button>
-              </div>
             </form>
           ) : (
             <div className="panel-empty">Choose an outlet from the overview card to edit setup, link devices, or assign receipt logic.</div>

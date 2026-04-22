@@ -122,6 +122,10 @@ function KdsBranchSetupScreen({ onComplete }) {
       configuredAt: new Date().toISOString(),
     };
     saveKdsBranchConfig(config);
+    // Save device token so all API calls use the correct tenant
+    if (result.deviceToken) {
+      localStorage.setItem("kds_token", result.deviceToken);
+    }
     onComplete(config);
   }
 

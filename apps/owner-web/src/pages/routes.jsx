@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import { navigation } from "../data/navigation";
 import { BusinessProfilePage } from "../features/business/BusinessProfilePage";
@@ -13,7 +13,6 @@ import { ShiftsCashPage } from "../features/shifts/ShiftsCashPage";
 import { StaffPage } from "../features/staff/StaffPage";
 import { TaxesReceiptsPage } from "../features/taxes/TaxesReceiptsPage";
 import { AppStorePage } from "../features/appstore/AppStorePage";
-import { OverviewPage } from "../features/overview/OverviewPage";
 import { KitchenStationsPage } from "../features/kitchen/KitchenStationsPage";
 import { PrototypePage } from "./PrototypePage";
 
@@ -21,10 +20,6 @@ export function AppRoutes() {
   function renderRoute(item) {
     if (item.mode === "react" && item.id === "business") {
       return <BusinessProfilePage />;
-    }
-
-    if (item.mode === "react" && item.id === "overview") {
-      return <OverviewPage />;
     }
 
     if (item.mode === "react" && item.id === "outlets") {
@@ -80,6 +75,7 @@ export function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="/" element={<Navigate to="/outlets" replace />} />
       {navigation.map((item) => (
         <Route key={item.id} path={item.path} element={renderRoute(item)} />
       ))}

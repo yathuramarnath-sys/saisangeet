@@ -93,38 +93,46 @@ const APPS = [
 // ─── Link-code card per outlet ────────────────────────────────────────────────
 
 function LinkCodeCard({ outlet }) {
-  const [code,    setCode]    = useState(() => makeCode(outlet.code));
-  const [copied,  setCopied]  = useState(false);
-  const [copying, setCopying] = useState(false);
+  const [code,      setCode]      = useState("");
+  const [copied,    setCopied]    = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [error,     setError]     = useState("");
 
-  function makeCode(outletCode) {
-    const root = (outletCode || "OUT").toUpperCase().replace(/[^A-Z0-9-]/g, "");
-    return `${root}-${String(Date.now()).slice(-4)}`;
-  }
+  // Generate on mount
+  useEffect(() => { generateCode(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function regenerate() {
-    setCode(makeCode(outlet.code));
+  async function generateCode() {
+    setGenerating(true);
+    setError("");
     setCopied(false);
+    try {
+      const result = await api.post("/devices/link-token", {
+        outletCode: outlet.code,
+        outletId:   outlet.id,
+      });
+      setCode(result.linkCode);
+    } catch (err) {
+      setError("Could not generate — try again");
+      console.error("[AppStore] link-token error:", err.message);
+    } finally {
+      setGenerating(false);
+    }
   }
 
   async function copyCode() {
-    setCopying(true);
+    if (!code) return;
     try {
       await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
     } catch {
-      // fallback for non-https
       const el = document.createElement("input");
       el.value = code;
       document.body.appendChild(el);
       el.select();
       document.execCommand("copy");
       document.body.removeChild(el);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
     }
-    setCopying(false);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   }
 
   return (
@@ -141,18 +149,20 @@ function LinkCodeCard({ outlet }) {
       </div>
 
       <div className="as-link-code-row">
-        <span className="as-link-code">{code}</span>
+        <span className="as-link-code">
+          {generating ? "Generating…" : error ? error : (code || "—")}
+        </span>
         <button
           className={`as-link-copy-btn${copied ? " copied" : ""}`}
           onClick={copyCode}
-          disabled={copying}
+          disabled={generating || !code}
         >
           {copied ? "✓ Copied" : "Copy"}
         </button>
       </div>
 
       <p className="as-link-hint">
-        Staff enter this code on <strong>POS Terminal</strong>, <strong>Captain App</strong> or <strong>KDS</strong> first launch to sync this outlet.
+        Staff enter this code on <strong>POS Terminal</strong>, <strong>Captain App</strong> or <strong>KDS</strong> first launch to sync this outlet. Valid for <strong>24 hours</strong>.
       </p>
 
       <div className="as-link-footer">
@@ -161,8 +171,8 @@ function LinkCodeCard({ outlet }) {
           <span className="as-link-usage-item">📱 Captain</span>
           <span className="as-link-usage-item">📺 KDS</span>
         </div>
-        <button className="as-regen-btn" onClick={regenerate} title="Generate new code">
-          ↺ New Code
+        <button className="as-regen-btn" onClick={generateCode} disabled={generating} title="Generate new code">
+          {generating ? "…" : "↺ New Code"}
         </button>
       </div>
     </div>

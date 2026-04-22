@@ -64,6 +64,10 @@ function CaptainBranchSetupScreen({ onComplete }) {
       configuredAt: new Date().toISOString(),
     };
     saveCaptainBranchConfig(config);
+    // Save device token so all API calls use the correct tenant
+    if (result.deviceToken) {
+      localStorage.setItem("captain_token", result.deviceToken);
+    }
     onComplete(config);
   }
 
