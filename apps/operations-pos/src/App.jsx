@@ -171,7 +171,9 @@ export default function App() {
   const [activeArea,      setActiveArea]      = useState(null);
   const [serviceMode,     setServiceMode]     = useState("dine-in");
   const [toast,           setToast]           = useState(null);
-  const socketRef = useRef(null);
+  const socketRef  = useRef(null);
+  // Mirror of orders state for socket closures (avoids stale-closure problem)
+  const ordersRef  = useRef({});
 
   // ── Shift state ───────────────────────────────────────────────────────────
   const [activeShift,      setActiveShift]      = useState(() => loadActiveShift());
@@ -281,6 +283,17 @@ export default function App() {
           syncMenuData(target.id);
         });
 
+        // ── When a new device (Captain App / KDS) joins the outlet room,
+        //    broadcast all current active orders so they get correct table state ──
+        socket.on("request:order-sync", () => {
+          const current = ordersRef.current;
+          Object.values(current).forEach((order) => {
+            if (order.items?.length > 0 && !order.isClosed) {
+              socket.emit("order:update", { outletId: target.id, order });
+            }
+          });
+        });
+
       } catch (err) {
         console.error("POS bootstrap failed (offline?):", err.message);
         // Restore last known orders from localStorage so no active table is lost
@@ -333,6 +346,7 @@ export default function App() {
   // Auto-save every order change to localStorage — belt-and-suspenders
   useEffect(() => {
     if (Object.keys(orders).length > 0) saveOrdersToStorage(orders);
+    ordersRef.current = orders; // keep ref in sync for socket callbacks
   }, [orders]);
 
   // Persist counter ticket number across refreshes
@@ -561,6 +575,8 @@ export default function App() {
 
     // 2. Temporarily mark as closed so UI shows ✓ for 1.5 s
     setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
+    // Notify Captain App that this table's bill is settled
+    socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
 
     for (const p of newPayments) {
       try {
@@ -581,7 +597,7 @@ export default function App() {
     setSelectedTableId(null);
     showToast("✓ Bill settled · Table is ready");
 
-    // 3. After 1.5 s reset the table to a fresh blank order
+    // 3. After 1.5 s reset the table to a fresh blank order and notify Captain App
     setTimeout(() => {
       setOrders(prev => {
         const area = tableAreas.find(a => a.tables.some(t => t.id === tableId));
@@ -589,6 +605,8 @@ export default function App() {
         if (!table || !area) return prev;
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
+        // Broadcast blank order so Captain App clears the table immediately
+        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: fresh });
         return { ...prev, [tableId]: fresh };
       });
     }, 1500);

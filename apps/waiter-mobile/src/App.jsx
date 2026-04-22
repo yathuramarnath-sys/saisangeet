@@ -938,14 +938,29 @@ export function App() {
         if (cats.length)  setCategories(cats);
         if (items.length) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
 
+        // Load any orders the backend has (may be partial/empty; POS will push current
+        // state via request:order-sync after the socket connects below)
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
-        setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
+        if (liveOrders.length) {
+          setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
+        }
+        // Don't overwrite with empty array — keep previous state if backend has nothing
 
         const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
           .replace("/api/v1", "");
         const socket = io(socketUrl, { query: { outletId: target.id } });
         socketRef.current = socket;
-        socket.on("order:updated", (o) => setOrders((p) => ({ ...p, [o.tableId]: o })));
+
+        // order:updated — merge single order update (table occupied / cleared / modified)
+        socket.on("order:updated", (o) => setOrders((p) => {
+          // If the updated order has no items or is closed, treat the table as free
+          if (!o.items?.length || o.isClosed) {
+            const { [o.tableId]: _removed, ...rest } = p;
+            return rest;
+          }
+          return { ...p, [o.tableId]: o };
+        }));
+
         socket.on("kot:sent", ({ tableId }) =>
           setOrders((p) => {
             if (!p[tableId]) return p;

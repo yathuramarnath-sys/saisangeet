@@ -17,8 +17,16 @@ app.locals.io = io;
 
 io.on("connection", (socket) => {
   const { outletId } = socket.handshake.query;
-  if (outletId) socket.join(`outlet:${outletId}`);
-  socket.on("join-outlet", (id) => socket.join(`outlet:${id}`));
+  if (outletId) {
+    socket.join(`outlet:${outletId}`);
+    // Ask other connected devices (POS) to broadcast current order state so
+    // this new device (Captain App / KDS) gets accurate table occupancy immediately
+    socket.to(`outlet:${outletId}`).emit("request:order-sync");
+  }
+  socket.on("join-outlet", (id) => {
+    socket.join(`outlet:${id}`);
+    socket.to(`outlet:${id}`).emit("request:order-sync");
+  });
 
   // ── Relay order updates between POS ↔ Captain App ────────────────────────
   // POS/Captain emit "order:update"; relay to all other devices in the same outlet
