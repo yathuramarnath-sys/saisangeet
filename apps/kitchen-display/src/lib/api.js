@@ -17,7 +17,7 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     let message = `Request failed: ${response.status}`;
-    try { const b = await response.json(); message = b.message || message; } catch (_) {}
+    try { const b = await response.json(); const e = b.error; message = (typeof e === "string" ? e : e?.message) || b.message || message; } catch (_) {}
     throw new Error(message);
   }
 

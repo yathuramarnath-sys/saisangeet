@@ -19,7 +19,8 @@ async function request(path, options = {}) {
     let message = `Request failed: ${response.status}`;
     try {
       const body = await response.json();
-      message = body.message || message;
+      const e = body.error;
+      message = (typeof e === "string" ? e : e?.message) || body.message || message;
     } catch (_) {}
     throw new Error(message);
   }

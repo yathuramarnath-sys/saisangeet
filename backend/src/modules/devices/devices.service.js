@@ -159,6 +159,7 @@ async function resolveLinkCode(payload) {
       }
     } catch (_dbErr) {
       // Postgres unavailable — fall through to in-memory cache check
+      console.warn("[resolveLinkCode] Postgres lookup failed:", _dbErr.message);
     }
   }
 

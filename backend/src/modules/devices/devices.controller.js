@@ -31,7 +31,7 @@ async function resolveLinkCodeHandler(req, res) {
     const result = await resolveLinkCode(req.body);
     res.json(result);
   } catch (err) {
-    res.status(err.status || 400).json({ error: err.message });
+    res.status(err.status || 400).json({ error: { code: "RESOLVE_FAILED", message: err.message } });
   }
 }
 
