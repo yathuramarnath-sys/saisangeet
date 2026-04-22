@@ -8,6 +8,7 @@ const { syncOperationsState,
         persistOperationsState } = require("./modules/operations/operations.state");
 const { hydrateClosedOrders }    = require("./modules/operations/closed-orders-store");
 const { hydrateShifts }          = require("./modules/operations/shifts-store");
+const { scheduleBackup }         = require("./jobs/daily-backup");
 
 const app    = createApp();
 const server = http.createServer(app);
@@ -80,6 +81,9 @@ runMigrations()
       }, 60_000);
       console.log("[auto-save] Active order state will be saved every 60 s");
     }
+
+    // Schedule nightly backup email at midnight IST
+    scheduleBackup();
   })
   .catch((err) => {
     // Migration errors are non-fatal — server still starts
