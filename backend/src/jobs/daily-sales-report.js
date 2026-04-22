@@ -67,7 +67,7 @@ function buildSummary(orders, shifts) {
 }
 
 /* ── HTML email ───────────────────────────────────────────────────────────── */
-function buildHtml(summary, dateStr) {
+function buildHtml(summary, dateStr, restName = "Restaurant", ownerName = "Owner") {
   const { net, gst, total, cash, upi, card, other,
           orderCount, mismatches, totalShort, allShifts } = summary;
 
@@ -95,12 +95,13 @@ function buildHtml(summary, dateStr) {
 
   <!-- Header -->
   <div style="background:#1A1D27;padding:28px 36px;">
-    <div style="font-size:22px;font-weight:800;color:#fff;">🍽 DineXPOS</div>
+    <div style="font-size:22px;font-weight:800;color:#fff;">🍽 ${restName}</div>
     <div style="font-size:13px;color:rgba(255,255,255,.55);margin-top:4px;">Daily Sales Report · ${dateStr}</div>
   </div>
 
   <!-- Hero numbers -->
   <div style="padding:28px 36px 0;">
+    <div style="font-size:14px;color:#4A5065;margin-bottom:12px;">Hi ${ownerName}, here's your sales summary for today.</div>
     <div style="font-size:13px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;">Total Sales Today</div>
     <div style="font-size:42px;font-weight:800;color:#1A1D27;margin:4px 0 2px;">${fmt(total)}</div>
     <div style="font-size:14px;color:#888;">${orderCount} orders &nbsp;·&nbsp; Avg ${fmt(avgOrder)} / order &nbsp;·&nbsp; GST ${fmt(gst)}</div>
@@ -162,28 +163,15 @@ function buildHtml(summary, dateStr) {
 
 /* ── Main report job ──────────────────────────────────────────────────────── */
 async function runDailySalesReport() {
-  console.log("[sales-report] Building daily sales report…");
+  console.log("[sales-report] Building daily sales reports…");
   try {
-    // Lazy-require to avoid circular deps at startup
-    const { default: storeMap } = await (async () => {
-      // Access the internal store from closed-orders-store
-      const cos = require("../modules/operations/closed-orders-store");
-      const ss  = require("../modules/operations/shifts-store");
-      return { default: { cos, ss } };
-    })();
-
-    const cosModule = require("../modules/operations/closed-orders-store");
-    const ssModule  = require("../modules/operations/shifts-store");
-
-    // Gather today's orders across all tenants
-    // We use getTodaySales for "default" tenant (single-tenant setup)
-    const orders = cosModule.getTodaySales("default");
-    const shifts = ssModule.getShifts("default");
-    const summary = buildSummary(orders, shifts);
+    const { query }    = require("../db/pool");
+    const { isDatabaseEnabled } = require("../db/database-mode");
+    const cosModule    = require("../modules/operations/closed-orders-store");
+    const ssModule     = require("../modules/operations/shifts-store");
 
     if (!env.resendApiKey) {
-      console.log("[sales-report] No RESEND_API_KEY — skipping email");
-      console.log("[sales-report] Summary:", JSON.stringify({ orders: summary.orderCount, total: summary.total }));
+      console.log("[sales-report] No RESEND_API_KEY — skipping");
       return;
     }
 
@@ -192,22 +180,59 @@ async function runDailySalesReport() {
       timeZone: "Asia/Kolkata", weekday: "long", day: "numeric", month: "long", year: "numeric"
     });
 
-    const subject = summary.orderCount > 0
-      ? `📊 ${summary.orderCount} orders · ${fmt(summary.total)} — DineXPOS Daily Report`
-      : `📊 DineXPOS Daily Report — ${dateStr}`;
+    // ── Get all tenants from DB (or fallback to "default" tenant) ────────────
+    let tenants = []; // [{ tenantId, ownerEmail, restaurantName }]
 
-    const { error } = await resend.emails.send({
-      from:    env.emailFrom,
-      to:      SALES_REPORT_EMAIL,
-      subject,
-      html:    buildHtml(summary, dateStr)
-    });
+    if (isDatabaseEnabled()) {
+      try {
+        const rows = await query(
+          "SELECT tenant_id, value FROM tenant_settings WHERE key = 'owner_setup'"
+        );
+        for (const row of rows.rows) {
+          const data        = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+          const ownerEmail  = data?.businessProfile?.email;
+          const restName    = data?.businessProfile?.tradeName || data?.businessProfile?.legalName || "Restaurant";
+          const ownerName   = (data?.users || []).find(u => (u.roles || []).includes("Owner"))?.fullName || "Owner";
+          if (ownerEmail) tenants.push({ tenantId: row.tenant_id, ownerEmail, restName, ownerName });
+        }
+      } catch (err) {
+        console.error("[sales-report] Could not query tenants:", err.message);
+      }
+    }
 
-    if (error) throw new Error(error.message);
-    console.log(`[sales-report] ✅ Report sent to ${SALES_REPORT_EMAIL} — ${summary.orderCount} orders, ${fmt(summary.total)}`);
+    // Fallback: always also send to SALES_REPORT_EMAIL (your own email)
+    const hasDefault = tenants.some(t => t.tenantId === "default");
+    if (!hasDefault) {
+      tenants.push({ tenantId: "default", ownerEmail: SALES_REPORT_EMAIL, restName: "Restaurant", ownerName: "Owner" });
+    }
+
+    // ── Send one report per tenant ───────────────────────────────────────────
+    for (const { tenantId, ownerEmail, restName, ownerName } of tenants) {
+      try {
+        const orders  = cosModule.getTodaySales(tenantId);
+        const shifts  = ssModule.getShifts(tenantId);
+        const summary = buildSummary(orders, shifts);
+
+        const subject = summary.orderCount > 0
+          ? `📊 ${summary.orderCount} orders · ${fmt(summary.total)} — ${restName} Daily Report`
+          : `📊 ${restName} Daily Report — ${dateStr}`;
+
+        const { error } = await resend.emails.send({
+          from:    env.emailFrom,
+          to:      ownerEmail,
+          subject,
+          html:    buildHtml(summary, dateStr, restName, ownerName)
+        });
+
+        if (error) throw new Error(error.message);
+        console.log(`[sales-report] ✅ Sent to ${ownerEmail} (${restName}) — ${summary.orderCount} orders, ${fmt(summary.total)}`);
+      } catch (err) {
+        console.error(`[sales-report] ❌ Failed for tenant ${tenantId}:`, err.message);
+      }
+    }
 
   } catch (err) {
-    console.error("[sales-report] ❌ Failed:", err.message);
+    console.error("[sales-report] ❌ Fatal:", err.message);
   }
 }
 
