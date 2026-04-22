@@ -5,6 +5,7 @@ const {
   getControlLogs
 } = require("../operations/operations.memory-store");
 const { syncOperationsState, persistOperationsState } = require("../operations/operations.state");
+const { getTodaySales } = require("../operations/closed-orders-store");
 
 // Insights are generated from live sales data — empty until POS goes live
 const defaultInsights = [];
@@ -93,27 +94,51 @@ function buildControlSummary(orders) {
   ];
 }
 
-function buildClosingCenter(orders) {
+function buildClosingCenter(orders, tenantId) {
   const deletedBills = Object.values(orders).reduce((sum, order) => sum + (order.deletedBillLog || []).length, 0);
   const pendingOverrides = Object.values(orders).filter((order) => order.discountOverrideRequested).length;
 
+  // ── Real sales figures from closed-orders store ───────────────────────────
+  const closedToday = getTodaySales(tenantId || "default");
+  let netSales = 0;
+  let gstTotal = 0;
+  let cashSales = 0;
+  let upiSales  = 0;
+  let cardSales = 0;
+  let orderCount = closedToday.length;
+
+  for (const order of closedToday) {
+    const items    = order.items || [];
+    const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+    const disc     = Math.min(order.discountAmount || 0, subtotal);
+    const taxable  = subtotal - disc;
+    const tax      = Math.round(taxable * 0.05);
+    const total    = taxable + tax;
+
+    netSales += taxable;
+    gstTotal += tax;
+
+    for (const p of order.payments || []) {
+      const m = (p.method || "").toLowerCase();
+      if (m === "cash")       cashSales += p.amount || 0;
+      else if (m === "upi")   upiSales  += p.amount || 0;
+      else if (m === "card")  cardSales += p.amount || 0;
+    }
+  }
+
   return {
     blockers: [
-      {
-        id: "blocker-shift",
-        title: "1 shift issue still open",
-        detail: "Cash mismatch should be reviewed before sending final closing mail."
-      },
-      {
-        id: "blocker-override",
-        title: `${pendingOverrides} high discount override needs review`,
-        detail: "Owner should confirm manager approvals before sending final closing mail."
-      }
+      ...(pendingOverrides > 0
+        ? [{
+            id: "blocker-override",
+            title: `${pendingOverrides} high discount override needs review`,
+            detail: "Owner should confirm manager approvals before sending final closing mail."
+          }]
+        : [])
     ],
     checklist: [
-      { id: "sales-lock", title: "All outlets sales synced", status: "Done" },
-      { id: "tax-ready", title: "GST totals verified", status: "Done" },
-      { id: "cash-review", title: "Cash mismatch resolved", status: "Pending" },
+      { id: "sales-lock", title: "All outlets sales synced", status: orderCount > 0 ? "Done" : "Pending" },
+      { id: "tax-ready",  title: "GST totals verified",      status: orderCount > 0 ? "Done" : "Pending" },
       {
         id: "risk-review",
         title: "Deleted bills and overrides reviewed",
@@ -121,9 +146,13 @@ function buildClosingCenter(orders) {
       }
     ],
     ownerSummary: [
-      { id: "closing-sales", label: "Net sales", value: "Rs 0" },
-      { id: "closing-tax", label: "GST total", value: "Rs 0" },
-      { id: "closing-deleted", label: "Deleted bills", value: `${deletedBills} approved` },
+      { id: "closing-sales",   label: "Net sales",          value: formatCurrency(netSales) },
+      { id: "closing-tax",     label: "GST total (5%)",     value: formatCurrency(gstTotal) },
+      { id: "closing-orders",  label: "Orders today",       value: `${orderCount}` },
+      { id: "closing-cash",    label: "Cash collected",     value: formatCurrency(cashSales) },
+      { id: "closing-upi",     label: "UPI collected",      value: formatCurrency(upiSales) },
+      { id: "closing-card",    label: "Card collected",     value: formatCurrency(cardSales) },
+      { id: "closing-deleted", label: "Deleted bills",      value: `${deletedBills} approved` },
       { id: "closing-overrides", label: "Discount overrides", value: `${pendingOverrides} pending review` }
     ]
   };
@@ -156,7 +185,7 @@ function buildAlerts(orders) {
   return [...liveAlerts, ...reprintAlerts, ...voidAlerts];
 }
 
-function buildOwnerSummary() {
+function buildOwnerSummary(tenantId) {
   const state = getState();
   const orders = state.orders || {};
   const approvalLog = buildApprovalLog(orders);
@@ -165,9 +194,17 @@ function buildOwnerSummary() {
   const deletedBillCount = Object.values(orders).reduce((sum, order) => sum + (order.deletedBillLog || []).length, 0);
   const pendingOverrides = Object.values(orders).filter((order) => order.discountOverrideRequested).length;
 
+  // Real today's order count from closed-orders store
+  const closedToday = getTodaySales(tenantId || "default");
+  const todayOrderCount = closedToday.length;
+
   return {
     popupAlert: {
-      title: state.closingState?.approved ? "Daily closing approved" : `${pendingOverrides + deletedBillCount} control issues need owner review`,
+      title: state.closingState?.approved
+        ? "Daily closing approved"
+        : todayOrderCount > 0
+          ? `${todayOrderCount} orders settled today · ${pendingOverrides + deletedBillCount} control issues`
+          : `${pendingOverrides + deletedBillCount} control issues need owner review`,
       description: state.closingState?.approved
         ? `Approved by ${state.closingState.approvedBy} (${state.closingState.approvedRole}) at ${state.closingState.approvedAt}.`
         : `${pendingOverrides} discount overrides and ${deletedBillCount} deleted bills were recorded in live operations.`,
@@ -196,7 +233,7 @@ function buildOwnerSummary() {
         meta: "Cash mismatch, deleted bills, discount overrides, and stock exceptions"
       }
     ],
-    closingCenter: buildClosingCenter(orders),
+    closingCenter: buildClosingCenter(orders, tenantId),
     closingState: state.closingState,
     permissionPolicies: state.permissionPolicies,
     controlSummary,
@@ -206,23 +243,23 @@ function buildOwnerSummary() {
   };
 }
 
-async function fetchOwnerSummary() {
+async function fetchOwnerSummary(tenantId) {
   await syncOperationsState();
-  return buildOwnerSummary();
+  return buildOwnerSummary(tenantId);
 }
 
-async function approveClosing(actor = { name: "Owner", role: "Owner" }) {
+async function approveClosing(actor = { name: "Owner", role: "Owner" }, tenantId) {
   await syncOperationsState();
   approveClosingState(actor.name, actor.role);
   await persistOperationsState();
-  return buildOwnerSummary();
+  return buildOwnerSummary(tenantId);
 }
 
-async function reopenBusinessDay(actor = { name: "Owner", role: "Owner" }) {
+async function reopenBusinessDay(actor = { name: "Owner", role: "Owner" }, tenantId) {
   await syncOperationsState();
   reopenClosingState(actor.name, actor.role);
   await persistOperationsState();
-  return buildOwnerSummary();
+  return buildOwnerSummary(tenantId);
 }
 
 module.exports = {

@@ -217,6 +217,29 @@ async function devicePaymentHandler(req, res) {
   res.json({ ok: true });
 }
 
+const { addClosedOrder } = require("./closed-orders-store");
+
+/**
+ * POST /operations/closed-order
+ * Body: { outletId, order }
+ * Stores a fully settled order so Owner Web can read real sales figures.
+ */
+async function deviceCloseOrderHandler(req, res) {
+  const { outletId, order } = req.body;
+  if (!outletId || !order) {
+    return res.status(400).json({ error: "outletId and order are required" });
+  }
+  const tenantId = req.user?.tenantId || "default";
+  addClosedOrder(tenantId, outletId, order);
+
+  // Broadcast to owner dashboard listeners so the console can live-update
+  const io = req.app.locals.io;
+  if (io) {
+    io.to(`tenant:${tenantId}`).emit("sales:updated", { outletId });
+  }
+  res.json({ ok: true });
+}
+
 module.exports = {
   listOperationsSummaryHandler,
   createDemoOrderHandler,
@@ -243,4 +266,5 @@ module.exports = {
   deviceUpdateKotStatusHandler,
   deviceBillRequestHandler,
   devicePaymentHandler,
+  deviceCloseOrderHandler,
 };

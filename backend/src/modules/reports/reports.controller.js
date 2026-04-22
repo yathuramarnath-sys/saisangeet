@@ -4,18 +4,21 @@ const {
   reopenBusinessDay
 } = require("./reports.service");
 
-async function ownerSummaryHandler(_req, res) {
-  const result = await fetchOwnerSummary();
+async function ownerSummaryHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const result = await fetchOwnerSummary(tenantId);
   res.json(result);
 }
 
 async function approveClosingHandler(req, res) {
-  const result = await approveClosing(req.body);
+  const tenantId = req.user?.tenantId || "default";
+  const result = await approveClosing(req.body, tenantId);
   res.json(result);
 }
 
 async function reopenBusinessDayHandler(req, res) {
-  const result = await reopenBusinessDay(req.body);
+  const tenantId = req.user?.tenantId || "default";
+  const result = await reopenBusinessDay(req.body, tenantId);
   res.json(result);
 }
 

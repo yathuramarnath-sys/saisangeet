@@ -596,6 +596,16 @@ export default function App() {
       }
     }
 
+    // 3. Push full closed order to backend so Owner Web shows real sales figures
+    try {
+      await api.post("/operations/closed-order", {
+        outletId: outlet?.id,
+        order:    closedOrder,
+      });
+    } catch (err) {
+      console.error("Closed-order sync failed:", err.message);
+    }
+
     setShowPayment(false);
     setSelectedTableId(null);
     showToast("✓ Bill settled · Table is ready");

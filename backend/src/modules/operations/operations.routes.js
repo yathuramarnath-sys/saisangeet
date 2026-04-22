@@ -29,6 +29,7 @@ const {
   deviceUpdateKotStatusHandler,
   deviceBillRequestHandler,
   devicePaymentHandler,
+  deviceCloseOrderHandler,
 } = require("./operations.controller");
 
 const operationsRouter = express.Router();
@@ -140,6 +141,7 @@ operationsRouter.get("/kots",          requireAuth, asyncHandler(deviceListKotsH
 operationsRouter.patch("/kots/:id/status", requireAuth, asyncHandler(deviceUpdateKotStatusHandler));
 operationsRouter.post("/bill-request", requireAuth, asyncHandler(deviceBillRequestHandler));
 operationsRouter.post("/payment",      requireAuth, asyncHandler(devicePaymentHandler));
+operationsRouter.post("/closed-order", requireAuth, asyncHandler(deviceCloseOrderHandler));
 
 module.exports = {
   operationsRouter
