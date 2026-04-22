@@ -1,13 +1,19 @@
-const CASHIERS = [
-  { name: "Ravi",    color: "#FF5733", role: "Head Cashier"  },
-  { name: "Priya",   color: "#27AE60", role: "Cashier"       },
-  { name: "Arjun",   color: "#2980B9", role: "Cashier"       },
-  { name: "Ramesh",  color: "#8E44AD", role: "Cashier"       },
-  { name: "Karthik", color: "#E67E22", role: "Cashier"       },
-  { name: "Sunita",  color: "#C0392B", role: "Cashier"       },
+// Avatar background colours — assigned by index
+const AVATAR_COLORS = [
+  "#FF5733","#27AE60","#2980B9","#8E44AD",
+  "#E67E22","#C0392B","#16A085","#D35400",
 ];
 
+function loadStaff() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("pos_staff") || "null");
+    if (Array.isArray(saved) && saved.length) return saved;
+  } catch {}
+  return [];
+}
+
 export function PosLogin({ outletName, onLogin }) {
+  const staff = loadStaff();
   const today = new Date().toLocaleDateString("en-IN", {
     weekday: "long", day: "numeric", month: "long"
   });
@@ -31,23 +37,29 @@ export function PosLogin({ outletName, onLogin }) {
 
       {/* Staff grid */}
       <div className="poslogin-grid">
-        {CASHIERS.map((staff) => (
-          <button
-            key={staff.name}
-            type="button"
-            className="poslogin-staff-btn"
-            onClick={() => onLogin(staff.name)}
-          >
-            <div
-              className="poslogin-avatar"
-              style={{ background: staff.color }}
+        {staff.length === 0 ? (
+          <p style={{ color: "#999", gridColumn: "1/-1", textAlign: "center", padding: "2rem" }}>
+            No staff configured for this outlet.<br />Please set up users in Owner Web.
+          </p>
+        ) : (
+          staff.map((member, idx) => (
+            <button
+              key={member.id || member.name}
+              type="button"
+              className="poslogin-staff-btn"
+              onClick={() => onLogin(member.name)}
             >
-              {staff.name[0]}
-            </div>
-            <span className="poslogin-name">{staff.name}</span>
-            <span className="poslogin-role">{staff.role}</span>
-          </button>
-        ))}
+              <div
+                className="poslogin-avatar"
+                style={{ background: AVATAR_COLORS[idx % AVATAR_COLORS.length] }}
+              >
+                {member.avatar || (member.name || "?")[0].toUpperCase()}
+              </div>
+              <span className="poslogin-name">{member.name}</span>
+              <span className="poslogin-role">{member.role}</span>
+            </button>
+          ))
+        )}
       </div>
 
       <p className="poslogin-footer">Restaurant OS · POS Terminal</p>

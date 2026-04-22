@@ -57,6 +57,14 @@ export function BranchSetupScreen({ onComplete }) {
       configuredAt:  new Date().toISOString(),
     };
     saveBranchConfig(config);
+    // Save device token — used for all subsequent API calls (correct tenant + outlet)
+    if (result.deviceToken) {
+      localStorage.setItem("pos_token", result.deviceToken);
+    }
+    // Save staff list for the login grid
+    if (result.staff?.length) {
+      localStorage.setItem("pos_staff", JSON.stringify(result.staff));
+    }
     // Save kitchen stations immediately so printer setup works right away
     if (result.kitchenStations?.length) {
       localStorage.setItem("pos_kitchen_stations", JSON.stringify(result.kitchenStations));

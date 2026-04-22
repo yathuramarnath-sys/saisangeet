@@ -1,3 +1,5 @@
+const jwt = require("jsonwebtoken");
+const { env } = require("../../config/env");
 const { getOwnerSetupData, updateOwnerSetupData, updateOwnerSetupDataNow } = require("../../data/owner-setup-store");
 const { getCurrentTenantId, runWithTenant } = require("../../data/tenant-context");
 
@@ -95,6 +97,7 @@ async function resolveLinkCode(payload) {
   if (!raw) throw Object.assign(new Error("Link code is required."), { status: 400 });
 
   let data = getOwnerSetupData();
+  let resolvedTenantId = getCurrentTenantId(); // updated when correct tenant is found
 
   // ── 1. Find device with this exact linkCode (case-insensitive) ──────────
   const device = (data.devices || []).find(
@@ -138,6 +141,7 @@ async function resolveLinkCode(payload) {
           // Refresh the in-memory cache while we're at it
           warmTenantCache(tokenTenantId, raw_setup);
           tenantOutlets = (raw_setup.outlets || []);
+          resolvedTenantId = tokenTenantId;
           // Use this tenant's full data for the rest of the function
           data = await new Promise((resolve) =>
             runWithTenant(tokenTenantId, () => resolve(getOwnerSetupData()))
@@ -247,6 +251,14 @@ async function resolveLinkCode(payload) {
     categories: s.categories || []
   }));
 
+  // ── 6. Issue a device token so the POS can call authenticated API routes ─────
+  // The token carries tenantId + outletId — no user login required on the device.
+  const deviceToken = jwt.sign(
+    { tenantId: resolvedTenantId, outletId: outlet.id, type: "device" },
+    env.jwtSecret,
+    { expiresIn: "365d" }
+  );
+
   return {
     outletId:        outlet.id,
     outletCode:      outlet.code,
@@ -255,6 +267,7 @@ async function resolveLinkCode(payload) {
     tables:          outlet.tables    || [],
     staff,
     kitchenStations,
+    deviceToken,
   };
 }
 
