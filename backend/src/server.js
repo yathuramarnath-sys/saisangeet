@@ -8,7 +8,8 @@ const { syncOperationsState,
         persistOperationsState } = require("./modules/operations/operations.state");
 const { hydrateClosedOrders }    = require("./modules/operations/closed-orders-store");
 const { hydrateShifts }          = require("./modules/operations/shifts-store");
-const { scheduleBackup }         = require("./jobs/daily-backup");
+const { scheduleBackup }             = require("./jobs/daily-backup");
+const { scheduleDailySalesReport }   = require("./jobs/daily-sales-report");
 
 const app    = createApp();
 const server = http.createServer(app);
@@ -84,6 +85,9 @@ runMigrations()
 
     // Schedule nightly backup email at midnight IST
     scheduleBackup();
+
+    // Schedule daily sales report email at 11 PM IST
+    scheduleDailySalesReport();
   })
   .catch((err) => {
     // Migration errors are non-fatal — server still starts
