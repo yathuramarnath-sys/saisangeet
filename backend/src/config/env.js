@@ -14,6 +14,9 @@ const env = {
     process.env.DATABASE_URL ||
     "postgresql://postgres:postgres@localhost:5432/restaurant_pos",
 
+  // Set ENABLE_DATABASE=true in Railway to persist data across restarts
+  enableDatabase: process.env.ENABLE_DATABASE === "true",
+
   // Email (Resend)
   resendApiKey: process.env.RESEND_API_KEY || "",
   emailFrom:    process.env.EMAIL_FROM || "DineXPOS <hello@dinexpos.in>",

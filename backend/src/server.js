@@ -1,9 +1,13 @@
 const http = require("http");
 const { Server: SocketServer } = require("socket.io");
 
-const { createApp }       = require("./app");
-const { env }             = require("./config/env");
-const { runMigrations }   = require("./db/migrate");
+const { createApp }              = require("./app");
+const { env }                    = require("./config/env");
+const { runMigrations }          = require("./db/migrate");
+const { syncOperationsState,
+        persistOperationsState } = require("./modules/operations/operations.state");
+const { hydrateClosedOrders }    = require("./modules/operations/closed-orders-store");
+const { hydrateShifts }          = require("./modules/operations/shifts-store");
 
 const app    = createApp();
 const server = http.createServer(app);
@@ -52,15 +56,33 @@ io.on("connection", (socket) => {
   });
 });
 
-// Run DB migrations + cache warm-up BEFORE accepting requests
+// Run DB migrations + hydrate in-memory stores BEFORE accepting requests
 runMigrations()
-  .then(() => {
+  .then(async () => {
+    // Reload persisted data into memory stores so a restart doesn't lose data
+    await Promise.all([
+      syncOperationsState(),   // active table orders
+      hydrateClosedOrders(),   // today's settled bills
+      hydrateShifts(),         // open/closed shifts + cash movements
+    ]).catch(err => console.error("[startup] Hydration error (non-fatal):", err.message));
+
     server.listen(env.port, () => {
       console.log(`API server listening on port ${env.port}`);
     });
+
+    // Auto-save active order state to DB every 60 seconds
+    // so a crash in the middle of service loses at most 1 minute of data
+    if (env.enableDatabase) {
+      setInterval(() => {
+        persistOperationsState().catch(err =>
+          console.error("[auto-save] Error:", err.message)
+        );
+      }, 60_000);
+      console.log("[auto-save] Active order state will be saved every 60 s");
+    }
   })
   .catch((err) => {
-    // Migration errors are non-fatal — server still starts with JSON-file fallback
+    // Migration errors are non-fatal — server still starts
     console.error("[startup] Migration error (non-fatal):", err.message);
     server.listen(env.port, () => {
       console.log(`API server listening on port ${env.port} (fallback mode)`);
