@@ -139,17 +139,16 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
 }
 
 /* ── Shift Closing Receipt (printable) ────────────────────────────────────── */
-function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, allOrders }) {
-  const totalOrders = Object.values(allOrders || {}).filter(o => o.isClosed).length;
-  const totalSales  = Object.values(allOrders || {}).reduce((s, o) => {
-    if (!o.isClosed) return s;
+function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, shiftOrders }) {
+  // shiftOrders is an array of closed orders for this shift
+  const totalOrders = (shiftOrders || []).length;
+  const totalSales  = (shiftOrders || []).reduce((s, o) => {
     const sub  = (o.items || []).filter(i => !i.isVoided && !i.isComp)
                                  .reduce((ss, i) => ss + i.price * i.quantity, 0);
     const disc = Math.min(o.discountAmount || 0, sub);
     return s + (sub - disc);
   }, 0);
-  const payments = Object.values(allOrders || {}).reduce((acc, o) => {
-    if (!o.isClosed) return acc;
+  const payments = (shiftOrders || []).reduce((acc, o) => {
     (o.payments || []).forEach(p => {
       acc[p.method] = (acc[p.method] || 0) + p.amount;
     });
@@ -226,18 +225,24 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
   const [note,        setNote]        = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
 
+  // Read all closed orders for this shift from pos_closed_orders.
+  // (The `orders` state prop has already been reset to blank tables by the time
+  //  the cashier opens Close Shift, so we must read from the persistent log.)
+  const shiftOrders = (() => {
+    try {
+      const all = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]") || [];
+      const shiftStart = new Date(shift.startedAt).getTime();
+      return all.filter(o => o.isClosed && new Date(o.closedAt || 0).getTime() >= shiftStart);
+    } catch { return []; }
+  })();
+
   // Cash sales from closed orders this shift
-  const cashSales = Object.values(orders || {})
-    .filter(o => o.isClosed)
-    .reduce((sum, o) => {
-      const sub  = (o.items || []).reduce((s, i) => s + i.price * i.quantity, 0);
-      const disc = Math.min(o.discountAmount || 0, sub);
-      // Only count cash payments
-      const cashPaid = (o.payments || [])
-        .filter(p => p.method === "cash")
-        .reduce((s, p) => s + p.amount, 0);
-      return sum + cashPaid;
-    }, 0);
+  const cashSales = shiftOrders.reduce((sum, o) => {
+    const cashPaid = (o.payments || [])
+      .filter(p => p.method === "cash")
+      .reduce((s, p) => s + p.amount, 0);
+    return sum + cashPaid;
+  }, 0);
 
   const expectedCash = (shift.openingCash || 0)
     + (shift.cashIn  || 0)
@@ -324,7 +329,7 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
               expectedCash={expectedCash}
               closingNum={closingNum}
               variance={variance}
-              allOrders={orders}
+              shiftOrders={shiftOrders}
             />
           </div>
           <div className="sm-footer">

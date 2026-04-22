@@ -23,6 +23,7 @@ import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
 import { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } from "./lib/kotPrint";
+import { printBill } from "./lib/printBill";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -717,6 +718,15 @@ export default function App() {
     showToast("Customer details saved");
   }
 
+  // ── Print bill ────────────────────────────────────────────────────────────
+  function handlePrintBill() {
+    if (!selectedTableId) return;
+    const order = orders[selectedTableId];
+    if (!order?.items?.length) { showToast("No items to print"); return; }
+    printBill(order, order.items, outlet?.name || branchConfig?.outletName);
+    showToast("🖨️ Printing bill…");
+  }
+
   // ── Order note ────────────────────────────────────────────────────────────
   function handleOrderNoteChange(note) {
     if (!selectedTableId) return;
@@ -989,6 +999,7 @@ export default function App() {
           onCompToggle={handleCompToggle}
           onVoidItem={handleVoidItem}
           onReprintKOT={handleReprintKOT}
+          onPrintBill={handlePrintBill}
         />
         )}
       </div>

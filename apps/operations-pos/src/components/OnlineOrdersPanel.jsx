@@ -95,20 +95,30 @@ function TimeAgo({ isoDate }) {
   return <span className="oo-time">{label}</span>;
 }
 
+// IDs of the hardcoded seed orders — used to filter them out from localStorage
+const SEED_ORDER_IDS = new Set(["online-1", "online-2", "online-3"]);
+
 /* ── Main component ─────────────────────────────────────────────────────── */
 export function OnlineOrdersPanel({ onAccept, onClose }) {
-  const [orders,       setOrders]       = useState(() => load("pos_online_orders", getSeedOrders()));
+  const [orders,       setOrders]       = useState(() => {
+    // Load from localStorage but strip out any hardcoded seed/demo orders
+    const stored = load("pos_online_orders", null);
+    if (!stored) return [];
+    const real = stored.filter((o) => !SEED_ORDER_IDS.has(o.id));
+    return real;
+  });
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState(REJECT_REASONS[0]);
   const [filter,       setFilter]       = useState("pending"); // pending | accepted | rejected
 
-  // Seed if empty
+  // Clean up any leftover seed data from localStorage on first render
   useEffect(() => {
     const stored = load("pos_online_orders", null);
-    if (!stored) {
-      const seed = getSeedOrders();
-      localStorage.setItem("pos_online_orders", JSON.stringify(seed));
-      setOrders(seed);
+    if (stored) {
+      const real = stored.filter((o) => !SEED_ORDER_IDS.has(o.id));
+      if (real.length !== stored.length) {
+        localStorage.setItem("pos_online_orders", JSON.stringify(real));
+      }
     }
   }, []);
 

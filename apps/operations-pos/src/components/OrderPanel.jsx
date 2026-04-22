@@ -105,6 +105,7 @@ export function OrderPanel({
   onCompToggle,
   onVoidItem,
   onReprintKOT,
+  onPrintBill,
 }) {
   const [showTransfer, setShowTransfer] = useState(false);
   const [showNote,     setShowNote]     = useState(false);
@@ -378,18 +379,33 @@ export function OrderPanel({
             </div>
           )}
 
-          {/* Row 2: Request Bill */}
-          {hasItems && !order.billRequested && (
-            <button type="button" className="pos-btn bill-req" onClick={onRequestBill}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.5">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-              </svg>
-              Request Bill
-            </button>
+          {/* Row 2: Request Bill + Print Bill */}
+          {hasItems && (
+            <div className="order-actions-row">
+              {!order.billRequested && (
+                <button type="button" className="pos-btn bill-req" onClick={onRequestBill}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                  Request Bill
+                </button>
+              )}
+              {onPrintBill && (
+                <button type="button" className="pos-btn print-bill" onClick={onPrintBill}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                  Print Bill
+                </button>
+              )}
+            </div>
           )}
 
           {/* Row 3: Collect Payment */}

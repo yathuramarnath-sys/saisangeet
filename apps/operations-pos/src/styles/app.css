@@ -4873,6 +4873,15 @@ body { background: var(--sq-bg); }
 }
 .pos-btn.split:hover, .pos-btn.bill-req:hover { background: #F1F4F9 !important; }
 
+/* Print Bill button */
+.pos-btn.print-bill {
+  background: #F0FDF4 !important;
+  border-color: #BBF7D0 !important;
+  color: #166534 !important;
+  font-weight: 800 !important;
+}
+.pos-btn.print-bill:hover { background: #DCFCE7 !important; border-color: #16A34A !important; }
+
 /* Order item borders */
 .order-item { border-bottom-color: #F1F4F9 !important; }
 .order-totals { border-top-color: #F1F4F9 !important; }

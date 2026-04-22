@@ -115,6 +115,108 @@ async function requestVoidApprovalHandler(req, res) {
   res.json(result);
 }
 
+// ─── Device-friendly flat endpoints (used by POS / Captain / KDS) ─────────────
+
+const { getKots, addKot, updateKotStatus } = require("./kot-store");
+
+/**
+ * POST /operations/kot
+ * Body: { outletId, tableId, tableNumber, kotNumber, items, orderId? }
+ * Creates a KOT and emits kot:new to the outlet socket room.
+ */
+async function deviceSendKotHandler(req, res) {
+  const { outletId, tableId, tableNumber, kotNumber, items, orderId } = req.body;
+  if (!outletId || !items?.length) {
+    return res.status(400).json({ error: "outletId and items are required" });
+  }
+
+  const tenantId = req.user?.tenantId || "default";
+  const kot = {
+    id:          `kot-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+    kotNumber:   kotNumber || `KOT-${Date.now()}`,
+    tableNumber: tableNumber || "—",
+    source:      req.user?.type === "device" ? "pos" : "pos",
+    status:      "new",
+    createdAt:   new Date().toISOString(),
+    items:       (items || []).map((i, idx) => ({
+      id:       i.id || `item-${idx}`,
+      name:     i.name,
+      quantity: i.quantity,
+      note:     i.note || ""
+    })),
+    tableId,
+    orderId
+  };
+
+  addKot(tenantId, outletId, kot);
+
+  // Broadcast to KDS and Captain in this outlet
+  const io = req.app.locals.io;
+  if (io) {
+    io.to(`outlet:${outletId}`).emit("kot:new", kot);
+    io.to(`outlet:${outletId}`).emit("kot:sent", { tableId, kotId: kot.id });
+  }
+
+  res.status(201).json(kot);
+}
+
+/**
+ * GET /operations/kots?outletId=...
+ * Returns all active (non-bumped) KOTs for the outlet.
+ */
+async function deviceListKotsHandler(req, res) {
+  const { outletId } = req.query;
+  if (!outletId) return res.status(400).json({ error: "outletId is required" });
+  const tenantId = req.user?.tenantId || "default";
+  res.json(getKots(tenantId, outletId));
+}
+
+/**
+ * PATCH /operations/kots/:id/status
+ * Body: { status } — "preparing" | "ready" | "bumped"
+ */
+async function deviceUpdateKotStatusHandler(req, res) {
+  const { outletId } = req.query;
+  const { status } = req.body;
+  const tenantId = req.user?.tenantId || "default";
+  const updated = updateKotStatus(tenantId, outletId, req.params.id, status);
+  if (!updated && status !== "bumped") {
+    return res.status(404).json({ error: "KOT not found" });
+  }
+  const io = req.app.locals.io;
+  if (io && outletId) {
+    io.to(`outlet:${outletId}`).emit("kot:status", { id: req.params.id, status });
+  }
+  res.json(updated || { id: req.params.id, status });
+}
+
+/**
+ * POST /operations/bill-request
+ * Body: { outletId, tableId }
+ */
+async function deviceBillRequestHandler(req, res) {
+  const { outletId, tableId } = req.body;
+  const io = req.app.locals.io;
+  if (io && outletId) {
+    io.to(`outlet:${outletId}`).emit("bill:requested", { tableId, requestedAt: new Date().toISOString() });
+  }
+  res.json({ ok: true });
+}
+
+/**
+ * POST /operations/payment
+ * Body: { outletId, orderId, tableId, method, amount, reference }
+ * Records a payment (acknowledged; no persistent storage in this in-memory build).
+ */
+async function devicePaymentHandler(req, res) {
+  const { outletId, tableId, method, amount } = req.body;
+  const io = req.app.locals.io;
+  if (io && outletId) {
+    io.to(`outlet:${outletId}`).emit("order:paid", { tableId, method, amount, paidAt: new Date().toISOString() });
+  }
+  res.json({ ok: true });
+}
+
 module.exports = {
   listOperationsSummaryHandler,
   createDemoOrderHandler,
@@ -134,5 +236,11 @@ module.exports = {
   updateOrderStatusHandler,
   listControlLogsHandler,
   recordReprintHandler,
-  requestVoidApprovalHandler
+  requestVoidApprovalHandler,
+  // Device-friendly flat endpoints
+  deviceSendKotHandler,
+  deviceListKotsHandler,
+  deviceUpdateKotStatusHandler,
+  deviceBillRequestHandler,
+  devicePaymentHandler,
 };

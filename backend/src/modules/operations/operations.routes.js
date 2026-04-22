@@ -22,7 +22,13 @@ const {
   updateOrderStatusHandler,
   listControlLogsHandler,
   recordReprintHandler,
-  requestVoidApprovalHandler
+  requestVoidApprovalHandler,
+  // Device-friendly flat endpoints
+  deviceSendKotHandler,
+  deviceListKotsHandler,
+  deviceUpdateKotStatusHandler,
+  deviceBillRequestHandler,
+  devicePaymentHandler,
 } = require("./operations.controller");
 
 const operationsRouter = express.Router();
@@ -126,6 +132,14 @@ operationsRouter.post(
   requirePermission("operations.order.status"),
   asyncHandler(updateOrderStatusHandler)
 );
+
+// ─── Device-friendly flat routes (used by POS / Captain App / KDS) ────────────
+// These use requireAuth only (device tokens have no permissions array)
+operationsRouter.post("/kot",          requireAuth, asyncHandler(deviceSendKotHandler));
+operationsRouter.get("/kots",          requireAuth, asyncHandler(deviceListKotsHandler));
+operationsRouter.patch("/kots/:id/status", requireAuth, asyncHandler(deviceUpdateKotStatusHandler));
+operationsRouter.post("/bill-request", requireAuth, asyncHandler(deviceBillRequestHandler));
+operationsRouter.post("/payment",      requireAuth, asyncHandler(devicePaymentHandler));
 
 module.exports = {
   operationsRouter

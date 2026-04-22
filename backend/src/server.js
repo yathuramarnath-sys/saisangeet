@@ -19,6 +19,29 @@ io.on("connection", (socket) => {
   const { outletId } = socket.handshake.query;
   if (outletId) socket.join(`outlet:${outletId}`);
   socket.on("join-outlet", (id) => socket.join(`outlet:${id}`));
+
+  // ── Relay order updates between POS ↔ Captain App ────────────────────────
+  // POS/Captain emit "order:update"; relay to all other devices in the same outlet
+  socket.on("order:update", (data) => {
+    const room = data.outletId ? `outlet:${data.outletId}` : null;
+    if (room && data.order) {
+      socket.to(room).emit("order:updated", data.order);
+    }
+  });
+
+  // ── Relay KOT status changes from KDS back to POS/Captain ────────────────
+  socket.on("kot:status", (data) => {
+    // data: { id, status, outletId? }
+    const room = data.outletId ? `outlet:${data.outletId}` : null;
+    if (room) socket.to(room).emit("kot:status", data);
+    else socket.broadcast.emit("kot:status", data); // fallback
+  });
+
+  // Relay KOT bumped
+  socket.on("kot:bumped", (data) => {
+    if (data.outletId) socket.to(`outlet:${data.outletId}`).emit("kot:bumped", data);
+    else socket.broadcast.emit("kot:bumped", data);
+  });
 });
 
 // Run DB migrations + cache warm-up BEFORE accepting requests

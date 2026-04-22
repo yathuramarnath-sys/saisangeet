@@ -13,6 +13,28 @@ import {
   mobileMenuItems  as seedMenuItems,
 } from "./data/mobile.seed";
 
+// ─── Build areas from outlet tables (like POS does) ──────────────────────────
+
+function buildAreasFromOutlet(outlet) {
+  if (!outlet?.tables?.length) return null;
+  const areaNames = [...new Set(outlet.tables.map((t) => t.workArea || t.area_name).filter(Boolean))];
+  if (!areaNames.length) areaNames.push("Main");
+  return areaNames.map((areaName) => {
+    const tables = outlet.tables
+      .filter((t) => (t.workArea || t.area_name || "Main") === areaName)
+      .map((t) => ({
+        id:     t.id,
+        number: t.table_number || t.tableNumber || t.name,
+        seats:  t.seats || 4,
+      }));
+    return {
+      id:     `area-${areaName.toLowerCase().replace(/\s+/g, "-")}`,
+      name:   areaName,
+      tables,
+    };
+  });
+}
+
 // ─── Branch Config (localStorage) ────────────────────────────────────────────
 
 const CAPTAIN_LS_KEY = "captain_branch_config";
@@ -904,6 +926,10 @@ export function App() {
         const target  = outlets.find((o) => o.id === branchConfig.outletId) || outlets[0];
         if (!target) return;
         setOutlet(target);
+
+        // Build table areas from this outlet (replaces seed areas)
+        const builtAreas = buildAreasFromOutlet(target);
+        if (builtAreas) setAreas(builtAreas);
 
         const [cats, items] = await Promise.all([
           api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),

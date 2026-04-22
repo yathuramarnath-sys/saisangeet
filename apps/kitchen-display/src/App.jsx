@@ -777,6 +777,11 @@ export function App() {
   useEffect(() => {
     if (!branchConfig) return;
 
+    // Clear any stale tickets (demos / previous session) so we always start fresh
+    // Real tickets will be fetched from the API immediately after connecting
+    setTickets([]);
+    localStorage.removeItem(KDS_TICKETS_KEY);
+
     const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
       .replace("/api/v1", "");
     const socket = io(socketUrl, {
@@ -839,18 +844,14 @@ export function App() {
         const target  = outlets.find((o) => o.id === branchConfig.outletId) || outlets[0];
         if (target) setOutlet(target);
 
-        const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}`).catch(() => []);
-        if (kots?.length) {
-          setTickets(kots.map(k => ({ ...k, doneItems: k.doneItems || [] })));
-        } else if (!loadSavedTickets().length) {
-          // No saved tickets and API returned nothing — show demo so screen isn't blank
-          setTickets(makeDemoTickets());
+        const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}`).catch(() => null);
+        if (kots !== null) {
+          // API responded — replace with real data (or empty state; never show demo tickets)
+          setTickets(kots.length ? kots.map(k => ({ ...k, doneItems: k.doneItems || [] })) : []);
         }
-        // If we have saved tickets, keep them (already in state from useState init)
+        // If kots === null (API threw), keep current state (already cleared above)
       } catch (_) {
-        // Offline at start — keep whatever is in localStorage (already in state)
-        // Only fall back to demo if localStorage was also empty
-        setTickets(prev => prev.length ? prev : makeDemoTickets());
+        // Full bootstrap failed (no outlet list) — stay on empty state; offline banner will show
       }
     }
 
