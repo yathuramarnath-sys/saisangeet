@@ -869,6 +869,16 @@ function getControlLogs() {
   };
 }
 
+// Resets the in-memory slot for tableId to a fresh empty order after settlement.
+// Called by the device close handler so the next GET /operations/order for the same table
+// returns a clean slate instead of the just-settled order.
+// Silently skips unknown tableIds (counter/online orders have no catalog entry).
+function clearOrderAfterSettle(tableId) {
+  const meta = getTableMeta(tableId);
+  if (!meta) return; // counter/online — not in catalog, nothing to reset
+  state.orders[tableId] = buildEmptyOrder(tableId, nextOrderNumber());
+}
+
 function updateOrderStatus(tableId, pickupStatus, actor = "System") {
   const order = findOrder(tableId);
   const statusMap = {
@@ -930,6 +940,7 @@ module.exports = {
   approveDiscount,
   approveVoid,
   updateOrderStatus,
+  clearOrderAfterSettle,
   recordReprint,
   requestVoidApproval,
   getControlLogs

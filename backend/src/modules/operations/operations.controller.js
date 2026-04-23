@@ -18,7 +18,8 @@ const {
   changeOrderStatus,
   getOperationsControlLogs,
   recordOrderReprint,
-  requestOrderVoidApproval
+  requestOrderVoidApproval,
+  clearTableAfterSettle
 } = require("./operations.service");
 
 async function listOperationsSummaryHandler(_req, res) {
@@ -123,7 +124,9 @@ const { getKots, addKot, updateKotStatus } = require("./kot-store");
 /**
  * POST /operations/kot
  * Body: { outletId, tableId, tableNumber, kotNumber, items, orderId? }
- * Creates a KOT and emits kot:new to the outlet socket room.
+ * Creates a KOT record, emits kot:new to the outlet socket room, and marks all items
+ * sentToKot: true in the in-memory order so the backend order stays in sync with the POS.
+ * Response: { kot, order? } — order is present for dine-in tables; absent for counter/online.
  */
 async function deviceSendKotHandler(req, res) {
   const { outletId, tableId, tableNumber, kotNumber, items, orderId } = req.body;
@@ -136,7 +139,7 @@ async function deviceSendKotHandler(req, res) {
     id:          `kot-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
     kotNumber:   kotNumber || `KOT-${Date.now()}`,
     tableNumber: tableNumber || "—",
-    source:      req.user?.type === "device" ? "pos" : "pos",
+    source:      "pos",
     status:      "new",
     createdAt:   new Date().toISOString(),
     items:       (items || []).map((i, idx) => ({
@@ -158,7 +161,20 @@ async function deviceSendKotHandler(req, res) {
     io.to(`outlet:${outletId}`).emit("kot:sent", { tableId, kotId: kot.id });
   }
 
-  res.status(201).json(kot);
+  // Mark items sentToKot: true in the in-memory order so backend state matches POS.
+  // Skipped for counter/online orders — those have no backend table entry.
+  let updatedOrder;
+  if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+    try {
+      updatedOrder = await sendOrderKot(tableId, { actorName: req.user?.name || "POS" });
+    } catch (err) {
+      // ORDER_NOT_FOUND or TABLE_NOT_FOUND — log but do not fail the KOT send.
+      // The KOT is already recorded and broadcast; the order state will reconcile on next open.
+      console.warn(`[KOT] markKotSent skipped for ${tableId}:`, err.message);
+    }
+  }
+
+  res.status(201).json({ kot, order: updatedOrder });
 }
 
 /**
@@ -194,6 +210,8 @@ async function deviceUpdateKotStatusHandler(req, res) {
 /**
  * POST /operations/bill-request
  * Body: { outletId, tableId }
+ * Broadcasts bill:requested via socket AND marks billRequested: true in the in-memory order.
+ * Response: { ok: true, order? } — order present for dine-in tables.
  */
 async function deviceBillRequestHandler(req, res) {
   const { outletId, tableId } = req.body;
@@ -201,21 +219,53 @@ async function deviceBillRequestHandler(req, res) {
   if (io && outletId) {
     io.to(`outlet:${outletId}`).emit("bill:requested", { tableId, requestedAt: new Date().toISOString() });
   }
-  res.json({ ok: true });
+
+  let updatedOrder;
+  if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+    try {
+      updatedOrder = await requestBillForOrder(tableId, { actorName: req.user?.name || "POS" });
+    } catch (err) {
+      console.warn(`[bill-request] requestBill skipped for ${tableId}:`, err.message);
+    }
+  }
+
+  res.json({ ok: true, order: updatedOrder });
 }
 
 /**
  * POST /operations/payment
- * Body: { outletId, orderId, tableId, method, amount, reference }
- * Records a payment (acknowledged; no persistent storage in this in-memory build).
+ * Body: { outletId, orderId, tableId, method, amount, label?, reference? }
+ * Broadcasts order:paid via socket AND persists the payment to the in-memory order.
+ * Response: { ok: true, order? } — order present for dine-in tables.
+ * addPaymentToOrder caps amount at remainingAmount and throws INVALID_PAYMENT_AMOUNT if the
+ * order is already fully paid — that error is caught and swallowed (idempotent for over-pay).
  */
 async function devicePaymentHandler(req, res) {
-  const { outletId, tableId, method, amount } = req.body;
+  const { outletId, tableId, method, amount, label, reference } = req.body;
   const io = req.app.locals.io;
   if (io && outletId) {
     io.to(`outlet:${outletId}`).emit("order:paid", { tableId, method, amount, paidAt: new Date().toISOString() });
   }
-  res.json({ ok: true });
+
+  let updatedOrder;
+  if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+    try {
+      updatedOrder = await addPaymentToOrder(tableId, {
+        method:    method || "cash",
+        label:     label  || String(method || "cash").toUpperCase(),
+        amount:    Number(amount) || 0,
+        reference,
+        actorName: req.user?.name || "POS"
+      });
+    } catch (err) {
+      // INVALID_PAYMENT_AMOUNT — order already fully paid or amount ≤ 0. Not a server error.
+      if (err.code !== "INVALID_PAYMENT_AMOUNT") {
+        console.warn(`[payment] addPayment skipped for ${tableId}:`, err.message);
+      }
+    }
+  }
+
+  res.json({ ok: true, order: updatedOrder });
 }
 
 /**
@@ -261,7 +311,9 @@ const { addClosedOrder } = require("./closed-orders-store");
 /**
  * POST /operations/closed-order
  * Body: { outletId, order }
- * Stores a fully settled order so Owner Web can read real sales figures.
+ * Stores the fully settled order in closed-orders-store for Owner Web sales figures,
+ * then resets the in-memory slot for that table to a fresh empty order so the next
+ * GET /operations/order?tableId=... returns a clean slate.
  */
 async function deviceCloseOrderHandler(req, res) {
   const { outletId, order } = req.body;
@@ -276,6 +328,18 @@ async function deviceCloseOrderHandler(req, res) {
   if (io) {
     io.to(`tenant:${tenantId}`).emit("sales:updated", { outletId });
   }
+
+  // Reset the in-memory table slot so the next table-open gets a fresh empty order.
+  // clearTableAfterSettle is silent for counter/online IDs (no catalog entry).
+  if (order.tableId) {
+    try {
+      await clearTableAfterSettle(order.tableId);
+    } catch (err) {
+      // Non-fatal — log and continue. Sales record already written.
+      console.warn(`[close-order] table reset skipped for ${order.tableId}:`, err.message);
+    }
+  }
+
   res.json({ ok: true });
 }
 

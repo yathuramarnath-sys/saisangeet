@@ -13,6 +13,7 @@ const {
   splitOrderBill,
   addOrderPayment,
   closeOrder,
+  clearOrderAfterSettle,
   approveDiscount,
   approveVoid,
   updateOrderStatus,
@@ -117,6 +118,12 @@ async function createOrderVoidRequest(tableId, reason, actor) {
   return runWrite(() => requestVoidApproval(tableId, reason, actor));
 }
 
+// Resets the memory-store slot for tableId to a fresh empty order.
+// Uses runWrite so the reset is immediately persisted to Postgres.
+async function clearTableOrderAfterSettle(tableId) {
+  return runWrite(() => clearOrderAfterSettle(tableId));
+}
+
 module.exports = {
   fetchOperationsSummary,
   createOperationsDemoOrder,
@@ -137,5 +144,6 @@ module.exports = {
   updateOrderPickupStatus,
   fetchOperationsControlLogs,
   createOrderReprintLog,
-  createOrderVoidRequest
+  createOrderVoidRequest,
+  clearTableOrderAfterSettle
 };

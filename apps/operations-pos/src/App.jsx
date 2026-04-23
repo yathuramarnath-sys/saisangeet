@@ -578,7 +578,29 @@ export default function App() {
       items:       unsent
     };
     try {
-      await api.post("/operations/kot", kotPayload);
+      // Response: { kot, order? }
+      // order is present for dine-in tables and has all items marked sentToKot: true.
+      const result = await api.post("/operations/kot", kotPayload);
+      if (result?.order && !order.tableId.startsWith("counter-") && !order.tableId.startsWith("online-")) {
+        // Reconcile with server state — server is authoritative post-KOT.
+        // Server has all items sentToKot: true; any items added locally after the API call
+        // (practically impossible — panel closes) would be in localOnlyUnsent.
+        setOrders((prev) => {
+          const localOrder = prev[order.tableId];
+          if (!localOrder) return prev;
+          const serverItemIds = new Set((result.order.items || []).map((i) => i.id));
+          const localOnlyUnsent = (localOrder.items || []).filter(
+            (li) => !li.sentToKot && !serverItemIds.has(li.id)
+          );
+          return {
+            ...prev,
+            [order.tableId]: {
+              ...result.order,
+              items: [...(result.order.items || []), ...localOnlyUnsent]
+            }
+          };
+        });
+      }
     } catch (err) {
       // Offline or server unreachable — queue for retry when connection returns
       const queue = loadKotQueue();
@@ -603,15 +625,31 @@ export default function App() {
 
   async function handleRequestBill() {
     if (!selectedTableId) return;
-    mutateOrder(selectedTableId, (order) => {
+    const tableId = selectedTableId;
+
+    // 1. Optimistic local update — instant UI
+    mutateOrder(tableId, (order) => {
       order.billRequested   = true;
       order.billRequestedAt = new Date().toISOString();
       return order;
     });
     showToast("Bill requested");
-    try {
-      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: selectedTableId });
-    } catch {}
+
+    // 2. Persist to backend and reconcile
+    //    Response: { ok: true, order? }
+    if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+      try {
+        const result = await api.post("/operations/bill-request", { outletId: outlet?.id, tableId });
+        if (result?.order) {
+          setOrders((prev) => ({
+            ...prev,
+            [tableId]: result.order
+          }));
+        }
+      } catch (err) {
+        console.warn("[POS] bill-request sync failed (offline?):", err.message);
+      }
+    }
   }
 
   async function handleSettle(paymentsInput) {
@@ -628,10 +666,37 @@ export default function App() {
     const paid        = allPayments.reduce((s, p) => s + p.amount, 0);
 
     if (paid < total) {
-      // Partial — just record without closing
+      // Partial — record locally (optimistic) then fire-and-forget sync to backend.
       mutateOrder(tableId, (o) => { o.payments = allPayments; return o; });
       setShowPayment(false);
       showToast(`Payment recorded · ₹${newPayments.reduce((s,p)=>s+p.amount,0)}`);
+
+      // Backend payment sync (fire-and-forget so the PaymentSheet loading state clears instantly).
+      // Counter/online orders have no backend table entry — skip.
+      if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+        (async () => {
+          let lastServerOrder = null;
+          for (const p of newPayments) {
+            try {
+              const result = await api.post("/operations/payment", {
+                outletId:  outlet?.id,
+                tableId,
+                method:    p.method,
+                label:     p.label || String(p.method || "cash").toUpperCase(),
+                amount:    p.amount,
+                reference: p.reference
+              });
+              if (result?.order) lastServerOrder = result.order;
+            } catch (err) {
+              console.warn("[POS] partial payment sync failed (offline?):", err.message);
+            }
+          }
+          // Reconcile from the last server response — server payment totals are authoritative.
+          if (lastServerOrder) {
+            setOrders((prev) => ({ ...prev, [tableId]: lastServerOrder }));
+          }
+        })();
+      }
       return;
     }
 
@@ -656,18 +721,22 @@ export default function App() {
     // Notify Captain App that this table's bill is settled
     socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
 
+    // Each POST /operations/payment now persists the payment to the backend order state.
+    // We do NOT reconcile local state from these responses because the table is already
+    // showing as closed (isClosed: true set above). The 1.5 s reset handles the fresh-order
+    // transition client-side; the backend reset is handled by POST /operations/closed-order.
     for (const p of newPayments) {
       try {
         await api.post("/operations/payment", {
           outletId:  outlet?.id,
-          orderId:   order.id,
           tableId:   order.tableId,
           method:    p.method,
+          label:     p.label || String(p.method || "cash").toUpperCase(),
           amount:    p.amount,
           reference: p.reference
         });
       } catch (err) {
-        console.error("Payment record failed:", err.message);
+        console.warn("[POS] full-settlement payment record failed (offline?):", err.message);
       }
     }
 

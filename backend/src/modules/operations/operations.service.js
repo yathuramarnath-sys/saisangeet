@@ -5,6 +5,7 @@ const {
   fetchOrders,
   fetchOrderByTable,
   fetchOrCreateOrderByTable,
+  clearTableOrderAfterSettle,
   sendKot,
   requestOrderBill,
   assignOrderWaiter,
@@ -142,6 +143,10 @@ async function requestOrderVoidApproval(tableId, payload = {}) {
   );
 }
 
+async function clearTableAfterSettle(tableId) {
+  return clearTableOrderAfterSettle(tableId);
+}
+
 module.exports = {
   getOperationsSummary,
   createDemoOperationsOrder,
@@ -162,5 +167,6 @@ module.exports = {
   changeOrderStatus,
   getOperationsControlLogs,
   recordOrderReprint,
-  requestOrderVoidApproval
+  requestOrderVoidApproval,
+  clearTableAfterSettle
 };
