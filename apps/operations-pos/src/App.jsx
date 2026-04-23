@@ -450,7 +450,13 @@ export default function App() {
           price:      parsePriceNumber(item.price || item.basePrice),
           quantity:   1,
           sentToKot:  false,
-          note:       ""
+          note:       "",
+          // station comes from the menu item fetched from /menu/items at bootstrap.
+          // It is used at KOT send time to group items by kitchen station (for both
+          // printer routing and per-station KOT API calls).
+          // Fallback to "" so the grouping safely collapses to "__default__" if the
+          // menu item has no station assigned yet.
+          station:    item.station || ""
         });
       }
       return order;
@@ -471,7 +477,11 @@ export default function App() {
           name:       item.name,
           price:      parsePriceNumber(item.price || item.basePrice),
           quantity:   1,
-          note:       ""
+          note:       "",
+          // stationName is stored on the backend order item so server state and
+          // local state agree on which kitchen station this item belongs to.
+          // The backend addOrderItem stores it as-is (defaults "Main Kitchen" if absent).
+          stationName: item.station || ""
         }
       });
 

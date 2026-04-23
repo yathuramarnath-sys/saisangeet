@@ -281,6 +281,38 @@ test("device add-item persists an item without requiring permissions", async () 
   assert.equal(result.auditTrail[0].actor, "POS");
 });
 
+// ─── addOrderItem stationName passthrough ────────────────────────────────────
+
+test("addOrderItem stores stationName from payload on the order item", async () => {
+  const result = await addItemToOrder("t1", {
+    menuItemId:  "paneer-tikka",
+    name:        "Paneer Tikka",
+    price:       280,
+    quantity:    1,
+    stationName: "Hot",
+    actorName:   "POS"
+  });
+
+  const added = result.items.find((i) => i.menuItemId === "paneer-tikka");
+  assert.ok(added, "item should be present");
+  assert.equal(added.stationName, "Hot", "stationName should be stored from payload");
+});
+
+test("addOrderItem defaults stationName to Main Kitchen when payload omits it", async () => {
+  const result = await addItemToOrder("t1", {
+    menuItemId: "veg-biryani",
+    name:       "Veg Biryani",
+    price:      240,
+    quantity:   1,
+    actorName:  "POS"
+    // stationName intentionally absent
+  });
+
+  const added = result.items.find((i) => i.menuItemId === "veg-biryani");
+  assert.ok(added, "item should be present");
+  assert.equal(added.stationName, "Main Kitchen", "stationName should default to Main Kitchen");
+});
+
 // ─── KOT store — bump and status lifecycle ────────────────────────────────────
 
 const { getKots, addKot, updateKotStatus } = require("../src/modules/operations/kot-store");
