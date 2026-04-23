@@ -6,6 +6,25 @@
 
 ---
 
+## ⚠ Do Not Forget
+
+1. **Test tenant vs client tenant separation** — Always verify which tenant is active before testing. The backend resolves tenant from the device token. If you link a device with a test-tenant link code, all orders, menus, and tables will belong to the test tenant — not the client's live tenant. Never mix link codes between tenants. Check `req.user.tenantId` in backend logs if order/table data looks wrong.
+
+2. **Clear browser/app state before relinking** — Before linking a device to a different outlet or tenant, clear all local storage first:
+   - POS: clear `pos_branch_config` and `pos_token` keys in localStorage
+   - Captain: clear `captain_branch_config` and `captain_token` keys in localStorage
+   - KDS: clear `kds_branch_config` and `kds_token` keys in localStorage
+   Failing to clear stale state causes the app to boot with the old outlet's token and menu, silently sending data to the wrong outlet even after re-linking.
+
+3. **POS / Captain / KDS must all use the same outlet** — All three apps must be linked to the **same `outletId`**. KOTs sent from POS appear on KDS only because both join the socket room `outlet:${outletId}`. If POS is on outlet A and KDS is on outlet B, KOTs will never arrive. Verify the `outletId` in each app's branch config matches before any live test. The outlet mapping is visible in Owner Web → Outlets.
+
+4. **APK builds confirmed working** — Both Android APKs for this session built successfully:
+   - `apps/kitchen-display/android/app/build/outputs/apk/debug/app-debug.apk` — KDS v1.1
+   - `apps/waiter-mobile/android/app/build/outputs/apk/debug/app-debug.apk` — Captain v1.2
+   Build requires `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"` — Java is **not** on the system PATH. Always set this explicitly before running `./gradlew`. Captain release signing keystore (`dinex-captain.jks`) must be placed at `~/Desktop/` to produce a signed release APK.
+
+---
+
 ## 1. What Was Completed Today
 
 Eight integration slices shipped across POS, KDS, and Captain apps, plus Android builds for KDS and Captain:
