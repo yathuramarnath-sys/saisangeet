@@ -473,9 +473,6 @@ export function OutletsPage() {
                     <button type="button" className="ghost-chip" onClick={() => startEditingOutlet(outlet)}>
                       Edit
                     </button>
-                    <button type="button" className="ghost-chip" onClick={() => handleGenerateLinkCode(outlet)}>
-                      Link device
-                    </button>
                     <button type="button" className="ghost-chip" onClick={() => startEditingOutlet(outlet)}>
                       Receipt
                     </button>
@@ -904,54 +901,6 @@ export function OutletsPage() {
               </button>
               {statusMessage ? <p>{statusMessage}</p> : null}
               {statusError ? <p>{statusError}</p> : null}
-
-              <div className="mini-stack">
-                <div className="mini-card">
-                  <span>Receipt assigned</span>
-                  <strong>
-                    {pageData.receiptTemplates.find((template) => template.id === editDraft.receiptTemplateId)?.name ||
-                      "Receipt pending"}
-                  </strong>
-                </div>
-                <div className="mini-card">
-                  <span>Linked devices</span>
-                  <strong>{activeOutlet.devicesLinked}</strong>
-                </div>
-              </div>
-
-              <div className="mini-stack">
-                <strong>Available receipt templates</strong>
-                {pageData.receiptTemplates.map((template) => (
-                  <label key={`receipt-choice-${template.id}`} className="mini-card">
-                    <span>{template.name}</span>
-                    <span>{template.outletName || "All Outlets"}</span>
-                    <input
-                      type="radio"
-                      name="receiptChoice"
-                      checked={editDraft.receiptTemplateId === template.id}
-                      onChange={() => setEditDraft((current) => ({ ...current, receiptTemplateId: template.id }))}
-                    />
-                  </label>
-                ))}
-              </div>
-
-              <div className="mini-stack">
-                <strong>Devices for this outlet</strong>
-                {activeOutletDevices.length ? (
-                  activeOutletDevices.map((device) => (
-                    <div key={device.id} className="mini-card">
-                      <span>{device.deviceName || device.name}</span>
-                      <strong>{device.deviceType || device.type}</strong>
-                      <span>{device.status}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="mini-card">
-                    <span>No devices linked yet</span>
-                    <strong>Generate a link code to add one</strong>
-                  </div>
-                )}
-              </div>
 
             </form>
           ) : (
