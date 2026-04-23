@@ -2,7 +2,7 @@
 
 **Session type:** Backend + Frontend runtime integration + Android APK builds  
 **Starting point:** All three device apps (POS, KDS, Captain) were scaffold/mock-only — no real backend order state  
-**End state:** All three apps fully wired to real backend order APIs; two updated Android APKs built
+**End state:** All three apps fully wired to real backend order APIs; two updated Android APKs built; backend deployed to Railway; staff live-refresh implemented (no re-link needed)
 
 ---
 
@@ -179,24 +179,26 @@ POS is currently web-only (no `android/` folder, no `capacitor.config.ts`). If a
 
 ## 7. What Should Be Done Next (in exact order)
 
-1. **Commit the `build.gradle` version bumps** — these were not committed after the APK builds:
-   ```bash
-   git add apps/kitchen-display/android/app/build.gradle \
-           apps/waiter-mobile/android/app/build.gradle
-   git commit -m "build: bump KDS to v1.1 and Captain to v1.2 for Apr 23 release"
-   ```
+1. ✅ ~~Commit the `build.gradle` version bumps~~ — done (commit `4862ba0`)
 
-2. **Fix the 3 pre-existing test failures** — mock or seed `buildOwnerTableCatalog()` with fixture table IDs `f1`/`f2` so the test env doesn't depend on real Postgres tenant data.
+2. **FIRST THING TOMORROW — Verify staff fix end-to-end:**
+   - Railway should have auto-deployed commit `0db4dba` (live staff refresh)
+   - Owner Web → Staff → Edit TEST CASHIER → change outlet from "TEST FRESH 1" → **TEST OUTLET** → Save
+   - On POS (`pos.dinexpos.in`) → hard refresh (Cmd+Shift+R) — NO re-linking needed
+   - Staff should now appear on the login grid automatically
+   - If still empty: check Railway deploy logs for `0db4dba`
 
-3. **Set up Captain release signing properly** — generate or recover `dinex-captain.jks`, store it in a reproducible location (e.g. `apps/waiter-mobile/android/` or a secrets folder), update `build.gradle` `storeFile` path, and produce a proper signed release APK.
+3. **Fix the 3 pre-existing test failures** — mock or seed `buildOwnerTableCatalog()` with fixture table IDs `f1`/`f2` so the test env doesn't depend on real Postgres tenant data.
 
-4. **Add KDS release signing** — same pattern as Captain; create a keystore for `in.dinexpos.kds`, add `signingConfigs.release` to `apps/kitchen-display/android/app/build.gradle`.
+4. **Set up Captain release signing properly** — generate or recover `dinex-captain.jks`, store it in a reproducible location (e.g. `apps/waiter-mobile/android/` or a secrets folder), update `build.gradle` `storeFile` path, and produce a proper signed release APK.
 
-5. **POS Integration: owner-web live sales dashboard** — `POST /operations/closed-order` already broadcasts `sales:updated` socket event; the owner-web Reports page needs to subscribe and live-update the today's sales figure without a page refresh.
+5. **Add KDS release signing** — same pattern as Captain; create a keystore for `in.dinexpos.kds`, add `signingConfigs.release` to `apps/kitchen-display/android/app/build.gradle`.
 
-6. **Waiter-mobile: bill settle / payment flow** — Captain currently only sends bill requests, not payments. If Captains need to take payment directly (pay-at-table), wire `POST /operations/payment` and `POST /operations/closed-order` into Captain's flow.
+6. **POS Integration: owner-web live sales dashboard** — `POST /operations/closed-order` already broadcasts `sales:updated` socket event; the owner-web Reports page needs to subscribe and live-update the today's sales figure without a page refresh.
 
-7. **End-to-end smoke test** — run POS + KDS + Captain simultaneously against a real outlet, place an order, send KOT, verify KDS receives it with correct station tab, bump from KDS, verify POS/Captain reflects it.
+7. **Waiter-mobile: bill settle / payment flow** — Captain currently only sends bill requests, not payments. If Captains need to take payment directly (pay-at-table), wire `POST /operations/payment` and `POST /operations/closed-order` into Captain's flow.
+
+8. **End-to-end smoke test** — run POS + KDS + Captain simultaneously against a real outlet, place an order, send KOT, verify KDS receives it with correct station tab, bump from KDS, verify POS/Captain reflects it.
 
 ---
 
