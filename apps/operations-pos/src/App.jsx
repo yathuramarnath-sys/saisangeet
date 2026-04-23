@@ -406,8 +406,10 @@ export default function App() {
     });
   }
 
-  function handleAddItem(item) {
+  async function handleAddItem(item) {
     if (!selectedTableId) return;
+
+    // 1. Optimistic local update — keeps the UI instant regardless of network
     mutateOrder(selectedTableId, (order) => {
       const existing = order.items.findIndex((i) => i.menuItemId === item.id && !i.sentToKot);
       if (existing >= 0) {
@@ -425,6 +427,27 @@ export default function App() {
       }
       return order;
     });
+
+    // 2. Persist to backend so items survive a device swap or browser crash.
+    //    Counter/takeaway orders (tableId starts with "counter-") have no backend
+    //    table entry — the handler skips them gracefully.
+    try {
+      await api.post("/operations/order/item", {
+        tableId:  selectedTableId,
+        outletId: outlet?.id,
+        item: {
+          menuItemId: item.id,
+          name:       item.name,
+          price:      parsePriceNumber(item.price || item.basePrice),
+          quantity:   1,
+          note:       ""
+        }
+      });
+    } catch (err) {
+      // Offline or server unreachable — local state is intact, no data lost.
+      // Items will be re-synced when a KOT is sent (which also persists the order).
+      console.warn("[POS] item-add to backend failed (offline?):", err.message);
+    }
   }
 
   function handleChangeQty(idx, qty) {

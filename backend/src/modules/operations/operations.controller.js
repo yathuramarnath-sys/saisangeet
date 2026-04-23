@@ -217,6 +217,28 @@ async function devicePaymentHandler(req, res) {
   res.json({ ok: true });
 }
 
+/**
+ * POST /operations/order/item
+ * Body: { tableId, outletId, item: { menuItemId, name, price, quantity, note?, seatLabel? } }
+ * Device-bypass: no requirePermission — POS device tokens have no permissions array.
+ * Adds one item to an existing in-memory order and persists state.
+ * Counter/takeaway orders (tableId starts with "counter-") are skipped gracefully.
+ */
+async function deviceAddOrderItemHandler(req, res) {
+  const { tableId, item } = req.body;
+  if (!tableId || !item?.menuItemId) {
+    return res.status(400).json({ error: "tableId and item.menuItemId are required" });
+  }
+  // Counter/takeaway orders are managed locally on the POS and have no backend table entry
+  if (tableId.startsWith("counter-")) {
+    return res.json({ ok: true, skipped: true });
+  }
+  // Merge actor name into payload so operations.service.resolveActor picks it up
+  const actor = req.user?.name || req.user?.type || "POS";
+  const result = await addItemToOrder(tableId, { ...item, actorName: actor });
+  res.status(201).json(result);
+}
+
 const { addClosedOrder } = require("./closed-orders-store");
 
 /**
@@ -266,5 +288,6 @@ module.exports = {
   deviceUpdateKotStatusHandler,
   deviceBillRequestHandler,
   devicePaymentHandler,
+  deviceAddOrderItemHandler,
   deviceCloseOrderHandler,
 };

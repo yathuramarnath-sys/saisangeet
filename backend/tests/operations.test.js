@@ -228,6 +228,29 @@ test("getOrder returns a single table order snapshot", async () => {
   assert.equal(payload.discountOverrideRequested, true);
 });
 
+// ─── Device item-add path (POST /operations/order/item) ───────────────────────
+test("device add-item persists an item without requiring permissions", async () => {
+  // addItemToOrder is the same service function the device route calls.
+  // Verify the item appears in the order and the audit trail is set.
+  // The service reads actor from payload.actorName (same convention as other device paths)
+  const result = await addItemToOrder("t1", {
+    menuItemId: "masala-chai",
+    name:       "Masala Chai",
+    price:      40,
+    quantity:   2,
+    note:       "Less sugar",
+    actorName:  "POS"
+  });
+
+  const addedItem = result.items.find((i) => i.menuItemId === "masala-chai");
+  assert.ok(addedItem, "item should be present in the order");
+  assert.equal(addedItem.name,     "Masala Chai");
+  assert.equal(addedItem.quantity, 2);
+  assert.equal(addedItem.note,     "Less sugar");
+  assert.equal(result.auditTrail[0].label, "Item added");
+  assert.equal(result.auditTrail[0].actor, "POS");
+});
+
 test("operations routes register the expected endpoints", () => {
   const routes = operationsRouter.stack
     .filter((layer) => layer.route)
@@ -255,6 +278,14 @@ test("operations routes register the expected endpoints", () => {
     { path: "/orders/:tableId/void-approval", methods: ["post"] },
     { path: "/orders/:tableId/reprint", methods: ["post"] },
     { path: "/orders/:tableId/void-request", methods: ["post"] },
-    { path: "/orders/:tableId/status", methods: ["post"] }
+    { path: "/orders/:tableId/status", methods: ["post"] },
+    // Device-bypass routes (requireAuth only — device tokens have no permissions array)
+    { path: "/kot",              methods: ["post"] },
+    { path: "/kots",             methods: ["get"] },
+    { path: "/kots/:id/status",  methods: ["patch"] },
+    { path: "/bill-request",     methods: ["post"] },
+    { path: "/payment",          methods: ["post"] },
+    { path: "/order/item",       methods: ["post"] },
+    { path: "/closed-order",     methods: ["post"] }
   ]);
 });

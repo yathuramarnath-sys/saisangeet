@@ -29,6 +29,7 @@ const {
   deviceUpdateKotStatusHandler,
   deviceBillRequestHandler,
   devicePaymentHandler,
+  deviceAddOrderItemHandler,
   deviceCloseOrderHandler,
 } = require("./operations.controller");
 
@@ -141,6 +142,9 @@ operationsRouter.get("/kots",          requireAuth, asyncHandler(deviceListKotsH
 operationsRouter.patch("/kots/:id/status", requireAuth, asyncHandler(deviceUpdateKotStatusHandler));
 operationsRouter.post("/bill-request", requireAuth, asyncHandler(deviceBillRequestHandler));
 operationsRouter.post("/payment",      requireAuth, asyncHandler(devicePaymentHandler));
+// Device item-add: no requirePermission — POS tokens have no permissions array.
+// Counter/takeaway orders (tableId starts with "counter-") are skipped inside the handler.
+operationsRouter.post("/order/item",   requireAuth, asyncHandler(deviceAddOrderItemHandler));
 operationsRouter.post("/closed-order", requireAuth, asyncHandler(deviceCloseOrderHandler));
 
 module.exports = {
