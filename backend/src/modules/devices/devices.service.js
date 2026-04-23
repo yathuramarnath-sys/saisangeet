@@ -212,14 +212,21 @@ async function resolveLinkCode(payload) {
   }
 
   // ── 3. Build staff list for this outlet ──────────────────────────────────
-  const OPS_ROLES = ["Captain", "Waiter", "Cashier", "Manager", "Kitchen"];
+  // Exclude ONLY the owner's web-login account (identified by passwordHash,
+  // which floor staff created via StaffPage never have).
+  // Do NOT filter by a hardcoded role-name whitelist — that silently drops staff
+  // whose role is "Owner" (the default in the form) or any custom role name.
+  const outletNameLower = (outlet.name || "").trim().toLowerCase();
   const staff = (data.users || [])
-    .filter(
-      (u) =>
-        u.isActive !== false &&
-        Array.isArray(u.roles) &&
-        u.roles.some((r) => OPS_ROLES.includes(r)) &&
-        (u.outletName === "All Outlets" || u.outletName === outlet.name)
+    .filter((u) =>
+      u.isActive !== false &&
+      Array.isArray(u.roles) &&
+      u.roles.length > 0 &&
+      !u.passwordHash &&   // web-login accounts (owner signup) have passwordHash; floor staff don't
+      (
+        u.outletName === "All Outlets" ||
+        (u.outletName || "").trim().toLowerCase() === outletNameLower
+      )
     )
     .map((u) => ({
       id:     u.id,

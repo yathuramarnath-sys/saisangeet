@@ -35,11 +35,17 @@ function saveLocal(key, data) {
 }
 
 function buildDefaultDraft(data) {
+  // Default to Cashier (never Owner) — Owner is the first role in the list but
+  // it gets a passwordHash on signup and is excluded from the POS staff grid.
+  const defaultRole =
+    data.roles?.find((r) => r.name === "Cashier")?.name ||
+    data.roles?.find((r) => r.name !== "Owner")?.name ||
+    "Cashier";
   return {
     fullName: "",
     mobileNumber: "",
     outletName: data.outlets?.[0]?.name || "Indiranagar",
-    role: data.roles?.[0]?.name || "Captain",
+    role: defaultRole,
     pin: ""
   };
 }
