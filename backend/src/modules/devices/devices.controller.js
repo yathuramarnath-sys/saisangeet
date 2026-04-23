@@ -4,6 +4,7 @@ const {
   linkDevice,
   updateDeviceStatus,
   resolveLinkCode,
+  fetchStaffForDevice,
 } = require("./devices.service");
 
 async function listDevicesHandler(_req, res) {
@@ -35,10 +36,22 @@ async function resolveLinkCodeHandler(req, res) {
   }
 }
 
+async function fetchStaffHandler(req, res) {
+  try {
+    const outletId = req.user?.outletId;
+    if (!outletId) return res.status(400).json({ error: { message: "Device token missing outletId." } });
+    const result = await fetchStaffForDevice(outletId);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: { message: err.message } });
+  }
+}
+
 module.exports = {
   listDevicesHandler,
   createLinkTokenHandler,
   linkDeviceHandler,
   updateDeviceStatusHandler,
   resolveLinkCodeHandler,
+  fetchStaffHandler,
 };

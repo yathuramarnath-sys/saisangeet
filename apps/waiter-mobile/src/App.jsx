@@ -975,6 +975,21 @@ export function App() {
   // Staff from branch config (or fallback)
   const branchStaff = branchConfig?.staff?.length ? branchConfig.staff : FALLBACK_STAFF;
 
+  // ── Refresh staff from backend on every boot ──────────────────────────────
+  // Picks up new/edited staff from Owner Web without needing to re-link device
+  useEffect(() => {
+    if (!branchConfig) return;
+    api.get("/devices/staff")
+      .then((res) => {
+        if (Array.isArray(res.staff) && res.staff.length) {
+          const updated = { ...branchConfig, staff: res.staff };
+          setBranchConfig(updated);
+          saveCaptainBranchConfig(updated);
+        }
+      })
+      .catch(() => {}); // silently fall back to cached staff
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Bootstrap ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!branchConfig) return; // not linked yet

@@ -9,6 +9,7 @@ const {
   linkDeviceHandler,
   updateDeviceStatusHandler,
   resolveLinkCodeHandler,
+  fetchStaffHandler,
 } = require("./devices.controller");
 
 const devicesRouter = express.Router();
@@ -22,6 +23,9 @@ devicesRouter.post(
 );
 // Public — no auth — called by POS / Captain App / KDS on first launch
 devicesRouter.post("/resolve-link-code", asyncHandler(resolveLinkCodeHandler));
+
+// Device-auth — returns live staff list for the linked outlet (no re-link needed)
+devicesRouter.get("/staff", requireAuth, asyncHandler(fetchStaffHandler));
 
 devicesRouter.post("/link", asyncHandler(linkDeviceHandler));
 devicesRouter.patch(

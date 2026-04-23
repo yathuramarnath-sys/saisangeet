@@ -1,3 +1,6 @@
+import { useState, useEffect } from "react";
+import { api } from "../lib/api";
+
 // Avatar background colours — assigned by index
 const AVATAR_COLORS = [
   "#FF5733","#27AE60","#2980B9","#8E44AD",
@@ -13,7 +16,20 @@ function loadStaff() {
 }
 
 export function PosLogin({ outletName, onLogin }) {
-  const staff = loadStaff();
+  const [staff, setStaff] = useState(loadStaff);
+
+  // Refresh staff from backend on every mount — picks up Owner Web changes instantly
+  useEffect(() => {
+    api.get("/devices/staff")
+      .then((res) => {
+        if (Array.isArray(res.staff)) {
+          setStaff(res.staff);
+          localStorage.setItem("pos_staff", JSON.stringify(res.staff));
+        }
+      })
+      .catch(() => {}); // silently fall back to cached list
+  }, []);
+
   const today = new Date().toLocaleDateString("en-IN", {
     weekday: "long", day: "numeric", month: "long"
   });

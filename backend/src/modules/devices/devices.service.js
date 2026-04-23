@@ -278,10 +278,45 @@ async function resolveLinkCode(payload) {
   };
 }
 
+/**
+ * fetchStaffForDevice — called by authenticated device token.
+ * Returns the live staff list for the outlet the device is linked to.
+ * POS and Captain App call this on every boot to get fresh staff
+ * without needing to re-link the device.
+ */
+async function fetchStaffForDevice(outletId) {
+  const data   = getOwnerSetupData();
+  const outlet = (data.outlets || []).find((o) => o.id === outletId);
+  if (!outlet) throw Object.assign(new Error("Outlet not found."), { status: 404 });
+
+  const outletNameLower = (outlet.name || "").trim().toLowerCase();
+  const staff = (data.users || [])
+    .filter((u) =>
+      u.isActive !== false &&
+      Array.isArray(u.roles) &&
+      u.roles.length > 0 &&
+      !u.passwordHash &&
+      (
+        u.outletName === "All Outlets" ||
+        (u.outletName || "").trim().toLowerCase() === outletNameLower
+      )
+    )
+    .map((u) => ({
+      id:     u.id,
+      name:   u.fullName || u.name,
+      role:   u.roles?.[0] || "Staff",
+      pin:    u.pin || "0000",
+      avatar: (u.fullName || u.name || "?")[0].toUpperCase(),
+    }));
+
+  return { staff };
+}
+
 module.exports = {
   fetchDevices,
   createLinkToken,
   linkDevice,
   updateDeviceStatus,
   resolveLinkCode,
+  fetchStaffForDevice,
 };
