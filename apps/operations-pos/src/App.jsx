@@ -740,33 +740,49 @@ export default function App() {
       }
     }
 
-    // 3. Push full closed order to backend so Owner Web shows real sales figures
+    // 3. Push full closed order to backend so Owner Web shows real sales figures.
+    // This is also the gate for the fresh-table reset: clearTableAfterSettle runs
+    // server-side inside deviceCloseOrderHandler. We only reset the POS slot and
+    // broadcast "fresh table" to Captain AFTER the backend confirms the order is
+    // recorded and its in-memory slot has been cleared. If the call fails, the
+    // table stays isClosed: true on both POS and Captain — consistent with the
+    // backend still holding the old order — so no device disagrees about state.
+    let backendConfirmed = false;
     try {
       await api.post("/operations/closed-order", {
         outletId: outlet?.id,
         order:    closedOrder,
       });
+      backendConfirmed = true;
     } catch (err) {
       console.error("Closed-order sync failed:", err.message);
     }
 
     setShowPayment(false);
     setSelectedTableId(null);
-    showToast("✓ Bill settled · Table is ready");
+    showToast(
+      backendConfirmed
+        ? "✓ Bill settled · Table is ready"
+        : "✓ Bill settled · Table will reset once connection restores"
+    );
 
-    // 3. After 1.5 s reset the table to a fresh blank order and notify Captain App
-    setTimeout(() => {
-      setOrders(prev => {
-        const area = tableAreas.find(a => a.tables.some(t => t.id === tableId));
-        const table = area?.tables.find(t => t.id === tableId);
-        if (!table || !area) return prev;
-        const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
-        const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
-        // Broadcast blank order so Captain App clears the table immediately
-        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: fresh });
-        return { ...prev, [tableId]: fresh };
-      });
-    }, 1500);
+    // Reset the table to a fresh blank order only when the backend confirmed the
+    // close. The socket broadcast of the fresh order is also gated here so Captain
+    // and POS always transition to "fresh" together — never ahead of the backend.
+    if (backendConfirmed) {
+      setTimeout(() => {
+        setOrders(prev => {
+          const area = tableAreas.find(a => a.tables.some(t => t.id === tableId));
+          const table = area?.tables.find(t => t.id === tableId);
+          if (!table || !area) return prev;
+          const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
+          const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
+          // Broadcast blank order so Captain App clears the table immediately
+          socketRef.current?.emit("order:update", { outletId: outlet?.id, order: fresh });
+          return { ...prev, [tableId]: fresh };
+        });
+      }, 1500);
+    }
   }
 
   async function handlePaySplit(amount) {
