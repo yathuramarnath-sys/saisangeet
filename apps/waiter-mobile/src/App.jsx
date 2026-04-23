@@ -598,7 +598,7 @@ function SplitBillScreen({ order, outletName, onBack }) {
 function OrderScreen({
   order, tableLabel, categories, menuItems, outletName,
   onBack, onSendKOT, onRequestBill, onPrintBill,
-  onToggleHold, onTransfer, onMerge, onUpdateOrder
+  onToggleHold, onTransfer, onMerge, onUpdateOrder, onAddItem
 }) {
   const [screen,      setScreen]      = useState("order");
   const [activeCat,   setActiveCat]   = useState(categories[0]?.id || categories[0]?.name || "");
@@ -623,20 +623,26 @@ function OrderScreen({
   function addItem(item) {
     const items = [...(order.items || [])];
     const idx   = items.findIndex((i) => i.menuItemId === item.id && !i.sentToKot);
+    let itemToSync;
     if (idx >= 0) {
       items[idx] = { ...items[idx], quantity: items[idx].quantity + 1 };
+      itemToSync = items[idx];
     } else {
-      items.push({
-        id:        `item-${Date.now()}-${Math.random().toString(16).slice(2,5)}`,
+      const newItem = {
+        id:         `item-${Date.now()}-${Math.random().toString(16).slice(2,5)}`,
         menuItemId: item.id,
-        name:      item.name,
-        price:     parsePriceNumber(item.price || item.basePrice),
-        quantity:  1,
-        sentToKot: false,
-        note:      "",
-      });
+        name:       item.name,
+        price:      parsePriceNumber(item.price || item.basePrice),
+        quantity:   1,
+        sentToKot:  false,
+        note:       "",
+        station:    item.station || "",
+      };
+      items.push(newItem);
+      itemToSync = newItem;
     }
     onUpdateOrder({ ...order, items });
+    onAddItem?.(itemToSync);
     // Stay on menu — user presses "View Order" bar to go back
   }
 
@@ -1041,7 +1047,8 @@ export function App() {
   // ── Utils ──────────────────────────────────────────────────────────────────
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2400); }
 
-  function handleSelectTable(tableId, area) {
+  async function handleSelectTable(tableId, area) {
+    // Optimistic: ensure a local order slot exists immediately so the UI can open
     setOrders((prev) => {
       if (prev[tableId]) return prev;
       const t = area.tables.find((x) => x.id === tableId);
@@ -1052,6 +1059,26 @@ export function App() {
     setSelectedArea(area);
     setShowTransfer(false);
     setShowMerge(false);
+
+    // Fetch real backend order (get-or-create) and reconcile — server wins
+    try {
+      const serverOrder = await api.get(`/operations/order?tableId=${tableId}`);
+      setOrders((prev) => {
+        const local = prev[tableId];
+        // Preserve any local-only unsent items added before the response came back
+        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
+        const localOnlyUnsent = (local?.items || []).filter(
+          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+        );
+        return {
+          ...prev,
+          [tableId]: { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] },
+        };
+      });
+    } catch (err) {
+      // TABLE_NOT_FOUND or network error — stay with local blank order (graceful degradation)
+      console.warn(`[captain] open table failed for ${tableId}:`, err.message);
+    }
   }
 
   function handleUpdateOrder(nextOrder) {
@@ -1059,16 +1086,101 @@ export function App() {
     socketRef.current?.emit("order:update", { outletId: outlet?.id, order: nextOrder });
   }
 
+  async function handleAddItem(item) {
+    const tableId = selectedTableId;
+    if (!tableId) return;
+    try {
+      const serverOrder = await api.post("/operations/order/item", {
+        tableId,
+        outletId: outlet?.id,
+        item: {
+          id:          item.id,
+          menuItemId:  item.menuItemId,
+          name:        item.name,
+          price:       item.price,
+          quantity:    1,
+          note:        item.note || "",
+          stationName: item.station || "",
+        },
+        actorName: loggedInStaff?.name || "Captain",
+      });
+      // Server-wins reconcile: keep any local-only unsent items added since this call was made
+      setOrders((prev) => {
+        const local = prev[tableId];
+        if (!local) return prev;
+        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
+        const localOnlyUnsent = (local.items || []).filter(
+          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+        );
+        return {
+          ...prev,
+          [tableId]: { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] },
+        };
+      });
+    } catch (err) {
+      // Graceful degradation: local state already shows the item; backend will reconcile on next table open
+      console.warn("[captain] addItem sync failed:", err.message);
+    }
+  }
+
   async function handleSendKOT() {
     const order  = orders[selectedTableId];
     if (!order) return;
     const unsent = (order.items || []).filter((i) => !i.sentToKot);
     if (!unsent.length) return;
+
+    // Optimistic: mark all unsent items as sent immediately
     handleUpdateOrder({ ...order, items: order.items.map((i) => ({ ...i, sentToKot: true })) });
     showToast("🍽️ KOT sent to kitchen");
-    try {
-      await api.post("/operations/kot", { outletId: outlet?.id, tableId: order.tableId, tableNumber: order.tableNumber, items: unsent });
-    } catch (e) { console.error("KOT:", e.message); }
+
+    // Group unsent items by kitchen station (mirrors POS per-station KOT loop)
+    const stationGroups = {};
+    for (const item of unsent) {
+      const key = item.station || "__default__";
+      if (!stationGroups[key]) stationGroups[key] = [];
+      stationGroups[key].push(item);
+    }
+
+    const kotNumber = `KOT-${Date.now()}`;
+    let lastServerOrder;
+    for (const [stationKey, stItems] of Object.entries(stationGroups)) {
+      try {
+        const result = await api.post("/operations/kot", {
+          outletId:    outlet?.id,
+          tableId:     order.tableId,
+          tableNumber: order.tableNumber,
+          areaName:    order.areaName,
+          kotNumber,
+          stationName: stationKey === "__default__" ? undefined : stationKey,
+          items:       stItems,
+          orderId:     order.id,
+          actorName:   loggedInStaff?.name || "Captain",
+        });
+        if (result.order) lastServerOrder = result.order;
+      } catch (e) {
+        console.error(`[captain] KOT send (${stationKey}):`, e.message);
+      }
+    }
+
+    // Reconcile with backend order from last KOT response
+    if (lastServerOrder) {
+      setOrders((prev) => {
+        const local = prev[selectedTableId];
+        if (!local) return prev;
+        const serverItemIds = new Set((lastServerOrder.items || []).map((i) => i.id));
+        const localOnlyUnsent = (local.items || []).filter(
+          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+        );
+        return {
+          ...prev,
+          [selectedTableId]: {
+            ...lastServerOrder,
+            items: [...(lastServerOrder.items || []), ...localOnlyUnsent],
+          },
+        };
+      });
+    }
+
     // Return to table view after KOT sent
     setSelectedTableId(null);
   }
@@ -1235,6 +1347,7 @@ export function App() {
             onTransfer={() => setShowTransfer(true)}
             onMerge={() => setShowMerge(true)}
             onUpdateOrder={handleUpdateOrder}
+            onAddItem={handleAddItem}
           />
         )}
       </main>
