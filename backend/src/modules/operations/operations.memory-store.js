@@ -612,23 +612,56 @@ function assignWaiter(tableId, waiterName, actor = "Captain") {
 
 function addOrderItem(tableId, payload, actor = "System") {
   const order = findOrder(tableId);
-  const nextItem = {
-    id: payload.id || `line-${Date.now()}`,
-    menuItemId: payload.menuItemId || payload.id || `item-${Date.now()}`,
-    name: payload.name,
-    quantity: payload.quantity || 1,
-    price: payload.price || 0,
-    seatLabel: payload.seatLabel || "",
-    note: payload.note || "",
-    sentToKot: payload.sentToKot || false,
-    stationId: payload.stationId || "main",
-    stationName: payload.stationName || "Main Kitchen"
-  };
+  const incomingMenuItemId = payload.menuItemId || payload.id || `item-${Date.now()}`;
 
-  order.items.push(nextItem);
+  // Consolidate: if the same menu item already has an unsent, non-voided line, increment its
+  // quantity rather than pushing a second line. This keeps backend state consistent with the
+  // POS UI, which also consolidates by menuItemId for unsent items.
+  const existingIdx = order.items.findIndex(
+    (i) => i.menuItemId === incomingMenuItemId && !i.sentToKot && !i.isVoided
+  );
+
+  if (existingIdx >= 0) {
+    order.items[existingIdx].quantity += (payload.quantity || 1);
+    if (payload.note) order.items[existingIdx].note = payload.note;
+  } else {
+    const nextItem = {
+      id:          payload.id || `line-${Date.now()}`,
+      menuItemId:  incomingMenuItemId,
+      name:        payload.name,
+      quantity:    payload.quantity || 1,
+      price:       payload.price || 0,
+      seatLabel:   payload.seatLabel || "",
+      note:        payload.note || "",
+      sentToKot:   payload.sentToKot || false,
+      stationId:   payload.stationId || "main",
+      stationName: payload.stationName || "Main Kitchen"
+    };
+    order.items.push(nextItem);
+  }
+
   order.notes = "Items added";
   appendAudit(order, buildAuditEntry("Item added", actor, "Now"));
   return clone(order);
+}
+
+// Returns the existing order for tableId, or creates and stores an empty order if the table
+// is in the catalog but has not started an order yet. Throws TABLE_NOT_FOUND if the tableId
+// is unknown (not in the catalog). Used by the device-bypass GET /operations/order endpoint
+// so the POS never gets ORDER_NOT_FOUND on first open.
+function getOrCreateOrder(tableId) {
+  if (state.orders[tableId]) {
+    return clone(state.orders[tableId]);
+  }
+  const meta = getTableMeta(tableId);
+  if (!meta) {
+    throw new ApiError(404, "TABLE_NOT_FOUND", `Table not found: ${tableId}`);
+  }
+  // Table exists in catalog but has no active order — initialise an empty one and store it
+  // so subsequent reads are consistent. runWrite in the repository will persist it.
+  const newOrder = buildEmptyOrder(tableId, 10000 + Object.keys(state.orders).length);
+  state.orders[tableId] = newOrder;
+  return clone(newOrder);
 }
 
 function updateOrderItem(tableId, itemId, payload, actor = "System") {
@@ -889,6 +922,7 @@ module.exports = {
   requestBill,
   assignWaiter,
   addOrderItem,
+  getOrCreateOrder,
   updateOrderItem,
   splitOrderBill,
   addOrderPayment,

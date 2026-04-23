@@ -237,16 +237,36 @@ export default function App() {
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         const apiMap     = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
 
-        // Merge: localStorage (already in state) wins for tables with active items.
-        // API fills in any tables the local copy doesn't know about.
+        // Merge strategy: server is now the authoritative source because every item-add
+        // and item-reconcile writes to the backend. Server state wins for all tables it
+        // knows about. The only exception is offline-added items (sentToKot: false) that
+        // were written to localStorage but not yet acknowledged by the server (e.g., the
+        // device was offline when the cashier tapped menu items). Those are appended on
+        // top of the server state by matching item IDs — if the server already has an item
+        // with the same ID it was written successfully and the local copy is dropped.
         setOrders((prev) => {
           const merged = { ...apiMap };
           Object.entries(prev).forEach(([tableId, savedOrder]) => {
-            // If we have a locally saved order with items, keep it — it's more
-            // up-to-date than what the cloud returned (POS is source of truth).
-            if (savedOrder?.items?.length > 0) {
+            const serverOrder = apiMap[tableId];
+            if (!serverOrder) {
+              // Server doesn't know this table at all (offline-only order) — keep local
               merged[tableId] = savedOrder;
+              return;
             }
+            // Server knows this table: server wins for metadata and sentToKot items.
+            // Append any unsent local items whose IDs are absent from the server state
+            // (items that were added offline and never reached the backend write path).
+            const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
+            const localOnlyUnsent = (savedOrder?.items || []).filter(
+              (li) => !li.sentToKot && !serverItemIds.has(li.id)
+            );
+            if (localOnlyUnsent.length > 0) {
+              merged[tableId] = {
+                ...serverOrder,
+                items: [...(serverOrder.items || []), ...localOnlyUnsent]
+              };
+            }
+            // else: merged[tableId] already has the server order — nothing to add
           });
           return ensureOrders(
             merged,
@@ -408,15 +428,23 @@ export default function App() {
 
   async function handleAddItem(item) {
     if (!selectedTableId) return;
+    const tableId = selectedTableId;
 
-    // 1. Optimistic local update — keeps the UI instant regardless of network
-    mutateOrder(selectedTableId, (order) => {
+    // Generate the item ID here so local state and the backend record use the same ID.
+    // This makes the reconcile step safe: when we apply the server response we can
+    // identify which items are already tracked server-side by ID (no phantom duplicates).
+    const itemId = `item-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+
+    // 1. Optimistic local update — keeps the UI instant regardless of network latency.
+    //    Backend also consolidates by menuItemId (increments existing unsent line), so
+    //    if the cashier taps the same item twice the qty in both states stays in sync.
+    mutateOrder(tableId, (order) => {
       const existing = order.items.findIndex((i) => i.menuItemId === item.id && !i.sentToKot);
       if (existing >= 0) {
         order.items[existing].quantity += 1;
       } else {
         order.items.push({
-          id:         `item-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+          id:         itemId,
           menuItemId: item.id,
           name:       item.name,
           price:      parsePriceNumber(item.price || item.basePrice),
@@ -428,14 +456,17 @@ export default function App() {
       return order;
     });
 
-    // 2. Persist to backend so items survive a device swap or browser crash.
-    //    Counter/takeaway orders (tableId starts with "counter-") have no backend
-    //    table entry — the handler skips them gracefully.
+    // 2. Persist to backend and reconcile with server response.
+    //    Counter/takeaway tickets (tableId starts with "counter-") have no backend table
+    //    entry — the handler returns { ok: true, skipped: true } and we keep local state.
+    if (tableId.startsWith("counter-") || tableId.startsWith("online-")) return;
+
     try {
-      await api.post("/operations/order/item", {
-        tableId:  selectedTableId,
+      const serverOrder = await api.post("/operations/order/item", {
+        tableId,
         outletId: outlet?.id,
         item: {
+          id:         itemId,   // shared ID — server stores this exact value
           menuItemId: item.id,
           name:       item.name,
           price:      parsePriceNumber(item.price || item.basePrice),
@@ -443,9 +474,30 @@ export default function App() {
           note:       ""
         }
       });
+
+      if (serverOrder && !serverOrder.skipped) {
+        // 3. Reconcile: apply server state as the source of truth.
+        //    Any unsent local items whose IDs are absent from the server response are
+        //    offline-added items that haven't been acknowledged yet — keep them.
+        setOrders((prev) => {
+          const localOrder = prev[tableId];
+          if (!localOrder) return prev;
+          const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
+          const localOnlyUnsent = (localOrder.items || []).filter(
+            (li) => !li.sentToKot && !serverItemIds.has(li.id)
+          );
+          return {
+            ...prev,
+            [tableId]: {
+              ...serverOrder,
+              items: [...(serverOrder.items || []), ...localOnlyUnsent]
+            }
+          };
+        });
+      }
     } catch (err) {
-      // Offline or server unreachable — local state is intact, no data lost.
-      // Items will be re-synced when a KOT is sent (which also persists the order).
+      // Offline or server unreachable — local optimistic state is intact, no data lost.
+      // Items will reach the server when the connection returns (or at KOT send time).
       console.warn("[POS] item-add to backend failed (offline?):", err.message);
     }
   }
@@ -671,6 +723,43 @@ export default function App() {
     setOrders(prev => ({ ...prev, [ticketId]: newOrder }));
     setCounterTicketNum(n => n + 1);
     setSelectedTableId(ticketId);
+  }
+
+  // ── Select table (dine-in) ─────────────────────────────────────────────────
+  // 1. Sets selectedTableId immediately so the order panel opens without waiting.
+  // 2. Calls GET /operations/order?tableId=... to get or create the backend order.
+  // 3. Reconciles: server state is authoritative; any unsent local items the server
+  //    does not know (offline-added) are appended on top.
+  // Counter/takeaway/online tickets are skipped — they have no backend table entry.
+  async function handleSelectTable(tableId) {
+    setSelectedTableId(tableId);
+
+    if (!tableId || !outlet?.id) return;
+    if (tableId.startsWith("counter-") || tableId.startsWith("online-")) return;
+
+    try {
+      const serverOrder = await api.get(`/operations/order?tableId=${tableId}&outletId=${outlet.id}`);
+      if (!serverOrder || serverOrder.skipped) return;
+
+      setOrders((prev) => {
+        const localOrder = prev[tableId];
+        // Preserve unsent local items whose IDs are absent from server state (offline adds)
+        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
+        const localOnlyUnsent = (localOrder?.items || []).filter(
+          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+        );
+        return {
+          ...prev,
+          [tableId]: {
+            ...serverOrder,
+            items: [...(serverOrder.items || []), ...localOnlyUnsent]
+          }
+        };
+      });
+    } catch (err) {
+      // Offline or server unreachable — keep local state, no data lost
+      console.warn("[POS] table fetch failed (offline?):", err.message);
+    }
   }
 
   // ── Hold order ────────────────────────────────────────────────────────────
@@ -1037,7 +1126,7 @@ export default function App() {
           <TablePickerPanel
             tableAreas={tableAreas}
             orders={orders}
-            onSelectTable={setSelectedTableId}
+            onSelectTable={handleSelectTable}
             serviceMode={serviceMode}
             onNewCounterOrder={handleNewCounterOrder}
           />

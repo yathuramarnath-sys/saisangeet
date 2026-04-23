@@ -6,6 +6,7 @@ const {
   createDemoOperationsOrder,
   moveOrderToTable,
   getOrder,
+  getOrCreateOrderForTable,
   requestBillForOrder,
   assignWaiterToOrder,
   addItemToOrder,
@@ -228,6 +229,35 @@ test("getOrder returns a single table order snapshot", async () => {
   assert.equal(payload.discountOverrideRequested, true);
 });
 
+// ─── Device get-or-create order (GET /operations/order) ──────────────────────
+test("getOrCreateOrderForTable returns existing order without throwing", async () => {
+  // t1 already has an order seeded by buildInitialState
+  const result = await getOrCreateOrderForTable("t1");
+  assert.equal(result.tableId,     "t1");
+  assert.equal(result.tableNumber, "T1");
+  assert.ok(Array.isArray(result.items), "items should be an array");
+});
+
+test("getOrCreateOrderForTable calling twice returns the same order (idempotent)", async () => {
+  // t1 has a seeded order — calling getOrCreateOrderForTable on it twice must return
+  // the same order (not create a second empty one on top of the seeded one).
+  const first  = await getOrCreateOrderForTable("t1");
+  const second = await getOrCreateOrderForTable("t1");
+  assert.equal(first.tableId,     "t1");
+  assert.equal(first.orderNumber, second.orderNumber, "order number must be stable across calls");
+  assert.equal(first.items.length, second.items.length, "item list must be stable");
+});
+
+// ─── addOrderItem qty consolidation ──────────────────────────────────────────
+test("addOrderItem increments qty for an existing unsent line with the same menuItemId", async () => {
+  await addItemToOrder("t1", { menuItemId: "butter-chicken", name: "Butter Chicken", price: 280, quantity: 1, actorName: "POS" });
+  const second = await addItemToOrder("t1", { menuItemId: "butter-chicken", name: "Butter Chicken", price: 280, quantity: 1, actorName: "POS" });
+
+  const lines = second.items.filter((i) => i.menuItemId === "butter-chicken");
+  assert.equal(lines.length, 1, "should have exactly one line (consolidated)");
+  assert.equal(lines[0].quantity, 2, "quantity should be 2 after two adds");
+});
+
 // ─── Device item-add path (POST /operations/order/item) ───────────────────────
 test("device add-item persists an item without requiring permissions", async () => {
   // addItemToOrder is the same service function the device route calls.
@@ -285,6 +315,7 @@ test("operations routes register the expected endpoints", () => {
     { path: "/kots/:id/status",  methods: ["patch"] },
     { path: "/bill-request",     methods: ["post"] },
     { path: "/payment",          methods: ["post"] },
+    { path: "/order",            methods: ["get"] },
     { path: "/order/item",       methods: ["post"] },
     { path: "/closed-order",     methods: ["post"] }
   ]);

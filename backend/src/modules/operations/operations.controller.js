@@ -4,6 +4,7 @@ const {
   moveOrderToTable,
   getOrders,
   getOrder,
+  getOrCreateOrderForTable,
   sendOrderKot,
   requestBillForOrder,
   assignWaiterToOrder,
@@ -218,6 +219,22 @@ async function devicePaymentHandler(req, res) {
 }
 
 /**
+ * GET /operations/order?tableId=...
+ * Device-bypass: no requirePermission.
+ * Returns the order for the given table, creating an empty one if the table has not yet
+ * started an order. This is the POS "open table" call — never returns ORDER_NOT_FOUND
+ * for a valid table; throws TABLE_NOT_FOUND (404) only if the tableId is unknown.
+ */
+async function deviceGetOrCreateOrderHandler(req, res) {
+  const { tableId } = req.query;
+  if (!tableId) {
+    return res.status(400).json({ error: "tableId query parameter is required" });
+  }
+  const result = await getOrCreateOrderForTable(tableId);
+  res.json(result);
+}
+
+/**
  * POST /operations/order/item
  * Body: { tableId, outletId, item: { menuItemId, name, price, quantity, note?, seatLabel? } }
  * Device-bypass: no requirePermission — POS device tokens have no permissions array.
@@ -288,6 +305,7 @@ module.exports = {
   deviceUpdateKotStatusHandler,
   deviceBillRequestHandler,
   devicePaymentHandler,
+  deviceGetOrCreateOrderHandler,
   deviceAddOrderItemHandler,
   deviceCloseOrderHandler,
 };

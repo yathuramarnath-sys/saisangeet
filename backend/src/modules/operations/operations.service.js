@@ -4,6 +4,7 @@ const {
   moveOrderTableAssignment,
   fetchOrders,
   fetchOrderByTable,
+  fetchOrCreateOrderByTable,
   sendKot,
   requestOrderBill,
   assignOrderWaiter,
@@ -50,6 +51,10 @@ async function getOrders() {
 
 async function getOrder(tableId) {
   return fetchOrderByTable(tableId);
+}
+
+async function getOrCreateOrderForTable(tableId) {
+  return fetchOrCreateOrderByTable(tableId);
 }
 
 async function sendOrderKot(tableId, payload = {}) {
@@ -143,6 +148,7 @@ module.exports = {
   moveOrderToTable,
   getOrders,
   getOrder,
+  getOrCreateOrderForTable,
   sendOrderKot,
   requestBillForOrder,
   assignWaiterToOrder,

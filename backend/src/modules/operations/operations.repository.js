@@ -1,6 +1,7 @@
 const {
   listOrders,
   getOrder,
+  getOrCreateOrder,
   getSummary,
   createDemoOrder,
   moveTable,
@@ -51,6 +52,13 @@ async function fetchOrders() {
 
 async function fetchOrderByTable(tableId) {
   return runRead(() => getOrder(tableId));
+}
+
+// Device-facing: returns the order if it exists, or creates and persists an empty one for the
+// table. Uses runWrite so the new empty order is immediately persisted to Postgres.
+// Throws TABLE_NOT_FOUND (404) if the tableId is not in the outlet table catalog.
+async function fetchOrCreateOrderByTable(tableId) {
+  return runWrite(() => getOrCreateOrder(tableId));
 }
 
 async function sendKot(tableId, actor) {
@@ -115,6 +123,7 @@ module.exports = {
   moveOrderTableAssignment,
   fetchOrders,
   fetchOrderByTable,
+  fetchOrCreateOrderByTable,
   sendKot,
   requestOrderBill,
   assignOrderWaiter,

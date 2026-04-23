@@ -29,6 +29,7 @@ const {
   deviceUpdateKotStatusHandler,
   deviceBillRequestHandler,
   devicePaymentHandler,
+  deviceGetOrCreateOrderHandler,
   deviceAddOrderItemHandler,
   deviceCloseOrderHandler,
 } = require("./operations.controller");
@@ -142,6 +143,9 @@ operationsRouter.get("/kots",          requireAuth, asyncHandler(deviceListKotsH
 operationsRouter.patch("/kots/:id/status", requireAuth, asyncHandler(deviceUpdateKotStatusHandler));
 operationsRouter.post("/bill-request", requireAuth, asyncHandler(deviceBillRequestHandler));
 operationsRouter.post("/payment",      requireAuth, asyncHandler(devicePaymentHandler));
+// Device get-or-create order: returns existing order or creates empty one for a known table.
+// POS calls this on every table open so ORDER_NOT_FOUND is never the normal first-open path.
+operationsRouter.get("/order",         requireAuth, asyncHandler(deviceGetOrCreateOrderHandler));
 // Device item-add: no requirePermission — POS tokens have no permissions array.
 // Counter/takeaway orders (tableId starts with "counter-") are skipped inside the handler.
 operationsRouter.post("/order/item",   requireAuth, asyncHandler(deviceAddOrderItemHandler));
