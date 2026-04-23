@@ -824,7 +824,14 @@ export function App() {
     });
 
     socket.on("kot:status", ({ id, status }) => {
-      setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+      if (status === "bumped") {
+        // Backend removes bumped KOTs from the store. Mirror that here so all
+        // KDS screens in the outlet stay in sync when any one of them bumps a ticket.
+        setTickets(prev => prev.filter(t => t.id !== id));
+        setServedCount(n => n + 1);
+      } else {
+        setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+      }
     });
 
     // ── Owner Web changed menu/stations — refresh station list ────────────
@@ -876,15 +883,36 @@ export function App() {
 
   async function handleAdvance(id, cur) {
     const next = cur === "new" ? "preparing" : "ready";
+    // Optimistic local update + socket broadcast so all connected KDS screens update instantly.
     setTickets(prev => prev.map(t => t.id === id ? { ...t, status: next } : t));
     socketRef.current?.emit("kot:status", { id, status: next });
-    try { await api.patch(`/operations/kots/${id}/status`, { status: next }); } catch (_) {}
+    // Persist to backend. outletId is required by deviceUpdateKotStatusHandler (req.query).
+    // Without it the handler returns 404 and no backend state is updated.
+    try {
+      await api.patch(
+        `/operations/kots/${id}/status?outletId=${branchConfig?.outletId}`,
+        { status: next }
+      );
+    } catch (_) {}
   }
 
   function handleBump(id) {
+    // Remove locally immediately — UI is instant.
     setTickets(prev => prev.filter(t => t.id !== id));
     setServedCount(n => n + 1);
-    socketRef.current?.emit("kot:bumped", { id });
+    // Persist the bump to the backend so the KOT is removed from the in-memory
+    // kot-store. Without this, reconnecting KDS screens and other connected KDS
+    // devices would see all bumped tickets reappear.
+    // The backend broadcasts kot:status { id, status: "bumped" } to all outlet
+    // room members — the kot:status handler below (which now handles "bumped" as
+    // a filter-out) ensures other KDS screens also remove the ticket.
+    api.patch(
+      `/operations/kots/${id}/status?outletId=${branchConfig?.outletId}`,
+      { status: "bumped" }
+    ).catch(() => {});
+    // Note: the previous socket.emit("kot:bumped") was removed — the backend has
+    // no listener for that event. Other screens are now notified via the backend's
+    // kot:status broadcast triggered by the PATCH call above.
   }
 
   function handleToggleItem(ticketId, itemId) {

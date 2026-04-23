@@ -135,10 +135,17 @@ async function deviceSendKotHandler(req, res) {
   }
 
   const tenantId = req.user?.tenantId || "default";
+  const { stationName, areaName } = req.body;
   const kot = {
     id:          `kot-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
     kotNumber:   kotNumber || `KOT-${Date.now()}`,
     tableNumber: tableNumber || "—",
+    // station and areaName are used by the KDS for station-tab filtering and display.
+    // stationName comes from the POS KOT payload (grouped by item.station);
+    // areaName comes from order.areaName on the POS side.
+    // Defaults ensure every KOT is always displayable even when the POS omits these fields.
+    station:     stationName || "Main Kitchen",
+    areaName:    areaName    || tableNumber || "—",
     source:      "pos",
     status:      "new",
     createdAt:   new Date().toISOString(),

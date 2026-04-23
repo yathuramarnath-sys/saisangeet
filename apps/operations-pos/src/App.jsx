@@ -575,6 +575,12 @@ export default function App() {
       tableId:     order.tableId,
       tableNumber: order.tableNumber,
       kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,
+      // areaName lets the KDS display which seating area the ticket is for.
+      // stationName is omitted here because the POS currently groups items by
+      // item.station before printing but sends a single API call for all stations.
+      // When per-item station assignments are added (future slice), stationName
+      // can be included per KOT group here and printer routing will also improve.
+      areaName:    order.areaName,
       items:       unsent
     };
     try {

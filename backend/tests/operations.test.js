@@ -281,6 +281,63 @@ test("device add-item persists an item without requiring permissions", async () 
   assert.equal(result.auditTrail[0].actor, "POS");
 });
 
+// ─── KOT store — bump and status lifecycle ────────────────────────────────────
+
+const { getKots, addKot, updateKotStatus } = require("../src/modules/operations/kot-store");
+
+test("updateKotStatus bumped removes the KOT from the store", () => {
+  const tenantId = "test-tenant";
+  const outletId = "test-outlet";
+  const kot = {
+    id: "kot-test-1", kotNumber: "KOT-0001", tableNumber: "5",
+    station: "Hot", areaName: "AC Hall",
+    source: "pos", status: "new", createdAt: new Date().toISOString(),
+    items: [{ id: "i1", name: "Paneer Tikka", quantity: 1, note: "" }]
+  };
+
+  addKot(tenantId, outletId, kot);
+  assert.equal(getKots(tenantId, outletId).length, 1, "KOT should be present after add");
+
+  const result = updateKotStatus(tenantId, outletId, "kot-test-1", "bumped");
+  assert.ok(result, "updateKotStatus should return a result for bumped");
+  assert.equal(result.status, "bumped");
+  assert.equal(getKots(tenantId, outletId).length, 0, "KOT should be removed after bump");
+});
+
+test("updateKotStatus preparing updates status without removing the KOT", () => {
+  const tenantId = "test-tenant-2";
+  const outletId = "test-outlet-2";
+  const kot = {
+    id: "kot-test-2", kotNumber: "KOT-0002", tableNumber: "3",
+    station: "Beverages", areaName: "Family Hall",
+    source: "pos", status: "new", createdAt: new Date().toISOString(),
+    items: [{ id: "i2", name: "Masala Chai", quantity: 2, note: "" }]
+  };
+
+  addKot(tenantId, outletId, kot);
+  const updated = updateKotStatus(tenantId, outletId, "kot-test-2", "preparing");
+  assert.ok(updated, "updateKotStatus should return the updated KOT");
+  assert.equal(updated.status, "preparing");
+  assert.equal(getKots(tenantId, outletId).length, 1, "KOT should still be present after non-bump status update");
+  assert.equal(getKots(tenantId, outletId)[0].status, "preparing");
+});
+
+test("KOT built with station and areaName preserves those fields after addKot", () => {
+  const tenantId = "test-tenant-3";
+  const outletId = "test-outlet-3";
+  const kot = {
+    id: "kot-test-3", kotNumber: "KOT-0003", tableNumber: "7",
+    station: "Grill", areaName: "Terrace",
+    source: "pos", status: "new", createdAt: new Date().toISOString(),
+    items: []
+  };
+
+  addKot(tenantId, outletId, kot);
+  const [stored] = getKots(tenantId, outletId);
+  assert.equal(stored.station,  "Grill",   "station should be preserved");
+  assert.equal(stored.areaName, "Terrace", "areaName should be preserved");
+});
+
 test("operations routes register the expected endpoints", () => {
   const routes = operationsRouter.stack
     .filter((layer) => layer.route)
