@@ -546,16 +546,22 @@ export default function App() {
       return o;
     });
 
-    // ── 2. Print KOT — grouped by station so each kitchen gets its own ticket ──
-    if (kotAutoSendEnabled()) {
-      // Group unsent items by their kitchen station
-      const stationGroups = {};
-      unsent.forEach(item => {
-        const st = item.station || "__default__";
-        if (!stationGroups[st]) stationGroups[st] = [];
-        stationGroups[st].push(item);
-      });
+    // ── 2. Group unsent items by kitchen station ──────────────────────────
+    // Built here so it is shared by both the print block and the API block below.
+    // item.station is set when menu items carry station assignments from the kitchen
+    // catalog. Today that field is not yet populated, so every item falls into
+    // "__default__" and we get one group — identical to the previous single-call
+    // behavior. When items gain station assignments (next slice), this grouping
+    // automatically produces per-station KOTs for both printing and backend.
+    const stationGroups = {};
+    unsent.forEach(item => {
+      const st = item.station || "__default__";
+      if (!stationGroups[st]) stationGroups[st] = [];
+      stationGroups[st].push(item);
+    });
 
+    // ── 3. Print KOT — one ticket per station group ───────────────────────
+    if (kotAutoSendEnabled()) {
       Object.entries(stationGroups).forEach(([stationName, stItems]) => {
         const printer = stationName === "__default__"
           ? getKotPrinter()
@@ -568,51 +574,57 @@ export default function App() {
     const printerLabel = printer ? ` → ${printer.name}` : "";
     showToast(`🖨️ KOT #${kotSeq} printed${printerLabel}`);
 
-    // ── 3. Also send via API / socket — queue if offline ─────────────────
-    const kotPayload = {
-      outletId:    outlet?.id,
-      orderId:     order.id,
-      tableId:     order.tableId,
-      tableNumber: order.tableNumber,
-      kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,
-      // areaName lets the KDS display which seating area the ticket is for.
-      // stationName is omitted here because the POS currently groups items by
-      // item.station before printing but sends a single API call for all stations.
-      // When per-item station assignments are added (future slice), stationName
-      // can be included per KOT group here and printer routing will also improve.
-      areaName:    order.areaName,
-      items:       unsent
-    };
-    try {
-      // Response: { kot, order? }
-      // order is present for dine-in tables and has all items marked sentToKot: true.
-      const result = await api.post("/operations/kot", kotPayload);
-      if (result?.order && !order.tableId.startsWith("counter-") && !order.tableId.startsWith("online-")) {
-        // Reconcile with server state — server is authoritative post-KOT.
-        // Server has all items sentToKot: true; any items added locally after the API call
-        // (practically impossible — panel closes) would be in localOnlyUnsent.
-        setOrders((prev) => {
-          const localOrder = prev[order.tableId];
-          if (!localOrder) return prev;
-          const serverItemIds = new Set((result.order.items || []).map((i) => i.id));
-          const localOnlyUnsent = (localOrder.items || []).filter(
-            (li) => !li.sentToKot && !serverItemIds.has(li.id)
-          );
-          return {
-            ...prev,
-            [order.tableId]: {
-              ...result.order,
-              items: [...(result.order.items || []), ...localOnlyUnsent]
-            }
-          };
-        });
+    // ── 4. Send to backend — one API call per station group ───────────────
+    // Passing stationName per group means each KOT object on the backend (and
+    // therefore each KDS ticket) carries the correct station for filtering.
+    // For the "__default__" group stationName is omitted; the backend defaults
+    // to "Main Kitchen". Counter/online orders queue offline like before.
+    let lastServerOrder = null;
+    for (const [stationKey, stItems] of Object.entries(stationGroups)) {
+      const kotPayload = {
+        outletId:    outlet?.id,
+        orderId:     order.id,
+        tableId:     order.tableId,
+        tableNumber: order.tableNumber,
+        kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,
+        areaName:    order.areaName,
+        // stationName is the station name string for real groups, undefined for
+        // the "__default__" fallback (items with no station assignment).
+        stationName: stationKey === "__default__" ? undefined : stationKey,
+        items:       stItems
+      };
+      try {
+        // Response: { kot, order? }
+        const result = await api.post("/operations/kot", kotPayload);
+        if (result?.order) lastServerOrder = result.order;
+      } catch (err) {
+        // Offline or server unreachable — queue for retry when connection returns
+        const queue = loadKotQueue();
+        queue.push(kotPayload);
+        saveKotQueue(queue);
+        console.warn("KOT queued (offline):", kotPayload.kotNumber);
       }
-    } catch (err) {
-      // Offline or server unreachable — queue for retry when connection returns
-      const queue = loadKotQueue();
-      queue.push(kotPayload);
-      saveKotQueue(queue);
-      console.warn("KOT queued (offline):", kotPayload.kotNumber);
+    }
+
+    // Reconcile from the last server response (most up-to-date order state).
+    // All items across all station groups are sentToKot: true on the server by
+    // this point. Unsent local items absent from the server response are kept.
+    if (lastServerOrder && !order.tableId.startsWith("counter-") && !order.tableId.startsWith("online-")) {
+      setOrders((prev) => {
+        const localOrder = prev[order.tableId];
+        if (!localOrder) return prev;
+        const serverItemIds = new Set((lastServerOrder.items || []).map((i) => i.id));
+        const localOnlyUnsent = (localOrder.items || []).filter(
+          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+        );
+        return {
+          ...prev,
+          [order.tableId]: {
+            ...lastServerOrder,
+            items: [...(lastServerOrder.items || []), ...localOnlyUnsent]
+          }
+        };
+      });
     }
 
     // ── 4. Return to table view after KOT sent ────────────────────────────
