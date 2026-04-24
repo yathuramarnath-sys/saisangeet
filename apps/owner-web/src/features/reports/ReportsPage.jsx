@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "../../lib/api";
 import {
   OUTLETS, MONTHS,
   dayEndSeed, itemSalesSeed, gstSeed, paymentSeed, discountVoidSeed, staffSalesSeed,
@@ -94,8 +95,8 @@ function RptTable({ cols, rows, foot }) {
 }
 
 // ── 1. Day End Summary ───────────────────────────────────────────────────────
-function DayEndSummary({ outlet, date }) {
-  const d = dayEndSeed;
+function DayEndSummary({ outlet, date, data }) {
+  const d = data || dayEndSeed;
   const totalPayAmt = d.paymentModes.reduce((s, p) => s + p.amount, 0);
 
   function exportCSV() {
@@ -220,11 +221,14 @@ function DayEndSummary({ outlet, date }) {
 }
 
 // ── 2. Item Sales Report ─────────────────────────────────────────────────────
-function ItemSalesReport({ outlet, date }) {
+function ItemSalesReport({ outlet, date, data }) {
   const [cat, setCat] = useState("All");
-  const cats = ["All", ...new Set(itemSalesSeed.map(i => i.category))];
-  const filtered = cat === "All" ? itemSalesSeed : itemSalesSeed.filter(i => i.category === cat);
-  const totalAmt = itemSalesSeed.reduce((s, i) => s + i.amount, 0);
+  const items = data?.itemSales?.length ? data.itemSales : itemSalesSeed;
+  const cats = ["All", ...new Set(items.map(i => i.category))];
+  const filtered = cat === "All" ? items : items.filter(i => i.category === cat);
+  const totalAmt = items.reduce((s, i) => s + i.amount, 0);
+  const mostSold   = data?.mostSoldItem;
+  const topRevenue = data?.topRevenueItem;
 
   function exportCSV() {
     downloadCSV(`ItemSales_${date}`,
@@ -238,10 +242,10 @@ function ItemSalesReport({ outlet, date }) {
     <div className="rpt-body">
       <ExportBar onPDF={printReport} onCSV={exportCSV} />
       <div className="rpt-kpi-row">
-        <KpiCard dark label="Total Revenue" value={fmt(totalAmt)} sub={`${itemSalesSeed.length} items`} />
-        <KpiCard label="Most Sold Item"  value="Butter Naan"   sub="1,240 qty" />
-        <KpiCard label="Top Revenue Item" value="Veg Biryani"  sub={fmt(203280)} />
-        <KpiCard label="Total Qty Sold"  value={itemSalesSeed.reduce((s, i) => s + i.qty, 0).toLocaleString("en-IN")} sub="across all items" />
+        <KpiCard dark label="Total Revenue"   value={fmt(totalAmt)}   sub={`${items.length} items`} />
+        <KpiCard label="Most Sold Item"    value={mostSold   ? mostSold.name   : "—"} sub={mostSold   ? `${mostSold.qty} qty`       : "No sales yet"} />
+        <KpiCard label="Top Revenue Item"  value={topRevenue ? topRevenue.name : "—"} sub={topRevenue ? fmt(topRevenue.amount)      : "No sales yet"} />
+        <KpiCard label="Total Qty Sold"    value={items.reduce((s, i) => s + i.qty, 0).toLocaleString("en-IN")} sub="across all items" />
       </div>
 
       <div className="panel rpt-panel">
@@ -258,7 +262,7 @@ function ItemSalesReport({ outlet, date }) {
           cols={["Rank", "Item Name", "Category", "Qty Sold", "Orders", "Rate (₹)", "Amount (₹)", "% of Sales"]}
           rows={[...filtered].sort((a, b) => b.amount - a.amount).map((item, i) => [
             <span className="rpt-rank-badge">{i + 1}</span>,
-            item.name, item.category, item.qty, item.orders,
+            item.name, item.category || "—", item.qty, item.orders,
             fmt(item.rate), fmt(item.amount), pct(item.amount, totalAmt)
           ])}
           foot={["", "Total", "", filtered.reduce((s, i) => s + i.qty, 0), "",
@@ -270,8 +274,8 @@ function ItemSalesReport({ outlet, date }) {
 }
 
 // ── 3. GST Report ────────────────────────────────────────────────────────────
-function GSTReport({ outlet }) {
-  const d = gstSeed;
+function GSTReport({ outlet, data }) {
+  const d = (data?.gst?.summary?.totalBills > 0 ? data.gst : null) || gstSeed;
 
   function exportCSV() {
     downloadCSV(`GST_${d.month.replace(" ", "_")}`,
@@ -322,8 +326,8 @@ function GSTReport({ outlet }) {
 }
 
 // ── 4. Payment Report ────────────────────────────────────────────────────────
-function PaymentReport({ outlet, date }) {
-  const d = paymentSeed;
+function PaymentReport({ outlet, date, data }) {
+  const d = (data?.payment?.summary?.totalCollected > 0 ? data.payment : null) || paymentSeed;
   const maxHourly = Math.max(...d.hourly.map(h => h.total));
 
   function exportCSV() {
@@ -412,8 +416,8 @@ function PaymentReport({ outlet, date }) {
 }
 
 // ── 5. Discount & Void Report ────────────────────────────────────────────────
-function DiscountVoidReport({ date }) {
-  const d = discountVoidSeed;
+function DiscountVoidReport({ date, data }) {
+  const d = data?.discountVoid || discountVoidSeed;
 
   function exportCSV() {
     downloadCSV(`DiscountVoid_${date}`,
@@ -464,8 +468,8 @@ function DiscountVoidReport({ date }) {
 }
 
 // ── 6. Staff Sales Report ────────────────────────────────────────────────────
-function StaffSalesReport({ date }) {
-  const d = staffSalesSeed;
+function StaffSalesReport({ date, data }) {
+  const d = (data?.staffSales?.length ? data.staffSales : null) || staffSalesSeed;
 
   function exportCSV() {
     downloadCSV(`StaffSales_${date}`,
@@ -780,6 +784,14 @@ export function ReportsPage() {
   const [month, setMonth]     = useState(() => {
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
+  const [salesData, setSalesData] = useState(null);
+
+  // Fetch live sales data from backend on mount and whenever date changes
+  useEffect(() => {
+    api.get("/reports/owner-summary")
+      .then(res => { if (res?.salesData) setSalesData(res.salesData); })
+      .catch(() => {}); // silently fall back to seed zeros
+  }, [date]);
 
   return (
     <>
@@ -818,13 +830,13 @@ export function ReportsPage() {
         </div>
       </div>
 
-      {active === "day-end"    && <DayEndSummary outlet={outlet} date={date} />}
-      {active === "item-sales" && <ItemSalesReport outlet={outlet} date={date} />}
-      {active === "category"   && <CategoryReport date={date} />}
-      {active === "gst"        && <GSTReport outlet={outlet} month={month} />}
-      {active === "payments"   && <PaymentReport outlet={outlet} date={date} />}
-      {active === "discounts"  && <DiscountVoidReport date={date} />}
-      {active === "staff"      && <StaffSalesReport date={date} />}
+      {active === "day-end"    && <DayEndSummary  outlet={outlet} date={date}  data={salesData?.dayEnd} />}
+      {active === "item-sales" && <ItemSalesReport outlet={outlet} date={date}  data={salesData} />}
+      {active === "category"   && <CategoryReport  date={date}                  data={salesData} />}
+      {active === "gst"        && <GSTReport        outlet={outlet} month={month} data={salesData} />}
+      {active === "payments"   && <PaymentReport    outlet={outlet} date={date}  data={salesData} />}
+      {active === "discounts"  && <DiscountVoidReport date={date}                data={salesData} />}
+      {active === "staff"      && <StaffSalesReport  date={date}                 data={salesData} />}
       {active === "email"      && (
         <div className="rpt-body">
           <EmailTrigger />

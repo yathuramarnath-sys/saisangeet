@@ -10,6 +10,176 @@ const { getTodaySales } = require("../operations/closed-orders-store");
 // Insights are generated from live sales data — empty until POS goes live
 const defaultInsights = [];
 
+// ── Sales data builder ────────────────────────────────────────────────────────
+// Computes all report tab data from the closed-orders array for today.
+// Used by every Reports tab in Owner Web — no seed data, purely from POS sales.
+
+function _cap(str) {
+  if (!str) return "Cash";
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function buildSalesData(closedToday) {
+  const paymentMap = {};
+  const itemMap    = {};
+  let totalGross   = 0;
+  let totalDiscount = 0;
+
+  for (const order of closedToday) {
+    const items    = order.items || [];
+    const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+    const disc     = Math.min(order.discountAmount || 0, subtotal);
+    const net      = subtotal - disc;
+
+    totalGross    += net;
+    totalDiscount += disc;
+
+    for (const p of (order.payments || [])) {
+      const mode = _cap(p.method || "cash");
+      if (!paymentMap[mode]) paymentMap[mode] = { mode, amount: 0, orders: 0 };
+      paymentMap[mode].amount += p.amount || 0;
+      paymentMap[mode].orders += 1;
+    }
+
+    for (const item of items) {
+      const key = item.name || "Unknown";
+      if (!itemMap[key]) itemMap[key] = { name: key, qty: 0, amount: 0, orders: 0, rate: item.price || 0 };
+      itemMap[key].qty    += item.quantity || 1;
+      itemMap[key].amount += (item.price || 0) * (item.quantity || 1);
+      itemMap[key].orders += 1;
+    }
+  }
+
+  const totalOrders   = closedToday.length;
+  // Assume prices are GST-inclusive at 5%
+  const taxableAmount = Math.round(totalGross / 1.05);
+  const totalTax      = totalGross - taxableAmount;
+  const cgst          = Math.round(totalTax / 2);
+  const sgst          = totalTax - cgst;
+
+  const totalCollected = Object.values(paymentMap).reduce((s, p) => s + p.amount, 0);
+  const paymentModes   = Object.values(paymentMap).map(p => ({
+    ...p,
+    amount: Math.round(p.amount),
+    pct:    totalCollected > 0 ? Math.round(p.amount / totalCollected * 100) : 0,
+    icon:   p.mode === "Cash" ? "💵" : p.mode === "Upi" ? "📱" : "💳"
+  }));
+
+  const itemSales = Object.values(itemMap)
+    .sort((a, b) => b.amount - a.amount)
+    .map((item, i) => ({
+      rank:     i + 1,
+      name:     item.name,
+      category: "—",
+      qty:      item.qty,
+      orders:   item.orders,
+      rate:     Math.round(item.rate),
+      amount:   Math.round(item.amount),
+    }));
+
+  const mostSoldItem   = [...itemSales].sort((a, b) => b.qty    - a.qty)[0]    || null;
+  const topRevenueItem = [...itemSales].sort((a, b) => b.amount - a.amount)[0] || null;
+
+  // Session breakdown by hour (IST)
+  const buckets = {
+    Breakfast: { session: "Breakfast", orders: 0, amount: 0 },
+    Lunch:     { session: "Lunch",     orders: 0, amount: 0 },
+    Dinner:    { session: "Dinner",    orders: 0, amount: 0 },
+  };
+  for (const order of closedToday) {
+    const hour   = new Date(order.closedAt || order._receivedAt || 0)
+      .toLocaleString("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" });
+    const h      = parseInt(hour, 10) || 0;
+    const bucket = h < 12 ? "Breakfast" : h < 16 ? "Lunch" : "Dinner";
+    const items2 = order.items || [];
+    const net2   = items2.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0)
+                   - Math.min(order.discountAmount || 0, 0);
+    buckets[bucket].orders += 1;
+    buckets[bucket].amount += net2;
+  }
+  const sessions = Object.values(buckets).filter(s => s.orders > 0);
+
+  const discountBills = closedToday.filter(o => (o.discountAmount || 0) > 0).length;
+
+  return {
+    dayEnd: {
+      summary: {
+        totalSales:       Math.round(totalGross),
+        totalOrders,
+        avgOrderValue:    totalOrders > 0 ? Math.round(totalGross / totalOrders) : 0,
+        netAfterDiscount: Math.round(totalGross),
+        totalTax:         Math.round(totalTax),
+        totalDiscount:    Math.round(totalDiscount),
+        totalCancelled:   0,
+        cancelledValue:   0,
+      },
+      paymentModes,
+      orderTypes: totalOrders > 0
+        ? [{ type: "Dine In", orders: totalOrders, amount: Math.round(totalGross) }]
+        : [],
+      sessions,
+      categories:   [],
+      items:        itemSales.slice(0, 20),
+      tax: {
+        taxableAmount: Math.round(taxableAmount),
+        cgst, sgst, igst: 0, cess: 0,
+        totalTax: Math.round(totalTax),
+      },
+      discounts: discountBills > 0
+        ? [{ type: "Manual Discount", count: discountBills, amount: Math.round(totalDiscount) }]
+        : [],
+      cancellations: [],
+    },
+    itemSales,
+    mostSoldItem,
+    topRevenueItem,
+    gst: {
+      month: new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" }),
+      summary: {
+        taxableAmount: Math.round(taxableAmount),
+        cgst, sgst,
+        totalGst:   Math.round(totalTax),
+        totalBills: totalOrders,
+      },
+      daily: totalOrders > 0 ? [{
+        date:    new Date().toLocaleDateString("en-IN"),
+        bills:   totalOrders,
+        taxable: Math.round(taxableAmount),
+        cgst, sgst,
+        total:   Math.round(totalTax),
+      }] : [],
+      outletBreakdown: [],
+    },
+    payment: {
+      summary: {
+        totalCollected:  Math.round(totalCollected),
+        cashAmount:      Math.round((paymentMap["Cash"] || {}).amount || 0),
+        digitalAmount:   Math.round(
+          ((paymentMap["Upi"]  || {}).amount || 0) +
+          ((paymentMap["Card"] || {}).amount || 0)
+        ),
+        variance: 0,
+      },
+      modes:                paymentModes,
+      hourly:               [],
+      outletReconciliation: [],
+    },
+    staffSales: [],
+    discountVoid: {
+      summary: {
+        totalDiscountAmt:   Math.round(totalDiscount),
+        totalDiscountBills: discountBills,
+        totalVoids:         0,
+        totalVoidAmt:       0,
+        manualOverrides:    0,
+      },
+      discountLog: [],
+      voidLog:     [],
+    },
+    categorySales: { categories: [], items: {} },
+  };
+}
+
 function formatCurrency(value) {
   return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
 }
@@ -194,9 +364,10 @@ function buildOwnerSummary(tenantId) {
   const deletedBillCount = Object.values(orders).reduce((sum, order) => sum + (order.deletedBillLog || []).length, 0);
   const pendingOverrides = Object.values(orders).filter((order) => order.discountOverrideRequested).length;
 
-  // Real today's order count from closed-orders store
-  const closedToday = getTodaySales(tenantId || "default");
+  // Real today's order count + full sales breakdown from closed-orders store
+  const closedToday     = getTodaySales(tenantId || "default");
   const todayOrderCount = closedToday.length;
+  const salesData       = buildSalesData(closedToday);
 
   return {
     popupAlert: {
@@ -239,7 +410,8 @@ function buildOwnerSummary(tenantId) {
     controlSummary,
     approvalLog,
     controlLogs,
-    alerts: buildAlerts(orders)
+    alerts: buildAlerts(orders),
+    salesData,
   };
 }
 
