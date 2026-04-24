@@ -176,8 +176,101 @@ function buildSalesData(closedToday) {
       discountLog: [],
       voidLog:     [],
     },
-    categorySales: { categories: [], items: {} },
+    categorySales: buildCategorySales(closedToday),
   };
+}
+
+// ── Category sales builder ────────────────────────────────────────────────────
+// Groups items by item.station (the only semantic grouping available on closed
+// order items — no category field is written to closed orders by POS today).
+// Falls back to "General" when station is empty.  This applies to ALL tenants.
+const CAT_COLORS = [
+  "#2196F3","#4CAF50","#FF9800","#9C27B0",
+  "#F44336","#00BCD4","#795548","#607D8B",
+];
+
+function buildCategorySales(closedToday) {
+  /** catKey → accumulator */
+  const catMap = {};
+
+  for (const order of closedToday) {
+    const items = order.items || [];
+    const rawHour = new Date(order.closedAt || order._receivedAt || 0)
+      .toLocaleString("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" });
+    const h       = parseInt(rawHour, 10) || 0;
+    const session = h < 12 ? "Breakfast" : h < 16 ? "Lunch" : "Dinner";
+    const outlet  = (order.outletName || "All Outlets").trim();
+
+    for (const item of items) {
+      const catKey = (item.station || "").trim() || "General";
+
+      if (!catMap[catKey]) {
+        catMap[catKey] = {
+          name:       catKey,
+          qty:        0,
+          amount:     0,
+          ordersSet:  new Set(),
+          itemMap:    {},
+          sessions:   { Breakfast: 0, Lunch: 0, Dinner: 0 },
+          outletMap:  {},
+        };
+      }
+
+      const cat    = catMap[catKey];
+      const lineAmt = (item.price || 0) * (item.quantity || 1);
+
+      cat.qty    += item.quantity || 1;
+      cat.amount += lineAmt;
+      cat.ordersSet.add(order.tableId || order.orderNumber || Math.random());
+      cat.sessions[session] = (cat.sessions[session] || 0) + lineAmt;
+      cat.outletMap[outlet]  = (cat.outletMap[outlet]  || 0) + lineAmt;
+
+      const iKey = (item.name || "Unknown");
+      if (!cat.itemMap[iKey]) {
+        cat.itemMap[iKey] = { name: iKey, qty: 0, orders: 0, rate: item.price || 0, amount: 0 };
+      }
+      cat.itemMap[iKey].qty    += item.quantity || 1;
+      cat.itemMap[iKey].orders += 1;
+      cat.itemMap[iKey].amount += lineAmt;
+    }
+  }
+
+  const categories = Object.values(catMap)
+    .sort((a, b) => b.amount - a.amount)
+    .map((cat, i) => {
+      const itemList = Object.values(cat.itemMap).sort((a, b) => b.amount - a.amount);
+      const topItem  = itemList[0] || { name: "—" };
+      const orders   = cat.ordersSet.size;
+      const avgRate  = cat.qty > 0 ? Math.round(cat.amount / cat.qty) : 0;
+      return {
+        name:      cat.name,
+        color:     CAT_COLORS[i % CAT_COLORS.length],
+        itemCount: itemList.length,
+        qty:       cat.qty,
+        amount:    Math.round(cat.amount),
+        orders,
+        avgRate,
+        topItem:   { name: topItem.name },
+        sessions: {
+          Breakfast: Math.round(cat.sessions.Breakfast || 0),
+          Lunch:     Math.round(cat.sessions.Lunch     || 0),
+          Dinner:    Math.round(cat.sessions.Dinner    || 0),
+        },
+        outlets: Object.fromEntries(
+          Object.entries(cat.outletMap).map(([k, v]) => [k, Math.round(v)])
+        ),
+      };
+    });
+
+  // items keyed by category name — used by the drilldown section
+  const items = {};
+  for (const cat of Object.values(catMap)) {
+    items[cat.name] = Object.values(cat.itemMap)
+      .map(i => ({ ...i, amount: Math.round(i.amount) }))
+      .sort((a, b) => b.amount - a.amount);
+  }
+
+  return { categories, items };
 }
 
 function formatCurrency(value) {

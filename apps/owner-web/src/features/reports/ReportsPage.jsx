@@ -587,13 +587,18 @@ function EmailTrigger() {
 }
 
 // ── 7. Category-wise Report ──────────────────────────────────────────────────
-function CategoryReport({ date }) {
-  const d = categorySalesSeed;
+function CategoryReport({ date, data }) {
+  // Use live backend data when available; fall back to seed (all-zero) otherwise.
+  // Categories are grouped by item.station on the backend — "General" when unset.
+  const d = (data?.categorySales?.categories?.length ? data.categorySales : null)
+            || categorySalesSeed;
   const [expanded, setExpanded] = useState(null);
   const [view, setView]         = useState("revenue"); // revenue | qty | orders
   const totalAmt   = d.categories.reduce((s, c) => s + c.amount, 0);
   const totalQty   = d.categories.reduce((s, c) => s + c.qty, 0);
   const totalOrders= d.categories.reduce((s, c) => s + c.orders, 0);
+  // Collect real outlet names dynamically — avoids hardcoded branch names from seed
+  const outletNames = [...new Set(d.categories.flatMap(c => Object.keys(c.outlets || {})))].sort();
 
   const sorted = [...d.categories].sort((a, b) =>
     view === "revenue" ? b.amount - a.amount :
@@ -706,29 +711,25 @@ function CategoryReport({ date }) {
         />
       </div>
 
-      {/* Outlet-wise per category */}
-      <div className="panel rpt-panel">
-        <SectionHead title="Outlet-wise Breakdown" eyebrow="Revenue per branch per category" />
-        <RptTable
-          cols={["Category", "Indiranagar (₹)", "Koramangala (₹)", "HSR Layout (₹)", "Whitefield (₹)", "Total (₹)"]}
-          rows={d.categories.map(c => [
-            <span className="rpt-cat-name-cell">
-              <span className="rpt-cat-dot" style={{ background: c.color }} />{c.name}
-            </span>,
-            fmt(c.outlets["Indiranagar"]),
-            fmt(c.outlets["Koramangala"]),
-            fmt(c.outlets["HSR Layout"]),
-            fmt(c.outlets["Whitefield"]),
-            <strong>{fmt(c.amount)}</strong>
-          ])}
-          foot={["Total",
-            fmt(d.categories.reduce((s,c)=>s+c.outlets["Indiranagar"],0)),
-            fmt(d.categories.reduce((s,c)=>s+c.outlets["Koramangala"],0)),
-            fmt(d.categories.reduce((s,c)=>s+c.outlets["HSR Layout"],0)),
-            fmt(d.categories.reduce((s,c)=>s+c.outlets["Whitefield"],0)),
-            fmt(totalAmt)]}
-        />
-      </div>
+      {/* Outlet-wise per category — columns built from real outlet names in data */}
+      {outletNames.length > 0 && (
+        <div className="panel rpt-panel">
+          <SectionHead title="Outlet-wise Breakdown" eyebrow="Revenue per branch per category" />
+          <RptTable
+            cols={["Category", ...outletNames.map(n => `${n} (₹)`), "Total (₹)"]}
+            rows={d.categories.map(c => [
+              <span className="rpt-cat-name-cell">
+                <span className="rpt-cat-dot" style={{ background: c.color }} />{c.name}
+              </span>,
+              ...outletNames.map(n => fmt(c.outlets[n] || 0)),
+              <strong>{fmt(c.amount)}</strong>
+            ])}
+            foot={["Total",
+              ...outletNames.map(n => fmt(d.categories.reduce((s, c) => s + (c.outlets[n] || 0), 0))),
+              fmt(totalAmt)]}
+          />
+        </div>
+      )}
 
       {/* Drilldown — click category to expand items */}
       <div className="panel rpt-panel">
