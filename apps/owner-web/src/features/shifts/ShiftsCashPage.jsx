@@ -33,7 +33,8 @@ export function ShiftsCashPage() {
   async function loadData() {
     try {
       const res = await api.get("/shifts/summary");
-      setData(res.data || { active: [], history: [], movements: [] });
+      // Backend returns { active, history, movements } directly — no .data wrapper
+      setData((res?.active ? res : res?.data) || { active: [], history: [], movements: [] });
       setLastUpdated(new Date());
     } catch {
       // silently keep existing data on network errors
