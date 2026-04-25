@@ -1,27 +1,32 @@
 /**
  * printBill.js — thermal bill printing for POS
- * Generates an 80mm thermal receipt and auto-prints via window.print()
+ *
+ * Production path  (Windows Electron): silent via window.electronAPI.printHTML()
+ * Fallback         (browser / web):    popup window + window.print()
+ *
+ * Receipt HTML and formatting are preserved identically between both paths.
  */
+
+import { getBillPrinter } from "./kotPrint";
 
 export function printBill(order, items, outletName, options = {}) {
   const { seatLabel = null } = options;
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
-  const subtotal = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
-  const discount = Math.min(order.discountAmount || 0, subtotal);
-  const afterDiscount = subtotal - discount;
-  const tax   = Math.round(afterDiscount * 0.05);
-  const total = afterDiscount + tax;
+  const subtotal    = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const discount    = Math.min(order.discountAmount || 0, subtotal);
+  const afterDisc   = subtotal - discount;
+  const tax         = Math.round(afterDisc * 0.05);
+  const total       = afterDisc + tax;
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
 
-  const w = window.open("", "_blank", "width=420,height=680");
-  if (!w) { alert("Please allow pop-ups to print the bill."); return; }
-
   const tableInfo = order.isCounter
-    ? (order.onlinePlatform ? `${order.onlinePlatform} #${order.ticketNumber}` : `Takeaway #${order.ticketNumber}`)
+    ? (order.onlinePlatform
+        ? `${order.onlinePlatform} #${order.ticketNumber}`
+        : `Takeaway #${order.ticketNumber}`)
     : `Table ${order.tableNumber}${order.areaName ? " · " + order.areaName : ""}`;
 
   const itemsHtml = billableItems
@@ -38,7 +43,7 @@ export function printBill(order, items, outletName, options = {}) {
     )
     .join("");
 
-  w.document.write(`<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8"/>
@@ -107,8 +112,32 @@ export function printBill(order, items, outletName, options = {}) {
     <p>Thank you for dining with us!</p>
   </div>
 </body>
-</html>`);
+</html>`;
 
+  // ── Production path: Windows Electron silent printing ───────────────────
+  if (window.electronAPI?.printHTML) {
+    const printer     = getBillPrinter();
+    // winName is the exact Windows printer name set in Settings → Printers.
+    // Falls back to printer.name; null → Electron uses the Windows default printer.
+    const printerName = printer?.winName || printer?.name || null;
+
+    window.electronAPI
+      .printHTML({ html, printerName, paperWidthMm: 80 })
+      .then((result) => {
+        if (!result?.ok) {
+          console.warn("[printBill] Electron print failed:", result?.error);
+        }
+      })
+      .catch((err) => console.error("[printBill] Electron printHTML error:", err));
+
+    return; // do NOT open a popup in Electron mode
+  }
+
+  // ── Fallback: browser popup + window.print() (plain browser / web mode) ──
+  const w = window.open("", "_blank", "width=420,height=680");
+  if (!w) { alert("Please allow pop-ups to print the bill."); return; }
+
+  w.document.write(html);
   w.document.close();
   w.focus();
   setTimeout(() => {

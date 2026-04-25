@@ -1,9 +1,11 @@
 /* ══════════════════════════════════════════════════════════════════════════════
    KOT PRINT UTILITY
-   Generates a thermal-style KOT and triggers window.print()
+   Generates a thermal-style KOT and prints it.
+
+   Production path  (Windows Electron): silent via window.electronAPI.printHTML()
+   Fallback         (browser / web):    popup window + window.print()
+
    Works for 80mm and 58mm paper widths.
-   In a real deployment, pair with QZ Tray or a local print bridge
-   to route to the assigned network/USB printer automatically.
    ══════════════════════════════════════════════════════════════════════════════ */
 
 /** Load printers from localStorage */
@@ -280,6 +282,25 @@ export function printKOT(order, items, printer = null, kotSeq = null) {
 </body>
 </html>`;
 
+  // ── Production path: Windows Electron silent printing ─────────────────────
+  if (window.electronAPI?.printHTML) {
+    // winName is the exact Windows printer name set in Settings → Printers.
+    // Falls back to printer.name; null → Electron uses the Windows default printer.
+    const printerName = resolvedPrinter?.winName || resolvedPrinter?.name || null;
+
+    window.electronAPI
+      .printHTML({ html, printerName, paperWidthMm: paper === "58mm" ? 58 : 80 })
+      .then((result) => {
+        if (!result?.ok) {
+          console.warn("[printKOT] Electron print failed:", result?.error);
+        }
+      })
+      .catch((err) => console.error("[printKOT] Electron printHTML error:", err));
+
+    return; // do NOT open a popup in Electron mode
+  }
+
+  // ── Fallback: browser popup + window.print() (plain browser / web mode) ──
   const w = window.open("", "_blank", `width=340,height=500,scrollbars=no`);
   if (!w) {
     console.warn("KOT print: popup blocked. Please allow popups for this site.");

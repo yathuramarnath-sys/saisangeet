@@ -21,7 +21,9 @@ function save(key, val) {
 }
 
 /* ─── Printer Tab ──────────────────────────────────────────────────────────── */
-const BLANK_FORM = { name: "", type: "KOT Printer", conn: "Network (IP)", ip: "", paper: "80mm", model: "Epson TM-T82", station: "" };
+// winName: the exact Windows printer device name used by webContents.print({ deviceName }).
+// Shown and editable only when running inside the Electron app.
+const BLANK_FORM = { name: "", type: "KOT Printer", conn: "Network (IP)", ip: "", paper: "80mm", model: "Epson TM-T82", station: "", winName: "" };
 
 // Detect if running inside Electron
 const IS_ELECTRON = typeof window !== "undefined" && !!window.electronAPI;
@@ -74,7 +76,7 @@ function PrinterTab() {
 
   function openAdd() { setForm(BLANK_FORM); setEditId(null); setScanResults(null); setAdding(true); }
   function openEdit(p) {
-    setForm({ name: p.name, type: p.type, conn: p.conn, ip: p.ip || "", paper: p.paper, model: p.model || "Epson TM-T82", station: p.station || "" });
+    setForm({ name: p.name, type: p.type, conn: p.conn, ip: p.ip || "", paper: p.paper, model: p.model || "Epson TM-T82", station: p.station || "", winName: p.winName || "" });
     setEditId(p.id); setScanResults(null); setAdding(true);
   }
 
@@ -97,30 +99,17 @@ function PrinterTab() {
     persist(printers.map(p => ({ ...p, isDefault: p.id === id })));
   }
 
-  // ── Scan printers ─────────────────────────────────────────────────────────
+  // ── Scan / list printers ──────────────────────────────────────────────────
+  // In Electron: probes port 9100 across the local subnet (network printers)
+  // + reads USB printers from Windows (wmic) or macOS (lpstat).
+  // In browser: not supported — shows a setup note instead.
   async function handleScan() {
+    if (!IS_ELECTRON) return; // button is hidden in browser mode
     setScanning(true);
     setScanResults(null);
     try {
-      if (IS_ELECTRON && window.electronAPI?.scanPrinters) {
-        // Electron: real network + USB scan via IPC
-        const found = await window.electronAPI.scanPrinters();
-        setScanResults(found || []);
-      } else {
-        // Web mode: probe common printer IPs on the local subnet
-        // We use a short-timeout fetch to see if port 9100 (ESC/POS) responds
-        const subnet = "192.168.1";
-        const candidates = Array.from({ length: 20 }, (_, i) => `${subnet}.${i + 100}`);
-        const found = [];
-        await Promise.all(
-          candidates.map((ip) =>
-            fetch(`http://${ip}:80`, { signal: AbortSignal.timeout(600), mode: "no-cors" })
-              .then(() => found.push({ ip, name: `Printer @ ${ip}`, conn: "Network (IP)", source: "scan" }))
-              .catch(() => {})
-          )
-        );
-        setScanResults(found);
-      }
+      const found = await window.electronAPI.scanPrinters();
+      setScanResults(found || []);
     } catch {
       setScanResults([]);
     } finally {
@@ -128,9 +117,39 @@ function PrinterTab() {
     }
   }
 
+  // List Windows-installed printers (Electron only) — fills the winName field.
+  const [winPrinterList, setWinPrinterList] = useState(null);
+  const [loadingWinPrinters, setLoadingWinPrinters] = useState(false);
+
+  async function handleListWindowsPrinters() {
+    setLoadingWinPrinters(true);
+    setWinPrinterList(null);
+    try {
+      const list = await window.electronAPI.getPrinters();
+      setWinPrinterList(list || []);
+    } catch {
+      setWinPrinterList([]);
+    } finally {
+      setLoadingWinPrinters(false);
+    }
+  }
+
   function pickScannedPrinter(p) {
-    setForm(f => ({ ...f, ip: p.ip || f.ip, name: f.name || p.name, conn: "Network (IP)" }));
+    if (p.usb) {
+      // USB printer from Windows/lpstat scan:
+      // name goes into the display label AND winName (the exact Windows device name)
+      setForm(f => ({ ...f, name: f.name || p.name, conn: "USB", winName: p.name }));
+    } else {
+      // Network printer found via port-9100 scan: fill IP and display name
+      setForm(f => ({ ...f, ip: p.ip || f.ip, name: f.name || p.name, conn: "Network (IP)" }));
+    }
     setScanResults(null);
+  }
+
+  function pickWindowsPrinter(p) {
+    // Fills winName with the exact Windows printer name required by webContents.print()
+    setForm(f => ({ ...f, winName: p.name, name: f.name || p.name, conn: "USB" }));
+    setWinPrinterList(null);
   }
 
   return (
@@ -189,22 +208,34 @@ function PrinterTab() {
         <div className="pset-add-form">
           <h5 className="pset-form-title">{editId ? "Edit Printer" : "Add Printer"}</h5>
 
-          {/* ── Scan row ── */}
-          <div className="pset-scan-row">
-            <button type="button" className="pset-scan-btn" onClick={handleScan} disabled={scanning}>
-              {scanning ? "Scanning…" : IS_ELECTRON ? "🔍 Scan Network & USB" : "🔍 Scan Network"}
-            </button>
-            {!IS_ELECTRON && (
-              <span className="pset-scan-hint">
-                Scans 192.168.1.100–119 · For other IPs enter manually below
-              </span>
-            )}
-          </div>
+          {/* ── Printer discovery row ── */}
+          {IS_ELECTRON ? (
+            <div className="pset-scan-row">
+              {/* Network / USB scan via port-9100 + wmic/lpstat */}
+              <button type="button" className="pset-scan-btn" onClick={handleScan} disabled={scanning}>
+                {scanning ? "Scanning…" : "🔍 Scan Network & USB"}
+              </button>
+              {/* List Windows-installed printers for winName selection */}
+              <button type="button" className="pset-scan-btn" onClick={handleListWindowsPrinters} disabled={loadingWinPrinters}
+                style={{ marginLeft: 8 }}>
+                {loadingWinPrinters ? "Loading…" : "📋 List Windows Printers"}
+              </button>
+            </div>
+          ) : (
+            // Browser / web mode — printer auto-detect is not supported.
+            // Explain the correct setup path to the staff member.
+            <div className="pset-scan-note">
+              <strong>Windows Electron app required for auto-detect.</strong><br />
+              For network printers: enter the IP address manually below.<br />
+              For USB printers: install the Epson / TVS driver on Windows, then enter
+              the exact printer name shown in <em>Windows → Devices and Printers</em>.
+            </div>
+          )}
 
-          {/* Scan results */}
+          {/* Network scan results */}
           {scanResults !== null && (
             scanResults.length === 0 ? (
-              <div className="pset-scan-empty">No printers found on network. Enter IP address manually below.</div>
+              <div className="pset-scan-empty">No printers found on port 9100. Enter IP manually for network printers, or use "List Windows Printers" for USB.</div>
             ) : (
               <div className="pset-scan-results">
                 <p className="pset-scan-results-label">Found {scanResults.length} printer{scanResults.length !== 1 ? "s" : ""} — tap to select:</p>
@@ -214,6 +245,28 @@ function PrinterTab() {
                     <span>
                       <strong>{p.name}</strong>
                       <span className="pset-scan-result-ip">{p.ip}{p.usb ? " (USB)" : ""}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )
+          )}
+
+          {/* Windows printer list (from getPrinters IPC) */}
+          {winPrinterList !== null && (
+            winPrinterList.length === 0 ? (
+              <div className="pset-scan-empty">No printers found in Windows. Install the printer driver first.</div>
+            ) : (
+              <div className="pset-scan-results">
+                <p className="pset-scan-results-label">
+                  Windows printers — tap to set as the print target:
+                </p>
+                {winPrinterList.map((p, i) => (
+                  <button key={i} type="button" className="pset-scan-result-item" onClick={() => pickWindowsPrinter(p)}>
+                    <span className="pset-scan-result-icon">🖨️</span>
+                    <span>
+                      <strong>{p.name}</strong>
+                      {p.isDefault && <span className="pset-default-badge" style={{ marginLeft: 6 }}>Default</span>}
                     </span>
                   </button>
                 ))}
@@ -285,9 +338,29 @@ function PrinterTab() {
             </div>
           </div>
 
+          {/* Windows printer name — Electron only. Used as deviceName in webContents.print(). */}
+          {IS_ELECTRON && (
+            <div className="pset-form-row">
+              <div className="pset-form-field">
+                <label>Windows printer name</label>
+                <input
+                  className="pset-input"
+                  placeholder="e.g. EPSON TM-T82 Receipt"
+                  value={form.winName}
+                  onChange={e => setForm(f => ({ ...f, winName: e.target.value }))}
+                />
+                <span className="pset-field-hint">
+                  Must match the name shown in Windows → Devices and Printers exactly.
+                  Use "List Windows Printers" above to auto-fill, or type it manually.
+                  Leave blank to use the Windows default printer.
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className="pset-form-actions">
             <button type="button" className="pset-cancel-btn"
-              onClick={() => { setAdding(false); setEditId(null); setScanResults(null); }}>Cancel</button>
+              onClick={() => { setAdding(false); setEditId(null); setScanResults(null); setWinPrinterList(null); }}>Cancel</button>
             <button type="button" className="pset-save-btn" onClick={savePrinter}>
               {editId ? "Save Changes" : "Add Printer"}
             </button>
