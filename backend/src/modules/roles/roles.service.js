@@ -1,3 +1,4 @@
+const { ApiError } = require("../../utils/api-error");
 const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
 
 async function fetchRoles() {
@@ -111,14 +112,20 @@ async function updateUser(userId, payload) {
       }
 
       updatedUser = {
-        ...user,
-        fullName: payload.fullName ?? user.fullName,
-        name: payload.fullName ?? user.name,
-        roles: payload.roles ?? user.roles ?? [],
-        outletName: payload.outletName ?? user.outletName,
-        isActive: payload.isActive ?? user.isActive,
-        pin: payload.pin ?? user.pin,
-        mobileNumber: payload.mobileNumber ?? user.mobileNumber ?? ""
+        ...user,  // preserves ALL existing fields as the base
+        fullName:     payload.fullName     ?? user.fullName,
+        name:         payload.fullName     ?? user.name,
+        roles:        payload.roles        ?? user.roles ?? [],
+        outletName:   payload.outletName   ?? user.outletName,
+        isActive:     payload.isActive     ?? user.isActive,
+        pin:          payload.pin          ?? user.pin,
+        mobileNumber: payload.mobileNumber ?? user.mobileNumber ?? "",
+        // Auth fields are intentionally omitted from the payload mapping and
+        // MUST come from the existing user record only. They are never accepted
+        // from the Staff Management UI payload — only auth.service endpoints
+        // (changePassword, resetPasswordByToken, resetOwnerPassword) may change them.
+        email:        user.email,
+        passwordHash: user.passwordHash,
       };
 
       return updatedUser;
@@ -129,14 +136,28 @@ async function updateUser(userId, payload) {
 }
 
 async function deleteUser(userId) {
+  const current = getOwnerSetupData();
+  const target  = (current.users || []).find((u) => u.id === userId);
+
+  // Block deletion of any account that has a web-login password.
+  // Only the owner signup account has passwordHash; floor staff created via the
+  // Staff page never have one. Deleting the owner would break login permanently.
+  if (target?.passwordHash) {
+    throw new ApiError(
+      403,
+      "DELETE_AUTH_USER_FORBIDDEN",
+      "Cannot delete an account that has a web login password. " +
+        "Use Auth / Password settings to manage this account instead."
+    );
+  }
+
   let deletedUser = null;
 
-  updateOwnerSetupData((current) => {
-    deletedUser = (current.users || []).find((user) => user.id === userId) || null;
-
+  updateOwnerSetupData((data) => {
+    deletedUser = (data.users || []).find((user) => user.id === userId) || null;
     return {
-      ...current,
-      users: (current.users || []).filter((user) => user.id !== userId)
+      ...data,
+      users: (data.users || []).filter((user) => user.id !== userId),
     };
   });
 

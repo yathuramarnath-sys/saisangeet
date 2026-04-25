@@ -114,19 +114,76 @@ function readData() {
   return data;
 }
 
+// ── Auth-field guard ─────────────────────────────────────────────────────────
+/**
+ * Called inside every write path before the data touches cache / DB / file.
+ *
+ * Protects users who had BOTH email AND passwordHash in `current` (the
+ * pre-update snapshot):
+ *  - If a write drops `email` or `passwordHash` for such a user, restores them.
+ *  - If such a user is removed entirely from the users[] array, adds them back.
+ *
+ * This is intentionally silent about legitimate password changes: those always
+ * set passwordHash to a new *truthy* bcrypt string, so the guard never fires.
+ * The guard only fires when a field goes from truthy → falsy (i.e. is dropped).
+ */
+function guardOwnerAuth(current, next) {
+  if (!current || !next) return next;
+
+  const authUsers = (current.users || []).filter((u) => u.email && u.passwordHash);
+  if (authUsers.length === 0) return next;
+
+  let modified = false;
+  const nextUsers = (next.users || []).slice(); // mutable shallow copy
+
+  for (const src of authUsers) {
+    const idx = nextUsers.findIndex((u) => u.id === src.id);
+
+    if (idx === -1) {
+      // Auth user was completely removed from the array — add back + log
+      console.error(
+        `[store] GUARD: removal of authenticated user ${src.id} (${src.email}) was blocked`
+      );
+      nextUsers.push(src);
+      modified = true;
+      continue;
+    }
+
+    const dst   = nextUsers[idx];
+    const patch = {};
+    if (!dst.email        && src.email)        patch.email        = src.email;
+    if (!dst.passwordHash && src.passwordHash) patch.passwordHash = src.passwordHash;
+
+    if (Object.keys(patch).length) {
+      console.warn(
+        `[store] GUARD: restored auth fields [${Object.keys(patch).join(", ")}] ` +
+        `for user ${src.id} (${src.email})`
+      );
+      nextUsers[idx] = { ...dst, ...patch };
+      modified = true;
+    }
+  }
+
+  return modified ? { ...next, users: nextUsers } : next;
+}
+
 function writeData(data) {
   const tenantId = getCurrentTenantId();
+  const current  = _cache.get(tenantId); // snapshot before this write
+
+  // Guard: never drop email/passwordHash from authenticated accounts
+  const safe = current ? guardOwnerAuth(current, data) : data;
 
   // 1. Update in-memory cache immediately (synchronous, instant)
-  _cache.set(tenantId, data);
+  _cache.set(tenantId, safe);
 
   // 2. Persist to Postgres asynchronously
-  persistToPostgres(tenantId, data);
+  persistToPostgres(tenantId, safe);
 
   // 3. Also keep JSON file in sync (cheap, used as fallback + local dev)
-  writeToFile(tenantId, data);
+  writeToFile(tenantId, safe);
 
-  return data;
+  return safe;
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -150,10 +207,12 @@ async function updateOwnerSetupDataNow(updater) {
   const tenantId = getCurrentTenantId();
   const current  = readData();
   const next     = updater(JSON.parse(JSON.stringify(current)));
-  _cache.set(tenantId, next);
-  writeToFile(tenantId, next);
-  await persistToPostgresNow(tenantId, next);
-  return next;
+  // Guard: never drop email/passwordHash from authenticated accounts
+  const safe     = guardOwnerAuth(current, next);
+  _cache.set(tenantId, safe);
+  writeToFile(tenantId, safe);
+  await persistToPostgresNow(tenantId, safe);
+  return safe;
 }
 
 /**
@@ -191,6 +250,8 @@ module.exports = {
   findUserByResetToken,
   // Exported for migrate.js only:
   warmTenantCache,
+  // Exported for testing only:
+  _guardOwnerAuth: guardOwnerAuth,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

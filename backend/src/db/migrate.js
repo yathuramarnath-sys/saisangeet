@@ -139,6 +139,12 @@ async function runMigrations() {
   // on startup. Set it in Railway, redeploy, log in, then remove it.
   await applyOwnerPasswordOverride(queryFn);
 
+  // ── 6. Owner auth field repair ───────────────────────────────────────────────
+  // Scan every tenant for owner accounts with missing email / passwordHash and
+  // repair what can be recovered from users_index. Logs critical errors for any
+  // tenants that still need manual attention (use OWNER_PASSWORD env var + redeploy).
+  await repairOwnerAuthFields(queryFn);
+
   console.log("[migrate] Done.");
 }
 
@@ -185,6 +191,120 @@ async function applyOwnerPasswordOverride(queryFn) {
     }
   } catch (err) {
     console.error("[migrate] OWNER_PASSWORD override failed:", err.message);
+  }
+}
+
+/**
+ * repairOwnerAuthFields — runs once on every startup after cache warm.
+ *
+ * For every tenant in Postgres:
+ *  - Checks that at least one user with role "Owner" exists.
+ *  - Checks that user has a non-empty `email` field.
+ *  - If email is missing, attempts to recover it from the users_index table
+ *    (the index maps email→tenantId, so a reverse lookup gives us back the email).
+ *  - Saves the corrected record to Postgres + JSON file + in-memory cache.
+ *  - Logs a CRITICAL error for any tenant where passwordHash is missing
+ *    (can't be repaired without knowing the password — use OWNER_PASSWORD env var).
+ *
+ * This is idempotent: tenants that are already healthy produce no log output.
+ */
+async function repairOwnerAuthFields(queryFn) {
+  try {
+    const { warmTenantCache } = require("../data/owner-setup-store");
+
+    const rows = await queryFn(
+      "SELECT tenant_id, value FROM tenant_settings WHERE key = 'owner_setup'"
+    );
+
+    let repairedCount = 0;
+    let warnCount     = 0;
+
+    for (const row of rows.rows) {
+      const data  = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+      const users = data.users || [];
+
+      const ownerUsers = users.filter((u) => (u.roles || []).includes("Owner"));
+
+      if (ownerUsers.length === 0) {
+        console.error(
+          `[migrate] REPAIR ⚠ tenant ${row.tenant_id} has no Owner user — ` +
+          "login is broken. Set OWNER_PASSWORD env var and redeploy to restore."
+        );
+        warnCount++;
+        continue;
+      }
+
+      let tenantChanged = false;
+
+      for (const owner of ownerUsers) {
+        // ── Missing email? Try to recover from users_index ──────────────────
+        if (!owner.email) {
+          const idxRows = await queryFn(
+            "SELECT identifier FROM users_index WHERE tenant_id = $1",
+            [row.tenant_id]
+          );
+          const emailRow = idxRows.rows.find((r) => r.identifier.includes("@"));
+          if (emailRow) {
+            const recovered = emailRow.identifier;
+            // Patch the user object inside the data copy
+            const userIdx = data.users.findIndex((u) => u.id === owner.id);
+            if (userIdx >= 0) data.users[userIdx].email = recovered;
+            console.warn(
+              `[migrate] REPAIR ✓ restored email "${recovered}" for owner ${owner.id} ` +
+              `in tenant ${row.tenant_id}`
+            );
+            repairedCount++;
+            tenantChanged = true;
+          } else {
+            console.error(
+              `[migrate] REPAIR ⚠ owner ${owner.id} in tenant ${row.tenant_id} ` +
+              "has no email and none found in users_index — login is broken."
+            );
+            warnCount++;
+          }
+        }
+
+        // ── Missing passwordHash? Can't recover automatically ───────────────
+        if (!owner.passwordHash) {
+          console.error(
+            `[migrate] REPAIR ⚠ owner ${owner.id} (${owner.email || "no email"}) ` +
+            `in tenant ${row.tenant_id} has no passwordHash. ` +
+            "Set OWNER_PASSWORD env var and redeploy to reset the password."
+          );
+          warnCount++;
+        }
+      }
+
+      if (tenantChanged) {
+        // Save repaired data back to Postgres + refresh in-memory cache
+        await queryFn(
+          `UPDATE tenant_settings SET value = $1, updated_at = NOW()
+           WHERE tenant_id = $2 AND key = 'owner_setup'`,
+          [JSON.stringify(data), row.tenant_id]
+        );
+        warmTenantCache(row.tenant_id, data);
+
+        // Also write to JSON file so the file-based fallback is up to date
+        const fsLib   = require("fs");
+        const pathLib = require("path");
+        const dataDir = path.join(__dirname, "..", "..", ".data");
+        const file    = row.tenant_id === "default"
+          ? pathLib.join(dataDir, "owner-setup.json")
+          : pathLib.join(dataDir, "tenants", `${row.tenant_id}.json`);
+        try { fsLib.writeFileSync(file, JSON.stringify(data, null, 2)); } catch (_) {}
+      }
+    }
+
+    if (repairedCount > 0 || warnCount > 0) {
+      console.log(
+        `[migrate] Owner auth repair complete: ${repairedCount} field(s) restored, ` +
+        `${warnCount} issue(s) need manual attention.`
+      );
+    } else {
+      console.log("[migrate] Owner auth check: all tenants healthy ✓");
+    }
+  } catch (err) {
+    console.error("[migrate] repairOwnerAuthFields failed:", err.message);
   }
 }
 
