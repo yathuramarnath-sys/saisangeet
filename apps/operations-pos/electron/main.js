@@ -183,6 +183,7 @@ ipcMain.handle("scan-printers", async () => {
 
   if (process.platform === "win32") {
     // Windows: use wmic to list installed printers
+    let wmicOk = false;
     try {
       const out = execSync("wmic printer get name /format:list", { timeout: 3000 }).toString();
       out.split(/\r?\n/)
@@ -195,8 +196,28 @@ ipcMain.handle("scan-printers", async () => {
           if (/Microsoft|OneNote|PDF|XPS|Fax/i.test(name)) return;
           found.push({ name, ip: "", conn: "USB", usb: true, source: "windows" });
         });
+      wmicOk = true;
     } catch (err) {
       console.warn("[scan-printers] wmic failed:", err.message);
+    }
+
+    // Fallback for Windows 11 24H2+ where wmic may be absent
+    if (!wmicOk) {
+      try {
+        const out = execSync(
+          'powershell -NoProfile -Command "Get-Printer | Select-Object -ExpandProperty Name"',
+          { timeout: 4000 }
+        ).toString();
+        out.split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .forEach((name) => {
+            if (/Microsoft|OneNote|PDF|XPS|Fax/i.test(name)) return;
+            found.push({ name, ip: "", conn: "USB", usb: true, source: "powershell" });
+          });
+      } catch (psErr) {
+        console.warn("[scan-printers] PowerShell fallback also failed:", psErr.message);
+      }
     }
   } else {
     // macOS / Linux: use lpstat

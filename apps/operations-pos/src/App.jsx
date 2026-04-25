@@ -389,6 +389,20 @@ export default function App() {
     };
   }, [outlet]);
 
+  // ── Cashier-visible print failure alerts ──────────────────────────────────
+  // printBill.js and kotPrint.js dispatch this event when Electron silent
+  // printing fails — otherwise the cashier has no idea the KOT/Bill didn't print.
+  useEffect(() => {
+    function onPrintError(e) {
+      const { source = "Print", printerName, error } = e.detail || {};
+      const label   = printerName ? ` (${printerName})` : "";
+      const reason  = error       ? ` — ${error}`       : "";
+      showToast(`⚠️ ${source} print failed${label}${reason}`);
+    }
+    window.addEventListener("dinex:print-error", onPrintError);
+    return () => window.removeEventListener("dinex:print-error", onPrintError);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Derived state ─────────────────────────────────────────────────────────
   const selectedOrder = selectedTableId ? orders[selectedTableId] : null;
 

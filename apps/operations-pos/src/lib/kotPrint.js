@@ -293,9 +293,17 @@ export function printKOT(order, items, printer = null, kotSeq = null) {
       .then((result) => {
         if (!result?.ok) {
           console.warn("[printKOT] Electron print failed:", result?.error);
+          window.dispatchEvent(new CustomEvent("dinex:print-error", {
+            detail: { source: "KOT", printerName, error: result?.error },
+          }));
         }
       })
-      .catch((err) => console.error("[printKOT] Electron printHTML error:", err));
+      .catch((err) => {
+        console.error("[printKOT] Electron printHTML error:", err);
+        window.dispatchEvent(new CustomEvent("dinex:print-error", {
+          detail: { source: "KOT", printerName, error: err?.message || "unknown" },
+        }));
+      });
 
     return; // do NOT open a popup in Electron mode
   }

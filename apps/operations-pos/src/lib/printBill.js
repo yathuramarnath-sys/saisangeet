@@ -126,9 +126,17 @@ export function printBill(order, items, outletName, options = {}) {
       .then((result) => {
         if (!result?.ok) {
           console.warn("[printBill] Electron print failed:", result?.error);
+          window.dispatchEvent(new CustomEvent("dinex:print-error", {
+            detail: { source: "Bill", printerName, error: result?.error },
+          }));
         }
       })
-      .catch((err) => console.error("[printBill] Electron printHTML error:", err));
+      .catch((err) => {
+        console.error("[printBill] Electron printHTML error:", err);
+        window.dispatchEvent(new CustomEvent("dinex:print-error", {
+          detail: { source: "Bill", printerName, error: err?.message || "unknown" },
+        }));
+      });
 
     return; // do NOT open a popup in Electron mode
   }
