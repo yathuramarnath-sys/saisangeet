@@ -465,12 +465,10 @@ export default function App() {
           quantity:   1,
           sentToKot:  false,
           note:       "",
-          // station comes from the menu item fetched from /menu/items at bootstrap.
-          // It is used at KOT send time to group items by kitchen station (for both
-          // printer routing and per-station KOT API calls).
-          // Fallback to "" so the grouping safely collapses to "__default__" if the
-          // menu item has no station assigned yet.
-          station:    item.station || ""
+          station:    item.station    || "",
+          categoryId: item.categoryId || "",
+          category:   (categories.find(c => c.id === item.categoryId)?.name)
+                        || item.categoryName || item.category || "",
         });
       }
       return order;
@@ -486,16 +484,16 @@ export default function App() {
         tableId,
         outletId: outlet?.id,
         item: {
-          id:         itemId,   // shared ID — server stores this exact value
+          id:         itemId,
           menuItemId: item.id,
           name:       item.name,
           price:      parsePriceNumber(item.price || item.basePrice),
           quantity:   1,
           note:       "",
-          // stationName is stored on the backend order item so server state and
-          // local state agree on which kitchen station this item belongs to.
-          // The backend addOrderItem stores it as-is (defaults "Main Kitchen" if absent).
-          stationName: item.station || ""
+          stationName: item.station    || "",
+          categoryId:  item.categoryId || "",
+          category:    (categories.find(c => c.id === item.categoryId)?.name)
+                         || item.categoryName || item.category || "",
         }
       });
 

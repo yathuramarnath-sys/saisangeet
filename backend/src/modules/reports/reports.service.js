@@ -75,10 +75,18 @@ function buildSalesData(closedToday) {
 
     for (const item of items) {
       const key = item.name || "Unknown";
-      if (!itemMap[key]) itemMap[key] = { name: key, qty: 0, amount: 0, orders: 0, rate: item.price || 0 };
+      if (!itemMap[key]) itemMap[key] = {
+        name:     key,
+        category: item.category || item.categoryName || "—",
+        qty:      0, amount: 0, orders: 0, rate: item.price || 0,
+      };
       itemMap[key].qty    += item.quantity || 1;
       itemMap[key].amount += (item.price || 0) * (item.quantity || 1);
       itemMap[key].orders += 1;
+      // Upgrade "—" to a real name if a later order has the field
+      if (itemMap[key].category === "—" && (item.category || item.categoryName)) {
+        itemMap[key].category = item.category || item.categoryName;
+      }
     }
   }
 
@@ -102,7 +110,7 @@ function buildSalesData(closedToday) {
     .map((item, i) => ({
       rank:     i + 1,
       name:     item.name,
-      category: "—",
+      category: item.category || "—",
       qty:      item.qty,
       orders:   item.orders,
       rate:     Math.round(item.rate),
@@ -213,9 +221,8 @@ function buildSalesData(closedToday) {
 }
 
 // ── Category sales builder ────────────────────────────────────────────────────
-// Groups items by item.station (the only semantic grouping available on closed
-// order items — no category field is written to closed orders by POS today).
-// Falls back to "General" when station is empty.  This applies to ALL tenants.
+// Groups items by item.category (resolved at POS add-time from the live category
+// list), falling back to item.station then "General".  Applies to all tenants.
 const CAT_COLORS = [
   "#2196F3","#4CAF50","#FF9800","#9C27B0",
   "#F44336","#00BCD4","#795548","#607D8B",
@@ -234,7 +241,7 @@ function buildCategorySales(closedToday) {
     const outlet  = (order.outletName || "All Outlets").trim();
 
     for (const item of items) {
-      const catKey = (item.station || "").trim() || "General";
+      const catKey = (item.category || item.categoryName || item.station || "").trim() || "General";
 
       if (!catMap[catKey]) {
         catMap[catKey] = {
