@@ -17,6 +17,7 @@ function createWindow() {
       preload:          path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration:  false,
+      webSecurity:      false, // allow file:// origin to call external APIs
     },
   });
 
