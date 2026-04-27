@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "electron": "electron .",
-    "electron:build": "vite build && electron-builder build --mac --win"
+    "electron:build": "vite build && electron-builder build --mac --win",
+    "electron:build:win": "vite build && electron-builder build --win",
+    "electron:build:mac": "vite build && electron-builder build --mac"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",

@@ -745,9 +745,10 @@ export default function App() {
     // ── Full settlement ───────────────────────────────────────────────────
     const closedOrder = {
       ...structuredClone(order),
-      payments: allPayments,
-      isClosed: true,
-      closedAt: new Date().toISOString(),
+      payments:    allPayments,
+      isClosed:    true,
+      closedAt:    new Date().toISOString(),
+      cashierName: cashierName || "POS",
     };
 
     // 1. Save to pos_closed_orders in localStorage

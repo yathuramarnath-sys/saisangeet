@@ -19,6 +19,38 @@ function _cap(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+function buildStaffSales(closedToday) {
+  const staffMap = {};
+
+  for (const order of closedToday) {
+    const cashier = order.cashierName || "Cashier";
+    const outlet  = order.outletName  || "All";
+    const items   = order.items || [];
+    const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+    const disc     = Math.min(order.discountAmount || 0, subtotal);
+    const net      = subtotal - disc;
+    const hour     = new Date(order.closedAt || order._receivedAt || 0)
+      .toLocaleString("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" });
+    const h        = parseInt(hour, 10) || 0;
+    const session  = h < 12 ? "Breakfast" : h < 16 ? "Lunch" : "Dinner";
+    const key      = `${cashier}::${outlet}`;
+
+    if (!staffMap[key]) {
+      staffMap[key] = { cashier, outlet, session, orders: 0, sales: 0, discounts: 0, voids: 0, openingCash: 0, closingCash: 0, variance: 0 };
+    }
+    staffMap[key].orders    += 1;
+    staffMap[key].sales     += net;
+    staffMap[key].discounts += disc;
+    if (order.voidRequested) staffMap[key].voids += 1;
+  }
+
+  return Object.values(staffMap).map(r => ({
+    ...r,
+    sales:     Math.round(r.sales),
+    discounts: Math.round(r.discounts),
+  }));
+}
+
 function buildSalesData(closedToday) {
   const paymentMap = {};
   const itemMap    = {};
@@ -164,7 +196,7 @@ function buildSalesData(closedToday) {
       hourly:               [],
       outletReconciliation: [],
     },
-    staffSales: [],
+    staffSales: buildStaffSales(closedToday),
     discountVoid: {
       summary: {
         totalDiscountAmt:   Math.round(totalDiscount),
