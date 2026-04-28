@@ -7,11 +7,19 @@ const { errorHandler } = require("./middleware/error-handler");
 const { notFoundHandler } = require("./middleware/not-found");
 
 const ALLOWED_ORIGINS = [
-  // Local dev
-  "http://localhost:4173",
+  // Local dev — Vite default ports
+  "http://localhost:5173",   // waiter-mobile (vite dev)
+  "http://localhost:4173",   // vite preview
   "http://localhost:4174",
   "http://localhost:4175",
   "http://localhost:4176",
+  // Capacitor / Ionic mobile WebView origins
+  // Android and iOS Capacitor WebView always sends one of these as the Origin header.
+  // Without them every fetch from the installed APK/IPA is rejected with a CORS error
+  // even though the phone can reach the server — the browser-level check blocks it first.
+  "capacitor://localhost",   // Capacitor Android & iOS WebView (primary)
+  "http://localhost",        // Capacitor live-reload / some Android WebView builds
+  "ionic://localhost",       // Ionic-legacy / future-proofing
   // Production — dinexpos.in subdomains
   "https://dinexpos.in",
   "https://www.dinexpos.in",
@@ -28,7 +36,8 @@ function createApp() {
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(cors({
     origin: (origin, cb) => {
-      // Allow requests with no origin (mobile apps, curl, Postman)
+      // Allow requests with no Origin header (curl, Postman, server-to-server calls).
+      // Note: Capacitor mobile apps DO send an Origin header — handled via ALLOWED_ORIGINS above.
       if (!origin) return cb(null, true);
       if (
         ALLOWED_ORIGINS.includes(origin) ||
