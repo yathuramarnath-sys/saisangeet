@@ -46,8 +46,13 @@ export function LoginPage() {
       {/* Brand bar */}
       <div className="lp2-topbar">
         <div className="lp2-brand">
-          <div className="lp2-brand-mark">D</div>
-          <span>DineXPOS</span>
+          <div className="lp2-brand-mark">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M8 12h8" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <span>Plato</span>
         </div>
       </div>
 
@@ -154,7 +159,7 @@ export function LoginPage() {
       </div>
 
       <p className="lp2-footer">
-        © 2026 DineXPOS · Restaurant OS for India 🇮🇳
+        © 2026 Plato · Restaurant Intelligence Platform
       </p>
     </div>
   );

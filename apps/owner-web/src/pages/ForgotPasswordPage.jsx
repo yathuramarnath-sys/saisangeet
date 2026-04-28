@@ -37,7 +37,7 @@ function RequestResetForm() {
         <div className="lp2-topbar">
           <div className="lp2-brand">
             <div className="lp2-brand-mark">D</div>
-            <span>DineXPOS</span>
+            <span>Plato</span>
           </div>
         </div>
         <div className="lp2-card">
@@ -61,7 +61,7 @@ function RequestResetForm() {
             Back to Sign In
           </Link>
         </div>
-        <p className="lp2-footer">© 2026 DineXPOS · Restaurant OS for India 🇮🇳</p>
+        <p className="lp2-footer">© 2026 Plato · Restaurant Intelligence Platform</p>
       </div>
     );
   }
@@ -71,7 +71,7 @@ function RequestResetForm() {
       <div className="lp2-topbar">
         <div className="lp2-brand">
           <div className="lp2-brand-mark">D</div>
-          <span>DineXPOS</span>
+          <span>Plato</span>
         </div>
       </div>
       <div className="lp2-card">
@@ -106,7 +106,7 @@ function RequestResetForm() {
           <Link to="/login" className="lp2-forgot-link">← Back to Sign In</Link>
         </div>
       </div>
-      <p className="lp2-footer">© 2026 DineXPOS · Restaurant OS for India 🇮🇳</p>
+      <p className="lp2-footer">© 2026 Plato · Restaurant Intelligence Platform</p>
     </div>
   );
 }
@@ -142,7 +142,7 @@ function ResetPasswordForm({ token }) {
         <div className="lp2-topbar">
           <div className="lp2-brand">
             <div className="lp2-brand-mark">D</div>
-            <span>DineXPOS</span>
+            <span>Plato</span>
           </div>
         </div>
         <div className="lp2-card">
@@ -155,7 +155,7 @@ function ResetPasswordForm({ token }) {
             Sign In
           </Link>
         </div>
-        <p className="lp2-footer">© 2026 DineXPOS · Restaurant OS for India 🇮🇳</p>
+        <p className="lp2-footer">© 2026 Plato · Restaurant Intelligence Platform</p>
       </div>
     );
   }
@@ -165,7 +165,7 @@ function ResetPasswordForm({ token }) {
       <div className="lp2-topbar">
         <div className="lp2-brand">
           <div className="lp2-brand-mark">D</div>
-          <span>DineXPOS</span>
+          <span>Plato</span>
         </div>
       </div>
       <div className="lp2-card">
@@ -229,7 +229,7 @@ function ResetPasswordForm({ token }) {
           </button>
         </form>
       </div>
-      <p className="lp2-footer">© 2026 DineXPOS · Restaurant OS for India 🇮🇳</p>
+      <p className="lp2-footer">© 2026 Plato · Restaurant Intelligence Platform</p>
     </div>
   );
 }

@@ -162,7 +162,7 @@ function downloadSample() {
   const url  = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href     = url;
-  link.download = "dinexpos-menu-import-sample.csv";
+  link.download = "plato-menu-import-sample.csv";
   document.body.appendChild(link);
   link.click();
   link.remove();

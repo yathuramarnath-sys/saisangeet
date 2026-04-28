@@ -26,7 +26,7 @@ const APPS = [
         file: null,
         url: "https://pos.dinexpos.in",
         install: true,
-        installHint: "On Windows: Chrome menu → 'Install DineX POS' → launches as desktop app. On Android: Chrome menu → 'Add to Home Screen'."
+        installHint: "On Windows: Chrome menu → 'Install Plato POS' → launches as desktop app. On Android: Chrome menu → 'Add to Home Screen'."
       },
     ],
     who: "Cashier / Manager",
@@ -83,7 +83,7 @@ const APPS = [
     bg: "#f5f3ff",
     border: "#ddd6fe",
     platforms: [
-      { label: "app.dinexpos.in", icon: "🌐", file: null, url: null, current: true },
+      { label: "app.plato.in", icon: "🌐", file: null, url: null, current: true },
     ],
     who: "Owner / Admin",
     note: "No installation needed — just bookmark this page.",

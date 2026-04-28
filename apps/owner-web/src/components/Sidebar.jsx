@@ -119,10 +119,15 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand-block">
-        <div className="brand-mark">R</div>
+        <div className="brand-mark">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8 12h8" strokeLinecap="round"/>
+          </svg>
+        </div>
         <div>
-          <p className="eyebrow">Restaurant OS</p>
-          <h1 className="brand-title">Owner Console</h1>
+          <h1 className="brand-title">Plato</h1>
+          <p className="brand-sub">Owner Console</p>
         </div>
       </div>
 

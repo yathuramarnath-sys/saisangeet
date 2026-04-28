@@ -86,9 +86,9 @@ export function SignupPage() {
       <div className="login-shell">
         <div className="login-card">
           <div className="login-brand">
-            <div className="login-brand-mark">R</div>
+            <div className="login-brand-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8" strokeLinecap="round"/></svg></div>
             <div>
-              <p className="eyebrow">Restaurant OS</p>
+              <span className="login-brand-name">Plato</span>
               <h1 className="login-title">Account Setup</h1>
             </div>
           </div>
@@ -130,9 +130,9 @@ export function SignupPage() {
       <div className="login-card">
         {/* Brand */}
         <div className="login-brand">
-          <div className="login-brand-mark">R</div>
+          <div className="login-brand-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="9"/><path d="M8 12h8" strokeLinecap="round"/></svg></div>
           <div>
-            <p className="eyebrow">Restaurant OS</p>
+            <span className="login-brand-name">Plato</span>
             <h1 className="login-title">Create Your Account</h1>
           </div>
         </div>
