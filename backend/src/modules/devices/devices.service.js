@@ -96,12 +96,8 @@ async function resolveLinkCode(payload) {
   const raw = (payload.linkCode || "").trim();
   if (!raw) throw Object.assign(new Error("Link code is required."), { status: 400 });
 
-  console.log(`[resolveLinkCode] START raw="${raw}"`);
-
   let data = getOwnerSetupData();
   let resolvedTenantId = getCurrentTenantId(); // updated when correct tenant is found
-
-  console.log(`[resolveLinkCode] initial tenant="${resolvedTenantId}" outlets=${(data.outlets||[]).length}`);
 
   // ── 1. Find device with this exact linkCode (case-insensitive) ──────────
   const device = (data.devices || []).find(
@@ -112,7 +108,6 @@ async function resolveLinkCode(payload) {
 
   if (device) {
     outlet = (data.outlets || []).find((o) => o.name === device.outletName);
-    console.log(`[resolveLinkCode] stage1 device match: outlet=${outlet?.name || "null"}`);
   }
 
   // ── 2a. Check Postgres pending_link_tokens table directly (most reliable) ───
@@ -130,13 +125,9 @@ async function resolveLinkCode(payload) {
         [raw]
       );
 
-      console.log(`[resolveLinkCode] stage2a tokenFound=${tokenResult.rows.length > 0}`);
-
       if (tokenResult.rows[0]) {
         const row           = tokenResult.rows[0];
         const tokenTenantId = row.tenant_id || getCurrentTenantId();
-
-        console.log(`[resolveLinkCode] stage2a tenantId="${tokenTenantId}" outletId="${row.outlet_id}" outletCode="${row.outlet_code}"`);
 
         // Step 2: warm cache from Postgres if available (keeps cache fresh)
         try {
@@ -144,7 +135,6 @@ async function resolveLinkCode(payload) {
             `SELECT value FROM tenant_settings WHERE tenant_id = $1 AND key = 'owner_setup'`,
             [tokenTenantId]
           );
-          console.log(`[resolveLinkCode] stage2a setupInDb=${setupResult.rows.length > 0}`);
           if (setupResult.rows[0]) {
             warmTenantCache(tokenTenantId, setupResult.rows[0].value);
           }
@@ -160,8 +150,6 @@ async function resolveLinkCode(payload) {
         );
         const tenantOutlets = data.outlets || [];
 
-        console.log(`[resolveLinkCode] stage2a tenantOutlets=${tenantOutlets.length} ids=[${tenantOutlets.map(o=>o.id).join(",")}]`);
-
         // Step 4: find the outlet by id or code
         if (row.outlet_id) {
           outlet = tenantOutlets.find((o) => o.id === row.outlet_id);
@@ -174,7 +162,6 @@ async function resolveLinkCode(payload) {
               (o.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "") === stored.replace(/[^A-Z0-9]/g, "")
           );
         }
-        console.log(`[resolveLinkCode] stage2a outlet=${outlet?.name || "null"}`);
       }
     } catch (_dbErr) {
       // Postgres unavailable — fall through to in-memory cache check
@@ -190,7 +177,6 @@ async function resolveLinkCode(payload) {
   if (!outlet) {
     const { findTenantByLinkToken } = require("../../data/owner-setup-store");
     const found = findTenantByLinkToken(raw);
-    console.log(`[resolveLinkCode] stage2b crossTenantFound=${!!found}`);
     if (found) {
       resolvedTenantId = found.tenantId;
       data = await new Promise((resolve) =>
@@ -208,7 +194,6 @@ async function resolveLinkCode(payload) {
             (o.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "") === stored.replace(/[^A-Z0-9]/g, "")
         );
       }
-      console.log(`[resolveLinkCode] stage2b outlet=${outlet?.name || "null"}`);
     }
   }
 
@@ -219,7 +204,6 @@ async function resolveLinkCode(payload) {
     const parts          = raw.toUpperCase().split("-");
     const prefix         = parts.length >= 2 ? parts.slice(0, -1).join("-") : parts[0];
     const prefixStripped = prefix.replace(/[^A-Z0-9]/g, "");
-    console.log(`[resolveLinkCode] stage3 prefix="${prefix}" checking ${(data.outlets||[]).length} outlets codes=[${(data.outlets||[]).map(o=>o.code).join(",")}]`);
     outlet = (data.outlets || []).find((o) => {
       const code         = (o.code || "").toUpperCase();
       const codeStripped = code.replace(/[^A-Z0-9]/g, "");
@@ -240,8 +224,6 @@ async function resolveLinkCode(payload) {
     const prefix         = parts.length >= 2 ? parts.slice(0, -1).join("-") : parts[0];
     const prefixStripped = prefix.replace(/[^A-Z0-9]/g, "");
 
-    console.log(`[resolveLinkCode] stage4 nuclear prefix="${prefix}" scanning ${getAllCachedTenants().size} tenants`);
-
     for (const [tid, tdata] of getAllCachedTenants()) {
       const found = (tdata.outlets || []).find((o) => {
         const code         = (o.code || "").toUpperCase();
@@ -249,7 +231,6 @@ async function resolveLinkCode(payload) {
         return code === prefix || codeStripped === prefixStripped;
       });
       if (found) {
-        console.log(`[resolveLinkCode] stage4 found outlet="${found.name}" in tenant="${tid}"`);
         resolvedTenantId = tid;
         data   = tdata;
         outlet = found;
@@ -259,7 +240,6 @@ async function resolveLinkCode(payload) {
   }
 
   if (!outlet) {
-    console.log(`[resolveLinkCode] FAILED all stages for raw="${raw}"`);
     throw Object.assign(
       new Error("Invalid link code — please check with your manager."),
       { status: 404 }
