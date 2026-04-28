@@ -18,6 +18,7 @@ const ALLOWED_ORIGINS = [
   // Without them every fetch from the installed APK/IPA is rejected with a CORS error
   // even though the phone can reach the server — the browser-level check blocks it first.
   "capacitor://localhost",   // Capacitor Android & iOS WebView (primary)
+  "https://localhost",       // Capacitor Android WebView on newer devices (confirmed via DevTools)
   "http://localhost",        // Capacitor live-reload / some Android WebView builds
   "ionic://localhost",       // Ionic-legacy / future-proofing
   // Production — dinexpos.in subdomains
