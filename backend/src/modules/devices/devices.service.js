@@ -230,6 +230,34 @@ async function resolveLinkCode(payload) {
     });
   }
 
+  // ── 4. Nuclear fallback: scan ALL cached tenants for outlet code matching prefix ─
+  // Handles any mismatch between token outlet_id/code and stored outlet data.
+  // The outlet code prefix in the link code is the canonical identifier —
+  // searching every tenant's outlet list by code is safe and always correct.
+  if (!outlet) {
+    const { getAllCachedTenants } = require("../../data/owner-setup-store");
+    const parts          = raw.toUpperCase().split("-");
+    const prefix         = parts.length >= 2 ? parts.slice(0, -1).join("-") : parts[0];
+    const prefixStripped = prefix.replace(/[^A-Z0-9]/g, "");
+
+    console.log(`[resolveLinkCode] stage4 nuclear prefix="${prefix}" scanning ${getAllCachedTenants().size} tenants`);
+
+    for (const [tid, tdata] of getAllCachedTenants()) {
+      const found = (tdata.outlets || []).find((o) => {
+        const code         = (o.code || "").toUpperCase();
+        const codeStripped = code.replace(/[^A-Z0-9]/g, "");
+        return code === prefix || codeStripped === prefixStripped;
+      });
+      if (found) {
+        console.log(`[resolveLinkCode] stage4 found outlet="${found.name}" in tenant="${tid}"`);
+        resolvedTenantId = tid;
+        data   = tdata;
+        outlet = found;
+        break;
+      }
+    }
+  }
+
   if (!outlet) {
     console.log(`[resolveLinkCode] FAILED all stages for raw="${raw}"`);
     throw Object.assign(

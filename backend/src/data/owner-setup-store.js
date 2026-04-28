@@ -260,6 +260,15 @@ function findTenantByLinkToken(linkCode) {
   return null;
 }
 
+/**
+ * Returns the raw Map of all cached tenants.
+ * Used by resolveLinkCode Stage 4 nuclear fallback — scans every tenant's
+ * outlets to find one whose code matches the link-code prefix.
+ */
+function getAllCachedTenants() {
+  return _cache;
+}
+
 module.exports = {
   getOwnerSetupData,
   updateOwnerSetupData,
@@ -267,6 +276,7 @@ module.exports = {
   createTenantFile,
   findUserByResetToken,
   findTenantByLinkToken,
+  getAllCachedTenants,
   // Exported for migrate.js only:
   warmTenantCache,
   // Exported for testing only:
