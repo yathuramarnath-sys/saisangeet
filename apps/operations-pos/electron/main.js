@@ -23,6 +23,9 @@ function createWindow() {
 
   mainWindow.maximize();
 
+  // TEMP: open DevTools so we can inspect the Network tab for the exact request URL
+  mainWindow.webContents.openDevTools();
+
   // Load built web app
   mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
 
