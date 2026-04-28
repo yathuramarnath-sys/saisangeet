@@ -242,12 +242,31 @@ function findUserByResetToken(token) {
   return null;
 }
 
+/**
+ * Search every cached tenant for a pending link token that matches linkCode
+ * and hasn't expired yet.
+ * Returns { tenantId, token } or null.
+ * Used by resolveLinkCode when the Postgres pending_link_tokens insert failed
+ * and the token is only available in the in-memory owner_setup cache.
+ */
+function findTenantByLinkToken(linkCode) {
+  const lc = linkCode.toLowerCase();
+  for (const [tenantId, data] of _cache) {
+    const token = (data.pendingLinkTokens || []).find(
+      (t) => t.linkCode && t.linkCode.toLowerCase() === lc && t.expiresAt > Date.now()
+    );
+    if (token) return { tenantId, token };
+  }
+  return null;
+}
+
 module.exports = {
   getOwnerSetupData,
   updateOwnerSetupData,
   updateOwnerSetupDataNow,
   createTenantFile,
   findUserByResetToken,
+  findTenantByLinkToken,
   // Exported for migrate.js only:
   warmTenantCache,
   // Exported for testing only:

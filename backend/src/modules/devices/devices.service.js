@@ -111,11 +111,12 @@ async function resolveLinkCode(payload) {
   }
 
   // ── 2a. Check Postgres pending_link_tokens table directly (most reliable) ───
-  // Reads tenant_id from the token row, then loads that tenant's data DIRECTLY
-  // from Postgres — bypasses in-memory cache so Railway restarts can't break this.
+  // Reads tenant_id from the token row, then switches to that tenant's data.
+  // Even if tenant_settings has no row yet (rare), falls back to in-memory cache.
   if (!outlet) {
     try {
       const { query } = require("../../db/pool");
+      const { warmTenantCache } = require("../../data/owner-setup-store");
 
       // Step 1: find the token
       const tokenResult = await query(
@@ -128,27 +129,28 @@ async function resolveLinkCode(payload) {
         const row           = tokenResult.rows[0];
         const tokenTenantId = row.tenant_id || getCurrentTenantId();
 
-        // Step 2: load that tenant's full setup DIRECTLY from Postgres
-        const { warmTenantCache } = require("../../data/owner-setup-store");
-        const setupResult = await query(
-          `SELECT value FROM tenant_settings WHERE tenant_id = $1 AND key = 'owner_setup'`,
-          [tokenTenantId]
-        );
-
-        let tenantOutlets = [];
-        if (setupResult.rows[0]) {
-          const raw_setup = setupResult.rows[0].value;
-          // Refresh the in-memory cache while we're at it
-          warmTenantCache(tokenTenantId, raw_setup);
-          tenantOutlets = (raw_setup.outlets || []);
-          resolvedTenantId = tokenTenantId;
-          // Use this tenant's full data for the rest of the function
-          data = await new Promise((resolve) =>
-            runWithTenant(tokenTenantId, () => resolve(getOwnerSetupData()))
+        // Step 2: warm cache from Postgres if available (keeps cache fresh)
+        try {
+          const setupResult = await query(
+            `SELECT value FROM tenant_settings WHERE tenant_id = $1 AND key = 'owner_setup'`,
+            [tokenTenantId]
           );
+          if (setupResult.rows[0]) {
+            warmTenantCache(tokenTenantId, setupResult.rows[0].value);
+          }
+        } catch (_setupErr) {
+          // Non-fatal — we still have in-memory / file cache below
+          console.warn("[resolveLinkCode] tenant_settings lookup failed:", _setupErr.message);
         }
 
-        // Step 3: find the outlet
+        // Step 3: ALWAYS switch to the correct tenant's data (cache / file fallback)
+        resolvedTenantId = tokenTenantId;
+        data = await new Promise((resolve) =>
+          runWithTenant(tokenTenantId, () => resolve(getOwnerSetupData()))
+        );
+        const tenantOutlets = data.outlets || [];
+
+        // Step 4: find the outlet by id or code
         if (row.outlet_id) {
           outlet = tenantOutlets.find((o) => o.id === row.outlet_id);
         }
@@ -167,12 +169,20 @@ async function resolveLinkCode(payload) {
     }
   }
 
-  // ── 2b. Check in-memory pendingLinkTokens (fallback when Postgres is down) ─
+  // ── 2b. Cross-tenant in-memory search ────────────────────────────────────────
+  // Handles the rare case where the Postgres token insert failed and the token
+  // is only in the owner's in-memory pendingLinkTokens cache.
+  // findTenantByLinkToken() scans ALL cached tenants, so we don't need to know
+  // the tenant ID up front.
   if (!outlet) {
-    const token = (data.pendingLinkTokens || []).find(
-      (t) => t.linkCode && t.linkCode.toLowerCase() === raw.toLowerCase() && t.expiresAt > Date.now()
-    );
-    if (token) {
+    const { findTenantByLinkToken } = require("../../data/owner-setup-store");
+    const found = findTenantByLinkToken(raw);
+    if (found) {
+      resolvedTenantId = found.tenantId;
+      data = await new Promise((resolve) =>
+        runWithTenant(found.tenantId, () => resolve(getOwnerSetupData()))
+      );
+      const { token } = found;
       if (token.outletId) {
         outlet = (data.outlets || []).find((o) => o.id === token.outletId);
       }
