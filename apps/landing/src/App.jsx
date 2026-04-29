@@ -164,7 +164,7 @@ export function App() {
         <div className="lp-hero-inner">
           <div className="lp-hero-text">
             <span className="lp-hero-badge">🇮🇳 Built for Indian Restaurants</span>
-            <h1>Run Your Restaurant Smarter</h1>
+            <h1>Serve better.<br />Every table.</h1>
             <p className="lp-hero-sub">
               POS · Captain App · Kitchen Display · GST Billing · Multi-Outlet Reports.<br />
               Everything your restaurant needs — one platform, one subscription.
@@ -403,7 +403,7 @@ export function App() {
             </span>
             <div>
               <strong>Plato</strong>
-              <span>Restaurant Platform for India</span>
+              <span>Serve better. Every table.</span>
             </div>
           </div>
           <div className="lp-footer-links">
