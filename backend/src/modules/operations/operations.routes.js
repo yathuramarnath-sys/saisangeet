@@ -142,7 +142,6 @@ operationsRouter.post(
 operationsRouter.delete(
   "/orders/:tableId",
   requireAuth,
-  requirePermission("operations.order.edit"),
   asyncHandler(clearTableOrderHandler)
 );
 
