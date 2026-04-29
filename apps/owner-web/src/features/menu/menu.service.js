@@ -135,6 +135,7 @@ function buildMenuItemPayload(formValues, category, stationName) {
     gstLabel: `${taxMode === "Inclusive" ? "Tax Incl" : "Tax Excl"} ${taxRate}%`,
     status: "Live",
     foodType: formValues.foodType || "Veg",
+    unit: formValues.unit || "PCS",
     badges: ["Custom item", "Available"],
     salesAvailability: "Available",
     outletAvailability: [
@@ -358,6 +359,7 @@ export async function createCustomMenuItem(formValues) {
       gstLabel: "GST 5%",
       status: "Live",
       foodType: formValues.foodType || "Veg",
+      unit: formValues.unit || "PCS",
       badges: ["Custom item", "Available"],
       inventoryTracking: buildInventoryTracking(formValues),
       taxMode: formValues.taxMode || "Exclusive",

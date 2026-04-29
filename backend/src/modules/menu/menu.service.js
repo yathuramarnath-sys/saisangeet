@@ -161,6 +161,7 @@ async function createMenuItem(payload) {
     taxRate: Number(payload.taxRate || 0),
     status: payload.status || "Live",
     foodType: payload.foodType || "Veg",
+    unit: payload.unit || "PCS",
     badges: payload.badges || ["Custom item", "Available"],
     salesAvailability: payload.salesAvailability || "Available",
     outletAvailability: payload.outletAvailability || [],

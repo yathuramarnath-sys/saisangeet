@@ -333,6 +333,7 @@ export function MenuPage() {
         trackInventory: formData.get("trackInventory"),
         entryStyle: formData.get("entryStyle"),
         foodType: formData.get("foodType"),
+        unit: formData.get("unit") || "PCS",
         outletAvailability: itemDraft.selectedOutlets?.length
           ? itemDraft.selectedOutlets.map((name) => ({ outlet: name, enabled: true }))
           : availableOutlets.map((o) => ({ outlet: o.name, enabled: true }))
@@ -719,7 +720,8 @@ export function MenuPage() {
       takeawayParcelChargeType: item.parcelCharges?.takeaway?.type || "None",
       takeawayParcelChargeValue: String(item.parcelCharges?.takeaway?.value || 0),
       deliveryParcelChargeType: item.parcelCharges?.delivery?.type || "None",
-      deliveryParcelChargeValue: String(item.parcelCharges?.delivery?.value || 0)
+      deliveryParcelChargeValue: String(item.parcelCharges?.delivery?.value || 0),
+      unit: item.unit || "PCS"
     });
     setSaveError("");
     setSaveMessage("");
@@ -756,7 +758,8 @@ export function MenuPage() {
         station: formData.get("station"),
         trackInventory: formData.get("trackInventory"),
         entryStyle: formData.get("entryStyle"),
-        foodType: formData.get("foodType")
+        foodType: formData.get("foodType"),
+        unit: formData.get("unit") || "PCS"
       });
       await reloadMenu();
       cancelEditingItem();
@@ -1098,6 +1101,9 @@ export function MenuPage() {
                 </span>
                 <span>
                   <strong>{item.name}</strong>
+                  {item.unit && item.unit !== "PCS" && (
+                    <span className="unit-badge">{item.unit}</span>
+                  )}
                 </span>
                 <span>{item.categoryName || "Unassigned"}</span>
                 <span>
@@ -1179,6 +1185,18 @@ export function MenuPage() {
                   >
                     <option>Veg</option>
                     <option>Non-Veg</option>
+                  </select>
+                </label>
+                <label>
+                  Sold by (Unit)
+                  <select
+                    name="unit"
+                    value={editDraft.unit || "PCS"}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, unit: event.target.value }))}
+                  >
+                    <option value="PCS">PCS — Per piece</option>
+                    <option value="KG">KG — Per kilogram</option>
+                    <option value="LTR">LTR — Per litre</option>
                   </select>
                 </label>
                 <label>
@@ -1575,6 +1593,14 @@ export function MenuPage() {
               <select name="foodType" defaultValue="Veg">
                 <option>Veg</option>
                 <option>Non-Veg</option>
+              </select>
+            </label>
+            <label>
+              Sold by (Unit)
+              <select name="unit" defaultValue="PCS">
+                <option value="PCS">PCS — Per piece</option>
+                <option value="KG">KG — Per kilogram</option>
+                <option value="LTR">LTR — Per litre</option>
               </select>
             </label>
             <label>
