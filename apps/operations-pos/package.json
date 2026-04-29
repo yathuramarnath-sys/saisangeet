@@ -2,7 +2,7 @@
   "name": "dinex-pos",
   "version": "1.0.0",
   "private": true,
-  "description": "DineX POS Terminal",
+  "description": "Plato POS Terminal",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -34,7 +34,7 @@
   },
   "build": {
     "appId": "in.dinexpos.pos",
-    "productName": "DineX POS",
+    "productName": "Plato POS",
     "directories": {
       "output": "electron-dist"
     },

@@ -2,7 +2,7 @@
   "name": "dinex-captain",
   "version": "1.0.0",
   "private": true,
-  "description": "DineX Captain App",
+  "description": "Plato Captain App",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -36,7 +36,7 @@
   },
   "build": {
     "appId": "in.dinexpos.captain",
-    "productName": "DineX Captain",
+    "productName": "Plato Captain",
     "directories": {
       "output": "electron-dist"
     },
