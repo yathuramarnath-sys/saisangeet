@@ -42,8 +42,13 @@ export function PosLogin({ outletName, onLogin }) {
 
       {/* Header */}
       <div className="poslogin-header">
-        <div className="poslogin-logo">🍽</div>
-        <h1 className="poslogin-title">{outletName || "Restaurant OS"}</h1>
+        <div className="poslogin-logo">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8 12h8" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <h1 className="poslogin-title">{outletName || "Plato POS"}</h1>
         <p className="poslogin-meta">{today} &nbsp;·&nbsp; {time}</p>
       </div>
 
@@ -78,7 +83,7 @@ export function PosLogin({ outletName, onLogin }) {
         )}
       </div>
 
-      <p className="poslogin-footer">Restaurant OS · POS Terminal</p>
+      <p className="poslogin-footer">Plato · POS Terminal</p>
     </div>
   );
 }

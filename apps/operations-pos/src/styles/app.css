@@ -1623,11 +1623,10 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   width: 48px;
   height: 48px;
   background: var(--sq-black);
-  border-radius: 14px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
   flex-shrink: 0;
 }
 
@@ -2800,9 +2799,15 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 }
 
 .poslogin-logo {
-  font-size: 44px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 10px;
-  filter: drop-shadow(0 0 20px rgba(255,120,50,0.5));
 }
 
 .poslogin-title {
@@ -4058,7 +4063,7 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   flex-shrink: 0;
   min-width: 190px;
 }
-.pbb-icon { font-size: 20px; }
+.pbb-icon { display: flex; align-items: center; justify-content: center; color: inherit; }
 .pbb-name { font-size: 13px; font-weight: 900; color: #fff; letter-spacing: -0.3px; }
 .pbb-sub  { font-size: 10px; color: rgba(255,255,255,0.35); font-weight: 500; }
 
@@ -4235,7 +4240,7 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   border-bottom: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0;
 }
-.cat-sidebar-brand-icon { font-size: 22px; }
+.cat-sidebar-brand-icon { display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.7); }
 .cat-sidebar-brand-text { display: flex; flex-direction: column; }
 .cat-sidebar-brand-name {
   font-size: 12px; font-weight: 900; color: rgba(255,255,255,0.9);
@@ -5007,8 +5012,14 @@ body { background: var(--sq-bg); }
   box-shadow: 0 24px 64px rgba(0,0,0,0.5);
 }
 .branch-setup-logo {
-  font-size: 48px;
-  line-height: 1;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 4px;
 }
 .branch-setup-title {

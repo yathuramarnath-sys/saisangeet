@@ -214,7 +214,7 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
 
       <div className="sr-divider">{'─'.repeat(32)}</div>
       <div className="sr-footer">Thank you · Have a great day!</div>
-      <div className="sr-footer sm">Powered by Restaurant OS</div>
+      <div className="sr-footer sm">Powered by Plato</div>
     </div>
   );
 }

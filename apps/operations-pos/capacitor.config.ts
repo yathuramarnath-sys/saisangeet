@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'in.dinexpos.pos',
-  appName: 'DineX POS',
+  appName: 'Plato POS',
   webDir: 'dist'
 };
 

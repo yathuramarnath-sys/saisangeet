@@ -1,7 +1,7 @@
 {
-  "name": "DineX POS",
-  "short_name": "DineX POS",
-  "description": "Restaurant point-of-sale terminal — billing, KOT, payments",
+  "name": "Plato POS",
+  "short_name": "Plato POS",
+  "description": "Plato point-of-sale terminal — billing, KOT, payments",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

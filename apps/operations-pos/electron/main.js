@@ -12,7 +12,7 @@ function createWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 640,
-    title: "DineX POS",
+    title: "Plato POS",
     webPreferences: {
       preload:          path.join(__dirname, "preload.js"),
       contextIsolation: true,
