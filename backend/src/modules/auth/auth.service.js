@@ -203,8 +203,8 @@ async function changePassword({ userId, currentPassword, newPassword }) {
   if (!currentPassword || !newPassword) {
     throw new ApiError(400, "CHANGE_PWD_MISSING", "Current and new password are required");
   }
-  if (newPassword.length < 6) {
-    throw new ApiError(400, "CHANGE_PWD_WEAK", "New password must be at least 6 characters");
+  if (newPassword.length < 8) {
+    throw new ApiError(400, "CHANGE_PWD_WEAK", "New password must be at least 8 characters.");
   }
 
   const data = getOwnerSetupData();
@@ -243,8 +243,8 @@ async function resetOwnerPassword({ secret, newPassword }) {
   if (!expected || secret !== expected) {
     throw new ApiError(403, "RESET_FORBIDDEN", "Invalid reset secret");
   }
-  if (!newPassword || newPassword.length < 6) {
-    throw new ApiError(400, "RESET_WEAK_PASSWORD", "New password must be at least 6 characters");
+  if (!newPassword || newPassword.length < 8) {
+    throw new ApiError(400, "RESET_WEAK_PASSWORD", "New password must be at least 8 characters.");
   }
 
   const passwordHash = await bcrypt.hash(String(newPassword), 10);
@@ -325,12 +325,13 @@ async function resetPasswordByToken({ token, newPassword }) {
   if (!token || !newPassword) {
     throw new ApiError(400, "RESET_PWD_MISSING", "Token and new password are required");
   }
-  if (newPassword.length < 6) {
-    throw new ApiError(400, "RESET_PWD_WEAK", "Password must be at least 6 characters");
+  if (newPassword.length < 8) {
+    throw new ApiError(400, "RESET_PWD_WEAK", "New password must be at least 8 characters.");
   }
 
-  // Find which tenant has this token (searches all in-memory caches)
-  const found = findUserByResetToken(token);
+  // Find which tenant has this token — checks in-memory cache first,
+  // then falls back to Postgres (needed after server restart wipes cache).
+  const found = await findUserByResetToken(token);
 
   if (!found) {
     throw new ApiError(400, "RESET_PWD_INVALID", "This reset link is invalid or has expired. Please request a new one.");

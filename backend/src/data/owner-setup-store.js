@@ -233,13 +233,41 @@ function createTenantFile(tenantId, initialData) {
  * Returns { tenantId, user } or null.
  */
 function findUserByResetToken(token) {
+  // ── 1. Fast path: in-memory cache ────────────────────────────────────────
   for (const [tenantId, data] of _cache) {
     const user = (data.users || []).find(
       (u) => u.resetToken === token && u.resetTokenExpiry > Date.now()
     );
     if (user) return { tenantId, user };
   }
-  return null;
+
+  // ── 2. Slow path: query Postgres for the token ────────────────────────────
+  // Needed when the server restarted (cache cleared) after the token was saved.
+  // Returns a Promise — callers that need this must await.
+  return (async () => {
+    try {
+      const { query } = require("../db/pool");
+      const result = await query(
+        `SELECT tenant_id, value FROM tenant_settings WHERE key = 'owner_setup'`
+      );
+      for (const row of result.rows) {
+        let data = {};
+        try {
+          data = typeof row.value === "string" ? JSON.parse(row.value) : (row.value || {});
+        } catch (_) { continue; }
+
+        const user = (data.users || []).find(
+          (u) => u.resetToken === token && u.resetTokenExpiry > Date.now()
+        );
+        if (user) {
+          // Warm the cache so subsequent calls are fast
+          warmTenantCache(row.tenant_id, data);
+          return { tenantId: row.tenant_id, user };
+        }
+      }
+    } catch (_) { /* DB unavailable — fall through */ }
+    return null;
+  })();
 }
 
 /**

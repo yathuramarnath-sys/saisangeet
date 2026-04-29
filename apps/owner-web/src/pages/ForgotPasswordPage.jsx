@@ -123,7 +123,7 @@ function ResetPasswordForm({ token }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    if (password.length < 6)       return setError("Password must be at least 6 characters.");
+    if (password.length < 8)       return setError("New password must be at least 8 characters.");
     if (password !== confirm)      return setError("Passwords do not match.");
     setBusy(true);
     try {
@@ -170,7 +170,7 @@ function ResetPasswordForm({ token }) {
       </div>
       <div className="lp2-card">
         <h1 className="lp2-heading">Set new password</h1>
-        <p className="lp2-sub">Choose a strong password — at least 6 characters.</p>
+        <p className="lp2-sub">Choose a strong password — at least 8 characters.</p>
 
         {error && <div className="lp2-error">{error}</div>}
 
@@ -182,7 +182,7 @@ function ResetPasswordForm({ token }) {
               autoComplete="new-password"
               placeholder="New password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); setError(""); }}
               autoFocus
               required
             />
@@ -215,7 +215,7 @@ function ResetPasswordForm({ token }) {
               autoComplete="new-password"
               placeholder="Confirm new password"
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              onChange={(e) => { setConfirm(e.target.value); setError(""); }}
               required
             />
           </div>
