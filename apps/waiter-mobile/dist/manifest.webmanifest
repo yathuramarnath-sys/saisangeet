@@ -1,7 +1,7 @@
 {
-  "name": "DineX Captain",
-  "short_name": "DineX Captain",
-  "description": "Captain & waiter app — table orders, KOT sending, status updates",
+  "name": "Plato Captain",
+  "short_name": "Plato Captain",
+  "description": "Plato Captain — waiter app — table orders, KOT sending, status updates",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
