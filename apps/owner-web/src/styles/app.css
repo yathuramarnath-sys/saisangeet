@@ -2483,12 +2483,26 @@ body {
   transition: all .15s;
 }
 .rpt-nav-btn.active { background: #111; color: #fff; border-color: #111; }
-.rpt-filters { display: flex; gap: 10px; }
+.rpt-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rpt-date-range {
+  display: flex; align-items: center; gap: 6px;
+}
+.rpt-date-label {
+  font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .4px;
+  white-space: nowrap;
+}
+.rpt-date-sep { color: #aaa; font-size: 14px; }
 .rpt-date-input, .rpt-outlet-select {
   padding: 8px 12px; border: 1px solid #ddd; border-radius: 10px;
   font-size: 13px; font-family: inherit; background: #fff; outline: none;
 }
 .rpt-date-input:focus, .rpt-outlet-select:focus { border-color: #1a7a3a; }
+.rpt-loading-dot {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; font-size: 16px; color: #1a7a3a;
+  animation: rpt-spin 1s linear infinite;
+}
+@keyframes rpt-spin { to { transform: rotate(360deg); } }
 
 .rpt-body { display: flex; flex-direction: column; gap: 16px; padding: 0 24px 40px; }
 .rpt-panel { margin: 0; }

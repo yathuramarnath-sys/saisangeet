@@ -5,7 +5,7 @@ const {
   getControlLogs
 } = require("../operations/operations.memory-store");
 const { syncOperationsState, persistOperationsState } = require("../operations/operations.state");
-const { getTodaySales } = require("../operations/closed-orders-store");
+const { getTodaySales, getSalesForRange } = require("../operations/closed-orders-store");
 
 // Insights are generated from live sales data — empty until POS goes live
 const defaultInsights = [];
@@ -396,12 +396,15 @@ function buildControlSummary(orders) {
   ];
 }
 
-function buildClosingCenter(orders, tenantId) {
+function buildClosingCenter(orders, tenantId, { dateFrom, dateTo, outletId } = {}) {
   const deletedBills = Object.values(orders).reduce((sum, order) => sum + (order.deletedBillLog || []).length, 0);
   const pendingOverrides = Object.values(orders).filter((order) => order.discountOverrideRequested).length;
 
   // ── Real sales figures from closed-orders store ───────────────────────────
-  const closedToday = getTodaySales(tenantId || "default");
+  const today    = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const from     = dateFrom || today;
+  const to       = dateTo   || today;
+  const closedToday = getSalesForRange(tenantId || "default", from, to, outletId || null);
   let netSales = 0;
   let gstTotal = 0;
   let cashSales = 0;
@@ -487,7 +490,7 @@ function buildAlerts(orders) {
   return [...liveAlerts, ...reprintAlerts, ...voidAlerts];
 }
 
-function buildOwnerSummary(tenantId) {
+function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) {
   const state = getState();
   const orders = state.orders || {};
   const approvalLog = buildApprovalLog(orders);
@@ -496,8 +499,11 @@ function buildOwnerSummary(tenantId) {
   const deletedBillCount = Object.values(orders).reduce((sum, order) => sum + (order.deletedBillLog || []).length, 0);
   const pendingOverrides = Object.values(orders).filter((order) => order.discountOverrideRequested).length;
 
-  // Real today's order count + full sales breakdown from closed-orders store
-  const closedToday     = getTodaySales(tenantId || "default");
+  // Sales data filtered by date range and outlet from closed-orders store
+  const today           = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const from            = dateFrom || today;
+  const to              = dateTo   || today;
+  const closedToday     = getSalesForRange(tenantId || "default", from, to, outletId || null);
   const todayOrderCount = closedToday.length;
   const salesData       = buildSalesData(closedToday);
 
@@ -536,7 +542,7 @@ function buildOwnerSummary(tenantId) {
         meta: "Cash mismatch, deleted bills, discount overrides, and stock exceptions"
       }
     ],
-    closingCenter: buildClosingCenter(orders, tenantId),
+    closingCenter: buildClosingCenter(orders, tenantId, { dateFrom, dateTo, outletId }),
     closingState: state.closingState,
     permissionPolicies: state.permissionPolicies,
     controlSummary,
@@ -547,9 +553,9 @@ function buildOwnerSummary(tenantId) {
   };
 }
 
-async function fetchOwnerSummary(tenantId) {
+async function fetchOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) {
   await syncOperationsState();
-  return buildOwnerSummary(tenantId);
+  return buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId });
 }
 
 async function approveClosing(actor = { name: "Owner", role: "Owner" }, tenantId) {

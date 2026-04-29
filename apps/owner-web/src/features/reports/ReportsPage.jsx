@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "../../lib/api";
 import {
-  OUTLETS, MONTHS,
   dayEndSeed, itemSalesSeed, gstSeed, paymentSeed, discountVoidSeed, staffSalesSeed,
   categorySalesSeed
 } from "./reports.seed";
@@ -778,21 +777,76 @@ const REPORTS = [
   { key: "email",      label: "📧 Email Settings" }
 ];
 
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function thisMonthStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function ReportsPage() {
   const [active, setActive]   = useState("day-end");
-  const [outlet, setOutlet]   = useState("All Outlets");
-  const [date, setDate]       = useState(() => new Date().toISOString().slice(0, 10));
-  const [month, setMonth]     = useState(() => {
-    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
-  const [salesData, setSalesData] = useState(null);
 
-  // Fetch live sales data from backend on mount and whenever date changes
+  // Date range — used by all tabs except GST
+  const [dateFrom, setDateFrom] = useState(todayStr);
+  const [dateTo,   setDateTo]   = useState(todayStr);
+
+  // Month — used only by GST tab
+  const [month, setMonth] = useState(thisMonthStr);
+
+  // Outlets — loaded from backend, first entry is "All Outlets"
+  const [outlets,    setOutlets]    = useState([{ id: "", name: "All Outlets" }]);
+  const [outletId,   setOutletId]   = useState("");   // "" = all outlets
+
+  const [salesData,  setSalesData]  = useState(null);
+  const [loading,    setLoading]    = useState(false);
+
+  // Load real outlets once on mount
   useEffect(() => {
-    api.get("/reports/owner-summary")
+    api.get("/outlets")
+      .then(res => {
+        const list = Array.isArray(res) ? res : (res?.outlets || []);
+        if (list.length) {
+          setOutlets([{ id: "", name: "All Outlets" }, ...list.map(o => ({ id: o.id, name: o.name }))]);
+        }
+      })
+      .catch(() => {}); // keep default "All Outlets" on error
+  }, []);
+
+  // Fetch reports data whenever date range, outlet or active tab changes
+  const fetchData = useCallback(() => {
+    // Derive API date range: for GST use the full month
+    let from = dateFrom;
+    let to   = dateTo;
+    if (active === "gst" && month) {
+      const [y, m] = month.split("-").map(Number);
+      from = `${y}-${String(m).padStart(2, "0")}-01`;
+      const lastDay = new Date(y, m, 0).getDate();
+      to   = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    }
+
+    const params = new URLSearchParams({ dateFrom: from, dateTo: to });
+    if (outletId) params.set("outletId", outletId);
+
+    setLoading(true);
+    api.get(`/reports/owner-summary?${params}`)
       .then(res => { if (res?.salesData) setSalesData(res.salesData); })
-      .catch(() => {}); // silently fall back to seed zeros
-  }, [date]);
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [active, dateFrom, dateTo, month, outletId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Validate: dateFrom must not exceed dateTo
+  function handleDateFrom(val) {
+    setDateFrom(val);
+    if (val > dateTo) setDateTo(val);
+  }
+  function handleDateTo(val) {
+    setDateTo(val);
+    if (val < dateFrom) setDateFrom(val);
+  }
+
+  const selectedOutletName = outlets.find(o => o.id === outletId)?.name || "All Outlets";
 
   return (
     <>
@@ -816,28 +870,43 @@ export function ReportsPage() {
             </button>
           ))}
         </div>
+
         <div className="rpt-filters">
           {active === "gst" ? (
+            /* GST uses a month picker — range derived automatically */
             <input type="month" className="rpt-date-input" value={month}
               onChange={e => setMonth(e.target.value)} />
           ) : (
-            <input type="date" className="rpt-date-input" value={date}
-              onChange={e => setDate(e.target.value)} />
+            /* All other tabs: from → to date range */
+            <div className="rpt-date-range">
+              <label className="rpt-date-label">From</label>
+              <input type="date" className="rpt-date-input" value={dateFrom}
+                max={dateTo} onChange={e => handleDateFrom(e.target.value)} />
+              <span className="rpt-date-sep">→</span>
+              <label className="rpt-date-label">To</label>
+              <input type="date" className="rpt-date-input" value={dateTo}
+                min={dateFrom} max={todayStr()} onChange={e => handleDateTo(e.target.value)} />
+            </div>
           )}
-          <select className="rpt-outlet-select" value={outlet}
-            onChange={e => setOutlet(e.target.value)}>
-            {OUTLETS.map(o => <option key={o}>{o}</option>)}
+
+          <select className="rpt-outlet-select" value={outletId}
+            onChange={e => setOutletId(e.target.value)}>
+            {outlets.map(o => (
+              <option key={o.id} value={o.id}>{o.name}</option>
+            ))}
           </select>
+
+          {loading && <span className="rpt-loading-dot" title="Loading…">⟳</span>}
         </div>
       </div>
 
-      {active === "day-end"    && <DayEndSummary  outlet={outlet} date={date}  data={salesData?.dayEnd} />}
-      {active === "item-sales" && <ItemSalesReport outlet={outlet} date={date}  data={salesData} />}
-      {active === "category"   && <CategoryReport  date={date}                  data={salesData} />}
-      {active === "gst"        && <GSTReport        outlet={outlet} month={month} data={salesData} />}
-      {active === "payments"   && <PaymentReport    outlet={outlet} date={date}  data={salesData} />}
-      {active === "discounts"  && <DiscountVoidReport date={date}                data={salesData} />}
-      {active === "staff"      && <StaffSalesReport  date={date}                 data={salesData} />}
+      {active === "day-end"    && <DayEndSummary  outlet={selectedOutletName} date={`${dateFrom} – ${dateTo}`} data={salesData?.dayEnd} />}
+      {active === "item-sales" && <ItemSalesReport outlet={selectedOutletName} date={`${dateFrom}_${dateTo}`}  data={salesData} />}
+      {active === "category"   && <CategoryReport  date={`${dateFrom}_${dateTo}`}                              data={salesData} />}
+      {active === "gst"        && <GSTReport        outlet={selectedOutletName} month={month}                  data={salesData} />}
+      {active === "payments"   && <PaymentReport    outlet={selectedOutletName} date={`${dateFrom}_${dateTo}`} data={salesData} />}
+      {active === "discounts"  && <DiscountVoidReport date={`${dateFrom}_${dateTo}`}                           data={salesData} />}
+      {active === "staff"      && <StaffSalesReport  date={`${dateFrom}_${dateTo}`}                            data={salesData} />}
       {active === "email"      && (
         <div className="rpt-body">
           <EmailTrigger />

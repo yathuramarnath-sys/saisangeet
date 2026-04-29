@@ -6,7 +6,8 @@ const {
 
 async function ownerSummaryHandler(req, res) {
   const tenantId = req.user?.tenantId || "default";
-  const result = await fetchOwnerSummary(tenantId);
+  const { dateFrom, dateTo, outletId } = req.query;
+  const result = await fetchOwnerSummary(tenantId, { dateFrom, dateTo, outletId });
   res.json(result);
 }
 

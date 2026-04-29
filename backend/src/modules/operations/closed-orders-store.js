@@ -114,4 +114,29 @@ function getTodaySalesByOutlet(tenantId, outletId) {
   });
 }
 
-module.exports = { addClosedOrder, getTodaySales, getTodaySalesByOutlet, hydrateClosedOrders };
+/**
+ * Return closed orders for a tenant within a date range (IST), optionally
+ * filtered by outletId.
+ * @param {string}      tenantId
+ * @param {string}      dateFrom  — "YYYY-MM-DD" (inclusive)
+ * @param {string}      dateTo    — "YYYY-MM-DD" (inclusive)
+ * @param {string|null} outletId  — if provided, only return orders for this outlet
+ */
+function getSalesForRange(tenantId, dateFrom, dateTo, outletId) {
+  if (!store.has(tenantId)) return [];
+  const tenantMap = store.get(tenantId);
+  const keys      = outletId ? [outletId] : [...tenantMap.keys()];
+  const result    = [];
+
+  for (const oid of keys) {
+    const orders = tenantMap.get(oid) || [];
+    for (const order of orders) {
+      const closedStr = new Date(order.closedAt || order._receivedAt || 0)
+        .toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      if (closedStr >= dateFrom && closedStr <= dateTo) result.push(order);
+    }
+  }
+  return result;
+}
+
+module.exports = { addClosedOrder, getTodaySales, getTodaySalesByOutlet, getSalesForRange, hydrateClosedOrders };
