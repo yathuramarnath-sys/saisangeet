@@ -9,9 +9,12 @@ const { sendWelcomeEmail } = require("../../utils/email");
  * Excludes the "default" tenant (Saisangeet's own account).
  */
 async function listClients() {
+  // DISTINCT ON (tenant_id) deduplicated by earliest signup — prevents duplicate
+  // rows when both email and phone are registered in users_index for the same tenant.
+  // We pick the row whose identifier looks like an email (contains @) preferentially.
   const result = await query(`
-    SELECT
-      ui.identifier  AS email,
+    SELECT DISTINCT ON (ui.tenant_id)
+      ui.identifier  AS identifier,
       ui.tenant_id   AS "tenantId",
       ui.created_at  AS "signedUpAt",
       ts.value       AS setup,
@@ -20,7 +23,7 @@ async function listClients() {
     LEFT JOIN tenant_settings ts
            ON ts.tenant_id = ui.tenant_id AND ts.key = 'owner_setup'
     WHERE ui.tenant_id != 'default'
-    ORDER BY ui.created_at DESC
+    ORDER BY ui.tenant_id, (ui.identifier LIKE '%@%') DESC, ui.created_at ASC
   `);
 
   return result.rows.map((row) => {
@@ -30,12 +33,18 @@ async function listClients() {
     const owner = (setup.users || []).find((u) => (u.roles || []).includes("Owner")) || {};
     const bp    = setup.businessProfile || {};
 
+    // Prefer email from the owner record; fall back to identifier if it looks like an email
+    const email = owner.email ||
+      (row.identifier && row.identifier.includes("@") ? row.identifier : "—");
+    const phone = owner.phone || bp.phone ||
+      (row.identifier && !row.identifier.includes("@") ? row.identifier : "—");
+
     return {
       tenantId:       row.tenantId,
-      email:          row.email,
+      email,
       ownerName:      owner.fullName || owner.name || "—",
       restaurantName: bp.tradeName || bp.legalName || "—",
-      phone:          owner.phone || bp.phone || "—",
+      phone,
       signedUpAt:     row.signedUpAt,
       lastUpdatedAt:  row.lastUpdatedAt,
       hasPassword:    !!owner.passwordHash
