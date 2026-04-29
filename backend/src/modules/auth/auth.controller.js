@@ -14,7 +14,7 @@ async function loginHandler(req, res) {
   if (!password || typeof password !== "string" || password.length < 1) {
     return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Password is required." } });
   }
-  const result = await login({ email: raw.trim().toLowerCase(), password });
+  const result = await login({ identifier: raw.trim().toLowerCase(), password });
   res.json(result);
 }
 
