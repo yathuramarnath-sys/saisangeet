@@ -1162,6 +1162,12 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   font-weight: 700;
   text-align: left;
 }
+.menu-item-unit {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #888;
+  margin-left: 1px;
+}
 
 .soldout-tag {
   display: inline-block;

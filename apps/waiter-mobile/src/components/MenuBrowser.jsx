@@ -118,7 +118,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
                   <span className={`veg-dot${item.isVeg ? " veg" : " nonveg"}`} />
                 )}
                 <div className="menu-item-info">
-                  <span className="menu-item-name">{item.name}</span>
+                  <span className="menu-item-name">{item.name}{item.unit ? <span className="menu-item-unit">/{item.unit}</span> : null}</span>
                   {soldOut && <span className="soldout-tag">Sold out</span>}
                 </div>
               </div>

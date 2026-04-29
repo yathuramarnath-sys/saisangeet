@@ -200,7 +200,9 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
                   <div className="mfc-soldout-label">SOLD OUT</div>
                 ) : (
                   <div className="mfc-bottom">
-                    <span className="mfc-price" style={{ color: color.bg }}>₹{price}</span>
+                    <span className="mfc-price" style={{ color: color.bg }}>
+                      ₹{price}{item.unit ? <span className="mfc-unit">/{item.unit}</span> : null}
+                    </span>
                     <span className="mfc-add-btn" style={{ background: color.bg }}>+</span>
                   </div>
                 )}

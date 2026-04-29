@@ -209,7 +209,7 @@ export function OrderPanel({
                   <div className="order-item-name-row">
                     <span className="order-item-name"
                       style={{ textDecoration: item.isVoided ? "line-through" : "none" }}>
-                      {item.name}
+                      {item.name}{item.unit ? <span className="order-item-unit">/{item.unit}</span> : null}
                     </span>
                     {item.sentToKot && !item.isVoided && (
                       <span className="order-item-kot-tag">KOT ✓</span>
