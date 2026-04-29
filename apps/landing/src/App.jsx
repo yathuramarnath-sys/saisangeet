@@ -5,32 +5,56 @@ const API_URL = "https://api.dinexpos.in/api/v1";
 
 const FEATURES = [
   {
-    icon: "🧾",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+      </svg>
+    ),
     title: "Smart POS Terminal",
     desc: "Fast billing, split bills, dine-in & takeaway. Works offline. Designed for Indian menus with GST."
   },
   {
-    icon: "📱",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>
+      </svg>
+    ),
     title: "Captain App",
     desc: "Waiters take orders on their phone, KOTs sent directly to kitchen. No paper slips."
   },
   {
-    icon: "👨‍🍳",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6h18M3 12h18M3 18h18"/>
+      </svg>
+    ),
     title: "Kitchen Display",
     desc: "Real-time KOT screen for the kitchen. Chefs mark items done, captain gets notified."
   },
   {
-    icon: "📊",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
+      </svg>
+    ),
     title: "Owner Dashboard",
     desc: "Daily sales, staff shifts, GST reports, outlet-wise performance — all in one console."
   },
   {
-    icon: "🏪",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9h18M3 15h18M9 3v18M15 3v18" strokeOpacity=".5"/><rect x="3" y="3" width="18" height="18" rx="2"/>
+      </svg>
+    ),
     title: "Multi-Outlet",
     desc: "Manage all your restaurant branches from a single login. Per-outlet staff, menu and devices."
   },
   {
-    icon: "🧾",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+    ),
     title: "GST Billing",
     desc: "Automatic CGST/SGST split, GST invoices on demand, ready for Zoho Books sync."
   }
@@ -47,7 +71,7 @@ const TESTIMONIALS = [
   {
     name: "Rajesh Kumar",
     role: "Owner, Spice Garden — Bengaluru",
-    text: "We switched from a paper-based system to DineXPOS in one day. The KOT screen alone saves us 20 minutes every service."
+    text: "We switched from a paper-based system to Plato in one day. The KOT screen alone saves us 20 minutes every service."
   },
   {
     name: "Priya Menon",
@@ -60,6 +84,28 @@ const TESTIMONIALS = [
     text: "The Captain App on Android is brilliant. Waiters love it and wrong orders have dropped to near zero."
   }
 ];
+
+const PlateLogo = ({ size = 20, stroke = "#fff" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M8 12h8"/>
+  </svg>
+);
+
+const APP_STRIP_ICONS = {
+  "POS Terminal": (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+  ),
+  "Captain App": (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+  ),
+  "Kitchen Display": (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h10M7 11h6"/></svg>
+  ),
+  "Owner Console": (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+  ),
+};
 
 export function App() {
   const [form, setForm] = useState({ name: "", restaurant: "", phone: "", email: "", outlets: "1", message: "" });
@@ -74,7 +120,6 @@ export function App() {
   async function handleEnroll(e) {
     e.preventDefault();
     setSubmitting(true);
-    // POST to backend signup-interest endpoint
     try {
       await fetch(`${API_URL}/auth/signup-interest`, {
         method: "POST",
@@ -93,8 +138,10 @@ export function App() {
       <nav className="lp-nav">
         <div className="lp-nav-inner">
           <a href="/" className="lp-logo">
-            <span className="lp-logo-mark">D</span>
-            <span>DineXPOS</span>
+            <span className="lp-logo-mark">
+              <PlateLogo size={16} stroke="#fff" />
+            </span>
+            <span>Plato</span>
           </a>
           <div className={`lp-nav-links${menuOpen ? " open" : ""}`}>
             <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
@@ -117,7 +164,7 @@ export function App() {
         <div className="lp-hero-inner">
           <div className="lp-hero-text">
             <span className="lp-hero-badge">🇮🇳 Built for Indian Restaurants</span>
-            <h1>The Complete Restaurant OS</h1>
+            <h1>Run Your Restaurant Smarter</h1>
             <p className="lp-hero-sub">
               POS · Captain App · Kitchen Display · GST Billing · Multi-Outlet Reports.<br />
               Everything your restaurant needs — one platform, one subscription.
@@ -141,6 +188,12 @@ export function App() {
               </div>
               <div className="lp-mock-body">
                 <div className="lp-mock-sidebar">
+                  <div className="lp-mock-brand">
+                    <div className="lp-mock-brand-mark">
+                      <PlateLogo size={12} stroke="#fff" />
+                    </div>
+                    <span>Plato</span>
+                  </div>
                   {["Overview","Outlets","Menu","Staff","Reports","App Store"].map(item => (
                     <div key={item} className={`lp-mock-nav-item${item === "Overview" ? " active" : ""}`}>{item}</div>
                   ))}
@@ -176,13 +229,13 @@ export function App() {
       <section className="lp-app-strip">
         <div className="lp-strip-inner">
           {[
-            { icon: "🧾", name: "POS Terminal", url: "pos.dinexpos.in" },
-            { icon: "📱", name: "Captain App", url: "captain.dinexpos.in" },
-            { icon: "👨‍🍳", name: "Kitchen Display", url: "kds.dinexpos.in" },
-            { icon: "📊", name: "Owner Console", url: "app.dinexpos.in" }
+            { name: "POS Terminal",    url: "pos.dinexpos.in" },
+            { name: "Captain App",     url: "captain.dinexpos.in" },
+            { name: "Kitchen Display", url: "kds.dinexpos.in" },
+            { name: "Owner Console",   url: "app.dinexpos.in" }
           ].map(app => (
             <div key={app.name} className="lp-strip-app">
-              <span className="lp-strip-icon">{app.icon}</span>
+              <span className="lp-strip-icon">{APP_STRIP_ICONS[app.name]}</span>
               <div>
                 <strong>{app.name}</strong>
                 <span>{app.url}</span>
@@ -258,7 +311,7 @@ export function App() {
             <p className="lp-eyebrow">Free trial</p>
             <h2>Get started today</h2>
             <p className="lp-enroll-sub">
-              Fill in your details and we'll set up your DineXPOS account.
+              Fill in your details and we'll set up your Plato account.
               No credit card. No commitment. Live in 24 hours.
             </p>
             <ul className="lp-enroll-perks">
@@ -281,7 +334,7 @@ export function App() {
                 <h3>Check your inbox!</h3>
                 <p>Your login credentials have been sent to your email. Sign in to get started.</p>
                 <a href={`${APP_URL}/login`} className="lp-btn-primary" style={{ marginTop: 16, display: "inline-block" }}>
-                  Sign in to DineXPOS →
+                  Sign in to Plato →
                 </a>
               </div>
             ) : (
@@ -290,46 +343,22 @@ export function App() {
 
                 <label>
                   Your Name *
-                  <input
-                    type="text"
-                    placeholder="Amarnath"
-                    value={form.name}
-                    onChange={set("name")}
-                    required
-                  />
+                  <input type="text" placeholder="Amarnath" value={form.name} onChange={set("name")} required />
                 </label>
 
                 <label>
                   Restaurant / Business Name *
-                  <input
-                    type="text"
-                    placeholder="Saisangeet Restaurant"
-                    value={form.restaurant}
-                    onChange={set("restaurant")}
-                    required
-                  />
+                  <input type="text" placeholder="Saisangeet Restaurant" value={form.restaurant} onChange={set("restaurant")} required />
                 </label>
 
                 <div className="lp-form-row">
                   <label>
                     Phone *
-                    <input
-                      type="tel"
-                      placeholder="+91 98765 43210"
-                      value={form.phone}
-                      onChange={set("phone")}
-                      required
-                    />
+                    <input type="tel" placeholder="+91 98765 43210" value={form.phone} onChange={set("phone")} required />
                   </label>
                   <label>
                     Email *
-                    <input
-                      type="email"
-                      placeholder="owner@restaurant.com"
-                      value={form.email}
-                      onChange={set("email")}
-                      required
-                    />
+                    <input type="email" placeholder="owner@restaurant.com" value={form.email} onChange={set("email")} required />
                   </label>
                 </div>
 
@@ -345,12 +374,7 @@ export function App() {
 
                 <label>
                   Anything specific you need? (optional)
-                  <textarea
-                    placeholder="e.g. We need delivery integration, multi-printer setup..."
-                    value={form.message}
-                    onChange={set("message")}
-                    rows={3}
-                  />
+                  <textarea placeholder="e.g. We need delivery integration, multi-printer setup..." value={form.message} onChange={set("message")} rows={3} />
                 </label>
 
                 <button
@@ -374,10 +398,12 @@ export function App() {
       <footer className="lp-footer">
         <div className="lp-footer-inner">
           <div className="lp-footer-brand">
-            <span className="lp-logo-mark small">D</span>
+            <span className="lp-logo-mark small">
+              <PlateLogo size={14} stroke="#fff" />
+            </span>
             <div>
-              <strong>DineXPOS</strong>
-              <span>Restaurant OS for India</span>
+              <strong>Plato</strong>
+              <span>Restaurant Platform for India</span>
             </div>
           </div>
           <div className="lp-footer-links">
@@ -402,7 +428,7 @@ export function App() {
           </div>
         </div>
         <div className="lp-footer-bottom">
-          <span>© 2026 DineXPOS. All rights reserved.</span>
+          <span>© 2026 Plato. All rights reserved.</span>
           <span>Made in India 🇮🇳</span>
         </div>
       </footer>
