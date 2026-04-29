@@ -350,7 +350,13 @@ async function deviceCloseOrderHandler(req, res) {
   res.json({ ok: true });
 }
 
+async function clearTableOrderHandler(req, res) {
+  await clearTableAfterSettle(req.params.tableId);
+  res.json({ ok: true, tableId: req.params.tableId, message: "Table cleared." });
+}
+
 module.exports = {
+  clearTableOrderHandler,
   listOperationsSummaryHandler,
   createDemoOrderHandler,
   listOrdersHandler,

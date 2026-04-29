@@ -23,6 +23,7 @@ const {
   listControlLogsHandler,
   recordReprintHandler,
   requestVoidApprovalHandler,
+  clearTableOrderHandler,
   // Device-friendly flat endpoints
   deviceSendKotHandler,
   deviceListKotsHandler,
@@ -134,6 +135,15 @@ operationsRouter.post(
   requireAuth,
   requirePermission("operations.order.status"),
   asyncHandler(updateOrderStatusHandler)
+);
+
+// Owner-only: force-clear a stuck/test order on any table without requiring payment.
+// Useful for clearing test data before handing a device to a real client.
+operationsRouter.delete(
+  "/orders/:tableId",
+  requireAuth,
+  requirePermission("operations.order.edit"),
+  asyncHandler(clearTableOrderHandler)
 );
 
 // ─── Device-friendly flat routes (used by POS / Captain App / KDS) ────────────
