@@ -27,9 +27,25 @@ async function updateDeviceStatusHandler(req, res) {
   res.json(result);
 }
 
+// Validates that linkCode is present, not too long, and only contains
+// alphanumeric characters and dashes — prevents injection and garbage input.
+const LINK_CODE_RE = /^[A-Z0-9-]{1,30}$/i;
+
 async function resolveLinkCodeHandler(req, res) {
   try {
-    const result = await resolveLinkCode(req.body);
+    const { linkCode, deviceType } = req.body;
+
+    if (!linkCode || typeof linkCode !== "string") {
+      return res.status(400).json({ error: { code: "INVALID_INPUT", message: "linkCode is required." } });
+    }
+    if (!LINK_CODE_RE.test(linkCode.trim())) {
+      return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Invalid link code format." } });
+    }
+    if (deviceType && typeof deviceType !== "string") {
+      return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Invalid deviceType." } });
+    }
+
+    const result = await resolveLinkCode({ linkCode: linkCode.trim().toUpperCase(), deviceType });
     res.json(result);
   } catch (err) {
     res.status(err.status || 400).json({ error: { code: "RESOLVE_FAILED", message: err.message } });

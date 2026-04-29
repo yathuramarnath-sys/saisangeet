@@ -1,7 +1,17 @@
 const { login, signup, isSignupAvailable, saveSignupInterest, changePassword, resetOwnerPassword, forgotPassword, resetPasswordByToken } = require("./auth.service");
 
+// Very basic email format check — prevents garbage hitting the DB
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 async function loginHandler(req, res) {
-  const result = await login(req.body);
+  const { email, password } = req.body;
+  if (!email || typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
+    return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Valid email is required." } });
+  }
+  if (!password || typeof password !== "string" || password.length < 1) {
+    return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Password is required." } });
+  }
+  const result = await login({ email: email.trim().toLowerCase(), password });
   res.json(result);
 }
 
@@ -49,12 +59,23 @@ async function resetOwnerHandler(req, res) {
 }
 
 async function forgotPasswordHandler(req, res) {
-  const result = await forgotPassword(req.body);
+  const { email } = req.body;
+  if (!email || typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
+    return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Valid email is required." } });
+  }
+  const result = await forgotPassword({ email: email.trim().toLowerCase() });
   res.json(result);
 }
 
 async function resetPasswordByTokenHandler(req, res) {
-  const result = await resetPasswordByToken(req.body);
+  const { token, password } = req.body;
+  if (!token || typeof token !== "string" || token.length < 10) {
+    return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Valid reset token is required." } });
+  }
+  if (!password || typeof password !== "string" || password.length < 8) {
+    return res.status(400).json({ error: { code: "INVALID_INPUT", message: "New password must be at least 8 characters." } });
+  }
+  const result = await resetPasswordByToken({ token, password });
   res.json(result);
 }
 

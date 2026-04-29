@@ -5,6 +5,7 @@ const helmet = require("helmet");
 const { apiRouter } = require("./routes");
 const { errorHandler } = require("./middleware/error-handler");
 const { notFoundHandler } = require("./middleware/not-found");
+const { generalLimiter } = require("./middleware/rate-limit");
 
 const ALLOWED_ORIGINS = [
   // Local dev — Vite default ports
@@ -60,7 +61,7 @@ function createApp() {
     });
   });
 
-  app.use("/api/v1", apiRouter);
+  app.use("/api/v1", generalLimiter, apiRouter);
   app.use(notFoundHandler);
   app.use(errorHandler);
 

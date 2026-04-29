@@ -3,6 +3,7 @@ const express = require("express");
 const { requireAuth } = require("../../middleware/require-auth");
 const { requirePermission } = require("../../middleware/require-permission");
 const { asyncHandler } = require("../../utils/async-handler");
+const { linkCodeLimiter } = require("../../middleware/rate-limit");
 const {
   listDevicesHandler,
   createLinkTokenHandler,
@@ -22,12 +23,12 @@ devicesRouter.post(
   asyncHandler(createLinkTokenHandler)
 );
 // Public — no auth — called by POS / Captain App / KDS on first launch
-devicesRouter.post("/resolve-link-code", asyncHandler(resolveLinkCodeHandler));
+devicesRouter.post("/resolve-link-code", linkCodeLimiter, asyncHandler(resolveLinkCodeHandler));
 
 // Device-auth — returns live staff list for the linked outlet (no re-link needed)
 devicesRouter.get("/staff", requireAuth, asyncHandler(fetchStaffHandler));
 
-devicesRouter.post("/link", asyncHandler(linkDeviceHandler));
+devicesRouter.post("/link", requireAuth, asyncHandler(linkDeviceHandler));
 devicesRouter.patch(
   "/:id/status",
   requireAuth,
