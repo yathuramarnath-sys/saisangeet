@@ -121,7 +121,7 @@ export function ShiftsCashPage() {
         </div>
       </header>
 
-      {loading && !allShifts.length ? (
+      {loading && !allShiftsRaw.length ? (
         <div className="shift-empty" style={{ padding: "48px 24px" }}>
           Loading shift data…
         </div>
@@ -159,7 +159,7 @@ export function ShiftsCashPage() {
             </div>
           )}
 
-          {allShifts.length === 0 && (
+          {allShiftsRaw.length === 0 && (
             <div className="shift-empty" style={{ padding: "32px 24px", textAlign: "center" }}>
               No shifts recorded yet. When a cashier opens a shift on the POS, it will appear here.
             </div>
