@@ -6,6 +6,7 @@ const {
 } = require("../operations/operations.memory-store");
 const { syncOperationsState, persistOperationsState } = require("../operations/operations.state");
 const { getTodaySales, getSalesForRange } = require("../operations/closed-orders-store");
+const { getOwnerSetupData } = require("../../data/owner-setup-store");
 
 // Insights are generated from live sales data — empty until POS goes live
 const defaultInsights = [];
@@ -229,6 +230,20 @@ const CAT_COLORS = [
 ];
 
 function buildCategorySales(closedToday) {
+  // ── Build menu-catalog lookup so closed orders without a category field
+  // are retroactively matched to the correct category by menuItemId or name.
+  const setupData  = getOwnerSetupData();
+  const menuItems  = (setupData?.menu?.items)      || [];
+  const menuCats   = (setupData?.menu?.categories) || [];
+  const catById    = Object.fromEntries(menuCats.map(c => [c.id, c.name]));
+  const catByItemId   = {};  // menuItemId → categoryName
+  const catByItemName = {};  // normalised item name → categoryName
+  for (const mi of menuItems) {
+    const cName = catById[mi.categoryId] || "";
+    if (mi.id && cName)   catByItemId[mi.id] = cName;
+    if (mi.name && cName) catByItemName[(mi.name || "").toLowerCase().trim()] = cName;
+  }
+
   /** catKey → accumulator */
   const catMap = {};
 
@@ -241,7 +256,13 @@ function buildCategorySales(closedToday) {
     const outlet  = (order.outletName || "All Outlets").trim();
 
     for (const item of items) {
-      const catKey = (item.category || item.categoryName || item.station || "").trim() || "General";
+      // Priority: item.category (set by POS) → catalog lookup by id → catalog lookup by name → station → "General"
+      const catKey = (
+        (item.category || item.categoryName || "").trim() ||
+        catByItemId[item.menuItemId || item.id] ||
+        catByItemName[(item.name || "").toLowerCase().trim()] ||
+        item.station || ""
+      ).trim() || "General";
 
       if (!catMap[catKey]) {
         catMap[catKey] = {

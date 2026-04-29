@@ -24,16 +24,25 @@ function StatusBadge({ status }) {
   return <span className={`shift-badge ${cls}`}>{label}</span>;
 }
 
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function toDateStr(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+
 export function ShiftsCashPage() {
   const [data,        setData]        = useState({ active: [], history: [], movements: [] });
   const [loading,     setLoading]     = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [filter,      setFilter]      = useState("all"); // all | open | mismatch | closed
 
+  // Date range filter — default to today
+  const [dateFrom, setDateFrom] = useState(todayStr);
+  const [dateTo,   setDateTo]   = useState(todayStr);
+
   async function loadData() {
     try {
       const res = await api.get("/shifts/summary");
-      // Backend returns { active, history, movements } directly — no .data wrapper
       setData((res?.active ? res : res?.data) || { active: [], history: [], movements: [] });
       setLastUpdated(new Date());
     } catch {
@@ -45,24 +54,42 @@ export function ShiftsCashPage() {
 
   useEffect(() => {
     loadData();
-    // Refresh every 30 seconds so Owner sees live updates without page reload
     const interval = setInterval(loadData, 30_000);
     return () => clearInterval(interval);
   }, []);
+
+  function handleDateFrom(val) {
+    setDateFrom(val);
+    if (val > dateTo) setDateTo(val);
+  }
+  function handleDateTo(val) {
+    setDateTo(val);
+    if (val < dateFrom) setDateFrom(val);
+  }
 
   const shifts    = data.active    || [];
   const history   = data.history   || [];
   const movements = data.movements || [];
 
-  const openCount    = shifts.filter(s => s.status === "open").length;
-  const mismatches   = [...shifts, ...history].filter(s => s.status === "mismatch");
-  const totalShort   = mismatches.reduce((sum, s) => sum + Math.abs(Math.min(s.variance || 0, 0)), 0);
-  const totalOpening = shifts.filter(s => s.status === "open").reduce((s, x) => s + (x.openingCash || 0), 0);
-  const totalCashOut = movements.filter(m => m.type === "out").reduce((s, m) => s + m.amount, 0);
+  // Apply date range filter: use startedAt for shifts, time for movements
+  const allShiftsRaw = [...shifts, ...history];
+  const allShiftsInRange = allShiftsRaw.filter(s => {
+    const d = toDateStr(s.startedAt || s.closedAt);
+    return !d || (d >= dateFrom && d <= dateTo);
+  });
+  const movementsInRange = movements.filter(m => {
+    const d = toDateStr(m.time);
+    return !d || (d >= dateFrom && d <= dateTo);
+  });
 
-  const allShifts = [...shifts, ...history];
-  const filtered  = filter === "all" ? allShifts
-    : allShifts.filter(s => s.status === filter);
+  const openCount    = allShiftsInRange.filter(s => s.status === "open").length;
+  const mismatches   = allShiftsInRange.filter(s => s.status === "mismatch");
+  const totalShort   = mismatches.reduce((sum, s) => sum + Math.abs(Math.min(s.variance || 0, 0)), 0);
+  const totalOpening = allShiftsInRange.filter(s => s.status === "open").reduce((s, x) => s + (x.openingCash || 0), 0);
+  const totalCashOut = movementsInRange.filter(m => m.type === "out").reduce((s, m) => s + m.amount, 0);
+
+  const filtered = filter === "all" ? allShiftsInRange
+    : allShiftsInRange.filter(s => s.status === filter);
 
   return (
     <>
@@ -72,6 +99,16 @@ export function ShiftsCashPage() {
           <h2>Shifts &amp; Cash Control</h2>
         </div>
         <div className="topbar-actions">
+          {/* Date range filter */}
+          <div className="rpt-date-range">
+            <label className="rpt-date-label">From</label>
+            <input type="date" className="rpt-date-input" value={dateFrom}
+              max={dateTo} onChange={e => handleDateFrom(e.target.value)} />
+            <span className="rpt-date-sep">→</span>
+            <label className="rpt-date-label">To</label>
+            <input type="date" className="rpt-date-input" value={dateTo}
+              min={dateFrom} max={todayStr()} onChange={e => handleDateTo(e.target.value)} />
+          </div>
           <span className="shift-live-pill">● Live from POS</span>
           <button className="topbar-btn" onClick={loadData} title="Refresh">
             ↺ Refresh
@@ -201,10 +238,10 @@ export function ShiftsCashPage() {
               {/* Cash Movement Log */}
               <div className="panel shift-monitor-panel">
                 <div className="panel-head" style={{ marginBottom: 10 }}><h3>Cash Movement Log</h3></div>
-                {movements.length === 0 && (
-                  <div className="shift-empty">No cash movements recorded today</div>
+                {movementsInRange.length === 0 && (
+                  <div className="shift-empty">No cash movements in this date range</div>
                 )}
-                {movements.map(m => (
+                {movementsInRange.map(m => (
                   <div key={m.id} className="shift-move-row">
                     <div className={`shift-move-type ${m.type === "in" ? "type-in" : "type-out"}`}>
                       {m.type === "in" ? "↑ IN" : "↓ OUT"}
