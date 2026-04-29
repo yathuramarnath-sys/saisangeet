@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">DineX KDS</string>
-    <string name="title_activity_main">DineX KDS</string>
+    <string name="app_name">Plato KDS</string>
+    <string name="title_activity_main">Plato KDS</string>
     <string name="package_name">in.dinexpos.kds</string>
     <string name="custom_url_scheme">in.dinexpos.kds</string>
 </resources>

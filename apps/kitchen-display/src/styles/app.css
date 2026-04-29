@@ -66,16 +66,15 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
 }
 
 .kds-brand-mark {
-  height: 38px;
-  padding: 0 10px;
-  border-radius: 10px;
-  background: var(--kds-new);
-  color: #fff;
-  font-weight: 800;
-  font-size: 0.82rem;
-  letter-spacing: 0.04em;
-  display: grid;
-  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .kds-header-left strong {

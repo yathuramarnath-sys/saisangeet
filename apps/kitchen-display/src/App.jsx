@@ -951,10 +951,15 @@ export function App() {
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className="kds-header">
         <div className="kds-header-left">
-          <div className="kds-brand-mark">KDS</div>
+          <div className="kds-brand-mark">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M8 12h8" strokeLinecap="round"/>
+            </svg>
+          </div>
           <div>
-            <strong>Kitchen Display</strong>
-            <p>{outlet?.name || "Restaurant OS"}</p>
+            <strong>Plato KDS</strong>
+            <p>{outlet?.name || "Kitchen Display"}</p>
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 {
-  "name": "DineX KDS",
-  "short_name": "DineX KDS",
-  "description": "Kitchen display system — live KOT queue, preparation timers",
+  "name": "Plato KDS",
+  "short_name": "Plato KDS",
+  "description": "Plato Kitchen Display — live KOT queue, preparation timers",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
