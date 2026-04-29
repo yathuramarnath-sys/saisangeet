@@ -4,14 +4,17 @@ const { login, signup, isSignupAvailable, saveSignupInterest, changePassword, re
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function loginHandler(req, res) {
-  const { email, password } = req.body;
-  if (!email || typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
-    return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Valid email is required." } });
+  // Frontend sends "identifier" (email or phone); also accept "email" for direct API callers
+  const raw = req.body.identifier || req.body.email;
+  const { password } = req.body;
+
+  if (!raw || typeof raw !== "string" || !raw.trim()) {
+    return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Email or phone is required." } });
   }
   if (!password || typeof password !== "string" || password.length < 1) {
     return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Password is required." } });
   }
-  const result = await login({ email: email.trim().toLowerCase(), password });
+  const result = await login({ email: raw.trim().toLowerCase(), password });
   res.json(result);
 }
 
