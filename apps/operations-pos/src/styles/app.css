@@ -5084,7 +5084,7 @@ body { background: var(--sq-bg); }
 .branch-setup-btn {
   width: 100%;
   padding: 15px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, #059669, #047857);
   color: #fff;
   border: none;
   border-radius: 12px;

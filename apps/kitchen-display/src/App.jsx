@@ -104,7 +104,7 @@ function KdsBranchSetupScreen({ onComplete }) {
     try {
       const data = await api.post("/devices/resolve-link-code", {
         linkCode:   trimmed,
-        deviceType: "KDS",
+        deviceType: "Plato KDS",
       });
       setResult(data);
       setStatus("success");
@@ -143,11 +143,16 @@ function KdsBranchSetupScreen({ onComplete }) {
       }}>
         <div style={{
           width: 64, height: 64, borderRadius: "50%",
-          background: "linear-gradient(135deg, #ef4444, #dc2626)",
-          color: "#fff", fontSize: 22, fontWeight: 800,
+          background: "rgba(255,255,255,0.1)",
+          color: "#fff",
           display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4,
-        }}>KDS</div>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: "#f9fafb", margin: 0 }}>Kitchen Display</h1>
+        }}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8 12h8" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: "#f9fafb", margin: 0 }}>Plato KDS</h1>
         <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 16px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
           Station Setup
         </p>
@@ -178,7 +183,7 @@ function KdsBranchSetupScreen({ onComplete }) {
               <button
                 style={{
                   width: "100%", padding: 15,
-                  background: status === "loading" ? "#374151" : "linear-gradient(135deg, #ef4444, #dc2626)",
+                  background: status === "loading" ? "#374151" : "linear-gradient(135deg, #059669, #047857)",
                   color: "#fff", border: "none", borderRadius: 12,
                   fontSize: 15, fontWeight: 700, cursor: "pointer",
                   opacity: (status === "loading" || !code.trim()) ? 0.5 : 1,
