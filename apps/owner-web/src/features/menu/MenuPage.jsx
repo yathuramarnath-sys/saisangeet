@@ -333,7 +333,7 @@ export function MenuPage() {
         trackInventory: formData.get("trackInventory"),
         entryStyle: formData.get("entryStyle"),
         foodType: formData.get("foodType"),
-        unit: formData.get("unit") || "PCS",
+        unit: formData.get("unit") || "",
         outletAvailability: itemDraft.selectedOutlets?.length
           ? itemDraft.selectedOutlets.map((name) => ({ outlet: name, enabled: true }))
           : availableOutlets.map((o) => ({ outlet: o.name, enabled: true }))
@@ -721,7 +721,7 @@ export function MenuPage() {
       takeawayParcelChargeValue: String(item.parcelCharges?.takeaway?.value || 0),
       deliveryParcelChargeType: item.parcelCharges?.delivery?.type || "None",
       deliveryParcelChargeValue: String(item.parcelCharges?.delivery?.value || 0),
-      unit: item.unit || "PCS"
+      unit: item.unit || ""
     });
     setSaveError("");
     setSaveMessage("");
@@ -759,7 +759,7 @@ export function MenuPage() {
         trackInventory: formData.get("trackInventory"),
         entryStyle: formData.get("entryStyle"),
         foodType: formData.get("foodType"),
-        unit: formData.get("unit") || "PCS"
+        unit: formData.get("unit") || ""
       });
       await reloadMenu();
       cancelEditingItem();
@@ -1101,7 +1101,7 @@ export function MenuPage() {
                 </span>
                 <span>
                   <strong>{item.name}</strong>
-                  {item.unit && item.unit !== "PCS" && (
+                  {item.unit && (
                     <span className="unit-badge">{item.unit}</span>
                   )}
                 </span>
@@ -1191,9 +1191,10 @@ export function MenuPage() {
                   Sold by (Unit)
                   <select
                     name="unit"
-                    value={editDraft.unit || "PCS"}
+                    value={editDraft.unit || ""}
                     onChange={(event) => setEditDraft((current) => ({ ...current, unit: event.target.value }))}
                   >
+                    <option value="">— Not set —</option>
                     <option value="PCS">PCS — Per piece</option>
                     <option value="KG">KG — Per kilogram</option>
                     <option value="LTR">LTR — Per litre</option>
@@ -1597,7 +1598,8 @@ export function MenuPage() {
             </label>
             <label>
               Sold by (Unit)
-              <select name="unit" defaultValue="PCS">
+              <select name="unit" defaultValue="">
+                <option value="">— Not set —</option>
                 <option value="PCS">PCS — Per piece</option>
                 <option value="KG">KG — Per kilogram</option>
                 <option value="LTR">LTR — Per litre</option>
