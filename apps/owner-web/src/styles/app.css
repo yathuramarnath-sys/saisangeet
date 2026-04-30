@@ -5577,3 +5577,43 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   .ob-stepbar { gap: 4px; }
   .ob-step-line { width: 16px; }
 }
+
+/* ── Demo Data Banner ─────────────────────────────────────────────────────── */
+.dash-demo-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 16px 28px 0;
+  padding: 14px 16px;
+  background: #fffbeb;
+  border: 1.5px solid #fcd34d;
+  border-radius: 14px;
+  color: #92400e;
+}
+.dash-demo-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.dash-demo-body { flex: 1; min-width: 0; }
+.dash-demo-body strong { font-size: 13px; font-weight: 700; display: block; margin-bottom: 2px; }
+.dash-demo-body p { font-size: 12px; margin: 0; line-height: 1.5; color: #a16207; }
+.dash-demo-remove-btn {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #f59e0b;
+  background: #fff;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s;
+}
+.dash-demo-remove-btn:hover:not(:disabled) { background: #fef3c7; }
+.dash-demo-remove-btn:disabled { opacity: .6; cursor: not-allowed; }
+.dash-demo-done { font-size: 13px; font-weight: 700; color: #16a34a; white-space: nowrap; flex-shrink: 0; }
+.dash-demo-dismiss {
+  background: none; border: none; color: #d97706;
+  font-size: 13px; cursor: pointer; padding: 2px 4px;
+  flex-shrink: 0; margin-top: -2px;
+}
+.dash-demo-dismiss:hover { color: #92400e; }

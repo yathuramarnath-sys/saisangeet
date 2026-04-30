@@ -20,6 +20,9 @@ const { setupRouter } = require("../modules/setup/setup.routes");
 const { kitchenRouter } = require("../modules/kitchen/kitchen.routes");
 const { clientsRouter } = require("../modules/clients/clients.routes");
 const { billingRouter } = require("../modules/billing/billing.routes");
+const { requireAuth }   = require("../middleware/require-auth");
+const { asyncHandler }  = require("../utils/async-handler");
+const { updateOwnerSetupDataNow } = require("../data/owner-setup-store");
 
 const apiRouter = express.Router();
 
@@ -43,6 +46,22 @@ apiRouter.use("/setup", setupRouter);
 apiRouter.use("/kitchen-stations", kitchenRouter);
 apiRouter.use("/admin/clients", clientsRouter);
 apiRouter.use("/billing",       billingRouter);
+
+// ── DELETE /demo-data  ────────────────────────────────────────────────────────
+// Removes all records flagged with _demo:true from this tenant's data.
+// Called from Owner Web "Remove demo data" banner one-click action.
+apiRouter.delete("/demo-data", requireAuth, asyncHandler(async (req, res) => {
+  await updateOwnerSetupDataNow((data) => {
+    data.outlets              = (data.outlets || []).filter(o => !o._demo);
+    data.users                = (data.users   || []).filter(u => !u._demo);
+    if (data.menu) {
+      data.menu.categories    = (data.menu.categories || []).filter(c => !c._demo);
+      data.menu.items         = (data.menu.items       || []).filter(i => !i._demo);
+    }
+    return data;
+  });
+  res.json({ ok: true, message: "Demo data removed." });
+}));
 
 module.exports = {
   apiRouter

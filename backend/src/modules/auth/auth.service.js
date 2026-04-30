@@ -13,7 +13,8 @@ const {
   findUserByResetToken,
 } = require("../../data/owner-setup-store");
 const { createBlankTenantData } = require("../../data/blank-tenant-data");
-const { registerUserInIndex } = require("../../data/users-index");
+const { applyDemoSeed }        = require("../../data/demo-seed");
+const { registerUserInIndex }  = require("../../data/users-index");
 const { sendWelcomeEmail, sendPasswordResetEmail } = require("../../utils/email");
 const { runWithTenant } = require("../../data/tenant-context");
 const { seedTrial }     = require("../billing/billing.service");
@@ -182,6 +183,9 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
     name, restaurant, phone: cleanPhone, email: cleanEmail,
     outlets, message, submittedAt: new Date().toISOString()
   }];
+
+  // Inject demo outlet + menu + staff so the account is never empty on first login
+  applyDemoSeed(tenantData, tenantId);
 
   createTenantFile(tenantId, tenantData);
   registerUserInIndex(cleanEmail, cleanPhone, tenantId);
