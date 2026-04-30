@@ -139,4 +139,23 @@ function getSalesForRange(tenantId, dateFrom, dateTo, outletId) {
   return result;
 }
 
-module.exports = { addClosedOrder, getTodaySales, getTodaySalesByOutlet, getSalesForRange, hydrateClosedOrders };
+/**
+ * Find a single closed order by ID for a tenant.
+ * Searches today's in-memory orders (and full store if not found today).
+ * @param {string}      tenantId
+ * @param {string}      orderId
+ * @param {string|null} outletId  — optional, narrows search
+ */
+function getOrderById(tenantId, orderId, outletId = null) {
+  if (!store.has(tenantId)) return null;
+  const tenantMap = store.get(tenantId);
+  const keys = outletId ? [outletId] : [...tenantMap.keys()];
+  for (const oid of keys) {
+    const orders = tenantMap.get(oid) || [];
+    const found = orders.find((o) => o.id === orderId);
+    if (found) return found;
+  }
+  return null;
+}
+
+module.exports = { addClosedOrder, getTodaySales, getTodaySalesByOutlet, getSalesForRange, hydrateClosedOrders, getOrderById };

@@ -1,5 +1,40 @@
 // Integration definitions — UI catalog (not API data)
 export const INTEGRATIONS_CATALOG = [
+  // ── Messaging ─────────────────────────────────────────────
+  {
+    id: "twilio-whatsapp",
+    name: "WhatsApp Bills",
+    category: "Messaging",
+    emoji: "💬",
+    tagline: "Send digital bills to customers on WhatsApp instantly after payment",
+    setupTime: "5 min",
+    apiManaged: true,  // signals IntegrationsPage to use backend API, not localStorage
+    fields: [
+      {
+        key:         "accountSid",
+        label:       "Twilio Account SID",
+        placeholder: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        type:        "text",
+        hint:        "Starts with AC — from Twilio Console homepage"
+      },
+      {
+        key:         "authToken",
+        label:       "Auth Token",
+        placeholder:  "••••••••••••••••••••••••••••••••",
+        type:        "password",
+        hint:        "From Twilio Console homepage — keep this secret"
+      },
+      {
+        key:         "fromNumber",
+        label:       "WhatsApp Sender Number",
+        placeholder: "+14155238886",
+        type:        "text",
+        hint:        "Twilio sandbox: +14155238886  |  Or your approved WhatsApp Business number"
+      }
+    ],
+    helpText: "Get free credentials at twilio.com → Create account. Use Sandbox for testing, or buy a WhatsApp-enabled number to go live."
+  },
+
   // ── Accounts ──────────────────────────────────────────────
   {
     id: "zoho-books",
@@ -101,9 +136,10 @@ export const INTEGRATIONS_CATALOG = [
   }
 ];
 
-export const CATEGORY_ORDER = ["Accounts", "Online Orders", "Payments", "Delivery"];
+export const CATEGORY_ORDER = ["Messaging", "Accounts", "Online Orders", "Payments", "Delivery"];
 
 export const CATEGORY_DESCRIPTIONS = {
+  "Messaging":      "Send bills and updates to customers on WhatsApp",
   "Accounts":       "Keep your books in sync without manual entry",
   "Online Orders":  "Receive aggregator orders directly in your POS",
   "Payments":       "Accept digital payments at every counter",

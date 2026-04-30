@@ -175,6 +175,10 @@ function createBlankTenantData({ ownerName, ownerEmail, ownerPhone, restaurantNa
         dayCloseShortageAccount: "Revenue Loss", vendorPayableAccount: "Accounts Payable",
         purchaseExpenseAccount: "Kitchen Purchase"
       },
+      // WhatsApp bill delivery via tenant's own Twilio account (BYOT model)
+      whatsapp: {
+        accountSid: "", authToken: "", fromNumber: "", enabled: false
+      },
       outletMappings: [], vendorMappings: [], purchaseEntries: [], syncLog: []
     }
   };

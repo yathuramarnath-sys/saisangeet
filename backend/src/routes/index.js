@@ -19,8 +19,9 @@ const { shiftsRouter } = require("../modules/shifts/shifts.routes");
 const { setupRouter } = require("../modules/setup/setup.routes");
 const { kitchenRouter } = require("../modules/kitchen/kitchen.routes");
 const { clientsRouter } = require("../modules/clients/clients.routes");
-const { billingRouter } = require("../modules/billing/billing.routes");
-const { requireAuth }   = require("../middleware/require-auth");
+const { billingRouter }    = require("../modules/billing/billing.routes");
+const { whatsappRouter }   = require("../modules/whatsapp/whatsapp.routes");
+const { requireAuth }      = require("../middleware/require-auth");
 const { asyncHandler }  = require("../utils/async-handler");
 const { updateOwnerSetupDataNow } = require("../data/owner-setup-store");
 
@@ -46,6 +47,7 @@ apiRouter.use("/setup", setupRouter);
 apiRouter.use("/kitchen-stations", kitchenRouter);
 apiRouter.use("/admin/clients", clientsRouter);
 apiRouter.use("/billing",       billingRouter);
+apiRouter.use("/whatsapp",      whatsappRouter);
 
 // ── DELETE /demo-data  ────────────────────────────────────────────────────────
 // Removes all records flagged with _demo:true from this tenant's data.
