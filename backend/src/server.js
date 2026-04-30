@@ -1,3 +1,7 @@
+// Sentry MUST be the very first require so it can instrument everything
+const { initSentry } = require("./config/sentry");
+initSentry();
+
 const http = require("http");
 const { Server: SocketServer } = require("socket.io");
 

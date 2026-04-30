@@ -1,7 +1,8 @@
-// build: 2026-04-29f
+// build: 2026-04-30
 const cors = require("cors");
 const express = require("express");
 const helmet = require("helmet");
+const { Sentry } = require("./config/sentry");
 
 const { apiRouter } = require("./routes");
 const { errorHandler } = require("./middleware/error-handler");
@@ -55,15 +56,46 @@ function createApp() {
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-  app.get("/health", (_req, res) => {
-    res.json({
-      status: "ok",
-      service: "restaurant-pos-backend"
+  // ── Health endpoint — used by UptimeRobot + Railway health checks ────────
+  app.get("/health", async (_req, res) => {
+    const start = Date.now();
+    let dbStatus = "ok";
+    let dbLatencyMs = null;
+
+    try {
+      const { query } = require("./db/pool");
+      await query("SELECT 1");
+      dbLatencyMs = Date.now() - start;
+    } catch {
+      dbStatus = "error";
+    }
+
+    const status = dbStatus === "ok" ? "ok" : "degraded";
+    res.status(status === "ok" ? 200 : 503).json({
+      status,
+      service:     "plato-pos-backend",
+      version:     process.env.npm_package_version || "1.0.0",
+      environment: process.env.NODE_ENV || "production",
+      db:          { status: dbStatus, latencyMs: dbLatencyMs },
+      uptime:      Math.floor(process.uptime()),
+      timestamp:   new Date().toISOString(),
     });
   });
 
+  // Sentry request handler — must be before routes
+  app.use(Sentry.setupExpressErrorHandler
+    ? (...args) => { try { Sentry.setupExpressErrorHandler(...args); } catch {} }
+    : (_req, _res, next) => next()
+  );
+
   app.use("/api/v1", generalLimiter, apiRouter);
   app.use(notFoundHandler);
+
+  // Sentry error handler — must be before custom error handler
+  if (process.env.SENTRY_DSN) {
+    app.use(Sentry.expressErrorHandler?.() || ((_err, _req, _res, next) => next(_err)));
+  }
+
   app.use(errorHandler);
 
   return app;

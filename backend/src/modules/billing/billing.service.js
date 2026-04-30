@@ -22,11 +22,18 @@ const { query } = require("../../db/pool");
 const { PLANS, TRIAL_DAYS } = require("./billing.plans");
 const { env } = require("../../config/env");
 
-// ── Razorpay client ──────────────────────────────────────────────────────────
-const rzp = new Razorpay({
-  key_id:     env.razorpayKeyId,
-  key_secret: env.razorpayKeySecret,
-});
+// ── Razorpay client (lazy) ───────────────────────────────────────────────────
+// Initialised on first use so missing env vars don't crash startup
+let _rzp = null;
+function getRzp() {
+  if (!_rzp) {
+    if (!env.razorpayKeyId || !env.razorpayKeySecret) {
+      throw new Error("Razorpay keys not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.");
+    }
+    _rzp = new Razorpay({ key_id: env.razorpayKeyId, key_secret: env.razorpayKeySecret });
+  }
+  return _rzp;
+}
 
 // ── DB helpers ───────────────────────────────────────────────────────────────
 
@@ -106,7 +113,7 @@ async function createSubscription(tenantId, planId) {
   }
 
   // Create subscription in Razorpay
-  const sub = await rzp.subscriptions.create({
+  const sub = await getRzp().subscriptions.create({
     plan_id:         plan.razorpayPlanId,
     total_count:     120,           // max 10 years of monthly billing
     quantity:        1,
@@ -270,7 +277,7 @@ async function cancelSubscription(tenantId) {
   if (!row?.razorpay_sub_id) throw new Error("No active subscription found");
 
   // Cancel at period end (not immediately) so they get remaining days
-  await rzp.subscriptions.cancel(row.razorpay_sub_id, { cancel_at_cycle_end: 1 });
+  await getRzp().subscriptions.cancel(row.razorpay_sub_id, { cancel_at_cycle_end: 1 });
 
   await upsertBillingRow(tenantId, {
     status:       "cancelled",
