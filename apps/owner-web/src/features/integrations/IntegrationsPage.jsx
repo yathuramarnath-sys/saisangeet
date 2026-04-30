@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 
 import {
@@ -40,7 +40,7 @@ function Toggle({ on, onChange }) {
 }
 
 // ── WhatsApp (Twilio) card — API-managed ──────────────────────────────────────
-function WhatsAppCard({ integration }) {
+function WhatsAppCard({ integration, onConnectionChange }) {
   const [config, setConfig]     = useState(null);   // loaded from API
   const [open, setOpen]         = useState(false);
   const [draft, setDraft]       = useState({ accountSid: "", authToken: "", fromNumber: "" });
@@ -56,6 +56,7 @@ function WhatsAppCard({ integration }) {
     api.get("/whatsapp/config")
       .then((data) => {
         setConfig(data);
+        onConnectionChange?.(!!data?.connected);
         if (data?.connected) {
           setDraft({
             accountSid: data.accountSid || "",
@@ -64,7 +65,7 @@ function WhatsAppCard({ integration }) {
           });
         }
       })
-      .catch(() => setConfig({ connected: false }));
+      .catch(() => { setConfig({ connected: false }); onConnectionChange?.(false); });
   }, []);
 
   function flash(text) {
@@ -87,6 +88,7 @@ function WhatsAppCard({ integration }) {
         enabled:     true,
       });
       setConfig(updated);
+      onConnectionChange?.(true);
       setOpen(false);
       flash("WhatsApp Bills connected!");
     } catch (err) {
@@ -101,6 +103,7 @@ function WhatsAppCard({ integration }) {
     try {
       await api.post("/whatsapp/config", { accountSid: "", authToken: "", fromNumber: "", enabled: false });
       setConfig({ connected: false });
+      onConnectionChange?.(false);
       setDraft({ accountSid: "", authToken: "", fromNumber: "" });
       setOpen(false);
       flash("WhatsApp Bills disconnected.");
@@ -313,8 +316,9 @@ function IntegrationCard({ integration, connected, creds, onConnect, onDisconnec
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export function IntegrationsPage() {
-  const [connected, setConnected] = useState(() => loadConnected());
-  const [msg, setMsg]             = useState("");
+  const [connected, setConnected]         = useState(() => loadConnected());
+  const [whatsappActive, setWhatsappActive] = useState(false);
+  const [msg, setMsg]                     = useState("");
 
   function flash(text) { setMsg(text); setTimeout(() => setMsg(""), 3000); }
 
@@ -337,8 +341,9 @@ export function IntegrationsPage() {
     setConnected(next); saveConnected(next);
   }
 
-  // Count local-only connected (excluding API-managed ones)
+  // Total connected count including API-managed WhatsApp
   const localCount = Object.values(connected).filter((v) => v?.active).length;
+  const totalCount = localCount + (whatsappActive ? 1 : 0);
 
   return (
     <>
@@ -347,9 +352,9 @@ export function IntegrationsPage() {
           <p className="eyebrow">Owner Setup</p>
           <h2>Integrations</h2>
         </div>
-        {localCount > 0 && (
+        {totalCount > 0 && (
           <div className="topbar-actions">
-            <span className="status online">{localCount} connected</span>
+            <span className="status online">{totalCount} connected</span>
           </div>
         )}
       </header>
@@ -365,7 +370,7 @@ export function IntegrationsPage() {
         </div>
         <div className="hero-stats">
           <div><span>Available</span><strong>{INTEGRATIONS_CATALOG.length}</strong></div>
-          <div><span>Connected</span><strong>{localCount}</strong></div>
+          <div><span>Connected</span><strong>{totalCount}</strong></div>
         </div>
       </section>
 
@@ -384,7 +389,7 @@ export function IntegrationsPage() {
             <div className="integrations-list">
               {items.map((item) =>
                 item.apiManaged ? (
-                  <WhatsAppCard key={item.id} integration={item} />
+                  <WhatsAppCard key={item.id} integration={item} onConnectionChange={setWhatsappActive} />
                 ) : (
                   <IntegrationCard
                     key={item.id}

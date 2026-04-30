@@ -29,6 +29,7 @@ export function BusinessProfilePage() {
   const [slugEditing, setSlugEditing]   = useState(false);
   const [slugSaving, setSlugSaving]     = useState(false);
   const [slugMsg, setSlugMsg]           = useState("");
+  const [slugIsError, setSlugIsError]   = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,10 +60,11 @@ export function BusinessProfilePage() {
     const result = await saveBusinessProfile(profile);
     setProfile({ ...emptyProfile, ...result });
     setStatusMessage("Business profile saved.");
-    // Also update restaurant name in billing table
+    // Only update restaurant display name — never auto-submit slugDraft here
     const name = profile.tradeName || profile.legalName;
-    if (name) {
-      api.patch("/business-profile/subdomain", { subdomain: currentSlug || slugDraft, restaurantName: name })
+    if (name && currentSlug) {
+      // Restaurant name update only — slug stays unchanged
+      api.patch("/business-profile/subdomain", { subdomain: currentSlug, restaurantName: name })
         .catch(() => {});
     }
   }
@@ -72,6 +74,7 @@ export function BusinessProfilePage() {
     if (!slugDraft.trim()) return;
     setSlugSaving(true);
     setSlugMsg("");
+    setSlugIsError(false);
     try {
       const result = await api.patch("/business-profile/subdomain", {
         subdomain:      slugDraft.trim().toLowerCase(),
@@ -81,8 +84,10 @@ export function BusinessProfilePage() {
       setSlugDraft(result.subdomain);
       setSlugEditing(false);
       setSlugMsg(`Your URL is now: ${result.url}`);
+      setSlugIsError(false);
     } catch (err) {
       setSlugMsg(err.message || "Failed to save URL.");
+      setSlugIsError(true);
     } finally {
       setSlugSaving(false);
     }
@@ -176,7 +181,7 @@ export function BusinessProfilePage() {
               </button>
             )}
 
-            {slugMsg && <p className={`subdomain-msg ${slugMsg.includes("failed") || slugMsg.includes("taken") ? "subdomain-msg-error" : ""}`}>{slugMsg}</p>}
+            {slugMsg && <p className={`subdomain-msg ${slugIsError ? "subdomain-msg-error" : ""}`}>{slugMsg}</p>}
           </div>
 
           {/* Setup instructions */}

@@ -46,10 +46,11 @@ function saveConfig(payload) {
       integrations: {
         ...(current.integrations || {}),
         whatsapp: {
-          accountSid: payload.accountSid  !== undefined ? payload.accountSid  : existing.accountSid  || "",
-          authToken:  payload.authToken   !== undefined ? payload.authToken   : existing.authToken   || "",
-          fromNumber: payload.fromNumber  !== undefined ? payload.fromNumber  : existing.fromNumber  || "",
-          enabled:    payload.enabled     !== undefined ? Boolean(payload.enabled) : (existing.enabled !== false),
+          accountSid: (payload.accountSid  !== undefined && payload.accountSid  !== "") ? payload.accountSid  : existing.accountSid  || "",
+          // Never overwrite stored authToken with an empty string — frontend omits it when not changing
+          authToken:  (payload.authToken   !== undefined && payload.authToken   !== "") ? payload.authToken   : existing.authToken   || "",
+          fromNumber: (payload.fromNumber  !== undefined && payload.fromNumber  !== "") ? payload.fromNumber  : existing.fromNumber  || "",
+          enabled:     payload.enabled     !== undefined ? Boolean(payload.enabled) : (existing.enabled !== false),
         },
       },
     };
@@ -76,10 +77,12 @@ function getClient() {
  * Supports: 10-digit Indian, +91XXXXXXXXXX, or any E.164.
  */
 function normalizeToPhone(phone) {
-  const digits = String(phone || "").replace(/\D/g, "");
+  const str = String(phone || "");
+  // Already in Twilio's whatsapp: format — return as-is
+  if (str.startsWith("whatsapp:")) return str;
+  const digits = str.replace(/\D/g, "");
   if (digits.length === 10) return `whatsapp:+91${digits}`;
   if (digits.length === 12 && digits.startsWith("91")) return `whatsapp:+${digits}`;
-  if (digits.startsWith("whatsapp:")) return phone;
   if (digits.length > 10)  return `whatsapp:+${digits}`;
   throw new Error(`Invalid phone number: "${phone}". Enter a 10-digit Indian mobile number.`);
 }
@@ -157,7 +160,7 @@ async function sendBill({ tenantId, orderId, outletId, phone }) {
 
   // Find order in closed orders store
   const order = getOrderById(tenantId, orderId, outletId || null);
-  if (!order) throw new Error(`Order "${orderId}" not found in today's closed orders.`);
+  if (!order) throw new Error(`Order "${orderId}" not found in closed orders.`);
 
   const data    = getOwnerSetupData();
   const message = buildBillMessage(order, data.businessProfile);

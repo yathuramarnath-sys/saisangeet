@@ -69,7 +69,7 @@ export function buildSubdomainUrl(slug) {
  */
 export function isMainApp() {
   const hostname = window.location.hostname;
-  if (hostname === "localhost" || hostname.match(/^\d+/)) return true;
+  if (hostname === "localhost" || hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) return true;
   const parts = hostname.split(".");
   return parts[0] === MAIN_SUBDOMAIN || parts.length < 3;
 }

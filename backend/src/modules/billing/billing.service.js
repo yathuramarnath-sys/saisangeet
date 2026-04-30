@@ -65,7 +65,8 @@ async function ensureBillingTable() {
 
 const RESERVED_SLUGS = new Set([
   "app", "www", "api", "mail", "admin", "static", "cdn",
-  "billing", "support", "help", "demo", "test", "plato", "pos"
+  "billing", "support", "help", "demo", "test", "plato", "pos",
+  "dinexpos", "dinex", "login", "signup", "dashboard",
 ]);
 
 function slugify(name) {
@@ -86,6 +87,9 @@ function slugify(name) {
  * Validates format, checks reserved names, and throws a clear error if taken.
  */
 async function saveSubdomain(tenantId, rawSlug) {
+  const { isDatabaseEnabled } = require("../../db/database-mode");
+  if (!isDatabaseEnabled()) throw new Error("Custom subdomains require database. Enable Postgres on Railway.");
+
   const slug = slugify(rawSlug);
   if (!slug || slug.length < 3) {
     throw new Error("Subdomain must be at least 3 characters (letters, numbers, hyphens).");
@@ -94,10 +98,14 @@ async function saveSubdomain(tenantId, rawSlug) {
     throw new Error(`"${slug}" is a reserved name — please choose a different one.`);
   }
   try {
-    await query(
+    const result = await query(
       `UPDATE tenant_billing SET subdomain = $1, updated_at = NOW() WHERE tenant_id = $2`,
       [slug, tenantId]
     );
+    // If no row was updated, the billing record doesn't exist yet (seedTrial may have failed)
+    if (result.rowCount === 0) {
+      throw new Error("Billing record not found — please wait a moment and try again.");
+    }
   } catch (err) {
     if (err.code === "23505") {
       throw new Error(`"${slug}.dinexpos.in" is already taken — try a different name.`);
@@ -112,7 +120,8 @@ async function saveSubdomain(tenantId, rawSlug) {
  * Called from auth.service after signup and from business-profile after update.
  */
 async function updateRestaurantName(tenantId, name) {
-  if (!name) return;
+  const { isDatabaseEnabled } = require("../../db/database-mode");
+  if (!isDatabaseEnabled() || !name) return;
   await query(
     `UPDATE tenant_billing SET restaurant_name = $1, updated_at = NOW() WHERE tenant_id = $2`,
     [String(name).slice(0, 120), tenantId]
@@ -121,10 +130,11 @@ async function updateRestaurantName(tenantId, name) {
 
 /**
  * Public lookup: resolve a subdomain slug → { tenantId, restaurantName }.
- * Returns null if not found.
+ * Returns null if not found or DB unavailable.
  */
 async function resolveSubdomain(slug) {
-  if (!slug) return null;
+  const { isDatabaseEnabled } = require("../../db/database-mode");
+  if (!isDatabaseEnabled() || !slug) return null;
   const r = await query(
     `SELECT tenant_id, restaurant_name FROM tenant_billing WHERE subdomain = $1`,
     [slug.toLowerCase().trim()]
@@ -140,6 +150,8 @@ async function resolveSubdomain(slug) {
  * Get subdomain for a given tenant (for display in settings).
  */
 async function getSubdomain(tenantId) {
+  const { isDatabaseEnabled } = require("../../db/database-mode");
+  if (!isDatabaseEnabled()) return { subdomain: null, restaurantName: null };
   const r = await query(
     `SELECT subdomain, restaurant_name FROM tenant_billing WHERE tenant_id = $1`,
     [tenantId]

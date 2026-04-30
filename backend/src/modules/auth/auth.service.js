@@ -133,11 +133,12 @@ async function signup({ fullName, email, phone, password, businessName }) {
   const allPerms = (getOwnerSetupData().permissions || []).map((p) => p.code);
 
   const tokenPayload = {
-    sub: userId,
-    outletId: null,
+    sub:         userId,
+    tenantId:    "default",   // required by authenticate middleware
+    outletId:    null,
     fullName,
-    roles: ["Owner"],
-    permissions: allPerms
+    roles:       ["Owner"],
+    permissions: allPerms,
   };
 
   const token = jwt.sign(tokenPayload, env.jwtSecret, { expiresIn: "30d" });
@@ -145,14 +146,14 @@ async function signup({ fullName, email, phone, password, businessName }) {
   return {
     token,
     user: {
-      id: userId,
+      id:       userId,
       fullName,
-      email: email.toLowerCase().trim(),
-      phone: phone || null,
+      email:    email.toLowerCase().trim(),
+      phone:    phone || null,
       outletId: null,
-      roles: ["Owner"],
-      permissions: allPerms
-    }
+      roles:    ["Owner"],
+      permissions: allPerms,
+    },
   };
 }
 
