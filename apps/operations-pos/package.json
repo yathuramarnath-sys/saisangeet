@@ -3,6 +3,7 @@
   "version": "1.1.0",
   "private": true,
   "description": "Plato POS Terminal",
+  "author": "Saisangeet Hospitality Pvt Ltd <hello@dinexpos.in>",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
