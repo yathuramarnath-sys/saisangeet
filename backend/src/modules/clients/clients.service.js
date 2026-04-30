@@ -2,6 +2,7 @@ const bcrypt  = require("bcrypt");
 const crypto  = require("crypto");
 const { query } = require("../../db/pool");
 const { sendWelcomeEmail } = require("../../utils/email");
+const { warmTenantCache } = require("../../data/owner-setup-store");
 
 /**
  * List all tenants (clients) registered on the platform.
@@ -87,6 +88,9 @@ async function resetClientPassword(tenantId) {
      WHERE tenant_id = $2 AND key = 'owner_setup'`,
     [JSON.stringify(setup), tenantId]
   );
+
+  // Sync in-memory cache so next login attempt uses the new password hash immediately
+  warmTenantCache(tenantId, setup);
 
   const owner = setup.users[ownerIndex];
   const bp    = setup.businessProfile || {};
