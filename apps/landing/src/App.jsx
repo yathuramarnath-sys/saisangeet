@@ -67,6 +67,63 @@ const HOW_IT_WORKS = [
   { step: "4", title: "Go Live", desc: "Start taking orders. Reports flow in automatically." }
 ];
 
+const PLANS = [
+  {
+    id: "starter",
+    name: "Starter",
+    price: "₹999",
+    period: "/ month",
+    desc: "Perfect for a single-outlet restaurant getting started.",
+    features: [
+      "1 outlet",
+      "POS Terminal (Web + Android + Windows)",
+      "Captain App",
+      "Kitchen Display",
+      "Menu & staff management",
+      "Basic reports (CSV export)",
+      "30-day free trial",
+    ],
+    highlighted: false,
+    cta: "Start Free Trial",
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: "₹1,999",
+    period: "/ month",
+    desc: "For growing restaurants with multiple branches.",
+    features: [
+      "Up to 3 outlets",
+      "Everything in Starter",
+      "Advanced reports (PDF + CSV)",
+      "Inventory tracking",
+      "Discount & void controls",
+      "Staff shift reports",
+      "Priority support",
+    ],
+    highlighted: true,
+    badge: "Most Popular",
+    cta: "Start Free Trial",
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    price: "₹2,999",
+    period: "/ month",
+    desc: "Unlimited outlets, custom branding and dedicated support.",
+    features: [
+      "Unlimited outlets",
+      "Everything in Pro",
+      "Custom receipt branding",
+      "Dedicated account manager",
+      "SLA-backed support",
+      "Custom integrations on request",
+    ],
+    highlighted: false,
+    cta: "Contact Us",
+  },
+];
+
 const TESTIMONIALS = [
   {
     name: "Rajesh Kumar",
@@ -146,6 +203,7 @@ export function App() {
           <div className={`lp-nav-links${menuOpen ? " open" : ""}`}>
             <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
             <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a>
+            <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
             <a href="#testimonials" onClick={() => setMenuOpen(false)}>Reviews</a>
             <a href="#enroll" onClick={() => setMenuOpen(false)}>Get Started</a>
           </div>
@@ -301,6 +359,47 @@ export function App() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section className="lp-section" id="pricing">
+        <div className="lp-section-inner">
+          <p className="lp-eyebrow">Simple pricing</p>
+          <h2>One flat monthly fee. No per-device charges.</h2>
+          <p className="lp-section-sub">Every plan includes a 30-day free trial. No credit card needed to start.</p>
+
+          <div className="lp-pricing-grid">
+            {PLANS.map(plan => (
+              <div key={plan.id} className={`lp-plan-card${plan.highlighted ? " highlighted" : ""}`}>
+                {plan.badge && <div className="lp-plan-badge">{plan.badge}</div>}
+                <div className="lp-plan-header">
+                  <strong className="lp-plan-name">{plan.name}</strong>
+                  <div className="lp-plan-price">
+                    <span className="lp-plan-amount">{plan.price}</span>
+                    <span className="lp-plan-period">{plan.period}</span>
+                  </div>
+                  <p className="lp-plan-desc">{plan.desc}</p>
+                </div>
+                <ul className="lp-plan-features">
+                  {plan.features.map((f, i) => (
+                    <li key={i}><span className="lp-plan-check">✓</span>{f}</li>
+                  ))}
+                </ul>
+                <a
+                  href={plan.id === "enterprise" ? "mailto:hello@dinexpos.in" : "#enroll"}
+                  className={`lp-plan-cta${plan.highlighted ? " primary" : ""}`}
+                >
+                  {plan.cta}
+                </a>
+              </div>
+            ))}
+          </div>
+
+          <p className="lp-pricing-note">
+            All prices exclude GST. Annual billing available at 2 months free.{" "}
+            <a href="mailto:hello@dinexpos.in">Contact us</a> for custom plans.
+          </p>
         </div>
       </section>
 
