@@ -1,4 +1,5 @@
 export const navigation = [
+  { id: "dashboard", label: "Dashboard", path: "/dashboard", mode: "react" },
   { id: "business", label: "Business Profile", path: "/business", mode: "react" },
   { id: "outlets", label: "Outlets", path: "/outlets", mode: "react" },
   { id: "menu", label: "Menu & Categories", path: "/menu", mode: "react" },

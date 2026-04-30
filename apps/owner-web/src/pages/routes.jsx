@@ -14,10 +14,15 @@ import { StaffPage } from "../features/staff/StaffPage";
 import { TaxesReceiptsPage } from "../features/taxes/TaxesReceiptsPage";
 import { AppStorePage } from "../features/appstore/AppStorePage";
 import { KitchenStationsPage } from "../features/kitchen/KitchenStationsPage";
+import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { PrototypePage } from "./PrototypePage";
 
 export function AppRoutes() {
   function renderRoute(item) {
+    if (item.mode === "react" && item.id === "dashboard") {
+      return <DashboardPage />;
+    }
+
     if (item.mode === "react" && item.id === "business") {
       return <BusinessProfilePage />;
     }
@@ -75,7 +80,7 @@ export function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/outlets" replace />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
       {navigation.map((item) => (
         <Route key={item.id} path={item.path} element={renderRoute(item)} />
       ))}

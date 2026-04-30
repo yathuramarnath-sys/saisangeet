@@ -2719,12 +2719,21 @@ body {
 .rpt-email-check:has(input:checked) { background: #e8f5e9; border-color: #1a7a3a; color: #1a7a3a; }
 .rpt-email-check input { width: 14px; height: 14px; accent-color: #1a7a3a; }
 
-/* Print styles */
+/* Print styles — hides chrome, shows only report content */
 @media print {
-  .sidebar, .topbar, .rpt-toolbar, .rpt-export-bar { display: none !important; }
-  .main-content { height: auto !important; overflow: visible !important; }
+  .sidebar,
+  .topbar,
+  .rpt-toolbar,
+  .rpt-nav,
+  .rpt-export-bar,
+  .rpt-outlet-select,
+  .dash-toolbar,
+  .topbar-actions { display: none !important; }
+  .main-content { height: auto !important; overflow: visible !important; margin-left: 0 !important; }
+  .app-shell { display: block !important; padding: 0 !important; }
   .rpt-body { padding: 0 !important; }
   .panel { box-shadow: none !important; border: 1px solid #ddd !important; }
+  @page { margin: 14mm; }
 }
 
 /* ── Category-wise report ────────────────────────────── */
@@ -4853,4 +4862,260 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   .ks-layout { grid-template-columns: 1fr; }
   .ks-form-col { position: static; }
   .ks-page { padding: 20px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DASHBOARD PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Toolbar ──────────────────────────────────────────────────────────────── */
+.dash-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dash-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dash-date-chip {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+
+/* pulsing live indicator */
+.dash-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #16a34a;
+  animation: dash-pulse 2s infinite;
+}
+.dash-live-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #16a34a;
+  letter-spacing: .04em;
+}
+@keyframes dash-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .5; transform: scale(1.25); }
+}
+
+.dash-outlet-select {
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.dash-outlet-select:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.1); }
+
+.dash-sync-label {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* ── Error / spinner ──────────────────────────────────────────────────────── */
+.dash-error {
+  margin: 16px 28px 0;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #dc2626;
+}
+
+.dash-spinner-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 0;
+  color: #9ca3af;
+}
+.dash-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #16a34a;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+.dash-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 72px 24px;
+  text-align: center;
+  color: #6b7280;
+}
+.dash-empty-icon { font-size: 48px; }
+.dash-empty strong { font-size: 18px; color: #374151; }
+.dash-empty p { font-size: 14px; max-width: 420px; line-height: 1.6; }
+
+/* ── KPI row ──────────────────────────────────────────────────────────────── */
+.dash-kpi-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 20px 28px 0;
+}
+
+.dash-kpi {
+  flex: 1 1 180px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface-strong);
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: var(--shadow-soft);
+  border-top: 3px solid var(--kpi-color, #2563eb);
+  min-width: 160px;
+}
+.dash-kpi-icon { font-size: 28px; flex-shrink: 0; }
+.dash-kpi-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dash-kpi-label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: .05em; }
+.dash-kpi-value { font-size: 22px; font-weight: 800; color: #111827; white-space: nowrap; }
+.dash-kpi-sub   { font-size: 12px; color: #6b7280; font-weight: 500; }
+
+/* ── Main 2-col grid ──────────────────────────────────────────────────────── */
+.dash-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 20px 28px 28px;
+}
+
+.dash-card {
+  background: var(--surface-strong);
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dash-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.dash-card-empty {
+  font-size: 13px;
+  color: #9ca3af;
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* ── Payment breakdown ────────────────────────────────────────────────────── */
+.dash-pay-list { display: flex; flex-direction: column; gap: 12px; }
+
+.dash-pay-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 60px 90px;
+  align-items: center;
+  gap: 0 10px;
+}
+
+.dash-pay-mode    { font-size: 13px; font-weight: 600; color: #374151; }
+.dash-pay-track   { height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+.dash-pay-fill    { height: 100%; border-radius: 4px; transition: width .5s ease; }
+.dash-pay-orders  { font-size: 11px; color: #9ca3af; text-align: right; }
+.dash-pay-amt     { font-size: 13px; font-weight: 700; color: #111827; text-align: right; }
+
+/* ── Top items ────────────────────────────────────────────────────────────── */
+.dash-item-list { display: flex; flex-direction: column; gap: 10px; }
+
+.dash-item-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 36px 90px;
+  align-items: center;
+  gap: 0 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+}
+.dash-item-row:first-child { background: #fff7ed; border-color: #fed7aa; }
+
+.dash-item-rank { font-size: 11px; font-weight: 800; color: #9ca3af; text-align: center; }
+.dash-item-row:first-child .dash-item-rank { color: #ea580c; }
+
+.dash-item-info { display: flex; flex-direction: column; min-width: 0; }
+.dash-item-name { font-size: 13px; font-weight: 700; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-item-cat  { font-size: 11px; color: #9ca3af; }
+
+.dash-item-qty  { font-size: 13px; font-weight: 600; color: #6b7280; text-align: center; }
+.dash-item-amt  { font-size: 13px; font-weight: 700; color: #111827; text-align: right; }
+
+/* ── Session pills ────────────────────────────────────────────────────────── */
+.dash-session-list { display: flex; flex-direction: column; gap: 10px; }
+
+.dash-session-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+.dash-session-icon { font-size: 24px; }
+.dash-session-body { display: flex; flex-direction: column; gap: 2px; }
+.dash-session-name { font-size: 14px; font-weight: 700; color: #111827; }
+.dash-session-stats { font-size: 12px; color: #6b7280; }
+
+/* ── Quick stats table ────────────────────────────────────────────────────── */
+.dash-stat-list { display: flex; flex-direction: column; gap: 0; }
+
+.dash-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+.dash-stat-row:last-child { border-bottom: none; }
+.dash-stat-row span  { color: #6b7280; }
+.dash-stat-row strong { color: #111827; font-weight: 700; }
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .dash-main-grid { grid-template-columns: 1fr; }
+  .dash-kpi { flex: 1 1 140px; }
+  .dash-kpi-row { padding: 16px 16px 0; }
+  .dash-main-grid { padding: 14px 16px 20px; }
+  .dash-toolbar { padding: 10px 16px; }
 }
