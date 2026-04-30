@@ -34,8 +34,8 @@ const APPS = [
       {
         label: "Windows App (.exe)",
         icon: "💻",
-        file: "Plato-POS-Setup-1.1.0.exe",
-        url: `${GH}/Plato-POS-Setup-1.1.0.exe`,
+        file: "Plato POS Setup 1.2.0.exe",
+        url: `${GH}/Plato POS Setup 1.2.0.exe`,
         install: false,
         installHint: "Download and run the installer on any Windows PC. Auto-updates in the background."
       },
