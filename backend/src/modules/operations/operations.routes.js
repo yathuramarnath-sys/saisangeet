@@ -3,6 +3,8 @@ const express = require("express");
 const { requireAuth } = require("../../middleware/require-auth");
 const { requirePermission } = require("../../middleware/require-permission");
 const { asyncHandler } = require("../../utils/async-handler");
+const { validate } = require("../../middleware/validate");
+const { createKotRules, closeOrderRules } = require("../../validators/operations.validators");
 const {
   listOperationsSummaryHandler,
   createDemoOrderHandler,
@@ -147,7 +149,7 @@ operationsRouter.delete(
 
 // ─── Device-friendly flat routes (used by POS / Captain App / KDS) ────────────
 // These use requireAuth only (device tokens have no permissions array)
-operationsRouter.post("/kot",          requireAuth, asyncHandler(deviceSendKotHandler));
+operationsRouter.post("/kot",          requireAuth, createKotRules, validate, asyncHandler(deviceSendKotHandler));
 operationsRouter.get("/kots",          requireAuth, asyncHandler(deviceListKotsHandler));
 operationsRouter.patch("/kots/:id/status", requireAuth, asyncHandler(deviceUpdateKotStatusHandler));
 operationsRouter.post("/bill-request", requireAuth, asyncHandler(deviceBillRequestHandler));
@@ -158,7 +160,7 @@ operationsRouter.get("/order",         requireAuth, asyncHandler(deviceGetOrCrea
 // Device item-add: no requirePermission — POS tokens have no permissions array.
 // Counter/takeaway orders (tableId starts with "counter-") are skipped inside the handler.
 operationsRouter.post("/order/item",   requireAuth, asyncHandler(deviceAddOrderItemHandler));
-operationsRouter.post("/closed-order", requireAuth, asyncHandler(deviceCloseOrderHandler));
+operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
 
 module.exports = {
   operationsRouter
