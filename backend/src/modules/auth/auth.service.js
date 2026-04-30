@@ -16,6 +16,7 @@ const { createBlankTenantData } = require("../../data/blank-tenant-data");
 const { registerUserInIndex } = require("../../data/users-index");
 const { sendWelcomeEmail, sendPasswordResetEmail } = require("../../utils/email");
 const { runWithTenant } = require("../../data/tenant-context");
+const { seedTrial }     = require("../billing/billing.service");
 
 async function login({ identifier, password }) {
   if (!identifier || !password) {
@@ -184,6 +185,11 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
 
   createTenantFile(tenantId, tenantData);
   registerUserInIndex(cleanEmail, cleanPhone, tenantId);
+
+  // Seed 30-day free trial for this new tenant (fire-and-forget — DB may not be ready)
+  seedTrial(tenantId).catch((err) =>
+    console.error(`[billing] seedTrial failed for ${tenantId}:`, err.message)
+  );
 
   sendWelcomeEmail({
     to:         cleanEmail,

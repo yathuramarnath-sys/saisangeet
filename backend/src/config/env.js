@@ -23,7 +23,12 @@ const env = {
   appUrl:       process.env.APP_URL    || "https://app.dinexpos.in",
 
   // Daily backup — set this to the owner's email in Railway variables
-  backupEmail:  process.env.BACKUP_EMAIL || ""
+  backupEmail:  process.env.BACKUP_EMAIL || "",
+
+  // Razorpay
+  razorpayKeyId:       process.env.RAZORPAY_KEY_ID       || "",
+  razorpayKeySecret:   process.env.RAZORPAY_KEY_SECRET   || "",
+  razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || "",
 };
 
 module.exports = {

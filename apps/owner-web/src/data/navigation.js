@@ -12,5 +12,6 @@ export const navigation = [
   { id: "taxes", label: "Taxes & Receipts", path: "/taxes-receipts", mode: "react" },
   { id: "shifts", label: "Shifts & Cash Control", path: "/shifts-cash", mode: "react" },
   { id: "reports",   label: "Reports",               path: "/reports",    mode: "react" },
-  { id: "appstore",  label: "App Store",              path: "/app-store",  mode: "react" }
+  { id: "appstore",  label: "App Store",              path: "/app-store",  mode: "react" },
+  { id: "billing",   label: "Billing & Plans",         path: "/billing",    mode: "react" }
 ];

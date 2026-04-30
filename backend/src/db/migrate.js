@@ -139,7 +139,16 @@ async function runMigrations() {
   // on startup. Set it in Railway, redeploy, log in, then remove it.
   await applyOwnerPasswordOverride(queryFn);
 
-  // ── 6. Owner auth field repair ───────────────────────────────────────────────
+  // ── 6. Billing table ─────────────────────────────────────────────────────────
+  try {
+    const { ensureBillingTable } = require("../modules/billing/billing.service");
+    await ensureBillingTable();
+    console.log("[migrate] tenant_billing table verified.");
+  } catch (err) {
+    console.error("[migrate] Could not create tenant_billing table:", err.message);
+  }
+
+  // ── 7. Owner auth field repair ───────────────────────────────────────────────
   // Scan every tenant for owner accounts with missing email / passwordHash and
   // repair what can be recovered from users_index. Logs critical errors for any
   // tenants that still need manual attention (use OWNER_PASSWORD env var + redeploy).

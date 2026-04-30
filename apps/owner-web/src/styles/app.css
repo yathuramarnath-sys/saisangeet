@@ -5119,3 +5119,180 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   .dash-main-grid { padding: 14px 16px 20px; }
   .dash-toolbar { padding: 10px 16px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BILLING PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.bill-page {
+  padding: 24px 28px 40px;
+  max-width: 960px;
+}
+
+/* ── Loading ──────────────────────────────────────────────────────────────── */
+.bill-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 0;
+  color: #9ca3af;
+}
+
+/* ── Status banners ───────────────────────────────────────────────────────── */
+.bill-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  border: 1.5px solid;
+}
+.bill-banner-icon { font-size: 24px; flex-shrink: 0; margin-top: 1px; }
+.bill-banner strong { font-size: 14px; font-weight: 700; display: block; margin-bottom: 3px; }
+.bill-banner p { font-size: 13px; margin: 0; }
+
+.bill-banner-trial  { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.bill-banner-active { background: #f0fdf4; border-color: #86efac; color: #14532d; }
+.bill-banner-warn   { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
+.bill-banner-error  { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+
+/* ── Error / success inline ───────────────────────────────────────────────── */
+.bill-error {
+  background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px;
+  padding: 10px 16px; font-size: 13px; color: #dc2626; margin-bottom: 16px;
+}
+.bill-success {
+  background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px;
+  padding: 10px 16px; font-size: 13px; color: #15803d; margin-bottom: 16px;
+}
+
+/* ── Section heading ──────────────────────────────────────────────────────── */
+.bill-section-head { margin-bottom: 20px; }
+.bill-section-head h3 { font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 4px; }
+.bill-section-head p  { font-size: 13px; color: #6b7280; margin: 0; }
+
+/* ── Plans grid ───────────────────────────────────────────────────────────── */
+.bill-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.bill-plan-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 24px 20px 20px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.bill-plan-card:hover { border-color: #d1d5db; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+
+.bill-plan-highlighted {
+  border-color: #16a34a;
+  box-shadow: 0 4px 24px rgba(22,163,74,.15);
+}
+.bill-plan-highlighted:hover { border-color: #15803d; }
+
+.bill-plan-current { border-color: #2563eb; }
+
+.bill-plan-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #16a34a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.bill-plan-badge-current { background: #2563eb; }
+
+.bill-plan-header { margin-bottom: 16px; }
+.bill-plan-name { font-size: 18px; font-weight: 800; color: #111827; display: block; margin-bottom: 6px; }
+.bill-plan-amount { font-size: 24px; font-weight: 800; color: #111827; }
+
+.bill-plan-features {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.bill-plan-features li { font-size: 13px; color: #374151; display: flex; gap: 8px; align-items: flex-start; }
+.bill-feat-check { color: #16a34a; font-weight: 700; flex-shrink: 0; }
+
+.bill-subscribe-btn {
+  width: 100%;
+  padding: 11px 0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  border: 2px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.bill-subscribe-btn:hover:not(:disabled) { border-color: #9ca3af; background: #f9fafb; }
+.bill-subscribe-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.bill-subscribe-btn.primary {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+.bill-subscribe-btn.primary:hover:not(:disabled) { background: #15803d; border-color: #15803d; }
+
+/* ── Cancel section ───────────────────────────────────────────────────────── */
+.bill-cancel-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 20px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+.bill-cancel-section p { font-size: 13px; color: #6b7280; margin: 0; flex: 1; }
+.bill-cancel-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  background: #fff;
+  border: 1.5px solid #fca5a5;
+  color: #dc2626;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.bill-cancel-btn:hover:not(:disabled) { background: #fef2f2; }
+.bill-cancel-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ── Footer note ──────────────────────────────────────────────────────────── */
+.bill-footer-note {
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .bill-plans-grid { grid-template-columns: 1fr; }
+  .bill-page { padding: 16px 16px 32px; }
+  .bill-cancel-section { flex-direction: column; align-items: flex-start; }
+}
