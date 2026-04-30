@@ -1,7 +1,13 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const net  = require("net");
 const os   = require("os");
+
+// Auto-updater — only active in packaged builds (not dev mode)
+let autoUpdater = null;
+if (app.isPackaged) {
+  try { autoUpdater = require("electron-updater").autoUpdater; } catch (_) {}
+}
 
 // Keep a reference so IPC handlers that need a WebContents can use it.
 let mainWindow = null;
@@ -29,8 +35,43 @@ function createWindow() {
   mainWindow.on("closed", () => { mainWindow = null; });
 }
 
+function setupAutoUpdater() {
+  if (!autoUpdater) return;
+
+  // Silent background check — no popup unless update is ready
+  autoUpdater.autoDownload    = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("update-available", () => {
+    console.log("[updater] New version available — downloading in background…");
+  });
+
+  autoUpdater.on("update-downloaded", () => {
+    console.log("[updater] Update downloaded — will install on next quit.");
+    // Show a non-blocking notification to the cashier
+    dialog.showMessageBox(mainWindow, {
+      type:    "info",
+      title:   "Plato POS Update Ready",
+      message: "A new version has been downloaded.\nIt will install automatically when you close the app.",
+      buttons: ["OK"]
+    }).catch(() => {});
+  });
+
+  autoUpdater.on("error", (err) => {
+    console.error("[updater] Error:", err.message);
+  });
+
+  // Check for updates 5 seconds after startup (let the app settle first)
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error("[updater] checkForUpdates failed:", err.message);
+    });
+  }, 5000);
+}
+
 app.whenReady().then(() => {
   createWindow();
+  setupAutoUpdater();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

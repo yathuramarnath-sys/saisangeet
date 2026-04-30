@@ -1,6 +1,6 @@
 {
   "name": "dinex-pos",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Plato POS Terminal",
   "main": "electron/main.js",
@@ -18,6 +18,7 @@
     "@capacitor/android": "^8.3.1",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
+    "electron-updater": "^6.3.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "socket.io-client": "^4.8.3"
@@ -42,6 +43,11 @@
       "dist/**",
       "electron/**"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "yathuramarnath-sys",
+      "repo": "saisangeet"
+    },
     "mac": {
       "category": "public.app-category.business",
       "target": [
@@ -66,7 +72,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true
     },
     "electronVersion": "32.3.3"
   }
