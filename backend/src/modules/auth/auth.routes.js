@@ -24,7 +24,20 @@ const {
   resetPasswordByTokenHandler,
 } = require("./auth.controller");
 
+const { resolveSubdomain } = require("../billing/billing.service");
+
 const authRouter = express.Router();
+
+// Public — resolves a subdomain slug to restaurantName (used by login page branding)
+authRouter.get("/subdomain/:slug", asyncHandler(async (req, res) => {
+  try {
+    const result = await resolveSubdomain(req.params.slug);
+    if (!result) return res.status(404).json({ message: "Subdomain not found." });
+    res.json(result);
+  } catch (_) {
+    res.status(404).json({ message: "Subdomain not found." });
+  }
+}));
 
 authRouter.get("/signup-available",  asyncHandler(signupAvailableHandler));
 authRouter.post("/signup",           authLimiter, signupRules,         validate, asyncHandler(signupHandler));

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
+import { detectSubdomain, resolveSubdomain } from "../lib/subdomain";
 
 export function LoginPage() {
   const { user, login } = useAuth();
@@ -10,6 +11,16 @@ export function LoginPage() {
   useEffect(() => {
     if (user) navigate("/", { replace: true });
   }, [user, navigate]);
+
+  // Subdomain branding (e.g. tajhotel.dinexpos.in → show "Taj Hotel" on login page)
+  const [restaurantInfo, setRestaurantInfo] = useState(null);
+  useEffect(() => {
+    const slug = detectSubdomain();
+    if (!slug) return;
+    resolveSubdomain(slug).then((info) => {
+      if (info?.restaurantName) setRestaurantInfo(info);
+    });
+  }, []);
 
   // step: "identifier" | "password"
   const [step, setStep] = useState("identifier");
@@ -56,12 +67,25 @@ export function LoginPage() {
         </div>
       </div>
 
+      {/* Restaurant branding banner — shown when accessing via custom subdomain */}
+      {restaurantInfo && (
+        <div className="lp2-restaurant-banner">
+          <span className="lp2-restaurant-icon">🍽️</span>
+          <div>
+            <p className="lp2-restaurant-name">{restaurantInfo.restaurantName}</p>
+            <p className="lp2-restaurant-sub">Owner Portal</p>
+          </div>
+        </div>
+      )}
+
       {/* Card */}
       <div className="lp2-card">
 
         {step === "identifier" ? (
           <form onSubmit={handleContinue} noValidate>
-            <h1 className="lp2-heading">Sign in</h1>
+            <h1 className="lp2-heading">
+              {restaurantInfo ? `Sign in to ${restaurantInfo.restaurantName}` : "Sign in"}
+            </h1>
             <p className="lp2-sub">Enter your email or phone number</p>
 
             {error && <div className="lp2-error">{error}</div>}

@@ -5655,3 +5655,79 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   flex-shrink: 0; margin-top: -2px;
 }
 .dash-demo-dismiss:hover { color: #92400e; }
+
+/* ── Login page — restaurant branding banner ────────────────────────────── */
+.lp2-restaurant-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 14px 20px;
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: 420px;
+}
+.lp2-restaurant-icon { font-size: 1.8rem; flex-shrink: 0; }
+.lp2-restaurant-name { font-size: 1rem; font-weight: 700; color: #14532d; margin: 0; }
+.lp2-restaurant-sub  { font-size: 0.75rem; color: #4ade80; margin: 0; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ── Subdomain section (Business Profile page) ──────────────────────────── */
+.subdomain-section {
+  margin-bottom: 24px;
+}
+.subdomain-panel {
+  background: #fff;
+  border: 1.5px solid #e8ede8;
+  border-radius: 20px;
+  padding: 28px 32px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+@media (max-width: 768px) {
+  .subdomain-panel { grid-template-columns: 1fr; gap: 24px; padding: 20px; }
+}
+.subdomain-panel h3  { font-size: 1.1rem; font-weight: 700; color: #1a2a1a; margin: 4px 0 8px; }
+.subdomain-panel h4  { font-size: 0.95rem; font-weight: 700; color: #1a2a1a; margin: 4px 0 10px; }
+.subdomain-desc      { font-size: 0.85rem; color: #555; line-height: 1.55; margin: 0 0 14px; }
+.subdomain-url-display {
+  display: flex; align-items: center; gap: 10px;
+  background: #f5faf5; border: 1.5px solid #c3e6cc;
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 6px;
+}
+.subdomain-url-text  { flex: 1; font-size: 0.85rem; font-weight: 600; color: #1a5c2a; word-break: break-all; }
+.subdomain-none      { font-size: 0.82rem; color: #888; margin: 0 0 8px; }
+.subdomain-edit-form { margin-top: 12px; }
+.subdomain-input-row { display: flex; align-items: center; gap: 4px; }
+.subdomain-input {
+  flex: 1; padding: 8px 12px; border: 1.5px solid #d0d8d0; border-radius: 8px 0 0 8px;
+  font-size: 0.9rem; font-family: inherit; outline: none; min-width: 0;
+}
+.subdomain-input:focus { border-color: #1a7a3a; }
+.subdomain-suffix {
+  padding: 8px 12px; background: #f0f5f0; border: 1.5px solid #d0d8d0;
+  border-left: none; border-radius: 0 8px 8px 0;
+  font-size: 0.85rem; color: #666; white-space: nowrap;
+}
+.subdomain-rules     { font-size: 0.75rem; color: #888; margin: 4px 0 10px; }
+.subdomain-actions   { display: flex; gap: 10px; }
+.subdomain-msg       { font-size: 0.82rem; color: #1a7a3a; margin-top: 8px; }
+.subdomain-msg-error { color: #c0392b; }
+
+/* DNS steps */
+.subdomain-steps {
+  font-size: 0.84rem; color: #444; line-height: 1.7;
+  padding-left: 18px; margin: 0 0 12px;
+}
+.subdomain-steps li { margin-bottom: 6px; }
+.subdomain-steps code {
+  background: #f0f5f0; border-radius: 4px; padding: 1px 5px;
+  font-size: 0.82rem; color: #1a5c2a;
+}
+.subdomain-note {
+  font-size: 0.78rem; color: #888; background: #f9f9f9;
+  border-radius: 8px; padding: 8px 12px; margin: 0;
+}
+.subdomain-note code { background: #efefef; border-radius: 3px; padding: 1px 4px; font-size: 0.8rem; }

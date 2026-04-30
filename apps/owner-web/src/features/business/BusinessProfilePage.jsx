@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { fetchBusinessProfile, saveBusinessProfile } from "./business.service";
+import { api } from "../../lib/api";
+import { buildSubdomainUrl } from "../../lib/subdomain";
 
 const emptyProfile = {
   legalName: "",
@@ -18,24 +20,38 @@ const emptyProfile = {
 };
 
 export function BusinessProfilePage() {
-  const [profile, setProfile] = useState(emptyProfile);
+  const [profile, setProfile]           = useState(emptyProfile);
   const [statusMessage, setStatusMessage] = useState("");
+
+  // Subdomain state
+  const [currentSlug, setCurrentSlug]   = useState(null);
+  const [slugDraft, setSlugDraft]       = useState("");
+  const [slugEditing, setSlugEditing]   = useState(false);
+  const [slugSaving, setSlugSaving]     = useState(false);
+  const [slugMsg, setSlugMsg]           = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       const result = await fetchBusinessProfile();
-      if (!cancelled) {
-        setProfile({ ...emptyProfile, ...result });
-      }
+      if (!cancelled) setProfile({ ...emptyProfile, ...result });
+    }
+
+    async function loadSubdomain() {
+      try {
+        const sub = await api.get("/business-profile/subdomain");
+        if (!cancelled && sub?.subdomain) {
+          setCurrentSlug(sub.subdomain);
+          setSlugDraft(sub.subdomain);
+        }
+      } catch (_) {}
     }
 
     load();
+    loadSubdomain();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   async function handleSubmit(event) {
@@ -43,6 +59,33 @@ export function BusinessProfilePage() {
     const result = await saveBusinessProfile(profile);
     setProfile({ ...emptyProfile, ...result });
     setStatusMessage("Business profile saved.");
+    // Also update restaurant name in billing table
+    const name = profile.tradeName || profile.legalName;
+    if (name) {
+      api.patch("/business-profile/subdomain", { subdomain: currentSlug || slugDraft, restaurantName: name })
+        .catch(() => {});
+    }
+  }
+
+  async function handleSaveSlug(e) {
+    e.preventDefault();
+    if (!slugDraft.trim()) return;
+    setSlugSaving(true);
+    setSlugMsg("");
+    try {
+      const result = await api.patch("/business-profile/subdomain", {
+        subdomain:      slugDraft.trim().toLowerCase(),
+        restaurantName: profile.tradeName || profile.legalName || "",
+      });
+      setCurrentSlug(result.subdomain);
+      setSlugDraft(result.subdomain);
+      setSlugEditing(false);
+      setSlugMsg(`Your URL is now: ${result.url}`);
+    } catch (err) {
+      setSlugMsg(err.message || "Failed to save URL.");
+    } finally {
+      setSlugSaving(false);
+    }
   }
 
   function updateField(event) {
@@ -70,6 +113,89 @@ export function BusinessProfilePage() {
             This information powers invoice headers, GST identity, contact details, and the default
             setup used across outlets, receipts, and devices.
           </p>
+        </div>
+      </section>
+
+      {/* ── Your Plato URL ─────────────────────────────────────────────── */}
+      <section className="subdomain-section">
+        <div className="subdomain-panel">
+          <div className="subdomain-panel-left">
+            <p className="eyebrow">Custom URL</p>
+            <h3>Your Plato URL</h3>
+            <p className="subdomain-desc">
+              Share this link with your staff instead of <code>app.dinexpos.in</code>.
+              Your team sees your restaurant name on the login page.
+            </p>
+
+            {/* Current URL display */}
+            {currentSlug ? (
+              <div className="subdomain-url-display">
+                <span className="subdomain-url-text">
+                  🌐 {buildSubdomainUrl(currentSlug)}
+                </span>
+                <button
+                  type="button"
+                  className="ghost-chip"
+                  onClick={() => { navigator.clipboard?.writeText(buildSubdomainUrl(currentSlug)); setSlugMsg("URL copied!"); setTimeout(() => setSlugMsg(""), 2000); }}
+                >
+                  Copy
+                </button>
+              </div>
+            ) : (
+              <p className="subdomain-none">No custom URL set yet — set one below.</p>
+            )}
+
+            {/* Edit form */}
+            {slugEditing ? (
+              <form className="subdomain-edit-form" onSubmit={handleSaveSlug}>
+                <div className="subdomain-input-row">
+                  <input
+                    type="text"
+                    value={slugDraft}
+                    onChange={(e) => setSlugDraft(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    placeholder="e.g. tajhotel"
+                    maxLength={30}
+                    className="subdomain-input"
+                    autoFocus
+                  />
+                  <span className="subdomain-suffix">.dinexpos.in</span>
+                </div>
+                <p className="subdomain-rules">3–30 characters · letters, numbers, hyphens only</p>
+                <div className="subdomain-actions">
+                  <button type="submit" className="primary-btn" disabled={slugSaving || slugDraft.length < 3}>
+                    {slugSaving ? "Saving…" : "Save URL"}
+                  </button>
+                  <button type="button" className="ghost-chip" onClick={() => { setSlugEditing(false); setSlugDraft(currentSlug || ""); }}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button type="button" className="ghost-chip" style={{ marginTop: 12 }} onClick={() => setSlugEditing(true)}>
+                {currentSlug ? "Change URL" : "Set your URL"}
+              </button>
+            )}
+
+            {slugMsg && <p className={`subdomain-msg ${slugMsg.includes("failed") || slugMsg.includes("taken") ? "subdomain-msg-error" : ""}`}>{slugMsg}</p>}
+          </div>
+
+          {/* Setup instructions */}
+          <div className="subdomain-panel-right">
+            <p className="eyebrow">DNS Setup</p>
+            <h4>To activate your custom URL</h4>
+            <ol className="subdomain-steps">
+              <li>Go to your domain registrar (e.g. GoDaddy, Cloudflare)</li>
+              <li>Add a <strong>CNAME</strong> record:<br />
+                <code>*.dinexpos.in → cname.vercel-dns.com</code>
+              </li>
+              <li>In Vercel, add <code>*.dinexpos.in</code> as a wildcard domain on the owner-web project</li>
+              <li>Share <strong>{currentSlug ? buildSubdomainUrl(currentSlug) : "yourbrand.dinexpos.in"}</strong> with your team</li>
+            </ol>
+            <p className="subdomain-note">
+              DNS changes can take 1–24 hours to propagate.
+              Until then, <code>app.dinexpos.in</code> always works.
+            </p>
+          </div>
         </div>
       </section>
 

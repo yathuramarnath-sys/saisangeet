@@ -56,6 +56,98 @@ async function ensureBillingTable() {
       updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Add subdomain + restaurant_name columns for existing tables (idempotent)
+  await query(`ALTER TABLE tenant_billing ADD COLUMN IF NOT EXISTS subdomain        TEXT UNIQUE`);
+  await query(`ALTER TABLE tenant_billing ADD COLUMN IF NOT EXISTS restaurant_name  TEXT`);
+}
+
+// ── Subdomain helpers ─────────────────────────────────────────────────────────
+
+const RESERVED_SLUGS = new Set([
+  "app", "www", "api", "mail", "admin", "static", "cdn",
+  "billing", "support", "help", "demo", "test", "plato", "pos"
+]);
+
+function slugify(name) {
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 30)
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Set or update the custom subdomain for a tenant.
+ * Validates format, checks reserved names, and throws a clear error if taken.
+ */
+async function saveSubdomain(tenantId, rawSlug) {
+  const slug = slugify(rawSlug);
+  if (!slug || slug.length < 3) {
+    throw new Error("Subdomain must be at least 3 characters (letters, numbers, hyphens).");
+  }
+  if (RESERVED_SLUGS.has(slug)) {
+    throw new Error(`"${slug}" is a reserved name — please choose a different one.`);
+  }
+  try {
+    await query(
+      `UPDATE tenant_billing SET subdomain = $1, updated_at = NOW() WHERE tenant_id = $2`,
+      [slug, tenantId]
+    );
+  } catch (err) {
+    if (err.code === "23505") {
+      throw new Error(`"${slug}.dinexpos.in" is already taken — try a different name.`);
+    }
+    throw err;
+  }
+  return slug;
+}
+
+/**
+ * Update the restaurant display name stored in billing (used by resolve-subdomain).
+ * Called from auth.service after signup and from business-profile after update.
+ */
+async function updateRestaurantName(tenantId, name) {
+  if (!name) return;
+  await query(
+    `UPDATE tenant_billing SET restaurant_name = $1, updated_at = NOW() WHERE tenant_id = $2`,
+    [String(name).slice(0, 120), tenantId]
+  );
+}
+
+/**
+ * Public lookup: resolve a subdomain slug → { tenantId, restaurantName }.
+ * Returns null if not found.
+ */
+async function resolveSubdomain(slug) {
+  if (!slug) return null;
+  const r = await query(
+    `SELECT tenant_id, restaurant_name FROM tenant_billing WHERE subdomain = $1`,
+    [slug.toLowerCase().trim()]
+  );
+  if (!r.rows[0]) return null;
+  return {
+    tenantId:       r.rows[0].tenant_id,
+    restaurantName: r.rows[0].restaurant_name || slug,
+  };
+}
+
+/**
+ * Get subdomain for a given tenant (for display in settings).
+ */
+async function getSubdomain(tenantId) {
+  const r = await query(
+    `SELECT subdomain, restaurant_name FROM tenant_billing WHERE tenant_id = $1`,
+    [tenantId]
+  );
+  return r.rows[0] ? {
+    subdomain:      r.rows[0].subdomain || null,
+    restaurantName: r.rows[0].restaurant_name || null,
+  } : { subdomain: null, restaurantName: null };
 }
 
 async function upsertBillingRow(tenantId, fields) {
@@ -294,4 +386,10 @@ module.exports = {
   handleWebhook,
   getBillingStatus,
   cancelSubscription,
+  // Subdomain
+  slugify,
+  saveSubdomain,
+  updateRestaurantName,
+  resolveSubdomain,
+  getSubdomain,
 };
