@@ -9,6 +9,9 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 
 // ─── App catalogue ────────────────────────────────────────────────────────────
+// APK / installer download URLs — always point to "latest" GitHub Release asset.
+// To update: upload new APK/EXE with the SAME filename to the next GitHub Release.
+const GH = "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download";
 
 const APPS = [
   {
@@ -28,9 +31,25 @@ const APPS = [
         install: true,
         installHint: "On Windows: Chrome menu → 'Install Plato POS' → launches as desktop app. On Android: Chrome menu → 'Add to Home Screen'."
       },
+      {
+        label: "Windows App (.exe)",
+        icon: "💻",
+        file: "Plato-POS-Setup-1.1.0.exe",
+        url: `${GH}/Plato-POS-Setup-1.1.0.exe`,
+        install: false,
+        installHint: "Download and run the installer on any Windows PC. Auto-updates in the background."
+      },
+      {
+        label: "Android APK",
+        icon: "📱",
+        file: "plato-pos.apk",
+        url: `${GH}/plato-pos.apk`,
+        install: false,
+        installHint: "Download APK on Android tablet → open file → tap Install. Enable 'Install from unknown sources' in Settings if prompted."
+      },
     ],
     who: "Cashier / Manager",
-    note: "Works on any Windows PC, Android tablet, or Chrome browser — no installation needed.",
+    note: "Works on any Windows PC, Android tablet, or Chrome browser.",
   },
   {
     id: "captain",
@@ -49,9 +68,17 @@ const APPS = [
         install: true,
         installHint: "On Android: open in Chrome → tap ⋮ menu → 'Add to Home Screen'. It works like a native app — full screen, no browser bar."
       },
+      {
+        label: "Android APK",
+        icon: "📲",
+        file: "plato-captain.apk",
+        url: `${GH}/plato-captain.apk`,
+        install: false,
+        installHint: "Download APK on Android phone/tablet → open file → tap Install. Enable 'Install from unknown sources' in Settings if prompted."
+      },
     ],
     who: "Captain / Waiter",
-    note: "Best on Android phone or tablet. Add to Home Screen for the native app experience.",
+    note: "Best on Android phone or tablet. Install APK for the best native experience.",
   },
   {
     id: "kds",
@@ -83,7 +110,7 @@ const APPS = [
     bg: "#f5f3ff",
     border: "#ddd6fe",
     platforms: [
-      { label: "app.plato.in", icon: "🌐", file: null, url: null, current: true },
+      { label: "app.dinexpos.in", icon: "🌐", file: null, url: null, current: true },
     ],
     who: "Owner / Admin",
     note: "No installation needed — just bookmark this page.",
@@ -186,10 +213,19 @@ function PlatformBtn({ platform, appColor }) {
 
   function handleClick() {
     if (platform.current) return; // already here
-    if (platform.url)  { window.open(platform.url, "_blank"); return; }
-    if (platform.file) {
-      alert(`Download: ${platform.file}\n\nIn production this will trigger the actual installer download.`);
+    if (platform.file && platform.url) {
+      // Trigger file download directly
+      const a = document.createElement("a");
+      a.href = platform.url;
+      a.download = platform.file;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
     }
+    if (platform.url) { window.open(platform.url, "_blank"); return; }
   }
 
   return (
@@ -209,19 +245,19 @@ function PlatformBtn({ platform, appColor }) {
         }
       </button>
 
-      {/* "How to install" hint toggle */}
-      {platform.install && (
+      {/* "How to install" hint toggle — shown for web apps and APK downloads */}
+      {platform.installHint && (
         <>
           <button
             className="as-install-hint-btn"
             onClick={() => setShowHint(v => !v)}
-            title="How to install as an app"
+            title="Installation instructions"
           >
-            📲 How to install
+            {platform.file ? "📋 Install guide" : "📲 How to install"}
           </button>
           {showHint && (
             <div className="as-install-hint-box">
-              <strong>Install as App</strong>
+              <strong>{platform.file ? "Installation Guide" : "Install as App"}</strong>
               <p>{platform.installHint}</p>
             </div>
           )}

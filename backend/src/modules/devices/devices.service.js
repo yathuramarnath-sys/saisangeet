@@ -11,7 +11,7 @@ async function createLinkToken(payload) {
   // Keep the outlet code exactly as stored (e.g. "MUM-1001") so the generated
   // link code is readable and consistent: "MUM-1001-5678"
   const codeRoot  = (payload.outletCode || "LINK").trim().toUpperCase();
-  const suffix    = String(Date.now()).slice(-4);
+  const suffix    = String(Date.now()).slice(-8);
   const linkCode  = `${codeRoot}-${suffix}`;
   const tenantId  = getCurrentTenantId();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);

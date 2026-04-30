@@ -174,7 +174,7 @@ function KdsBranchSetupScreen({ onComplete }) {
                 }}
                 type="text" value={code}
                 onChange={e => { setCode(e.target.value.toUpperCase()); setStatus("idle"); }}
-                placeholder="e.g. INDR-1001" maxLength={20}
+                placeholder="e.g. VNB2-92345678" maxLength={20}
                 autoFocus autoComplete="off" spellCheck={false}
               />
               {status === "error" && (
@@ -195,7 +195,7 @@ function KdsBranchSetupScreen({ onComplete }) {
               </button>
             </form>
             <p style={{ fontSize: 12, color: "#4b5563", textAlign: "center", margin: "4px 0 0" }}>
-              Code looks like <code style={{ background: "#0a0c10", padding: "1px 6px", borderRadius: 4, color: "#9ca3af" }}>ABCD-1234</code>
+              Code looks like <code style={{ background: "#0a0c10", padding: "1px 6px", borderRadius: 4, color: "#9ca3af" }}>VNB2-92345678</code>
             </p>
           </>
         ) : (
