@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getBillPrinter } from "../lib/kotPrint";
 
 const CASH_OUT_REASONS = ["Petty expense","Vendor payment","Courier payout","Staff advance","Utility bill","Other"];
 const CASH_IN_REASONS  = ["Change refill","Float top-up","Manager deposit","Other"];
@@ -284,35 +285,55 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
 
   function handlePrintAndExit() {
     const el = document.getElementById("shift-receipt-print");
+
+    const RECEIPT_CSS = `
+      body { font-family: 'Courier New', monospace; font-size: 12px; padding: 16px; max-width: 300px; margin: 0 auto; }
+      .sr-header { text-align: center; margin-bottom: 8px; }
+      .sr-logo { font-size: 24px; }
+      .sr-outlet { font-weight: bold; font-size: 14px; }
+      .sr-title { font-size: 11px; letter-spacing: 1px; margin-top: 4px; }
+      .sr-meta { font-size: 10px; color: #555; }
+      .sr-divider { color: #aaa; margin: 6px 0; }
+      .sr-section-title { font-size: 10px; letter-spacing: 1.5px; color: #888; margin: 8px 0 4px; }
+      .sr-row { display: flex; justify-content: space-between; margin: 2px 0; font-size: 12px; }
+      .sr-row.bold { font-weight: bold; }
+      .sr-row.ok { color: #27AE60; }
+      .sr-row.short { color: #C0392B; }
+      .sr-row.over { color: #E67E22; }
+      .sr-row.green { color: #27AE60; }
+      .sr-row.red { color: #C0392B; }
+      .sr-footer { text-align: center; margin-top: 8px; font-size: 11px; }
+      .sr-footer.sm { font-size: 10px; color: #aaa; }
+      @page { size: 80mm auto; margin: 0; }
+    `;
+
     if (el) {
-      const w = window.open("", "_blank");
-      w.document.write(`
-        <html><head><title>Shift Report</title>
-        <style>
-          body { font-family: 'Courier New', monospace; font-size: 12px; padding: 16px; max-width: 300px; margin: 0 auto; }
-          .sr-header { text-align: center; margin-bottom: 8px; }
-          .sr-logo { font-size: 24px; }
-          .sr-outlet { font-weight: bold; font-size: 14px; }
-          .sr-title { font-size: 11px; letter-spacing: 1px; margin-top: 4px; }
-          .sr-meta { font-size: 10px; color: #555; }
-          .sr-divider { color: #aaa; margin: 6px 0; }
-          .sr-section-title { font-size: 10px; letter-spacing: 1.5px; color: #888; margin: 8px 0 4px; }
-          .sr-row { display: flex; justify-content: space-between; margin: 2px 0; font-size: 12px; }
-          .sr-row.bold { font-weight: bold; }
-          .sr-row.ok { color: #27AE60; }
-          .sr-row.short { color: #C0392B; }
-          .sr-row.over { color: #E67E22; }
-          .sr-row.green { color: #27AE60; }
-          .sr-row.red { color: #C0392B; }
-          .sr-footer { text-align: center; margin-top: 8px; font-size: 11px; }
-          .sr-footer.sm { font-size: 10px; color: #aaa; }
-        </style></head><body>${el.innerHTML}</body></html>
-      `);
-      w.document.close();
-      w.focus();
-      w.print();
-      w.close();
+      const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Shift Report</title>
+        <style>${RECEIPT_CSS}</style></head><body>${el.innerHTML}</body></html>`;
+
+      // ── Electron: silent print to thermal printer ────────────────────────
+      if (window.electronAPI?.printHTML) {
+        const printer = getBillPrinter();
+        const printerName = printer?.winName || printer?.name || null;
+        const paperWidthMm = printer?.paper === "58mm" ? 58 : 80;
+        window.electronAPI.printHTML({ html: fullHtml, printerName, paperWidthMm })
+          .then(result => {
+            if (!result?.ok) console.warn("[ShiftPrint] Print failed:", result?.error);
+          })
+          .catch(err => console.warn("[ShiftPrint] IPC error:", err.message));
+      } else {
+        // ── Browser fallback: popup print dialog ──────────────────────────
+        const w = window.open("", "_blank");
+        if (w) {
+          w.document.write(fullHtml);
+          w.document.close();
+          w.focus();
+          w.print();
+          w.close();
+        }
+      }
     }
+
     onShiftClosed(closedRecord);
   }
 

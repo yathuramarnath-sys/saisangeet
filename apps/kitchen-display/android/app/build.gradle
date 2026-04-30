@@ -18,7 +18,7 @@ android {
     }
     signingConfigs {
         release {
-            storeFile     file(System.getProperty("user.home") + "/Desktop/dinex-kds.jks")
+            storeFile     file(System.getProperty("user.home") + "/Desktop/APKS/dinex-kds.jks")
             storePassword "Dinex@123"
             keyAlias      "dinex"
             keyPassword   "Dinex@123"

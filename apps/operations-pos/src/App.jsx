@@ -24,6 +24,7 @@ import { areas as seedAreas, categories as seedCategories, menuItems as seedMenu
 import { api } from "./lib/api";
 import { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } from "./lib/kotPrint";
 import { printBill } from "./lib/printBill";
+import { openCashDrawer, hasCashPayment } from "./lib/cashDrawer";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -801,6 +802,10 @@ export default function App() {
 
     setShowPayment(false);
     setSelectedTableId(null);
+
+    // Trigger cash drawer if any payment was cash (Electron only, silent on web)
+    if (hasCashPayment(allPayments)) openCashDrawer();
+
     showToast(
       backendConfirmed
         ? "✓ Bill settled · Table is ready"

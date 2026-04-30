@@ -27,4 +27,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // }
   // Returns: Promise<{ ok: boolean, error?: string }>
   printHTML: (payload) => ipcRenderer.invoke("print-html", payload),
+
+  // ── Cash drawer trigger ───────────────────────────────────────────────────
+  // Sends ESC/POS cash drawer open pulse to the configured printer.
+  // Works via network IP (TCP port 9100) or Windows USB printer queue.
+  //
+  // payload: {
+  //   printerIp:   string|null  — IP address of network printer
+  //   printerPort: number       — default 9100
+  //   printerName: string|null  — Windows printer device name (USB path)
+  // }
+  // Returns: Promise<{ ok: boolean, error?: string }>
+  triggerCashDrawer: (payload) => ipcRenderer.invoke("trigger-cash-drawer", payload),
 });
