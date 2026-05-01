@@ -2558,6 +2558,23 @@ body {
 
 .rpt-body { display: flex; flex-direction: column; gap: 16px; padding: 0 24px 40px; }
 .rpt-panel { margin: 0; }
+
+/* Empty state for reports when no orders exist in the selected period */
+.rpt-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 64px 24px;
+  text-align: center;
+  color: #6b7280;
+}
+.rpt-empty-icon { font-size: 48px; line-height: 1; }
+.rpt-empty-state strong { font-size: 18px; color: #111827; }
+.rpt-empty-state p { font-size: 14px; max-width: 480px; margin: 0; }
+.rpt-empty-hint { margin-top: 8px !important; font-size: 12px !important; color: #9ca3af; }
+.rpt-empty-hint code { background: #f3f4f6; padding: 1px 6px; border-radius: 4px; font-size: 11px; }
 .rpt-section-head { margin-bottom: 14px; }
 .rpt-section-head h3 { margin: 0; }
 .rpt-section-head .eyebrow { margin-bottom: 2px; }
@@ -4932,6 +4949,29 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   border: 1px solid #e5e7eb;
   border-radius: 20px;
   padding: 4px 12px;
+}
+
+/* date-range inputs in dashboard toolbar */
+.dash-date-input {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.dash-date-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  background: #fff;
+}
+.dash-date-sep {
+  font-size: 13px;
+  color: #9ca3af;
+  font-weight: 500;
 }
 
 /* pulsing live indicator */

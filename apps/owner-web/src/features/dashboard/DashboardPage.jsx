@@ -169,11 +169,15 @@ function EmptyDay({ outletName }) {
 export function DashboardPage() {
   const [outlets,    setOutlets]    = useState([]);
   const [outletId,   setOutletId]   = useState("__all__");
+  const [dateFrom,   setDateFrom]   = useState(todayISO);
+  const [dateTo,     setDateTo]     = useState(todayISO);
   const [data,       setData]       = useState(null);
   const [loading,    setLoading]    = useState(true);
   const [lastSynced, setLastSynced] = useState(null);
   const [error,      setError]      = useState("");
   const timerRef = useRef(null);
+
+  const isToday = dateFrom === todayISO() && dateTo === todayISO();
 
   // ── load outlet list once ─────────────────────────────────────────────────
   useEffect(() => {
@@ -189,10 +193,9 @@ export function DashboardPage() {
 
   // ── fetch sales data ──────────────────────────────────────────────────────
   const fetchData = useCallback(() => {
-    const today = todayISO();
     const params = new URLSearchParams({
-      dateFrom: today,
-      dateTo:   today,
+      dateFrom,
+      dateTo,
     });
     if (outletId !== "__all__") params.set("outletId", outletId);
 
@@ -204,24 +207,25 @@ export function DashboardPage() {
         setLoading(false);
       })
       .catch(err => {
-        setError("Could not load sales data. Will retry in 60 s.");
+        setError("Could not load sales data. Will retry shortly.");
         console.error("[Dashboard] fetch error:", err.message);
         setLoading(false);
       });
-  }, [outletId]);
+  }, [outletId, dateFrom, dateTo]);
 
-  // initial + outlet change
+  // initial + outlet / date change
   useEffect(() => {
     setLoading(true);
     setData(null);
     fetchData();
   }, [fetchData]);
 
-  // auto-refresh every 60 s
+  // auto-refresh every 60 s — only when viewing today
   useEffect(() => {
+    if (!isToday) return;
     timerRef.current = setInterval(fetchData, 60_000);
     return () => clearInterval(timerRef.current);
-  }, [fetchData]);
+  }, [fetchData, isToday]);
 
   // ── derived values ────────────────────────────────────────────────────────
   const summary      = data?.dayEnd?.summary       || {};
@@ -269,14 +273,47 @@ export function DashboardPage() {
       {/* ── Demo data banner ────────────────────────────────────────────── */}
       <DemoBanner />
 
-      {/* ── Outlet selector ─────────────────────────────────────────────── */}
+      {/* ── Toolbar: date range + outlet selector ───────────────────────── */}
       <div className="dash-toolbar">
         <div className="dash-toolbar-left">
-          <span className="dash-date-chip">
-            📅 Today — {new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
-          </span>
-          <span className="dash-live-dot" title="Auto-refreshes every 60 s" />
-          <span className="dash-live-label">Live</span>
+          <span className="dash-date-chip">📅</span>
+          <input
+            type="date"
+            className="dash-date-input"
+            value={dateFrom}
+            max={dateTo}
+            onChange={e => {
+              setDateFrom(e.target.value);
+              if (e.target.value > dateTo) setDateTo(e.target.value);
+            }}
+          />
+          <span className="dash-date-sep">→</span>
+          <input
+            type="date"
+            className="dash-date-input"
+            value={dateTo}
+            min={dateFrom}
+            max={todayISO()}
+            onChange={e => {
+              setDateTo(e.target.value);
+              if (e.target.value < dateFrom) setDateFrom(e.target.value);
+            }}
+          />
+          {isToday && (
+            <>
+              <span className="dash-live-dot" title="Auto-refreshes every 60 s" />
+              <span className="dash-live-label">Live</span>
+            </>
+          )}
+          {!isToday && (
+            <button
+              className="ghost-chip"
+              style={{ marginLeft: 8 }}
+              onClick={() => { setDateFrom(todayISO()); setDateTo(todayISO()); }}
+            >
+              Back to Today
+            </button>
+          )}
         </div>
         <select
           className="dash-outlet-select"
@@ -294,7 +331,7 @@ export function DashboardPage() {
       {loading && !data ? (
         <div className="dash-spinner-wrap">
           <span className="dash-spinner" />
-          <p>Loading today's sales…</p>
+          <p>Loading sales data…</p>
         </div>
       ) : !hasData ? (
         <EmptyDay outletName={selectedOutletName === "All Outlets" ? "" : selectedOutletName} />

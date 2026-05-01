@@ -93,8 +93,31 @@ function RptTable({ cols, rows, foot }) {
   );
 }
 
+// ── Shared empty state ───────────────────────────────────────────────────────
+function NoDataState({ date }) {
+  return (
+    <div className="rpt-body">
+      <div className="rpt-empty-state">
+        <div className="rpt-empty-icon">📊</div>
+        <strong>No orders found</strong>
+        <p>
+          There are no closed orders for <em>{date}</em>.
+          Once bills are settled on the POS, data will appear here.
+        </p>
+        <p className="rpt-empty-hint">
+          Tip: If you expect data here, make sure <code>ENABLE_DATABASE=true</code> is
+          set in your Railway environment so historical orders are loaded from Postgres.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── 1. Day End Summary ───────────────────────────────────────────────────────
 function DayEndSummary({ outlet, date, data }) {
+  // Show empty state when API returned real data with zero orders
+  if (data && data.summary?.totalOrders === 0) return <NoDataState date={date} />;
+
   const d = data || dayEndSeed;
   const totalPayAmt = d.paymentModes.reduce((s, p) => s + p.amount, 0);
 
@@ -221,6 +244,7 @@ function DayEndSummary({ outlet, date, data }) {
 
 // ── 2. Item Sales Report ─────────────────────────────────────────────────────
 function ItemSalesReport({ outlet, date, data }) {
+  if (data && !data.itemSales?.length) return <NoDataState date={date} />;
   const [cat, setCat] = useState("All");
   const items = data?.itemSales?.length ? data.itemSales : itemSalesSeed;
   const cats = ["All", ...new Set(items.map(i => i.category))];
@@ -326,6 +350,7 @@ function GSTReport({ outlet, data }) {
 
 // ── 4. Payment Report ────────────────────────────────────────────────────────
 function PaymentReport({ outlet, date, data }) {
+  if (data && !data.payment?.summary?.totalCollected) return <NoDataState date={date} />;
   const d = (data?.payment?.summary?.totalCollected > 0 ? data.payment : null) || paymentSeed;
   const maxHourly = Math.max(...d.hourly.map(h => h.total));
 
@@ -468,6 +493,7 @@ function DiscountVoidReport({ date, data }) {
 
 // ── 6. Staff Sales Report ────────────────────────────────────────────────────
 function StaffSalesReport({ date, data }) {
+  if (data && !data.staffSales?.length) return <NoDataState date={date} />;
   const d = (data?.staffSales?.length ? data.staffSales : null) || staffSalesSeed;
 
   function exportCSV() {
@@ -587,6 +613,7 @@ function EmailTrigger() {
 
 // ── 7. Category-wise Report ──────────────────────────────────────────────────
 function CategoryReport({ date, data }) {
+  if (data && !data.categorySales?.categories?.length) return <NoDataState date={date} />;
   // Use live backend data when available; fall back to seed (all-zero) otherwise.
   // Categories are grouped by item.station on the backend — "General" when unset.
   const d = (data?.categorySales?.categories?.length ? data.categorySales : null)

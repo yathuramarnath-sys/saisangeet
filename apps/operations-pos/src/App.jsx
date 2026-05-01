@@ -831,26 +831,25 @@ export default function App() {
     showToast(
       backendConfirmed
         ? "✓ Bill settled · Table is ready"
-        : "✓ Bill settled · Table will reset once connection restores"
+        : "✓ Bill settled · Syncing in background"
     );
 
-    // Reset the table to a fresh blank order only when the backend confirmed the
-    // close. The socket broadcast of the fresh order is also gated here so Captain
-    // and POS always transition to "fresh" together — never ahead of the backend.
-    if (backendConfirmed) {
-      setTimeout(() => {
-        setOrders(prev => {
-          const area = tableAreas.find(a => a.tables.some(t => t.id === tableId));
-          const table = area?.tables.find(t => t.id === tableId);
-          if (!table || !area) return prev;
-          const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
-          const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
-          // Broadcast blank order so Captain App clears the table immediately
-          socketRef.current?.emit("order:update", { outletId: outlet?.id, order: fresh });
-          return { ...prev, [tableId]: fresh };
-        });
-      }, 1500);
-    }
+    // Always reset the table to a fresh blank order after 1.5 s and broadcast to
+    // Captain — regardless of whether the backend confirmed. The 1.5 s delay lets
+    // the "isClosed: true" state render briefly on POS so cashier sees the tick.
+    // Captain relies on this fresh-order broadcast to clear the occupied table card.
+    setTimeout(() => {
+      setOrders(prev => {
+        const area = tableAreas.find(a => a.tables.some(t => t.id === tableId));
+        const table = area?.tables.find(t => t.id === tableId);
+        if (!table || !area) return prev;
+        const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
+        const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
+        // Broadcast blank order so Captain App clears the table immediately
+        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: fresh });
+        return { ...prev, [tableId]: fresh };
+      });
+    }, 1500);
   }
 
   async function handlePaySplit(amount) {
