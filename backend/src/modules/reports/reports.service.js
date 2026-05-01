@@ -134,9 +134,9 @@ function buildSalesData(closedToday) {
       .toLocaleString("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" });
     const h      = parseInt(hour, 10) || 0;
     const bucket = h < 12 ? "Breakfast" : h < 16 ? "Lunch" : "Dinner";
-    const items2 = order.items || [];
-    const net2   = items2.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0)
-                   - Math.min(order.discountAmount || 0, 0);
+    const items2    = order.items || [];
+    const subtotal2 = items2.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+    const net2      = subtotal2 - Math.min(order.discountAmount || 0, subtotal2);
     buckets[bucket].orders += 1;
     buckets[bucket].amount += net2;
   }
@@ -594,11 +594,13 @@ async function _getOrdersForRange(tenantId, { dateFrom, dateTo, outletId } = {})
   // ── Path 2: historical range — Postgres is authoritative ────────────────────
   const pgOrders = await queryClosedOrders(tenantId, { dateFrom: from, dateTo: to, outletId: outletId || null });
 
-  // If range includes today, merge with in-memory to catch orders not yet persisted
+  // If range includes today, merge with in-memory to catch orders not yet persisted.
+  // Dedup by order.id (always a string, never null) to avoid false-positive collisions
+  // when closedAt/\_receivedAt is null.
   if (includesHistory && to >= todayStr) {
     const memToday = getSalesForRange(tenantId, todayStr, todayStr, outletId || null);
-    const pgIds    = new Set(pgOrders.map((o) => o.closedAt || o._receivedAt));
-    const newToday = memToday.filter((o) => !pgIds.has(o.closedAt || o._receivedAt));
+    const pgIds    = new Set(pgOrders.map((o) => o.id).filter(Boolean));
+    const newToday = memToday.filter((o) => o.id && !pgIds.has(o.id));
     return [...newToday, ...pgOrders];
   }
 
@@ -647,10 +649,10 @@ async function listOrderHistory(tenantId, { dateFrom, dateTo, outletId, page = 1
   // If range includes today, prepend today's in-memory orders not yet in Postgres
   // (only on page 1 — these are the most recent orders)
   if (page === 1 && to >= todayStr) {
-    const pgSet    = new Set(result.orders.map((o) => o.closedAt || o._receivedAt));
+    const pgSet    = new Set(result.orders.map((o) => o.id).filter(Boolean));
     const memToday = getSalesForRange(tenantId, todayStr, todayStr, outletId || null);
     const fresh    = memToday
-      .filter((o) => !pgSet.has(o.closedAt || o._receivedAt))
+      .filter((o) => o.id && !pgSet.has(o.id))
       .sort((a, b) =>
         new Date(b.closedAt || b._receivedAt || 0) - new Date(a.closedAt || a._receivedAt || 0)
       );
@@ -706,14 +708,14 @@ async function approveClosing(actor = { name: "Owner", role: "Owner" }, tenantId
   await syncOperationsState();
   approveClosingState(actor.name, actor.role);
   await persistOperationsState();
-  return buildOwnerSummary(tenantId);
+  return await buildOwnerSummary(tenantId);
 }
 
 async function reopenBusinessDay(actor = { name: "Owner", role: "Owner" }, tenantId) {
   await syncOperationsState();
   reopenClosingState(actor.name, actor.role);
   await persistOperationsState();
-  return buildOwnerSummary(tenantId);
+  return await buildOwnerSummary(tenantId);
 }
 
 module.exports = {

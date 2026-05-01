@@ -83,8 +83,10 @@ function normalizeToPhone(phone) {
   const digits = str.replace(/\D/g, "");
   if (digits.length === 10) return `whatsapp:+91${digits}`;
   if (digits.length === 12 && digits.startsWith("91")) return `whatsapp:+${digits}`;
-  if (digits.length > 10)  return `whatsapp:+${digits}`;
-  throw new Error(`Invalid phone number: "${phone}". Enter a 10-digit Indian mobile number.`);
+  // Full E.164 without country code ambiguity (e.g. +1-555-..., +44-...)
+  if (digits.length >= 13) return `whatsapp:+${digits}`;
+  // 11-digit or other unknown lengths — reject with a clear message
+  throw new Error(`Invalid phone number: "${phone}". Enter a 10-digit Indian mobile number or full E.164 format.`);
 }
 
 /**

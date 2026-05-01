@@ -33,12 +33,16 @@ async function ensureClosedOrdersTable() {
       outlet_id   TEXT        NOT NULL,
       bill_no     TEXT,
       closed_date TEXT        NOT NULL,
-      closed_at   TIMESTAMPTZ,
+      closed_at   TIMESTAMPTZ NOT NULL,
       order_data  JSONB       NOT NULL,
       received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (tenant_id, outlet_id, closed_at)
     )
   `);
+  // For tables that were created before this fix (when closed_at was nullable),
+  // strengthen the constraint — safe to ignore if already NOT NULL.
+  await query(`ALTER TABLE closed_orders ALTER COLUMN closed_at SET NOT NULL`)
+    .catch(() => {});
   // Composite index for the most common query pattern: tenant + date range
   await query(`
     CREATE INDEX IF NOT EXISTS idx_co_tenant_date

@@ -41,6 +41,16 @@ async function runMigrations() {
     )
   `);
 
+  // app_runtime_state: holds in-memory state that survives server restarts
+  // (closed-orders JSONB fallback, operations state, etc.)
+  await queryFn(`
+    CREATE TABLE IF NOT EXISTS app_runtime_state (
+      scope      TEXT        PRIMARY KEY,
+      payload    JSONB       NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   await queryFn(`
     CREATE TABLE IF NOT EXISTS users_index (
       identifier TEXT PRIMARY KEY,
@@ -148,7 +158,7 @@ async function runMigrations() {
     console.error("[migrate] Could not create tenant_billing table:", err.message);
   }
 
-  // ── 8. Closed-orders table ────────────────────────────────────────────────────
+  // ── 7b. Closed-orders table ───────────────────────────────────────────────────
   try {
     const { ensureClosedOrdersTable } = require("./closed-orders.repository");
     await ensureClosedOrdersTable();
