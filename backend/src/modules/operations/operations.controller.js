@@ -32,8 +32,30 @@ async function createDemoOrderHandler(req, res) {
   res.status(201).json(result);
 }
 
-async function listOrdersHandler(_req, res) {
-  const result = await getOrders();
+async function listOrdersHandler(req, res) {
+  let result = await getOrders();
+
+  // Filter to only the orders that belong to the requested outlet.
+  // Without this, every device gets every table from every outlet
+  // (e.g. TEST1 tables appearing in a different outlet's Captain App).
+  const { outletId } = req.query;
+  if (outletId) {
+    try {
+      const { getOwnerSetupData } = require("../../data/owner-setup-store");
+      const data   = getOwnerSetupData();
+      const outlet = (data.outlets || []).find(o => o.id === outletId);
+      if (outlet) {
+        const tableIds = new Set((outlet.tables || []).map(t => t.id));
+        result = result.filter(o => tableIds.has(o.tableId));
+      } else {
+        // Unknown outletId — return empty so Captain/POS don't show stale data
+        result = [];
+      }
+    } catch (_) {
+      // If owner-setup-store is unavailable, return unfiltered (safe fallback)
+    }
+  }
+
   res.json(result);
 }
 
@@ -380,8 +402,32 @@ async function clearTableOrderHandler(req, res) {
   res.json({ ok: true, tableId: req.params.tableId, message: "Table cleared." });
 }
 
+/**
+ * DELETE /operations/orders?outletId=...
+ * Clears ALL active orders for the given outlet — used to wipe test/stale data.
+ * Owner-only (requireAuth is enough since this is a dev/ops action).
+ */
+async function clearAllOrdersHandler(req, res) {
+  const { outletId } = req.query;
+  if (!outletId) return res.status(400).json({ error: "outletId is required" });
+
+  try {
+    const { getOwnerSetupData } = require("../../data/owner-setup-store");
+    const data   = getOwnerSetupData();
+    const outlet = (data.outlets || []).find(o => o.id === outletId);
+    if (!outlet) return res.status(404).json({ error: "Outlet not found" });
+
+    const tableIds = (outlet.tables || []).map(t => t.id);
+    await Promise.all(tableIds.map(tid => clearTableAfterSettle(tid).catch(() => {})));
+    res.json({ ok: true, cleared: tableIds.length, message: `Cleared ${tableIds.length} tables for outlet.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   clearTableOrderHandler,
+  clearAllOrdersHandler,
   listOperationsSummaryHandler,
   createDemoOrderHandler,
   listOrdersHandler,

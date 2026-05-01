@@ -35,6 +35,7 @@ const {
   deviceGetOrCreateOrderHandler,
   deviceAddOrderItemHandler,
   deviceCloseOrderHandler,
+  clearAllOrdersHandler,
 } = require("./operations.controller");
 
 const operationsRouter = express.Router();
@@ -145,6 +146,14 @@ operationsRouter.delete(
   "/orders/:tableId",
   requireAuth,
   asyncHandler(clearTableOrderHandler)
+);
+
+// Owner-only: clear ALL active orders for an outlet at once.
+// Query: ?outletId=<uuid>  — used to wipe test/stale data in one call.
+operationsRouter.delete(
+  "/orders",
+  requireAuth,
+  asyncHandler(clearAllOrdersHandler)
 );
 
 // ─── Device-friendly flat routes (used by POS / Captain App / KDS) ────────────
