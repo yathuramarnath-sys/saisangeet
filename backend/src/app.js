@@ -88,18 +88,20 @@ function createApp() {
     });
   });
 
-  // Sentry request handler — must be before routes
-  app.use(Sentry.setupExpressErrorHandler
-    ? (...args) => { try { Sentry.setupExpressErrorHandler(...args); } catch {} }
-    : (_req, _res, next) => next()
-  );
-
   app.use("/api/v1", generalLimiter, apiRouter);
   app.use(notFoundHandler);
 
-  // Sentry error handler — must be before custom error handler
-  if (process.env.SENTRY_DSN) {
-    app.use(Sentry.expressErrorHandler?.() || ((_err, _req, _res, next) => next(_err)));
+  // Sentry error handler — captures unhandled errors and forwards to errorHandler.
+  // setupExpressErrorHandler(app) adds the error middleware correctly (takes `app`, not req/res/next).
+  // expressErrorHandler() is the older v7 style; support both for safety.
+  try {
+    if (typeof Sentry.setupExpressErrorHandler === "function") {
+      Sentry.setupExpressErrorHandler(app);
+    } else if (typeof Sentry.expressErrorHandler === "function") {
+      app.use(Sentry.expressErrorHandler());
+    }
+  } catch (_) {
+    // Sentry not configured — silent no-op
   }
 
   app.use(errorHandler);
@@ -110,4 +112,4 @@ function createApp() {
 module.exports = {
   createApp
 };
-// redeploy Thu Apr 30 11:04:50 IST 2026
+// redeploy Fri May 01 IST 2026
