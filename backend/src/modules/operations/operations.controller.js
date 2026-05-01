@@ -120,6 +120,7 @@ async function requestVoidApprovalHandler(req, res) {
 // ─── Device-friendly flat endpoints (used by POS / Captain / KDS) ─────────────
 
 const { getKots, addKot, updateKotStatus } = require("./kot-store");
+const { getNextBillNo, getNextKotNo }      = require("../counter/counter.service");
 
 /**
  * POST /operations/kot
@@ -136,9 +137,15 @@ async function deviceSendKotHandler(req, res) {
 
   const tenantId = req.user?.tenantId || "default";
   const { stationName, areaName } = req.body;
+
+  // Always assign server-side sequential KOT number (daily reset, with IST time)
+  const { kotNo, time: kotTime, date: kotDate } = getNextKotNo(tenantId);
+
   const kot = {
     id:          `kot-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
-    kotNumber:   kotNumber || `KOT-${Date.now()}`,
+    kotNumber:   kotNo,        // plain sequential number e.g. 1, 2, 3
+    kotTime,                   // IST time e.g. "14:32"
+    kotDate,                   // IST date e.g. "2025-05-01"
     tableNumber: tableNumber || "—",
     // station and areaName are used by the KDS for station-tab filtering and display.
     // stationName comes from the POS KOT payload (grouped by item.station);
@@ -328,6 +335,15 @@ async function deviceCloseOrderHandler(req, res) {
     return res.status(400).json({ error: "outletId and order are required" });
   }
   const tenantId = req.user?.tenantId || "default";
+
+  // Assign sequential bill number (server-side, always authoritative)
+  const { billNo, mode, fy, date } = getNextBillNo(tenantId);
+  order.billNo     = billNo;
+  order.billNoMode = mode;
+  order.billNoFY   = fy   || null;
+  order.billNoDate = date || null;
+  order.closedAt   = new Date().toISOString(); // exact ISO timestamp
+
   addClosedOrder(tenantId, outletId, order);
 
   // Broadcast to owner dashboard listeners so the console can live-update

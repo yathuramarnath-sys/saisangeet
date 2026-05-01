@@ -180,6 +180,14 @@ function createBlankTenantData({ ownerName, ownerEmail, ownerPhone, restaurantNa
         accountSid: "", authToken: "", fromNumber: "", enabled: false
       },
       outletMappings: [], vendorMappings: [], purchaseEntries: [], syncLog: []
+    },
+
+    // Bill number + KOT number counter settings
+    counterConfig: {
+      billMode:  "fy",                                      // "fy" = Apr–Mar | "daily" = resets each day
+      fyBill:    { fy: "",    last: 0 },                    // financial year counter
+      dailyBill: { date: "", last: 0 },                     // daily counter
+      kot:       { date: "", last: 0 },                     // always daily
     }
   };
 }

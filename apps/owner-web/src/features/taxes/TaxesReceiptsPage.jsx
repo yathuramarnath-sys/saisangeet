@@ -1,9 +1,144 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   TAX_SETTINGS_KEY, RECEIPT_SETTINGS_KEY,
   OUTLETS, defaultTaxProfiles, defaultBusinessGST,
   defaultReceiptSettings, defaultOutletProfiles
 } from "./taxes.seed";
+import { api } from "../../lib/api";
+
+// ── Bill Number Settings Panel ────────────────────────────────────────────────
+function BillNumberPanel() {
+  const [config, setConfig]   = useState(null);
+  const [saving, setSaving]   = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [msg, setMsg]         = useState("");
+  const [showReset, setShowReset] = useState(false);
+
+  useEffect(() => {
+    api.get("/counter/config").then(setConfig).catch(() => {});
+  }, []);
+
+  function flash(text) { setMsg(text); setTimeout(() => setMsg(""), 3500); }
+
+  async function handleModeChange(mode) {
+    setSaving(true);
+    try {
+      const updated = await api.patch("/counter/config", { billMode: mode });
+      setConfig(updated);
+      flash(`Bill numbering changed to ${mode === "fy" ? "Financial Year (Apr–Mar)" : "Daily Reset"}.`);
+    } catch (err) {
+      flash(`Error: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleReset() {
+    setResetting(true);
+    try {
+      const res = await api.post("/counter/reset-bill", { confirm: true });
+      setConfig(res.config);
+      setShowReset(false);
+      flash("Bill counter reset to 0. Next bill will be #1.");
+    } catch (err) {
+      flash(`Error: ${err.message}`);
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  if (!config) return null;
+
+  const isFY    = config.billMode === "fy";
+  const isDaily = config.billMode === "daily";
+
+  return (
+    <section className="bn-panel">
+      <div className="bn-header">
+        <div>
+          <p className="eyebrow">Billing Setup</p>
+          <h3>Bill Number Sequencing</h3>
+          <p className="bn-desc">
+            Choose how bill numbers are assigned. KOT numbers always reset daily.
+          </p>
+        </div>
+      </div>
+
+      <div className="bn-options">
+        {/* Option 1 — Financial Year */}
+        <label className={`bn-option ${isFY ? "bn-option-active" : ""}`}>
+          <input
+            type="radio" name="billMode" value="fy"
+            checked={isFY} disabled={saving}
+            onChange={() => handleModeChange("fy")}
+          />
+          <div className="bn-option-body">
+            <div className="bn-option-title">
+              📅 Financial Year <span className="bn-badge bn-badge-default">Default</span>
+            </div>
+            <p className="bn-option-desc">
+              Continuous from <strong>Apr 1 → Mar 31</strong>. Never resets during the year.
+              Best for GST compliance and audits.
+            </p>
+            {isFY && (
+              <div className="bn-stat-row">
+                <span>Current FY: <strong>{config.fyBillFY || config.currentFY}</strong></span>
+                <span>Last Bill No: <strong>#{config.fyBillLast}</strong></span>
+              </div>
+            )}
+          </div>
+        </label>
+
+        {/* Option 2 — Daily Reset */}
+        <label className={`bn-option ${isDaily ? "bn-option-active" : ""}`}>
+          <input
+            type="radio" name="billMode" value="daily"
+            checked={isDaily} disabled={saving}
+            onChange={() => handleModeChange("daily")}
+          />
+          <div className="bn-option-body">
+            <div className="bn-option-title">🔄 Daily Reset</div>
+            <p className="bn-option-desc">
+              Starts at <strong>1 every morning</strong>. Simple for small
+              single-outlet restaurants that prefer daily numbering.
+            </p>
+            {isDaily && (
+              <div className="bn-stat-row">
+                <span>Today: <strong>{config.dailyBillDate}</strong></span>
+                <span>Bills today: <strong>#{config.dailyBillLast}</strong></span>
+              </div>
+            )}
+          </div>
+        </label>
+      </div>
+
+      {/* KOT info */}
+      <div className="bn-kot-info">
+        <span>🎫 KOT Numbers</span>
+        <span>Daily reset · Today: <strong>{config.kotDate}</strong> · Last KOT: <strong>#{config.kotLast}</strong></span>
+      </div>
+
+      {/* Reset counter */}
+      <div className="bn-reset-row">
+        {!showReset ? (
+          <button className="ghost-chip" onClick={() => setShowReset(true)}>
+            Reset bill counter to #1
+          </button>
+        ) : (
+          <div className="bn-reset-confirm">
+            <span>⚠️ This cannot be undone. Reset bill counter to 0?</span>
+            <button className="primary-btn" onClick={handleReset} disabled={resetting}>
+              {resetting ? "Resetting…" : "Yes, Reset"}
+            </button>
+            <button className="ghost-chip" onClick={() => setShowReset(false)}>Cancel</button>
+          </div>
+        )}
+      </div>
+
+      {msg && <p className="bn-msg">{msg}</p>}
+    </section>
+  );
+}
 
 function load(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; }
@@ -112,6 +247,9 @@ export function TaxesReceiptsPage() {
       </header>
 
       {msg && <div className="mobile-banner">{msg}</div>}
+
+      {/* Bill Number Sequencing Settings */}
+      <BillNumberPanel />
 
       <div className="tax-page-grid">
 
