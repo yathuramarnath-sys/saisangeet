@@ -15,7 +15,7 @@ export function OrderScreen({
   orders,
   onBack, onSendKOT, onRequestBill, onPrintBill,
   onToggleHold, onUpdateOrder, onAddItem,
-  onTransfer, onMerge,
+  onTransfer, onMerge, onForceClear,
 }) {
   const [screen,       setScreen]       = useState("order"); // order | menu | split
   const [noteItemIdx,  setNoteItemIdx]  = useState(null);
@@ -109,6 +109,14 @@ export function OrderScreen({
             </svg>
             <p className="order-empty-title">No items yet</p>
             <p className="order-empty-sub">Tap Add Items below to start the order</p>
+            {onForceClear && (
+              <button
+                className="force-clear-btn"
+                onClick={() => { tapImpact(); onForceClear(); }}
+              >
+                Mark Table as Free
+              </button>
+            )}
           </div>
         )}
 

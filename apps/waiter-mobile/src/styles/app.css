@@ -820,6 +820,25 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 .order-empty-title { font-size: 0.95rem; font-weight: 700; }
 .order-empty-sub   { font-size: 0.82rem; font-weight: 500; }
 
+/* "Mark Table as Free" button — shown when order screen has no items */
+.force-clear-btn {
+  margin-top: 16px;
+  padding: 8px 20px;
+  border-radius: 20px;
+  border: 1.5px solid #d1d5db;
+  background: transparent;
+  color: #ef4444;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.force-clear-btn:active {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
 .order-item {
   display: flex;
   align-items: flex-start;

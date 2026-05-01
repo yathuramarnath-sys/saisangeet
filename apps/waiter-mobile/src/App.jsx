@@ -179,8 +179,15 @@ export function App() {
 
   // ── Select table ──────────────────────────────────────────────────────────
   async function handleSelectTable(tableId, area) {
+    // Capture the local items synchronously BEFORE the async server fetch.
+    // A socket event may clear orders[tableId] while the fetch is in flight —
+    // using a closure variable avoids losing items that only existed locally.
+    let capturedLocalItems = [];
     setOrders((prev) => {
-      if (prev[tableId]) return prev;
+      if (prev[tableId]) {
+        capturedLocalItems = [...(prev[tableId].items || [])];
+        return prev;
+      }
       const t = area.tables.find((x) => x.id === tableId);
       if (!t) return prev;
       return { ...prev, [tableId]: buildBlankOrder(t, area) };
@@ -191,9 +198,9 @@ export function App() {
     try {
       const serverOrder = await api.get(`/operations/order?tableId=${tableId}${outlet?.id ? `&outletId=${outlet.id}` : ""}`);
       setOrders((prev) => {
-        const local = prev[tableId];
+        // Merge: keep server-side items + any local unsent items not yet on server
         const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
-        const localOnlyUnsent = (local?.items || []).filter(
+        const localOnlyUnsent = capturedLocalItems.filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
         return {
@@ -204,6 +211,19 @@ export function App() {
     } catch (err) {
       console.warn(`[captain] open table failed for ${tableId}:`, err.message);
     }
+  }
+
+  // ── Force-clear a stuck table (no items, but floor shows occupied) ─────────
+  function handleForceClearTable(tableId) {
+    setOrders((prev) => {
+      const { [tableId]: _removed, ...rest } = prev;
+      return rest;
+    });
+    socketRef.current?.emit("order:update", {
+      outletId: outlet?.id,
+      order: { tableId, items: [], isClosed: false },
+    });
+    setSelectedTableId(null);
   }
 
   // ── Update order (local + socket) ─────────────────────────────────────────
@@ -489,6 +509,7 @@ export function App() {
             onAddItem={handleAddItem}
             onTransfer={handleTableTransfer}
             onMerge={handleTableMerge}
+            onForceClear={() => handleForceClearTable(selectedTableId)}
           />
         )}
       </main>

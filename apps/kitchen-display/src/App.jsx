@@ -951,7 +951,17 @@ export function App() {
       {/* ── Offline banner ──────────────────────────────────────── */}
       {connState === "offline" && (
         <div className="kds-offline-banner">
-          📡 Cloud disconnected — showing last known tickets. New KOTs will appear when reconnected.
+          <span>📡 Cloud disconnected — showing last known tickets. New KOTs will appear when reconnected.</span>
+          <button
+            className="kds-reconnect-btn"
+            onClick={() => {
+              setConnState("connecting");
+              socketRef.current?.disconnect();
+              socketRef.current?.connect();
+            }}
+          >
+            Reconnect
+          </button>
         </div>
       )}
 
