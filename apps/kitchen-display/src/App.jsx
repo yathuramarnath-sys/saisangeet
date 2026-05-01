@@ -821,7 +821,9 @@ export function App() {
     socket.on("kot:new", (kot) => {
       setTickets(prev => {
         if (prev.find(t => t.id === kot.id)) return prev;
-        return [{ ...kot, status: "new", createdAt: new Date().toISOString(), doneItems: [] }, ...prev];
+        // Preserve server-assigned createdAt (IST kotTime embedded) — fall back
+        // to local clock only if server somehow omitted it.
+        return [{ ...kot, status: "new", createdAt: kot.createdAt || new Date().toISOString(), doneItems: [] }, ...prev];
       });
       if (audioReady.current && settings.soundEnabled) playNewKotAlert();
       setNewIds(prev => new Set([...prev, kot.id]));

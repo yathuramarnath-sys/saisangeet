@@ -363,7 +363,16 @@ async function deviceCloseOrderHandler(req, res) {
     }
   }
 
-  res.json({ ok: true });
+  // Return the server-assigned bill number so the POS can stamp it on the
+  // printed receipt and localStorage record without a second round-trip.
+  res.json({
+    ok:         true,
+    billNo:     order.billNo,
+    billNoMode: order.billNoMode,
+    billNoFY:   order.billNoFY   || null,
+    billNoDate: order.billNoDate || null,
+    closedAt:   order.closedAt,
+  });
 }
 
 async function clearTableOrderHandler(req, res) {

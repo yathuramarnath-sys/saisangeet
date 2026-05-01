@@ -8,7 +8,7 @@ function printBill(order, fin) {
   const w = window.open("", "_blank");
   const items = (order.items || []).filter(i => !i.isVoided);
   w.document.write(`
-    <html><head><title>Bill #${order.orderNumber}</title>
+    <html><head><title>Bill #${order.billNo ?? order.orderNumber}</title>
     <style>
       body { font-family: 'Courier New', monospace; font-size: 12px; max-width: 300px; margin: 0 auto; padding: 16px; }
       .center { text-align: center; }
@@ -147,18 +147,26 @@ export function PastOrdersModal({ orders, onClose, onEditPayment }) {
   const [editOrder, setEditOrder] = useState(null);
   const [expanded,  setExpanded]  = useState(null);
 
-  // Read from pos_closed_orders localStorage (persistent across table resets)
-  // Fall back to current session orders if localStorage is empty
+  // Today-only: cashier should only see today's bills, not historical data.
+  // We filter by closedAt matching today's IST date string (YYYY-MM-DD).
+  const todayIST = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
   const closedOrders = useMemo(() => {
     try {
       const stored = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-      if (stored.length > 0) return stored;
+      // Filter to today's orders only (IST date match)
+      const todayOrders = stored.filter(o => {
+        if (!o.closedAt) return false;
+        const d = new Date(o.closedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        return d === todayIST;
+      });
+      if (todayOrders.length > 0) return todayOrders;
     } catch {}
-    // Fallback: in-memory orders (first run or localStorage cleared)
+    // Fallback: in-memory closed orders from this session (today only)
     return Object.values(orders || {})
       .filter(o => o.isClosed && o.items?.length)
       .sort((a, b) => new Date(b.closedAt || 0) - new Date(a.closedAt || 0));
-  }, [orders]);
+  }, [orders, todayIST]);
 
   const filtered = useMemo(() => {
     let list = closedOrders;
@@ -236,19 +244,20 @@ export function PastOrdersModal({ orders, onClose, onEditPayment }) {
             )}
             {filtered.map(order => {
               const fin        = getFinancials(order);
-              const isExpanded = expanded === order.orderNumber;
+              const billLabel  = order.billNo != null ? `#${order.billNo}` : `#${order.orderNumber}`;
+              const isExpanded = expanded === (order.billNo ?? order.orderNumber);
               const payMethods = [...new Set((order.payments || []).map(p => p.method))].join(" + ");
               const label      = order.isCounter
                 ? `Ticket #${String(order.ticketNumber || "").padStart(3, "0")}`
                 : `Table ${order.tableNumber}`;
 
               return (
-                <div key={order.orderNumber} className="past-order-card">
+                <div key={order.billNo ?? order.orderNumber} className="past-order-card">
                   {/* Summary row */}
                   <div className="past-order-row"
-                    onClick={() => setExpanded(isExpanded ? null : order.orderNumber)}>
+                    onClick={() => setExpanded(isExpanded ? null : (order.billNo ?? order.orderNumber))}>
                     <div className="past-order-left">
-                      <span className="past-order-num">#{order.orderNumber}</span>
+                      <span className="past-order-num">{billLabel}</span>
                       <div>
                         <div className="past-order-label">{label} · {order.areaName}</div>
                         <div className="past-order-meta">

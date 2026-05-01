@@ -189,7 +189,7 @@ export function App() {
     setSelectedArea(area);
 
     try {
-      const serverOrder = await api.get(`/operations/order?tableId=${tableId}`);
+      const serverOrder = await api.get(`/operations/order?tableId=${tableId}${outlet?.id ? `&outletId=${outlet.id}` : ""}`);
       setOrders((prev) => {
         const local = prev[tableId];
         const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
@@ -255,9 +255,8 @@ export function App() {
     const unsent = (order.items || []).filter((i) => !i.sentToKot);
     if (!unsent.length) return;
 
-    // Optimistic
+    // Optimistic UI — mark items sent immediately so screen feels instant
     handleUpdateOrder({ ...order, items: order.items.map((i) => ({ ...i, sentToKot: true })) });
-    toast.success("KOT sent to kitchen");
 
     // Group by kitchen station
     const stationGroups = {};
@@ -267,7 +266,8 @@ export function App() {
       stationGroups[key].push(item);
     }
 
-    const kotNumber = `KOT-${Date.now()}`;
+    // Server assigns the authoritative sequential KOT number
+    let serverKotNumber = null;
     let lastServerOrder;
     for (const [stationKey, stItems] of Object.entries(stationGroups)) {
       try {
@@ -276,17 +276,20 @@ export function App() {
           tableId:     order.tableId,
           tableNumber: order.tableNumber,
           areaName:    order.areaName,
-          kotNumber,
           stationName: stationKey === "__default__" ? undefined : stationKey,
           items:       stItems,
           orderId:     order.id,
           actorName:   loggedInStaff?.name || "Captain",
         });
-        if (result.order) lastServerOrder = result.order;
+        if (result?.kot?.kotNumber) serverKotNumber = result.kot.kotNumber;
+        if (result?.order) lastServerOrder = result.order;
       } catch (e) {
         console.error(`[captain] KOT send (${stationKey}):`, e.message);
       }
     }
+
+    // Show the server-assigned KOT number in the confirmation toast
+    toast.success(serverKotNumber != null ? `KOT #${serverKotNumber} sent to kitchen` : "KOT sent to kitchen");
 
     if (lastServerOrder) {
       setOrders((prev) => {

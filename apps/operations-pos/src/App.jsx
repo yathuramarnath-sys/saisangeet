@@ -583,25 +583,11 @@ export default function App() {
       stationGroups[st].push(item);
     });
 
-    // ── 3. Print KOT — one ticket per station group ───────────────────────
-    if (kotAutoSendEnabled()) {
-      Object.entries(stationGroups).forEach(([stationName, stItems]) => {
-        const printer = stationName === "__default__"
-          ? getKotPrinter()
-          : getKotPrinterForStation(stationName);
-        printKOT(order, stItems, printer, kotSeq);
-      });
-    }
-
-    const printer = getKotPrinter();
-    const printerLabel = printer ? ` → ${printer.name}` : "";
-    showToast(`🖨️ KOT #${kotSeq} printed${printerLabel}`);
-
-    // ── 4. Send to backend — one API call per station group ───────────────
-    // Passing stationName per group means each KOT object on the backend (and
-    // therefore each KDS ticket) carries the correct station for filtering.
-    // For the "__default__" group stationName is omitted; the backend defaults
-    // to "Main Kitchen". Counter/online orders queue offline like before.
+    // ── 3. Send to backend first — server assigns the authoritative KOT number ─
+    // We send before printing so the thermal slip always shows the server-assigned
+    // sequential number (1, 2, 3 …) rather than a local counter.
+    // On offline/error the local kotSeq is used as fallback and the payload is queued.
+    let serverKotNumber = kotSeq;   // fallback if offline
     let lastServerOrder = null;
     for (const [stationKey, stItems] of Object.entries(stationGroups)) {
       const kotPayload = {
@@ -609,25 +595,38 @@ export default function App() {
         orderId:     order.id,
         tableId:     order.tableId,
         tableNumber: order.tableNumber,
-        kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,
+        kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,  // sent but overridden server-side
         areaName:    order.areaName,
-        // stationName is the station name string for real groups, undefined for
-        // the "__default__" fallback (items with no station assignment).
         stationName: stationKey === "__default__" ? undefined : stationKey,
         items:       stItems
       };
       try {
-        // Response: { kot, order? }
+        // Response: { kot: { kotNumber, kotTime, kotDate }, order? }
         const result = await api.post("/operations/kot", kotPayload);
+        if (result?.kot?.kotNumber) serverKotNumber = result.kot.kotNumber;
         if (result?.order) lastServerOrder = result.order;
       } catch (err) {
-        // Offline or server unreachable — queue for retry when connection returns
+        // Offline — queue for retry; print with local kotSeq
         const queue = loadKotQueue();
         queue.push(kotPayload);
         saveKotQueue(queue);
         console.warn("KOT queued (offline):", kotPayload.kotNumber);
       }
     }
+
+    // ── 4. Print KOT with the server-assigned number ──────────────────────
+    if (kotAutoSendEnabled()) {
+      Object.entries(stationGroups).forEach(([stationName, stItems]) => {
+        const printer = stationName === "__default__"
+          ? getKotPrinter()
+          : getKotPrinterForStation(stationName);
+        printKOT(order, stItems, printer, serverKotNumber);
+      });
+    }
+
+    const printer = getKotPrinter();
+    const printerLabel = printer ? ` → ${printer.name}` : "";
+    showToast(`🖨️ KOT #${serverKotNumber} sent${printerLabel}`);
 
     // Reconcile from the last server response (most up-to-date order state).
     // All items across all station groups are sentToKot: true on the server by
@@ -791,11 +790,34 @@ export default function App() {
     // backend still holding the old order — so no device disagrees about state.
     let backendConfirmed = false;
     try {
-      await api.post("/operations/closed-order", {
+      // Server returns { ok, billNo, billNoMode, billNoFY, billNoDate, closedAt }
+      const closeResult = await api.post("/operations/closed-order", {
         outletId: outlet?.id,
         order:    closedOrder,
       });
       backendConfirmed = true;
+
+      // ── Stamp server-assigned bill number onto the local record ────────────
+      // This ensures the printed receipt and Past Orders modal both show the
+      // correct sequential bill number (e.g. 42 or FY25-0042) instead of the
+      // POS-local orderNumber (e.g. 10051).
+      if (closeResult?.billNo != null) {
+        closedOrder.billNo     = closeResult.billNo;
+        closedOrder.billNoMode = closeResult.billNoMode  || null;
+        closedOrder.billNoFY   = closeResult.billNoFY    || null;
+        closedOrder.billNoDate = closeResult.billNoDate  || null;
+        closedOrder.closedAt   = closeResult.closedAt    || closedOrder.closedAt;
+
+        // Overwrite the localStorage record with the stamped version
+        try {
+          const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+          // Replace the first entry (we just unshifted it above) with the stamped copy
+          if (prev.length && prev[0].orderNumber === closedOrder.orderNumber) {
+            prev[0] = closedOrder;
+          }
+          localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
+        } catch {}
+      }
     } catch (err) {
       console.error("Closed-order sync failed:", err.message);
     }
