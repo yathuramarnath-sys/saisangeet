@@ -148,6 +148,15 @@ async function runMigrations() {
     console.error("[migrate] Could not create tenant_billing table:", err.message);
   }
 
+  // ── 8. Closed-orders table ────────────────────────────────────────────────────
+  try {
+    const { ensureClosedOrdersTable } = require("./closed-orders.repository");
+    await ensureClosedOrdersTable();
+    console.log("[migrate] closed_orders table verified.");
+  } catch (err) {
+    console.error("[migrate] Could not create closed_orders table:", err.message);
+  }
+
   // ── 7. Owner auth field repair ───────────────────────────────────────────────
   // Scan every tenant for owner accounts with missing email / passwordHash and
   // repair what can be recovered from users_index. Logs critical errors for any

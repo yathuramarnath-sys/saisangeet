@@ -765,6 +765,146 @@ function CategoryReport({ date, data }) {
   );
 }
 
+// ── Order History Tab ─────────────────────────────────────────────────────────
+// Paginated bill list backed by GET /reports/orders (Postgres for history,
+// in-memory for today).  One row per closed bill.
+function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
+  const [data,    setData]    = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [page,    setPage]    = useState(1);
+  const [detail,  setDetail]  = useState(null);  // expanded order detail
+  const PAGE_SIZE = 50;
+
+  const load = useCallback((pg = 1) => {
+    setLoading(true);
+    const p = new URLSearchParams({ dateFrom, dateTo, page: pg, pageSize: PAGE_SIZE });
+    if (outletId) p.set("outletId", outletId);
+    api.get(`/reports/orders?${p}`)
+      .then(res => { setData(res); setPage(pg); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [dateFrom, dateTo, outletId]);
+
+  useEffect(() => { load(1); }, [load]);
+
+  function handleCSV() {
+    if (!data?.orders?.length) return;
+    downloadCSV(
+      `bills_${dateFrom}_${dateTo}`,
+      ["Bill No", "Date", "Time", "Table", "Outlet", "Items", "Net (₹)", "Paid (₹)", "Method", "Cashier"],
+      data.orders.map(o => [o.billNo, o.date, o.time, o.tableNumber, o.outletName,
+        o.items, o.net, o.totalPaid, o.paymentMethods, o.cashierName])
+    );
+  }
+
+  const orders = data?.orders || [];
+  const total  = data?.total  || 0;
+  const pages  = Math.ceil(total / PAGE_SIZE) || 1;
+
+  return (
+    <div className="rpt-body">
+      <SectionHead eyebrow="Order History" title="Closed Bills" />
+      <div className="rpt-oh-toolbar">
+        <span className="rpt-oh-count">{total} bills found</span>
+        <span className="rpt-oh-src">{data?.source === "postgres" ? "🗄 Postgres" : "⚡ Live"}</span>
+        <button className="rpt-export-btn" onClick={handleCSV} disabled={!orders.length}>⬇ CSV</button>
+      </div>
+
+      {loading && <p className="rpt-empty">Loading…</p>}
+
+      {!loading && orders.length === 0 && (
+        <p className="rpt-empty">No closed bills found for this period.</p>
+      )}
+
+      {!loading && orders.length > 0 && (
+        <div className="rpt-table-wrap">
+          <table className="rpt-tbl">
+            <thead>
+              <tr>
+                <th>Bill #</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Table</th>
+                <th>Outlet</th>
+                <th>Items</th>
+                <th>Net (₹)</th>
+                <th>Paid (₹)</th>
+                <th>Method</th>
+                <th>Cashier</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o, i) => (
+                <tr key={i}>
+                  <td><strong>{o.billNo}</strong></td>
+                  <td>{o.date}</td>
+                  <td>{o.time}</td>
+                  <td>{o.tableNumber}</td>
+                  <td>{o.outletName}</td>
+                  <td>{o.items}</td>
+                  <td>{fmt(o.net)}</td>
+                  <td>{fmt(o.totalPaid)}</td>
+                  <td><span className="rpt-method-pill">{o.paymentMethods}</span></td>
+                  <td>{o.cashierName}</td>
+                  <td>
+                    <button className="rpt-oh-detail-btn"
+                      onClick={() => setDetail(detail?.closedAt === o.closedAt ? null : o)}>
+                      {detail?.closedAt === o.closedAt ? "▲" : "▼"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Expanded bill detail */}
+      {detail && (
+        <div className="rpt-oh-detail">
+          <div className="rpt-oh-detail-head">
+            <strong>Bill #{detail.billNo}</strong>
+            <span>{detail.date} · {detail.time}</span>
+            <span>{detail.tableNumber} · {detail.outletName}</span>
+            <button className="rpt-oh-close-btn" onClick={() => setDetail(null)}>✕ Close</button>
+          </div>
+          {detail._order?.items?.length > 0 && (
+            <RptTable
+              cols={["Item", "Qty", "Rate (₹)", "Amount (₹)"]}
+              rows={(detail._order.items || []).map(item => [
+                item.name,
+                item.quantity || 1,
+                fmt(item.price || 0),
+                fmt((item.price || 0) * (item.quantity || 1))
+              ])}
+              foot={["Total", "", "",
+                fmt((detail._order.items || []).reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0))
+              ]}
+            />
+          )}
+          <div className="rpt-oh-detail-footer">
+            {(detail._order?.payments || []).map((p, i) => (
+              <span key={i} className="rpt-method-pill">
+                {p.method?.toUpperCase() || "CASH"}: {fmt(p.amount)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pages > 1 && (
+        <div className="rpt-oh-pagination">
+          <button className="rpt-page-btn" onClick={() => load(page - 1)} disabled={page <= 1}>← Prev</button>
+          <span className="rpt-page-info">Page {page} of {pages}</span>
+          <button className="rpt-page-btn" onClick={() => load(page + 1)} disabled={page >= pages}>Next →</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Reports Shell ────────────────────────────────────────────────────────────
 const REPORTS = [
   { key: "day-end",    label: "Day End Summary"  },
@@ -774,6 +914,7 @@ const REPORTS = [
   { key: "payments",   label: "Payment Report"    },
   { key: "discounts",  label: "Discount & Void"   },
   { key: "staff",      label: "Staff Sales"       },
+  { key: "orders",     label: "🗄 Order History"  },
   { key: "email",      label: "📧 Email Settings" }
 ];
 
@@ -907,6 +1048,7 @@ export function ReportsPage() {
       {active === "payments"   && <PaymentReport    outlet={selectedOutletName} date={`${dateFrom}_${dateTo}`} data={salesData} />}
       {active === "discounts"  && <DiscountVoidReport date={`${dateFrom}_${dateTo}`}                           data={salesData} />}
       {active === "staff"      && <StaffSalesReport  date={`${dateFrom}_${dateTo}`}                            data={salesData} />}
+      {active === "orders"     && <OrderHistoryTab   dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "email"      && (
         <div className="rpt-body">
           <EmailTrigger />

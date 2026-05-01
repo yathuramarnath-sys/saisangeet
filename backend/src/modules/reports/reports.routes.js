@@ -6,7 +6,8 @@ const { asyncHandler } = require("../../utils/async-handler");
 const {
   ownerSummaryHandler,
   approveClosingHandler,
-  reopenBusinessDayHandler
+  reopenBusinessDayHandler,
+  listOrderHistoryHandler
 } = require("./reports.controller");
 
 const reportsRouter = express.Router();
@@ -28,6 +29,14 @@ reportsRouter.post(
   requireAuth,
   requirePermission("reports.view"),
   asyncHandler(reopenBusinessDayHandler)
+);
+
+// GET /reports/orders — paginated bill list (today from memory, history from Postgres)
+reportsRouter.get(
+  "/orders",
+  requireAuth,
+  requirePermission("reports.view"),
+  asyncHandler(listOrderHistoryHandler)
 );
 
 module.exports = {

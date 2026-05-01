@@ -6,6 +6,8 @@ const {
 } = require("../operations/operations.memory-store");
 const { syncOperationsState, persistOperationsState } = require("../operations/operations.state");
 const { getTodaySales, getSalesForRange } = require("../operations/closed-orders-store");
+const { queryClosedOrders, listClosedOrders } = require("../../db/closed-orders.repository");
+const { isDatabaseEnabled } = require("../../db/database-mode");
 const { getOwnerSetupData } = require("../../data/owner-setup-store");
 
 // Insights are generated from live sales data — empty until POS goes live
@@ -417,15 +419,11 @@ function buildControlSummary(orders) {
   ];
 }
 
-function buildClosingCenter(orders, tenantId, { dateFrom, dateTo, outletId } = {}) {
+// NOTE: buildClosingCenter is called with a pre-fetched closedToday array
+// (from buildOwnerSummary which already ran _getOrdersForRange). Pass it in directly.
+function buildClosingCenter(orders, closedToday, tenantId, { dateFrom, dateTo, outletId } = {}) {
   const deletedBills = Object.values(orders).reduce((sum, order) => sum + (order.deletedBillLog || []).length, 0);
   const pendingOverrides = Object.values(orders).filter((order) => order.discountOverrideRequested).length;
-
-  // ── Real sales figures from closed-orders store ───────────────────────────
-  const today    = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-  const from     = dateFrom || today;
-  const to       = dateTo   || today;
-  const closedToday = getSalesForRange(tenantId || "default", from, to, outletId || null);
   let netSales = 0;
   let gstTotal = 0;
   let cashSales = 0;
@@ -511,7 +509,7 @@ function buildAlerts(orders) {
   return [...liveAlerts, ...reprintAlerts, ...voidAlerts];
 }
 
-function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) {
+async function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) {
   const state = getState();
   const orders = state.orders || {};
   const approvalLog = buildApprovalLog(orders);
@@ -520,11 +518,8 @@ function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) {
   const deletedBillCount = Object.values(orders).reduce((sum, order) => sum + (order.deletedBillLog || []).length, 0);
   const pendingOverrides = Object.values(orders).filter((order) => order.discountOverrideRequested).length;
 
-  // Sales data filtered by date range and outlet from closed-orders store
-  const today           = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-  const from            = dateFrom || today;
-  const to              = dateTo   || today;
-  const closedToday     = getSalesForRange(tenantId || "default", from, to, outletId || null);
+  // Sales data — smart fetcher: memory for today, Postgres for history
+  const closedToday     = await _getOrdersForRange(tenantId || "default", { dateFrom, dateTo, outletId });
   const todayOrderCount = closedToday.length;
   const salesData       = buildSalesData(closedToday);
 
@@ -563,7 +558,7 @@ function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) {
         meta: "Cash mismatch, deleted bills, discount overrides, and stock exceptions"
       }
     ],
-    closingCenter: buildClosingCenter(orders, tenantId, { dateFrom, dateTo, outletId }),
+    closingCenter: buildClosingCenter(orders, closedToday, tenantId, { dateFrom, dateTo, outletId }),
     closingState: state.closingState,
     permissionPolicies: state.permissionPolicies,
     controlSummary,
@@ -574,9 +569,137 @@ function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) {
   };
 }
 
+/**
+ * Smart order fetcher:
+ *  • Today (or no date range)  → in-memory store (fast, zero DB latency)
+ *  • Historical / multi-day    → Postgres (persistent, full history)
+ *  • Today included in range   → merge Postgres result with in-memory today
+ *
+ * This ensures the owner always sees both live-today orders AND all past orders,
+ * even after a server restart that clears in-memory state.
+ */
+async function _getOrdersForRange(tenantId, { dateFrom, dateTo, outletId } = {}) {
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const from     = dateFrom || todayStr;
+  const to       = dateTo   || todayStr;
+
+  const isOnlyToday = from === todayStr && to === todayStr;
+  const includesHistory = from < todayStr; // range covers at least one past day
+
+  // ── Path 1: today-only — always use in-memory (fastest) ─────────────────────
+  if (isOnlyToday || !isDatabaseEnabled()) {
+    return getSalesForRange(tenantId, from, to, outletId || null);
+  }
+
+  // ── Path 2: historical range — Postgres is authoritative ────────────────────
+  const pgOrders = await queryClosedOrders(tenantId, { dateFrom: from, dateTo: to, outletId: outletId || null });
+
+  // If range includes today, merge with in-memory to catch orders not yet persisted
+  if (includesHistory && to >= todayStr) {
+    const memToday = getSalesForRange(tenantId, todayStr, todayStr, outletId || null);
+    const pgIds    = new Set(pgOrders.map((o) => o.closedAt || o._receivedAt));
+    const newToday = memToday.filter((o) => !pgIds.has(o.closedAt || o._receivedAt));
+    return [...newToday, ...pgOrders];
+  }
+
+  return pgOrders;
+}
+
 async function fetchOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) {
   await syncOperationsState();
   return buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId });
+}
+
+/**
+ * Order History — paginated bill list for Owner Web.
+ * Returns raw closed orders (not aggregated) so the UI can render a bill table.
+ *
+ * @param {string}  tenantId
+ * @param {object}  opts
+ * @param {string}  opts.dateFrom   "YYYY-MM-DD" IST (defaults to today)
+ * @param {string}  opts.dateTo     "YYYY-MM-DD" IST (defaults to today)
+ * @param {string}  opts.outletId   filter to one outlet
+ * @param {number}  opts.page       1-based page number (default 1)
+ * @param {number}  opts.pageSize   rows per page (default 50)
+ */
+async function listOrderHistory(tenantId, { dateFrom, dateTo, outletId, page = 1, pageSize = 50 } = {}) {
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const from     = dateFrom || todayStr;
+  const to       = dateTo   || todayStr;
+
+  // Today-only with no DB: serve from memory
+  if (!isDatabaseEnabled() || (from === todayStr && to === todayStr)) {
+    const memOrders = getSalesForRange(tenantId, from, to, outletId || null);
+    const sorted    = [...memOrders].sort((a, b) => {
+      const ta = new Date(a.closedAt || a._receivedAt || 0).getTime();
+      const tb = new Date(b.closedAt || b._receivedAt || 0).getTime();
+      return tb - ta;
+    });
+    const total   = sorted.length;
+    const start   = (page - 1) * pageSize;
+    const orders  = sorted.slice(start, start + pageSize).map(_formatBillRow);
+    return { orders, total, page, pageSize, source: "memory" };
+  }
+
+  // Postgres path: paginated, full history
+  const result = await listClosedOrders(tenantId, { dateFrom: from, dateTo: to, outletId, page, pageSize });
+
+  // If range includes today, prepend today's in-memory orders not yet in Postgres
+  // (only on page 1 — these are the most recent orders)
+  if (page === 1 && to >= todayStr) {
+    const pgSet    = new Set(result.orders.map((o) => o.closedAt || o._receivedAt));
+    const memToday = getSalesForRange(tenantId, todayStr, todayStr, outletId || null);
+    const fresh    = memToday
+      .filter((o) => !pgSet.has(o.closedAt || o._receivedAt))
+      .sort((a, b) =>
+        new Date(b.closedAt || b._receivedAt || 0) - new Date(a.closedAt || a._receivedAt || 0)
+      );
+    result.orders  = [...fresh, ...result.orders].slice(0, pageSize).map(_formatBillRow);
+    result.total   = result.total + fresh.length;
+  } else {
+    result.orders = result.orders.map(_formatBillRow);
+  }
+
+  result.source = "postgres";
+  return result;
+}
+
+/** Flatten a closed-order object to the compact shape needed by the bill-list UI. */
+function _formatBillRow(order) {
+  const items    = order.items || [];
+  const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+  const discount = Math.min(order.discountAmount || 0, subtotal);
+  const net      = subtotal - discount;
+  const payments = order.payments || [];
+  const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
+  const methods   = [...new Set(payments.map((p) => (p.method || "cash").toLowerCase()))].join(", ");
+
+  const closedAt = order.closedAt || order._receivedAt || null;
+  const timeStr  = closedAt
+    ? new Date(closedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+    : "—";
+  const dateStr  = closedAt
+    ? new Date(closedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })
+    : "—";
+
+  return {
+    billNo:      order.billNo     || "—",
+    billNoFY:    order.billNoFY   || null,
+    tableNumber: order.tableNumber || order.tableId || "—",
+    outletName:  order.outletName  || "—",
+    items:       items.length,
+    subtotal:    Math.round(subtotal),
+    discount:    Math.round(discount),
+    net:         Math.round(net),
+    totalPaid:   Math.round(totalPaid),
+    paymentMethods: methods || "—",
+    cashierName: order.cashierName || "—",
+    date:        dateStr,
+    time:        timeStr,
+    closedAt,
+    // Full order attached so the UI can open a bill detail modal
+    _order:      order,
+  };
 }
 
 async function approveClosing(actor = { name: "Owner", role: "Owner" }, tenantId) {
@@ -596,5 +719,6 @@ async function reopenBusinessDay(actor = { name: "Owner", role: "Owner" }, tenan
 module.exports = {
   fetchOwnerSummary,
   approveClosing,
-  reopenBusinessDay
+  reopenBusinessDay,
+  listOrderHistory
 };

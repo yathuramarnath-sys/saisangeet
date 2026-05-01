@@ -8,6 +8,7 @@
 
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { loadRuntimeState, saveRuntimeState } = require("../../db/runtime-state.repository");
+const { insertClosedOrder } = require("../../db/closed-orders.repository");
 
 const SCOPE = "closed-orders";
 
@@ -73,15 +74,26 @@ async function hydrateClosedOrders() {
 
 /**
  * Persist a closed order.
+ * Writes to in-memory store (instant, used by POS today-only views) AND
+ * fire-and-forgets a Postgres INSERT for permanent Owner Web history.
+ *
  * @param {string} tenantId
  * @param {string} outletId
- * @param {object} order  — full closedOrder object from POS
+ * @param {object} order  — full closedOrder object from POS (already has billNo + closedAt)
  */
 function addClosedOrder(tenantId, outletId, order) {
+  const stamped = { ...order, _receivedAt: new Date().toISOString() };
+
+  // ── 1. In-memory (today-only POS view) ─────────────────────────────────────
   const list = _getOutletList(tenantId, outletId);
-  list.unshift({ ...order, _receivedAt: new Date().toISOString() });
+  list.unshift(stamped);
   if (list.length > 1000) list.splice(1000);
-  _persist();
+  _persist();   // runtime-state JSONB fallback (short-lived)
+
+  // ── 2. Postgres permanent storage (owner history) ───────────────────────────
+  insertClosedOrder(tenantId, outletId, stamped).catch((err) =>
+    console.error("[closed-orders-store] Postgres write error:", err.message)
+  );
 }
 
 /**

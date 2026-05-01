@@ -5775,3 +5775,54 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 .bn-reset-row { display: flex; align-items: center; }
 .bn-reset-confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.82rem; color: #b45309; }
 .bn-msg { font-size: 0.82rem; color: #1a7a3a; margin: 10px 0 0; }
+
+/* ── Order History Tab ──────────────────────────────────────────────────────── */
+.rpt-oh-toolbar {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.rpt-oh-count { font-size: 0.82rem; color: #555; }
+.rpt-oh-src   {
+  font-size: 0.75rem; font-weight: 600; padding: 3px 9px;
+  background: #f0f9f4; color: #1a7a3a; border-radius: 20px;
+}
+.rpt-oh-detail-btn {
+  background: none; border: 1px solid #ddd; border-radius: 6px;
+  padding: 2px 8px; cursor: pointer; font-size: 11px; color: #666;
+}
+.rpt-oh-detail-btn:hover { background: #f5f5f5; }
+.rpt-method-pill {
+  display: inline-block; font-size: 0.72rem; font-weight: 600;
+  padding: 2px 8px; border-radius: 12px;
+  background: #e8f5e9; color: #2e7d32; text-transform: uppercase;
+}
+.rpt-oh-detail {
+  margin-top: 8px; padding: 16px; border-radius: 12px;
+  background: #fafafa; border: 1px solid #e8e8e8;
+}
+.rpt-oh-detail-head {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 12px; font-size: 0.85rem; color: #444;
+}
+.rpt-oh-detail-head strong { font-size: 1rem; color: #1a2a1a; }
+.rpt-oh-close-btn {
+  margin-left: auto; background: none; border: 1px solid #ddd;
+  border-radius: 8px; padding: 4px 12px; cursor: pointer;
+  font-size: 0.78rem; color: #666;
+}
+.rpt-oh-close-btn:hover { background: #f5f5f5; }
+.rpt-oh-detail-footer {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;
+  padding-top: 10px; border-top: 1px solid #eee;
+}
+.rpt-oh-pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; margin-top: 20px;
+}
+.rpt-page-btn {
+  padding: 6px 18px; border: 1px solid #ddd; border-radius: 8px;
+  background: #fff; cursor: pointer; font-size: 0.82rem; font-weight: 600;
+}
+.rpt-page-btn:hover:not(:disabled) { background: #f0f9f4; border-color: #1a7a3a; color: #1a7a3a; }
+.rpt-page-btn:disabled { opacity: 0.4; cursor: default; }
+.rpt-page-info { font-size: 0.82rem; color: #666; }
