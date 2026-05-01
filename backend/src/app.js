@@ -1,4 +1,4 @@
-// build: 2026-04-30
+// build: 2026-05-01
 const cors = require("cors");
 const express = require("express");
 const helmet = require("helmet");
@@ -36,6 +36,12 @@ const ALLOWED_ORIGINS = [
 
 function createApp() {
   const app = express();
+
+  // Trust the first proxy hop (Cloudflare → Railway → Express).
+  // Required for express-rate-limit v8+ to correctly extract the client IP
+  // from the X-Forwarded-For header and avoid ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+  // Value 1 (number) tells Express to trust exactly one upstream proxy.
+  app.set("trust proxy", 1);
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(cors({

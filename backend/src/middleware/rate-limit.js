@@ -9,6 +9,16 @@ function rateLimitHandler(_req, res) {
 }
 
 /**
+ * Prefer the real client IP from Cloudflare's header (CF-Connecting-IP),
+ * fall back to req.ip which Express resolves via X-Forwarded-For when
+ * trust proxy is set (see app.js).  Without this, all users behind
+ * Cloudflare would share one rate-limit bucket (the Cloudflare egress IP).
+ */
+function cloudflareKeyGenerator(req) {
+  return req.headers["cf-connecting-ip"] || req.ip;
+}
+
+/**
  * Auth endpoints — login, signup, forgot/reset password
  * 10 attempts per 15 minutes per IP
  */
@@ -18,6 +28,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: rateLimitHandler,
+  keyGenerator: cloudflareKeyGenerator,
 });
 
 /**
@@ -30,6 +41,7 @@ const linkCodeLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: rateLimitHandler,
+  keyGenerator: cloudflareKeyGenerator,
 });
 
 /**
@@ -42,6 +54,7 @@ const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: rateLimitHandler,
+  keyGenerator: cloudflareKeyGenerator,
 });
 
 module.exports = { authLimiter, linkCodeLimiter, generalLimiter };
