@@ -720,7 +720,7 @@ export default function App() {
 
     // Build the fully-paid order snapshot
     const allPayments = [...(order.payments || []), ...newPayments];
-    const subtotal    = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+    const subtotal    = order.items.filter(i => !i.isVoided && !i.isComp).reduce((s, i) => s + i.price * i.quantity, 0);
     const disc        = Math.min(order.discountAmount || 0, subtotal);
     const total       = Math.round((subtotal - disc) * 1.05);
     const paid        = allPayments.reduce((s, p) => s + p.amount, 0);
@@ -1061,6 +1061,7 @@ export default function App() {
   // ── Void item ─────────────────────────────────────────────────────────────
   function handleVoidItem(idx, reason) {
     if (!selectedTableId) return;
+    const item = orders[selectedTableId]?.items?.[idx];
     mutateOrder(selectedTableId, o => {
       if (o.items[idx]) {
         o.items[idx].isVoided   = true;
@@ -1070,6 +1071,16 @@ export default function App() {
       return o;
     });
     showToast("Item voided");
+    // Persist void to backend so Captain app + KDS see the change immediately
+    if (item?.id &&
+        !selectedTableId.startsWith("counter-") &&
+        !selectedTableId.startsWith("online-")) {
+      api.patch("/operations/order/item", {
+        tableId:    selectedTableId,
+        itemId:     item.id,
+        voidReason: reason || "Voided by POS"
+      }).catch(err => console.warn("[POS] item-void to backend failed:", err.message));
+    }
   }
 
   // ── Shift callbacks ───────────────────────────────────────────────────────

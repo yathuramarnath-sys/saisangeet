@@ -35,6 +35,7 @@ const {
   deviceGetOrCreateOrderHandler,
   deviceAddOrderItemHandler,
   deviceRemoveOrderItemHandler,
+  deviceVoidOrderItemHandler,
   deviceCloseOrderHandler,
   clearAllOrdersHandler,
 } = require("./operations.controller");
@@ -171,6 +172,7 @@ operationsRouter.get("/order",         requireAuth, asyncHandler(deviceGetOrCrea
 // Counter/takeaway orders (tableId starts with "counter-") are skipped inside the handler.
 operationsRouter.post("/order/item",   requireAuth, asyncHandler(deviceAddOrderItemHandler));
 operationsRouter.delete("/order/item", requireAuth, asyncHandler(deviceRemoveOrderItemHandler));
+operationsRouter.patch("/order/item",  requireAuth, asyncHandler(deviceVoidOrderItemHandler));
 operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
 
 module.exports = {

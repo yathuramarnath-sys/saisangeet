@@ -361,6 +361,25 @@ async function deviceRemoveOrderItemHandler(req, res) {
   res.json(result);
 }
 
+// PATCH /operations/order/item  — void a sent item (marks isVoided=true on the backend)
+// Body: { tableId, itemId, voidReason }
+async function deviceVoidOrderItemHandler(req, res) {
+  const { tableId, itemId, voidReason } = req.body;
+  if (!tableId || !itemId) {
+    return res.status(400).json({ error: "tableId and itemId are required" });
+  }
+  if (tableId.startsWith("counter-") || tableId.startsWith("online-")) {
+    return res.json({ ok: true, skipped: true });
+  }
+  const actor = req.user?.name || req.user?.type || "POS";
+  const result = await updateOrderItemDetails(tableId, itemId, {
+    isVoided:   true,
+    voidReason: voidReason || "Voided by POS",
+    actorName:  actor
+  });
+  res.json(result);
+}
+
 const { addClosedOrder } = require("./closed-orders-store");
 
 /**
@@ -475,5 +494,6 @@ module.exports = {
   deviceGetOrCreateOrderHandler,
   deviceAddOrderItemHandler,
   deviceRemoveOrderItemHandler,
+  deviceVoidOrderItemHandler,
   deviceCloseOrderHandler,
 };

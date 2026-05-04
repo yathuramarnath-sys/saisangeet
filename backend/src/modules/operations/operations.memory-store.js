@@ -699,19 +699,27 @@ function updateOrderItem(tableId, itemId, payload, actor = "System") {
     item.seatLabel = payload.seatLabel;
   }
 
-  order.notes = payload.note ? `Instruction added: ${payload.note}` : "Order updated";
-  appendAudit(
-    order,
-    buildAuditEntry(payload.note ? "Kitchen note added" : "Order item updated", actor, "Now")
-  );
+  if (payload.isVoided !== undefined) {
+    item.isVoided   = payload.isVoided;
+    item.sentToKot  = true; // voided items can't be re-sent to KOT
+    if (payload.voidReason !== undefined) {
+      item.voidReason = payload.voidReason;
+    }
+  }
+
+  const auditLabel = payload.isVoided ? "Item voided" : payload.note ? "Kitchen note added" : "Order item updated";
+  order.notes = payload.isVoided ? `Item voided: ${item.name || itemId}` : payload.note ? `Instruction added: ${payload.note}` : "Order updated";
+  appendAudit(order, buildAuditEntry(auditLabel, actor, "Now"));
   return clone(order);
 }
 
 function calculateOrderTotals(order) {
-  const subtotal = (order.items || []).reduce(
-    (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
-    0
-  );
+  const subtotal = (order.items || [])
+    .filter(item => !item.isVoided && !item.isComp)
+    .reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+      0
+    );
   const discountAmount = Math.min(Number(order.discountAmount || 0), subtotal);
   const discountedSubtotal = Math.max(subtotal - discountAmount, 0);
   const serviceChargeRate = order.serviceChargeEnabled ? Number(order.serviceChargeRate || 0.1) : 0;
