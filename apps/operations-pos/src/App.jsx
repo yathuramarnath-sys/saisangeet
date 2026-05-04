@@ -1036,11 +1036,29 @@ export default function App() {
   // ── Print bill ────────────────────────────────────────────────────────────
   function handlePrintBill() {
     if (!selectedTableId) return;
-    const order = orders[selectedTableId];
+    const tableId = selectedTableId;
+    const order   = orders[tableId];
     if (!order?.items?.length) { showToast("No items to print"); return; }
+
+    // Mark bill as requested — changes table to blue on POS table picker
+    // and broadcasts via socket so Captain app also shows "Bill Due"
+    mutateOrder(tableId, (o) => {
+      o.billRequested   = true;
+      o.billRequestedAt = new Date().toISOString();
+      return o;
+    });
+
     printBill(order, order.items, outlet?.name || branchConfig?.outletName);
-    showToast("🖨️ Printing bill…");
+    showToast("🖨️ Bill printed · Waiting for payment");
+
+    // Close the order panel — table stays blue until payment is collected
     setSelectedTableId(null);
+
+    // Persist billRequested to backend (fire-and-forget)
+    if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+      api.post("/operations/bill-request", { outletId: outlet?.id, tableId })
+        .catch(err => console.warn("[POS] bill-request after print failed:", err.message));
+    }
   }
 
   // ── Order note ────────────────────────────────────────────────────────────
