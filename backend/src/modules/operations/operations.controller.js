@@ -9,6 +9,7 @@ const {
   requestBillForOrder,
   assignWaiterToOrder,
   addItemToOrder,
+  removeItemFromOrder,
   updateOrderItemDetails,
   updateOrderSplit,
   addPaymentToOrder,
@@ -342,6 +343,24 @@ async function deviceAddOrderItemHandler(req, res) {
   res.status(201).json(result);
 }
 
+/**
+ * DELETE /operations/order/item
+ * Body: { tableId, itemId }
+ * Removes an unsent item from the in-memory order (no-op if already KOT'd).
+ */
+async function deviceRemoveOrderItemHandler(req, res) {
+  const { tableId, itemId } = req.body;
+  if (!tableId || !itemId) {
+    return res.status(400).json({ error: "tableId and itemId are required" });
+  }
+  if (tableId.startsWith("counter-") || tableId.startsWith("online-")) {
+    return res.json({ ok: true, skipped: true });
+  }
+  const actor = req.user?.name || req.user?.type || "POS";
+  const result = await removeItemFromOrder(tableId, itemId, actor);
+  res.json(result);
+}
+
 const { addClosedOrder } = require("./closed-orders-store");
 
 /**
@@ -455,5 +474,6 @@ module.exports = {
   devicePaymentHandler,
   deviceGetOrCreateOrderHandler,
   deviceAddOrderItemHandler,
+  deviceRemoveOrderItemHandler,
   deviceCloseOrderHandler,
 };

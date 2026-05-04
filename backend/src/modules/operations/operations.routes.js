@@ -34,6 +34,7 @@ const {
   devicePaymentHandler,
   deviceGetOrCreateOrderHandler,
   deviceAddOrderItemHandler,
+  deviceRemoveOrderItemHandler,
   deviceCloseOrderHandler,
   clearAllOrdersHandler,
 } = require("./operations.controller");
@@ -169,6 +170,7 @@ operationsRouter.get("/order",         requireAuth, asyncHandler(deviceGetOrCrea
 // Device item-add: no requirePermission — POS tokens have no permissions array.
 // Counter/takeaway orders (tableId starts with "counter-") are skipped inside the handler.
 operationsRouter.post("/order/item",   requireAuth, asyncHandler(deviceAddOrderItemHandler));
+operationsRouter.delete("/order/item", requireAuth, asyncHandler(deviceRemoveOrderItemHandler));
 operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
 
 module.exports = {

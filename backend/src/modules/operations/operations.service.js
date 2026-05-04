@@ -10,6 +10,7 @@ const {
   requestOrderBill,
   assignOrderWaiter,
   createOrderItem,
+  deleteOrderItem,
   editOrderItem,
   updateSplitBill,
   createOrderPayment,
@@ -80,6 +81,10 @@ async function addItemToOrder(tableId, payload = {}) {
     payload,
     resolveActor(payload.actorName, payload.actorRole)
   );
+}
+
+async function removeItemFromOrder(tableId, itemId, actorName) {
+  return deleteOrderItem(tableId, itemId, resolveActor(actorName, "POS"));
 }
 
 async function updateOrderItemDetails(tableId, itemId, payload = {}) {
@@ -158,6 +163,7 @@ module.exports = {
   requestBillForOrder,
   assignWaiterToOrder,
   addItemToOrder,
+  removeItemFromOrder,
   updateOrderItemDetails,
   updateOrderSplit,
   addPaymentToOrder,

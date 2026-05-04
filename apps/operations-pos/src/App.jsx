@@ -536,7 +536,15 @@ export default function App() {
 
   function handleRemoveItem(idx) {
     if (!selectedTableId) return;
+    const item = orders[selectedTableId]?.items?.[idx];
     mutateOrder(selectedTableId, (order) => { order.items.splice(idx, 1); return order; });
+    // Also remove from backend so server-side reconcile doesn't restore it
+    if (item?.id && !item?.sentToKot &&
+        !selectedTableId.startsWith("counter-") &&
+        !selectedTableId.startsWith("online-")) {
+      api.delete("/operations/order/item", { tableId: selectedTableId, itemId: item.id })
+        .catch(err => console.warn("[POS] item-remove from backend failed:", err.message));
+    }
   }
 
   function handleNoteChange(idx, note) {

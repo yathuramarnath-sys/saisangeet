@@ -645,6 +645,17 @@ function addOrderItem(tableId, payload, actor = "System") {
   return clone(order);
 }
 
+// Removes an unsent (not yet KOT'd) item from the order by its item ID.
+// No-op if the item is already sentToKot (can't un-send a KOT).
+function removeOrderItem(tableId, itemId, actor = "System") {
+  const order = findOrder(tableId);
+  const idx = order.items.findIndex(i => i.id === itemId && !i.sentToKot && !i.isVoided);
+  if (idx === -1) return clone(order); // already sent or not found — no-op
+  order.items.splice(idx, 1);
+  appendAudit(order, buildAuditEntry("Item removed", actor, "Now"));
+  return clone(order);
+}
+
 // Returns the existing order for tableId, or creates and stores an empty order if the table
 // is in the catalog but has not started an order yet. Throws TABLE_NOT_FOUND if the tableId
 // is unknown (not in the catalog). Used by the device-bypass GET /operations/order endpoint
@@ -932,6 +943,7 @@ module.exports = {
   requestBill,
   assignWaiter,
   addOrderItem,
+  removeOrderItem,
   getOrCreateOrder,
   updateOrderItem,
   splitOrderBill,

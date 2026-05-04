@@ -9,6 +9,7 @@ const {
   requestBill,
   assignWaiter,
   addOrderItem,
+  removeOrderItem,
   updateOrderItem,
   splitOrderBill,
   addOrderPayment,
@@ -78,6 +79,10 @@ async function createOrderItem(tableId, payload, actor) {
   return runWrite(() => addOrderItem(tableId, payload, actor));
 }
 
+async function deleteOrderItem(tableId, itemId, actor) {
+  return runWrite(() => removeOrderItem(tableId, itemId, actor));
+}
+
 async function editOrderItem(tableId, itemId, payload, actor) {
   return runWrite(() => updateOrderItem(tableId, itemId, payload, actor));
 }
@@ -135,6 +140,7 @@ module.exports = {
   requestOrderBill,
   assignOrderWaiter,
   createOrderItem,
+  deleteOrderItem,
   editOrderItem,
   updateSplitBill,
   createOrderPayment,
