@@ -502,18 +502,25 @@ export default function App() {
         // 3. Reconcile: apply server state as the source of truth.
         //    Any unsent local items whose IDs are absent from the server response are
         //    offline-added items that haven't been acknowledged yet — keep them.
+        //    Filter server items to exclude any that were locally deleted (not in local state)
+        //    — guards against race where DELETE /order/item is still in flight.
         setOrders((prev) => {
           const localOrder = prev[tableId];
           if (!localOrder) return prev;
+          const localItemIds  = new Set((localOrder.items || []).map((i) => i.id));
           const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
           const localOnlyUnsent = (localOrder.items || []).filter(
             (li) => !li.sentToKot && !serverItemIds.has(li.id)
+          );
+          // Drop server items that are unsent AND no longer in local state (locally deleted)
+          const filteredServerItems = (serverOrder.items || []).filter(
+            (si) => si.sentToKot || si.isVoided || localItemIds.has(si.id)
           );
           return {
             ...prev,
             [tableId]: {
               ...serverOrder,
-              items: [...(serverOrder.items || []), ...localOnlyUnsent]
+              items: [...filteredServerItems, ...localOnlyUnsent]
             }
           };
         });
@@ -643,15 +650,20 @@ export default function App() {
       setOrders((prev) => {
         const localOrder = prev[order.tableId];
         if (!localOrder) return prev;
+        const localItemIds  = new Set((localOrder.items || []).map((i) => i.id));
         const serverItemIds = new Set((lastServerOrder.items || []).map((i) => i.id));
         const localOnlyUnsent = (localOrder.items || []).filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id)
+        );
+        // Drop server items that are unsent AND locally deleted (race: DELETE still in flight)
+        const filteredServerItems = (lastServerOrder.items || []).filter(
+          (si) => si.sentToKot || si.isVoided || localItemIds.has(si.id)
         );
         return {
           ...prev,
           [order.tableId]: {
             ...lastServerOrder,
-            items: [...(lastServerOrder.items || []), ...localOnlyUnsent]
+            items: [...filteredServerItems, ...localOnlyUnsent]
           }
         };
       });
