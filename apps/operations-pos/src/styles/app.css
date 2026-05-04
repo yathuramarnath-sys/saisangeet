@@ -2904,6 +2904,72 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   font-weight: 500;
 }
 
+/* ── POS Login: PIN screen ──────────────────────────────────────────────────── */
+.poslogin-back-btn {
+  position: relative;
+  align-self: flex-start;
+  background: rgba(255,255,255,0.12);
+  border: none; border-radius: 10px;
+  color: #fff; font-size: 14px; font-weight: 600;
+  padding: 8px 16px; cursor: pointer; margin-bottom: 16px;
+}
+.poslogin-back-btn:hover { background: rgba(255,255,255,0.2); }
+
+.poslogin-pin-profile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  margin-bottom: 28px;
+}
+.poslogin-pin-name {
+  font-size: 22px; font-weight: 800; color: #fff;
+}
+
+.poslogin-pin-dots {
+  display: flex; gap: 16px; margin-bottom: 12px;
+}
+.poslogin-dot {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.5);
+  background: transparent; transition: all .15s;
+}
+.poslogin-dot.filled {
+  background: #fff; border-color: #fff;
+}
+.poslogin-pin-label {
+  font-size: 13px; color: rgba(255,255,255,0.6); font-weight: 500;
+  margin-bottom: 20px; height: 18px;
+}
+.poslogin-pin-error { color: #fca5a5 !important; }
+
+.poslogin-numpad {
+  display: grid; grid-template-columns: repeat(3, 72px);
+  gap: 12px;
+}
+.poslogin-numpad-key {
+  width: 72px; height: 72px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.1);
+  color: #fff; font-size: 24px; font-weight: 700;
+  cursor: pointer; transition: all .12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.poslogin-numpad-key:hover:not(:disabled) { background: rgba(255,255,255,0.22); }
+.poslogin-numpad-key:active:not(:disabled) { transform: scale(0.92); }
+.poslogin-numpad-key.empty { visibility: hidden; cursor: default; }
+.poslogin-numpad-key.del { border-color: rgba(252,165,165,0.3); color: #fca5a5; }
+
+.poslogin-pin-badge {
+  font-size: 11px; margin-top: 2px; opacity: 0.7;
+}
+
+@keyframes poslogin-shake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-8px); }
+  40%     { transform: translateX(8px); }
+  60%     { transform: translateX(-5px); }
+  80%     { transform: translateX(5px); }
+}
+.poslogin-shake { animation: poslogin-shake .4s ease; }
+
 
 /* ══════════════════════════════════════════════════════════════════════════════
    CATEGORY SIDEBAR (left panel)

@@ -94,8 +94,12 @@ export function App() {
   const [outlet,          setOutlet]          = useState(null);
   const socketRef = useRef(null);
 
-  // Staff: from branch config or fallback
-  const branchStaff = branchConfig?.staff?.length ? branchConfig.staff : FALLBACK_STAFF;
+  // Staff: from branch config or fallback — Captain app only shows Captain/Waiter roles
+  const CAPTAIN_ROLES = ["captain", "waiter", "server", "steward"];
+  const allStaff  = branchConfig?.staff?.length ? branchConfig.staff : FALLBACK_STAFF;
+  const branchStaff = allStaff.filter(
+    (s) => CAPTAIN_ROLES.includes((s.role || "").toLowerCase())
+  );
 
   // ── Refresh staff from backend on every boot ──────────────────────────────
   useEffect(() => {
