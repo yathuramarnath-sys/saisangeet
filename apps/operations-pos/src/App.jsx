@@ -635,7 +635,7 @@ export default function App() {
         const printer = stationName === "__default__"
           ? getKotPrinter()
           : getKotPrinterForStation(stationName);
-        printKOT(order, stItems, printer, serverKotNumber);
+        printKOT(order, stItems, printer, serverKotNumber, { sentBy: cashierName });
       });
     }
 
@@ -679,7 +679,7 @@ export default function App() {
     const sentItems = (order.items || []).filter(i => i.sentToKot && !i.isVoided);
     if (!sentItems.length) { showToast("No items sent yet"); return; }
     const printer = getKotPrinter();
-    printKOT(order, sentItems, printer, order.kotCount || 1);
+    printKOT(order, sentItems, printer, order.kotCount || 1, { sentBy: cashierName });
     showToast(`🖨️ KOT reprinted → ${printer?.name || "Kitchen"}`);
   }
 
@@ -1048,7 +1048,7 @@ export default function App() {
       return o;
     });
 
-    printBill(order, order.items, outlet?.name || branchConfig?.outletName);
+    printBill(order, order.items, outlet?.name || branchConfig?.outletName, { cashierName });
     showToast("🖨️ Bill printed · Waiting for payment");
 
     // Close the order panel — table stays blue until payment is collected

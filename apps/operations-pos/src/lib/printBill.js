@@ -10,7 +10,8 @@
 import { getBillPrinter } from "./kotPrint";
 
 export function printBill(order, items, outletName, options = {}) {
-  const { seatLabel = null } = options;
+  const { seatLabel = null, cashierName = null } = options;
+  const servedBy = cashierName || order.cashierName || null;
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
   const subtotal    = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -108,6 +109,7 @@ export function printBill(order, items, outletName, options = {}) {
   <div class="row total-row"><span>TOTAL</span><span>₹${total.toFixed(0)}</span></div>
   <hr class="divider">
   <div class="footer">
+    ${servedBy ? `<p style="font-weight:700;color:#444;margin-bottom:4px">Served by: ${servedBy}</p>` : ""}
     <p>Please pay at the counter</p>
     <p>Thank you for dining with us!</p>
   </div>

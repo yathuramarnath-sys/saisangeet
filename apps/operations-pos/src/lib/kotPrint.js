@@ -71,7 +71,7 @@ export function getBillPrinter() {
  * @param {object} printer - printer config from pos_printers (or null = auto)
  * @param {number} kotSeq - KOT sequence number (optional)
  */
-export function printKOT(order, items, printer = null, kotSeq = null) {
+export function printKOT(order, items, printer = null, kotSeq = null, options = {}) {
   if (!items || !items.length) return;
 
   const resolvedPrinter = printer || getKotPrinter();
@@ -85,8 +85,9 @@ export function printKOT(order, items, printer = null, kotSeq = null) {
   const now     = new Date();
   const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-  const kotNum  = kotSeq ? `KOT-${String(kotSeq).padStart(4, "0")}` : (order.kotNumber || `KOT-${order.orderNumber}`);
+  const kotNum      = kotSeq ? `KOT-${String(kotSeq).padStart(4, "0")}` : (order.kotNumber || `KOT-${order.orderNumber}`);
   const printerName = resolvedPrinter?.name || "Kitchen";
+  const sentBy      = options.sentBy || order.cashierName || null;
 
   const itemsHTML = items.map(item => `
     <div class="kot-item">
@@ -277,6 +278,7 @@ export function printKOT(order, items, printer = null, kotSeq = null) {
       <span>Total Items:</span>
       <span>${items.reduce((s, i) => s + i.quantity, 0)}</span>
     </div>
+    ${sentBy ? `<div class="kot-footer-row"><span>Sent by:</span><span style="font-weight:900">${sentBy}</span></div>` : ""}
     <div class="kot-printer-tag">→ ${printerName}</div>
   </div>
 </body>
