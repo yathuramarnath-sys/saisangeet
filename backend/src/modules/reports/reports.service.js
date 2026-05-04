@@ -100,6 +100,45 @@ function buildSalesData(closedToday) {
   const cgst          = Math.round(totalTax / 2);
   const sgst          = totalTax - cgst;
 
+  // ── Order type breakdown (Dine-In / Takeaway / Online) ───────────────────────
+  const orderTypeBuckets = {
+    "Dine In":  { type: "Dine In",  orders: 0, amount: 0 },
+    "Takeaway": { type: "Takeaway", orders: 0, amount: 0 },
+    "Online":   { type: "Online",   orders: 0, amount: 0 },
+  };
+  for (const order of closedToday) {
+    const tid     = order.tableId || "";
+    const key     = tid.startsWith("counter-") ? "Takeaway" : tid.startsWith("online-") ? "Online" : "Dine In";
+    const items2  = order.items || [];
+    const sub2    = items2.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+    const net2    = sub2 - Math.min(order.discountAmount || 0, sub2);
+    orderTypeBuckets[key].orders += 1;
+    orderTypeBuckets[key].amount += net2;
+  }
+  const computedOrderTypes = Object.values(orderTypeBuckets).map(b => ({
+    ...b, amount: Math.round(b.amount)
+  }));
+
+  // ── Hourly sales breakdown (IST) ─────────────────────────────────────────────
+  const hourlyMap = {};
+  for (const order of closedToday) {
+    const h = parseInt(
+      new Date(order.closedAt || order._receivedAt || 0)
+        .toLocaleString("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }),
+      10
+    ) || 0;
+    const label = `${String(h).padStart(2, "0")}:00`;
+    if (!hourlyMap[label]) hourlyMap[label] = { hour: label, orders: 0, amount: 0 };
+    const items3 = order.items || [];
+    const net3   = items3.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0)
+                   - Math.min(order.discountAmount || 0, 0);
+    hourlyMap[label].orders += 1;
+    hourlyMap[label].amount += net3;
+  }
+  const hourlySales = Object.values(hourlyMap)
+    .sort((a, b) => a.hour.localeCompare(b.hour))
+    .map(h => ({ ...h, amount: Math.round(h.amount) }));
+
   const totalCollected = Object.values(paymentMap).reduce((s, p) => s + p.amount, 0);
   const paymentModes   = Object.values(paymentMap).map(p => ({
     ...p,
@@ -157,9 +196,8 @@ function buildSalesData(closedToday) {
         cancelledValue:   0,
       },
       paymentModes,
-      orderTypes: totalOrders > 0
-        ? [{ type: "Dine In", orders: totalOrders, amount: Math.round(totalGross) }]
-        : [],
+      orderTypes: computedOrderTypes,
+      hourlySales,
       sessions,
       categories:   [],
       items:        itemSales.slice(0, 20),

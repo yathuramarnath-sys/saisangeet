@@ -1,8 +1,8 @@
 /**
  * DashboardPage — Live Sales Hub
  *
- * Shows today's trading snapshot: total sales, orders, avg order value,
- * payment breakdown, top 5 items, and session (Breakfast / Lunch / Dinner).
+ * Shows today's trading snapshot: total sales, order-type breakdown,
+ * session bar chart, payment breakdown, top items, category sales.
  *
  * Data source: GET /reports/owner-summary?dateFrom=TODAY&dateTo=TODAY&outletId=ALL
  * Auto-refreshes every 60 seconds while the page is open.
@@ -19,7 +19,6 @@ function DemoBanner() {
   const [done,     setDone]     = useState(false);
 
   useEffect(() => {
-    // Check if there are any demo outlets
     api.get("/outlets")
       .then(list => {
         if (Array.isArray(list) && list.some(o => o._demo)) setVisible(true);
@@ -65,15 +64,11 @@ function DemoBanner() {
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function todayISO() {
-  return new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+  return new Date().toLocaleDateString("en-CA");
 }
 
 function fmt(n) {
   return "₹" + Number(n || 0).toLocaleString("en-IN");
-}
-
-function pct(a, b) {
-  return b ? Math.round((a / b) * 100) + "%" : "0%";
 }
 
 const PAYMENT_COLORS = {
@@ -88,7 +83,7 @@ function payColor(mode) {
   return PAYMENT_COLORS[mode] || "#6b7280";
 }
 
-// ─── sub-components ───────────────────────────────────────────────────────────
+// ─── KPI card ─────────────────────────────────────────────────────────────────
 
 function KpiCard({ label, value, sub, color, icon }) {
   return (
@@ -102,6 +97,85 @@ function KpiCard({ label, value, sub, color, icon }) {
     </div>
   );
 }
+
+// ─── Order type cards (Dine-In / Takeaway / Online) ───────────────────────────
+
+const ORDER_TYPE_META = {
+  "Dine In":  { icon: "🍽️", color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0" },
+  "Takeaway": { icon: "🛍️", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+  "Online":   { icon: "📦", color: "#ea580c", bg: "#fff7ed", border: "#fed7aa" },
+};
+
+function OrderTypeCards({ orderTypes }) {
+  const total = orderTypes.reduce((s, t) => s + t.amount, 0);
+
+  return (
+    <div className="dash-otype-row">
+      {orderTypes.map(t => {
+        const meta = ORDER_TYPE_META[t.type] || { icon: "🍽️", color: "#6b7280", bg: "#f9fafb", border: "#e5e7eb" };
+        const pct  = total > 0 ? Math.round((t.amount / total) * 100) : 0;
+        return (
+          <div
+            key={t.type}
+            className="dash-otype-card"
+            style={{ background: meta.bg, borderColor: meta.border }}
+          >
+            <div className="dash-otype-head">
+              <span className="dash-otype-icon">{meta.icon}</span>
+              <span className="dash-otype-label">{t.type}</span>
+              <span className="dash-otype-pct" style={{ color: meta.color }}>{pct}%</span>
+            </div>
+            <strong className="dash-otype-amt" style={{ color: meta.color }}>{fmt(t.amount)}</strong>
+            <span className="dash-otype-orders">{t.orders} order{t.orders !== 1 ? "s" : ""}</span>
+            <div className="dash-otype-bar-track">
+              <div className="dash-otype-bar-fill" style={{ width: `${pct}%`, background: meta.color }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Session bar chart (Breakfast / Lunch / Dinner) ───────────────────────────
+
+const SESSION_META = {
+  Breakfast: { icon: "🌅", color: "#f59e0b" },
+  Lunch:     { icon: "☀️",  color: "#16a34a" },
+  Dinner:    { icon: "🌙", color: "#7c3aed" },
+};
+
+function SessionBarChart({ sessions }) {
+  const maxAmt = Math.max(...sessions.map(s => s.amount), 1);
+
+  return (
+    <div className="dash-session-chart">
+      {sessions.map(s => {
+        const meta = SESSION_META[s.session] || { icon: "🍽️", color: "#6b7280" };
+        const w    = Math.max(4, Math.round((s.amount / maxAmt) * 100));
+        return (
+          <div key={s.session} className="dash-schart-row">
+            <span className="dash-schart-label">
+              {meta.icon} {s.session}
+            </span>
+            <div className="dash-schart-track">
+              <div
+                className="dash-schart-fill"
+                style={{ width: `${w}%`, background: meta.color }}
+              />
+            </div>
+            <div className="dash-schart-info">
+              <strong>{fmt(Math.round(s.amount))}</strong>
+              <span>{s.orders} orders</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Payment breakdown bar ─────────────────────────────────────────────────────
 
 function PaymentBar({ mode, amount, orders, total }) {
   const w = total > 0 ? Math.max(2, Math.round((amount / total) * 100)) : 0;
@@ -120,34 +194,63 @@ function PaymentBar({ mode, amount, orders, total }) {
   );
 }
 
-function TopItemRow({ rank, name, category, qty, amount }) {
+// ─── Top item row ─────────────────────────────────────────────────────────────
+
+function TopItemRow({ rank, name, category, qty, amount, maxAmount }) {
+  const w = maxAmount > 0 ? Math.round((amount / maxAmount) * 100) : 0;
   return (
     <div className="dash-item-row">
       <span className="dash-item-rank">#{rank}</span>
-      <div className="dash-item-info">
+      <div className="dash-item-info" style={{ flex: 1 }}>
         <strong className="dash-item-name">{name}</strong>
+        <div className="dash-item-bar-track">
+          <div className="dash-item-bar-fill" style={{ width: `${w}%` }} />
+        </div>
         <span className="dash-item-cat">{category}</span>
       </div>
-      <span className="dash-item-qty">{qty}×</span>
-      <span className="dash-item-amt">{fmt(amount)}</span>
-    </div>
-  );
-}
-
-function SessionPill({ session, orders, amount }) {
-  const ICONS = { Breakfast: "🌅", Lunch: "☀️", Dinner: "🌙" };
-  return (
-    <div className="dash-session-pill">
-      <span className="dash-session-icon">{ICONS[session] || "🍽️"}</span>
-      <div className="dash-session-body">
-        <strong className="dash-session-name">{session}</strong>
-        <span className="dash-session-stats">{orders} orders · {fmt(amount)}</span>
+      <div style={{ textAlign: "right", flexShrink: 0 }}>
+        <div className="dash-item-amt">{fmt(amount)}</div>
+        <div className="dash-item-qty">{qty} sold</div>
       </div>
     </div>
   );
 }
 
-// ─── empty-state ─────────────────────────────────────────────────────────────
+// ─── Category bar ─────────────────────────────────────────────────────────────
+
+const CAT_COLORS_FE = ["#2563eb","#16a34a","#ea580c","#7c3aed","#dc2626","#0891b2","#92400e","#374151"];
+
+function CategorySalesSection({ categorySales }) {
+  const cats = (categorySales?.categories || []).slice(0, 6);
+  if (!cats.length) return null;
+
+  const maxAmt = Math.max(...cats.map(c => c.amount), 1);
+
+  return (
+    <section className="dash-card">
+      <h4 className="dash-card-title">📂 Sales by Category</h4>
+      <div className="dash-cat-list">
+        {cats.map((cat, i) => {
+          const color = CAT_COLORS_FE[i % CAT_COLORS_FE.length];
+          const w     = Math.max(4, Math.round((cat.amount / maxAmt) * 100));
+          return (
+            <div key={cat.name} className="dash-cat-row">
+              <span className="dash-cat-dot" style={{ background: color }} />
+              <span className="dash-cat-name">{cat.name}</span>
+              <div className="dash-cat-track">
+                <div className="dash-cat-fill" style={{ width: `${w}%`, background: color }} />
+              </div>
+              <span className="dash-cat-qty">{cat.qty} qty</span>
+              <span className="dash-cat-amt">{fmt(cat.amount)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
 
 function EmptyDay({ outletName }) {
   return (
@@ -164,7 +267,7 @@ function EmptyDay({ outletName }) {
   );
 }
 
-// ─── main page ────────────────────────────────────────────────────────────────
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export function DashboardPage() {
   const [outlets,    setOutlets]    = useState([]);
@@ -179,33 +282,21 @@ export function DashboardPage() {
 
   const isToday = dateFrom === todayISO() && dateTo === todayISO();
 
-  // ── load outlet list once ─────────────────────────────────────────────────
   useEffect(() => {
     api.get("/outlets")
       .then(list => {
-        const active = Array.isArray(list)
-          ? list.filter(o => o.isActive !== false)
-          : [];
+        const active = Array.isArray(list) ? list.filter(o => o.isActive !== false) : [];
         setOutlets([{ id: "__all__", name: "All Outlets" }, ...active]);
       })
       .catch(() => setOutlets([{ id: "__all__", name: "All Outlets" }]));
   }, []);
 
-  // ── fetch sales data ──────────────────────────────────────────────────────
   const fetchData = useCallback(() => {
-    const params = new URLSearchParams({
-      dateFrom,
-      dateTo,
-    });
+    const params = new URLSearchParams({ dateFrom, dateTo });
     if (outletId !== "__all__") params.set("outletId", outletId);
-
     setError("");
     api.get(`/reports/owner-summary?${params}`)
-      .then(res => {
-        setData(res);
-        setLastSynced(new Date());
-        setLoading(false);
-      })
+      .then(res => { setData(res); setLastSynced(new Date()); setLoading(false); })
       .catch(err => {
         setError("Could not load sales data. Will retry shortly.");
         console.error("[Dashboard] fetch error:", err.message);
@@ -213,14 +304,8 @@ export function DashboardPage() {
       });
   }, [outletId, dateFrom, dateTo]);
 
-  // initial + outlet / date change
-  useEffect(() => {
-    setLoading(true);
-    setData(null);
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { setLoading(true); setData(null); fetchData(); }, [fetchData]);
 
-  // auto-refresh every 60 s — only when viewing today
   useEffect(() => {
     if (!isToday) return;
     timerRef.current = setInterval(fetchData, 60_000);
@@ -231,23 +316,35 @@ export function DashboardPage() {
   const summary      = data?.dayEnd?.summary       || {};
   const paymentModes = data?.dayEnd?.paymentModes  || [];
   const sessions     = data?.dayEnd?.sessions      || [];
+  const orderTypes   = data?.dayEnd?.orderTypes    || [];
   const itemSales    = data?.itemSales             || [];
+  const categorySales = data?.categorySales        || {};
   const topItems     = [...itemSales].sort((a, b) => b.amount - a.amount).slice(0, 5);
+  const topItemMax   = topItems[0]?.amount || 1;
 
-  const totalSales   = summary.totalSales       || 0;
-  const totalOrders  = summary.totalOrders      || 0;
-  const avgOrder     = summary.avgOrderValue    || 0;
-  const totalTax     = summary.totalTax         || 0;
-  const totalDisc    = summary.totalDiscount    || 0;
+  const totalSales     = summary.totalSales       || 0;
+  const totalOrders    = summary.totalOrders      || 0;
+  const avgOrder       = summary.avgOrderValue    || 0;
+  const totalTax       = summary.totalTax         || 0;
+  const totalDisc      = summary.totalDiscount    || 0;
   const totalCollected = paymentModes.reduce((s, p) => s + p.amount, 0);
 
   const hasData = totalOrders > 0;
-
   const selectedOutletName = outlets.find(o => o.id === outletId)?.name || "";
-
   const nowStr = lastSynced
     ? lastSynced.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
     : "—";
+
+  // Compute "active" order types (filter out zero-order types for cleanliness)
+  const activeOrderTypes = orderTypes.filter(t => t.orders > 0);
+  // If nothing from backend yet, show skeleton types
+  const displayOrderTypes = activeOrderTypes.length > 0
+    ? activeOrderTypes
+    : [
+        { type: "Dine In",  orders: totalOrders, amount: totalSales },
+        { type: "Takeaway", orders: 0, amount: 0 },
+        { type: "Online",   orders: 0, amount: 0 },
+      ].filter(t => t.orders > 0);
 
   return (
     <>
@@ -270,34 +367,20 @@ export function DashboardPage() {
         </div>
       </header>
 
-      {/* ── Demo data banner ────────────────────────────────────────────── */}
       <DemoBanner />
 
-      {/* ── Toolbar: date range + outlet selector ───────────────────────── */}
+      {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div className="dash-toolbar">
         <div className="dash-toolbar-left">
           <span className="dash-date-chip">📅</span>
           <input
-            type="date"
-            className="dash-date-input"
-            value={dateFrom}
-            max={dateTo}
-            onChange={e => {
-              setDateFrom(e.target.value);
-              if (e.target.value > dateTo) setDateTo(e.target.value);
-            }}
+            type="date" className="dash-date-input" value={dateFrom} max={dateTo}
+            onChange={e => { setDateFrom(e.target.value); if (e.target.value > dateTo) setDateTo(e.target.value); }}
           />
           <span className="dash-date-sep">→</span>
           <input
-            type="date"
-            className="dash-date-input"
-            value={dateTo}
-            min={dateFrom}
-            max={todayISO()}
-            onChange={e => {
-              setDateTo(e.target.value);
-              if (e.target.value < dateFrom) setDateFrom(e.target.value);
-            }}
+            type="date" className="dash-date-input" value={dateTo} min={dateFrom} max={todayISO()}
+            onChange={e => { setDateTo(e.target.value); if (e.target.value < dateFrom) setDateFrom(e.target.value); }}
           />
           {isToday && (
             <>
@@ -306,23 +389,14 @@ export function DashboardPage() {
             </>
           )}
           {!isToday && (
-            <button
-              className="ghost-chip"
-              style={{ marginLeft: 8 }}
-              onClick={() => { setDateFrom(todayISO()); setDateTo(todayISO()); }}
-            >
+            <button className="ghost-chip" style={{ marginLeft: 8 }}
+              onClick={() => { setDateFrom(todayISO()); setDateTo(todayISO()); }}>
               Back to Today
             </button>
           )}
         </div>
-        <select
-          className="dash-outlet-select"
-          value={outletId}
-          onChange={e => setOutletId(e.target.value)}
-        >
-          {outlets.map(o => (
-            <option key={o.id} value={o.id}>{o.name}</option>
-          ))}
+        <select className="dash-outlet-select" value={outletId} onChange={e => setOutletId(e.target.value)}>
+          {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
       </div>
 
@@ -339,74 +413,34 @@ export function DashboardPage() {
         <>
           {/* ── KPI row ───────────────────────────────────────────────── */}
           <div className="dash-kpi-row">
-            <KpiCard
-              icon="💰"
-              label="Total Sales"
-              value={fmt(totalSales)}
-              sub={`${totalOrders} orders`}
-              color="#16a34a"
-            />
-            <KpiCard
-              icon="🧾"
-              label="Orders Billed"
-              value={totalOrders}
-              sub={`Avg ${fmt(avgOrder)} / bill`}
-              color="#2563eb"
-            />
-            <KpiCard
-              icon="📱"
-              label="Collected"
-              value={fmt(totalCollected)}
-              sub={paymentModes.length > 0 ? paymentModes.map(p => p.mode).join(" · ") : "—"}
-              color="#7c3aed"
-            />
-            <KpiCard
-              icon="🏷️"
-              label="GST Collected"
-              value={fmt(totalTax)}
-              sub="CGST + SGST"
-              color="#dc2626"
-            />
+            <KpiCard icon="💰" label="Total Sales"    value={fmt(totalSales)}    sub={`${totalOrders} orders`}              color="#16a34a" />
+            <KpiCard icon="🧾" label="Orders Billed"  value={totalOrders}        sub={`Avg ${fmt(avgOrder)} / bill`}         color="#2563eb" />
+            <KpiCard icon="📱" label="Collected"       value={fmt(totalCollected)} sub={paymentModes.map(p => p.mode).join(" · ") || "—"} color="#7c3aed" />
+            <KpiCard icon="🏷️" label="GST Collected"  value={fmt(totalTax)}      sub="CGST + SGST"                          color="#dc2626" />
             {totalDisc > 0 && (
-              <KpiCard
-                icon="🎁"
-                label="Discounts Given"
-                value={fmt(totalDisc)}
-                sub="Total savings"
-                color="#ea580c"
-              />
+              <KpiCard icon="🎁" label="Discounts Given" value={fmt(totalDisc)} sub="Total savings" color="#ea580c" />
             )}
           </div>
+
+          {/* ── Order type breakdown row ───────────────────────────────── */}
+          {displayOrderTypes.length > 0 && (
+            <OrderTypeCards orderTypes={displayOrderTypes} />
+          )}
 
           {/* ── Main grid ─────────────────────────────────────────────── */}
           <div className="dash-main-grid">
 
-            {/* Payment breakdown */}
-            <section className="dash-card">
-              <h4 className="dash-card-title">💳 Payment Breakdown</h4>
-              {paymentModes.length === 0 ? (
-                <p className="dash-card-empty">No payment data</p>
-              ) : (
-                <div className="dash-pay-list">
-                  {paymentModes
-                    .sort((a, b) => b.amount - a.amount)
-                    .map(p => (
-                      <PaymentBar
-                        key={p.mode}
-                        mode={p.mode}
-                        amount={p.amount}
-                        orders={p.orders}
-                        total={totalCollected}
-                      />
-                    ))
-                  }
-                </div>
-              )}
-            </section>
+            {/* Session / time-of-day bar chart */}
+            {sessions.length > 0 && (
+              <section className="dash-card dash-card-wide">
+                <h4 className="dash-card-title">📊 Sales by Time of Day</h4>
+                <SessionBarChart sessions={sessions} />
+              </section>
+            )}
 
-            {/* Top 5 items */}
+            {/* Top 5 selling items */}
             <section className="dash-card">
-              <h4 className="dash-card-title">🔥 Top Items Today</h4>
+              <h4 className="dash-card-title">🔥 Top Selling Items</h4>
               {topItems.length === 0 ? (
                 <p className="dash-card-empty">No item data</p>
               ) : (
@@ -419,56 +453,41 @@ export function DashboardPage() {
                       category={item.category}
                       qty={item.qty}
                       amount={item.amount}
+                      maxAmount={topItemMax}
                     />
                   ))}
                 </div>
               )}
             </section>
 
-            {/* Session breakdown */}
-            {sessions.length > 0 && (
-              <section className="dash-card">
-                <h4 className="dash-card-title">🕐 By Session</h4>
-                <div className="dash-session-list">
-                  {sessions.map(s => (
-                    <SessionPill
-                      key={s.session}
-                      session={s.session}
-                      orders={s.orders}
-                      amount={Math.round(s.amount)}
-                    />
+            {/* Category breakdown */}
+            <CategorySalesSection categorySales={categorySales} />
+
+            {/* Payment breakdown */}
+            <section className="dash-card">
+              <h4 className="dash-card-title">💳 Payment Breakdown</h4>
+              {paymentModes.length === 0 ? (
+                <p className="dash-card-empty">No payment data</p>
+              ) : (
+                <div className="dash-pay-list">
+                  {[...paymentModes].sort((a, b) => b.amount - a.amount).map(p => (
+                    <PaymentBar key={p.mode} mode={p.mode} amount={p.amount} orders={p.orders} total={totalCollected} />
                   ))}
                 </div>
-              </section>
-            )}
+              )}
+            </section>
 
             {/* Quick stats */}
             <section className="dash-card dash-card-stats">
               <h4 className="dash-card-title">📈 Quick Stats</h4>
               <div className="dash-stat-list">
-                <div className="dash-stat-row">
-                  <span>Gross Revenue</span>
-                  <strong>{fmt(totalSales)}</strong>
-                </div>
-                <div className="dash-stat-row">
-                  <span>Total Tax</span>
-                  <strong>{fmt(totalTax)}</strong>
-                </div>
-                <div className="dash-stat-row">
-                  <span>Discounts</span>
-                  <strong>{fmt(totalDisc)}</strong>
-                </div>
-                <div className="dash-stat-row">
-                  <span>Avg Bill Value</span>
-                  <strong>{fmt(avgOrder)}</strong>
-                </div>
+                <div className="dash-stat-row"><span>Gross Revenue</span><strong>{fmt(totalSales)}</strong></div>
+                <div className="dash-stat-row"><span>Total Tax</span><strong>{fmt(totalTax)}</strong></div>
+                <div className="dash-stat-row"><span>Discounts</span><strong>{fmt(totalDisc)}</strong></div>
+                <div className="dash-stat-row"><span>Avg Bill Value</span><strong>{fmt(avgOrder)}</strong></div>
                 <div className="dash-stat-row">
                   <span>Highest Mode</span>
-                  <strong>
-                    {paymentModes.length > 0
-                      ? [...paymentModes].sort((a, b) => b.amount - a.amount)[0].mode
-                      : "—"}
-                  </strong>
+                  <strong>{paymentModes.length > 0 ? [...paymentModes].sort((a, b) => b.amount - a.amount)[0].mode : "—"}</strong>
                 </div>
                 <div className="dash-stat-row">
                   <span>Top Item</span>

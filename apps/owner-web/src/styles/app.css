@@ -5866,3 +5866,56 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 .rpt-page-btn:hover:not(:disabled) { background: #f0f9f4; border-color: #1a7a3a; color: #1a7a3a; }
 .rpt-page-btn:disabled { opacity: 0.4; cursor: default; }
 .rpt-page-info { font-size: 0.82rem; color: #666; }
+
+/* ─── Dashboard: Order-type breakdown row ─────────────────────────────────── */
+.dash-otype-row {
+  display: flex; gap: 14px;
+  padding: 0 24px 16px;
+  flex-wrap: wrap;
+}
+.dash-otype-card {
+  flex: 1 1 160px; min-width: 140px;
+  border: 1.5px solid #e5e7eb; border-radius: 14px;
+  padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 4px;
+  transition: box-shadow .15s;
+}
+.dash-otype-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.07); }
+.dash-otype-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.dash-otype-icon { font-size: 20px; }
+.dash-otype-label { font-size: 12px; font-weight: 700; color: #374151; flex: 1; }
+.dash-otype-pct   { font-size: 12px; font-weight: 800; }
+.dash-otype-amt   { font-size: 22px; font-weight: 800; line-height: 1; }
+.dash-otype-orders { font-size: 12px; color: #6b7280; font-weight: 500; margin-bottom: 8px; }
+.dash-otype-bar-track { height: 5px; background: rgba(0,0,0,.07); border-radius: 3px; overflow: hidden; }
+.dash-otype-bar-fill  { height: 100%; border-radius: 3px; transition: width .5s ease; }
+
+/* ─── Dashboard: Session bar chart ───────────────────────────────────────── */
+.dash-session-chart { display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+.dash-schart-row { display: grid; grid-template-columns: 90px 1fr 100px; align-items: center; gap: 12px; }
+.dash-schart-label { font-size: 13px; font-weight: 600; color: #374151; white-space: nowrap; }
+.dash-schart-track { height: 10px; background: #f3f4f6; border-radius: 5px; overflow: hidden; }
+.dash-schart-fill  { height: 100%; border-radius: 5px; transition: width .6s ease; }
+.dash-schart-info  { display: flex; flex-direction: column; text-align: right; }
+.dash-schart-info strong { font-size: 13px; font-weight: 700; color: #111827; }
+.dash-schart-info span   { font-size: 11px; color: #9ca3af; }
+
+/* ─── Dashboard: wide card (spans 2 cols on grid) ────────────────────────── */
+.dash-card-wide { grid-column: span 2; }
+@media (max-width: 768px) { .dash-card-wide { grid-column: span 1; } }
+
+/* ─── Dashboard: Top item bar ────────────────────────────────────────────── */
+.dash-item-bar-track { height: 4px; background: #f3f4f6; border-radius: 2px; overflow: hidden; margin: 3px 0 2px; }
+.dash-item-bar-fill  { height: 100%; border-radius: 2px; background: #fb923c; transition: width .5s ease; }
+
+/* ─── Dashboard: Category breakdown ─────────────────────────────────────── */
+.dash-cat-list { display: flex; flex-direction: column; gap: 11px; }
+.dash-cat-row  {
+  display: grid; grid-template-columns: 10px 1fr auto auto auto;
+  align-items: center; gap: 10px;
+}
+.dash-cat-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.dash-cat-name { font-size: 13px; font-weight: 600; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-cat-track { height: 7px; background: #f3f4f6; border-radius: 4px; overflow: hidden; min-width: 60px; }
+.dash-cat-fill  { height: 100%; border-radius: 4px; transition: width .5s ease; }
+.dash-cat-qty  { font-size: 11px; color: #9ca3af; text-align: right; white-space: nowrap; }
+.dash-cat-amt  { font-size: 13px; font-weight: 700; color: #111827; text-align: right; white-space: nowrap; }
