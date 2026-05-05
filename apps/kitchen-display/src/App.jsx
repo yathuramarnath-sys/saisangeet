@@ -802,26 +802,30 @@ export function App() {
   // read the latest assignedStation without depending on the closure.
   const assignedStationRef = useRef(settings.assignedStation);
 
-  // Persist settings on change + keep ref in sync + re-subscribe to station room
+  // Persist settings on change + keep ref in sync
   useEffect(() => {
     saveSettings(settings);
     assignedStationRef.current = settings.assignedStation;
-    // Tell the server which station room this screen belongs to.
-    // Server routes kot:new events only to the matching room — no client filtering needed.
+  }, [settings]);
+
+  // When the assigned station changes at runtime (user picks a station in Settings):
+  // 1. Re-subscribe so the server moves this socket to the correct station room
+  // 2. Purge any tickets that belong to a different station
+  useEffect(() => {
     if (socketRef.current?.connected && branchConfig?.outletId) {
       socketRef.current.emit("kds:join-station", {
         outletId:    branchConfig.outletId,
         stationName: settings.assignedStation || "",
       });
     }
-    // Purge tickets that don't belong after a station change
     if (settings.assignedStation) {
       const assigned = settings.assignedStation.trim().toLowerCase();
       setTickets(prev => prev.filter(t =>
         (t.station || "").trim().toLowerCase() === assigned
       ));
     }
-  }, [settings]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.assignedStation]);
 
   // Persist active tickets on every change — KDS survives refresh / internet drop
   useEffect(() => { saveTickets(tickets); }, [tickets]);
@@ -850,8 +854,13 @@ export function App() {
 
     const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
       .replace("/api/v1", "");
+    // Include assignedStation in the handshake query so the server joins the
+    // correct KDS station room immediately on connect — no async event needed.
     const socket = io(socketUrl, {
-      query: { outletId: branchConfig.outletId },
+      query: {
+        outletId:   branchConfig.outletId,
+        kdsStation: settings.assignedStation || "",   // current assigned station
+      },
       reconnectionDelay:    1000,
       reconnectionDelayMax: 8000,
     });

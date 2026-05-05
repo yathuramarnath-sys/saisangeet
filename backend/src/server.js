@@ -26,12 +26,21 @@ const io = new SocketServer(server, {
 app.locals.io = io;
 
 io.on("connection", (socket) => {
-  const { outletId } = socket.handshake.query;
+  const { outletId, kdsStation } = socket.handshake.query;
   if (outletId) {
     socket.join(`outlet:${outletId}`);
     // Ask other connected devices (POS) to broadcast current order state so
     // this new device (Captain App / KDS) gets accurate table occupancy immediately
     socket.to(`outlet:${outletId}`).emit("request:order-sync");
+  }
+  // KDS screens pass kdsStation in the handshake query.
+  // Join the station-specific room immediately on connect so KOTs are routed
+  // correctly from the very first emission — no race with a separate join event.
+  if (outletId && kdsStation !== undefined) {
+    const kdsRoom = kdsStation
+      ? `kds:${outletId}:${String(kdsStation).trim().toLowerCase()}`
+      : `kds:${outletId}:__all__`;
+    socket.join(kdsRoom);
   }
   socket.on("join-outlet", (id) => {
     socket.join(`outlet:${id}`);
