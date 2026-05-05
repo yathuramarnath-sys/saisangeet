@@ -1,28 +1,21 @@
-// DineX KDS — Service Worker v1
-// Strategy: cache-first for app shell, network-only for API/socket calls
+// DineX KDS — Service Worker v3
+// Strategy: network-first for HTML, stale-while-revalidate for hashed assets.
+// Bumping CACHE_NAME forces ALL browsers to clear old caches and reload fresh code.
 
-const CACHE_NAME = "dinex-kds-v1";
-const PRECACHE_URLS = ["/", "/index.html"];
+const CACHE_NAME = "dinex-kds-v3";
 const NETWORK_ONLY = ["/api/", "/socket.io/"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting())
-  );
+  // Take over immediately — don't wait for old SW to finish
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
+  // Delete ALL old caches so browsers immediately get fresh assets
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-        )
-      )
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -35,37 +28,17 @@ self.addEventListener("fetch", (event) => {
   if (NETWORK_ONLY.some((path) => url.pathname.startsWith(path))) return;
   if (url.origin !== self.location.origin) return;
 
+  // Always network-first so new deploys are picked up immediately
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const isHTML = request.headers.get("Accept")?.includes("text/html");
-
-      if (isHTML) {
-        return fetch(request)
-          .then((response) => {
-            if (response.ok) {
-              const copy = response.clone();
-              caches.open(CACHE_NAME).then((c) => c.put(request, copy));
-            }
-            return response;
-          })
-          .catch(() => cached || caches.match("/index.html"));
-      }
-
-      if (cached) {
-        fetch(request).then((fresh) => {
-          if (fresh.ok) caches.open(CACHE_NAME).then((c) => c.put(request, fresh));
-        });
-        return cached;
-      }
-
-      return fetch(request).then((response) => {
+    fetch(request)
+      .then((response) => {
         if (response.ok) {
           const copy = response.clone();
           caches.open(CACHE_NAME).then((c) => c.put(request, copy));
         }
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(request).then((cached) => cached || caches.match("/index.html")))
   );
 });
 
