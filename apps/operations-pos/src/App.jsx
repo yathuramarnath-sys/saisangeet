@@ -611,24 +611,30 @@ export default function App() {
     });
 
     // ── 2. Group unsent items by kitchen station ──────────────────────────
-    // Built here so it is shared by both the print block and the API block below.
-    // item.station is set when menu items carry station assignments from the kitchen
-    // catalog. Today that field is not yet populated, so every item falls into
-    // "__default__" and we get one group — identical to the previous single-call
-    // behavior. When items gain station assignments (next slice), this grouping
-    // automatically produces per-station KOTs for both printing and backend.
+    // Re-resolve station at send time so items added before kitchenStations
+    // finished loading still get correctly routed.
+    // Primary: item.station (set at add time). Fallback: live kitchenStations lookup.
     const stationGroups = {};
     unsent.forEach(item => {
-      const st = item.station || "__default__";
+      const itemCN = (item.category || item.categoryName || "").trim().toLowerCase();
+      const resolvedSt = item.station ||
+        kitchenStations.find(s =>
+          (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
+          (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCN))
+        )?.name || "";
+      const st = resolvedSt || "__default__";
       if (!stationGroups[st]) stationGroups[st] = [];
-      stationGroups[st].push(item);
+      stationGroups[st].push({ ...item, station: resolvedSt });
     });
 
-    // ── 3. Send to backend first — server assigns the authoritative KOT number ─
+    // ── 3. Send to backend — server assigns authoritative KOT numbers ────────
     // We send before printing so the thermal slip always shows the server-assigned
     // sequential number (1, 2, 3 …) rather than a local counter.
+    // Each station group is a separate API call so each gets its own KOT number.
+    // When the group is "__default__" (client routing failed), the server itself
+    // splits items by categoryId→station and returns a `kots` array.
     // On offline/error the local kotSeq is used as fallback and the payload is queued.
-    let serverKotNumber = kotSeq;   // fallback if offline
+    const allServerKots = [];   // collect server KOT numbers across all groups
     let lastServerOrder = null;
     for (const [stationKey, stItems] of Object.entries(stationGroups)) {
       const kotPayload = {
@@ -642,9 +648,14 @@ export default function App() {
         items:       stItems
       };
       try {
-        // Response: { kot: { kotNumber, kotTime, kotDate }, order? }
+        // Response: { kots: [...], kot: <first>, order? }
         const result = await api.post("/operations/kot", kotPayload);
-        if (result?.kot?.kotNumber) serverKotNumber = result.kot.kotNumber;
+        // Collect all KOT numbers returned (server may split one call into multiple KOTs)
+        if (result?.kots?.length) {
+          result.kots.forEach(k => allServerKots.push(k.kotNumber));
+        } else if (result?.kot?.kotNumber) {
+          allServerKots.push(result.kot.kotNumber);
+        }
         if (result?.order) lastServerOrder = result.order;
       } catch (err) {
         // Offline — queue for retry; print with local kotSeq
@@ -654,6 +665,9 @@ export default function App() {
         console.warn("KOT queued (offline):", kotPayload.kotNumber);
       }
     }
+
+    // The KOT number shown on thermal slips / toast uses the last server-assigned number
+    const serverKotNumber = allServerKots.length ? allServerKots[allServerKots.length - 1] : kotSeq;
 
     // ── 4. Print KOT with the server-assigned number ──────────────────────
     if (kotAutoSendEnabled()) {
@@ -667,7 +681,10 @@ export default function App() {
 
     const printer = getKotPrinter();
     const printerLabel = printer ? ` → ${printer.name}` : "";
-    showToast(`🖨️ KOT #${serverKotNumber} sent${printerLabel}`);
+    const kotLabel = allServerKots.length > 1
+      ? `KOT #${allServerKots[0]}–#${allServerKots[allServerKots.length - 1]}`
+      : `KOT #${serverKotNumber}`;
+    showToast(`🖨️ ${kotLabel} sent${printerLabel}`);
 
     // Reconcile from the last server response (most up-to-date order state).
     // All items across all station groups are sentToKot: true on the server by

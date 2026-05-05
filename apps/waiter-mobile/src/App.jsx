@@ -322,8 +322,10 @@ export function App() {
       stationGroups[key].push({ ...item, station: resolvedStation });
     }
 
-    // Server assigns the authoritative sequential KOT number
-    let serverKotNumber = null;
+    // Server assigns the authoritative sequential KOT number(s).
+    // When the group is "__default__" (client routing failed), the server splits
+    // items by categoryId→station and returns a `kots` array with one entry per station.
+    const allServerKots = [];
     let lastServerOrder;
     for (const [stationKey, stItems] of Object.entries(stationGroups)) {
       try {
@@ -337,12 +339,17 @@ export function App() {
           orderId:     order.id,
           actorName:   loggedInStaff?.name || "Captain",
         });
-        if (result?.kot?.kotNumber) serverKotNumber = result.kot.kotNumber;
+        if (result?.kots?.length) {
+          result.kots.forEach(k => allServerKots.push(k.kotNumber));
+        } else if (result?.kot?.kotNumber) {
+          allServerKots.push(result.kot.kotNumber);
+        }
         if (result?.order) lastServerOrder = result.order;
       } catch (e) {
         console.error(`[captain] KOT send (${stationKey}):`, e.message);
       }
     }
+    const serverKotNumber = allServerKots.length ? allServerKots[allServerKots.length - 1] : null;
 
     // ── Print KOT (kitchen printer) ───────────────────────────────────────
     try {
@@ -359,8 +366,11 @@ export function App() {
       }
     } catch (_) { /* printer not configured — KDS still receives it */ }
 
-    // Show the server-assigned KOT number in the confirmation toast
-    toast.success(serverKotNumber != null ? `KOT #${serverKotNumber} sent` : "KOT sent to kitchen");
+    // Show the server-assigned KOT number(s) in the confirmation toast
+    const kotLabel = allServerKots.length > 1
+      ? `KOT #${allServerKots[0]}–#${allServerKots[allServerKots.length - 1]}`
+      : allServerKots.length === 1 ? `KOT #${allServerKots[0]}` : null;
+    toast.success(kotLabel ? `${kotLabel} sent to kitchen` : "KOT sent to kitchen");
 
     if (lastServerOrder) {
       setOrders((prev) => {

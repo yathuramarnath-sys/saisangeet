@@ -159,63 +159,84 @@ async function deviceSendKotHandler(req, res) {
   }
 
   const tenantId = req.user?.tenantId || "default";
-  let { stationName, areaName } = req.body;
+  const { stationName: clientStation, areaName } = req.body;
 
-  // ── Server-side station auto-detection ────────────────────────────────────
-  // If the client didn't send a stationName (e.g. station routing failed on client),
-  // look up the station from the kitchen-station→category config in Owner Console.
-  // Items carry categoryId so we can match them against station.categories.
-  // This makes station routing reliable regardless of client-side state.
-  if (!stationName) {
+  // ── Build station groups ────────────────────────────────────────────────────
+  // When the client already grouped by station and sent stationName → one group.
+  // When no stationName (client routing failed or mixed-station send) → split here
+  // by matching each item's categoryId against the kitchen-station config from Owner.
+  // This guarantees each KDS screen only receives its own station's items regardless
+  // of whether the client-side grouping worked.
+  let stationGroups; // { [stationName]: item[] }
+
+  if (clientStation) {
+    // Client already grouped these items for this station — trust it
+    stationGroups = { [clientStation]: items };
+  } else {
+    stationGroups = {};
     try {
       const { getOwnerSetupData } = require("../../data/owner-setup-store");
       const setupData = getOwnerSetupData();
       const kitchenStations = (setupData.menu?.stations || []);
-      if (kitchenStations.length && items.some(i => i.categoryId)) {
-        const itemCatIds = items.map(i => String(i.categoryId)).filter(Boolean);
-        const matched = kitchenStations.find(s =>
-          (s.categories || []).some(cid => itemCatIds.includes(String(cid)))
-        );
-        if (matched) stationName = matched.name;
+
+      for (const item of items) {
+        let station = "Main Kitchen"; // fallback
+        if (kitchenStations.length && item.categoryId) {
+          const matched = kitchenStations.find(s =>
+            (s.categories || []).some(cid => String(cid) === String(item.categoryId))
+          );
+          if (matched) station = matched.name;
+        }
+        if (!stationGroups[station]) stationGroups[station] = [];
+        stationGroups[station].push(item);
       }
-    } catch (_) { /* non-fatal — fall through to default */ }
+    } catch (_) {
+      // If setup data unavailable, fall back to single group
+      stationGroups = { "Main Kitchen": items };
+    }
   }
 
-  // Always assign server-side sequential KOT number (daily reset, with IST time)
-  const { kotNo, time: kotTime, date: kotDate } = getNextKotNo(tenantId);
-
-  const kot = {
-    id:          `kot-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
-    kotNumber:   kotNo,        // plain sequential number e.g. 1, 2, 3
-    kotTime,                   // IST time e.g. "14:32"
-    kotDate,                   // IST date e.g. "2025-05-01"
-    tableNumber: tableNumber || "—",
-    // station and areaName are used by the KDS for station-tab filtering and display.
-    // stationName comes from the POS KOT payload (grouped by item.station);
-    // areaName comes from order.areaName on the POS side.
-    // Defaults ensure every KOT is always displayable even when the POS omits these fields.
-    station:     stationName || "Main Kitchen",
-    areaName:    areaName    || tableNumber || "—",
-    source:      req.body.source || "pos",
-    status:      "new",
-    createdAt:   new Date().toISOString(),
-    items:       (items || []).map((i, idx) => ({
-      id:       i.id || `item-${idx}`,
-      name:     i.name,
-      quantity: i.quantity,
-      note:     i.note || ""
-    })),
-    tableId,
-    orderId
-  };
-
-  addKot(tenantId, outletId, kot);
-
-  // Broadcast to KDS and Captain in this outlet
+  // ── Create one KOT per station group ────────────────────────────────────────
   const io = req.app.locals.io;
-  if (io) {
-    io.to(`outlet:${outletId}`).emit("kot:new", kot);
-    io.to(`outlet:${outletId}`).emit("kot:sent", { tableId, kotId: kot.id });
+  const kots = [];
+
+  for (const [station, stationItems] of Object.entries(stationGroups)) {
+    const { kotNo, time: kotTime, date: kotDate } = getNextKotNo(tenantId);
+
+    const kot = {
+      id:          `kot-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+      kotNumber:   kotNo,
+      kotTime,
+      kotDate,
+      tableNumber: tableNumber || "—",
+      station,
+      areaName:    areaName || tableNumber || "—",
+      source:      req.body.source || "pos",
+      status:      "new",
+      createdAt:   new Date().toISOString(),
+      items:       stationItems.map((i, idx) => ({
+        id:       i.id || `item-${idx}`,
+        name:     i.name,
+        quantity: i.quantity,
+        note:     i.note || ""
+      })),
+      tableId,
+      orderId
+    };
+
+    addKot(tenantId, outletId, kot);
+
+    // Broadcast this station's KOT to KDS screens in the outlet
+    if (io) {
+      io.to(`outlet:${outletId}`).emit("kot:new", kot);
+    }
+
+    kots.push(kot);
+  }
+
+  // Notify POS / Captain that KOT send is complete for this table
+  if (io && tableId) {
+    io.to(`outlet:${outletId}`).emit("kot:sent", { tableId, kotId: kots[0]?.id });
   }
 
   // Mark items sentToKot: true in the in-memory order so backend state matches POS.
@@ -231,7 +252,8 @@ async function deviceSendKotHandler(req, res) {
     }
   }
 
-  res.status(201).json({ kot, order: updatedOrder });
+  // Return `kots` array (new) and `kot` (first entry, backward-compat for older clients)
+  res.status(201).json({ kots, kot: kots[0], order: updatedOrder });
 }
 
 /**
