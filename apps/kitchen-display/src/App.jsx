@@ -801,11 +801,14 @@ export function App() {
   // Always-current ref so socket handlers (which close over stale state) can
   // read the latest assignedStation without depending on the closure.
   const assignedStationRef = useRef(settings.assignedStation);
+  // Update the ref synchronously DURING RENDER so socket handlers always see
+  // the latest value — a useEffect would only run after the browser paints,
+  // leaving a window where an arriving KOT could be mis-routed.
+  assignedStationRef.current = settings.assignedStation;
 
-  // Persist settings on change + keep ref in sync
+  // Persist settings on change
   useEffect(() => {
     saveSettings(settings);
-    assignedStationRef.current = settings.assignedStation;
   }, [settings]);
 
   // When the assigned station changes at runtime (user picks a station in Settings):
