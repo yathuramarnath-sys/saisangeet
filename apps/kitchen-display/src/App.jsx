@@ -1052,8 +1052,12 @@ export function App() {
           {stationNames.map(s => (
             <button key={s}
               className={`kds-station-btn${stationTab === s ? " active" : ""}`}
-              onClick={() => setStationTab(prev => prev === s ? "" : s)}>{s}</button>
+              onClick={(e) => { e.stopPropagation(); setStationTab(st => st === s ? "" : s); }}>{s}</button>
           ))}
+          {/* debug — shows active filter; remove once routing confirmed working */}
+          <span style={{ fontSize: 10, color: "#4b5563", marginLeft: 6, fontStyle: "italic" }}>
+            {stationTab ? `▶ ${stationTab} (${base.length})` : `all (${tickets.length})`}
+          </span>
         </div>
 
         <div className="kds-header-right">
