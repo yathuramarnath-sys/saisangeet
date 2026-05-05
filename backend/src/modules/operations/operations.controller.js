@@ -196,16 +196,18 @@ async function deviceSendKotHandler(req, res) {
     }
   }
 
-  // ── Create one KOT per station group ────────────────────────────────────────
+  // ── Create one KOT per station group, all sharing the same KOT number ─────
+  // One "send" = one KOT number regardless of how many stations are involved.
+  // Each station gets its own KOT record (unique id) so they can be bumped
+  // independently on each KDS, but the printed slip number is identical on all.
+  const { kotNo, time: kotTime, date: kotDate } = getNextKotNo(tenantId);
   const io = req.app.locals.io;
   const kots = [];
 
   for (const [station, stationItems] of Object.entries(stationGroups)) {
-    const { kotNo, time: kotTime, date: kotDate } = getNextKotNo(tenantId);
-
     const kot = {
       id:          `kot-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
-      kotNumber:   kotNo,
+      kotNumber:   kotNo,   // same number for all station splits from this send
       kotTime,
       kotDate,
       tableNumber: tableNumber || "—",

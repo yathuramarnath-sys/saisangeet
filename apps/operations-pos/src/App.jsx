@@ -681,10 +681,8 @@ export default function App() {
 
     const printer = getKotPrinter();
     const printerLabel = printer ? ` → ${printer.name}` : "";
-    const kotLabel = allServerKots.length > 1
-      ? `KOT #${allServerKots[0]}–#${allServerKots[allServerKots.length - 1]}`
-      : `KOT #${serverKotNumber}`;
-    showToast(`🖨️ ${kotLabel} sent${printerLabel}`);
+    // All station splits share the same KOT number — show it once
+    showToast(`🖨️ KOT #${serverKotNumber} sent${printerLabel}`);
 
     // Reconcile from the last server response (most up-to-date order state).
     // All items across all station groups are sentToKot: true on the server by

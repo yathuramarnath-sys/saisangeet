@@ -367,10 +367,8 @@ export function App() {
     } catch (_) { /* printer not configured — KDS still receives it */ }
 
     // Show the server-assigned KOT number(s) in the confirmation toast
-    const kotLabel = allServerKots.length > 1
-      ? `KOT #${allServerKots[0]}–#${allServerKots[allServerKots.length - 1]}`
-      : allServerKots.length === 1 ? `KOT #${allServerKots[0]}` : null;
-    toast.success(kotLabel ? `${kotLabel} sent to kitchen` : "KOT sent to kitchen");
+    // All station splits share the same KOT number — show it once
+    toast.success(serverKotNumber != null ? `KOT #${serverKotNumber} sent to kitchen` : "KOT sent to kitchen");
 
     if (lastServerOrder) {
       setOrders((prev) => {
