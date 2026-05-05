@@ -802,10 +802,25 @@ export function App() {
   // read the latest assignedStation without depending on the closure.
   const assignedStationRef = useRef(settings.assignedStation);
 
-  // Persist settings on change + keep ref in sync
+  // Persist settings on change + keep ref in sync + re-subscribe to station room
   useEffect(() => {
     saveSettings(settings);
     assignedStationRef.current = settings.assignedStation;
+    // Tell the server which station room this screen belongs to.
+    // Server routes kot:new events only to the matching room — no client filtering needed.
+    if (socketRef.current?.connected && branchConfig?.outletId) {
+      socketRef.current.emit("kds:join-station", {
+        outletId:    branchConfig.outletId,
+        stationName: settings.assignedStation || "",
+      });
+    }
+    // Purge tickets that don't belong after a station change
+    if (settings.assignedStation) {
+      const assigned = settings.assignedStation.trim().toLowerCase();
+      setTickets(prev => prev.filter(t =>
+        (t.station || "").trim().toLowerCase() === assigned
+      ));
+    }
   }, [settings]);
 
   // Persist active tickets on every change — KDS survives refresh / internet drop
@@ -815,28 +830,14 @@ export function App() {
 
   function unlockAudio() { audioReady.current = true; }
 
-  // Returns true if a KOT belongs to this screen.
-  // When no station is assigned → screen shows all stations → always true.
-  // Uses the ref so it stays current inside socket handler closures.
+  // Used for bootstrap API fetch filtering (only fetch this screen's KOTs on load).
+  // Socket routing is now server-side — the backend emits kot:new only to the
+  // matching kds:<outletId>:<station> room, so no filtering is needed in the handler.
   function kotBelongsHere(kot) {
     const assigned = (assignedStationRef.current || "").trim().toLowerCase();
     if (!assigned) return true;
     return (kot.station || "").trim().toLowerCase() === assigned;
   }
-
-  // Whenever the screen's assigned station changes, immediately purge any tickets
-  // in state that don't belong here. This handles the case where the bootstrap
-  // loaded all KOTs (station was blank at load time) and the user then assigns
-  // the screen to a specific station — without this, those foreign KOTs stay in
-  // state even though the render filter hides them (sometimes it doesn't apply
-  // on all code paths). Purging the state is the safest approach.
-  useEffect(() => {
-    if (!settings.assignedStation) return; // no filter set — show everything
-    const assigned = settings.assignedStation.trim().toLowerCase();
-    setTickets(prev => prev.filter(t =>
-      (t.station || "").trim().toLowerCase() === assigned
-    ));
-  }, [settings.assignedStation]);
 
   // Bootstrap
   useEffect(() => {
@@ -859,6 +860,11 @@ export function App() {
     // ── Connection lifecycle ──────────────────────────────────────────────
     socket.on("connect", async () => {
       setConnState("live");
+      // Subscribe to this screen's station room so the server routes KOTs correctly
+      socket.emit("kds:join-station", {
+        outletId:    branchConfig.outletId,
+        stationName: assignedStationRef.current || "",
+      });
       // Re-fetch any KOTs we missed while offline — filter to this screen's station
       try {
         const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}`);
@@ -882,11 +888,11 @@ export function App() {
     socket.on("connect_error", () => setConnState("offline"));
 
     // ── Incoming KOTs ─────────────────────────────────────────────────────
+    // No client-side station filter here — the server emits kot:new only to the
+    // correct station room (kds:<outletId>:<station>), so this screen only receives
+    // KOTs that belong to it. The kotBelongsHere check below is a safety net.
     socket.on("kot:new", (kot) => {
-      // Drop KOTs that don't belong to this screen's assigned station.
-      // kotBelongsHere uses a ref so it always reads the latest assignedStation
-      // even though this handler was created in a one-time useEffect closure.
-      if (!kotBelongsHere(kot)) return;
+      if (!kotBelongsHere(kot)) return; // safety net
       setTickets(prev => {
         if (prev.find(t => t.id === kot.id)) return prev;
         // Always show new incoming KOTs as "new" — never let backend push "ready"

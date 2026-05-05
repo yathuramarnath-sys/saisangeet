@@ -228,9 +228,13 @@ async function deviceSendKotHandler(req, res) {
 
     addKot(tenantId, outletId, kot);
 
-    // Broadcast this station's KOT to KDS screens in the outlet
+    // Route this KOT only to KDS screens assigned to this station,
+    // AND to unassigned KDS screens (kds:<outletId>:__all__).
+    // This is server-side routing — each KDS room only receives its own station's KOTs.
     if (io) {
-      io.to(`outlet:${outletId}`).emit("kot:new", kot);
+      const stationRoom = `kds:${outletId}:${station.trim().toLowerCase()}`;
+      const allRoom     = `kds:${outletId}:__all__`;
+      io.to(stationRoom).to(allRoom).emit("kot:new", kot);
     }
 
     kots.push(kot);

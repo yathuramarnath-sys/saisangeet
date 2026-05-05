@@ -38,6 +38,26 @@ io.on("connection", (socket) => {
     socket.to(`outlet:${id}`).emit("request:order-sync");
   });
 
+  // ── KDS station room subscription ────────────────────────────────────────
+  // A KDS screen calls this when it loads or when its assignedStation changes.
+  // stationName = "" → unassigned screen (show all) → joins kds:<outletId>:__all__
+  // stationName = "South Indian" → dedicated screen → joins kds:<outletId>:south indian
+  // The backend emits kot:new to the matching room, so each KDS only receives
+  // KOTs for its own station — no client-side filtering needed.
+  socket.on("kds:join-station", ({ outletId: oid, stationName }) => {
+    if (!oid) return;
+    // Leave any existing KDS station rooms for this outlet
+    const prefix = `kds:${oid}:`;
+    [...socket.rooms]
+      .filter(r => r.startsWith(prefix))
+      .forEach(r => socket.leave(r));
+    // Join the correct room
+    const room = stationName
+      ? `kds:${oid}:${String(stationName).trim().toLowerCase()}`
+      : `kds:${oid}:__all__`;
+    socket.join(room);
+  });
+
   // ── Relay order updates between POS ↔ Captain App ────────────────────────
   // POS/Captain emit "order:update"; relay to all other devices in the same outlet
   socket.on("order:update", (data) => {
