@@ -798,9 +798,15 @@ export function App() {
   const [connState,    setConnState]    = useState("connecting"); // connecting | live | offline
   const socketRef  = useRef(null);
   const audioReady = useRef(false);
+  // Always-current ref so socket handlers (which close over stale state) can
+  // read the latest assignedStation without depending on the closure.
+  const assignedStationRef = useRef(settings.assignedStation);
 
-  // Persist settings on change
-  useEffect(() => saveSettings(settings), [settings]);
+  // Persist settings on change + keep ref in sync
+  useEffect(() => {
+    saveSettings(settings);
+    assignedStationRef.current = settings.assignedStation;
+  }, [settings]);
 
   // Persist active tickets on every change — KDS survives refresh / internet drop
   useEffect(() => { saveTickets(tickets); }, [tickets]);
@@ -808,6 +814,15 @@ export function App() {
   function updateSettings(next) { setSettings(next); }
 
   function unlockAudio() { audioReady.current = true; }
+
+  // Returns true if a KOT belongs to this screen.
+  // When no station is assigned → screen shows all stations → always true.
+  // Uses the ref so it stays current inside socket handler closures.
+  function kotBelongsHere(kot) {
+    const assigned = (assignedStationRef.current || "").trim().toLowerCase();
+    if (!assigned) return true;
+    return (kot.station || "").trim().toLowerCase() === assigned;
+  }
 
   // Bootstrap
   useEffect(() => {
@@ -830,17 +845,16 @@ export function App() {
     // ── Connection lifecycle ──────────────────────────────────────────────
     socket.on("connect", async () => {
       setConnState("live");
-      // Re-fetch any KOTs we missed while offline
+      // Re-fetch any KOTs we missed while offline — filter to this screen's station
       try {
         const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}`);
         if (kots?.length) {
           setTickets(prev => {
             const existingIds = new Set(prev.map(t => t.id));
             const missed = kots
-              .filter(k => !existingIds.has(k.id) && k.status !== "bumped")
+              .filter(k => !existingIds.has(k.id) && k.status !== "bumped" && kotBelongsHere(k))
               .map(k => ({
                 ...k,
-                // Map legacy "ready" → "preparing" in 2-step flow
                 status: k.status === "ready" ? "preparing" : k.status,
                 doneItems: k.doneItems || [],
               }));
@@ -855,6 +869,10 @@ export function App() {
 
     // ── Incoming KOTs ─────────────────────────────────────────────────────
     socket.on("kot:new", (kot) => {
+      // Drop KOTs that don't belong to this screen's assigned station.
+      // kotBelongsHere uses a ref so it always reads the latest assignedStation
+      // even though this handler was created in a one-time useEffect closure.
+      if (!kotBelongsHere(kot)) return;
       setTickets(prev => {
         if (prev.find(t => t.id === kot.id)) return prev;
         // Always show new incoming KOTs as "new" — never let backend push "ready"
@@ -934,8 +952,12 @@ export function App() {
         const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}`).catch(() => null);
         if (kots !== null) {
           // API responded — replace with real data (or empty; never show demo tickets)
-          // Filter out any "bumped" or "ready" tickets — ready state no longer used
-          const live = kots.filter(k => k.status !== "bumped" && k.status !== "ready");
+          // Filter by this screen's station AND drop bumped/ready tickets.
+          const live = kots.filter(k =>
+            k.status !== "bumped" &&
+            k.status !== "ready" &&
+            kotBelongsHere(k)
+          );
           setTickets(live.length ? live.map(k => ({ ...k, doneItems: k.doneItems || [] })) : []);
         }
       } catch (_) {
