@@ -769,7 +769,7 @@ export function App() {
   const [tickets,      setTickets]      = useState(() => loadSavedTickets());
   const [outlet,       setOutlet]       = useState(null);
   const [menuData,     setMenuData]     = useState({ categories: [], items: [] });
-  const [stationTab,   setStationTab]   = useState("All");
+  const [stationTab,   setStationTab]   = useState("");
   const [servedCount,  setServedCount]  = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [newIds,       setNewIds]       = useState(new Set());
@@ -985,10 +985,10 @@ export function App() {
     }));
   }
 
-  // Build station tabs from live tickets + settings
-  const stationNames = ["All", ...(settings.stations || []).map(s => s.name)];
+  // Build station tabs from live tickets + settings (no "All" tab — filter by station or show all)
+  const stationNames = (settings.stations || []).map(s => s.name);
 
-  const base  = stationTab === "All" ? tickets : tickets.filter(t => t.station === stationTab);
+  const base  = !stationTab ? tickets : tickets.filter(t => t.station === stationTab);
   const newT  = base.filter(t => t.status === "new");
   const prepT = base.filter(t => t.status === "preparing");
   // Note: "ready" state is no longer used — flow is New → Preparing → BUMP
@@ -1047,12 +1047,12 @@ export function App() {
           </div>
         )}
 
-        {/* Station tabs */}
+        {/* Station tabs — click to filter by station, click again to deselect (show all) */}
         <div className="kds-stations">
           {stationNames.map(s => (
             <button key={s}
               className={`kds-station-btn${stationTab === s ? " active" : ""}`}
-              onClick={() => setStationTab(s)}>{s}</button>
+              onClick={() => setStationTab(prev => prev === s ? "" : s)}>{s}</button>
           ))}
         </div>
 

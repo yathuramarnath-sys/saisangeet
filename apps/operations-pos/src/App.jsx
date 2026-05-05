@@ -454,6 +454,14 @@ export default function App() {
     // identify which items are already tracked server-side by ID (no phantom duplicates).
     const itemId = `item-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
 
+    // Resolve station at outer scope so it is available for both the local push
+    // and the backend API call below (was previously block-scoped inside the else branch,
+    // causing a ReferenceError on the API call and silent failure to sync items).
+    // Use String comparison to handle type mismatches (number vs string category IDs).
+    const resolvedStation = item.station ||
+      kitchenStations.find(s => Array.isArray(s.categories) &&
+        s.categories.some(cid => String(cid) === String(item.categoryId)))?.name || "";
+
     // 1. Optimistic local update — keeps the UI instant regardless of network latency.
     //    Backend also consolidates by menuItemId (increments existing unsent line), so
     //    if the cashier taps the same item twice the qty in both states stays in sync.
@@ -462,9 +470,6 @@ export default function App() {
       if (existing >= 0) {
         order.items[existing].quantity += 1;
       } else {
-        // Resolve station from category→station mapping (Owner Console assignment)
-        const resolvedStation = item.station ||
-          kitchenStations.find(s => Array.isArray(s.categories) && s.categories.includes(item.categoryId))?.name || "";
         order.items.push({
           id:         itemId,
           menuItemId: item.id,

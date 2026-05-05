@@ -248,9 +248,11 @@ export function App() {
   async function handleAddItem(item) {
     const tableId = selectedTableId;
     if (!tableId) return;
-    // Resolve station from category→station mapping (Owner Console assignment)
+    // Resolve station from category→station mapping (Owner Console assignment).
+    // Use String comparison to handle number vs string category ID mismatches.
     const resolvedStation = item.station ||
-      kitchenStations.find(s => Array.isArray(s.categories) && s.categories.includes(item.categoryId))?.name || "";
+      kitchenStations.find(s => Array.isArray(s.categories) &&
+        s.categories.some(cid => String(cid) === String(item.categoryId)))?.name || "";
     try {
       const serverOrder = await api.post("/operations/order/item", {
         tableId,
@@ -298,7 +300,8 @@ export function App() {
     const stationGroups = {};
     for (const item of unsent) {
       const resolvedStation = item.station ||
-        kitchenStations.find(s => Array.isArray(s.categories) && s.categories.includes(item.categoryId))?.name || "";
+        kitchenStations.find(s => Array.isArray(s.categories) &&
+          s.categories.some(cid => String(cid) === String(item.categoryId)))?.name || "";
       const key = resolvedStation || "__default__";
       if (!stationGroups[key]) stationGroups[key] = [];
       stationGroups[key].push({ ...item, station: resolvedStation });
