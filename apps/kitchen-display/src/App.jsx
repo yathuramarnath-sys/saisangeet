@@ -899,24 +899,10 @@ export function App() {
     socket.on("disconnect", () => setConnState("offline"));
     socket.on("connect_error", () => setConnState("offline"));
 
-    // ── Incoming KOTs ─────────────────────────────────────────────────────
-    // No client-side station filter here — the server emits kot:new only to the
-    // correct station room (kds:<outletId>:<station>), so this screen only receives
-    // KOTs that belong to it. The kotBelongsHere check below is a safety net.
-    socket.on("kot:new", (kot) => {
-      if (!kotBelongsHere(kot)) return; // safety net
-      setTickets(prev => {
-        if (prev.find(t => t.id === kot.id)) return prev;
-        // Always show new incoming KOTs as "new" — never let backend push "ready"
-        // into the 2-step flow (New → Preparing → BUMP)
-        const status = (kot.status === "bumped") ? null : "new";
-        if (!status) return prev;
-        return [{ ...kot, status, createdAt: kot.createdAt || new Date().toISOString(), doneItems: [] }, ...prev];
-      });
-      if (audioReady.current && settings.soundEnabled) playNewKotAlert();
-      setNewIds(prev => new Set([...prev, kot.id]));
-      setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(kot.id); return n; }), 1200);
-    });
+    // ── kot:new is registered in a SEPARATE effect (fresh-closure pattern) ──
+    // See useEffect([settings.assignedStation, branchConfig]) below.
+    // It is kept separate so the handler is re-registered with a fresh closure
+    // every time assignedStation changes — eliminating stale-closure mis-routing.
 
     socket.on("kot:status", ({ id, status }) => {
       if (status === "bumped") {
@@ -1000,6 +986,57 @@ export function App() {
     bootstrap();
     return () => { socket.disconnect(); };
   }, [branchConfig]);
+
+  // ── Fresh-closure kot:new handler ─────────────────────────────────────────────
+  // IMPORTANT: this effect MUST be defined AFTER the bootstrap useEffect([branchConfig])
+  // so that when branchConfig changes, the bootstrap runs first (creates + assigns the
+  // socket to socketRef.current), and THIS effect runs second (registers the handler on
+  // the brand-new socket).  React executes useEffect hooks in definition order.
+  //
+  // The handler is re-registered whenever assignedStation changes too, giving a fresh
+  // closure that captures the current station name directly — no ref, no stale-closure
+  // mis-routing: Chrome (South Indian) sees only South Indian KOTs; Safari (North Indian)
+  // sees only North Indian KOTs.
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const assignedStation = settings.assignedStation; // captured fresh in this closure
+
+    function kotNewHandler(kot) {
+      // Client-side guard (belt-and-suspenders on top of server-side room routing).
+      // If this screen is locked to a station, discard any KOTs for other stations.
+      const assigned   = (assignedStation || "").trim().toLowerCase();
+      const kotStation = (kot.station    || "").trim().toLowerCase();
+      if (assigned && kotStation !== assigned) return; // not for this station — ignore
+
+      setTickets(prev => {
+        if (prev.find(t => t.id === kot.id)) return prev; // already have it
+        const status = (kot.status === "bumped") ? null : "new";
+        if (!status) return prev;
+        return [
+          { ...kot, status, createdAt: kot.createdAt || new Date().toISOString(), doneItems: [] },
+          ...prev,
+        ];
+      });
+      // Audio: re-read soundEnabled from localStorage so this closure never goes stale
+      if (audioReady.current) {
+        try {
+          const soundOn = JSON.parse(localStorage.getItem("kds_settings") || "{}").soundEnabled !== false;
+          if (soundOn) playNewKotAlert();
+        } catch (_) {}
+      }
+      setNewIds(prev => new Set([...prev, kot.id]));
+      setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(kot.id); return n; }), 1200);
+    }
+
+    // Remove any stale handler first, then attach the fresh one
+    socket.off("kot:new");
+    socket.on("kot:new", kotNewHandler);
+
+    return () => { socket.off("kot:new", kotNewHandler); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.assignedStation, branchConfig]);
 
   // Auto-bump effect
   useEffect(() => {
