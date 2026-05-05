@@ -824,6 +824,20 @@ export function App() {
     return (kot.station || "").trim().toLowerCase() === assigned;
   }
 
+  // Whenever the screen's assigned station changes, immediately purge any tickets
+  // in state that don't belong here. This handles the case where the bootstrap
+  // loaded all KOTs (station was blank at load time) and the user then assigns
+  // the screen to a specific station — without this, those foreign KOTs stay in
+  // state even though the render filter hides them (sometimes it doesn't apply
+  // on all code paths). Purging the state is the safest approach.
+  useEffect(() => {
+    if (!settings.assignedStation) return; // no filter set — show everything
+    const assigned = settings.assignedStation.trim().toLowerCase();
+    setTickets(prev => prev.filter(t =>
+      (t.station || "").trim().toLowerCase() === assigned
+    ));
+  }, [settings.assignedStation]);
+
   // Bootstrap
   useEffect(() => {
     if (!branchConfig) return;
