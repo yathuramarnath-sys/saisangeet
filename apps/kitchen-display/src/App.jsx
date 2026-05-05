@@ -60,6 +60,7 @@ const DEFAULT_SETTINGS = {
   urgentMinutes:   10,
   autoBumpSeconds: 0,          // 0 = off | 30 | 60 | 120
   stations:        [],          // loaded from Owner Console via /kitchen-stations API
+  assignedStation: "",          // "" = show all | "South Indian" = only that station's KOTs
 };
 
 function loadSettings() {
@@ -336,6 +337,27 @@ function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletN
   // ── Display ────────────────────────────────────────────────────────────────
   const DisplayTab = () => (
     <div className="kds-settings-section">
+
+      <SettingRow
+        label="This Screen's Station"
+        sub="Lock this screen to one kitchen station. Only orders for that station appear here. Leave blank to show all."
+      >
+        <select
+          style={{
+            background: "#0a0c10", border: "1px solid #374151", borderRadius: 8,
+            color: "#f9fafb", padding: "6px 10px", fontSize: 13, fontFamily: "'Manrope', sans-serif",
+            fontWeight: 700, cursor: "pointer", minWidth: 140,
+          }}
+          value={settings.assignedStation || ""}
+          onChange={e => set("assignedStation", e.target.value)}
+        >
+          <option value="">— All Stations —</option>
+          {(settings.stations || []).map(s => (
+            <option key={s.id || s.name} value={s.name}>{s.name}</option>
+          ))}
+        </select>
+      </SettingRow>
+
       <SettingRow label="Columns" sub="Number of status columns on screen">
         <div className="kds-seg">
           {[2,3,4].map(n => (
@@ -985,15 +1007,16 @@ export function App() {
     }));
   }
 
-  // Build station tabs from live tickets + settings (no "All" tab — filter by station or show all)
+  // Build station tabs from live tickets + settings
   const stationNames = (settings.stations || []).map(s => s.name);
 
-  // Case-insensitive compare handles any case mismatch between Owner Console station name
-  // and the station stored in the KOT (e.g. "South Indian" vs "south indian")
-  const stationTabLC = stationTab.toLowerCase();
-  const base  = !stationTab
+  // assignedStation (set in Settings → Display) locks the screen to one station permanently.
+  // stationTab (header tab click) is a manual override when assignedStation is not set.
+  // Case-insensitive compare handles any casing mismatch between Owner Console name and KOT.
+  const effectiveStation = (settings.assignedStation || stationTab).toLowerCase();
+  const base  = !effectiveStation
     ? tickets
-    : tickets.filter(t => (t.station || "").toLowerCase() === stationTabLC);
+    : tickets.filter(t => (t.station || "").toLowerCase() === effectiveStation);
   const newT  = base.filter(t => t.status === "new");
   const prepT = base.filter(t => t.status === "preparing");
   // Note: "ready" state is no longer used — flow is New → Preparing → BUMP
@@ -1052,18 +1075,22 @@ export function App() {
           </div>
         )}
 
-        {/* Station tabs — click to filter by station, click again to deselect (show all) */}
+        {/* Station display: if screen is assigned to a station, show fixed label.
+            Otherwise show clickable tabs for manual filtering. */}
         <div className="kds-stations">
-          {stationNames.map(s => (
-            <button key={s}
-              className={`kds-station-btn${stationTab === s ? " active" : ""}`}
-              onClick={(e) => { e.stopPropagation(); setStationTab(st => st === s ? "" : s); }}>{s}</button>
-          ))}
-          {/* debug — shows active filter + all ticket stations; remove once confirmed working */}
-          <span style={{ fontSize: 10, color: "#4b5563", marginLeft: 6, fontStyle: "italic" }}>
-            {stationTab ? `▶ ${stationTab}: ${base.length}` : `all: ${tickets.length}`}
-            {tickets.length > 0 && ` [${tickets.map(t => t.station || "?").join(", ")}]`}
-          </span>
+          {settings.assignedStation ? (
+            /* Dedicated screen — show assigned station as a fixed active badge */
+            <span className="kds-station-btn active" style={{ cursor: "default" }}>
+              {settings.assignedStation}
+            </span>
+          ) : (
+            /* Shared screen — tab buttons for manual filtering */
+            stationNames.map(s => (
+              <button key={s}
+                className={`kds-station-btn${stationTab === s ? " active" : ""}`}
+                onClick={(e) => { e.stopPropagation(); setStationTab(st => st === s ? "" : s); }}>{s}</button>
+            ))
+          )}
         </div>
 
         <div className="kds-header-right">
