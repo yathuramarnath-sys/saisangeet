@@ -988,7 +988,12 @@ export function App() {
   // Build station tabs from live tickets + settings (no "All" tab — filter by station or show all)
   const stationNames = (settings.stations || []).map(s => s.name);
 
-  const base  = !stationTab ? tickets : tickets.filter(t => t.station === stationTab);
+  // Case-insensitive compare handles any case mismatch between Owner Console station name
+  // and the station stored in the KOT (e.g. "South Indian" vs "south indian")
+  const stationTabLC = stationTab.toLowerCase();
+  const base  = !stationTab
+    ? tickets
+    : tickets.filter(t => (t.station || "").toLowerCase() === stationTabLC);
   const newT  = base.filter(t => t.status === "new");
   const prepT = base.filter(t => t.status === "preparing");
   // Note: "ready" state is no longer used — flow is New → Preparing → BUMP
@@ -1054,9 +1059,10 @@ export function App() {
               className={`kds-station-btn${stationTab === s ? " active" : ""}`}
               onClick={(e) => { e.stopPropagation(); setStationTab(st => st === s ? "" : s); }}>{s}</button>
           ))}
-          {/* debug — shows active filter; remove once routing confirmed working */}
+          {/* debug — shows active filter + all ticket stations; remove once confirmed working */}
           <span style={{ fontSize: 10, color: "#4b5563", marginLeft: 6, fontStyle: "italic" }}>
-            {stationTab ? `▶ ${stationTab} (${base.length})` : `all (${tickets.length})`}
+            {stationTab ? `▶ ${stationTab}: ${base.length}` : `all: ${tickets.length}`}
+            {tickets.length > 0 && ` [${tickets.map(t => t.station || "?").join(", ")}]`}
           </span>
         </div>
 
