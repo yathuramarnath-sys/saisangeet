@@ -178,7 +178,7 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
             <button
               key={item.id}
               type="button"
-              className={`menu-food-card${soldOut ? " sold-out" : ""}`}
+              className={`menu-food-card${soldOut ? " sold-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}`}
               onClick={() => !soldOut && onAddItem({ ...item, price })}
               disabled={soldOut}
               title={soldOut ? "Sold Out — not available right now" : undefined}

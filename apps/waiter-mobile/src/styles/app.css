@@ -1660,3 +1660,119 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 99px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FRESH CREAM THEME — Captain App Override block (appended May 2025)
+   Pure visual overrides — all logic, JS, socket, print code untouched.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Page & surface backgrounds ── */
+:root {
+  --bg:        #F7F3EE;
+  --surface:   #FFFFFF;
+  --surface-2: #EDE8E0;
+}
+html, body, #root { background: #F7F3EE; }
+.captain-app { background: #F7F3EE; }
+
+/* ── 2. Header: dark navy (instead of white) for contrast ── */
+.app-header {
+  background: #1A2332 !important;
+  border-bottom-color: rgba(255,255,255,0.06) !important;
+}
+.header-name { color: #FFFFFF !important; }
+.header-sub  { color: rgba(255,255,255,0.5) !important; }
+.signout-btn {
+  background: rgba(255,255,255,0.1) !important;
+  border-color: rgba(255,255,255,0.15) !important;
+  color: rgba(255,255,255,0.7) !important;
+}
+
+/* ── 3. TABLE CARDS — premium redesign
+        White card + 4px coloured left-edge strip only.
+        No more solid colour fill backgrounds.              ── */
+.table-card {
+  background: #FFFFFF !important;
+  border-color: rgba(0,0,0,0.07) !important;
+  border-width: 1px !important;
+  border-left-width: 4px !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06) !important;
+  border-radius: 14px !important;
+  min-height: 100px !important;
+}
+.table-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.1) !important; }
+
+/* Free — green left strip */
+.status-free {
+  border-left-color: #22C55E !important;
+  background: #FFFFFF !important;
+}
+.status-free .table-number      { color: #1E293B !important; }
+.status-free .table-status-text { color: #16A34A !important; }
+
+/* Running/Occupied — amber left strip */
+.status-running {
+  border-left-color: #F59E0B !important;
+  background: #FFFFFF !important;
+}
+.status-running .table-number      { color: #1E293B !important; }
+.status-running .table-status-text { color: #D97706 !important; }
+.status-running .table-amount      { color: #92400E !important; }
+
+/* Bill — blue left strip */
+.status-bill {
+  border-left-color: #3B82F6 !important;
+  background: #FFFFFF !important;
+}
+.status-bill .table-number      { color: #1E293B !important; }
+.status-bill .table-status-text { color: #2563EB !important; }
+
+/* Hold — purple left strip */
+.status-hold {
+  border-left-color: #A855F7 !important;
+  background: #FFFFFF !important;
+}
+.status-hold .table-status-text { color: #7C3AED !important; }
+
+/* Status dot — use strip colour */
+.status-free .table-status-dot    { background: #22C55E !important; }
+.status-running .table-status-dot { background: #F59E0B !important; }
+.status-bill .table-status-dot    { background: #3B82F6 !important; }
+.status-hold .table-status-dot    { background: #A855F7 !important; }
+
+/* ── 4. Area tabs, category chips ── */
+.area-tab-active  { background: #1A2332 !important; border-color: #1A2332 !important; }
+.cat-chip-active  { background: #1A2332 !important; border-color: #1A2332 !important; }
+
+/* ── 5. Floor summary bar ── */
+.floor-summary { background: #FFFFFF !important; }
+.active-num    { color: #D97706 !important; }
+
+/* ── 6. KOT button: keep green ── */
+.kot-btn { background: #16A34A !important; box-shadow: 0 4px 16px rgba(22,163,74,0.25) !important; }
+
+/* ── 7. Login page ── */
+.login-page { background: #F7F3EE !important; }
+.login-logo { background: #1A2332 !important; }
+.staff-card:active { border-color: #1A2332 !important; }
+
+/* ── 8. PIN numpad keys ── */
+.numpad-key:active { background: #1A2332 !important; border-color: #1A2332 !important; }
+.pin-dot.filled    { background: #1A2332 !important; border-color: #1A2332 !important; }
+
+/* ── 9. Order screen ── */
+.order-page { background: #F7F3EE !important; }
+.order-header { background: #FFFFFF !important; }
+.add-items-btn { background: #1A2332 !important; }
+.order-actions { background: #F7F3EE !important; }
+
+/* ── 10. Menu items list (already list style, just freshen) ── */
+.menu-page { background: #FFFFFF !important; }
+.menu-item { border-bottom-color: rgba(0,0,0,0.05) !important; }
+.menu-add-btn { background: #1A2332 !important; }
+.qty-btn.qty-btn-add { background: #1A2332 !important; border-color: #1A2332 !important; }
+.cart-bar-btn { background: #1A2332 !important; }
+
+/* ── 11. Quick-notes / modals ── */
+.quick-chip-active { background: #1A2332 !important; border-color: #1A2332 !important; }
+.sheet-save-btn    { background: #1A2332 !important; }

@@ -326,23 +326,35 @@ async function fetchStaffForDevice(outletId) {
 
   const outletNameLower = (outlet.name || "").trim().toLowerCase();
   const staff = (data.users || [])
-    .filter((u) =>
-      u.isActive !== false &&
-      Array.isArray(u.roles) &&
-      u.roles.length > 0 &&
-      !u.passwordHash &&
-      (
+    .filter((u) => {
+      if (u.isActive === false) return false;
+      if (u.passwordHash)       return false; // web-login owner accounts — not floor staff
+
+      // Accept both roles array and legacy role string
+      const hasRole = (Array.isArray(u.roles) && u.roles.length > 0) ||
+                      (typeof u.role === "string" && u.role.trim().length > 0);
+      if (!hasRole) return false;
+
+      // Outlet matching — by ID (most reliable), then by name (legacy), then "All Outlets"
+      const outletMatch =
         u.outletName === "All Outlets" ||
-        (u.outletName || "").trim().toLowerCase() === outletNameLower
-      )
-    )
-    .map((u) => ({
-      id:     u.id,
-      name:   u.fullName || u.name,
-      role:   u.roles?.[0] || "Staff",
-      pin:    u.pin || "0000",
-      avatar: (u.fullName || u.name || "?")[0].toUpperCase(),
-    }));
+        u.outletName === "all"         ||
+        !u.outletName                  ||                          // no outlet assigned → show everywhere
+        (u.outletId && u.outletId === outlet.id) ||               // match by ID (new)
+        (u.outletName || "").trim().toLowerCase() === outletNameLower; // match by name (legacy)
+
+      return outletMatch;
+    })
+    .map((u) => {
+      const roleValue = Array.isArray(u.roles) ? (u.roles[0] || "Staff") : (u.role || "Staff");
+      return {
+        id:     u.id,
+        name:   u.fullName || u.name,
+        role:   roleValue,
+        pin:    u.pin || "0000",
+        avatar: (u.fullName || u.name || "?")[0].toUpperCase(),
+      };
+    });
 
   return { staff };
 }

@@ -46,8 +46,11 @@ function saveTickets(tickets) {
 
 // ─── Settings helpers ─────────────────────────────────────────────────────────
 
+const SETTINGS_VERSION = 2; // bump this whenever defaults change significantly
+
 const DEFAULT_SETTINGS = {
-  columns:         3,
+  _version:        SETTINGS_VERSION,
+  columns:         2,           // 2 columns: New + Preparing only
   cardSize:        "normal",   // compact | normal | large
   showSource:      true,
   showArea:        true,
@@ -56,17 +59,20 @@ const DEFAULT_SETTINGS = {
   warnMinutes:     5,
   urgentMinutes:   10,
   autoBumpSeconds: 0,          // 0 = off | 30 | 60 | 120
-  stations: [
-    { id: "hot",       name: "Hot",       color: "#ef4444" },
-    { id: "grill",     name: "Grill",     color: "#f97316" },
-    { id: "beverages", name: "Beverages", color: "#3b82f6" },
-    { id: "cold",      name: "Cold",      color: "#06b6d4" },
-  ],
+  stations:        [],          // loaded from Owner Console via /kitchen-stations API
 };
 
 function loadSettings() {
-  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("kds_settings") || "{}") }; }
-  catch { return { ...DEFAULT_SETTINGS }; }
+  try {
+    const saved = JSON.parse(localStorage.getItem("kds_settings") || "{}");
+    // If saved settings are from old version (hardcoded stations, 3 columns),
+    // reset to defaults so new API-loaded stations take over
+    if (!saved._version || saved._version < SETTINGS_VERSION) {
+      localStorage.removeItem("kds_settings");
+      return { ...DEFAULT_SETTINGS };
+    }
+    return { ...DEFAULT_SETTINGS, ...saved };
+  } catch { return { ...DEFAULT_SETTINGS }; }
 }
 function saveSettings(s) {
   try { localStorage.setItem("kds_settings", JSON.stringify(s)); } catch (_) {}
@@ -265,7 +271,7 @@ function makeDemoTickets() {
     { id:"d1", kotNumber:"001", tableNumber:"3",  areaName:"AC Hall 1",   station:"Hot",       source:"pos",     status:"new",      createdAt:new Date(n-95000).toISOString(),  doneItems:[], items:[{id:"d1-1",name:"Paneer Butter Masala",quantity:2,note:"Less spicy"},{id:"d1-2",name:"Butter Naan",quantity:3}] },
     { id:"d2", kotNumber:"002", tableNumber:"7",  areaName:"Family Hall", station:"Beverages", source:"captain", status:"preparing", createdAt:new Date(n-245000).toISOString(), doneItems:["d2-1"], items:[{id:"d2-1",name:"Masala Chai",quantity:2},{id:"d2-2",name:"Cold Coffee",quantity:1,note:"No sugar"}] },
     { id:"d3", kotNumber:"003", tableNumber:"—",  areaName:"Swiggy",      station:"Hot",       source:"online",  status:"new",      createdAt:new Date(n-425000).toISOString(), doneItems:[], items:[{id:"d3-1",name:"Dal Makhani",quantity:1},{id:"d3-2",name:"Jeera Rice",quantity:2},{id:"d3-3",name:"Raita",quantity:1,note:"No onion"}] },
-    { id:"d4", kotNumber:"004", tableNumber:"5",  areaName:"AC Hall 1",   station:"Hot",       source:"captain", status:"ready",     createdAt:new Date(n-610000).toISOString(), doneItems:["d4-1","d4-2"], items:[{id:"d4-1",name:"Chicken Tikka",quantity:1},{id:"d4-2",name:"Roomali Roti",quantity:2}] },
+    { id:"d4", kotNumber:"004", tableNumber:"5",  areaName:"AC Hall 1",   station:"Hot",       source:"captain", status:"preparing", createdAt:new Date(n-610000).toISOString(), doneItems:["d4-1","d4-2"], items:[{id:"d4-1",name:"Chicken Tikka",quantity:1},{id:"d4-2",name:"Roomali Roti",quantity:2}] },
     { id:"d5", kotNumber:"005", tableNumber:"2",  areaName:"Family Hall", station:"Grill",     source:"pos",     status:"preparing", createdAt:new Date(n-185000).toISOString(), doneItems:[], items:[{id:"d5-1",name:"Veg Seekh Kebab",quantity:2,note:"Extra mint chutney"},{id:"d5-2",name:"Tandoori Roti",quantity:4}] },
     { id:"d6", kotNumber:"006", tableNumber:"—",  areaName:"Zomato",      station:"Beverages", source:"online",  status:"new",      createdAt:new Date(n-60000).toISOString(),  doneItems:[], items:[{id:"d6-1",name:"Mango Lassi",quantity:2},{id:"d6-2",name:"Sweet Lassi",quantity:1}] },
   ];
@@ -304,7 +310,7 @@ function SettingRow({ label, sub, children }) {
   );
 }
 
-function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletName }) {
+function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletName, menuData }) {
   const [tab,        setTab]        = useState("display");
   const [newStation, setNewStation] = useState("");
   const [stockState, setStockState] = useState(() => getStockState());
@@ -487,13 +493,20 @@ function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletN
   );
 
   // ── Stock ──────────────────────────────────────────────────────────────────
-  const soldOutCount = Object.keys(stockState).length;
+  const allItems     = menuData?.items?.length      ? menuData.items      : sharedMenuItems;
+  const allCats      = menuData?.categories?.length ? menuData.categories : sharedCategories;
+  const soldOutCount = Object.values(stockState).filter(s => s.available === false).length;
 
-  // Group sharedMenuItems by category
-  const stockCategories = sharedCategories.map(cat => ({
+  // Group real (or fallback) menu items by category
+  const stockCategories = allCats.map(cat => ({
     ...cat,
-    items: sharedMenuItems.filter(i => i.categoryId === cat.id),
-  }));
+    items: allItems.filter(i =>
+      i.categoryId === cat.id ||
+      i.categoryId === String(cat.id) ||
+      i.category   === cat.name ||
+      i.categoryName === cat.name
+    ),
+  })).filter(cat => cat.items.length > 0);
 
   const StockTab = () => (
     <div className="kds-settings-section kds-stock-section">
@@ -501,11 +514,11 @@ function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletN
       {/* Summary bar */}
       <div className="kds-stock-summary">
         <div className="kds-stock-stat">
-          <span className="kds-stock-stat-num">{sharedMenuItems.length}</span>
+          <span className="kds-stock-stat-num">{allItems.length}</span>
           <span className="kds-stock-stat-lbl">Total</span>
         </div>
         <div className="kds-stock-stat available">
-          <span className="kds-stock-stat-num">{sharedMenuItems.length - soldOutCount}</span>
+          <span className="kds-stock-stat-num">{allItems.length - soldOutCount}</span>
           <span className="kds-stock-stat-lbl">Available</span>
         </div>
         <div className={`kds-stock-stat${soldOutCount > 0 ? " soldout" : ""}`}>
@@ -694,8 +707,8 @@ function KotCard({ ticket, settings, onAdvance, onBump, onToggleItem, flash }) {
           const done = doneItems.includes(item.id);
           return (
             <button key={item.id}
-              className={`kot-item${done ? " done" : ""}${ticket.status !== "ready" ? " tappable" : ""}`}
-              onClick={() => ticket.status !== "ready" && onToggleItem(ticket.id, item.id)}
+              className={`kot-item${done ? " done" : ""} tappable`}
+              onClick={() => onToggleItem(ticket.id, item.id)}
             >
               <span className={`kot-check${done ? " checked" : ""}`}>{done ? "✓" : "○"}</span>
               <span className="kot-item-qty">{item.quantity}×</span>
@@ -716,14 +729,9 @@ function KotCard({ ticket, settings, onAdvance, onBump, onToggleItem, flash }) {
           </button>
         )}
         {ticket.status === "preparing" && (
-          <button className={`kot-action ready${allDone ? " all-done" : ""}`}
+          <button className={`kot-action bump${allDone ? " all-done" : ""}`}
             onClick={() => onAdvance(ticket.id, "preparing")}>
-            {allDone ? "✓ All Done — Mark Ready" : "Mark Ready"}
-          </button>
-        )}
-        {ticket.status === "ready" && (
-          <button className="kot-action bump" onClick={() => onBump(ticket.id)}>
-            ✓ BUMP — Served
+            {allDone ? "✓ All Done — BUMP" : "⚡ BUMP"}
           </button>
         )}
       </div>
@@ -760,6 +768,7 @@ export function App() {
   const [settings,     setSettings]     = useState(loadSettings);
   const [tickets,      setTickets]      = useState(() => loadSavedTickets());
   const [outlet,       setOutlet]       = useState(null);
+  const [menuData,     setMenuData]     = useState({ categories: [], items: [] });
   const [stationTab,   setStationTab]   = useState("All");
   const [servedCount,  setServedCount]  = useState(0);
   const [showSettings, setShowSettings] = useState(false);
@@ -807,7 +816,12 @@ export function App() {
             const existingIds = new Set(prev.map(t => t.id));
             const missed = kots
               .filter(k => !existingIds.has(k.id) && k.status !== "bumped")
-              .map(k => ({ ...k, doneItems: [] }));
+              .map(k => ({
+                ...k,
+                // Map legacy "ready" → "preparing" in 2-step flow
+                status: k.status === "ready" ? "preparing" : k.status,
+                doneItems: k.doneItems || [],
+              }));
             return missed.length ? [...missed, ...prev] : prev;
           });
         }
@@ -821,9 +835,11 @@ export function App() {
     socket.on("kot:new", (kot) => {
       setTickets(prev => {
         if (prev.find(t => t.id === kot.id)) return prev;
-        // Preserve server-assigned createdAt (IST kotTime embedded) — fall back
-        // to local clock only if server somehow omitted it.
-        return [{ ...kot, status: "new", createdAt: kot.createdAt || new Date().toISOString(), doneItems: [] }, ...prev];
+        // Always show new incoming KOTs as "new" — never let backend push "ready"
+        // into the 2-step flow (New → Preparing → BUMP)
+        const status = (kot.status === "bumped") ? null : "new";
+        if (!status) return prev;
+        return [{ ...kot, status, createdAt: kot.createdAt || new Date().toISOString(), doneItems: [] }, ...prev];
       });
       if (audioReady.current && settings.soundEnabled) playNewKotAlert();
       setNewIds(prev => new Set([...prev, kot.id]));
@@ -836,17 +852,21 @@ export function App() {
         // KDS screens in the outlet stay in sync when any one of them bumps a ticket.
         setTickets(prev => prev.filter(t => t.id !== id));
         setServedCount(n => n + 1);
+      } else if (status === "ready") {
+        // "ready" is no longer used in 2-step flow — map it to "preparing"
+        setTickets(prev => prev.map(t => t.id === id ? { ...t, status: "preparing" } : t));
       } else {
         setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
       }
     });
 
-    // ── Owner Web changed menu/stations — refresh station list ────────────
+    // ── Owner Web changed menu/stations — refresh station list + menu ────
     socket.on("sync:config", async () => {
       try {
         const stations = await api.get("/kitchen-stations").catch(() => null);
         if (stations?.length) {
           localStorage.setItem("kds_kitchen_stations", JSON.stringify(stations));
+          setSettings(prev => ({ ...prev, stations }));
         }
       } catch (_) { /* non-critical */ }
     });
@@ -857,15 +877,47 @@ export function App() {
         const outlets = await api.get("/outlets");
         const target  = outlets.find((o) => o.id === branchConfig.outletId) || outlets[0];
         if (target) setOutlet(target);
+      } catch (_) {
+        // No outlet list — offline; continue anyway
+      }
 
+      // ── Kitchen stations from Owner Console ───────────────────────────
+      try {
+        const stations = await api.get("/kitchen-stations").catch(() => null);
+        if (stations?.length) {
+          localStorage.setItem("kds_kitchen_stations", JSON.stringify(stations));
+          setSettings(prev => ({ ...prev, stations }));
+        } else {
+          // Try last cached fetch
+          try {
+            const cached = JSON.parse(localStorage.getItem("kds_kitchen_stations") || "null");
+            if (cached?.length) setSettings(prev => ({ ...prev, stations: cached }));
+          } catch (_) {}
+        }
+      } catch (_) {}
+
+      // ── Real menu items for Stock tab ─────────────────────────────────
+      try {
+        const [cats, items] = await Promise.all([
+          api.get(`/menu/categories?outletId=${branchConfig.outletId}`).catch(() => null),
+          api.get(`/menu/items?outletId=${branchConfig.outletId}`).catch(() => null),
+        ]);
+        if (cats?.length && items?.length) {
+          setMenuData({ categories: cats, items });
+        }
+      } catch (_) {}
+
+      // ── Active KOTs ───────────────────────────────────────────────────
+      try {
         const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}`).catch(() => null);
         if (kots !== null) {
-          // API responded — replace with real data (or empty state; never show demo tickets)
-          setTickets(kots.length ? kots.map(k => ({ ...k, doneItems: k.doneItems || [] })) : []);
+          // API responded — replace with real data (or empty; never show demo tickets)
+          // Filter out any "bumped" or "ready" tickets — ready state no longer used
+          const live = kots.filter(k => k.status !== "bumped" && k.status !== "ready");
+          setTickets(live.length ? live.map(k => ({ ...k, doneItems: k.doneItems || [] })) : []);
         }
-        // If kots === null (API threw), keep current state (already cleared above)
       } catch (_) {
-        // Full bootstrap failed (no outlet list) — stay on empty state; offline banner will show
+        // KOTs fetch failed — keep empty state; offline banner shows
       }
     }
 
@@ -889,12 +941,15 @@ export function App() {
   }, [settings.autoBumpSeconds]);
 
   async function handleAdvance(id, cur) {
-    const next = cur === "new" ? "preparing" : "ready";
-    // Optimistic local update + socket broadcast so all connected KDS screens update instantly.
+    if (cur === "preparing") {
+      // 2-step flow: New → Preparing → BUMP (no "ready" state)
+      handleBump(id);
+      return;
+    }
+    // new → preparing
+    const next = "preparing";
     setTickets(prev => prev.map(t => t.id === id ? { ...t, status: next } : t));
     socketRef.current?.emit("kot:status", { id, status: next });
-    // Persist to backend. outletId is required by deviceUpdateKotStatusHandler (req.query).
-    // Without it the handler returns 404 and no backend state is updated.
     try {
       await api.patch(
         `/operations/kots/${id}/status?outletId=${branchConfig?.outletId}`,
@@ -936,7 +991,7 @@ export function App() {
   const base  = stationTab === "All" ? tickets : tickets.filter(t => t.station === stationTab);
   const newT  = base.filter(t => t.status === "new");
   const prepT = base.filter(t => t.status === "preparing");
-  const readT = base.filter(t => t.status === "ready");
+  // Note: "ready" state is no longer used — flow is New → Preparing → BUMP
 
   const colProps = { settings, onAdvance: handleAdvance, onBump: handleBump, onToggleItem: handleToggleItem, newIds };
 
@@ -1008,7 +1063,7 @@ export function App() {
           <div className={`kds-live kds-live-${connState}`}>
             <span className="kds-live-dot" />
             <span>
-              {connState === "live"       ? `${newT.length + prepT.length + readT.length} active` :
+              {connState === "live"       ? `${newT.length + prepT.length} active` :
                connState === "offline"    ? "Reconnecting…" :
                                             "Connecting…"}
             </span>
@@ -1025,14 +1080,9 @@ export function App() {
       </header>
 
       {/* ── Columns ─────────────────────────────────────────────── */}
-      <div className="kds-columns" style={{ gridTemplateColumns: `repeat(${settings.columns}, 1fr)` }}>
-        <KdsColumn label="New Orders"    colorKey="new"      emptyMsg="Waiting for orders…"       tickets={newT}  {...colProps} />
-        <KdsColumn label="Preparing"     colorKey="preparing" emptyMsg="Nothing cooking right now" tickets={prepT} {...colProps} />
-        <KdsColumn label="Ready to Serve" colorKey="ready"   emptyMsg="No items ready yet"        tickets={readT} {...colProps} />
-        {/* Extra columns when > 3 — show served/extra slots */}
-        {settings.columns === 4 && (
-          <KdsColumn label="Served Today" colorKey="served"  emptyMsg={`${servedCount} orders bumped`} tickets={[]} {...colProps} />
-        )}
+      <div className="kds-columns" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <KdsColumn label="New Orders" colorKey="new"      emptyMsg="Waiting for orders…"       tickets={newT}  {...colProps} />
+        <KdsColumn label="Preparing"  colorKey="preparing" emptyMsg="Nothing cooking right now" tickets={prepT} {...colProps} />
       </div>
 
       {/* ── Settings Panel ──────────────────────────────────────── */}
@@ -1042,6 +1092,7 @@ export function App() {
           onUpdate={updateSettings}
           onClose={() => setShowSettings(false)}
           outletName={outlet?.name || branchConfig?.outletName}
+          menuData={menuData}
           onForgetDevice={() => {
             clearKdsBranchConfig();
             setBranchConfig(null);

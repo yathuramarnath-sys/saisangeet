@@ -88,6 +88,7 @@ async function createUser(payload) {
     name: payload.fullName,
     roles: payload.roles || [],
     outletName: payload.outletName || "Outlet pending",
+    outletId:   payload.outletId   || null,
     isActive: payload.isActive ?? true,
     pin: payload.pin || "",
     mobileNumber: payload.mobileNumber || ""
