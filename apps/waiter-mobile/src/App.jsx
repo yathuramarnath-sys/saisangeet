@@ -88,6 +88,9 @@ export function App() {
   const [areas,           setAreas]           = useState(seedAreas);
   const [categories,      setCategories]      = useState(seedCategories);
   const [menuItems,       setMenuItems]       = useState(seedMenuItems);
+  const [kitchenStations, setKitchenStations] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("captain_kitchen_stations") || "[]"); } catch { return []; }
+  });
   const [orders,          setOrders]          = useState({});
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [selectedArea,    setSelectedArea]    = useState(null);
@@ -129,12 +132,17 @@ export function App() {
         const builtAreas = buildAreasFromOutlet(target);
         if (builtAreas) setAreas(builtAreas);
 
-        const [cats, items] = await Promise.all([
+        const [cats, items, kStations] = await Promise.all([
           api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),
           api.get(`/menu/items?outletId=${target.id}`).catch(() => []),
+          api.get("/kitchen-stations").catch(() => []),
         ]);
         if (cats.length)  setCategories(cats);
         if (items.length) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
+        if (kStations.length) {
+          localStorage.setItem("captain_kitchen_stations", JSON.stringify(kStations));
+          setKitchenStations(kStations);
+        }
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         if (liveOrders.length) {
@@ -240,18 +248,22 @@ export function App() {
   async function handleAddItem(item) {
     const tableId = selectedTableId;
     if (!tableId) return;
+    // Resolve station from category→station mapping (Owner Console assignment)
+    const resolvedStation = item.station ||
+      kitchenStations.find(s => Array.isArray(s.categories) && s.categories.includes(item.categoryId))?.name || "";
     try {
       const serverOrder = await api.post("/operations/order/item", {
         tableId,
         outletId: outlet?.id,
         item: {
           id:          item.id,
-          menuItemId:  item.menuItemId,
+          menuItemId:  item.menuItemId || item.id,
           name:        item.name,
           price:       item.price,
           quantity:    1,
           note:        item.note || "",
-          stationName: item.station || "",
+          stationName: resolvedStation,
+          categoryId:  item.categoryId || "",
         },
         actorName: loggedInStaff?.name || "Captain",
       });
@@ -282,12 +294,14 @@ export function App() {
     // Optimistic UI — mark items sent immediately so screen feels instant
     handleUpdateOrder({ ...order, items: order.items.map((i) => ({ ...i, sentToKot: true })) });
 
-    // Group by kitchen station
+    // Group by kitchen station — use resolved station from category mapping
     const stationGroups = {};
     for (const item of unsent) {
-      const key = item.station || "__default__";
+      const resolvedStation = item.station ||
+        kitchenStations.find(s => Array.isArray(s.categories) && s.categories.includes(item.categoryId))?.name || "";
+      const key = resolvedStation || "__default__";
       if (!stationGroups[key]) stationGroups[key] = [];
-      stationGroups[key].push(item);
+      stationGroups[key].push({ ...item, station: resolvedStation });
     }
 
     // Server assigns the authoritative sequential KOT number
@@ -312,8 +326,23 @@ export function App() {
       }
     }
 
+    // ── Print KOT (kitchen printer) ───────────────────────────────────────
+    try {
+      const { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } =
+        await import("./lib/kotPrint.js");
+      if (kotAutoSendEnabled()) {
+        Object.entries(stationGroups).forEach(([stationName, stItems]) => {
+          const printer = stationName === "__default__"
+            ? getKotPrinter()
+            : getKotPrinterForStation(stationName);
+          printKOT(order, stItems, printer, serverKotNumber,
+            { sentBy: loggedInStaff?.name || "Captain" });
+        });
+      }
+    } catch (_) { /* printer not configured — KDS still receives it */ }
+
     // Show the server-assigned KOT number in the confirmation toast
-    toast.success(serverKotNumber != null ? `KOT #${serverKotNumber} sent to kitchen` : "KOT sent to kitchen");
+    toast.success(serverKotNumber != null ? `KOT #${serverKotNumber} sent` : "KOT sent to kitchen");
 
     if (lastServerOrder) {
       setOrders((prev) => {

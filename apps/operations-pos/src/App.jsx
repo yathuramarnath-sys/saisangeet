@@ -164,6 +164,9 @@ export default function App() {
   const [tableAreas,      setTableAreas]      = useState(seedAreas);
   const [categories,      setCategories]      = useState(seedCategories);
   const [menuItems,       setMenuItems]       = useState(seedMenuItems);
+  const [kitchenStations, setKitchenStations] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pos_kitchen_stations") || "[]"); } catch { return []; }
+  });
   const [orders,          setOrders]          = useState(() => loadSavedOrders());
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [isOnline,        setIsOnline]        = useState(() => navigator.onLine);
@@ -217,9 +220,10 @@ export default function App() {
           api.get("/kitchen-stations").catch(() => [])
         ]);
 
-        // Store kitchen stations for POS Settings printer tab
+        // Store kitchen stations for station→category mapping + printer tab
         if (kitchenStations.length) {
           localStorage.setItem("pos_kitchen_stations", JSON.stringify(kitchenStations));
+          setKitchenStations(kitchenStations);
         }
 
         if (cats.length)  setCategories(cats);
@@ -458,6 +462,9 @@ export default function App() {
       if (existing >= 0) {
         order.items[existing].quantity += 1;
       } else {
+        // Resolve station from category→station mapping (Owner Console assignment)
+        const resolvedStation = item.station ||
+          kitchenStations.find(s => Array.isArray(s.categories) && s.categories.includes(item.categoryId))?.name || "";
         order.items.push({
           id:         itemId,
           menuItemId: item.id,
@@ -466,7 +473,7 @@ export default function App() {
           quantity:   1,
           sentToKot:  false,
           note:       "",
-          station:    item.station    || "",
+          station:    resolvedStation,
           categoryId: item.categoryId || "",
           category:   (categories.find(c => c.id === item.categoryId)?.name)
                         || item.categoryName || item.category || "",
@@ -491,7 +498,7 @@ export default function App() {
           price:      parsePriceNumber(item.price || item.basePrice),
           quantity:   1,
           note:       "",
-          stationName: item.station    || "",
+          stationName: resolvedStation,
           categoryId:  item.categoryId || "",
           category:    (categories.find(c => c.id === item.categoryId)?.name)
                          || item.categoryName || item.category || "",
