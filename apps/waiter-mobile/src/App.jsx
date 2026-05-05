@@ -140,8 +140,17 @@ export function App() {
         if (cats.length)  setCategories(cats);
         if (items.length) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
         if (kStations.length) {
-          localStorage.setItem("captain_kitchen_stations", JSON.stringify(kStations));
-          setKitchenStations(kStations);
+          // Enrich stations with category names as fallback for ID-type mismatches
+          const catIdToName = {};
+          cats.forEach(c => { catIdToName[String(c.id)] = c.name; });
+          const enriched = kStations.map(s => ({
+            ...s,
+            categoryNames: (s.categories || [])
+              .map(id => catIdToName[String(id)])
+              .filter(Boolean)
+          }));
+          localStorage.setItem("captain_kitchen_stations", JSON.stringify(enriched));
+          setKitchenStations(enriched);
         }
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
@@ -248,11 +257,14 @@ export function App() {
   async function handleAddItem(item) {
     const tableId = selectedTableId;
     if (!tableId) return;
-    // Resolve station from category→station mapping (Owner Console assignment).
-    // Use String comparison to handle number vs string category ID mismatches.
+    // Resolve station: match by category ID first, then fall back to category name
+    // (handles ID type mismatches between Owner Console and menu API).
+    const itemCatName = (item.category || item.categoryName || "").trim().toLowerCase();
     const resolvedStation = item.station ||
-      kitchenStations.find(s => Array.isArray(s.categories) &&
-        s.categories.some(cid => String(cid) === String(item.categoryId)))?.name || "";
+      kitchenStations.find(s =>
+        (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
+        (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCatName))
+      )?.name || "";
     try {
       const serverOrder = await api.post("/operations/order/item", {
         tableId,
@@ -299,9 +311,12 @@ export function App() {
     // Group by kitchen station — use resolved station from category mapping
     const stationGroups = {};
     for (const item of unsent) {
+      const itemCN = (item.category || item.categoryName || "").trim().toLowerCase();
       const resolvedStation = item.station ||
-        kitchenStations.find(s => Array.isArray(s.categories) &&
-          s.categories.some(cid => String(cid) === String(item.categoryId)))?.name || "";
+        kitchenStations.find(s =>
+          (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
+          (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCN))
+        )?.name || "";
       const key = resolvedStation || "__default__";
       if (!stationGroups[key]) stationGroups[key] = [];
       stationGroups[key].push({ ...item, station: resolvedStation });

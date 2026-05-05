@@ -220,10 +220,20 @@ export default function App() {
           api.get("/kitchen-stations").catch(() => [])
         ]);
 
-        // Store kitchen stations for station→category mapping + printer tab
+        // Store kitchen stations enriched with category NAMES as fallback for ID-type mismatches.
+        // If category IDs in Owner Console were saved as a different type (string vs number),
+        // the name fallback ensures routing still works.
         if (kitchenStations.length) {
-          localStorage.setItem("pos_kitchen_stations", JSON.stringify(kitchenStations));
-          setKitchenStations(kitchenStations);
+          const catIdToName = {};
+          cats.forEach(c => { catIdToName[String(c.id)] = c.name; });
+          const enriched = kitchenStations.map(s => ({
+            ...s,
+            categoryNames: (s.categories || [])
+              .map(id => catIdToName[String(id)])
+              .filter(Boolean)
+          }));
+          localStorage.setItem("pos_kitchen_stations", JSON.stringify(enriched));
+          setKitchenStations(enriched);
         }
 
         if (cats.length)  setCategories(cats);
@@ -457,10 +467,14 @@ export default function App() {
     // Resolve station at outer scope so it is available for both the local push
     // and the backend API call below (was previously block-scoped inside the else branch,
     // causing a ReferenceError on the API call and silent failure to sync items).
-    // Use String comparison to handle type mismatches (number vs string category IDs).
+    // Primary: match by category ID (String-coerced to handle number vs string mismatches).
+    // Fallback: match by category name in case IDs are stale or mismatched.
+    const itemCatName = (item.category || item.categoryName || "").trim().toLowerCase();
     const resolvedStation = item.station ||
-      kitchenStations.find(s => Array.isArray(s.categories) &&
-        s.categories.some(cid => String(cid) === String(item.categoryId)))?.name || "";
+      kitchenStations.find(s =>
+        (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
+        (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCatName))
+      )?.name || "";
 
     // 1. Optimistic local update — keeps the UI instant regardless of network latency.
     //    Backend also consolidates by menuItemId (increments existing unsent line), so
