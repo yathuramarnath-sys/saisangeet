@@ -159,7 +159,27 @@ async function deviceSendKotHandler(req, res) {
   }
 
   const tenantId = req.user?.tenantId || "default";
-  const { stationName, areaName } = req.body;
+  let { stationName, areaName } = req.body;
+
+  // ── Server-side station auto-detection ────────────────────────────────────
+  // If the client didn't send a stationName (e.g. station routing failed on client),
+  // look up the station from the kitchen-station→category config in Owner Console.
+  // Items carry categoryId so we can match them against station.categories.
+  // This makes station routing reliable regardless of client-side state.
+  if (!stationName) {
+    try {
+      const { getOwnerSetupData } = require("../../data/owner-setup-store");
+      const setupData = getOwnerSetupData();
+      const kitchenStations = (setupData.menu?.stations || []);
+      if (kitchenStations.length && items.some(i => i.categoryId)) {
+        const itemCatIds = items.map(i => String(i.categoryId)).filter(Boolean);
+        const matched = kitchenStations.find(s =>
+          (s.categories || []).some(cid => itemCatIds.includes(String(cid)))
+        );
+        if (matched) stationName = matched.name;
+      }
+    } catch (_) { /* non-fatal — fall through to default */ }
+  }
 
   // Always assign server-side sequential KOT number (daily reset, with IST time)
   const { kotNo, time: kotTime, date: kotDate } = getNextKotNo(tenantId);
@@ -176,7 +196,7 @@ async function deviceSendKotHandler(req, res) {
     // Defaults ensure every KOT is always displayable even when the POS omits these fields.
     station:     stationName || "Main Kitchen",
     areaName:    areaName    || tableNumber || "—",
-    source:      "pos",
+    source:      req.body.source || "pos",
     status:      "new",
     createdAt:   new Date().toISOString(),
     items:       (items || []).map((i, idx) => ({
