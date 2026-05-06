@@ -66,11 +66,11 @@ const DEFAULT_SETTINGS = {
 function loadSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem("kds_settings") || "{}");
-    // If saved settings are from old version (hardcoded stations, 3 columns),
-    // reset to defaults so new API-loaded stations take over
     if (!saved._version || saved._version < SETTINGS_VERSION) {
-      localStorage.removeItem("kds_settings");
-      return { ...DEFAULT_SETTINGS };
+      // Version mismatch — reset to defaults but ALWAYS preserve assignedStation.
+      // Wiping the station on every app update would break KDS routing silently:
+      // the screen would show all KOTs until the user notices and re-assigns.
+      return { ...DEFAULT_SETTINGS, assignedStation: saved.assignedStation || "" };
     }
     return { ...DEFAULT_SETTINGS, ...saved };
   } catch { return { ...DEFAULT_SETTINGS }; }
