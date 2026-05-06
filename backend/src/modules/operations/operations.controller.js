@@ -183,17 +183,39 @@ async function deviceSendKotHandler(req, res) {
       const { getOwnerSetupData } = require("../../data/owner-setup-store");
       const setupData = getOwnerSetupData();
       const kitchenStations = (setupData.menu?.stations || []);
+      const menuItems       = (setupData.menu?.items    || []);
 
       for (const item of items) {
-        let station = "Main Kitchen"; // fallback
-        if (kitchenStations.length && item.categoryId) {
+        let station = "";
+
+        // 1. Use station already set on the item by the client (Captain sets this)
+        if (item.station && item.station !== "Main Kitchen" && item.station !== "Main kitchen") {
+          station = item.station;
+        }
+
+        // 2. Category-based lookup from kitchen-station config
+        if (!station && kitchenStations.length && item.categoryId) {
           const matched = kitchenStations.find(s =>
             (s.categories || []).some(cid => String(cid) === String(item.categoryId))
           );
           if (matched) station = matched.name;
         }
-        if (!stationGroups[station]) stationGroups[station] = [];
-        stationGroups[station].push(item);
+
+        // 3. Look up station directly from the menu-item record (most reliable —
+        //    Owner Console sets this when the item is created / assigned to a station)
+        if (!station) {
+          const menuItem = menuItems.find(mi =>
+            mi.id === item.id || mi.id === item.menuItemId
+          );
+          if (menuItem?.station && menuItem.station !== "Main kitchen") {
+            station = menuItem.station;
+          }
+        }
+
+        console.log(`[KOT split] item="${item.name}" categoryId="${item.categoryId}" → station="${station || "(none — Main Kitchen fallback)"}"`);
+        const key = station || "Main Kitchen";
+        if (!stationGroups[key]) stationGroups[key] = [];
+        stationGroups[key].push(item);
       }
     } catch (_) {
       // If setup data unavailable, fall back to single group
