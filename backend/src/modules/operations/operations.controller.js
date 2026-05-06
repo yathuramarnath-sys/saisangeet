@@ -263,14 +263,22 @@ async function deviceSendKotHandler(req, res) {
 }
 
 /**
- * GET /operations/kots?outletId=...
- * Returns all active (non-bumped) KOTs for the outlet.
+ * GET /operations/kots?outletId=...&station=...
+ * Returns active (non-bumped) KOTs for the outlet.
+ * Optional ?station= filters to a single kitchen station (case-insensitive).
+ * KDS screens pass their assignedStation so they only receive their own KOTs —
+ * this is the authoritative server-side filter; the client filter is belt-and-suspenders.
  */
 async function deviceListKotsHandler(req, res) {
-  const { outletId } = req.query;
+  const { outletId, station } = req.query;
   if (!outletId) return res.status(400).json({ error: "outletId is required" });
   const tenantId = req.user?.tenantId || "default";
-  res.json(getKots(tenantId, outletId));
+  let kots = getKots(tenantId, outletId);
+  if (station) {
+    const s = station.trim().toLowerCase();
+    kots = kots.filter(k => (k.station || "").trim().toLowerCase() === s);
+  }
+  res.json(kots);
 }
 
 /**

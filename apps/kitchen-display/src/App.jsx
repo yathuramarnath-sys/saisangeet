@@ -877,14 +877,17 @@ export function App() {
         outletId:    branchConfig.outletId,
         stationName: assignedStationRef.current || "",
       });
-      // Re-fetch any KOTs we missed while offline — filter to this screen's station
+      // Re-fetch any KOTs we missed while offline.
+      // Pass ?station= so the server only returns this screen's KOTs — no client filtering needed.
       try {
-        const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}`);
+        const st = assignedStationRef.current;
+        const stationParam = st ? `&station=${encodeURIComponent(st)}` : "";
+        const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}${stationParam}`);
         if (kots?.length) {
           setTickets(prev => {
             const existingIds = new Set(prev.map(t => t.id));
             const missed = kots
-              .filter(k => !existingIds.has(k.id) && k.status !== "bumped" && kotBelongsHere(k))
+              .filter(k => !existingIds.has(k.id) && k.status !== "bumped")
               .map(k => ({
                 ...k,
                 status: k.status === "ready" ? "preparing" : k.status,
@@ -966,16 +969,17 @@ export function App() {
       } catch (_) {}
 
       // ── Active KOTs ───────────────────────────────────────────────────
+      // Pass ?station= so the server returns ONLY this screen's KOTs.
+      // This is the most reliable filter — server-authoritative, no client-side
+      // string comparison or stale-closure risk.
       try {
-        const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}`).catch(() => null);
+        const st = assignedStationRef.current;
+        const stationParam = st ? `&station=${encodeURIComponent(st)}` : "";
+        const kots = await api.get(
+          `/operations/kots?outletId=${branchConfig.outletId}${stationParam}`
+        ).catch(() => null);
         if (kots !== null) {
-          // API responded — replace with real data (or empty; never show demo tickets)
-          // Filter by this screen's station AND drop bumped/ready tickets.
-          const live = kots.filter(k =>
-            k.status !== "bumped" &&
-            k.status !== "ready" &&
-            kotBelongsHere(k)
-          );
+          const live = kots.filter(k => k.status !== "bumped" && k.status !== "ready");
           setTickets(live.length ? live.map(k => ({ ...k, doneItems: k.doneItems || [] })) : []);
         }
       } catch (_) {
