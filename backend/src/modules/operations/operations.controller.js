@@ -185,19 +185,34 @@ async function deviceSendKotHandler(req, res) {
       const kitchenStations = (setupData.menu?.stations || []);
       const menuItems       = (setupData.menu?.items    || []);
 
+      // Build a set of VALID station names from Owner Console config.
+      // Only accept a station name if it matches a configured station — old demo
+      // names like "Grill Station", "Fry Station" are ignored so items fall
+      // through to the category-based lookup below.
+      const knownStationNames = new Set(
+        kitchenStations.map(s => (s.name || "").trim().toLowerCase())
+      );
+
       for (const item of items) {
         let station = "";
 
-        // 1. Use station already resolved by the client at add-item time.
+        // 1. Use station already resolved by the client — but ONLY if it matches
+        //    a station actually configured in Owner Console. Old demo names
+        //    ("Grill Station", "Fry Station") are rejected here so they fall through.
         //    POS  stores it as item.station   (kept on the local item object).
         //    Captain stores it as item.stationName (server round-trip renames the field).
-        //    Both are checked so either flow works correctly.
-        const clientStation1 = item.station || item.stationName || "";
-        if (clientStation1 && clientStation1 !== "Main Kitchen" && clientStation1 !== "Main kitchen") {
+        const clientStation1 = (item.station || item.stationName || "").trim();
+        if (
+          clientStation1 &&
+          clientStation1.toLowerCase() !== "main kitchen" &&
+          knownStationNames.has(clientStation1.toLowerCase())
+        ) {
           station = clientStation1;
         }
 
-        // 2. Category-based lookup from kitchen-station config
+        // 2. Category-based lookup from kitchen-station config (PRIMARY routing source).
+        //    Owner Console: Kitchen Stations → assign categories.
+        //    Each categoryId is matched to a station here.
         if (!station && kitchenStations.length && item.categoryId) {
           const matched = kitchenStations.find(s =>
             (s.categories || []).some(cid => String(cid) === String(item.categoryId))
@@ -205,18 +220,23 @@ async function deviceSendKotHandler(req, res) {
           if (matched) station = matched.name;
         }
 
-        // 3. Look up station directly from the menu-item record (most reliable —
-        //    Owner Console sets this when the item is created / assigned to a station)
+        // 3. Look up station from the menu-item record — but ONLY accept it if it
+        //    matches a known station (prevents old demo names from surfacing here too).
         if (!station) {
           const menuItem = menuItems.find(mi =>
             mi.id === item.id || mi.id === item.menuItemId
           );
-          if (menuItem?.station && menuItem.station !== "Main kitchen") {
-            station = menuItem.station;
+          const miStation = (menuItem?.station || "").trim();
+          if (
+            miStation &&
+            miStation.toLowerCase() !== "main kitchen" &&
+            knownStationNames.has(miStation.toLowerCase())
+          ) {
+            station = miStation;
           }
         }
 
-        console.log(`[KOT split] item="${item.name}" categoryId="${item.categoryId}" → station="${station || "(none — Main Kitchen fallback)"}"`);
+        console.log(`[KOT split] item="${item.name}" categoryId="${item.categoryId}" clientStation="${item.station || item.stationName || ""}" → resolved="${station || "(Main Kitchen fallback)"}"`);
         const key = station || "Main Kitchen";
         if (!stationGroups[key]) stationGroups[key] = [];
         stationGroups[key].push(item);

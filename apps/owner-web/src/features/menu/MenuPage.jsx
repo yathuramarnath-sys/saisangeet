@@ -44,7 +44,7 @@ function toggleOutlet(item, outletName) {
 function buildDefaultItemDraft(menuData) {
   return {
     categoryName: menuData.categories[0]?.name || "",
-    station: menuData.stations[0]?.name || "",
+    // station is auto-resolved via Kitchen Stations → Category mapping; not set on items
     selectedOutlets: [] // empty = all outlets
   };
 }
@@ -329,7 +329,7 @@ export function MenuPage() {
         takeawayParcelChargeValue: formData.get("takeawayParcelChargeValue"),
         deliveryParcelChargeType: formData.get("deliveryParcelChargeType"),
         deliveryParcelChargeValue: formData.get("deliveryParcelChargeValue"),
-        station: formData.get("station"),
+        station: "",  // Auto-resolved via Kitchen Stations → Category mapping; not set manually
         trackInventory: formData.get("trackInventory"),
         entryStyle: formData.get("entryStyle"),
         foodType: formData.get("foodType"),
@@ -466,32 +466,7 @@ export function MenuPage() {
   function updateItemDraft(field, value) {
     setItemDraft((current) => {
       const next = { ...current, [field]: value };
-
-      // When category changes, auto-fill the station from that category's routing assignment
-      if (field === "categoryName") {
-        const matchedCategory = menuData.categories.find(
-          (cat) => cat.name.toLowerCase() === String(value).toLowerCase()
-        );
-        if (matchedCategory) {
-          const assignedStation =
-            routingDrafts[matchedCategory.id]?.station ||
-            matchedCategory.station ||
-            "";
-          if (assignedStation) {
-            next.station = assignedStation;
-            next.stationAutoFilled = true;
-          }
-        } else {
-          // Typed a new/unknown category — clear auto-fill flag but keep manual entry
-          next.stationAutoFilled = false;
-        }
-      }
-
-      // If user manually edits station, clear the auto-fill flag
-      if (field === "station") {
-        next.stationAutoFilled = false;
-      }
-
+      // Station is no longer set per-item; routing is handled by Kitchen Stations → Category mapping
       return next;
     });
   }
@@ -1668,25 +1643,7 @@ export function MenuPage() {
               Available to
               <input type="time" name="availableTo" />
             </label>
-            <label>
-              Kitchen station
-              <input
-                type="text"
-                name="station"
-                list="menu-station-options"
-                value={itemDraft.station}
-                onChange={(event) => updateItemDraft("station", event.target.value)}
-                placeholder="Auto-filled from category routing"
-              />
-              {itemDraft.stationAutoFilled && itemDraft.station && (
-                <span className="field-hint">Auto-assigned from category · <button type="button" className="inline-link" onClick={() => updateItemDraft("station", "")}>Change</button></span>
-              )}
-            </label>
-            <datalist id="menu-station-options">
-              {availableStationNames.map((stationNameOption) => (
-                <option key={stationNameOption} value={stationNameOption} />
-              ))}
-            </datalist>
+            {/* Station is auto-routed via Kitchen Stations → Category mapping in Owner Console — no manual field needed */}
             <label>
               Track inventory
               <select name="trackInventory" defaultValue="Disabled">
