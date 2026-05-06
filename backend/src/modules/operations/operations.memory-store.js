@@ -635,7 +635,7 @@ function addOrderItem(tableId, payload, actor = "System") {
       note:        payload.note || "",
       sentToKot:   payload.sentToKot || false,
       stationId:   payload.stationId || "main",
-      stationName: payload.stationName || "Main Kitchen",
+      stationName: payload.stationName || "",
       categoryId:  payload.categoryId  || "",   // kept for KDS station-routing on KOT send
       category:    payload.category    || "",
     };

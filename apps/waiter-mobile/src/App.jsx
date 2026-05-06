@@ -260,15 +260,17 @@ export function App() {
     // Resolve station: match by category ID first, then fall back to category name
     // (handles ID type mismatches between Owner Console and menu API).
     const itemCatName = (item.category || item.categoryName || "").trim().toLowerCase();
-    const resolvedStation = item.station ||
+    const rawStation = item.station || item.stationName ||
       kitchenStations.find(s =>
         (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
         (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCatName))
       )?.name || "";
+    // Don't persist "Main Kitchen" — it's a generic fallback that breaks KDS routing
+    const resolvedStation = (rawStation === "Main Kitchen" || rawStation === "Main kitchen") ? "" : rawStation;
     try {
       const serverOrder = await api.post("/operations/order/item", {
         tableId,
-        outletId: outlet?.id,
+        outletId: outlet?.id || branchConfig?.outletId,
         item: {
           id:          item.id,
           menuItemId:  item.menuItemId || item.id,
@@ -320,14 +322,21 @@ export function App() {
     const stationGroups = {};
     for (const item of unsent) {
       const itemCN = (item.category || item.categoryName || "").trim().toLowerCase();
-      const resolvedStation = item.station ||
+      // item.station   — set by POS flow (from menu item's station field)
+      // item.stationName — set by Captain's addItem → server stores it as stationName
+      // Both are checked so the correct station survives the server round-trip.
+      const resolvedStation = item.station || item.stationName ||
         kitchenStations.find(s =>
           (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
           (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCN))
         )?.name || "";
-      const key = resolvedStation || "__default__";
+      // Skip the "Main Kitchen" default — it's a backend fallback that blocks KDS routing.
+      // Treat it the same as no station so the backend splits by category instead.
+      const effectiveStation = (resolvedStation === "Main Kitchen" || resolvedStation === "Main kitchen")
+        ? "" : resolvedStation;
+      const key = effectiveStation || "__default__";
       if (!stationGroups[key]) stationGroups[key] = [];
-      stationGroups[key].push({ ...item, station: resolvedStation });
+      stationGroups[key].push({ ...item, station: effectiveStation });
     }
 
     // Server assigns the authoritative sequential KOT number(s).
