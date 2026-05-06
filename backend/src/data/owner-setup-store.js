@@ -710,23 +710,18 @@ function createDefaultData() {
     menu: {
       config: createDefaultMenuConfig(taxProfiles),
       pricingProfiles: createDefaultPricingProfiles(),
-      stations: [
-        { id: "station-fry",       name: "Fry Station",    outletId: "all", categories: [] },
-        { id: "station-grill",     name: "Grill Station",  outletId: "all", categories: [] },
-        { id: "station-main",      name: "Main Kitchen",   outletId: "all", categories: [] },
-        { id: "station-beverages", name: "Beverages",      outletId: "all", categories: [] },
-      ],
+      stations: [],  // No demo stations — user creates real stations in Kitchen Stations page
       categories: [
-        { id: "cat-starters",    name: "Starters",     itemCount: 2, station: "Fry Station",  printerTarget: "Kitchen Printer 1", displayTarget: "Hot Kitchen Display" },
-        { id: "cat-main-course", name: "Main Course",  itemCount: 1, station: "Main Kitchen", printerTarget: "Kitchen Printer 1", displayTarget: "Hot Kitchen Display" },
-        { id: "cat-beverages",   name: "Beverages",    itemCount: 1, station: "Beverages",    printerTarget: "Bar Printer",        displayTarget: "Drinks Display"      },
+        { id: "cat-starters",    name: "Starters",     itemCount: 2, printerTarget: "Kitchen Printer 1", displayTarget: "Hot Kitchen Display" },
+        { id: "cat-main-course", name: "Main Course",  itemCount: 1, printerTarget: "Kitchen Printer 1", displayTarget: "Hot Kitchen Display" },
+        { id: "cat-beverages",   name: "Beverages",    itemCount: 1, printerTarget: "Kitchen Printer 1", displayTarget: "Drinks Display"      },
       ],
       items: [
         {
           id: "item-paneer-tikka",
           categoryId: "cat-starters",
           name: "Paneer Tikka",
-          station: "Grill Station",
+          station: "",  // Routed via Kitchen Stations → Category mapping
           gstLabel: "GST 5%",
           status: "Live",
           foodType: "Veg",
@@ -744,7 +739,7 @@ function createDefaultData() {
           id: "item-crispy-corn",
           categoryId: "cat-starters",
           name: "Crispy Corn",
-          station: "Fry Station",
+          station: "",
           gstLabel: "GST 5%",
           status: "Live",
           foodType: "Veg",
@@ -762,7 +757,7 @@ function createDefaultData() {
           id: "item-veg-biryani",
           categoryId: "cat-main-course",
           name: "Veg Biryani",
-          station: "Main Kitchen",
+          station: "",
           gstLabel: "GST 5%",
           status: "Live",
           foodType: "Veg",
@@ -780,7 +775,7 @@ function createDefaultData() {
           id: "item-sweet-lime",
           categoryId: "cat-beverages",
           name: "Sweet Lime Soda",
-          station: "Beverages",
+          station: "",
           gstLabel: "GST 5%",
           status: "Live",
           foodType: "Veg",
@@ -843,11 +838,37 @@ function normalizeOwnerSetupData(data) {
     outletId:   station.outletId   || "all",
     categories: station.categories || [],
   }));
+
+  // ── Data migration: strip legacy demo station names from menu items ──────────
+  // Old demo data had items with station: "Grill Station", "Fry Station",
+  // "Beverages", "Main kitchen" etc. These don't match the user's real kitchen
+  // stations and caused KOT routing failures. We clear the station field so the
+  // backend always uses the Owner Console Kitchen Station → Category mapping
+  // (which is the single source of truth for routing).
+  // This runs on every normalise call so Railway's Postgres data is self-healing.
+  const LEGACY_STATION_NAMES = new Set([
+    "grill station", "fry station", "beverages", "main kitchen",
+    "bar", "tandoor", "hot kitchen", "cold kitchen", "station pending"
+  ]);
+  const configuredStationNames = new Set(
+    (next.menu.stations || []).map(s => (s.name || "").trim().toLowerCase())
+  );
+  next.menu.items = (next.menu.items || []).map((item) => {
+    const st = (item.station || "").trim();
+    const stLower = st.toLowerCase();
+    // Clear if: it's a known legacy name OR it doesn't match any configured station
+    if (st && (LEGACY_STATION_NAMES.has(stLower) || !configuredStationNames.has(stLower))) {
+      return { ...item, station: "" };
+    }
+    return item;
+  });
+
   next.menu.categories = (next.menu.categories || []).map((category) => ({
-    station:       category.station       || "Main Kitchen",
     printerTarget: category.printerTarget || "Kitchen Printer 1",
     displayTarget: category.displayTarget || "Hot Kitchen Display",
     ...category,
+    // Never fall back to a hardcoded station name — routing is via Kitchen Stations → Category mapping
+    station: category.station || "",
   }));
   next.menu.menuGroups = (next.menu.menuGroups || createDefaultMenuGroups()).map((menuGroup) => ({
     status:       "Live",
