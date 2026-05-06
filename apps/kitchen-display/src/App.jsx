@@ -1032,7 +1032,11 @@ export function App() {
       // If this screen is locked to a station, discard any KOTs for other stations.
       const assigned   = (assignedStation || "").trim().toLowerCase();
       const kotStation = (kot.station    || "").trim().toLowerCase();
-      if (assigned && kotStation !== assigned) return; // not for this station — ignore
+      console.log(`[KDS] kot:new received | id=${kot.id} | source=${kot.source} | station="${kot.station}" | assignedStation="${assignedStation}"`);
+      if (assigned && kotStation !== assigned) {
+        console.log(`[KDS] kot:new FILTERED OUT — station mismatch (kot="${kotStation}" vs assigned="${assigned}")`);
+        return; // not for this station — ignore
+      }
 
       setTickets(prev => {
         if (prev.find(t => t.id === kot.id)) return prev; // already have it

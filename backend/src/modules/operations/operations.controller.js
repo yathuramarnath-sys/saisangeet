@@ -154,7 +154,12 @@ const { getNextBillNo, getNextKotNo }      = require("../counter/counter.service
  */
 async function deviceSendKotHandler(req, res) {
   const { outletId, tableId, tableNumber, kotNumber, items, orderId } = req.body;
+
+  // ── Diagnostic logging (helps trace Captain→KDS delivery issues) ────────────
+  console.log(`[KOT] POST /operations/kot | source=${req.body.source || "pos"} | outletId=${outletId} | tableNumber=${tableNumber} | items=${items?.length ?? 0} | stationName=${req.body.stationName || "(none)"}`);
+
   if (!outletId || !items?.length) {
+    console.warn(`[KOT] Rejected — missing outletId or items. body:`, JSON.stringify({ outletId, items: items?.length }));
     return res.status(400).json({ error: "outletId and items are required" });
   }
 
@@ -234,7 +239,12 @@ async function deviceSendKotHandler(req, res) {
     // This is the same pattern FreshKDS uses (broadcast to all, each device filters).
     // Station-specific socket rooms are still joined for future use but not used here.
     if (io) {
-      io.to(`outlet:${outletId}`).emit("kot:new", kot);
+      const room = `outlet:${outletId}`;
+      const socketsInRoom = await io.in(room).fetchSockets();
+      console.log(`[KOT] emit kot:new → room="${room}" | station="${station}" | sockets_in_room=${socketsInRoom.length}`);
+      io.to(room).emit("kot:new", kot);
+    } else {
+      console.warn(`[KOT] io is null — socket emit skipped for kot ${kot.id}`);
     }
 
     kots.push(kot);

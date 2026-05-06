@@ -27,6 +27,9 @@ app.locals.io = io;
 
 io.on("connection", (socket) => {
   const { outletId, kdsStation } = socket.handshake.query;
+  const clientType = kdsStation !== undefined ? "KDS" : "POS/Captain";
+  console.log(`[socket] connect | id=${socket.id} | type=${clientType} | outletId=${outletId || "(none)"} | kdsStation="${kdsStation ?? "(n/a)"}"`);
+
   if (outletId) {
     socket.join(`outlet:${outletId}`);
     // Ask other connected devices (POS) to broadcast current order state so
@@ -41,7 +44,12 @@ io.on("connection", (socket) => {
       ? `kds:${outletId}:${String(kdsStation).trim().toLowerCase()}`
       : `kds:${outletId}:__all__`;
     socket.join(kdsRoom);
+    console.log(`[socket] KDS joined station room: ${kdsRoom}`);
   }
+
+  socket.on("disconnect", () => {
+    console.log(`[socket] disconnect | id=${socket.id} | type=${clientType} | outletId=${outletId || "(none)"}`);
+  });
   socket.on("join-outlet", (id) => {
     socket.join(`outlet:${id}`);
     socket.to(`outlet:${id}`).emit("request:order-sync");
