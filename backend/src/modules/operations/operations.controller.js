@@ -188,9 +188,13 @@ async function deviceSendKotHandler(req, res) {
       for (const item of items) {
         let station = "";
 
-        // 1. Use station already set on the item by the client (Captain sets this)
-        if (item.station && item.station !== "Main Kitchen" && item.station !== "Main kitchen") {
-          station = item.station;
+        // 1. Use station already resolved by the client at add-item time.
+        //    POS  stores it as item.station   (kept on the local item object).
+        //    Captain stores it as item.stationName (server round-trip renames the field).
+        //    Both are checked so either flow works correctly.
+        const clientStation1 = item.station || item.stationName || "";
+        if (clientStation1 && clientStation1 !== "Main Kitchen" && clientStation1 !== "Main kitchen") {
+          station = clientStation1;
         }
 
         // 2. Category-based lookup from kitchen-station config
