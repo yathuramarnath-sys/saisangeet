@@ -334,6 +334,7 @@ export function App() {
       // Treat it the same as no station so the backend splits by category instead.
       const effectiveStation = (resolvedStation === "Main Kitchen" || resolvedStation === "Main kitchen")
         ? "" : resolvedStation;
+      console.log(`[captain] KOT item: name="${item.name}" | item.station="${item.station}" | item.stationName="${item.stationName}" | resolved="${resolvedStation}" | effective="${effectiveStation}"`);
       const key = effectiveStation || "__default__";
       if (!stationGroups[key]) stationGroups[key] = [];
       stationGroups[key].push({ ...item, station: effectiveStation });
