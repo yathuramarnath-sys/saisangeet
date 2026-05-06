@@ -305,6 +305,14 @@ export function App() {
     const unsent = (order.items || []).filter((i) => !i.sentToKot);
     if (!unsent.length) return;
 
+    // Guard: outletId must be present — KOT API rejects without it (no KDS delivery)
+    const effectiveOutletId = outlet?.id || branchConfig?.outletId;
+    if (!effectiveOutletId) {
+      console.error("[captain] KOT blocked — outletId missing from both outlet state and branchConfig");
+      toast.error("Setup error: outlet not configured. Please re-open the app.");
+      return;
+    }
+
     // Optimistic UI — mark items sent immediately so screen feels instant
     handleUpdateOrder({ ...order, items: order.items.map((i) => ({ ...i, sentToKot: true })) });
 
@@ -330,7 +338,7 @@ export function App() {
     for (const [stationKey, stItems] of Object.entries(stationGroups)) {
       try {
         const result = await api.post("/operations/kot", {
-          outletId:    outlet?.id,
+          outletId:    effectiveOutletId,
           tableId:     order.tableId,
           tableNumber: order.tableNumber,
           areaName:    order.areaName,
@@ -338,6 +346,7 @@ export function App() {
           items:       stItems,
           orderId:     order.id,
           actorName:   loggedInStaff?.name || "Captain",
+          source:      "captain",
         });
         if (result?.kots?.length) {
           result.kots.forEach(k => allServerKots.push(k.kotNumber));
