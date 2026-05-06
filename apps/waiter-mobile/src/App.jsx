@@ -345,22 +345,35 @@ export function App() {
 
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
 
-    // ── Print KOT per station on its configured printer ───────────────────
-    // Backend already split items by station — use its grouping for printing
-    // so each station printer gets only its own items with the correct KOT number.
+    // ── Print KOT slips ────────────────────────────────────────────────────
+    // Printer logic:
+    //   • Waiter KOT printer  → prints ALL items (1 full slip, always)
+    //   • Kitchen station printer → prints only that station's items
+    //                               (only if a DEDICATED printer is configured for that station)
     try {
       const { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } =
         await import("./lib/kotPrint.js");
-      if (kotAutoSendEnabled() && serverKots.length) {
+      if (kotAutoSendEnabled()) {
+        const waiterPrinter = getKotPrinter();
+        const kotNumber     = serverKotNumber;
+        const actorName     = loggedInStaff?.name || "Captain";
+
+        // 1. Waiter slip — ALL items on the default/waiter KOT printer
+        printKOT(order, unsent, waiterPrinter, kotNumber, { sentBy: actorName });
+
+        // 2. Kitchen station slips — one per station, only if a dedicated printer is configured
         serverKots.forEach(kot => {
-          // Match backend items back to original unsent items (which have price etc.)
-          const kotItemIds = new Set((kot.items || []).map(i => i.id));
-          const stItems = unsent.filter(i => kotItemIds.has(i.id));
-          const printer = kot.station
-            ? getKotPrinterForStation(kot.station)
-            : getKotPrinter();
-          printKOT(order, stItems.length ? stItems : kot.items, printer, kot.kotNumber,
-            { sentBy: loggedInStaff?.name || "Captain" });
+          const st = (kot.station || "").trim();
+          if (!st || st.toLowerCase() === "main kitchen") return;
+          const stPrinter = getKotPrinterForStation(st);
+          // Only print if the station printer is DIFFERENT from the waiter printer
+          // (avoids printing the same physical printer twice)
+          if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
+            // Use original unsent items (have price/note) matched by id; fall back to kot.items
+            const kotItemIds = new Set((kot.items || []).map(i => i.id));
+            const stItems    = unsent.filter(i => kotItemIds.has(i.id));
+            printKOT(order, stItems.length ? stItems : kot.items, stPrinter, kotNumber, { sentBy: actorName });
+          }
         });
       }
     } catch (_) { /* printer not configured — KDS still receives it */ }

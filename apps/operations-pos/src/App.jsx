@@ -601,8 +601,7 @@ export default function App() {
     const unsent = (order.items || []).filter((i) => !i.sentToKot && !i.isVoided);
     if (!unsent.length) { showToast("No new items to send"); return; }
 
-    // ── 1. Mark items as sent ─────────────────────────────────────────────
-    // Build a KOT sequence number (increment per order)
+    // ── 1. Mark items as sent optimistically ─────────────────────────────
     const kotSeq = (order.kotCount || 0) + 1;
     mutateOrder(selectedTableId, (o) => {
       o.items    = o.items.map((i) => ({ ...i, sentToKot: true }));
@@ -610,78 +609,63 @@ export default function App() {
       return o;
     });
 
-    // ── 2. Group unsent items by kitchen station ──────────────────────────
-    // Re-resolve station at send time so items added before kitchenStations
-    // finished loading still get correctly routed.
-    // Primary: item.station (set at add time). Fallback: live kitchenStations lookup.
-    const stationGroups = {};
-    unsent.forEach(item => {
-      const itemCN = (item.category || item.categoryName || "").trim().toLowerCase();
-      const resolvedSt = item.station ||
-        kitchenStations.find(s =>
-          (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
-          (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCN))
-        )?.name || "";
-      const st = resolvedSt || "__default__";
-      if (!stationGroups[st]) stationGroups[st] = [];
-      stationGroups[st].push({ ...item, station: resolvedSt });
-    });
-
-    // ── 3. Send to backend — server assigns authoritative KOT numbers ────────
-    // We send before printing so the thermal slip always shows the server-assigned
-    // sequential number (1, 2, 3 …) rather than a local counter.
-    // Each station group is a separate API call so each gets its own KOT number.
-    // When the group is "__default__" (client routing failed), the server itself
-    // splits items by categoryId→station and returns a `kots` array.
-    // On offline/error the local kotSeq is used as fallback and the payload is queued.
-    const allServerKots = [];   // collect server KOT numbers across all groups
+    // ── 2. Send ALL items in ONE request — backend splits by station ──────
+    // Sending a single request guarantees every station KOT shares the SAME
+    // KOT number (sequential counter increments only once).
+    // The backend uses Owner Console Kitchen Station → Category mapping to
+    // resolve which items belong to which station.
+    let serverKots = [];
     let lastServerOrder = null;
-    for (const [stationKey, stItems] of Object.entries(stationGroups)) {
-      const kotPayload = {
-        outletId:    outlet?.id,
-        orderId:     order.id,
-        tableId:     order.tableId,
-        tableNumber: order.tableNumber,
-        kotNumber:   `KOT-${String(kotSeq).padStart(4,"0")}`,  // sent but overridden server-side
-        areaName:    order.areaName,
-        stationName: stationKey === "__default__" ? undefined : stationKey,
-        items:       stItems
-      };
-      try {
-        // Response: { kots: [...], kot: <first>, order? }
-        const result = await api.post("/operations/kot", kotPayload);
-        // Collect all KOT numbers returned (server may split one call into multiple KOTs)
-        if (result?.kots?.length) {
-          result.kots.forEach(k => allServerKots.push(k.kotNumber));
-        } else if (result?.kot?.kotNumber) {
-          allServerKots.push(result.kot.kotNumber);
-        }
-        if (result?.order) lastServerOrder = result.order;
-      } catch (err) {
-        // Offline — queue for retry; print with local kotSeq
-        const queue = loadKotQueue();
-        queue.push(kotPayload);
-        saveKotQueue(queue);
-        console.warn("KOT queued (offline):", kotPayload.kotNumber);
-      }
+    const kotPayload = {
+      outletId:    outlet?.id,
+      orderId:     order.id,
+      tableId:     order.tableId,
+      tableNumber: order.tableNumber,
+      areaName:    order.areaName,
+      source:      "pos",
+      items:       unsent,  // ALL unsent items — server handles station split
+    };
+    try {
+      const result = await api.post("/operations/kot", kotPayload);
+      if (result?.kots?.length) serverKots = result.kots;
+      else if (result?.kot)     serverKots = [result.kot];
+      if (result?.order) lastServerOrder = result.order;
+    } catch (err) {
+      // Offline — queue for retry; print with local kotSeq
+      const queue = loadKotQueue();
+      queue.push(kotPayload);
+      saveKotQueue(queue);
+      console.warn("KOT queued (offline):", kotSeq);
     }
 
-    // The KOT number shown on thermal slips / toast uses the last server-assigned number
-    const serverKotNumber = allServerKots.length ? allServerKots[allServerKots.length - 1] : kotSeq;
+    const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : kotSeq;
 
-    // ── 4. Print KOT with the server-assigned number ──────────────────────
+    // ── 3. Print KOT slips ────────────────────────────────────────────────
+    // Printer logic:
+    //   • Waiter KOT printer  → prints ALL items (1 full slip, always)
+    //   • Kitchen station printer → prints only that station's items
+    //                               (only if a DEDICATED printer is configured for that station)
     if (kotAutoSendEnabled()) {
-      Object.entries(stationGroups).forEach(([stationName, stItems]) => {
-        const printer = stationName === "__default__"
-          ? getKotPrinter()
-          : getKotPrinterForStation(stationName);
-        printKOT(order, stItems, printer, serverKotNumber, { sentBy: cashierName });
+      const waiterPrinter = getKotPrinter();
+
+      // Waiter slip: all items on the default/waiter KOT printer
+      printKOT(order, unsent, waiterPrinter, serverKotNumber, { sentBy: cashierName });
+
+      // Kitchen station slips: one per station, only if a dedicated printer exists
+      serverKots.forEach(kot => {
+        const st = (kot.station || "").trim();
+        if (!st || st.toLowerCase() === "main kitchen") return; // no dedicated kitchen printer for fallback group
+        const stPrinter = getKotPrinterForStation(st);
+        // Only print if the station printer is DIFFERENT from the waiter printer
+        // (avoids printing the same physical printer twice)
+        if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
+          printKOT(order, kot.items || [], stPrinter, serverKotNumber, { sentBy: cashierName });
+        }
       });
     }
 
     const printer = getKotPrinter();
     const printerLabel = printer ? ` → ${printer.name}` : "";
-    // All station splits share the same KOT number — show it once
     showToast(`🖨️ KOT #${serverKotNumber} sent${printerLabel}`);
 
     // Reconcile from the last server response (most up-to-date order state).
