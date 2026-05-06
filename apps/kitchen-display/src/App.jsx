@@ -31,6 +31,19 @@ function playNewKotAlert() {
   } catch (_) {}
 }
 
+// ─── Station assignment — stored in its OWN key so it NEVER gets wiped ──────────
+// kds_settings is reset on SETTINGS_VERSION bumps. kds_station is permanent.
+
+const STATION_STORAGE_KEY = "kds_station";
+
+function loadStationAssignment() {
+  try { return localStorage.getItem(STATION_STORAGE_KEY) || ""; }
+  catch { return ""; }
+}
+function saveStationAssignment(station) {
+  try { localStorage.setItem(STATION_STORAGE_KEY, station || ""); } catch (_) {}
+}
+
 // ─── Ticket persistence ───────────────────────────────────────────────────────
 
 const KDS_TICKETS_KEY = "kds_active_tickets";
@@ -64,19 +77,26 @@ const DEFAULT_SETTINGS = {
 };
 
 function loadSettings() {
+  // Station assignment is loaded from its own dedicated key (never wiped).
+  // kds_settings may be reset on version bumps but kds_station is always kept.
+  const persistedStation = loadStationAssignment();
   try {
     const saved = JSON.parse(localStorage.getItem("kds_settings") || "{}");
-    if (!saved._version || saved._version < SETTINGS_VERSION) {
-      // Version mismatch — reset to defaults but ALWAYS preserve assignedStation.
-      // Wiping the station on every app update would break KDS routing silently:
-      // the screen would show all KOTs until the user notices and re-assigns.
-      return { ...DEFAULT_SETTINGS, assignedStation: saved.assignedStation || "" };
-    }
-    return { ...DEFAULT_SETTINGS, ...saved };
-  } catch { return { ...DEFAULT_SETTINGS }; }
+    const base = (!saved._version || saved._version < SETTINGS_VERSION)
+      ? { ...DEFAULT_SETTINGS }
+      : { ...DEFAULT_SETTINGS, ...saved };
+    // Always override assignedStation from the dedicated persistent key
+    return { ...base, assignedStation: persistedStation };
+  } catch {
+    return { ...DEFAULT_SETTINGS, assignedStation: persistedStation };
+  }
 }
 function saveSettings(s) {
-  try { localStorage.setItem("kds_settings", JSON.stringify(s)); } catch (_) {}
+  try {
+    localStorage.setItem("kds_settings", JSON.stringify(s));
+    // Also keep the dedicated station key in sync
+    saveStationAssignment(s.assignedStation || "");
+  } catch (_) {}
 }
 
 // ─── KDS Branch Config (localStorage) ────────────────────────────────────────
@@ -1125,6 +1145,26 @@ export function App() {
 
   return (
     <div className="kds-shell" onClick={unlockAudio} style={{ "--kds-cols": settings.columns }}>
+
+      {/* ── No-station warning ─────────────────────────────────── */}
+      {!settings.assignedStation && (
+        <div style={{
+          background: "#b45309", color: "#fff", padding: "10px 20px",
+          display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 700,
+        }}>
+          <span>⚠️ No station assigned — this screen shows ALL kitchen orders.</span>
+          <button
+            style={{
+              background: "#fff", color: "#b45309", border: "none", borderRadius: 6,
+              padding: "4px 14px", fontWeight: 800, cursor: "pointer", fontSize: 13,
+              fontFamily: "'Manrope', sans-serif",
+            }}
+            onClick={e => { e.stopPropagation(); setShowSettings(true); }}
+          >
+            Assign Station →
+          </button>
+        </div>
+      )}
 
       {/* ── Offline banner ──────────────────────────────────────── */}
       {connState === "offline" && (
