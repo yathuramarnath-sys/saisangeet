@@ -318,75 +318,54 @@ export function App() {
     // Optimistic UI — mark items sent immediately so screen feels instant
     handleUpdateOrder({ ...order, items: order.items.map((i) => ({ ...i, sentToKot: true })) });
 
-    // Group by kitchen station — use resolved station from category mapping
-    const stationGroups = {};
-    for (const item of unsent) {
-      const itemCN = (item.category || item.categoryName || "").trim().toLowerCase();
-      // item.station   — set by POS flow (from menu item's station field)
-      // item.stationName — set by Captain's addItem → server stores it as stationName
-      // Both are checked so the correct station survives the server round-trip.
-      const resolvedStation = item.station || item.stationName ||
-        kitchenStations.find(s =>
-          (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
-          (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCN))
-        )?.name || "";
-      // Skip the "Main Kitchen" default — it's a backend fallback that blocks KDS routing.
-      // Treat it the same as no station so the backend splits by category instead.
-      const effectiveStation = (resolvedStation === "Main Kitchen" || resolvedStation === "Main kitchen")
-        ? "" : resolvedStation;
-      console.log(`[captain] KOT item: name="${item.name}" | item.station="${item.station}" | item.stationName="${item.stationName}" | resolved="${resolvedStation}" | effective="${effectiveStation}"`);
-      const key = effectiveStation || "__default__";
-      if (!stationGroups[key]) stationGroups[key] = [];
-      stationGroups[key].push({ ...item, station: effectiveStation });
-    }
-
-    // Server assigns the authoritative sequential KOT number(s).
-    // When the group is "__default__" (client routing failed), the server splits
-    // items by categoryId→station and returns a `kots` array with one entry per station.
-    const allServerKots = [];
+    // Send ALL items in ONE request — backend splits by station and assigns ONE KOT number
+    // to all station-splits. This guarantees the printed slip and every KDS ticket share
+    // the same KOT number. (Previous approach sent one request per station → each got a
+    // different sequential number → print said #36 but North Indian KDS showed #35.)
+    let serverKots = [];
     let lastServerOrder;
-    for (const [stationKey, stItems] of Object.entries(stationGroups)) {
-      try {
-        const result = await api.post("/operations/kot", {
-          outletId:    effectiveOutletId,
-          tableId:     order.tableId,
-          tableNumber: order.tableNumber,
-          areaName:    order.areaName,
-          stationName: stationKey === "__default__" ? undefined : stationKey,
-          items:       stItems,
-          orderId:     order.id,
-          actorName:   loggedInStaff?.name || "Captain",
-          source:      "captain",
-        });
-        if (result?.kots?.length) {
-          result.kots.forEach(k => allServerKots.push(k.kotNumber));
-        } else if (result?.kot?.kotNumber) {
-          allServerKots.push(result.kot.kotNumber);
-        }
-        if (result?.order) lastServerOrder = result.order;
-      } catch (e) {
-        console.error(`[captain] KOT send (${stationKey}):`, e.message);
-      }
+    try {
+      const result = await api.post("/operations/kot", {
+        outletId:    effectiveOutletId,
+        tableId:     order.tableId,
+        tableNumber: order.tableNumber,
+        areaName:    order.areaName,
+        // No stationName — backend splits by menu-item station / category / Owner config
+        items:       unsent,
+        orderId:     order.id,
+        actorName:   loggedInStaff?.name || "Captain",
+        source:      "captain",
+      });
+      if (result?.kots?.length)  serverKots = result.kots;
+      else if (result?.kot)      serverKots = [result.kot];
+      if (result?.order) lastServerOrder = result.order;
+    } catch (e) {
+      console.error("[captain] KOT send failed:", e.message);
     }
-    const serverKotNumber = allServerKots.length ? allServerKots[allServerKots.length - 1] : null;
 
-    // ── Print KOT (kitchen printer) ───────────────────────────────────────
+    const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
+
+    // ── Print KOT per station on its configured printer ───────────────────
+    // Backend already split items by station — use its grouping for printing
+    // so each station printer gets only its own items with the correct KOT number.
     try {
       const { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } =
         await import("./lib/kotPrint.js");
-      if (kotAutoSendEnabled()) {
-        Object.entries(stationGroups).forEach(([stationName, stItems]) => {
-          const printer = stationName === "__default__"
-            ? getKotPrinter()
-            : getKotPrinterForStation(stationName);
-          printKOT(order, stItems, printer, serverKotNumber,
+      if (kotAutoSendEnabled() && serverKots.length) {
+        serverKots.forEach(kot => {
+          // Match backend items back to original unsent items (which have price etc.)
+          const kotItemIds = new Set((kot.items || []).map(i => i.id));
+          const stItems = unsent.filter(i => kotItemIds.has(i.id));
+          const printer = kot.station
+            ? getKotPrinterForStation(kot.station)
+            : getKotPrinter();
+          printKOT(order, stItems.length ? stItems : kot.items, printer, kot.kotNumber,
             { sentBy: loggedInStaff?.name || "Captain" });
         });
       }
     } catch (_) { /* printer not configured — KDS still receives it */ }
 
-    // Show the server-assigned KOT number(s) in the confirmation toast
-    // All station splits share the same KOT number — show it once
+    // Show the server-assigned KOT number — same number on all station slips
     toast.success(serverKotNumber != null ? `KOT #${serverKotNumber} sent to kitchen` : "KOT sent to kitchen");
 
     if (lastServerOrder) {
