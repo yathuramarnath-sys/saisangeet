@@ -6,3 +6,9 @@ packages/*/node_modules/
 electron-dist/
 electron-dist/
 .claude/
+
+# Local dev env overrides — these point to localhost and must NEVER be committed
+# In dev: apps use http://localhost:4000/api/v1 (safe, isolated)
+# In production: apps use the .env file (https://api.dinexpos.in/api/v1)
+.env.local
+apps/*/.env.local
