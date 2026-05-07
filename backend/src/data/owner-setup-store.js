@@ -840,47 +840,65 @@ function normalizeOwnerSetupData(data) {
   }));
 
   // ── Self-healing data migration (runs every startup) ────────────────────────
-  // Fixes two classes of stale data that break KOT routing:
   //
-  // A) Stale station names on menu items (e.g. "Grill Station", "Fry Station")
-  //    → clear them so routing always uses the Category → Station mapping below
+  // PRINCIPLE: Owner Console is the single source of truth.
+  // All item IDs, category IDs, and station names come from there.
+  // Seed/demo data that conflicts with real data is removed automatically.
   //
-  // B) Stale demo categoryIds on menu items (e.g. "cat-starters", "cat-main-course")
-  //    → heal by finding the real category by name, replacing with the real ID
-  //    This happens when seed items were created before the user set up real categories
+  // Fixes:
+  // A) Seed categories (id starts with "cat-") removed if real categories exist
+  // B) Seed menu items (id starts with "item-") removed if real items exist
+  // C) Stale station names on items cleared (routing uses category→station only)
+  // D) Stale demo categoryIds healed to real category IDs by name matching
 
+  const SEED_CAT_PREFIX  = "cat-";
+  const SEED_ITEM_PREFIX = "item-";
+
+  const allCats   = next.menu.categories || [];
+  const allItems  = next.menu.items      || [];
+
+  // Check whether real (non-seed) data exists
+  const hasRealCategories = allCats.some(c => !String(c.id).startsWith(SEED_CAT_PREFIX));
+  const hasRealItems      = allItems.some(i => !String(i.id).startsWith(SEED_ITEM_PREFIX));
+
+  // A) Remove seed categories if real categories exist
+  next.menu.categories = hasRealCategories
+    ? allCats.filter(c => !String(c.id).startsWith(SEED_CAT_PREFIX))
+    : allCats;
+
+  // B) Remove seed items if real items exist
+  next.menu.items = hasRealItems
+    ? allItems.filter(i => !String(i.id).startsWith(SEED_ITEM_PREFIX))
+    : allItems;
+
+  // Build lookup maps on the surviving (real) data
   const configuredStationNames = new Set(
     (next.menu.stations || []).map(s => (s.name || "").trim().toLowerCase())
   );
-
-  // Build name→id map for real categories (for healing stale categoryIds)
   const realCatIds = new Set((next.menu.categories || []).map(c => String(c.id)));
   const catNameToRealId = {};
   (next.menu.categories || []).forEach(c => {
     catNameToRealId[(c.name || "").trim().toLowerCase()] = c.id;
   });
 
+  // C & D) For each item: clear stale station name + heal stale demo categoryId
   next.menu.items = (next.menu.items || []).map((item) => {
     let healed = { ...item };
 
-    // A) Clear stale station names — routing comes from category→station mapping only
+    // C) Clear stale station name — routing is category→station only
     const st = (healed.station || "").trim();
     if (st && !configuredStationNames.has(st.toLowerCase())) {
       healed.station = "";
     }
 
-    // B) Heal stale demo categoryIds (e.g. "cat-starters" → real "Starters" category id)
-    //    If the item's categoryId doesn't exist in real categories, derive the category
-    //    name from the demo ID pattern ("cat-main-course" → "main course") and look up
-    //    the real category by name.
+    // D) Heal stale demo categoryId → real category id (by name)
+    //    "cat-main-course" → derive "main course" → find real category named "Main Course"
     const catId = String(healed.categoryId || "");
     if (catId && !realCatIds.has(catId)) {
-      // Derive name from demo id: "cat-main-course" → "main course"
       const derivedName = catId.replace(/^cat-/, "").replace(/-/g, " ").toLowerCase();
-      const realId = catNameToRealId[derivedName] || catNameToRealId[(healed.categoryName || "").trim().toLowerCase()];
-      if (realId) {
-        healed.categoryId = realId;
-      }
+      const realId = catNameToRealId[derivedName]
+                  || catNameToRealId[(healed.categoryName || "").trim().toLowerCase()];
+      if (realId) healed.categoryId = realId;
     }
 
     return healed;

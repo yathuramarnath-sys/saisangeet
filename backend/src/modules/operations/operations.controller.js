@@ -181,10 +181,20 @@ async function deviceSendKotHandler(req, res) {
     stationGroups = {};
     try {
       const { getOwnerSetupData } = require("../../data/owner-setup-store");
-      const setupData       = getOwnerSetupData();        // always fresh from cache
-      const kitchenStations = setupData.menu?.stations  || [];
-      const allCategories   = setupData.menu?.categories || [];
-      const menuItems       = setupData.menu?.items      || [];
+      const setupData = getOwnerSetupData();   // always fresh from cache
+
+      // ── Scope everything to the requesting outlet ────────────────────────────
+      // Owner Console is the origin of all data. Every outlet has its own
+      // kitchen stations, categories, and menu items. We filter by outletId so
+      // a station configured for one outlet never affects another outlet's KOTs.
+      const allStations   = setupData.menu?.stations   || [];
+      const allCategories = setupData.menu?.categories || [];
+      const menuItems     = setupData.menu?.items      || [];
+
+      // Kitchen stations: include stations assigned to this outlet OR "all" outlets
+      const kitchenStations = allStations.filter(s =>
+        !s.outletId || s.outletId === "all" || s.outletId === outletId
+      );
 
       // ── Pre-build lookup maps ────────────────────────────────────────────────
       // These are used in the routing logic below.
