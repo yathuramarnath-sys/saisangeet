@@ -14,6 +14,19 @@ const { hydrateClosedOrders }    = require("./modules/operations/closed-orders-s
 const { hydrateShifts }          = require("./modules/operations/shifts-store");
 const { scheduleBackup }             = require("./jobs/daily-backup");
 const { scheduleDailySalesReport }   = require("./jobs/daily-sales-report");
+const { getAllCachedTenants }         = require("./data/owner-setup-store");
+
+// Resolve which tenant owns an outletId by searching the in-memory cache.
+// Returns the tenantId string, or "default" if not found.
+function resolveTenantByOutlet(outletId) {
+  if (!outletId) return "default";
+  try {
+    for (const [tid, data] of getAllCachedTenants()) {
+      if ((data.outlets || []).some(o => o.id === outletId)) return tid;
+    }
+  } catch (_) {}
+  return "default";
+}
 
 const app    = createApp();
 const server = http.createServer(app);
@@ -48,74 +61,82 @@ app.locals.io = io;
 io.on("connection", (socket) => {
   const { outletId, kdsStation } = socket.handshake.query;
   const clientType = kdsStation !== undefined ? "KDS" : "POS/Captain";
-  console.log(`[socket] connect | id=${socket.id} | type=${clientType} | outletId=${outletId || "(none)"} | kdsStation="${kdsStation ?? "(n/a)"}"`);
+  // Resolve which tenant owns this outlet so socket rooms are tenant-isolated.
+  // Prevents one restaurant's devices from receiving events from another restaurant.
+  const tenantId = resolveTenantByOutlet(outletId);
+  console.log(`[socket] connect | id=${socket.id} | type=${clientType} | tenant=${tenantId} | outletId=${outletId || "(none)"} | kdsStation="${kdsStation ?? "(n/a)"}"`);
 
   if (outletId) {
-    socket.join(`outlet:${outletId}`);
+    socket.join(`outlet:${tenantId}:${outletId}`);
     // Ask other connected devices (POS) to broadcast current order state so
     // this new device (Captain App / KDS) gets accurate table occupancy immediately
-    socket.to(`outlet:${outletId}`).emit("request:order-sync");
+    socket.to(`outlet:${tenantId}:${outletId}`).emit("request:order-sync");
   }
   // KDS screens pass kdsStation in the handshake query.
   // Join the station-specific room immediately on connect so KOTs are routed
   // correctly from the very first emission — no race with a separate join event.
   if (outletId && kdsStation !== undefined) {
     const kdsRoom = kdsStation
-      ? `kds:${outletId}:${String(kdsStation).trim().toLowerCase()}`
-      : `kds:${outletId}:__all__`;
+      ? `kds:${tenantId}:${outletId}:${String(kdsStation).trim().toLowerCase()}`
+      : `kds:${tenantId}:${outletId}:__all__`;
     socket.join(kdsRoom);
     console.log(`[socket] KDS joined station room: ${kdsRoom}`);
   }
 
   socket.on("disconnect", () => {
-    console.log(`[socket] disconnect | id=${socket.id} | type=${clientType} | outletId=${outletId || "(none)"}`);
+    console.log(`[socket] disconnect | id=${socket.id} | type=${clientType} | tenant=${tenantId} | outletId=${outletId || "(none)"}`);
   });
   socket.on("join-outlet", (id) => {
-    socket.join(`outlet:${id}`);
-    socket.to(`outlet:${id}`).emit("request:order-sync");
+    const tid = resolveTenantByOutlet(id);
+    socket.join(`outlet:${tid}:${id}`);
+    socket.to(`outlet:${tid}:${id}`).emit("request:order-sync");
   });
 
   // ── KDS station room subscription ────────────────────────────────────────
   // A KDS screen calls this when it loads or when its assignedStation changes.
-  // stationName = "" → unassigned screen (show all) → joins kds:<outletId>:__all__
-  // stationName = "South Indian" → dedicated screen → joins kds:<outletId>:south indian
-  // The backend emits kot:new to the matching room, so each KDS only receives
-  // KOTs for its own station — no client-side filtering needed.
+  // stationName = "" → unassigned screen (show all) → joins kds:<tenantId>:<outletId>:__all__
+  // stationName = "South Indian" → dedicated screen → joins kds:<tenantId>:<outletId>:south indian
   socket.on("kds:join-station", ({ outletId: oid, stationName }) => {
     if (!oid) return;
+    const tid = resolveTenantByOutlet(oid);
     // Leave any existing KDS station rooms for this outlet
-    const prefix = `kds:${oid}:`;
+    const prefix = `kds:${tid}:${oid}:`;
     [...socket.rooms]
       .filter(r => r.startsWith(prefix))
       .forEach(r => socket.leave(r));
     // Join the correct room
     const room = stationName
-      ? `kds:${oid}:${String(stationName).trim().toLowerCase()}`
-      : `kds:${oid}:__all__`;
+      ? `kds:${tid}:${oid}:${String(stationName).trim().toLowerCase()}`
+      : `kds:${tid}:${oid}:__all__`;
     socket.join(room);
   });
 
   // ── Relay order updates between POS ↔ Captain App ────────────────────────
   // POS/Captain emit "order:update"; relay to all other devices in the same outlet
   socket.on("order:update", (data) => {
-    const room = data.outletId ? `outlet:${data.outletId}` : null;
-    if (room && data.order) {
-      socket.to(room).emit("order:updated", data.order);
+    if (data.outletId && data.order) {
+      const tid = resolveTenantByOutlet(data.outletId);
+      socket.to(`outlet:${tid}:${data.outletId}`).emit("order:updated", data.order);
     }
   });
 
   // ── Relay KOT status changes from KDS back to POS/Captain ────────────────
   socket.on("kot:status", (data) => {
     // data: { id, status, outletId? }
-    const room = data.outletId ? `outlet:${data.outletId}` : null;
-    if (room) socket.to(room).emit("kot:status", data);
-    else socket.broadcast.emit("kot:status", data); // fallback
+    if (data.outletId) {
+      const tid = resolveTenantByOutlet(data.outletId);
+      socket.to(`outlet:${tid}:${data.outletId}`).emit("kot:status", data);
+    }
+    // no broadcast fallback — without outletId we can't target safely
   });
 
   // Relay KOT bumped
   socket.on("kot:bumped", (data) => {
-    if (data.outletId) socket.to(`outlet:${data.outletId}`).emit("kot:bumped", data);
-    else socket.broadcast.emit("kot:bumped", data);
+    if (data.outletId) {
+      const tid = resolveTenantByOutlet(data.outletId);
+      socket.to(`outlet:${tid}:${data.outletId}`).emit("kot:bumped", data);
+    }
+    // no broadcast fallback — without outletId we can't target safely
   });
 });
 

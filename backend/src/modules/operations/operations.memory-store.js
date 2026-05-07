@@ -1,5 +1,6 @@
 const { ApiError } = require("../../utils/api-error");
 const { getOwnerSetupData } = require("../../data/owner-setup-store");
+const { getCurrentTenantId } = require("../../data/tenant-context");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -369,39 +370,62 @@ function buildInitialState() {
   };
 }
 
-let state = buildInitialState();
-getTableCatalog().forEach((table, index) => {
-  if (!state.orders[table.tableId]) {
-    state.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
+// ── Per-tenant state isolation ────────────────────────────────────────────────
+// Each tenant gets its own in-memory state object.  All request-scoped code runs
+// inside runWithTenant(), so getCurrentTenantId() always returns the right tenant.
+// Startup calls (no request context) fall back to "default".
+const _tenantStates = new Map();
+
+function _current() {
+  const tid = getCurrentTenantId();
+  if (!_tenantStates.has(tid)) {
+    const s = buildInitialState();
+    try {
+      getTableCatalog().forEach((table, index) => {
+        if (!s.orders[table.tableId]) {
+          s.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
+        }
+      });
+    } catch (_) { /* catalog may not be ready yet on first boot */ }
+    _tenantStates.set(tid, s);
   }
-});
+  return _tenantStates.get(tid);
+}
 
 function getState() {
-  return clone(state);
+  return clone(_current());
 }
 
 function resetState() {
-  state = buildInitialState();
-  getTableCatalog().forEach((table, index) => {
-    if (!state.orders[table.tableId]) {
-      state.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
-    }
-  });
-  return getState();
+  const tid = getCurrentTenantId();
+  const s = buildInitialState();
+  try {
+    getTableCatalog().forEach((table, index) => {
+      if (!s.orders[table.tableId]) {
+        s.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
+      }
+    });
+  } catch (_) {}
+  _tenantStates.set(tid, s);
+  return clone(s);
 }
 
 function hydrateState(nextState) {
-  state = clone(nextState);
-  getTableCatalog().forEach((table, index) => {
-    if (!state.orders[table.tableId]) {
-      state.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
-    }
-  });
-
-  return getState();
+  const tid = getCurrentTenantId();
+  const s = clone(nextState);
+  try {
+    getTableCatalog().forEach((table, index) => {
+      if (!s.orders[table.tableId]) {
+        s.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
+      }
+    });
+  } catch (_) {}
+  _tenantStates.set(tid, s);
+  return clone(s);
 }
 
 function findOrder(tableId) {
+  const state = _current();
   const order = state.orders[tableId];
 
   if (!order) {
@@ -420,6 +444,7 @@ function getOrder(tableId) {
 }
 
 function getSummary() {
+  const state = _current();
   const orders = Object.values(state.orders);
   const billRequested = orders.filter((order) => order.billRequested).length;
   const discountApprovalsPending = orders.filter((order) => order.discountOverrideRequested).length;
@@ -456,10 +481,11 @@ function getSummary() {
 }
 
 function getCashShifts() {
-  return clone(state.cashShifts);
+  return clone(_current().cashShifts);
 }
 
 function markCashMismatchUnderReview() {
+  const state = _current();
   state.cashShifts.shifts = state.cashShifts.shifts.map((shift) =>
     shift.id === "ramesh-hsr"
       ? {
@@ -483,6 +509,7 @@ function markCashMismatchUnderReview() {
 }
 
 function approveClosingState(actorName = "Owner", actorRole = "Owner") {
+  const state = _current();
   state.closingState = {
     approved: true,
     approvedAt: "11:32 PM",
@@ -498,6 +525,7 @@ function approveClosingState(actorName = "Owner", actorRole = "Owner") {
 }
 
 function reopenClosingState(actorName = "Owner", actorRole = "Owner") {
+  const state = _current();
   state.closingState = {
     approved: false,
     approvedAt: null,
@@ -513,10 +541,11 @@ function reopenClosingState(actorName = "Owner", actorRole = "Owner") {
 }
 
 function nextOrderNumber() {
-  return Math.max(...Object.values(state.orders).map((order) => order.orderNumber), 10030) + 1;
+  return Math.max(...Object.values(_current().orders).map((order) => order.orderNumber), 10030) + 1;
 }
 
 function createDemoOrder(actor = "System") {
+  const state = _current();
   const tableCatalog = getTableCatalog();
   const targetTable =
     tableCatalog.find((table) => {
@@ -557,6 +586,7 @@ function moveTable(sourceTableId, targetTableId, actor = "System") {
     throw new ApiError(409, "TABLE_MOVE_INVALID", "Source and target table cannot be the same");
   }
 
+  const state = _current();
   const sourceOrder = findOrder(sourceTableId);
   const targetMeta = getTableMeta(targetTableId);
 
@@ -664,6 +694,7 @@ function removeOrderItem(tableId, itemId, actor = "System") {
 // is unknown (not in the catalog). Used by the device-bypass GET /operations/order endpoint
 // so the POS never gets ORDER_NOT_FOUND on first open.
 function getOrCreateOrder(tableId) {
+  const state = _current();
   if (state.orders[tableId]) {
     return clone(state.orders[tableId]);
   }
@@ -837,7 +868,7 @@ function requestVoidApproval(tableId, reason, actor = "Cashier") {
   order.voidApprovedBy = "Pending OTP";
   order.notes = "Void above cashier limit needs manager/owner OTP approval";
   order.controlAlerts = [
-    `Void above Rs ${state.permissionPolicies["cashier-void-limit-amount"] || 200} requested`,
+    `Void above Rs ${_current().permissionPolicies["cashier-void-limit-amount"] || 200} requested`,
     ...(order.controlAlerts || []).filter((message) => !message.startsWith("Void above Rs "))
   ].slice(0, 4);
   appendAudit(order, buildAuditEntry("Void requested", actor, "Now"));
@@ -845,7 +876,7 @@ function requestVoidApproval(tableId, reason, actor = "Cashier") {
 }
 
 function getControlLogs() {
-  const orders = Object.values(state.orders);
+  const orders = Object.values(_current().orders);
 
   return {
     reprints: orders.flatMap((order) =>
@@ -898,7 +929,7 @@ function getControlLogs() {
 function clearOrderAfterSettle(tableId) {
   const meta = getTableMeta(tableId);
   if (!meta) return; // counter/online — not in catalog, nothing to reset
-  state.orders[tableId] = buildEmptyOrder(tableId, nextOrderNumber());
+  _current().orders[tableId] = buildEmptyOrder(tableId, nextOrderNumber());
 }
 
 function updateOrderStatus(tableId, pickupStatus, actor = "System") {

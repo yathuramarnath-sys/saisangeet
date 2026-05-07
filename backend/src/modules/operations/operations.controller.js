@@ -164,6 +164,22 @@ async function deviceSendKotHandler(req, res) {
   }
 
   const tenantId = req.user?.tenantId || "default";
+
+  // ── Validate that outletId belongs to the authenticated tenant ───────────────
+  // Prevents one tenant from sending KOTs to another tenant's outlet room.
+  try {
+    const { getOwnerSetupData } = require("../../data/owner-setup-store");
+    const setupData = getOwnerSetupData();
+    const tenantOutletIds = new Set((setupData.outlets || []).map(o => o.id));
+    if (!tenantOutletIds.has(outletId)) {
+      console.warn(`[KOT] SECURITY: outletId="${outletId}" not found in tenant="${tenantId}" — rejecting`);
+      return res.status(403).json({ error: "outletId does not belong to your account" });
+    }
+  } catch (err) {
+    // If owner-setup-store is unavailable, allow through (best-effort on file-based mode)
+    console.warn(`[KOT] outletId validation skipped: ${err.message}`);
+  }
+
   const { stationName: clientStation, areaName } = req.body;
 
   // ── Build station groups ────────────────────────────────────────────────────
@@ -358,7 +374,7 @@ async function deviceSendKotHandler(req, res) {
     // This is the same pattern FreshKDS uses (broadcast to all, each device filters).
     // Station-specific socket rooms are still joined for future use but not used here.
     if (io) {
-      const room = `outlet:${outletId}`;
+      const room = `outlet:${tenantId}:${outletId}`;
       const socketsInRoom = await io.in(room).fetchSockets();
       console.log(`[KOT] emit kot:new → room="${room}" | station="${station}" | sockets_in_room=${socketsInRoom.length}`);
       io.to(room).emit("kot:new", kot);
@@ -371,7 +387,7 @@ async function deviceSendKotHandler(req, res) {
 
   // Notify POS / Captain that KOT send is complete for this table
   if (io && tableId) {
-    io.to(`outlet:${outletId}`).emit("kot:sent", { tableId, kotId: kots[0]?.id });
+    io.to(`outlet:${tenantId}:${outletId}`).emit("kot:sent", { tableId, kotId: kots[0]?.id });
   }
 
   // Mark items sentToKot: true in the in-memory order so backend state matches POS.
@@ -424,7 +440,7 @@ async function deviceUpdateKotStatusHandler(req, res) {
   }
   const io = req.app.locals.io;
   if (io && outletId) {
-    io.to(`outlet:${outletId}`).emit("kot:status", { id: req.params.id, status });
+    io.to(`outlet:${tenantId}:${outletId}`).emit("kot:status", { id: req.params.id, status });
   }
   res.json(updated || { id: req.params.id, status });
 }
@@ -437,9 +453,10 @@ async function deviceUpdateKotStatusHandler(req, res) {
  */
 async function deviceBillRequestHandler(req, res) {
   const { outletId, tableId } = req.body;
+  const tenantId = req.user?.tenantId || "default";
   const io = req.app.locals.io;
   if (io && outletId) {
-    io.to(`outlet:${outletId}`).emit("bill:requested", { tableId, requestedAt: new Date().toISOString() });
+    io.to(`outlet:${tenantId}:${outletId}`).emit("bill:requested", { tableId, requestedAt: new Date().toISOString() });
   }
 
   let updatedOrder;
@@ -464,9 +481,10 @@ async function deviceBillRequestHandler(req, res) {
  */
 async function devicePaymentHandler(req, res) {
   const { outletId, tableId, method, amount, label, reference } = req.body;
+  const tenantId = req.user?.tenantId || "default";
   const io = req.app.locals.io;
   if (io && outletId) {
-    io.to(`outlet:${outletId}`).emit("order:paid", { tableId, method, amount, paidAt: new Date().toISOString() });
+    io.to(`outlet:${tenantId}:${outletId}`).emit("order:paid", { tableId, method, amount, paidAt: new Date().toISOString() });
   }
 
   let updatedOrder;
