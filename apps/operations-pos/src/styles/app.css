@@ -5310,17 +5310,14 @@ body { background: #F7F3EE; }
   border-color: #1A2332 !important;
 }
 
-/* ── 5. MENU FOOD CARDS — no image block, clean list rows ── */
-
-/* Switch from 2-col grid to single-col list */
-/* ── 3-column box grid (like table tiles) ── */
+/* ── 5. MENU FOOD CARDS — 2-column compact box grid (matches Captain app) ── */
 .menu-cards-grid {
-  grid-template-columns: repeat(3, 1fr) !important;
-  gap: 7px !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important;
   padding: 0 10px 12px !important;
 }
 
-/* Hide the emoji/colour image area entirely — not needed in box layout */
+/* Hide the emoji/colour image area — not needed in box layout */
 .mfc-icon-area { display: none !important; }
 
 /* Each card = a compact tile/box */
@@ -5331,8 +5328,8 @@ body { background: #F7F3EE; }
   border: 1px solid rgba(0,0,0,0.07) !important;
   border-left-width: 3px !important;
   box-shadow: 0 1px 5px rgba(0,0,0,0.05) !important;
-  padding: 10px 9px 9px 11px !important;
-  min-height: 76px !important;
+  padding: 12px 10px 10px 13px !important;
+  min-height: 86px !important;
   background: #FFFFFF !important;
   justify-content: space-between !important;
   gap: 6px !important;
@@ -5362,7 +5359,7 @@ body { background: #F7F3EE; }
 
 /* Item name — 2 lines max so long names don't overflow */
 .mfc-name {
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
   color: #1A2332 !important;
   -webkit-line-clamp: 2 !important;
