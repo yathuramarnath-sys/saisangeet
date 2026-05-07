@@ -623,6 +623,7 @@ export default function App() {
       tableNumber: order.tableNumber,
       areaName:    order.areaName,
       source:      "pos",
+      actorName:   cashierName || "POS",   // shown as operator name on KDS card
       items:       unsent,  // ALL unsent items — server handles station split
     };
     try {

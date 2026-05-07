@@ -336,8 +336,9 @@ async function deviceSendKotHandler(req, res) {
       tableNumber: tableNumber || "—",
       station,
       areaName:    areaName || tableNumber || "—",
-      source:      req.body.source || "pos",
-      status:      "new",
+      source:       req.body.source || "pos",
+      operatorName: req.body.actorName || "",   // cashier/captain name shown on KDS card
+      status:       "new",
       createdAt:   new Date().toISOString(),
       items:       stationItems.map((i, idx) => ({
         id:       i.id || `item-${idx}`,

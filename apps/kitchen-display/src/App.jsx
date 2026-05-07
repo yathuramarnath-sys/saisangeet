@@ -47,6 +47,7 @@ function saveStationAssignment(station) {
 // ─── Ticket persistence ───────────────────────────────────────────────────────
 
 const KDS_TICKETS_KEY = "kds_active_tickets";
+const KDS_SERVED_KEY  = "kds_served_tickets";   // recall history (last 30 bumped)
 
 function loadSavedTickets() {
   try { return JSON.parse(localStorage.getItem(KDS_TICKETS_KEY) || "null") || []; }
@@ -55,6 +56,15 @@ function loadSavedTickets() {
 
 function saveTickets(tickets) {
   try { localStorage.setItem(KDS_TICKETS_KEY, JSON.stringify(tickets)); } catch (_) {}
+}
+
+function loadServedTickets() {
+  try { return JSON.parse(localStorage.getItem(KDS_SERVED_KEY) || "null") || []; }
+  catch { return []; }
+}
+
+function saveServedTickets(tickets) {
+  try { localStorage.setItem(KDS_SERVED_KEY, JSON.stringify(tickets)); } catch (_) {}
 }
 
 // ─── Settings helpers ─────────────────────────────────────────────────────────
@@ -724,7 +734,7 @@ function KotCard({ ticket, settings, onAdvance, onBump, onToggleItem, flash }) {
             <span className="kot-number">#{ticket.kotNumber || ticket.id?.slice(-4)}</span>
             {settings.showSource && (
               <span className="kot-src-badge" style={{ color: src.color, background: src.bg }}>
-                {src.label}
+                {ticket.operatorName || src.label}
               </span>
             )}
           </div>
@@ -806,16 +816,18 @@ function KdsColumn({ label, colorKey, emptyMsg, tickets, settings, onAdvance, on
 // ─── App root ─────────────────────────────────────────────────────────────────
 
 export function App() {
-  const [branchConfig,  setBranchConfig]  = useState(() => loadKdsBranchConfig());
-  const [settings,     setSettings]     = useState(loadSettings);
-  const [tickets,      setTickets]      = useState(() => loadSavedTickets());
-  const [outlet,       setOutlet]       = useState(null);
-  const [menuData,     setMenuData]     = useState({ categories: [], items: [] });
-  const [stationTab,   setStationTab]   = useState("");
-  const [servedCount,  setServedCount]  = useState(0);
-  const [showSettings, setShowSettings] = useState(false);
-  const [newIds,       setNewIds]       = useState(new Set());
-  const [connState,    setConnState]    = useState("connecting"); // connecting | live | offline
+  const [branchConfig,   setBranchConfig]   = useState(() => loadKdsBranchConfig());
+  const [settings,      setSettings]      = useState(loadSettings);
+  const [tickets,       setTickets]       = useState(() => loadSavedTickets());
+  const [servedTickets, setServedTickets] = useState(() => loadServedTickets()); // recall history
+  const [outlet,        setOutlet]        = useState(null);
+  const [menuData,      setMenuData]      = useState({ categories: [], items: [] });
+  const [stationTab,    setStationTab]    = useState("");
+  const [servedCount,   setServedCount]   = useState(0);
+  const [showSettings,  setShowSettings]  = useState(false);
+  const [showRecall,    setShowRecall]    = useState(false);   // recall panel
+  const [newIds,        setNewIds]        = useState(new Set());
+  const [connState,     setConnState]     = useState("connecting"); // connecting | live | offline
   const socketRef  = useRef(null);
   const audioReady = useRef(false);
   // Always-current ref so socket handlers (which close over stale state) can
@@ -1100,6 +1112,15 @@ export function App() {
   }
 
   function handleBump(id) {
+    // Save to recall history BEFORE removing from active tickets
+    const bumpedTicket = tickets.find(t => t.id === id);
+    if (bumpedTicket) {
+      setServedTickets(prev => {
+        const updated = [{ ...bumpedTicket, bumpedAt: new Date().toISOString() }, ...prev].slice(0, 30);
+        saveServedTickets(updated);
+        return updated;
+      });
+    }
     // Remove locally immediately — UI is instant.
     setTickets(prev => prev.filter(t => t.id !== id));
     setServedCount(n => n + 1);
@@ -1124,6 +1145,22 @@ export function App() {
       const done = t.doneItems || [];
       return { ...t, doneItems: done.includes(itemId) ? done.filter(x => x !== itemId) : [...done, itemId] };
     }));
+  }
+
+  function handleRecall(ticket) {
+    // Remove from served history
+    setServedTickets(prev => {
+      const updated = prev.filter(t => t.id !== ticket.id);
+      saveServedTickets(updated);
+      return updated;
+    });
+    // Put back as "preparing" (local display only — does not re-open backend KOT)
+    setTickets(prev => {
+      if (prev.find(t => t.id === ticket.id)) return prev; // already active
+      return [{ ...ticket, status: "preparing", doneItems: [], recalled: true }, ...prev];
+    });
+    setServedCount(n => Math.max(0, n - 1));
+    setShowRecall(false);
   }
 
   // Build station tabs from live tickets + settings
@@ -1233,8 +1270,15 @@ export function App() {
         </div>
 
         <div className="kds-header-right">
-          {servedCount > 0 && (
-            <div className="kds-served-pill">{servedCount} bumped</div>
+          {servedTickets.length > 0 && (
+            <button
+              className="kds-served-pill"
+              style={{ cursor: "pointer", background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.4)", color: "#10b981" }}
+              onClick={e => { e.stopPropagation(); setShowRecall(true); }}
+              title="Recall a completed ticket"
+            >
+              ↩ Recall ({servedTickets.length})
+            </button>
           )}
           <div className={`kds-live kds-live-${connState}`}>
             <span className="kds-live-dot" />
@@ -1260,6 +1304,122 @@ export function App() {
         <KdsColumn label="New Orders" colorKey="new"      emptyMsg="Waiting for orders…"       tickets={newT}  {...colProps} />
         <KdsColumn label="Preparing"  colorKey="preparing" emptyMsg="Nothing cooking right now" tickets={prepT} {...colProps} />
       </div>
+
+      {/* ── Recall Panel ────────────────────────────────────────── */}
+      {showRecall && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+            zIndex: 200, display: "flex", alignItems: "flex-start", justifyContent: "flex-end",
+            padding: 24, boxSizing: "border-box",
+          }}
+          onClick={() => setShowRecall(false)}
+        >
+          <div
+            style={{
+              background: "#111827", border: "1px solid #1f2937", borderRadius: 16,
+              width: "100%", maxWidth: 420, maxHeight: "80vh",
+              display: "flex", flexDirection: "column",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.7)", fontFamily: "'Manrope', sans-serif",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Panel header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid #1f2937" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#f9fafb" }}>↩ Recall</h3>
+                <p style={{ margin: 0, fontSize: 12, color: "#6b7280", marginTop: 2 }}>Recently completed tickets · tap to bring back</p>
+              </div>
+              <button
+                style={{ background: "none", border: "none", color: "#6b7280", fontSize: 18, cursor: "pointer", padding: 4 }}
+                onClick={() => setShowRecall(false)}
+              >✕</button>
+            </div>
+
+            {/* Ticket list */}
+            <div style={{ overflowY: "auto", flex: 1, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {servedTickets.length === 0 && (
+                <div style={{ color: "#6b7280", fontSize: 13, textAlign: "center", padding: "32px 0" }}>
+                  No recently bumped tickets
+                </div>
+              )}
+              {servedTickets.map(t => {
+                const src = SOURCE[t.source] || SOURCE.pos;
+                const bumpedMins = t.bumpedAt
+                  ? Math.round((Date.now() - new Date(t.bumpedAt).getTime()) / 60000)
+                  : null;
+                return (
+                  <div key={t.id} style={{
+                    background: "#1f2937", borderRadius: 10, padding: "12px 14px",
+                    border: "1px solid #374151",
+                  }}>
+                    {/* Row 1: KOT# + source badge + table + time */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontWeight: 800, fontSize: 14, color: "#f9fafb" }}>#{t.kotNumber || t.id?.slice(-4)}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: src.color, background: src.bg, padding: "2px 7px", borderRadius: 4 }}>
+                          {t.operatorName || src.label}
+                        </span>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <span style={{ fontSize: 12, color: "#9ca3af" }}>T{t.tableNumber}</span>
+                        {bumpedMins !== null && (
+                          <span style={{ fontSize: 11, color: "#6b7280", marginLeft: 8 }}>
+                            {bumpedMins < 1 ? "just now" : `${bumpedMins}m ago`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Items */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 10 }}>
+                      {(t.items || []).map((item, i) => (
+                        <div key={item.id || i} style={{ fontSize: 13, color: "#d1d5db", display: "flex", gap: 6 }}>
+                          <span style={{ color: "#9ca3af", minWidth: 20 }}>{item.quantity}×</span>
+                          <span>{item.name}</span>
+                          {item.note && <span style={{ color: "#f59e0b", fontSize: 11 }}>⚠ {item.note}</span>}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Recall button */}
+                    <button
+                      style={{
+                        width: "100%", padding: "8px 0", borderRadius: 8,
+                        background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.4)",
+                        color: "#10b981", fontWeight: 700, fontSize: 13,
+                        cursor: "pointer", fontFamily: "'Manrope', sans-serif",
+                      }}
+                      onClick={() => handleRecall(t)}
+                    >
+                      ↩ Recall to Preparing
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Clear all */}
+            {servedTickets.length > 0 && (
+              <div style={{ padding: "12px 16px", borderTop: "1px solid #1f2937" }}>
+                <button
+                  style={{
+                    width: "100%", padding: "9px 0", borderRadius: 8,
+                    background: "none", border: "1px solid #374151",
+                    color: "#6b7280", fontWeight: 600, fontSize: 13,
+                    cursor: "pointer", fontFamily: "'Manrope', sans-serif",
+                  }}
+                  onClick={() => {
+                    setServedTickets([]);
+                    saveServedTickets([]);
+                    setShowRecall(false);
+                  }}
+                >
+                  Clear history
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Settings Panel ──────────────────────────────────────── */}
       {showSettings && (
