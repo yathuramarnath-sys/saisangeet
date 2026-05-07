@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { tapImpact } from "../lib/haptics";
 
 function parsePriceNumber(v) {
@@ -9,6 +9,19 @@ function parsePriceNumber(v) {
 export function MenuBrowser({ order, categories, menuItems, stockState = {}, onUpdateOrder, onBack }) {
   const [activeCat, setActiveCat] = useState(categories[0]?.id || categories[0]?.name || "");
   const [search,    setSearch]    = useState("");
+
+  // When real categories load from API (seed → real transition), reset activeCat to the
+  // first real category so a chip is always properly highlighted.
+  useEffect(() => {
+    if (!categories.length) return;
+    const isValid = categories.some(c =>
+      String(c.id  || "").toLowerCase() === activeCat.toLowerCase() ||
+      String(c.name|| "").toLowerCase() === activeCat.toLowerCase()
+    );
+    if (!isValid) {
+      setActiveCat(categories[0]?.id || categories[0]?.name || "");
+    }
+  }, [categories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build robust category lookup maps so items match by BOTH id and name.
   // Handles seed categoryId ("cat-soups") vs real ID ("cat-17769…") mismatches.
