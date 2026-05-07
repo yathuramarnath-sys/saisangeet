@@ -1767,11 +1767,107 @@ html, body, #root { background: #F7F3EE; }
 .add-items-btn { background: #1A2332 !important; }
 .order-actions { background: #F7F3EE !important; }
 
-/* ── 10. Menu items list (already list style, just freshen) ── */
-.menu-page { background: #FFFFFF !important; }
-.menu-item { border-bottom-color: rgba(0,0,0,0.05) !important; }
-.menu-add-btn { background: #1A2332 !important; }
+/* ── 10. Menu items — 2-column box grid (faster browsing for captain) ── */
+.menu-page { background: #F5F5F3 !important; }
+
+/* Grid container */
+.menu-items {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important;
+  padding: 8px 12px 100px !important;
+  align-content: start !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+}
+
+/* Each item = a compact box/tile */
+.menu-item {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  padding: 11px 11px 10px !important;
+  border: 1px solid rgba(0,0,0,0.07) !important;
+  border-left-width: 3px !important;
+  border-bottom: 1px solid rgba(0,0,0,0.07) !important;
+  border-left-color: #CBD5E1 !important;   /* default: grey */
+  border-radius: 14px !important;
+  background: #FFFFFF !important;
+  min-height: 84px !important;
+  gap: 6px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+  transition: box-shadow 0.12s, transform 0.1s !important;
+}
+.menu-item:active { transform: scale(0.97) !important; }
+
+/* Veg/Non-veg left border */
+.menu-item.item-veg    { border-left-color: #22C55E !important; }
+.menu-item.item-nonveg { border-left-color: #EF4444 !important; }
+.menu-item.menu-item-soldout { opacity: 0.5 !important; border-left-color: #CBD5E1 !important; }
+
+/* Top section: veg dot + item name */
+.menu-item-left {
+  align-items: flex-start !important;
+  gap: 7px !important;
+  flex: 1 !important;
+}
+.veg-dot {
+  margin-top: 3px !important;
+  flex-shrink: 0 !important;
+}
+.menu-item-info { gap: 2px !important; }
+.menu-item-name {
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  color: #1A2332 !important;
+  line-height: 1.35 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-align: left !important;
+}
+
+/* Bottom section: price + add/qty */
+.menu-item-right {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+  width: 100% !important;
+}
+.menu-item-price {
+  font-size: 0.88rem !important;
+  font-weight: 900 !important;
+  color: #1A2332 !important;
+  min-width: 0 !important;
+  text-align: left !important;
+}
+
+/* + add button: compact circle */
+.menu-add-btn {
+  width: 34px !important;
+  height: 34px !important;
+  background: #1A2332 !important;
+  border-radius: 10px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Qty controls: compact for box layout */
+.menu-qty-ctrl { gap: 4px !important; }
+.qty-btn {
+  width: 30px !important;
+  height: 30px !important;
+  font-size: 1rem !important;
+}
 .qty-btn.qty-btn-add { background: #1A2332 !important; border-color: #1A2332 !important; }
+.qty-num { font-size: 0.88rem !important; min-width: 18px !important; }
+
+/* Empty state spans full grid */
+.menu-empty { grid-column: 1 / -1 !important; }
+
+/* Cart bar */
 .cart-bar-btn { background: #1A2332 !important; }
 
 /* ── 11. Quick-notes / modals ── */

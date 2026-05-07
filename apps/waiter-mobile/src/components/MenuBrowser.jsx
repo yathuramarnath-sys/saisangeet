@@ -10,11 +10,28 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
   const [activeCat, setActiveCat] = useState(categories[0]?.id || categories[0]?.name || "");
   const [search,    setSearch]    = useState("");
 
+  // Build robust category lookup maps so items match by BOTH id and name.
+  // Handles seed categoryId ("cat-soups") vs real ID ("cat-17769…") mismatches.
+  const catIdToName = {};
+  const catNameToId = {};
+  categories.forEach(c => {
+    if (c.id) catIdToName[String(c.id).toLowerCase()] = (c.name || "").toLowerCase();
+    catNameToId[(c.name || "").toLowerCase()] = String(c.id || c.name).toLowerCase();
+  });
+  const activeLower    = activeCat.toLowerCase();
+  const activeCatName  = catIdToName[activeLower] || activeLower; // resolved name of active cat
+
   const displayItems = search.trim()
     ? menuItems.filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
     : menuItems.filter(i => {
-        const cat = i.categoryId || i.category || i.categoryName || "";
-        return (cat === activeCat || cat.toLowerCase() === activeCat.toLowerCase()) && i.isActive !== false;
+        const itemCatId   = (i.categoryId  || "").toLowerCase();
+        const itemCatName = (i.category || i.categoryName || "").toLowerCase();
+        return (
+          itemCatId   === activeLower   ||   // ID exact match
+          itemCatName === activeLower   ||   // name matches the activeCat value
+          itemCatName === activeCatName ||   // name matches resolved active cat name
+          itemCatId   === (catNameToId[activeLower] || "")  // ID matches when activeCat is a name
+        ) && i.isActive !== false;
       });
 
   function addItem(item) {
@@ -117,7 +134,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
           const cartQty  = cartItem ? cartItem.quantity : 0;
 
           return (
-            <div key={item.id} className={`menu-item${soldOut ? " menu-item-soldout" : ""}`}>
+            <div key={item.id} className={`menu-item${soldOut ? " menu-item-soldout" : ""}${item.isVeg === false ? " item-nonveg" : item.isVeg === true ? " item-veg" : ""}`}>
               <div className="menu-item-left">
                 {item.isVeg !== undefined && (
                   <span className={`veg-dot${item.isVeg ? " veg" : " nonveg"}`} />
