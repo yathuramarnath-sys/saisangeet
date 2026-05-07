@@ -832,12 +832,27 @@ function normalizeOwnerSetupData(data) {
   next.menu = next.menu || { categories: [], items: [] };
   next.menu.config          = next.menu.config          || createDefaultMenuConfig(next.taxProfiles || []);
   next.menu.pricingProfiles = next.menu.pricingProfiles || createDefaultPricingProfiles();
-  next.menu.stations = (next.menu.stations || []).map((station) => ({
-    id:         station.id || `station-${String(station.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-    name:       station.name,
-    outletId:   station.outletId   || "all",
-    categories: station.categories || [],
-  }));
+  next.menu.stations = (next.menu.stations || []).map((station) => {
+    // Heal seed outlet IDs (e.g. "outlet-indiranagar", "outlet-koramangala") → "all".
+    // Seed outlet IDs have letters after "outlet-"; real outlet IDs have digits
+    // (e.g. "outlet-17769407770843").  Storing seed IDs on stations causes them to
+    // be excluded when the active outlet has a real timestamp-based ID.
+    const rawOutletId      = station.outletId || "all";
+    const isSeedOutletId   =
+      rawOutletId !== "all" &&
+      rawOutletId.startsWith("outlet-") &&
+      /^[a-z]/.test(rawOutletId.slice("outlet-".length));
+    const healedOutletId   = isSeedOutletId ? "all" : rawOutletId;
+    if (isSeedOutletId) {
+      console.log(`[store] healed station outletId: "${station.name}" ${rawOutletId} → all`);
+    }
+    return {
+      id:         station.id || `station-${String(station.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      name:       station.name,
+      outletId:   healedOutletId,
+      categories: station.categories || [],
+    };
+  });
 
   // ── Self-healing data migration (runs every startup) ────────────────────────
   //
