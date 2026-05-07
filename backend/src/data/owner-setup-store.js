@@ -865,52 +865,51 @@ function normalizeOwnerSetupData(data) {
   const allCats  = next.menu.categories || [];
   const allItems = next.menu.items      || [];
 
-  // Detect whether real (non-seed) categories exist
-  const hasRealCategories = allCats.some(c => !isSeedId(c.id, "cat-"));
+  // SAFE RULE: Never remove any categories — removing them breaks catIdToName lookups
+  // in the KOT controller for items that still reference the old ID.
+  // Instead, only HEAL item categoryIds to point to the best matching real category.
 
-  // A) Remove seed categories when real ones exist — avoids duplicate name confusion
-  next.menu.categories = hasRealCategories
-    ? allCats.filter(c => !isSeedId(c.id, "cat-"))
-    : allCats;
-
-  // NOTE: Never remove seed ITEMS — the Captain/POS may still be using them.
-  //       Instead, heal their categoryIds below (B).
-
-  // Build lookup maps from the surviving categories
+  // Build lookup maps from ALL categories (seed + real)
   const configuredStationNames = new Set(
     (next.menu.stations || []).map(s => (s.name || "").trim().toLowerCase())
   );
-  // category name (lowercase) → its real ID  (used to heal seed-slug categoryIds)
+  // category name (lowercase) → most recent real (non-seed) ID for that name
+  // Real IDs win over seed IDs so healed items use real UUIDs
   const catNameToRealId = {};
-  (next.menu.categories || []).forEach(c => {
+  // First pass: seed categories (lowest priority)
+  allCats.filter(c =>  isSeedId(c.id, "cat-")).forEach(c => {
     catNameToRealId[(c.name || "").trim().toLowerCase()] = c.id;
   });
-  // All valid category IDs after cleanup
-  const validCatIds = new Set((next.menu.categories || []).map(c => String(c.id)));
+  // Second pass: real categories (overwrite seeds — higher priority)
+  allCats.filter(c => !isSeedId(c.id, "cat-")).forEach(c => {
+    catNameToRealId[(c.name || "").trim().toLowerCase()] = c.id;
+  });
+  const hasRealCategories = allCats.some(c => !isSeedId(c.id, "cat-"));
+  // All category IDs (seed + real) — used to detect truly unknown IDs
+  const allCatIds = new Set(allCats.map(c => String(c.id)));
 
-  // B & C) For each item: heal seed categoryId + clear stale station name
+  // Heal item categoryIds + clear stale station names
   next.menu.items = allItems.map((item) => {
     let healed = { ...item };
 
-    // C) Clear stale station name — all routing goes via category→station mapping
+    // Clear stale station name — routing is category→station only
     const st = (healed.station || "").trim();
     if (st && !configuredStationNames.has(st.toLowerCase())) {
       healed.station = "";
     }
 
-    // B) Heal seed-slug categoryId → real category ID (matched by derived name)
-    //    e.g. "cat-main-course" → derive "main course" → look up real "Main Course" ID
-    //    Only heals if the current categoryId is a seed slug OR unknown (not in validCatIds).
+    // Heal seed-slug categoryId → real category ID when real categories exist.
+    // e.g. "cat-main-course" → derive "main course" → find real "Main Course" UUID.
+    // This makes Step-2 routing (catIdToStation) work for seed items.
     const catId = String(healed.categoryId || "");
-    const needsHeal = catId && (isSeedId(catId, "cat-") || !validCatIds.has(catId));
+    const needsHeal = catId && hasRealCategories && isSeedId(catId, "cat-");
     if (needsHeal) {
-      // Derive candidate name from the slug (e.g. "cat-main-course" → "main course")
       const derivedName = catId.replace(/^cat-/, "").replace(/-/g, " ").toLowerCase();
       const realId =
         catNameToRealId[derivedName] ||
         catNameToRealId[(healed.categoryName || "").trim().toLowerCase()] ||
         catNameToRealId[(healed.category     || "").trim().toLowerCase()];
-      if (realId) {
+      if (realId && !isSeedId(realId, "cat-")) {
         console.log(`[store] healed categoryId: item="${healed.name}" ${catId} → ${realId}`);
         healed.categoryId = realId;
       }
