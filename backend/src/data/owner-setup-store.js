@@ -839,28 +839,51 @@ function normalizeOwnerSetupData(data) {
     categories: station.categories || [],
   }));
 
-  // ── Data migration: strip legacy demo station names from menu items ──────────
-  // Old demo data had items with station: "Grill Station", "Fry Station",
-  // "Beverages", "Main kitchen" etc. These don't match the user's real kitchen
-  // stations and caused KOT routing failures. We clear the station field so the
-  // backend always uses the Owner Console Kitchen Station → Category mapping
-  // (which is the single source of truth for routing).
-  // This runs on every normalise call so Railway's Postgres data is self-healing.
-  const LEGACY_STATION_NAMES = new Set([
-    "grill station", "fry station", "beverages", "main kitchen",
-    "bar", "tandoor", "hot kitchen", "cold kitchen", "station pending"
-  ]);
+  // ── Self-healing data migration (runs every startup) ────────────────────────
+  // Fixes two classes of stale data that break KOT routing:
+  //
+  // A) Stale station names on menu items (e.g. "Grill Station", "Fry Station")
+  //    → clear them so routing always uses the Category → Station mapping below
+  //
+  // B) Stale demo categoryIds on menu items (e.g. "cat-starters", "cat-main-course")
+  //    → heal by finding the real category by name, replacing with the real ID
+  //    This happens when seed items were created before the user set up real categories
+
   const configuredStationNames = new Set(
     (next.menu.stations || []).map(s => (s.name || "").trim().toLowerCase())
   );
+
+  // Build name→id map for real categories (for healing stale categoryIds)
+  const realCatIds = new Set((next.menu.categories || []).map(c => String(c.id)));
+  const catNameToRealId = {};
+  (next.menu.categories || []).forEach(c => {
+    catNameToRealId[(c.name || "").trim().toLowerCase()] = c.id;
+  });
+
   next.menu.items = (next.menu.items || []).map((item) => {
-    const st = (item.station || "").trim();
-    const stLower = st.toLowerCase();
-    // Clear if: it's a known legacy name OR it doesn't match any configured station
-    if (st && (LEGACY_STATION_NAMES.has(stLower) || !configuredStationNames.has(stLower))) {
-      return { ...item, station: "" };
+    let healed = { ...item };
+
+    // A) Clear stale station names — routing comes from category→station mapping only
+    const st = (healed.station || "").trim();
+    if (st && !configuredStationNames.has(st.toLowerCase())) {
+      healed.station = "";
     }
-    return item;
+
+    // B) Heal stale demo categoryIds (e.g. "cat-starters" → real "Starters" category id)
+    //    If the item's categoryId doesn't exist in real categories, derive the category
+    //    name from the demo ID pattern ("cat-main-course" → "main course") and look up
+    //    the real category by name.
+    const catId = String(healed.categoryId || "");
+    if (catId && !realCatIds.has(catId)) {
+      // Derive name from demo id: "cat-main-course" → "main course"
+      const derivedName = catId.replace(/^cat-/, "").replace(/-/g, " ").toLowerCase();
+      const realId = catNameToRealId[derivedName] || catNameToRealId[(healed.categoryName || "").trim().toLowerCase()];
+      if (realId) {
+        healed.categoryId = realId;
+      }
+    }
+
+    return healed;
   });
 
   next.menu.categories = (next.menu.categories || []).map((category) => ({
