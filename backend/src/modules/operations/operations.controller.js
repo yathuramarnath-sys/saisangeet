@@ -187,10 +187,11 @@ async function deviceSendKotHandler(req, res) {
       const allCategories = setupData.menu?.categories || [];
       const menuItems     = setupData.menu?.items      || [];
 
-      // Stations scoped to this outlet (or "all" outlets)
-      const kitchenStations = allStations.filter(s =>
-        !s.outletId || s.outletId === "all" || s.outletId === outletId
-      );
+      // Use ALL configured kitchen stations — station routing is restaurant-wide.
+      // Outlet-scoped filtering was causing stations saved with an old outletId
+      // (e.g. "outlet-indiranagar" from seed data) to be silently excluded when
+      // the real outlet has a timestamp-based ID like "outlet-17769...".
+      const kitchenStations = allStations;
 
       // ── Pre-build lookup maps ────────────────────────────────────────────────
       const knownStationNames = new Set(
