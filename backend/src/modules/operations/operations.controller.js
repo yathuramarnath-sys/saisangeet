@@ -167,120 +167,153 @@ async function deviceSendKotHandler(req, res) {
   const { stationName: clientStation, areaName } = req.body;
 
   // ── Build station groups ────────────────────────────────────────────────────
-  // When the client already grouped by station and sent stationName → one group.
-  // When no stationName (client routing failed or mixed-station send) → split here
-  // by matching each item's categoryId against the kitchen-station config from Owner.
-  // This guarantees each KDS screen only receives its own station's items regardless
-  // of whether the client-side grouping worked.
+  // Items are routed to kitchen stations by the backend — client hints are
+  // accepted as a fast-path but the server re-validates every station name
+  // against the Owner Console config.  Four routing steps (see below).
   let stationGroups; // { [stationName]: item[] }
 
   if (clientStation) {
-    // Client already grouped these items for this station — trust it
+    // Client already grouped these items for a specific station — trust it
+    // (POS/Captain may pre-resolve station when the menu item has a stationName)
     stationGroups = { [clientStation]: items };
   } else {
     stationGroups = {};
     try {
       const { getOwnerSetupData } = require("../../data/owner-setup-store");
-      const setupData = getOwnerSetupData();   // always fresh from cache
+      const setupData = getOwnerSetupData();   // always fresh from in-memory cache
 
-      // ── Scope everything to the requesting outlet ────────────────────────────
-      // Owner Console is the origin of all data. Every outlet has its own
-      // kitchen stations, categories, and menu items. We filter by outletId so
-      // a station configured for one outlet never affects another outlet's KOTs.
+      // ── Scope to the requesting outlet ──────────────────────────────────────
       const allStations   = setupData.menu?.stations   || [];
       const allCategories = setupData.menu?.categories || [];
       const menuItems     = setupData.menu?.items      || [];
 
-      // Kitchen stations: include stations assigned to this outlet OR "all" outlets
+      // Stations scoped to this outlet (or "all" outlets)
       const kitchenStations = allStations.filter(s =>
         !s.outletId || s.outletId === "all" || s.outletId === outletId
       );
 
       // ── Pre-build lookup maps ────────────────────────────────────────────────
-      // These are used in the routing logic below.
       const knownStationNames = new Set(
         kitchenStations.map(s => (s.name || "").trim().toLowerCase())
       );
-      // categoryId  → lower-case category name
+      // categoryId → lowercase category name
       const catIdToName = {};
       allCategories.forEach(c => {
         catIdToName[String(c.id)] = (c.name || "").trim().toLowerCase();
       });
-      // lower-case category name → station name  (built once, used for every item)
+      // lowercase category name → station name
+      // Primary source: station.categories array → resolve to name → station
       const catNameToStation = {};
       kitchenStations.forEach(s => {
+        // Also map the station NAME itself so items whose categoryName matches
+        // a station name are routed directly (e.g., "North Indian" category → "North Indian" station)
+        const stLower = (s.name || "").trim().toLowerCase();
+        if (stLower) catNameToStation[stLower] = s.name;
+
         (s.categories || []).forEach(cid => {
           const name = catIdToName[String(cid)];
-          if (name) catNameToStation[name] = s.name;
+          if (name) catNameToStation[name] = s.name; // category name wins over station name
         });
       });
-      // categoryId → station name
+      // categoryId → station name (direct, no name resolution needed)
       const catIdToStation = {};
       kitchenStations.forEach(s => {
         (s.categories || []).forEach(cid => {
           catIdToStation[String(cid)] = s.name;
         });
       });
-      // menuItemId → menu item record  (authoritative source)
+      // menuItemId → menu item record (authoritative server-side lookup)
       const menuItemMap = {};
       menuItems.forEach(mi => { menuItemMap[String(mi.id)] = mi; });
 
+      // ── Diagnostic: log maps once per request ──────────────────────────────
+      console.log(`[KOT][maps] stations=${kitchenStations.map(s=>s.name).join(",")} | catIdToStation=${JSON.stringify(catIdToStation)} | catNameToStation=${JSON.stringify(catNameToStation)} | menuItemIds=${Object.keys(menuItemMap).join(",")}`);
+
       // ── Route each item to a kitchen station ─────────────────────────────────
       //
-      // Resolution order (stop at first match):
+      // Resolution steps (first match wins):
       //
-      //  1. Client stationName — only accepted if it matches a real configured station.
-      //     This is an optimisation / operator override; not relied upon for correctness.
+      //  1. Client stationName — fast path; only accepted when it matches a real
+      //     configured station. Avoids accepting stale/old station names.
       //
-      //  2. Server menu item record → categoryId → station  (AUTHORITATIVE)
-      //     The backend looks up the item in its own menu store. The data was already
-      //     healed by normalizeOwnerSetupData (stale demo IDs replaced with real IDs).
-      //     This is the primary routing path and works identically for POS and Captain.
+      //  2. Server menu-item record → categoryId → catIdToStation map.
+      //     The authoritative path: the backend owns the menu, not the client.
       //
-      //  3. Category name match — final safety net.
-      //     Uses the category name (from menu record, or sent by client) to find
-      //     which station owns that category. Handles any remaining ID mismatches.
+      //  3. Category name lookup via catNameToStation map.
+      //     Handles categoryId mismatches (seed "cat-starters" vs real UUID).
+      //     Also routes items whose categoryName matches a station NAME directly.
       //
-      //  Fallback: "Main Kitchen"  (unassigned items visible on an unfiltered KDS)
+      //  4. Direct station scan — last resort.
+      //     Iterates every station and matches the item's category name against
+      //     the station's category names. Catches stale IDs in station config
+      //     (category deleted & re-created → station still has old ID →
+      //     catIdToName returns undefined → catNameToStation entry missing).
+      //
+      //  Fallback: "Main Kitchen" (unassigned; visible on an unfiltered KDS)
 
       for (const item of items) {
-        let station = "";
+        let station  = "";
+        let routeStep = "unresolved";
 
-        // ── 1. Client override (fast path) ──────────────────────────────────
+        // ── 1. Client stationName (fast path, validated) ─────────────────
         const clientSt = (item.station || item.stationName || "").trim();
         if (clientSt && knownStationNames.has(clientSt.toLowerCase())) {
-          station = clientSt;
+          station   = clientSt;
+          routeStep = "step1-clientStation";
         }
 
         if (!station) {
-          // ── 2. Authoritative: look up item in server menu → real categoryId ──
+          // ── 2. Server menu record → categoryId ──────────────────────────
           const record    = menuItemMap[String(item.id)] || menuItemMap[String(item.menuItemId)];
           const realCatId = String(record?.categoryId || item.categoryId || "");
 
-          if (realCatId) {
-            station = catIdToStation[realCatId] || "";
+          if (realCatId && catIdToStation[realCatId]) {
+            station   = catIdToStation[realCatId];
+            routeStep = "step2-categoryId";
           }
 
-          // ── 3. Category name fallback ──────────────────────────────────────
+          // ── 3. Category name via catNameToStation map ────────────────────
           if (!station) {
             const catName = (
-              catIdToName[realCatId] ||       // resolve from real categories
-              record?.categoryName   ||       // stored on menu item record
-              item.categoryName      ||       // sent by Captain / POS
+              catIdToName[realCatId] ||   // ID → name from allCategories
+              record?.categoryName   ||   // name stored on menu item record
+              item.categoryName      ||   // sent by Captain / POS MenuBrowser
               item.category          || ""
             ).trim().toLowerCase();
 
-            if (catName) station = catNameToStation[catName] || "";
+            if (catName && catNameToStation[catName]) {
+              station   = catNameToStation[catName];
+              routeStep = "step3-catName";
+            }
+
+            // ── 4. Direct station scan (handles stale station category IDs) ──
+            // Loops every station, resolves its category IDs to names, compares.
+            // Also matches when the item's category name equals a station name.
+            if (!station && catName) {
+              for (const s of kitchenStations) {
+                // 4a: category name matches any category assigned to this station
+                const matchesCat = (s.categories || []).some(cid => {
+                  const n = catIdToName[String(cid)] || "";
+                  return n && n === catName;
+                });
+                if (matchesCat) { station = s.name; routeStep = "step4a-directScan"; break; }
+
+                // 4b: category name equals the station name itself
+                if ((s.name || "").trim().toLowerCase() === catName) {
+                  station = s.name; routeStep = "step4b-stationNameMatch"; break;
+                }
+              }
+            }
           }
         }
 
-        console.log(`[KOT] item="${item.name}" menuItemId="${item.menuItemId||item.id}" → station="${station||"Main Kitchen"}"`);
+        console.log(`[KOT] item="${item.name}" id="${item.id}" menuItemId="${item.menuItemId||""}" catId="${item.categoryId||""}" catName="${item.categoryName||item.category||""}" clientSt="${clientSt}" → ${routeStep} → station="${station||"Main Kitchen"}"`);
         const key = station || "Main Kitchen";
         if (!stationGroups[key]) stationGroups[key] = [];
         stationGroups[key].push(item);
       }
-    } catch (_) {
-      // If setup data unavailable, fall back to single group
+    } catch (err) {
+      console.error("[KOT] routing error — falling back to Main Kitchen:", err.message);
       stationGroups = { "Main Kitchen": items };
     }
   }

@@ -842,63 +842,78 @@ function normalizeOwnerSetupData(data) {
   // ── Self-healing data migration (runs every startup) ────────────────────────
   //
   // PRINCIPLE: Owner Console is the single source of truth.
-  // All item IDs, category IDs, and station names come from there.
-  // Seed/demo data that conflicts with real data is removed automatically.
+  // Seed/demo data is detected by ID pattern and cleaned up automatically.
   //
-  // Fixes:
-  // A) Seed categories (id starts with "cat-") removed if real categories exist
-  // B) Seed menu items (id starts with "item-") removed if real items exist
-  // C) Stale station names on items cleared (routing uses category→station only)
-  // D) Stale demo categoryIds healed to real category IDs by name matching
+  // ID patterns:
+  //   Seed category:  cat-starters, cat-main-course  → letters after "cat-"
+  //   Real category:  cat-1748294847723              → digits after "cat-"
+  //   Seed item:      item-paneer-tikka              → letters after "item-"
+  //   Real item:      item-1748294847723             → digits after "item-"
+  //
+  // Fixes applied every startup:
+  //   A) Remove seed categories when real categories exist (same name, different ID)
+  //   B) Keep seed items but HEAL their categoryIds to real IDs by name matching
+  //   C) Clear stale station names on items (routing uses category→station only)
 
-  const SEED_CAT_PREFIX  = "cat-";
-  const SEED_ITEM_PREFIX = "item-";
+  // Seed IDs have a letter immediately after the prefix (slug style).
+  // Real IDs have a digit immediately after the prefix (timestamp style).
+  const isSeedId = (id, prefix) => {
+    const s = String(id || "");
+    return s.startsWith(prefix) && /^[a-z]/.test(s.slice(prefix.length));
+  };
 
-  const allCats   = next.menu.categories || [];
-  const allItems  = next.menu.items      || [];
+  const allCats  = next.menu.categories || [];
+  const allItems = next.menu.items      || [];
 
-  // Check whether real (non-seed) data exists
-  const hasRealCategories = allCats.some(c => !String(c.id).startsWith(SEED_CAT_PREFIX));
-  const hasRealItems      = allItems.some(i => !String(i.id).startsWith(SEED_ITEM_PREFIX));
+  // Detect whether real (non-seed) categories exist
+  const hasRealCategories = allCats.some(c => !isSeedId(c.id, "cat-"));
 
-  // A) Remove seed categories if real categories exist
+  // A) Remove seed categories when real ones exist — avoids duplicate name confusion
   next.menu.categories = hasRealCategories
-    ? allCats.filter(c => !String(c.id).startsWith(SEED_CAT_PREFIX))
+    ? allCats.filter(c => !isSeedId(c.id, "cat-"))
     : allCats;
 
-  // B) Remove seed items if real items exist
-  next.menu.items = hasRealItems
-    ? allItems.filter(i => !String(i.id).startsWith(SEED_ITEM_PREFIX))
-    : allItems;
+  // NOTE: Never remove seed ITEMS — the Captain/POS may still be using them.
+  //       Instead, heal their categoryIds below (B).
 
-  // Build lookup maps on the surviving (real) data
+  // Build lookup maps from the surviving categories
   const configuredStationNames = new Set(
     (next.menu.stations || []).map(s => (s.name || "").trim().toLowerCase())
   );
-  const realCatIds = new Set((next.menu.categories || []).map(c => String(c.id)));
+  // category name (lowercase) → its real ID  (used to heal seed-slug categoryIds)
   const catNameToRealId = {};
   (next.menu.categories || []).forEach(c => {
     catNameToRealId[(c.name || "").trim().toLowerCase()] = c.id;
   });
+  // All valid category IDs after cleanup
+  const validCatIds = new Set((next.menu.categories || []).map(c => String(c.id)));
 
-  // C & D) For each item: clear stale station name + heal stale demo categoryId
-  next.menu.items = (next.menu.items || []).map((item) => {
+  // B & C) For each item: heal seed categoryId + clear stale station name
+  next.menu.items = allItems.map((item) => {
     let healed = { ...item };
 
-    // C) Clear stale station name — routing is category→station only
+    // C) Clear stale station name — all routing goes via category→station mapping
     const st = (healed.station || "").trim();
     if (st && !configuredStationNames.has(st.toLowerCase())) {
       healed.station = "";
     }
 
-    // D) Heal stale demo categoryId → real category id (by name)
-    //    "cat-main-course" → derive "main course" → find real category named "Main Course"
+    // B) Heal seed-slug categoryId → real category ID (matched by derived name)
+    //    e.g. "cat-main-course" → derive "main course" → look up real "Main Course" ID
+    //    Only heals if the current categoryId is a seed slug OR unknown (not in validCatIds).
     const catId = String(healed.categoryId || "");
-    if (catId && !realCatIds.has(catId)) {
+    const needsHeal = catId && (isSeedId(catId, "cat-") || !validCatIds.has(catId));
+    if (needsHeal) {
+      // Derive candidate name from the slug (e.g. "cat-main-course" → "main course")
       const derivedName = catId.replace(/^cat-/, "").replace(/-/g, " ").toLowerCase();
-      const realId = catNameToRealId[derivedName]
-                  || catNameToRealId[(healed.categoryName || "").trim().toLowerCase()];
-      if (realId) healed.categoryId = realId;
+      const realId =
+        catNameToRealId[derivedName] ||
+        catNameToRealId[(healed.categoryName || "").trim().toLowerCase()] ||
+        catNameToRealId[(healed.category     || "").trim().toLowerCase()];
+      if (realId) {
+        console.log(`[store] healed categoryId: item="${healed.name}" ${catId} → ${realId}`);
+        healed.categoryId = realId;
+      }
     }
 
     return healed;
