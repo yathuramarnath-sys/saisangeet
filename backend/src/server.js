@@ -18,8 +18,28 @@ const { scheduleDailySalesReport }   = require("./jobs/daily-sales-report");
 const app    = createApp();
 const server = http.createServer(app);
 
+const SOCKET_ALLOWED_ORIGINS = [
+  // Local dev
+  "http://localhost:5173", "http://localhost:4173", "http://localhost:4174",
+  "http://localhost:4175", "http://localhost:4176",
+  // Capacitor mobile WebViews
+  "capacitor://localhost", "https://localhost", "http://localhost", "ionic://localhost",
+  // Production
+  "https://dinexpos.in", "https://www.dinexpos.in",
+  "https://app.dinexpos.in", "https://pos.dinexpos.in",
+  "https://captain.dinexpos.in", "https://kds.dinexpos.in",
+];
+
 const io = new SocketServer(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
+  cors: {
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);                          // server-to-server / curl
+      if (SOCKET_ALLOWED_ORIGINS.includes(origin) || /\.vercel\.app$/.test(origin))
+        return cb(null, true);
+      cb(new Error(`Socket CORS: origin ${origin} not allowed`));
+    },
+    methods: ["GET", "POST"],
+  },
 });
 
 // Make io available to route handlers via app.locals

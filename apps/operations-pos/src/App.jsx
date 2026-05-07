@@ -103,12 +103,21 @@ function saveKotQueue(queue) {
 async function flushKotQueue(outletId) {
   const queue = loadKotQueue();
   if (!queue.length) return;
+  // Auth token is required — without it the server returns 401 and the KOT stays stuck
+  const token = localStorage.getItem("pos_token") || "";
   const failed = [];
   for (const payload of queue) {
     try {
       await fetch(
         `${import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1"}/operations/kot`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, outletId }) }
+        {
+          method:  "POST",
+          headers: {
+            "Content-Type":  "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ ...payload, outletId }),
+        }
       );
     } catch (_) {
       failed.push(payload);
