@@ -60,7 +60,10 @@ export function KitchenStationsPage() {
 
   function startEdit(st) {
     setEditId(st.id);
-    setDraft({ name: st.name, outletId: st.outletId || "all", categories: [...(st.categories || [])] });
+    // Strip stale/orphaned category IDs (those that no longer exist in the category list)
+    const validCatIds = new Set(categories.map((c) => c.id));
+    const cleanCats   = (st.categories || []).filter((cid) => validCatIds.has(cid));
+    setDraft({ name: st.name, outletId: st.outletId || "all", categories: cleanCats });
     setFormErr("");
   }
 
@@ -139,8 +142,9 @@ export function KitchenStationsPage() {
                 ? "All Outlets"
                 : outlets.find((o) => o.id === st.outletId)?.name || st.outletId;
 
+              // Only show categories that still exist — drop orphaned/stale IDs silently
               const catNames = (st.categories || [])
-                .map((cid) => categories.find((c) => c.id === cid)?.name || cid)
+                .map((cid) => categories.find((c) => c.id === cid)?.name)
                 .filter(Boolean);
 
               return (
