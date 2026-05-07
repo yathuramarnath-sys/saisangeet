@@ -17,7 +17,17 @@ const _cache = new Map();
  * Called by migrate.js at startup to pre-populate the cache from DB or JSON.
  */
 function warmTenantCache(tenantId, rawData) {
-  _cache.set(tenantId, normalizeOwnerSetupData(rawData));
+  const normalized = normalizeOwnerSetupData(rawData);
+  _cache.set(tenantId, normalized);
+
+  // If normalize restored any missing seed categories, write back to Postgres
+  // so the fix persists across restarts without needing a manual save.
+  const rawCatCount  = ((rawData || {}).menu?.categories || []).length;
+  const normCatCount = (normalized.menu?.categories || []).length;
+  if (normCatCount > rawCatCount) {
+    console.log(`[store] warmTenantCache: ${normCatCount - rawCatCount} category/ies restored — persisting to Postgres`);
+    persistToPostgres(tenantId, normalized);
+  }
 }
 
 // ── File helpers ─────────────────────────────────────────────────────────────
@@ -904,6 +914,41 @@ function normalizeOwnerSetupData(data) {
     }
 
     return healed;
+  });
+
+  // ── Self-heal: restore missing seed categories referenced by existing items ──
+  // If items still have seed categoryIds (cat-starters, cat-main-course, cat-beverages)
+  // but those categories no longer exist (they were deleted by the old normalize code),
+  // re-add them so items are no longer "Unassigned" in Owner Console.
+  const existingCatIds = new Set((next.menu.categories || []).map(c => String(c.id)));
+  const seedNameMap = {
+    "cat-starters":    "Starters",
+    "cat-main-course": "Main Course",
+    "cat-beverages":   "Beverages",
+    "cat-soups":       "Soups",
+    "cat-rice":        "Rice",
+    "cat-juices":      "Juices",
+    "cat-north-indian":"North Indian",
+    "cat-break-fast":  "Break Fast",
+  };
+  (next.menu.items || []).forEach(item => {
+    const cid = String(item.categoryId || "");
+    if (cid && isSeedId(cid, "cat-") && !existingCatIds.has(cid)) {
+      // Derive a display name: prefer the seedNameMap lookup, else title-case the slug
+      const derivedName =
+        seedNameMap[cid] ||
+        cid.replace(/^cat-/, "").replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+      console.log(`[store] restore: re-adding missing seed category "${derivedName}" (${cid}) referenced by item "${item.name}"`);
+      next.menu.categories.push({
+        id:            cid,
+        name:          derivedName,
+        station:       "",
+        printerTarget: "Kitchen Printer 1",
+        displayTarget: "Hot Kitchen Display",
+        _restoredFromItems: true,
+      });
+      existingCatIds.add(cid);
+    }
   });
 
   next.menu.categories = (next.menu.categories || []).map((category) => ({
