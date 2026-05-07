@@ -432,35 +432,7 @@ function createDefaultPricingProfiles() {
 }
 
 function createDefaultMenuGroups() {
-  return [
-    {
-      id: "all-day",
-      name: "All Day Menu",
-      status: "Live",
-      categoryIds: ["cat-starters","cat-main-course","cat-beverages"],
-      channels: "Dine-In, Takeaway, Delivery",
-      availability: "Always on",
-      note: "Primary menu used through the full service day",
-    },
-    {
-      id: "breakfast",
-      name: "Breakfast Menu",
-      status: "Scheduled",
-      categoryIds: ["cat-beverages"],
-      channels: "Dine-In, Takeaway",
-      availability: "7:00 AM - 11:00 AM",
-      note: "Shown from 7:00 AM to 11:00 AM",
-    },
-    {
-      id: "delivery-only",
-      name: "Delivery Specials",
-      status: "Review",
-      categoryIds: ["cat-main-course"],
-      channels: "Delivery",
-      availability: "6:00 PM - 10:30 PM",
-      note: "Owner should review pricing and availability before launch",
-    },
-  ];
+  return []; // User creates their own menu groups — no seed groups
 }
 
 function createDefaultMenuAssignments(outlets = []) {
@@ -710,13 +682,14 @@ function createDefaultData() {
     menu: {
       config: createDefaultMenuConfig(taxProfiles),
       pricingProfiles: createDefaultPricingProfiles(),
-      stations: [],  // No demo stations — user creates real stations in Kitchen Stations page
-      categories: [
-        { id: "cat-starters",    name: "Starters",     itemCount: 2, printerTarget: "Kitchen Printer 1", displayTarget: "Hot Kitchen Display" },
-        { id: "cat-main-course", name: "Main Course",  itemCount: 1, printerTarget: "Kitchen Printer 1", displayTarget: "Hot Kitchen Display" },
-        { id: "cat-beverages",   name: "Beverages",    itemCount: 1, printerTarget: "Kitchen Printer 1", displayTarget: "Drinks Display"      },
-      ],
-      items: [
+      stations: [],     // User creates their own stations in Kitchen Stations page
+      categories: [],   // User creates their own categories in Menu & Categories
+      items: [],        // No seed items — user adds real menu items
+      // ── REMOVED: old seed items/categories (Paneer Tikka, Crispy Corn, Veg Biryani,
+      //    Sweet Lime Soda, Starters, Main Course, Beverages) were auto-injected into
+      //    every new account and caused confusion with "Unassigned" items in Owner Console.
+      //    New accounts now start completely clean. ──
+      _unusedSeedItems: [
         {
           id: "item-paneer-tikka",
           categoryId: "cat-starters",
@@ -789,7 +762,7 @@ function createDefaultData() {
             { area: "Self Service", dineIn: "Rs 90", takeaway: "Rs 85", delivery: "Rs 95" },
           ],
         },
-      ],
+      ],  // end _unusedSeedItems
       menuGroups:      createDefaultMenuGroups(),
       menuAssignments: createDefaultMenuAssignments(outlets),
     },
