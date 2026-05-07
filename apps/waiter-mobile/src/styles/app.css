@@ -21,15 +21,15 @@
   --free-fg:     #16A34A;
   --free-bg:     #F0FDF4;
   --free-border: rgba(22,163,74,0.18);
-  --running-fg:  #D97706;
-  --running-bg:  #FFFBEB;
-  --running-border: rgba(217,119,6,0.18);
+  --running-fg:  #E67E22;
+  --running-bg:  #FFF3E0;
+  --running-border: #E67E22;
   --bill-fg:     #2563EB;
   --bill-bg:     #EFF6FF;
-  --bill-border: rgba(37,99,235,0.18);
+  --bill-border: #3B82F6;
   --hold-fg:     #7C3AED;
   --hold-bg:     #F5F3FF;
-  --hold-border: rgba(124,58,237,0.18);
+  --hold-border: #A855F7;
 
   /* Action colours */
   --kot-bg:      #16A34A;
@@ -1710,33 +1710,34 @@ html, body, #root { background: #F7F3EE; }
 .status-free .table-number      { color: #1E293B !important; }
 .status-free .table-status-text { color: #16A34A !important; }
 
-/* Running/Occupied — amber left strip */
+/* Running/Occupied — orange (matches POS occupied exactly) */
 .status-running {
-  border-left-color: #F59E0B !important;
-  background: #FFFFFF !important;
+  border-left-color: #E67E22 !important;
+  background: #FFF3E0 !important;
 }
-.status-running .table-number      { color: #1E293B !important; }
-.status-running .table-status-text { color: #D97706 !important; }
-.status-running .table-amount      { color: #92400E !important; }
+.status-running .table-number      { color: #BF5200 !important; }
+.status-running .table-status-text { color: #E67E22 !important; }
+.status-running .table-amount      { color: #BF5200 !important; }
 
-/* Bill — blue left strip */
+/* Bill — blue tint (matches POS bill) */
 .status-bill {
   border-left-color: #3B82F6 !important;
-  background: #FFFFFF !important;
+  background: #EFF6FF !important;
 }
 .status-bill .table-number      { color: #1E293B !important; }
 .status-bill .table-status-text { color: #2563EB !important; }
 
-/* Hold — purple left strip */
+/* Hold — purple tint (matches POS hold) */
 .status-hold {
   border-left-color: #A855F7 !important;
-  background: #FFFFFF !important;
+  background: #F5F3FF !important;
 }
+.status-hold .table-number      { color: #1E293B !important; }
 .status-hold .table-status-text { color: #7C3AED !important; }
 
 /* Status dot — use strip colour */
 .status-free .table-status-dot    { background: #22C55E !important; }
-.status-running .table-status-dot { background: #F59E0B !important; }
+.status-running .table-status-dot { background: #E67E22 !important; }
 .status-bill .table-status-dot    { background: #3B82F6 !important; }
 .status-hold .table-status-dot    { background: #A855F7 !important; }
 
@@ -1746,7 +1747,7 @@ html, body, #root { background: #F7F3EE; }
 
 /* ── 5. Floor summary bar ── */
 .floor-summary { background: #FFFFFF !important; }
-.active-num    { color: #D97706 !important; }
+.active-num    { color: #E67E22 !important; }
 
 /* ── 6. KOT button: keep green ── */
 .kot-btn { background: #16A34A !important; box-shadow: 0 4px 16px rgba(22,163,74,0.25) !important; }
