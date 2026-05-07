@@ -635,9 +635,10 @@ function addOrderItem(tableId, payload, actor = "System") {
       note:        payload.note || "",
       sentToKot:   payload.sentToKot || false,
       stationId:   payload.stationId || "main",
-      stationName: payload.stationName || "",  // empty = resolved by backend KOT split via category lookup
-      categoryId:  payload.categoryId  || "",   // kept for KDS station-routing on KOT send
-      category:    payload.category    || "",
+      stationName:  payload.stationName  || "",  // empty = resolved by backend KOT split via category lookup
+      categoryId:   payload.categoryId   || "",   // kept for KDS station-routing on KOT send
+      categoryName: payload.categoryName || "",   // category name — fallback for ID-mismatch routing
+      category:     payload.category     || "",
     };
     order.items.push(nextItem);
   }

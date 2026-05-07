@@ -24,15 +24,20 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
     if (idx >= 0) {
       items[idx] = { ...items[idx], quantity: items[idx].quantity + 1 };
     } else {
+      // Resolve category name from the active category list (used for KDS routing fallback)
+      const catObj      = categories.find(c => String(c.id) === String(item.categoryId) || c.name === item.categoryName);
+      const categoryName = catObj?.name || item.categoryName || item.category || "";
       items.push({
-        id:         `item-${Date.now()}-${Math.random().toString(16).slice(2, 5)}`,
-        menuItemId: item.id,
-        name:       item.name,
-        price:      parsePriceNumber(item.price || item.basePrice),
-        quantity:   1,
-        sentToKot:  false,
-        note:       "",
-        station:    item.station || "",
+        id:           `item-${Date.now()}-${Math.random().toString(16).slice(2, 5)}`,
+        menuItemId:   item.id,
+        name:         item.name,
+        price:        parsePriceNumber(item.price || item.basePrice),
+        quantity:     1,
+        sentToKot:    false,
+        note:         "",
+        station:      item.station || "",
+        categoryId:   item.categoryId || "",
+        categoryName,          // needed so backend can match category → station by name
       });
     }
     onUpdateOrder({ ...order, items });

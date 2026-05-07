@@ -222,7 +222,9 @@ async function deviceSendKotHandler(req, res) {
         //    (e.g. item has "cat-beverages" but real category ID is a generated UUID).
         if (!station && kitchenStations.length) {
           const itemCatId   = String(item.categoryId || "");
-          const itemCatName = (item.category || item.categoryName || catIdToName[itemCatId] || "").trim().toLowerCase();
+          // categoryName is now stored on items from Captain (and POS); also try resolving
+          // from catIdToName for items that only have a categoryId (handles seed IDs)
+          const itemCatName = (item.categoryName || item.category || catIdToName[itemCatId] || "").trim().toLowerCase();
 
           let matched = null;
 

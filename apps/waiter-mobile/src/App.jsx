@@ -272,14 +272,15 @@ export function App() {
         tableId,
         outletId: outlet?.id || branchConfig?.outletId,
         item: {
-          id:          item.id,
-          menuItemId:  item.menuItemId || item.id,
-          name:        item.name,
-          price:       item.price,
-          quantity:    1,
-          note:        item.note || "",
-          stationName: resolvedStation,
-          categoryId:  item.categoryId || "",
+          id:           item.id,
+          menuItemId:   item.menuItemId || item.id,
+          name:         item.name,
+          price:        item.price,
+          quantity:     1,
+          note:         item.note || "",
+          stationName:  resolvedStation,
+          categoryId:   item.categoryId || "",
+          categoryName: item.categoryName || item.category || "",  // for backend name-based routing
         },
         actorName: loggedInStaff?.name || "Captain",
       });
