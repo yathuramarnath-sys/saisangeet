@@ -685,11 +685,18 @@ export default function App() {
         const filteredServerItems = (lastServerOrder.items || []).filter(
           (si) => si.sentToKot || si.isVoided || localItemIds.has(si.id)
         );
+        // Safety: if server returned 0 items but local order has sent items,
+        // keep the local sent items — prevents table showing as "Free" when
+        // the server KOT response body omits the items array.
+        const sentLocalItems = (localOrder.items || []).filter(i => i.sentToKot && !i.isVoided);
+        const mergedItems = filteredServerItems.length > 0
+          ? [...filteredServerItems, ...localOnlyUnsent]
+          : [...sentLocalItems, ...localOnlyUnsent];
         return {
           ...prev,
           [order.tableId]: {
             ...lastServerOrder,
-            items: [...filteredServerItems, ...localOnlyUnsent]
+            items: mergedItems
           }
         };
       });

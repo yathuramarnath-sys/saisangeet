@@ -5313,6 +5313,7 @@ body { background: #F7F3EE; }
 /* ── 5. MENU FOOD CARDS — 2-column compact box grid (matches Captain app) ── */
 .menu-cards-grid {
   grid-template-columns: 1fr 1fr !important;
+  align-content: start !important;   /* rows sit at top — no vertical stretch */
   gap: 8px !important;
   padding: 0 10px 12px !important;
 }
@@ -5434,5 +5435,5 @@ body { background: #F7F3EE; }
 .payment-settle-btn { background: #F59E0B !important; box-shadow: 0 4px 14px rgba(245,158,11,0.28) !important; }
 .payment-settle-btn:hover:not(:disabled) { background: #D97706 !important; }
 
-/* ── 9. POS login screen: cream background ── */
-.poslogin-screen { background: #F7F3EE !important; }
+/* ── 9. POS login screen: keep dark background — white text needs dark bg ── */
+/* .poslogin-screen keeps its own dark gradient — DO NOT override here */
