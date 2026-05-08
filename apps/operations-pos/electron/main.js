@@ -99,17 +99,382 @@ ipcMain.handle("get-printers", async () => {
   }
 });
 
+// ── auto-install-printer IPC ──────────────────────────────────────────────────
+// Automatically installs a TCP/IP network printer in Windows so the POS can
+// print without requiring manual Windows printer setup.
+//
+// Payload: { ip, port?, displayName? }
+// Returns: { ok: boolean, printerName?: string, error?: string }
+ipcMain.handle("auto-install-printer", async (_event, { ip, port = 9100, displayName } = {}) => {
+  if (process.platform !== "win32") return { ok: false, error: "Windows only" };
+  if (!ip || !ip.trim()) return { ok: false, error: "No IP address provided" };
+
+  const { execSync } = require("child_process");
+  const cleanIp    = ip.trim();
+  const portName   = `PlatoTCP_${cleanIp.replace(/\./g, "_")}`;
+  const printerName = displayName?.trim() || `Plato Thermal ${cleanIp}`;
+
+  try {
+    // 1. Check if already installed — return immediately if so
+    try {
+      const existing = execSync(
+        `powershell -NoProfile -Command "Get-Printer -Name '${printerName}' -ErrorAction Stop | Select-Object -ExpandProperty Name"`,
+        { timeout: 6000 }
+      ).toString().trim();
+      if (existing === printerName) {
+        console.log(`[auto-install-printer] Already installed: "${printerName}"`);
+        return { ok: true, printerName, alreadyExists: true };
+      }
+    } catch { /* not installed yet — continue */ }
+
+    // 2. Create TCP/IP port (silently skip if port already exists)
+    execSync(
+      `powershell -NoProfile -Command "` +
+      `if (-not (Get-PrinterPort -Name '${portName}' -ErrorAction SilentlyContinue)) {` +
+      ` Add-PrinterPort -Name '${portName}' -PrinterHostAddress '${cleanIp}' -PortNumber ${port}` +
+      `}"`,
+      { timeout: 10000 }
+    );
+    console.log(`[auto-install-printer] TCP port created: ${portName} → ${cleanIp}:${port}`);
+
+    // 3. Try drivers in order — first match wins
+    //    Microsoft IPP Class Driver: modern, handles rendered HTML/graphics
+    //    Generic / Text Only: always present, plain text only
+    const DRIVERS = [
+      "Microsoft IPP Class Driver",
+      "Generic / Text Only",
+      "MS Publisher Imagesetter",
+    ];
+
+    let installed = false;
+    for (const driver of DRIVERS) {
+      try {
+        execSync(
+          `powershell -NoProfile -Command "Add-Printer -Name '${printerName}' -DriverName '${driver}' -PortName '${portName}' -ErrorAction Stop"`,
+          { timeout: 12000 }
+        );
+        console.log(`[auto-install-printer] Installed "${printerName}" with driver "${driver}"`);
+        installed = true;
+        break;
+      } catch { /* try next driver */ }
+    }
+
+    if (!installed) {
+      return { ok: false, error: "Could not install — no compatible driver found on this Windows PC. Please install the Epson TM-T82 driver manually." };
+    }
+
+    return { ok: true, printerName };
+  } catch (err) {
+    console.error("[auto-install-printer] Error:", err.message);
+    return { ok: false, error: err.message };
+  }
+});
+
+// ── ESC/POS direct TCP printing (for Network IP thermal printers) ─────────────
+// Extracts receipt data from HTML and sends formatted ESC/POS text directly
+// to the printer via TCP port 9100 — no Windows printer driver needed.
+async function printViaEscPosTcp(html, ip, port = 9100) {
+  return new Promise((resolve) => {
+    const win = new BrowserWindow({
+      show: false, skipTaskbar: true,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    const timeoutHandle = setTimeout(() => {
+      try { win.destroy(); } catch {}
+      resolve({ ok: false, error: "load_timeout" });
+    }, 8000);
+
+    win.webContents.on("did-finish-load", async () => {
+      clearTimeout(timeoutHandle);
+      try {
+        // Extract structured receipt data using CSS selectors
+        const data = await win.webContents.executeJavaScript(`
+          (function() {
+            const q  = (s) => document.querySelector(s);
+            const qa = (s) => Array.from(document.querySelectorAll(s));
+
+            // ── Shift Closing Report ──────────────────────────────────────────
+            if (q('.sr-outlet')) {
+              return {
+                type: 'SHIFT',
+                outlet:  q('.sr-outlet')?.innerText?.trim() || '',
+                title:   q('.sr-title')?.innerText?.trim() || 'SHIFT CLOSING REPORT',
+                meta:    qa('.sr-meta').map(el => el.innerText?.trim()).join('  ') || '',
+                rows:    qa('.sr-row').map(el => {
+                  const spans = el.querySelectorAll('span');
+                  return {
+                    label:  spans[0]?.innerText?.trim() || '',
+                    value:  spans[1]?.innerText?.trim() || '',
+                    bold:   el.classList.contains('bold'),
+                    ok:     el.classList.contains('ok'),
+                    short:  el.classList.contains('short'),
+                    over:   el.classList.contains('over'),
+                  };
+                }),
+                sections: qa('.sr-section-title').map(el => el.innerText?.trim()),
+                footer:  q('.sr-footer')?.innerText?.trim() || '',
+              };
+            }
+
+            // ── KOT receipt ───────────────────────────────────────────────────
+            if (q('.kot-outlet')) {
+              const metaRows = qa('.kot-meta-row');
+              const largeRow = q('.kot-meta-row.large');
+              const footRows = qa('.kot-footer-row');
+              return {
+                type:    'KOT',
+                outlet:  q('.kot-outlet')?.innerText || '',
+                table:   largeRow?.children[0]?.innerText || '',
+                kotNum:  largeRow?.children[1]?.innerText || '',
+                date:    metaRows.find(r => r.innerText.includes('Date'))?.children[1]?.innerText || '',
+                time:    metaRows.find(r => r.innerText.includes('Time'))?.children[1]?.innerText || '',
+                guests:  metaRows.find(r => r.innerText.includes('Guest'))?.children[1]?.innerText || '',
+                items:   qa('.kot-item').map(el => ({
+                  qty:  el.querySelector('.kot-qty')?.innerText?.trim() || '',
+                  name: el.querySelector('.kot-item-name')?.innerText?.trim() || '',
+                  note: el.querySelector('.kot-item-note')?.innerText?.trim() || '',
+                })),
+                total:   footRows.find(r => r.innerText.includes('Total'))?.children[1]?.innerText || '',
+                sentBy:  footRows.find(r => r.innerText.includes('Sent'))?.children[1]?.innerText || '',
+                printer: q('.kot-printer-tag')?.innerText || '',
+              };
+            }
+
+            // ── Bill receipt ───────────────────────────────────────────────────
+            const q2  = (s) => document.querySelector(s);
+            const qa2 = (s) => Array.from(document.querySelectorAll(s));
+            // Read info-grid rows (date, table, cashier, bill no)
+            const infoRows = qa2('.info-grid tr');
+            function getInfoVal(label) {
+              for (const row of infoRows) {
+                const cells = row.querySelectorAll('td');
+                for (let i = 0; i < cells.length; i++) {
+                  if (cells[i].classList.contains('lbl') && cells[i].innerText.includes(label)) {
+                    const valCell = cells[i + 2];
+                    return valCell?.innerText?.trim() || '';
+                  }
+                }
+              }
+              return '';
+            }
+            return {
+              type:      'BILL',
+              outlet:    q2('.outlet-name')?.innerText?.trim() || '',
+              seatLabel: q2('.seat-tag')?.innerText?.trim() || '',
+              date:      getInfoVal('Date'),
+              time:      getInfoVal('Time'),
+              table:     getInfoVal('Table'),
+              orderType: getInfoVal('Type'),
+              cashier:   getInfoVal('Cashier'),
+              billNo:    getInfoVal('Bill No'),
+              items: qa2('.items-tbl tbody tr').map(el => ({
+                name: el.querySelector('.col-item')?.childNodes[0]?.textContent?.trim() || '',
+                note: el.querySelector('.item-note')?.innerText?.trim() || '',
+                qty:  el.querySelector('.col-qty')?.innerText?.trim() || '',
+                rate: el.querySelector('.col-rate')?.innerText?.trim() || '',
+                amt:  el.querySelector('.col-amt')?.innerText?.trim() || '',
+              })),
+              summary: qa2('.sum-row').map(el => {
+                const spans = el.querySelectorAll('span');
+                return { label: spans[0]?.innerText?.trim() || '', value: spans[1]?.innerText?.trim() || '' };
+              }),
+              total: q2('.total-row span:last-child')?.innerText?.trim() || '',
+            };
+          })()
+        `);
+        try { win.destroy(); } catch {}
+
+        // ── Build ESC/POS command buffer ───────────────────────────────────
+        const ESC = '\x1B', GS = '\x1D';
+        const INIT    = ESC + '@';
+        const CUT     = GS  + 'V\x00';
+        const LF      = '\n';
+        const BOLD1   = ESC + 'E\x01';
+        const BOLD0   = ESC + 'E\x00';
+        const CENTER  = ESC + 'a\x01';
+        const LEFT    = ESC + 'a\x00';
+        const BIG     = ESC + '!\x30';   // double height + width
+        const DBLH    = ESC + '!\x10';   // double height only (wider text, easier to read)
+        const NORMAL  = ESC + '!\x00';
+        const DASH48  = '-'.repeat(32);
+
+        let cmd = INIT;
+
+        if (data.type === 'SHIFT') {
+          // ── Shift Closing Report ─────────────────────────────────────────
+          cmd += CENTER + BOLD1 + BIG + (data.outlet || 'OUTLET') + NORMAL + BOLD0 + LF;
+          cmd += CENTER + (data.title || 'SHIFT CLOSING REPORT') + LF;
+          if (data.meta) cmd += CENTER + data.meta + LF;
+          cmd += DASH48 + LF;
+          for (const row of (data.rows || [])) {
+            if (!row.label) continue;
+            const lbl = row.label.padEnd(22);
+            const val = (row.value || '').padStart(10);
+            if (row.bold || row.ok || row.short || row.over) {
+              cmd += BOLD1 + lbl + val + BOLD0 + LF;
+            } else {
+              cmd += lbl + val + LF;
+            }
+          }
+          cmd += DASH48 + LF;
+          if (data.footer) cmd += CENTER + data.footer + LF;
+
+        } else if (data.type === 'KOT') {
+          // Header
+          cmd += CENTER + BOLD1 + BIG + (data.outlet || 'KITCHEN') + NORMAL + BOLD0 + LF;
+          cmd += CENTER + '*** KITCHEN ORDER ***' + LF;
+          cmd += DASH48 + LF;
+          // Table + KOT number (most important — large)
+          cmd += CENTER + BOLD1 + BIG + data.table + '   ' + data.kotNum + NORMAL + BOLD0 + LF;
+          cmd += DASH48 + LF;
+          // Meta
+          if (data.date) cmd += LEFT + 'Date : ' + data.date + LF;
+          if (data.time) cmd += LEFT + 'Time : ' + data.time + LF;
+          if (data.guests) cmd += LEFT + 'Guests: ' + data.guests + LF;
+          cmd += DASH48 + LF;
+          // Items header
+          cmd += LEFT + BOLD1 + 'QTY  ITEM' + BOLD0 + LF;
+          cmd += DASH48 + LF;
+          // Items — double-height bold so kitchen can read quickly
+          for (const item of data.items) {
+            const qty  = String(item.qty).padEnd(3);
+            const name = item.name || '';
+            cmd += DBLH + BOLD1 + qty + '  ' + name + BOLD0 + NORMAL + LF;
+            if (item.note) cmd += LEFT + '     >> ' + item.note + LF;
+          }
+          cmd += DASH48 + LF;
+          // Footer
+          if (data.total) cmd += 'Total Items : ' + data.total + LF;
+          if (data.sentBy) cmd += BOLD1 + 'Sent by : ' + data.sentBy + BOLD0 + LF;
+          if (data.printer) cmd += data.printer + LF;
+        } else if (data.type === 'BILL') {
+          // ── Bill receipt ─────────────────────────────────────────────────────
+          // Header
+          cmd += CENTER + BOLD1 + BIG + (data.outlet || 'RESTAURANT') + NORMAL + BOLD0 + LF;
+          if (data.seatLabel) cmd += CENTER + BOLD1 + '[ ' + data.seatLabel + ' ]' + BOLD0 + LF;
+          cmd += DASH48 + LF;
+          // Info rows
+          if (data.date)      cmd += LEFT + 'Date    : ' + data.date + '   ' + (data.time || '') + LF;
+          if (data.table)     cmd += LEFT + 'Table   : ' + data.table + (data.orderType ? '   (' + data.orderType + ')' : '') + LF;
+          if (data.cashier)   cmd += LEFT + 'Cashier : ' + data.cashier + LF;
+          if (data.billNo)    cmd += LEFT + 'Bill No : ' + data.billNo + LF;
+          cmd += DASH48 + LF;
+          // Column header
+          cmd += BOLD1 + 'Item             Qty  Rate    Amt' + BOLD0 + LF;
+          cmd += DASH48 + LF;
+          // Items
+          for (const item of (data.items || [])) {
+            const name  = (item.name || '').substring(0, 17).padEnd(17);
+            const qty   = (item.qty  || '').padStart(3);
+            const rate  = (item.rate || '').padStart(6);
+            const amt   = (item.amt  || '').padStart(7);
+            cmd += name + qty + rate + amt + LF;
+            if (item.note) cmd += '     >> ' + item.note + LF;
+          }
+          cmd += DASH48 + LF;
+          // Summary rows (subtotal, discount, CGST, SGST etc.)
+          for (const row of (data.summary || [])) {
+            if (!row.label || !row.value) continue;
+            const lbl = row.label.padEnd(22);
+            const val = row.value.padStart(10);
+            cmd += lbl + val + LF;
+          }
+          cmd += DASH48 + LF;
+          // Grand total — big
+          cmd += CENTER + BOLD1 + BIG + 'TOTAL  ' + (data.total || '') + NORMAL + BOLD0 + LF;
+          cmd += DASH48 + LF;
+          cmd += CENTER + 'Please pay at the counter' + LF;
+          cmd += CENTER + 'Thank you for dining with us!' + LF;
+        }
+
+        cmd += LF + LF + CUT;
+
+        // ── Send via TCP ───────────────────────────────────────────────────
+        const sock = new net.Socket();
+        sock.setTimeout(5000);
+        sock.once('connect', () => {
+          sock.write(Buffer.from(cmd, 'binary'), () => {
+            sock.destroy();
+            resolve({ ok: true });
+          });
+        });
+        sock.once('timeout', () => { sock.destroy(); resolve({ ok: false, error: 'TCP timeout' }); });
+        sock.once('error',   (err) => { sock.destroy(); resolve({ ok: false, error: err.message }); });
+        sock.connect(port, ip.trim());
+
+      } catch (err) {
+        try { win.destroy(); } catch {}
+        resolve({ ok: false, error: err.message });
+      }
+    });
+
+    win.webContents.on('did-fail-load', (_e, code, desc) => {
+      clearTimeout(timeoutHandle);
+      try { win.destroy(); } catch {}
+      resolve({ ok: false, error: desc });
+    });
+
+    const encoded = Buffer.from(html, 'utf8').toString('base64');
+    win.loadURL(`data:text/html;base64,${encoded}`);
+  });
+}
+
 // ── print-html IPC ────────────────────────────────────────────────────────────
 // Silent thermal printing path for the Windows Electron POS.
 //
-// Payload: { html: string, printerName: string|null, paperWidthMm: number }
-//   html         — full HTML document string (from printBill.js / kotPrint.js)
-//   printerName  — Windows printer device name (e.g. "EPSON TM-T82 Receipt")
-//                  null/undefined → Electron uses the Windows default printer
-//   paperWidthMm — 80 or 58 (passed through to @page size override)
+// Payload: { html, printerName, printerIp, paperWidthMm }
+//   printerIp set   → direct ESC/POS over TCP to port 9100 (no Windows driver needed)
+//   printerIp unset → webContents.print() via Windows printer spooler
 //
 // Returns: { ok: boolean, error?: string }
-ipcMain.handle("print-html", async (event, { html, printerName, paperWidthMm = 80 }) => {
+ipcMain.handle("print-html", async (event, { html, printerName, printerIp, paperWidthMm = 80 }) => {
+  // ── Network IP printer → direct ESC/POS over TCP (no Windows driver needed) ─
+  if (printerIp && printerIp.trim()) {
+    console.log(`[print-html] Network printer at ${printerIp} — using direct TCP ESC/POS`);
+    return printViaEscPosTcp(html, printerIp.trim(), 9100);
+  }
+
+  // ── Resolve the exact Windows printer name ───────────────────────────────
+  // webContents.print() requires deviceName to match Windows exactly.
+  // We do a 3-step lookup: exact → case-insensitive → partial match.
+  // If nothing matches we omit deviceName so Windows uses the default printer.
+  let resolvedName = null;
+  if (printerName && typeof printerName === "string" && printerName.trim()) {
+    const wanted = printerName.trim();
+    try {
+      const installedPrinters = await mainWindow.webContents.getPrintersAsync();
+      const names = installedPrinters.map(p => p.name);
+
+      // 1. Exact match
+      let match = names.find(n => n === wanted);
+
+      // 2. Case-insensitive match
+      if (!match) match = names.find(n => n.toLowerCase() === wanted.toLowerCase());
+
+      // 3. Partial match — either side contains the other
+      if (!match) match = names.find(n =>
+        n.toLowerCase().includes(wanted.toLowerCase()) ||
+        wanted.toLowerCase().includes(n.toLowerCase())
+      );
+
+      if (match) {
+        resolvedName = match;
+        if (match !== wanted) {
+          console.log(`[print-html] Printer name resolved: "${wanted}" → "${match}"`);
+        }
+      } else {
+        console.warn(
+          `[print-html] Printer "${wanted}" not found. Available: ${names.join(", ")}. ` +
+          `Falling back to Windows default printer.`
+        );
+      }
+    } catch (err) {
+      console.warn("[print-html] Could not resolve printer name:", err.message);
+      resolvedName = wanted; // try as-is
+    }
+  }
+
   return new Promise((resolve) => {
     // Hidden window — never shown on screen
     const win = new BrowserWindow({
@@ -118,7 +483,6 @@ ipcMain.handle("print-html", async (event, { html, printerName, paperWidthMm = 8
       webPreferences: {
         nodeIntegration:  false,
         contextIsolation: true,
-        // No preload needed — this window only renders HTML then prints
       },
     });
 
@@ -139,13 +503,12 @@ ipcMain.handle("print-html", async (event, { html, printerName, paperWidthMm = 8
           silent:          true,
           printBackground: true,
           margins:         { marginType: "none" },
-          // pageRanges not needed — receipts are single-page
         };
 
-        // Only set deviceName when we have an actual name.
+        // Only set deviceName when we have a resolved name.
         // Omitting it makes Electron use the Windows default printer.
-        if (printerName && typeof printerName === "string" && printerName.trim()) {
-          printOptions.deviceName = printerName.trim();
+        if (resolvedName) {
+          printOptions.deviceName = resolvedName;
         }
 
         win.webContents.print(printOptions, (success, failureReason) => {
@@ -155,7 +518,7 @@ ipcMain.handle("print-html", async (event, { html, printerName, paperWidthMm = 8
           } else {
             console.error(
               `[print-html] webContents.print failed` +
-              `${printerName ? ` (printer: "${printerName}")` : " (default printer)"}` +
+              `${resolvedName ? ` (printer: "${resolvedName}")` : " (default printer)"}` +
               `: ${failureReason}`
             );
             resolve({ ok: false, error: failureReason });

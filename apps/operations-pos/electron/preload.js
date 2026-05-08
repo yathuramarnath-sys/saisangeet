@@ -28,6 +28,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Returns: Promise<{ ok: boolean, error?: string }>
   printHTML: (payload) => ipcRenderer.invoke("print-html", payload),
 
+  // ── Auto-install network printer in Windows ───────────────────────────────
+  // Creates a TCP/IP port + installs a Windows printer automatically so staff
+  // don't need to manually set up network printers.
+  //
+  // payload: { ip: string, port?: number, displayName?: string }
+  // Returns: Promise<{ ok: boolean, printerName?: string, error?: string }>
+  autoInstallPrinter: (payload) => ipcRenderer.invoke("auto-install-printer", payload),
+
   // ── Cash drawer trigger ───────────────────────────────────────────────────
   // Sends ESC/POS cash drawer open pulse to the configured printer.
   // Works via network IP (TCP port 9100) or Windows USB printer queue.

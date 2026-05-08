@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { printKOT, loadPrinters } from "../lib/kotPrint";
 
+// Convert POS local table format → flat API table array
+function areasToApiTables(areas) {
+  const result = [];
+  for (const area of areas) {
+    for (const t of area.tables) {
+      result.push({ id: t.id, number: t.number, seats: t.seats, workArea: area.name, area_name: area.name });
+    }
+  }
+  return result;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    POS Settings Modal
    Tabs: Printers · Tables · Cashier · Display
@@ -33,8 +44,10 @@ function PrinterTab() {
   const [adding,        setAdding]        = useState(false);
   const [editId,        setEditId]        = useState(null);
   const [form,          setForm]          = useState(BLANK_FORM);
-  const [scanning,      setScanning]      = useState(false);
-  const [scanResults,   setScanResults]   = useState(null);
+  const [scanning,        setScanning]        = useState(false);
+  const [scanResults,     setScanResults]     = useState(null);
+  const [autoInstalling,  setAutoInstalling]  = useState(false);
+  const [autoInstallMsg,  setAutoInstallMsg]  = useState(null);
   // Kitchen stations — fetch fresh from API on mount; fall back to localStorage cache
   const [kitchenStations, setKitchenStations] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pos_kitchen_stations") || "[]"); }
@@ -134,6 +147,32 @@ function PrinterTab() {
     }
   }
 
+  // Auto-install network printer in Windows — no manual driver setup needed
+  async function handleAutoInstall() {
+    if (!form.ip?.trim()) { setAutoInstallMsg({ ok: false, msg: "Enter an IP address first." }); return; }
+    setAutoInstalling(true);
+    setAutoInstallMsg(null);
+    try {
+      const result = await window.electronAPI.autoInstallPrinter({
+        ip:          form.ip.trim(),
+        port:        9100,
+        displayName: form.name?.trim() || `Plato Thermal ${form.ip.trim()}`,
+      });
+      if (result.ok) {
+        setForm(f => ({ ...f, winName: result.printerName }));
+        setAutoInstallMsg({ ok: true, msg: result.alreadyExists
+          ? `✓ Already installed as "${result.printerName}"`
+          : `✓ Installed as "${result.printerName}" — ready to print!` });
+      } else {
+        setAutoInstallMsg({ ok: false, msg: `Failed: ${result.error}` });
+      }
+    } catch (err) {
+      setAutoInstallMsg({ ok: false, msg: err.message });
+    } finally {
+      setAutoInstalling(false);
+    }
+  }
+
   function pickScannedPrinter(p) {
     if (p.usb) {
       // USB printer from Windows/lpstat scan:
@@ -180,8 +219,18 @@ function PrinterTab() {
                 {p.isDefault && <span className="pset-default-badge">Default</span>}
               </div>
               <div className="pset-printer-meta">
-                {p.type} · {p.conn === "Network (IP)" ? p.ip || "IP not set" : p.conn} · {p.paper}
+                {p.type} · {p.conn === "Network (IP)" ? (p.ip || "IP not set") : p.conn}
+                {p.ip && p.conn !== "Network (IP)" && (
+                  <span style={{ marginLeft: 4 }}>· IP: {p.ip}</span>
+                )}
+                {' · '}{p.paper}
               </div>
+              {/* Warn if printer is labelled USB but has no IP — may need to be changed to Network */}
+              {p.conn !== "Network (IP)" && !p.ip && (
+                <div style={{ fontSize: 11, color: "#d97706", fontWeight: 700, marginTop: 2 }}>
+                  ⚠️ If this is a network printer, click Edit → set Connection to "Network (IP)" and enter IP
+                </div>
+              )}
               {p.station && <div className="pset-printer-station">📍 {p.station}</div>}
             </div>
             <div className="pset-printer-actions">
@@ -314,13 +363,21 @@ function PrinterTab() {
                 {PRINTER_CONNS.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
-            {form.conn === "Network (IP)" && (
-              <div className="pset-form-field">
-                <label>IP address</label>
-                <input className="pset-input" placeholder="192.168.1.xxx"
-                  value={form.ip} onChange={e => setForm(f => ({ ...f, ip: e.target.value }))} />
-              </div>
-            )}
+            <div className="pset-form-field">
+              <label>
+                Network IP address
+                {form.conn !== "Network (IP)" && (
+                  <span style={{ fontWeight: 400, color: "#999", marginLeft: 4 }}>(optional)</span>
+                )}
+              </label>
+              <input className="pset-input" placeholder="192.168.1.xxx"
+                value={form.ip} onChange={e => setForm(f => ({ ...f, ip: e.target.value }))} />
+              {form.conn !== "Network (IP)" && (
+                <span className="pset-field-hint">
+                  If this is a network/WiFi printer, enter its IP here for direct printing (no Windows driver needed).
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="pset-form-row">
@@ -338,11 +395,39 @@ function PrinterTab() {
             </div>
           </div>
 
-          {/* Windows printer name — Electron only. Used as deviceName in webContents.print(). */}
+          {/* Network IP entered → show Auto-Setup button */}
+          {IS_ELECTRON && form.ip?.trim() && (
+            <div className="pset-form-row">
+              <div className="pset-form-field">
+                <label>Quick Windows setup (network printers)</label>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <button type="button" className="pset-save-btn"
+                    onClick={handleAutoInstall} disabled={autoInstalling}>
+                    {autoInstalling ? "Installing…" : "🖨️ Auto-Setup in Windows"}
+                  </button>
+                  {autoInstallMsg && (
+                    <span style={{
+                      fontSize: 13, fontWeight: 700,
+                      color: autoInstallMsg.ok ? "#16a34a" : "#dc2626"
+                    }}>
+                      {autoInstallMsg.msg}
+                    </span>
+                  )}
+                </div>
+                <span className="pset-field-hint">
+                  Auto-registers this printer in Windows (for USB-port apps). For network printing,
+                  just saving the IP address above is enough — no Windows driver needed.
+                  {form.winName && <> Installed as: <strong>{form.winName}</strong></>}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* USB / Bluetooth → manual Windows printer name field */}
           {IS_ELECTRON && (
             <div className="pset-form-row">
               <div className="pset-form-field">
-                <label>Windows printer name</label>
+                <label>Windows printer name <span style={{ fontWeight: 400, color: "#999" }}>(USB only, optional)</span></label>
                 <input
                   className="pset-input"
                   placeholder="e.g. EPSON TM-T82 Receipt"
@@ -350,9 +435,9 @@ function PrinterTab() {
                   onChange={e => setForm(f => ({ ...f, winName: e.target.value }))}
                 />
                 <span className="pset-field-hint">
-                  Must match the name shown in Windows → Devices and Printers exactly.
-                  Use "List Windows Printers" above to auto-fill, or type it manually.
-                  Leave blank to use the Windows default printer.
+                  For USB printers only — must match Windows → Devices and Printers exactly.
+                  Use "List Windows Printers" above to auto-fill.
+                  Leave blank if using network (IP) printing.
                 </span>
               </div>
             </div>
@@ -391,10 +476,27 @@ function TablesTab() {
   const [newAreaName, setNewAreaName] = useState("");
   const [newTable,    setNewTable]    = useState({ number: "", seats: "4" });
   const [addingArea,  setAddingArea]  = useState(false);
+  const [syncMsg,     setSyncMsg]     = useState(null);
 
   const currentArea = areas.find(a => a.id === activeArea);
 
-  function persist(updated) { setAreas(updated); save("pos_table_config", updated); }
+  // Get outlet ID from branch config
+  const outletId = (() => {
+    try { return JSON.parse(localStorage.getItem("pos_branch_config") || "null")?.outletId || null; }
+    catch { return null; }
+  })();
+
+  function persist(updated) {
+    setAreas(updated);
+    save("pos_table_config", updated);
+    // Sync to API so owner-web stays in sync
+    if (outletId) {
+      const apiTables = areasToApiTables(updated);
+      api.patch(`/outlets/${outletId}/tables`, { tables: apiTables })
+        .then(() => { setSyncMsg("✓ Saved & synced"); setTimeout(() => setSyncMsg(null), 2500); })
+        .catch(() => { setSyncMsg("Saved locally (sync failed)"); setTimeout(() => setSyncMsg(null), 3000); });
+    }
+  }
 
   function addArea() {
     if (!newAreaName.trim()) return;
@@ -438,7 +540,7 @@ function TablesTab() {
       <div className="pset-section-head">
         <div>
           <h4>Table Management</h4>
-          <p>Create areas and manage tables</p>
+          <p>Create areas and manage tables{syncMsg && <span style={{ marginLeft: 8, color: "#16a34a", fontWeight: 700 }}>{syncMsg}</span>}</p>
         </div>
         <button type="button" className="pset-add-btn" onClick={() => setAddingArea(true)}>
           + Add Area

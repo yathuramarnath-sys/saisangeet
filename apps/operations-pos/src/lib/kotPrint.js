@@ -42,10 +42,20 @@ export function getKotPrinterForStation(stationName) {
   return getKotPrinter();
 }
 
+/** Check if a printer type string includes KOT capability */
+function isKotType(t) {
+  return t === "KOT Printer" || t === "Both" || t === "Both (KOT + Bill)";
+}
+
+/** Check if a printer type string includes Bill capability */
+function isBillType(t) {
+  return t === "Bill Printer" || t === "Both" || t === "Both (KOT + Bill)";
+}
+
 /** Find the best KOT printer — prefers isDefault, falls back to first KOT/Both printer */
 export function getKotPrinter() {
   const printers = loadPrinters();
-  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both");
+  const kotPrinters = printers.filter(p => isKotType(p.type));
   if (!kotPrinters.length) return printers.find(p => p.isDefault) || null;
   return kotPrinters.find(p => p.isDefault) || kotPrinters[0];
 }
@@ -55,11 +65,10 @@ export function getBillPrinter() {
   const printers = loadPrinters();
   // Prefer printer on "Bills & KOTs" station
   const billingStation = printers.find(
-    p => p.station && /bill|kot/i.test(p.station)
-      && (p.type === "Bill Printer" || p.type === "Both")
+    p => p.station && /bill|kot/i.test(p.station) && isBillType(p.type)
   );
   if (billingStation) return billingStation;
-  const billPrinters = printers.filter(p => p.type === "Bill Printer" || p.type === "Both");
+  const billPrinters = printers.filter(p => isBillType(p.type));
   if (!billPrinters.length) return printers.find(p => p.isDefault) || null;
   return billPrinters.find(p => p.isDefault) || billPrinters[0];
 }
@@ -289,9 +298,12 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
     // winName is the exact Windows printer name set in Settings → Printers.
     // Falls back to printer.name; null → Electron uses the Windows default printer.
     const printerName = resolvedPrinter?.winName || resolvedPrinter?.name || null;
+    // Use IP for direct TCP printing regardless of connection type label —
+    // this handles printers saved as "USB" that are actually on the network.
+    const printerIp   = resolvedPrinter?.ip?.trim() || null;
 
     window.electronAPI
-      .printHTML({ html, printerName, paperWidthMm: paper === "58mm" ? 58 : 80 })
+      .printHTML({ html, printerName, printerIp, paperWidthMm: paper === "58mm" ? 58 : 80 })
       .then((result) => {
         if (!result?.ok) {
           console.warn("[printKOT] Electron print failed:", result?.error);

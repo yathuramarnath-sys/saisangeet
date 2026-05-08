@@ -355,26 +355,36 @@ export default function App() {
     return () => { socketRef.current?.disconnect(); };
   }, [branchConfig]);
 
-  // ── Menu sync (called by socket event OR manual Sync button) ─────────────
+  // ── Menu + Tables sync (called by socket event OR manual Sync button) ─────
   async function syncMenuData(outletId) {
     if (!outletId && !outlet?.id) return;
     const id = outletId || outlet.id;
     setIsSyncing(true);
     try {
-      const [cats, items, stations] = await Promise.all([
+      const [cats, items, stations, outletsList] = await Promise.all([
         api.get(`/menu/categories?outletId=${id}`).catch(() => null),
         api.get(`/menu/items?outletId=${id}`).catch(() => null),
         api.get("/kitchen-stations").catch(() => null),
+        api.get("/outlets").catch(() => null),
       ]);
       if (cats)    setCategories(cats);
       if (items)   setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
       if (stations?.length) {
         localStorage.setItem("pos_kitchen_stations", JSON.stringify(stations));
       }
+      // Re-sync tables/areas from the latest outlet data
+      if (Array.isArray(outletsList)) {
+        const freshOutlet = outletsList.find(o => o.id === id);
+        if (freshOutlet?.tables?.length) {
+          const builtAreas = buildAreasFromOutlet(freshOutlet);
+          setTableAreas(builtAreas);
+          localStorage.setItem("pos_table_config", JSON.stringify(builtAreas));
+        }
+      }
       const now = new Date();
       setLastSyncedAt(now);
       localStorage.setItem("pos_last_synced", now.toISOString());
-      showToast("Menu synced ✓");
+      showToast("Synced ✓");
     } catch (err) {
       showToast("Sync failed — check connection");
       console.error("[sync]", err.message);
@@ -1158,6 +1168,7 @@ export default function App() {
   }
 
   function handleShiftClosed(closedShift) {
+    setShowCloseShift(false);   // dismiss modal BEFORE nulling shift to avoid crash
     setActiveShift(null);
     setSelectedTableId(null);
     showToast("Shift closed");

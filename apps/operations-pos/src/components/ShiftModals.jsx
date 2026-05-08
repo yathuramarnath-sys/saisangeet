@@ -314,9 +314,10 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
       // ── Electron: silent print to thermal printer ────────────────────────
       if (window.electronAPI?.printHTML) {
         const printer = getBillPrinter();
-        const printerName = printer?.winName || printer?.name || null;
+        const printerName  = printer?.winName || printer?.name || null;
+        const printerIp    = printer?.ip?.trim() || null;
         const paperWidthMm = printer?.paper === "58mm" ? 58 : 80;
-        window.electronAPI.printHTML({ html: fullHtml, printerName, paperWidthMm })
+        window.electronAPI.printHTML({ html: fullHtml, printerName, printerIp, paperWidthMm })
           .then(result => {
             if (!result?.ok) console.warn("[ShiftPrint] Print failed:", result?.error);
           })

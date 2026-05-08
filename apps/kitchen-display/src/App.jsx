@@ -69,21 +69,22 @@ function saveServedTickets(tickets) {
 
 // ─── Settings helpers ─────────────────────────────────────────────────────────
 
-const SETTINGS_VERSION = 2; // bump this whenever defaults change significantly
+const SETTINGS_VERSION = 3; // bump this whenever defaults change significantly
 
 const DEFAULT_SETTINGS = {
-  _version:        SETTINGS_VERSION,
-  columns:         2,           // 2 columns: New + Preparing only
-  cardSize:        "normal",   // compact | normal | large
-  showSource:      true,
-  showArea:        true,
-  soundEnabled:    true,
-  flashOnNew:      true,
-  warnMinutes:     5,
-  urgentMinutes:   10,
-  autoBumpSeconds: 0,          // 0 = off | 30 | 60 | 120
-  stations:        [],          // loaded from Owner Console via /kitchen-stations API
-  assignedStation: "",          // "" = show all | "South Indian" = only that station's KOTs
+  _version:          SETTINGS_VERSION,
+  columns:           2,             // reserved — single-screen layout now
+  cardSize:          "normal",      // compact | normal | large
+  showSource:        true,
+  showArea:          true,
+  soundEnabled:      true,
+  flashOnNew:        true,
+  warnMinutes:       5,
+  urgentMinutes:     10,
+  autoBumpSeconds:   0,             // 0 = off | 30 | 60 | 120
+  notifyFloorOnBump: false,         // emit kot:ready to POS/Captain when KOT is bumped
+  stations:          [],            // loaded from Owner Console via /kitchen-stations API
+  assignedStation:   "",            // "" = show all | "South Indian" = only that station's KOTs
 };
 
 function loadSettings() {
@@ -466,6 +467,18 @@ function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletN
           ? "Auto-bump is OFF. Staff must manually press BUMP."
           : `Ready tickets will be bumped automatically after ${settings.autoBumpSeconds < 60 ? settings.autoBumpSeconds+"s" : settings.autoBumpSeconds/60+"min"}.`}
       </div>
+
+      <SettingRow
+        label="Notify Floor When Ready"
+        sub="Send a silent alert to POS & Captain app when a KOT is fully bumped"
+      >
+        <button
+          className={`kds-toggle${settings.notifyFloorOnBump ? " on" : ""}`}
+          onClick={() => set("notifyFloorOnBump", !settings.notifyFloorOnBump)}
+        >
+          <span className="kds-toggle-thumb" />
+        </button>
+      </SettingRow>
     </div>
   );
 
@@ -773,19 +786,12 @@ function KotCard({ ticket, settings, onAdvance, onBump, onToggleItem, flash }) {
         })}
       </div>
 
-      {/* Action */}
+      {/* Action — single BUMP button for all KOTs; glows green when all items ticked */}
       <div className="kot-foot">
-        {ticket.status === "new" && (
-          <button className="kot-action start" onClick={() => onAdvance(ticket.id, "new")}>
-            Start Cooking
-          </button>
-        )}
-        {ticket.status === "preparing" && (
-          <button className={`kot-action bump${allDone ? " all-done" : ""}`}
-            onClick={() => onAdvance(ticket.id, "preparing")}>
-            {allDone ? "✓ All Done — BUMP" : "⚡ BUMP"}
-          </button>
-        )}
+        <button className={`kot-action bump${allDone ? " all-done" : ""}`}
+          onClick={() => onBump(ticket.id)}>
+          {allDone ? "✓ All Done — BUMP" : "⚡ BUMP"}
+        </button>
       </div>
     </div>
   );
@@ -1120,6 +1126,15 @@ export function App() {
         saveServedTickets(updated);
         return updated;
       });
+      // Optional: notify POS / Captain that this KOT is fully ready (on/off toggle in Settings → Actions)
+      if (settings.notifyFloorOnBump) {
+        socketRef.current?.emit("kot:ready", {
+          id,
+          kotNumber:   bumpedTicket.kotNumber,
+          tableNumber: bumpedTicket.tableNumber,
+          outletId:    branchConfig?.outletId,
+        });
+      }
     }
     // Remove locally immediately — UI is instant.
     setTickets(prev => prev.filter(t => t.id !== id));
@@ -1134,17 +1149,25 @@ export function App() {
       `/operations/kots/${id}/status?outletId=${branchConfig?.outletId}`,
       { status: "bumped" }
     ).catch(() => {});
-    // Note: the previous socket.emit("kot:bumped") was removed — the backend has
-    // no listener for that event. Other screens are now notified via the backend's
-    // kot:status broadcast triggered by the PATCH call above.
   }
 
   function handleToggleItem(ticketId, itemId) {
-    setTickets(prev => prev.map(t => {
-      if (t.id !== ticketId) return t;
-      const done = t.doneItems || [];
-      return { ...t, doneItems: done.includes(itemId) ? done.filter(x => x !== itemId) : [...done, itemId] };
-    }));
+    // Compute new doneItems for the ticket using current (synchronous) state
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+    const done    = ticket.doneItems || [];
+    const newDone = done.includes(itemId)
+      ? done.filter(x => x !== itemId)
+      : [...done, itemId];
+
+    setTickets(prev => prev.map(t =>
+      t.id !== ticketId ? t : { ...t, doneItems: newDone }
+    ));
+
+    // Auto-bump: if every item is now ticked, bump after a brief visual delay
+    if (ticket.items.length > 0 && newDone.length >= ticket.items.length) {
+      setTimeout(() => handleBump(ticketId), 350);
+    }
   }
 
   function handleRecall(ticket) {
@@ -1170,12 +1193,14 @@ export function App() {
   // stationTab (header tab click) is a manual override when assignedStation is not set.
   // Case-insensitive compare handles any casing mismatch between Owner Console name and KOT.
   const effectiveStation = (settings.assignedStation || stationTab).toLowerCase();
-  const base  = !effectiveStation
+  const base = !effectiveStation
     ? tickets
     : tickets.filter(t => (t.station || "").toLowerCase() === effectiveStation);
-  const newT  = base.filter(t => t.status === "new");
-  const prepT = base.filter(t => t.status === "preparing");
-  // Note: "ready" state is no longer used — flow is New → Preparing → BUMP
+
+  // Single flat list — oldest KOT top-left (most urgent), newest bottom-right
+  const activeTickets = base
+    .filter(t => t.status === "new" || t.status === "preparing")
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   const colProps = { settings, onAdvance: handleAdvance, onBump: handleBump, onToggleItem: handleToggleItem, newIds };
 
@@ -1283,7 +1308,7 @@ export function App() {
           <div className={`kds-live kds-live-${connState}`}>
             <span className="kds-live-dot" />
             <span>
-              {connState === "live"       ? `${newT.length + prepT.length} active` :
+              {connState === "live"       ? `${activeTickets.length} active` :
                connState === "offline"    ? "Reconnecting…" :
                                             "Connecting…"}
             </span>
@@ -1299,10 +1324,26 @@ export function App() {
         </div>
       </header>
 
-      {/* ── Columns ─────────────────────────────────────────────── */}
-      <div className="kds-columns" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
-        <KdsColumn label="New Orders" colorKey="new"      emptyMsg="Waiting for orders…"       tickets={newT}  {...colProps} />
-        <KdsColumn label="Preparing"  colorKey="preparing" emptyMsg="Nothing cooking right now" tickets={prepT} {...colProps} />
+      {/* ── Single flat grid — oldest KOT top-left ──────────────── */}
+      <div className="kds-flat-grid">
+        {activeTickets.length === 0 ? (
+          <div className="kds-flat-empty">
+            <span>🍳</span>
+            <span>Waiting for orders…</span>
+          </div>
+        ) : (
+          activeTickets.map(ticket => (
+            <KotCard
+              key={ticket.id}
+              ticket={ticket}
+              settings={colProps.settings}
+              onAdvance={colProps.onAdvance}
+              onBump={colProps.onBump}
+              onToggleItem={colProps.onToggleItem}
+              flash={colProps.newIds.has(ticket.id)}
+            />
+          ))
+        )}
       </div>
 
       {/* ── Recall Panel ────────────────────────────────────────── */}

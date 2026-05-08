@@ -9,6 +9,7 @@ const {
   listOutletsHandler,
   createOutletHandler,
   updateOutletSettingsHandler,
+  updateOutletTablesHandler,
   deleteOutletHandler,
 } = require("./outlets.controller");
 
@@ -27,6 +28,13 @@ outletsRouter.patch(
   requireAuth, requirePermission("outlets.manage"),
   updateOutletRules, validate,
   asyncHandler(updateOutletSettingsHandler)
+);
+
+// ── Tables-only update — only requireAuth (cashiers can manage tables) ──────
+outletsRouter.patch(
+  "/:id/tables",
+  requireAuth,
+  asyncHandler(updateOutletTablesHandler)
 );
 outletsRouter.delete(
   "/:id",

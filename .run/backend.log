@@ -44,3 +44,57 @@ Node.js v25.9.0
 
 API server listening on port 4000
 bash: line 1:  7690 Terminated: 15          npm start
+
+> restaurant-pos-backend@0.1.0 start
+> node src/server.js
+
+[sentry] SENTRY_DSN not set — error monitoring disabled.
+ValidationError: Custom keyGenerator appears to use request IP without calling the ipKeyGenerator helper function for IPv6 addresses. This could allow IPv6 users to bypass limits. See https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/ for more information.
+    at Object.keyGeneratorIpFallback (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:653:13)
+    at wrappedValidations.<computed> [as keyGeneratorIpFallback] (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:704:22)
+    at parseOptions (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:778:16)
+    at rateLimit (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:860:18)
+    at Object.<anonymous> (/Users/amarnath/Documents/New project update 1/backend/src/middleware/rate-limit.js:25:21)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19) {
+  code: 'ERR_ERL_KEY_GEN_IPV6',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/'
+}
+ValidationError: Custom keyGenerator appears to use request IP without calling the ipKeyGenerator helper function for IPv6 addresses. This could allow IPv6 users to bypass limits. See https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/ for more information.
+    at Object.keyGeneratorIpFallback (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:653:13)
+    at wrappedValidations.<computed> [as keyGeneratorIpFallback] (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:704:22)
+    at parseOptions (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:778:16)
+    at rateLimit (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:860:18)
+    at Object.<anonymous> (/Users/amarnath/Documents/New project update 1/backend/src/middleware/rate-limit.js:38:25)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19) {
+  code: 'ERR_ERL_KEY_GEN_IPV6',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/'
+}
+ValidationError: Custom keyGenerator appears to use request IP without calling the ipKeyGenerator helper function for IPv6 addresses. This could allow IPv6 users to bypass limits. See https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/ for more information.
+    at Object.keyGeneratorIpFallback (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:653:13)
+    at wrappedValidations.<computed> [as keyGeneratorIpFallback] (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:704:22)
+    at parseOptions (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:778:16)
+    at rateLimit (/Users/amarnath/Documents/New project update 1/backend/node_modules/express-rate-limit/dist/index.cjs:860:18)
+    at Object.<anonymous> (/Users/amarnath/Documents/New project update 1/backend/src/middleware/rate-limit.js:51:24)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19) {
+  code: 'ERR_ERL_KEY_GEN_IPV6',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_KEY_GEN_IPV6/'
+}
+[migrate] PostgreSQL not available — using JSON file storage. 
+[backup] Next backup scheduled in 17.7 hours (midnight IST)
+[sales-report] Next report scheduled in 11.2 hours (11 PM IST)
+API server listening on port 4000
+[sales-report] Building daily sales reports…
+[sales-report] No RESEND_API_KEY — skipping
+[sales-report] Next report scheduled in 24.0 hours (11 PM IST)

@@ -19,3 +19,20 @@ npm error workspace waiter-mobile@0.1.0
 npm error location /Users/amarnath/Documents/New project update 1/apps/waiter-mobile
 npm error command failed
 npm error command sh -c vite --host 0.0.0.0 --port 4175
+
+> dinex-captain@1.0.0 dev
+> vite --host 0.0.0.0 --port 4175
+
+
+  VITE v7.3.2  ready in 319 ms
+
+  ➜  Local:   http://localhost:4175/
+  ➜  Network: http://192.168.68.102:4175/
+  ➜  Network: http://169.254.195.185:4175/
+npm error Lifecycle script `dev` failed with error:
+npm error code 143
+npm error path /Users/amarnath/Documents/New project update 1/apps/waiter-mobile
+npm error workspace dinex-captain@1.0.0
+npm error location /Users/amarnath/Documents/New project update 1/apps/waiter-mobile
+npm error command failed
+npm error command sh -c vite --host 0.0.0.0 --port 4175

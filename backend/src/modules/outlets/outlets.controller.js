@@ -27,6 +27,17 @@ async function updateOutletSettingsHandler(req, res) {
   res.json(result);
 }
 
+// Tables-only update — accepts { tables: [...] } from POS cashier
+async function updateOutletTablesHandler(req, res) {
+  const { tables } = req.body;
+  if (!Array.isArray(tables)) {
+    return res.status(400).json({ error: "tables must be an array" });
+  }
+  const result = await updateOutletSettings(req.params.id, { tables });
+  pushSync(req, "tables");
+  res.json(result);
+}
+
 async function deleteOutletHandler(req, res) {
   const result = await deleteOutlet(req.params.id);
   pushSync(req);
@@ -37,5 +48,6 @@ module.exports = {
   listOutletsHandler,
   createOutletHandler,
   updateOutletSettingsHandler,
+  updateOutletTablesHandler,
   deleteOutletHandler
 };

@@ -34,3 +34,21 @@ npm error workspace owner-web@0.1.0
 npm error location /Users/amarnath/Documents/New project update 1/apps/owner-web
 npm error command failed
 npm error command sh -c vite --host 0.0.0.0 --port 4173
+
+> owner-web@0.1.0 dev
+> vite --host 0.0.0.0 --port 4173
+
+11:48:06 AM [vite] (client) Re-optimizing dependencies because vite config has changed
+
+  VITE v7.3.2  ready in 390 ms
+
+  ➜  Local:   http://localhost:4173/
+  ➜  Network: http://192.168.68.102:4173/
+  ➜  Network: http://169.254.195.185:4173/
+npm error Lifecycle script `dev` failed with error:
+npm error code 143
+npm error path /Users/amarnath/Documents/New project update 1/apps/owner-web
+npm error workspace owner-web@0.1.0
+npm error location /Users/amarnath/Documents/New project update 1/apps/owner-web
+npm error command failed
+npm error command sh -c vite --host 0.0.0.0 --port 4173
