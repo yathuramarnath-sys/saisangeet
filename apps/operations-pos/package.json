@@ -13,7 +13,8 @@
     "electron": "electron .",
     "electron:build": "vite build && electron-builder build --mac --win",
     "electron:build:win": "vite build && electron-builder build --win",
-    "electron:build:mac": "vite build && electron-builder build --mac"
+    "electron:build:mac": "vite build && electron-builder build --mac",
+    "release": "vite build && electron-builder --win --x64 && node scripts/gh-release.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
@@ -74,7 +75,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "allowElevation": true
+      "allowElevation": true,
+      "artifactName": "Plato-POS-Setup.exe"
     },
     "electronVersion": "32.3.3"
   }
