@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
+import { UpdateBanner } from "./components/UpdateBanner";
 
 import { api }        from "./lib/api";
 import { printBill }  from "./lib/printBill";
@@ -530,6 +531,7 @@ export function App() {
   // 3. Main app
   return (
     <div className="captain-app">
+      <UpdateBanner />
       {/* App header */}
       <header className="app-header">
         <div className="app-header-inner">

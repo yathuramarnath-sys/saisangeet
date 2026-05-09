@@ -11,6 +11,9 @@ import { api } from "../../lib/api";
 // ─── App catalogue ────────────────────────────────────────────────────────────
 // APK / installer download URLs — always point to "latest" GitHub Release asset.
 // To update: upload new APK/EXE with the SAME filename to the next GitHub Release.
+// Fixed download URLs — always point to the latest GitHub Release asset.
+// Filename never changes; only the GitHub release tag updates.
+// To publish a new version: run `npm run release` in apps/operations-pos.
 const GH = "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download";
 
 const APPS = [
@@ -34,10 +37,10 @@ const APPS = [
       {
         label: "Windows App (.exe)",
         icon: "💻",
-        file: "Plato POS Setup 1.2.0.exe",
-        url: `${GH}/Plato POS Setup 1.2.0.exe`,
+        file: "Plato-POS-Setup.exe",
+        url: `${GH}/Plato-POS-Setup.exe`,
         install: false,
-        installHint: "Download and run the installer on any Windows PC. Auto-updates in the background."
+        installHint: "Download and run the installer on any Windows PC. Uninstall old version first if already installed, then run the new installer."
       },
       {
         label: "Android APK",

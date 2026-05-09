@@ -38,36 +38,43 @@ function createWindow() {
 function setupAutoUpdater() {
   if (!autoUpdater) return;
 
-  // Silent background check — no popup unless update is ready
-  autoUpdater.autoDownload    = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoDownload         = true;   // download silently in background
+  autoUpdater.autoInstallOnAppQuit = true;   // install when cashier closes app
 
-  autoUpdater.on("update-available", () => {
-    console.log("[updater] New version available — downloading in background…");
+  autoUpdater.on("update-available", (info) => {
+    console.log(`[updater] New version available: ${info.version}`);
+    // Notify renderer — shows the in-app update banner
+    mainWindow?.webContents.send("update:available", { version: info.version });
   });
 
-  autoUpdater.on("update-downloaded", () => {
-    console.log("[updater] Update downloaded — will install on next quit.");
-    // Show a non-blocking notification to the cashier
-    dialog.showMessageBox(mainWindow, {
-      type:    "info",
-      title:   "Plato POS Update Ready",
-      message: "A new version has been downloaded.\nIt will install automatically when you close the app.",
-      buttons: ["OK"]
-    }).catch(() => {});
+  autoUpdater.on("download-progress", (progress) => {
+    const pct = Math.round(progress.percent || 0);
+    mainWindow?.webContents.send("update:progress", { percent: pct });
+  });
+
+  autoUpdater.on("update-downloaded", (info) => {
+    console.log(`[updater] v${info.version} downloaded — installs on next quit`);
+    // Notify renderer — shows "Ready to install" button
+    mainWindow?.webContents.send("update:ready", { version: info.version });
   });
 
   autoUpdater.on("error", (err) => {
     console.error("[updater] Error:", err.message);
   });
 
-  // Check for updates 5 seconds after startup (let the app settle first)
+  // Check 5 s after startup so the UI is fully loaded first
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch((err) => {
       console.error("[updater] checkForUpdates failed:", err.message);
     });
   }, 5000);
 }
+
+// ── Updater IPC ───────────────────────────────────────────────────────────────
+// Called by renderer when cashier clicks "Restart & Install"
+ipcMain.on("update:install-now", () => {
+  autoUpdater?.quitAndInstall();
+});
 
 app.whenReady().then(() => {
   createWindow();

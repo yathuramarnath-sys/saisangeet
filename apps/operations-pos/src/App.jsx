@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
+import { UpdateBanner }       from "./components/UpdateBanner";
 import { MenuPanel }          from "./components/MenuPanel";
 import { OrderPanel }         from "./components/OrderPanel";
 import { PaymentSheet }       from "./components/PaymentSheet";
@@ -1226,6 +1227,9 @@ export default function App() {
   // ─── Main POS UI ──────────────────────────────────────────────────────────
   return (
     <div className="pos-shell">
+
+      {/* ── Update banner ────────────────────────────────────────────────── */}
+      <UpdateBanner />
 
       {/* ── Offline banner ───────────────────────────────────────────────── */}
       {!isOnline && (

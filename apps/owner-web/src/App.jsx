@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
+import { UpdateBanner }  from "./components/UpdateBanner";
 import { AuthProvider } from "./lib/AuthContext";
 import { OwnerLayout } from "./components/OwnerLayout";
 import { AppRoutes } from "./pages/routes";
@@ -10,6 +11,8 @@ import { ProtectedRoute } from "./pages/ProtectedRoute";
 
 export function App() {
   return (
+    <>
+    <UpdateBanner />
     <AuthProvider>
       <BrowserRouter>
         <Routes>
@@ -30,5 +33,6 @@ export function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </>
   );
 }

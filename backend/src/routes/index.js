@@ -28,6 +28,19 @@ const { updateOwnerSetupDataNow } = require("../data/owner-setup-store");
 
 const apiRouter = express.Router();
 
+// ── Public: app version manifest — no auth needed ─────────────────────────────
+// Returns current versions for all Plato apps so clients can show update banners.
+apiRouter.get("/app-versions", (_req, res) => {
+  try {
+    // Invalidate require cache so we always serve the latest file after a release
+    const filePath = require("path").resolve(__dirname, "../../.data/app-versions.json");
+    delete require.cache[filePath];
+    res.json(require(filePath));
+  } catch {
+    res.json({});
+  }
+});
+
 apiRouter.use(authenticate);
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/business-profile", businessProfileRouter);

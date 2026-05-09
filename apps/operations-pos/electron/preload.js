@@ -47,4 +47,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // }
   // Returns: Promise<{ ok: boolean, error?: string }>
   triggerCashDrawer: (payload) => ipcRenderer.invoke("trigger-cash-drawer", payload),
+
+  // ── Auto-updater ─────────────────────────────────────────────────────────────
+  // Listen for update lifecycle events from main process
+  onUpdateAvailable: (cb) => ipcRenderer.on("update:available", (_e, info) => cb(info)),
+  onUpdateProgress:  (cb) => ipcRenderer.on("update:progress",  (_e, info) => cb(info)),
+  onUpdateReady:     (cb) => ipcRenderer.on("update:ready",     (_e, info) => cb(info)),
+  // Quit and install the downloaded update immediately
+  installUpdate: () => ipcRenderer.send("update:install-now"),
 });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { api } from "./lib/api";
+import { UpdateBanner } from "./components/UpdateBanner";
 import {
   getStockState,
   setItemAvailability,
@@ -1211,6 +1212,8 @@ export function App() {
 
   return (
     <div className="kds-shell" onClick={unlockAudio} style={{ "--kds-cols": settings.columns }}>
+
+      <UpdateBanner />
 
       {/* ── No-station warning ─────────────────────────────────── */}
       {!settings.assignedStation && (

@@ -5443,3 +5443,51 @@ body { background: #F7F3EE; }
 
 /* ── 9. POS login screen: keep dark background — white text needs dark bg ── */
 /* .poslogin-screen keeps its own dark gradient — DO NOT override here */
+
+/* ── Update Banner ────────────────────────────────────────────────────────── */
+.update-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9999;
+  background: #1d4ed8;
+  color: #fff;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+.update-banner[data-state="ready"]       { background: #16a34a; }
+.update-banner[data-state="downloading"] { background: #1d4ed8; }
+.update-banner[data-state="available"]   { background: #1d4ed8; }
+
+.update-banner-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  max-width: 100%;
+}
+.update-banner-icon { font-size: 18px; flex-shrink: 0; }
+.update-banner-text { flex: 1; line-height: 1.4; }
+.update-banner-text strong { font-weight: 800; }
+.update-banner-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+.update-banner-btn {
+  border: none; cursor: pointer;
+  border-radius: 6px;
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  padding: 5px 14px; transition: opacity 0.15s;
+}
+.update-banner-btn:hover { opacity: 0.85; }
+.update-banner-btn.primary { background: #fff; color: #1d4ed8; }
+.update-banner[data-state="ready"] .update-banner-btn.primary { color: #16a34a; }
+.update-banner-btn.dismiss { background: rgba(255,255,255,0.2); color: #fff; padding: 5px 10px; }
+
+.update-banner-progress {
+  height: 3px;
+  background: rgba(255,255,255,0.25);
+}
+.update-banner-progress-fill {
+  height: 100%;
+  background: #fff;
+  transition: width 0.3s ease;
+}
