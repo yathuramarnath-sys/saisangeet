@@ -59,8 +59,10 @@ async function listPricingProfilesHandler(_req, res) {
 }
 
 function pushSync(req, type = "menu") {
-  const io = req.app.locals.io;
-  if (io) io.emit("sync:config", { type, ts: Date.now() });
+  const io       = req.app.locals.io;
+  const tenantId = req.user?.tenantId || "default";
+  // Scope to tenant room — prevents menu-change events leaking to other tenants
+  if (io) io.to(`tenant:${tenantId}`).emit("sync:config", { type, ts: Date.now() });
 }
 
 async function createMenuCategoryHandler(req, res) {

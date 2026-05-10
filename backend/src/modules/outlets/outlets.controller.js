@@ -6,8 +6,10 @@ const {
 } = require("./outlets.service");
 
 function pushSync(req, type = "outlets") {
-  const io = req.app.locals.io;
-  if (io) io.emit("sync:config", { type, ts: Date.now() });
+  const io       = req.app.locals.io;
+  const tenantId = req.user?.tenantId || "default";
+  // Scope to tenant room — prevents config events leaking to other tenants
+  if (io) io.to(`tenant:${tenantId}`).emit("sync:config", { type, ts: Date.now() });
 }
 
 async function listOutletsHandler(_req, res) {

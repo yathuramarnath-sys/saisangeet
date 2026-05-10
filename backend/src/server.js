@@ -68,6 +68,9 @@ io.on("connection", (socket) => {
 
   if (outletId) {
     socket.join(`outlet:${tenantId}:${outletId}`);
+    // Also join the tenant-level room — used for sync:config broadcasts so only
+    // this tenant's devices receive config-change notifications (not all tenants).
+    socket.join(`tenant:${tenantId}`);
     // Ask other connected devices (POS) to broadcast current order state so
     // this new device (Captain App / KDS) gets accurate table occupancy immediately
     socket.to(`outlet:${tenantId}:${outletId}`).emit("request:order-sync");
