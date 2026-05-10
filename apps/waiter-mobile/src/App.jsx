@@ -419,7 +419,12 @@ export function App() {
   function handlePrintBill() {
     const order = orders[selectedTableId];
     if (!order?.items?.length) { toast.error("No items to print"); return; }
-    printBill(order, order.items, outlet?.name);
+    printBill(
+      order,
+      order.items,
+      outlet?.name || branchConfig?.outletName,
+      { cashierName: loggedInStaff?.name || "Waiter" }
+    );
     toast("Printing bill…", { icon: "🖨️" });
     setSelectedTableId(null);
   }

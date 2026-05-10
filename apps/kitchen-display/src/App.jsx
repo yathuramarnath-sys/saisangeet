@@ -452,7 +452,7 @@ function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletN
   // ── Auto Actions ───────────────────────────────────────────────────────────
   const ActionsTab = () => (
     <div className="kds-settings-section">
-      <SettingRow label="Auto-Bump" sub="Automatically remove Ready tickets after this time (0 = off)">
+      <SettingRow label="Auto-Bump" sub="Automatically bump Preparing tickets after this time (0 = off)">
         <div className="kds-seg">
           {[0,30,60,120].map(n => (
             <button key={n} className={`kds-seg-btn${settings.autoBumpSeconds === n ? " active" : ""}`}
@@ -466,7 +466,7 @@ function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletN
       <div className="kds-setting-note">
         {settings.autoBumpSeconds === 0
           ? "Auto-bump is OFF. Staff must manually press BUMP."
-          : `Ready tickets will be bumped automatically after ${settings.autoBumpSeconds < 60 ? settings.autoBumpSeconds+"s" : settings.autoBumpSeconds/60+"min"}.`}
+          : `Preparing tickets will be auto-bumped after ${settings.autoBumpSeconds < 60 ? settings.autoBumpSeconds+"s" : settings.autoBumpSeconds/60+"min"}.`}
       </div>
 
       <SettingRow
@@ -1086,13 +1086,19 @@ export function App() {
   }, [settings.assignedStation, branchConfig]);
 
   // Auto-bump effect
+  // Bumps any ticket that has been in "preparing" state for autoBumpSeconds.
+  // Previously checked status === "ready" — that status doesn't exist in the
+  // 2-step flow (New → Preparing → Bumped), so auto-bump never fired.
   useEffect(() => {
     if (!settings.autoBumpSeconds) return;
     const id = setInterval(() => {
       const cutoff = Date.now() - settings.autoBumpSeconds * 1000;
       setTickets(prev => {
-        const toBump = prev.filter(t => t.status === "ready" && new Date(t.createdAt).getTime() < cutoff - (settings.autoBumpSeconds * 1000));
+        const toBump = prev.filter(
+          t => t.status === "preparing" && new Date(t.createdAt).getTime() < cutoff
+        );
         if (!toBump.length) return prev;
+        toBump.forEach(t => handleBump(t.id)); // use existing bump handler (API + socket)
         setServedCount(n => n + toBump.length);
         return prev.filter(t => !toBump.find(b => b.id === t.id));
       });
