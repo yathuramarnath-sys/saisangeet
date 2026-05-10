@@ -897,6 +897,17 @@ export default function App() {
       console.error("Closed-order sync failed:", err.message);
     }
 
+    // ── Print receipt after settle ─────────────────────────────────────────
+    // Print once here — AFTER the server has assigned the official billNo.
+    // This ensures the thermal receipt shows the sequential GST bill number
+    // (e.g. "Bill No: #42") rather than the local POS orderNumber.
+    printBill(
+      closedOrder,
+      closedOrder.items,
+      outlet?.name || branchConfig?.outletName,
+      { cashierName }
+    );
+
     setShowPayment(false);
     setSelectedTableId(null);
 
@@ -1090,6 +1101,9 @@ export default function App() {
   }
 
   // ── Print bill ────────────────────────────────────────────────────────────
+  // This button MARKS the table as "Bill Due" (turns it blue on the floor plan
+  // and notifies Captain app). The actual receipt prints after settlement so the
+  // bill number on the receipt is the server-assigned sequential GST bill number.
   function handlePrintBill() {
     if (!selectedTableId) return;
     const tableId = selectedTableId;
@@ -1104,8 +1118,7 @@ export default function App() {
       return o;
     });
 
-    printBill(order, order.items, outlet?.name || branchConfig?.outletName, { cashierName });
-    showToast("🖨️ Bill printed · Waiting for payment");
+    showToast("📋 Bill requested · Collect payment to print receipt");
 
     // Close the order panel — table stays blue until payment is collected
     setSelectedTableId(null);
