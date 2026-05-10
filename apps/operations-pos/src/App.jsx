@@ -774,11 +774,18 @@ export default function App() {
     const newPayments = Array.isArray(paymentsInput) ? paymentsInput : [paymentsInput];
 
     // Build the fully-paid order snapshot
-    const allPayments = [...(order.payments || []), ...newPayments];
-    const subtotal    = order.items.filter(i => !i.isVoided && !i.isComp).reduce((s, i) => s + i.price * i.quantity, 0);
-    const disc        = Math.min(order.discountAmount || 0, subtotal);
-    const total       = Math.round((subtotal - disc) * 1.05);
-    const paid        = allPayments.reduce((s, p) => s + p.amount, 0);
+    const allPayments  = [...(order.payments || []), ...newPayments];
+    const billableItems = order.items.filter(i => !i.isVoided && !i.isComp);
+    const subtotal     = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
+    const disc         = Math.min(order.discountAmount || 0, subtotal);
+    const afterDisc    = subtotal - disc;
+    // Per-item tax (mirrors printBill.js logic — defaults to 5% if item.taxRate unset)
+    const taxAmt       = billableItems.reduce((s, i) => {
+      const lineAfter = subtotal > 0 ? (i.price * i.quantity) * (afterDisc / subtotal) : 0;
+      return s + Math.round(lineAfter * ((i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 5) / 100));
+    }, 0);
+    const total        = afterDisc + taxAmt;
+    const paid         = allPayments.reduce((s, p) => s + p.amount, 0);
 
     if (paid < total) {
       // Partial — record locally (optimistic) then fire-and-forget sync to backend.
