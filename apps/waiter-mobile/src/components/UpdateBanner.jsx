@@ -26,8 +26,11 @@ export function UpdateBanner() {
         .then(data => {
           const latest = data?.[APP_KEY];
           if (latest?.version && compareVersions(latest.version, APP_VERSION) > 0) {
-            setInfo(latest);
-            setDismissed(false);
+            setInfo(prev => {
+              // Don't un-dismiss if the same version was already shown
+              if (prev?.version !== latest.version) setDismissed(false);
+              return latest;
+            });
           }
         })
         .catch(() => {});

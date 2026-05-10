@@ -35,7 +35,7 @@ export function getKotPrinterForStation(stationName) {
   if (stationName) {
     const match = printers.find(
       p => p.station && p.station.toLowerCase() === stationName.toLowerCase()
-        && (p.type === "KOT Printer" || p.type === "Both")
+        && isKotType(p.type)
     );
     if (match) return match;
   }

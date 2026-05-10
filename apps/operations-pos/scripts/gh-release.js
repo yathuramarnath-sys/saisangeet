@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * gh-release.js
- * 1. Creates a GitHub Release for the current version
+ * 1. Creates a GitHub Release for the current POS version
  * 2. Uploads Plato-POS-Setup.exe as the download asset
- * 3. Updates backend/.data/app-versions.json so ALL apps show the
- *    "Update available" banner automatically
+ * 3. Updates ONLY the "pos" key in backend/.data/app-versions.json
+ *    — other apps keep their own independent version numbers
  *
  * Usage: node scripts/gh-release.js
  * Or via: npm run release
@@ -31,17 +31,22 @@ if (!fs.existsSync(exePath)) {
   process.exit(1);
 }
 
-// ── 1. Update app-versions.json ───────────────────────────────────────────────
-console.log(`[release] Updating app-versions.json → v${version}…`);
+// ── 1. Update ONLY the "pos" key in app-versions.json ────────────────────────
+//    Other apps (captain, kds, ownerWeb) keep their own version numbers.
+console.log(`[release] Updating app-versions.json → pos v${version}…`);
+if (!fs.existsSync(path.dirname(versionsFile))) {
+  console.error(`[release] ERROR: ${path.dirname(versionsFile)} directory not found.`);
+  process.exit(1);
+}
 const today = new Date().toISOString().split("T")[0];
+let existing = {};
+try { existing = JSON.parse(fs.readFileSync(versionsFile, "utf8")); } catch { /* first run */ }
 const versions = {
-  pos:      { version, label: "POS Terminal",    downloadUrl: `${GH_DL}/Plato-POS-Setup.exe`,    apkUrl: `${GH_DL}/plato-pos.apk`,     releaseDate: today },
-  captain:  { version, label: "Captain App",     downloadUrl: null,                               apkUrl: `${GH_DL}/plato-captain.apk`, releaseDate: today },
-  kds:      { version, label: "Kitchen Display", downloadUrl: null,                               apkUrl: null,                         releaseDate: today },
-  ownerWeb: { version, label: "Owner Dashboard", downloadUrl: null,                               apkUrl: null,                         releaseDate: today },
+  ...existing,
+  pos: { version, label: "POS Terminal", downloadUrl: `${GH_DL}/Plato-POS-Setup.exe`, apkUrl: `${GH_DL}/plato-pos.apk`, releaseDate: today },
 };
 fs.writeFileSync(versionsFile, JSON.stringify(versions, null, 2) + "\n");
-console.log(`[release] ✓ app-versions.json updated`);
+console.log(`[release] ✓ app-versions.json updated (pos → v${version}, others unchanged)`);
 
 // ── 2. Delete existing tag/release (allow re-release same version) ────────────
 try {
@@ -56,7 +61,11 @@ execSync(
   `gh release create ${tag} "${exePath}" ` +
   `--repo ${owner}/${repo} ` +
   `--title "Plato POS ${version}" ` +
-  `--notes "### Plato POS v${version}\n\nDownload **Plato-POS-Setup.exe** and install on Windows.\n\nAll apps (POS, Captain, KDS, Owner Web) updated to v${version}." ` +
+  `--notes "### Plato POS v${version}
+
+Download **Plato-POS-Setup.exe** and install on Windows.
+
+This release updates the POS Terminal. Captain / KDS / Owner Web have independent version numbers." ` +
   `--latest`,
   { stdio: "inherit" }
 );
@@ -71,6 +80,7 @@ try {
   console.warn("[release] Git push skipped:", e.message);
 }
 
-console.log(`\n✅ Released v${version}`);
+console.log(`\n✅ POS v${version} released`);
 console.log(`   EXE  : ${GH_DL}/Plato-POS-Setup.exe`);
-console.log(`   All apps will show "Update available v${version}" banner automatically.\n`);
+console.log(`   POS users will see "Update available v${version}" banner automatically.`);
+console.log(`   Captain / KDS / Owner Web versions are unchanged.\n`);

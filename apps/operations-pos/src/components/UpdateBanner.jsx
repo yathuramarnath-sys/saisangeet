@@ -21,20 +21,25 @@ export function UpdateBanner() {
   useEffect(() => {
     // ── Electron path ─────────────────────────────────────────────────────────
     if (window.electronAPI?.onUpdateAvailable) {
-      window.electronAPI.onUpdateAvailable((info) => {
+      // Each on* returns a cleanup fn — call them on unmount to prevent listener leak
+      const unsubAvailable = window.electronAPI.onUpdateAvailable((info) => {
         setVersion(info.version);
         setState("available");
       });
-      window.electronAPI.onUpdateProgress?.((info) => {
+      const unsubProgress = window.electronAPI.onUpdateProgress?.((info) => {
         setProgress(info.percent || 0);
         setState("downloading");
       });
-      window.electronAPI.onUpdateReady?.((info) => {
+      const unsubReady = window.electronAPI.onUpdateReady?.((info) => {
         setVersion(info.version);
         setState("ready");
         setDismissed(false); // re-show when download completes
       });
-      return;
+      return () => {
+        unsubAvailable?.();
+        unsubProgress?.();
+        unsubReady?.();
+      };
     }
 
     // ── Web / PWA path ────────────────────────────────────────────────────────

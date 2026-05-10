@@ -232,18 +232,19 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
               return {
                 type:    'KOT',
                 outlet:  q('.kot-outlet')?.innerText || '',
-                table:   largeRow?.children[0]?.innerText || '',
-                kotNum:  largeRow?.children[1]?.innerText || '',
-                date:    metaRows.find(r => r.innerText.includes('Date'))?.children[1]?.innerText || '',
-                time:    metaRows.find(r => r.innerText.includes('Time'))?.children[1]?.innerText || '',
-                guests:  metaRows.find(r => r.innerText.includes('Guest'))?.children[1]?.innerText || '',
+                // Use :first-child/:last-child instead of positional index — robust if wrapper elements are added
+                table:   largeRow?.querySelector(':first-child')?.innerText?.trim() || '',
+                kotNum:  largeRow?.querySelector(':last-child')?.innerText?.trim()  || '',
+                date:    metaRows.find(r => r.innerText.includes('Date'))?.querySelector(':last-child')?.innerText?.trim()  || '',
+                time:    metaRows.find(r => r.innerText.includes('Time'))?.querySelector(':last-child')?.innerText?.trim()  || '',
+                guests:  metaRows.find(r => r.innerText.includes('Guest'))?.querySelector(':last-child')?.innerText?.trim() || '',
                 items:   qa('.kot-item').map(el => ({
                   qty:  el.querySelector('.kot-qty')?.innerText?.trim() || '',
                   name: el.querySelector('.kot-item-name')?.innerText?.trim() || '',
                   note: el.querySelector('.kot-item-note')?.innerText?.trim() || '',
                 })),
-                total:   footRows.find(r => r.innerText.includes('Total'))?.children[1]?.innerText || '',
-                sentBy:  footRows.find(r => r.innerText.includes('Sent'))?.children[1]?.innerText || '',
+                total:   footRows.find(r => r.innerText.includes('Total'))?.querySelector(':last-child')?.innerText?.trim() || '',
+                sentBy:  footRows.find(r => r.innerText.includes('Sent'))?.querySelector(':last-child')?.innerText?.trim()  || '',
                 printer: q('.kot-printer-tag')?.innerText || '',
               };
             }
@@ -398,21 +399,26 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
         cmd += LF + LF + CUT;
 
         // ── Send via TCP ───────────────────────────────────────────────────
+        // Guard against double-resolve: timeout + write-callback could both fire
+        let tcpDone = false;
+        function tcpResolve(result) { if (!tcpDone) { tcpDone = true; resolve(result); } }
+
         const sock = new net.Socket();
         sock.setTimeout(5000);
         sock.once('connect', () => {
-          sock.write(Buffer.from(cmd, 'binary'), () => {
+          // latin1 (= binary, 1:1 byte mapping) is correct for ESC/POS byte sequences
+          sock.write(Buffer.from(cmd, 'latin1'), () => {
             sock.destroy();
-            resolve({ ok: true });
+            tcpResolve({ ok: true });
           });
         });
-        sock.once('timeout', () => { sock.destroy(); resolve({ ok: false, error: 'TCP timeout' }); });
-        sock.once('error',   (err) => { sock.destroy(); resolve({ ok: false, error: err.message }); });
+        sock.once('timeout', () => { sock.destroy(); tcpResolve({ ok: false, error: 'TCP timeout' }); });
+        sock.once('error',   (err) => { sock.destroy(); tcpResolve({ ok: false, error: err.message }); });
         sock.connect(port, ip.trim());
 
       } catch (err) {
         try { win.destroy(); } catch {}
-        resolve({ ok: false, error: err.message });
+        if (!tcpDone) { tcpDone = true; resolve({ ok: false, error: err.message }); }
       }
     });
 

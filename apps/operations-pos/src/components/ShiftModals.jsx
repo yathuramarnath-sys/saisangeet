@@ -222,6 +222,9 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
 
 /* ── Close Shift modal ────────────────────────────────────────────────────── */
 export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
+  // Safety guard — if shift becomes null before the modal unmounts, render nothing
+  if (!shift) return null;
+
   const [closingCash,  setClosingCash]  = useState("0");
   const [note,         setNote]         = useState("");
   const [showReceipt,  setShowReceipt]  = useState(false);

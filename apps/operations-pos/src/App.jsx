@@ -109,7 +109,7 @@ async function flushKotQueue(outletId) {
   const failed = [];
   for (const payload of queue) {
     try {
-      await fetch(
+      const resp = await fetch(
         `${import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1"}/operations/kot`,
         {
           method:  "POST",
@@ -120,6 +120,8 @@ async function flushKotQueue(outletId) {
           body: JSON.stringify({ ...payload, outletId }),
         }
       );
+      // Only discard if server confirmed receipt — re-queue on any HTTP error
+      if (!resp.ok) failed.push(payload);
     } catch (_) {
       failed.push(payload);
     }
@@ -990,12 +992,13 @@ export default function App() {
   // ── Hold order ────────────────────────────────────────────────────────────
   function handleHoldToggle() {
     if (!selectedTableId) return;
+    // Read the toast message INSIDE mutateOrder so we see the new value,
+    // not the stale closure value of orders[selectedTableId].
     mutateOrder(selectedTableId, o => {
       o.isOnHold = !o.isOnHold;
+      showToast(o.isOnHold ? "Order put on hold" : "Order resumed");
       return o;
     });
-    const isNowHeld = !orders[selectedTableId]?.isOnHold;
-    showToast(isNowHeld ? "Order put on hold" : "Order resumed");
   }
 
   // ── Transfer table ─────────────────────────────────────────────────────────

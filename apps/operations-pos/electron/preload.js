@@ -49,10 +49,23 @@ contextBridge.exposeInMainWorld("electronAPI", {
   triggerCashDrawer: (payload) => ipcRenderer.invoke("trigger-cash-drawer", payload),
 
   // ── Auto-updater ─────────────────────────────────────────────────────────────
-  // Listen for update lifecycle events from main process
-  onUpdateAvailable: (cb) => ipcRenderer.on("update:available", (_e, info) => cb(info)),
-  onUpdateProgress:  (cb) => ipcRenderer.on("update:progress",  (_e, info) => cb(info)),
-  onUpdateReady:     (cb) => ipcRenderer.on("update:ready",     (_e, info) => cb(info)),
+  // Each on* returns a cleanup function — call it from useEffect cleanup to
+  // prevent listener accumulation on hot-reload / Strict Mode double-invoke.
+  onUpdateAvailable: (cb) => {
+    const handler = (_e, info) => cb(info);
+    ipcRenderer.on("update:available", handler);
+    return () => ipcRenderer.removeListener("update:available", handler);
+  },
+  onUpdateProgress: (cb) => {
+    const handler = (_e, info) => cb(info);
+    ipcRenderer.on("update:progress", handler);
+    return () => ipcRenderer.removeListener("update:progress", handler);
+  },
+  onUpdateReady: (cb) => {
+    const handler = (_e, info) => cb(info);
+    ipcRenderer.on("update:ready", handler);
+    return () => ipcRenderer.removeListener("update:ready", handler);
+  },
   // Quit and install the downloaded update immediately
   installUpdate: () => ipcRenderer.send("update:install-now"),
 });
