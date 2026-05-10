@@ -74,7 +74,7 @@ const SETTINGS_VERSION = 3; // bump this whenever defaults change significantly
 
 const DEFAULT_SETTINGS = {
   _version:          SETTINGS_VERSION,
-  columns:           2,             // reserved — single-screen layout now
+  columns:           1,             // 1 = single column (default); change in Settings
   cardSize:          "normal",      // compact | normal | large
   showSource:        true,
   showArea:          true,
