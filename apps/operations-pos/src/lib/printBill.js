@@ -9,16 +9,36 @@ import { getBillPrinter } from "./kotPrint";
 
 export function printBill(order, items, outletName, options = {}) {
   const { seatLabel = null, cashierName = null } = options;
+  // Resolve paper width early so the @page CSS can use it
+  const _printer      = getBillPrinter();
+  const _paperWidthMm = _printer?.paper || 80;
   const servedBy = cashierName || order.cashierName || null;
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const discount  = Math.min(order.discountAmount || 0, subtotal);
   const afterDisc = subtotal - discount;
-  const taxTotal  = Math.round(afterDisc * 0.05);
-  const cgst      = Math.round(afterDisc * 0.025);
-  const sgst      = taxTotal - cgst;
-  const total     = afterDisc + taxTotal;
+
+  // ── Per-item tax calculation (reads item.taxRate; defaults to 5% if not set) ──
+  // Discount is spread proportionally across items before applying tax.
+  const taxBreakdown = {}; // { rateInt: totalTaxAmt }
+  billableItems.forEach(i => {
+    const lineAmt   = i.price * i.quantity;
+    // Proportional share of discount for this line
+    const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
+    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const lineTax   = Math.round(lineAfter * rate / 100);
+    taxBreakdown[rate] = (taxBreakdown[rate] || 0) + lineTax;
+  });
+  // Build rows: each rate split 50/50 into CGST + SGST
+  const taxRows  = Object.entries(taxBreakdown).map(([rate, amt]) => ({
+    rate:    Number(rate),
+    cgstPct: Number(rate) / 2,
+    cgst:    Math.round(amt / 2),
+    sgst:    amt - Math.round(amt / 2),
+  }));
+  const taxTotal = taxRows.reduce((s, r) => s + r.cgst + r.sgst, 0);
+  const total    = afterDisc + taxTotal;
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -50,14 +70,14 @@ export function printBill(order, items, outletName, options = {}) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    @page { size: 80mm auto; margin: 0; }
+    @page { size: ${_paperWidthMm}mm auto; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Manrope', 'Courier New', monospace;
-      font-size: 12px;
+      font-size: ${_paperWidthMm <= 58 ? 11 : 12}px;
       color: #111;
       padding: 10px 12px 20px;
-      width: 80mm;
+      width: ${_paperWidthMm}mm;
     }
 
     /* ── Header ── */
@@ -142,8 +162,8 @@ export function printBill(order, items, outletName, options = {}) {
     ${servedBy ? `<tr>
       <td class="lbl">Cashier</td><td class="sep">:</td><td class="val" colspan="4">${servedBy}</td>
     </tr>` : ""}
-    ${order.orderNumber ? `<tr>
-      <td class="lbl">Bill No</td><td class="sep">:</td><td class="val" colspan="4">#${order.orderNumber}</td>
+    ${(order.billNo || order.orderNumber) ? `<tr>
+      <td class="lbl">Bill No</td><td class="sep">:</td><td class="val" colspan="4">#${order.billNo || order.orderNumber}</td>
     </tr>` : ""}
   </table>
   <hr class="div-dash">
@@ -167,8 +187,9 @@ export function printBill(order, items, outletName, options = {}) {
   <!-- Summary -->
   <div class="sum-row"><span>Subtotal</span><span class="val">₹${subtotal.toFixed(0)}</span></div>
   ${discount > 0 ? `<div class="sum-row"><span>Discount</span><span class="val" style="color:#e53">−₹${discount.toFixed(0)}</span></div>` : ""}
-  <div class="sum-row"><span>CGST (2.5%)</span><span class="val">₹${cgst.toFixed(0)}</span></div>
-  <div class="sum-row"><span>SGST (2.5%)</span><span class="val">₹${sgst.toFixed(0)}</span></div>
+  ${taxRows.map(t => `
+  <div class="sum-row"><span>CGST (${t.cgstPct}%)</span><span class="val">₹${t.cgst}</span></div>
+  <div class="sum-row"><span>SGST (${t.cgstPct}%)</span><span class="val">₹${t.sgst}</span></div>`).join("")}
   <hr class="div-dash">
   <div class="total-row"><span>TOTAL</span><span>₹${total.toFixed(0)}</span></div>
   <hr class="div-dash">
@@ -184,12 +205,12 @@ export function printBill(order, items, outletName, options = {}) {
 
   // ── Production path: Windows Electron silent printing ───────────────────
   if (window.electronAPI?.printHTML) {
-    const printer     = getBillPrinter();
-    const printerName = printer?.winName || printer?.name || null;
-    const printerIp   = printer?.ip?.trim() || null;
+    const printerName  = _printer?.winName || _printer?.name || null;
+    const printerIp    = _printer?.ip?.trim() || null;
+    const paperWidthMm = _paperWidthMm;
 
     window.electronAPI
-      .printHTML({ html, printerName, printerIp, paperWidthMm: 80 })
+      .printHTML({ html, printerName, printerIp, paperWidthMm })
       .then((result) => {
         if (!result?.ok) {
           console.warn("[printBill] Electron print failed:", result?.error);
