@@ -3,7 +3,14 @@ import { getBillPrinter } from "../lib/kotPrint";
 
 const CASH_OUT_REASONS = ["Petty expense","Vendor payment","Courier payout","Staff advance","Utility bill","Other"];
 const CASH_IN_REASONS  = ["Change refill","Float top-up","Manager deposit","Other"];
-const MANAGER_PIN      = "1234";
+
+/** Read manager PIN from POS security settings. Falls back to "1234" only if never configured. */
+function getManagerPin() {
+  try {
+    const s = JSON.parse(localStorage.getItem("pos_security") || "{}");
+    return s.managerPin || "1234";
+  } catch { return "1234"; }
+}
 
 /* ── Shared numpad ────────────────────────────────────────────────────────── */
 function NumPad({ value, onChange, maxLen = 6 }) {
@@ -40,7 +47,7 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
   const [pinError, setPinError] = useState(false);
 
   function handleSave() {
-    if (pin !== MANAGER_PIN) { setPinError(true); return; }
+    if (pin !== getManagerPin()) { setPinError(true); return; }
     const amt = Number(amount);
     if (!amt) return;
 

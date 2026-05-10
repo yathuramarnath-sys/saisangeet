@@ -785,9 +785,81 @@ function DisplayTab() {
   );
 }
 
+/* ─── Security Tab ──────────────────────────────────────────────────────────── */
+function SecurityTab() {
+  const [sec,        setSec]        = useState(() => load("pos_security", { managerPin: "1234" }));
+  const [pinInput,   setPinInput]   = useState("");
+  const [pinInput2,  setPinInput2]  = useState("");
+  const [saved,      setSaved]      = useState(false);
+  const [pinError,   setPinError]   = useState("");
+
+  function handleSave() {
+    setPinError("");
+    if (!/^\d{4,6}$/.test(pinInput)) { setPinError("PIN must be 4–6 digits."); return; }
+    if (pinInput !== pinInput2)       { setPinError("PINs do not match."); return; }
+    const updated = { ...sec, managerPin: pinInput };
+    save("pos_security", updated);
+    setSec(updated);
+    setPinInput("");
+    setPinInput2("");
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
+
+  return (
+    <div className="pset-section">
+      <div className="pset-section-head">
+        <div><h4>Security</h4><p>Manager PIN is required to approve Cash In / Cash Out</p></div>
+      </div>
+
+      <div className="pset-form-field">
+        <label>Current Manager PIN</label>
+        <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
+          PIN is configured. Enter a new one below to change it.
+        </div>
+      </div>
+
+      <div className="pset-form-field">
+        <label>New PIN (4–6 digits)</label>
+        <input
+          type="password"
+          inputMode="numeric"
+          maxLength={6}
+          placeholder="Enter new PIN"
+          value={pinInput}
+          onChange={e => { setPinInput(e.target.value.replace(/\D/g,"")); setSaved(false); }}
+          style={{ width: 160, letterSpacing: "0.25em" }}
+        />
+      </div>
+      <div className="pset-form-field">
+        <label>Confirm New PIN</label>
+        <input
+          type="password"
+          inputMode="numeric"
+          maxLength={6}
+          placeholder="Repeat new PIN"
+          value={pinInput2}
+          onChange={e => { setPinInput2(e.target.value.replace(/\D/g,"")); setSaved(false); }}
+          style={{ width: 160, letterSpacing: "0.25em" }}
+        />
+      </div>
+
+      {pinError && <div style={{ color: "#e53e3e", fontSize: 12, marginBottom: 8 }}>{pinError}</div>}
+
+      <button type="button" className="pset-save-btn" onClick={handleSave}>
+        {saved ? "✓ PIN Updated" : "Update PIN"}
+      </button>
+
+      <div style={{ marginTop: 16, padding: "10px 12px", background: "#fffbeb", borderRadius: 8, fontSize: 12, color: "#92400e" }}>
+        ⚠️ Change the default PIN (1234) before going live. Share the new PIN only with managers.
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main PosSettingsModal ─────────────────────────────────────────────────── */
 export function PosSettingsModal({ cashierName, activeShift, onClose }) {
-  const TABS = ["Printers", "Tables", "Cashier", "Display"];
+  const TABS = ["Printers", "Tables", "Cashier", "Display", "Security"];
   const [tab, setTab] = useState("Printers");
 
   return (
@@ -814,10 +886,11 @@ export function PosSettingsModal({ cashierName, activeShift, onClose }) {
         </div>
 
         <div className="pset-body">
-          {tab === "Printers" && <PrinterTab />}
-          {tab === "Tables"   && <TablesTab />}
-          {tab === "Cashier"  && <CashierTab cashierName={cashierName} activeShift={activeShift} />}
-          {tab === "Display"  && <DisplayTab />}
+          {tab === "Printers"  && <PrinterTab />}
+          {tab === "Tables"    && <TablesTab />}
+          {tab === "Cashier"   && <CashierTab cashierName={cashierName} activeShift={activeShift} />}
+          {tab === "Display"   && <DisplayTab />}
+          {tab === "Security"  && <SecurityTab />}
         </div>
 
         <div className="sm-footer">
