@@ -12,9 +12,16 @@ export function TableGrid({ areas, orders, selectedTableId, onSelectTable }) {
   function tableTotal(tableId) {
     const order = orders[tableId];
     if (!order?.items?.length) return null;
-    const subtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
-    const disc = Math.min(order.discountAmount || 0, subtotal);
-    return Math.round((subtotal - disc) * 1.05);
+    const billable  = order.items.filter(i => !i.isVoided && !i.isComp);
+    const subtotal  = billable.reduce((s, i) => s + i.price * i.quantity, 0);
+    const disc      = Math.min(order.discountAmount || 0, subtotal);
+    const afterDisc = subtotal - disc;
+    const tax       = billable.reduce((s, i) => {
+      const lineAfter = subtotal > 0 ? (i.price * i.quantity) * (afterDisc / subtotal) : 0;
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      return s + Math.round(lineAfter * rate / 100);
+    }, 0);
+    return afterDisc + tax;
   }
 
   function tableGuests(tableId) {

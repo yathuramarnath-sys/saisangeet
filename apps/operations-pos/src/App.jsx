@@ -129,6 +129,45 @@ async function flushKotQueue(outletId) {
   saveKotQueue(failed);
 }
 
+// ── Closed-order offline queue ────────────────────────────────────────────
+// When the server is unreachable at settle-time, the closed order is queued
+// here and flushed automatically when connectivity returns.
+// This ensures the owner dashboard and backend records are never permanently
+// missing a sale just because the internet dropped during billing.
+const CLOSED_QUEUE_KEY = "pos_closed_order_queue";
+
+function loadClosedOrderQueue() {
+  try { return JSON.parse(localStorage.getItem(CLOSED_QUEUE_KEY) || "[]"); }
+  catch { return []; }
+}
+function saveClosedOrderQueue(queue) {
+  try { localStorage.setItem(CLOSED_QUEUE_KEY, JSON.stringify(queue)); } catch (_) {}
+}
+
+async function flushClosedOrderQueue(outletId) {
+  const queue = loadClosedOrderQueue();
+  if (!queue.length) return;
+  const token = localStorage.getItem("pos_token") || "";
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1";
+  const failed = [];
+  for (const payload of queue) {
+    try {
+      const resp = await fetch(`${apiBase}/operations/closed-order`, {
+        method:  "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ...payload, outletId }),
+      });
+      if (!resp.ok) failed.push(payload);
+    } catch (_) {
+      failed.push(payload);
+    }
+  }
+  saveClosedOrderQueue(failed);
+}
+
 // ── Active orders persistence ─────────────────────────────────────────────
 const ORDERS_KEY = "pos_active_orders";
 
@@ -416,6 +455,7 @@ export default function App() {
     const goOnline = () => {
       setIsOnline(true);
       flushKotQueue(outlet?.id).catch(() => {});
+      flushClosedOrderQueue(outlet?.id).catch(() => {});
     };
     const goOffline = () => setIsOnline(false);
     window.addEventListener("online",  goOnline);
@@ -844,25 +884,6 @@ export default function App() {
     // Notify Captain App that this table's bill is settled
     socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
 
-    // Each POST /operations/payment now persists the payment to the backend order state.
-    // We do NOT reconcile local state from these responses because the table is already
-    // showing as closed (isClosed: true set above). The 1.5 s reset handles the fresh-order
-    // transition client-side; the backend reset is handled by POST /operations/closed-order.
-    for (const p of newPayments) {
-      try {
-        await api.post("/operations/payment", {
-          outletId:  outlet?.id,
-          tableId:   order.tableId,
-          method:    p.method,
-          label:     p.label || String(p.method || "cash").toUpperCase(),
-          amount:    p.amount,
-          reference: p.reference
-        });
-      } catch (err) {
-        console.warn("[POS] full-settlement payment record failed (offline?):", err.message);
-      }
-    }
-
     // 3. Push full closed order to backend so Owner Web shows real sales figures.
     // This is also the gate for the fresh-table reset: clearTableAfterSettle runs
     // server-side inside deviceCloseOrderHandler. We only reset the POS slot and
@@ -901,7 +922,12 @@ export default function App() {
         } catch {}
       }
     } catch (err) {
-      console.error("Closed-order sync failed:", err.message);
+      console.warn("[POS] closed-order sync failed (offline?) — queuing for retry:", err.message);
+      // Queue the closed order so it syncs automatically when connectivity returns.
+      // billNo will be assigned by the server when the queue is flushed.
+      const q = loadClosedOrderQueue();
+      q.push({ order: closedOrder });
+      saveClosedOrderQueue(q);
     }
 
     // ── Print receipt after settle ─────────────────────────────────────────
@@ -927,19 +953,17 @@ export default function App() {
         : "✓ Bill settled · Syncing in background"
     );
 
-    // Always reset the table to a fresh blank order after 1.5 s and broadcast to
-    // Captain — regardless of whether the backend confirmed. The 1.5 s delay lets
-    // the "isClosed: true" state render briefly on POS so cashier sees the tick.
-    // Captain relies on this fresh-order broadcast to clear the occupied table card.
+    // Local safety-net reset: if the backend is offline (no network) the server-side
+    // order:updated broadcast won't fire, so we reset the local table state here.
+    // When online, the server emits order:updated (blank) and this runs in parallel —
+    // both set the same blank state, no harm done.
     setTimeout(() => {
+      const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
+      const table = area?.tables.find(t => t.id === tableId);
+      if (!table || !area) return; // counter/online IDs — no catalog entry
       setOrders(prev => {
-        const area = tableAreas.find(a => a.tables.some(t => t.id === tableId));
-        const table = area?.tables.find(t => t.id === tableId);
-        if (!table || !area) return prev;
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
-        // Broadcast blank order so Captain App clears the table immediately
-        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: fresh });
         return { ...prev, [tableId]: fresh };
       });
     }, 1500);
@@ -1258,9 +1282,13 @@ export default function App() {
       {!isOnline && (
         <div className="pos-offline-banner">
           {(() => {
-            const q = loadKotQueue().length;
-            return q > 0
-              ? `📡 Offline — ${q} KOT${q > 1 ? "s" : ""} queued, will sync when connection returns. Printing unaffected.`
+            const kots    = loadKotQueue().length;
+            const settled = loadClosedOrderQueue().length;
+            const parts   = [];
+            if (kots    > 0) parts.push(`${kots} KOT${kots > 1 ? "s" : ""}`);
+            if (settled > 0) parts.push(`${settled} bill${settled > 1 ? "s" : ""}`);
+            return parts.length > 0
+              ? `📡 Offline — ${parts.join(" & ")} queued, will sync when connection returns. Printing unaffected.`
               : "📡 No internet — operating on local network. Orders & printing unaffected.";
           })()}
         </div>
@@ -1506,6 +1534,8 @@ export default function App() {
           orders={orders}
           onClose={() => setShowPastOrders(false)}
           onEditPayment={handleEditPayment}
+          outletName={outlet?.name || branchConfig?.outletName}
+          cashierName={cashierName}
         />
       )}
 

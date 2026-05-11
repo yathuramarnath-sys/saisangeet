@@ -84,7 +84,13 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
   }
 
   const unsentCount = (order.items || []).filter(i => !i.sentToKot).length;
-  const cartTotal   = (order.items || []).reduce((s, i) => s + i.price * i.quantity, 0);
+  const cartItems   = (order.items || []).filter(i => !i.isVoided && !i.isComp);
+  const cartSub     = cartItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const cartTax     = cartItems.reduce((s, i) => {
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    return s + Math.round(i.price * i.quantity * rate / 100);
+  }, 0);
+  const cartTotal   = cartSub + cartTax;
 
   return (
     <div className="menu-page">
@@ -193,7 +199,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
               </span>
             </span>
             <span className="cart-bar-right">
-              <span>₹{Math.round(cartTotal * 1.05)}</span>
+              <span>₹{cartTotal}</span>
               <span className="cart-view-chip">View Order →</span>
             </span>
           </button>

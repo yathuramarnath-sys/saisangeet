@@ -13,7 +13,11 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle }) {
   // Local payments added during this modal session (not yet persisted)
   const [localPayments, setLocalPayments] = useState([]);
   const [currentMethod, setCurrentMethod] = useState("cash");
-  const [currentAmount, setCurrentAmount] = useState(() => String(fin?.balance || fin?.total || ""));
+  // Default to the remaining balance, or full total if already pre-paid (for change calc)
+  const [currentAmount, setCurrentAmount] = useState(() => {
+    const bal = fin?.balance ?? fin?.total ?? 0;
+    return String(bal > 0 ? bal : (fin?.total ?? ""));
+  });
   const [currentRef,    setCurrentRef]    = useState("");
   const [loading,       setLoading]       = useState(false);
 
@@ -22,20 +26,29 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle }) {
   // How much already settled before this modal was opened
   const preExistingPaid = fin.paid;
   // How much added so far in this session
-  const localPaid  = localPayments.reduce((s, p) => s + p.amount, 0);
+  const localPaid   = localPayments.reduce((s, p) => s + p.amount, 0);
   // Remaining balance after local payments
-  const remaining  = Math.max(fin.balance - localPaid, 0);
-  // For cash: how much change to return
-  const amountNum  = Number(currentAmount) || 0;
-  const change     = currentMethod === "cash" && amountNum > remaining && remaining > 0
-    ? amountNum - remaining
-    : currentMethod === "cash" && remaining === 0 && localPaid === 0 && amountNum > fin.total
-    ? amountNum - fin.total
-    : 0;
-
+  const remaining   = Math.max(fin.balance - localPaid, 0);
   const isFullyPaid = remaining === 0;
 
-  // Quick amount suggestions (cash only)
+  const amountNum = Number(currentAmount) || 0;
+
+  // Change to return — works whether balance is remaining or already zeroed
+  const totalCovered = preExistingPaid + localPaid;
+  const change = currentMethod === "cash" && amountNum > 0
+    ? Math.max(amountNum - Math.max(remaining, 0) - (isFullyPaid && localPaid === 0 ? 0 : 0), 0)
+    : 0;
+
+  // Simpler, correct change calculation:
+  // If balance remains → change = max(amountEntered - remaining, 0)
+  // If already fully paid (pre-existing) → change = max(amountEntered - fin.total, 0)
+  const changeToReturn = currentMethod === "cash"
+    ? (remaining > 0
+        ? Math.max(amountNum - remaining, 0)
+        : Math.max(amountNum - fin.total, 0))
+    : 0;
+
+  // Quick amount suggestions (cash, only when balance remains)
   const quickAmounts = currentMethod === "cash" && remaining > 0
     ? [remaining, Math.ceil(remaining / 100) * 100, Math.ceil(remaining / 500) * 500]
         .filter((v, i, a) => a.indexOf(v) === i)
@@ -43,7 +56,7 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle }) {
     : [];
 
   function handleAddPayment() {
-    if (amountNum <= 0) return;
+    if (amountNum <= 0 || remaining <= 0) return;
     const effectiveAmount = Math.min(amountNum, remaining);
     const payment = {
       method:    currentMethod,
@@ -53,7 +66,8 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle }) {
     const next = [...localPayments, payment];
     setLocalPayments(next);
     const newRemaining = Math.max(remaining - effectiveAmount, 0);
-    setCurrentAmount(String(newRemaining || ""));
+    // After recording, keep amount visible so cashier still sees change due
+    setCurrentAmount(String(newRemaining > 0 ? newRemaining : amountNum));
     setCurrentRef("");
   }
 
@@ -93,7 +107,7 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle }) {
             </div>
           )}
           <div className="payment-summary-row">
-            <span>GST (5%)</span>
+            <span>GST</span>
             <span>₹{fin.tax.toFixed(2)}</span>
           </div>
           <div className="payment-summary-row total">
@@ -140,95 +154,95 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle }) {
           <strong>₹{isFullyPaid ? fin.total : remaining}</strong>
         </div>
 
-        {/* Only show input section if there's balance left */}
-        {!isFullyPaid && (
-          <>
-            {/* Payment method */}
-            <div className="payment-methods">
-              {METHODS.map((m) => (
+        {/* ── Payment entry form — ALWAYS visible ───────────────────────── */}
+        {/* Payment method selector */}
+        <div className="payment-methods">
+          {METHODS.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              className={`payment-method-btn${currentMethod === m.id ? " active" : ""}`}
+              onClick={() => {
+                setCurrentMethod(m.id);
+                setCurrentRef("");
+                setCurrentAmount(String(remaining > 0 ? remaining : fin.total));
+              }}
+            >
+              <span className="payment-method-icon">{m.icon}</span>
+              <span>{m.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Amount input */}
+        <div className="payment-amount-wrap">
+          <label className="payment-amount-label">
+            {isFullyPaid ? "Cash Received (for change)" : "Amount"}
+          </label>
+          <div className="payment-amount-input-wrap">
+            <span className="payment-rupee">₹</span>
+            <input
+              className="payment-amount-input"
+              type="number"
+              min="0"
+              value={currentAmount}
+              onChange={(e) => setCurrentAmount(e.target.value)}
+              autoFocus
+            />
+          </div>
+          {quickAmounts.length > 0 && (
+            <div className="payment-quick-amounts">
+              {quickAmounts.map((qa) => (
                 <button
-                  key={m.id}
+                  key={qa}
                   type="button"
-                  className={`payment-method-btn${currentMethod === m.id ? " active" : ""}`}
-                  onClick={() => {
-                    setCurrentMethod(m.id);
-                    setCurrentRef("");
-                    setCurrentAmount(String(remaining));
-                  }}
+                  className="payment-quick-btn"
+                  onClick={() => setCurrentAmount(String(qa))}
                 >
-                  <span className="payment-method-icon">{m.icon}</span>
-                  <span>{m.label}</span>
+                  ₹{qa}
                 </button>
               ))}
             </div>
+          )}
+        </div>
 
-            {/* Amount input */}
-            <div className="payment-amount-wrap">
-              <label className="payment-amount-label">Amount</label>
-              <div className="payment-amount-input-wrap">
-                <span className="payment-rupee">₹</span>
-                <input
-                  className="payment-amount-input"
-                  type="number"
-                  min="0"
-                  value={currentAmount}
-                  onChange={(e) => setCurrentAmount(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              {quickAmounts.length > 0 && (
-                <div className="payment-quick-amounts">
-                  {quickAmounts.map((qa) => (
-                    <button
-                      key={qa}
-                      type="button"
-                      className="payment-quick-btn"
-                      onClick={() => setCurrentAmount(String(qa))}
-                    >
-                      ₹{qa}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* UPI/Card reference */}
-            {(currentMethod === "upi" || currentMethod === "card") && (
-              <div className="payment-ref-wrap">
-                <label className="payment-amount-label">
-                  {currentMethod === "upi" ? "UPI Reference / Transaction ID" : "Card Last 4 / Reference"}
-                </label>
-                <input
-                  className="payment-ref-input"
-                  type="text"
-                  placeholder={currentMethod === "upi" ? "Transaction ID" : "Last 4 digits"}
-                  value={currentRef}
-                  onChange={(e) => setCurrentRef(e.target.value)}
-                />
-              </div>
-            )}
-
-            {/* Change indicator (cash) */}
-            {change > 0 && (
-              <div className="payment-balance-indicator change" style={{ marginBottom: 0, marginTop: 10 }}>
-                <span>Return Change to Customer</span>
-                <strong>₹{change.toFixed(2)}</strong>
-              </div>
-            )}
-
-            {/* Add payment button */}
-            <button
-              type="button"
-              className="payment-add-btn"
-              disabled={amountNum <= 0}
-              onClick={handleAddPayment}
-            >
-              Add Payment · ₹{amountNum > 0 ? Math.min(amountNum, remaining) : 0}
-            </button>
-          </>
+        {/* UPI / Card reference */}
+        {(currentMethod === "upi" || currentMethod === "card") && (
+          <div className="payment-ref-wrap">
+            <label className="payment-amount-label">
+              {currentMethod === "upi" ? "UPI Reference / Transaction ID" : "Card Last 4 / Reference"}
+            </label>
+            <input
+              className="payment-ref-input"
+              type="text"
+              placeholder={currentMethod === "upi" ? "Transaction ID" : "Last 4 digits"}
+              value={currentRef}
+              onChange={(e) => setCurrentRef(e.target.value)}
+            />
+          </div>
         )}
 
-        {/* Settle button — shown once fully paid */}
+        {/* Change to return — shown for cash whenever customer over-pays */}
+        {changeToReturn > 0 && (
+          <div className="payment-balance-indicator change" style={{ marginBottom: 0, marginTop: 10 }}>
+            <span>Return Change to Customer</span>
+            <strong>₹{changeToReturn.toFixed(2)}</strong>
+          </div>
+        )}
+
+        {/* Add Payment — only active when balance is still remaining */}
+        {!isFullyPaid && (
+          <button
+            type="button"
+            className="payment-add-btn"
+            disabled={amountNum <= 0}
+            onClick={handleAddPayment}
+          >
+            Add Payment · ₹{amountNum > 0 ? Math.min(amountNum, remaining) : 0}
+          </button>
+        )}
+
+        {/* Settle & Close — shown once fully paid */}
         {isFullyPaid && (
           <button
             type="button"

@@ -30,7 +30,13 @@ export function OrderScreen({
 
   const items      = order.items || [];
   const unsentCount = items.filter(i => !i.sentToKot).length;
-  const totalAmount = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const billableItems = items.filter(i => !i.isVoided && !i.isComp);
+  const totalSub    = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const totalTax    = billableItems.reduce((s, i) => {
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    return s + Math.round(i.price * i.quantity * rate / 100);
+  }, 0);
+  const totalAmount = totalSub + totalTax;
   const hasItems    = items.length > 0;
 
   function changeQty(idx, delta) {
@@ -171,7 +177,7 @@ export function OrderScreen({
           {unsentCount > 0 && <span className="unsent-badge">{unsentCount}</span>}
         </button>
         {totalAmount > 0 && (
-          <span className="running-total">₹{Math.round(totalAmount * 1.05)}</span>
+          <span className="running-total">₹{totalAmount}</span>
         )}
       </div>
 

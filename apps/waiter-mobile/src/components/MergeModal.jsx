@@ -25,7 +25,13 @@ export function MergeModal({ currentTableId, currentOrder, areas, orders, onMerg
             <div className="sheet-empty">No other occupied tables</div>
           ) : (
             occupied.map(({ table, area, order: o }) => {
-              const sub = (o.items || []).reduce((s, i) => s + i.price * i.quantity, 0);
+              const mergeBillable = (o.items || []).filter(i => !i.isVoided && !i.isComp);
+              const sub  = mergeBillable.reduce((s, i) => s + i.price * i.quantity, 0);
+              const mTax = mergeBillable.reduce((s, i) => {
+                const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+                return s + Math.round(i.price * i.quantity * rate / 100);
+              }, 0);
+              const mergeTotal = sub + mTax;
               return (
                 <button
                   key={table.id}
@@ -37,7 +43,7 @@ export function MergeModal({ currentTableId, currentOrder, areas, orders, onMerg
                     <span className="merge-area">{area.name}</span>
                   </div>
                   <div className="merge-right">
-                    <span className="merge-summary">{o.items?.length || 0} items · ₹{Math.round(sub * 1.05)}</span>
+                    <span className="merge-summary">{o.items?.length || 0} items · ₹{mergeTotal}</span>
                     <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                       <polyline points="9 18 15 12 9 6"/>
                     </svg>

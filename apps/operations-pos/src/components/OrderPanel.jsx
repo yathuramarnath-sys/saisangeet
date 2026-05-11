@@ -3,18 +3,25 @@ import { useState } from "react";
 // ── Financials ─────────────────────────────────────────────────────────────────
 export function getFinancials(order) {
   if (!order) return null;
-  const items      = order.items || [];
-  const subtotal   = items.filter(i => !i.isVoided && !i.isComp)
+  const items         = order.items || [];
+  const billable      = items.filter(i => !i.isVoided && !i.isComp);
+  const compTotal     = items.filter(i => i.isComp && !i.isVoided)
     .reduce((s, i) => s + i.price * i.quantity, 0);
-  const compTotal  = items.filter(i => i.isComp && !i.isVoided)
-    .reduce((s, i) => s + i.price * i.quantity, 0);
-  const discountAmt = Math.min(order.discountAmount || 0, subtotal);
+  const subtotal      = billable.reduce((s, i) => s + i.price * i.quantity, 0);
+  const discountAmt   = Math.min(order.discountAmount || 0, subtotal);
   const afterDiscount = subtotal - discountAmt;
-  const taxRate    = 0.05;
-  const tax        = afterDiscount * taxRate;
-  const total      = Math.round(afterDiscount + tax);
-  const paid       = (order.payments || []).reduce((s, p) => s + p.amount, 0);
-  const balance    = Math.max(total - paid, 0);
+  // Per-item tax — mirrors printBill.js and handleSettle logic exactly.
+  // Defaults to 5 % if item.taxRate is blank/null (will be fixed by Blocker 4 audit).
+  const tax = billable.reduce((s, i) => {
+    const lineAfter = subtotal > 0
+      ? (i.price * i.quantity) * (afterDiscount / subtotal)
+      : 0;
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    return s + Math.round(lineAfter * rate / 100);
+  }, 0);
+  const total   = afterDiscount + tax;
+  const paid    = (order.payments || []).reduce((s, p) => s + p.amount, 0);
+  const balance = Math.max(total - paid, 0);
   return { subtotal, compTotal, discountAmt, tax, total, paid, balance };
 }
 
@@ -312,7 +319,7 @@ export function OrderPanel({
             </div>
           )}
           <div className="order-total-row">
-            <span>GST (5%)</span>
+            <span>GST</span>
             <span>₹{fin.tax.toFixed(2)}</span>
           </div>
           <div className="order-total-row total">

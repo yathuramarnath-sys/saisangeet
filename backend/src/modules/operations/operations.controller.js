@@ -620,6 +620,23 @@ async function deviceCloseOrderHandler(req, res) {
   if (order.tableId) {
     try {
       await clearTableAfterSettle(order.tableId);
+
+      // Authoritatively broadcast the table-cleared signal to every POS and Captain
+      // in the outlet room. This is the ONLY reliable way for all clients to know
+      // the table is free — the client-side 1.5 s timer on POS is just a fallback.
+      // Both clients handle blank orders: POS sets orders[tableId] = blank (→ "Free"),
+      // Captain removes tableId from its map (→ "Free").
+      if (io && !String(order.tableId).startsWith("counter-") && !String(order.tableId).startsWith("online-")) {
+        io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", {
+          tableId:       order.tableId,
+          items:         [],
+          payments:      [],
+          isClosed:      false,
+          billRequested: false,
+          isOnHold:      false,
+          discountAmount: 0,
+        });
+      }
     } catch (err) {
       // Non-fatal — log and continue. Sales record already written.
       console.warn(`[close-order] table reset skipped for ${order.tableId}:`, err.message);

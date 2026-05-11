@@ -14,7 +14,13 @@ export function SplitBill({ order, outletName, onBack }) {
   const [assignments, setAssignments] = useState({});
 
   const items = order.items || [];
-  const total = Math.round(items.reduce((s, i) => s + i.price * i.quantity, 0) * 1.05);
+  const billable = items.filter(i => !i.isVoided && !i.isComp);
+  const splitSub = billable.reduce((s, i) => s + i.price * i.quantity, 0);
+  const splitTax = billable.reduce((s, i) => {
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    return s + Math.round(i.price * i.quantity * rate / 100);
+  }, 0);
+  const total    = splitSub + splitTax;
 
   function cycleAssignment(itemId) {
     tapImpact();

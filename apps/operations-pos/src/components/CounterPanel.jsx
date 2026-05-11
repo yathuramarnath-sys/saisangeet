@@ -7,9 +7,16 @@ export function CounterPanel({ orders, selectedId, onSelect, onNewOrder, mode })
   function fmt(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
 
   function ticketTotal(order) {
-    const sub  = (order.items || []).reduce((s, i) => s + i.price * i.quantity, 0);
-    const disc = Math.min(order.discountAmount || 0, sub);
-    return Math.round((sub - disc) * 1.05);
+    const billable  = (order.items || []).filter(i => !i.isVoided && !i.isComp);
+    const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
+    const disc      = Math.min(order.discountAmount || 0, sub);
+    const afterDisc = sub - disc;
+    const tax       = billable.reduce((s, i) => {
+      const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      return s + Math.round(lineAfter * rate / 100);
+    }, 0);
+    return afterDisc + tax;
   }
 
   const modeLabel = mode === "delivery" ? "Delivery" : "Takeaway";

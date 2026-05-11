@@ -7,7 +7,11 @@ export function printBill(order, items, outletName, options = {}) {
   const { seatLabel = null } = options;
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const tax      = Math.round(subtotal * 0.05);
+  // Per-item GST — mirrors POS printBill.js logic exactly
+  const tax = items.reduce((s, i) => {
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    return s + Math.round((i.price * i.quantity) * rate / 100);
+  }, 0);
   const total    = subtotal + tax;
 
   const now     = new Date();
@@ -88,7 +92,7 @@ export function printBill(order, items, outletName, options = {}) {
   ${itemsHtml}
   <hr class="divider">
   <div class="row muted"><span>Subtotal</span><span>₹${subtotal.toFixed(0)}</span></div>
-  <div class="row muted"><span>GST (5%)</span><span>₹${tax.toFixed(0)}</span></div>
+  <div class="row muted"><span>GST</span><span>₹${tax.toFixed(0)}</span></div>
   <hr class="divider">
   <div class="row total-row"><span>TOTAL</span><span>₹${total.toFixed(0)}</span></div>
   <hr class="divider">

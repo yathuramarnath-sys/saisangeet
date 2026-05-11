@@ -77,9 +77,13 @@ export function TableFloor({ areas, orders, onSelectTable }) {
                 const st     = tableStatusOf(orders, table.id);
                 const order  = orders[table.id];
                 const count  = order?.items?.length || 0;
-                const amount = (order?.items || []).reduce(
-                  (s, i) => s + (i.price || 0) * (i.quantity || 0), 0
-                );
+                const _items  = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
+                const _sub    = _items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+                const _tax    = _items.reduce((s, i) => {
+                  const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+                  return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
+                }, 0);
+                const amount  = _sub + _tax;
                 return (
                   <button
                     key={table.id}
@@ -93,7 +97,7 @@ export function TableFloor({ areas, orders, onSelectTable }) {
                       <span className="table-items-count">{count} items</span>
                     )}
                     {amount > 0 && (
-                      <span className="table-amount">₹{Math.round(amount * 1.05)}</span>
+                      <span className="table-amount">₹{amount}</span>
                     )}
                   </button>
                 );

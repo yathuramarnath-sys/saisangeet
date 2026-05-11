@@ -18,9 +18,16 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
   function tableTotal(tableId) {
     const o = orders[tableId];
     if (!o?.items?.length) return null;
-    const sub  = o.items.filter(i => !i.isVoided && !i.isComp).reduce((s, i) => s + i.price * i.quantity, 0);
-    const disc = Math.min(o.discountAmount || 0, sub);
-    return Math.round((sub - disc) * 1.05);
+    const billable  = o.items.filter(i => !i.isVoided && !i.isComp);
+    const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
+    const disc      = Math.min(o.discountAmount || 0, sub);
+    const afterDisc = sub - disc;
+    const tax       = billable.reduce((s, i) => {
+      const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      return s + Math.round(lineAfter * rate / 100);
+    }, 0);
+    return afterDisc + tax;
   }
 
   const filtered = activeArea
