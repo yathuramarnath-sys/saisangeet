@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { api } from "../lib/api";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    Online Orders Panel
-   Shows incoming Swiggy / Zomato / direct online orders.
+   Pulls live orders from backend (GET /online-orders).
+   Socket event "online:order:new" pushes new orders in real-time.
    Accept  → creates POS order + auto-sends KOT + auto-generates bill
-   Reject  → asks reason, marks rejected
+   Reject  → asks reason, marks rejected on backend
    ══════════════════════════════════════════════════════════════════════════════ */
 
 const REJECT_REASONS = [
@@ -20,64 +22,8 @@ const PLATFORM_STYLES = {
   Zomato:  { bg: "#E23744", light: "#FDEDEC", emoji: "🔴" },
   Direct:  { bg: "#2980B9", light: "#EBF5FB", emoji: "🔵" },
   Dunzo:   { bg: "#00B140", light: "#E9F7EF", emoji: "🟢" },
+  Online:  { bg: "#6B46C1", light: "#F3E8FF", emoji: "📦" },
 };
-
-/* ── Seed mock online orders ─────────────────────────────────────────────── */
-function getSeedOrders() {
-  return [
-    {
-      id:       "online-1",
-      platform: "Swiggy",
-      orderId:  "SWG-48291",
-      customer: { name: "Arun Kumar",  phone: "9876543210", address: "14, 3rd Cross, Indiranagar" },
-      items: [
-        { name: "Paneer Tikka",  price: 220, quantity: 2 },
-        { name: "Crispy Corn",   price: 180, quantity: 1 },
-        { name: "Butter Naan",   price: 60,  quantity: 3 },
-      ],
-      total:     800,
-      etaMin:    35,
-      notes:     "Less spicy please",
-      status:    "pending",
-      createdAt: new Date(Date.now() - 2 * 60000).toISOString()
-    },
-    {
-      id:       "online-2",
-      platform: "Zomato",
-      orderId:  "ZMT-99132",
-      customer: { name: "Sneha Rao",   phone: "9123456780", address: "5B, 2nd Main, Koramangala" },
-      items: [
-        { name: "Chicken Biryani", price: 320, quantity: 1 },
-        { name: "Raita",           price: 60,  quantity: 1 },
-      ],
-      total:     380,
-      etaMin:    45,
-      notes:     "",
-      status:    "pending",
-      createdAt: new Date(Date.now() - 5 * 60000).toISOString()
-    },
-    {
-      id:       "online-3",
-      platform: "Direct",
-      orderId:  "WEB-00341",
-      customer: { name: "Rahul Verma", phone: "9988776655", address: "22, 1st Block, HSR Layout" },
-      items: [
-        { name: "Veg Manchurian", price: 160, quantity: 2 },
-        { name: "Fried Rice",     price: 180, quantity: 1 },
-      ],
-      total:     500,
-      etaMin:    30,
-      notes:     "Extra sauce on the side",
-      status:    "pending",
-      createdAt: new Date(Date.now() - 1 * 60000).toISOString()
-    }
-  ];
-}
-
-function load(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; }
-  catch { return fallback; }
-}
 
 /* ── Countdown timer ────────────────────────────────────────────────────── */
 function TimeAgo({ isoDate }) {
@@ -95,57 +41,75 @@ function TimeAgo({ isoDate }) {
   return <span className="oo-time">{label}</span>;
 }
 
-// IDs of the hardcoded seed orders — used to filter them out from localStorage
-const SEED_ORDER_IDS = new Set(["online-1", "online-2", "online-3"]);
-
 /* ── Main component ─────────────────────────────────────────────────────── */
-export function OnlineOrdersPanel({ onAccept, onClose }) {
-  const [orders,       setOrders]       = useState(() => {
-    // Load from localStorage but strip out any hardcoded seed/demo orders
-    const stored = load("pos_online_orders", null);
-    if (!stored) return [];
-    const real = stored.filter((o) => !SEED_ORDER_IDS.has(o.id));
-    return real;
-  });
+export function OnlineOrdersPanel({ outletId, socket, onAccept, onClose }) {
+  const [orders,       setOrders]       = useState([]);
+  const [loading,      setLoading]      = useState(true);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState(REJECT_REASONS[0]);
-  const [filter,       setFilter]       = useState("pending"); // pending | accepted | rejected
+  const [filter,       setFilter]       = useState("pending");
 
-  // Clean up any leftover seed data from localStorage on first render
+  // ── Fetch from backend ──────────────────────────────────────────────────
+  const fetchOrders = useCallback(() => {
+    if (!outletId) return;
+    api.get(`/online-orders?outletId=${outletId}`)
+      .then(data => { setOrders(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [outletId]);
+
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  // ── Real-time push from backend ─────────────────────────────────────────
   useEffect(() => {
-    const stored = load("pos_online_orders", null);
-    if (stored) {
-      const real = stored.filter((o) => !SEED_ORDER_IDS.has(o.id));
-      if (real.length !== stored.length) {
-        localStorage.setItem("pos_online_orders", JSON.stringify(real));
-      }
+    if (!socket) return;
+    function handleNew({ order }) {
+      setOrders(prev => {
+        // Deduplicate by id
+        if (prev.some(o => o.id === order.id)) return prev;
+        return [order, ...prev];
+      });
+      // Play alert sound
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.6);
+      } catch (_) {}
     }
-  }, []);
+    socket.on("online:order:new", handleNew);
+    return () => socket.off("online:order:new", handleNew);
+  }, [socket]);
 
-  function persist(updated) {
-    setOrders(updated);
-    localStorage.setItem("pos_online_orders", JSON.stringify(updated));
-  }
-
+  // ── Accept ──────────────────────────────────────────────────────────────
   function handleAccept(order) {
-    const updated = orders.map(o =>
+    // Optimistic update
+    setOrders(prev => prev.map(o =>
       o.id === order.id ? { ...o, status: "accepted", acceptedAt: new Date().toISOString() } : o
-    );
-    persist(updated);
-    onAccept(order); // App.jsx handles creating POS order + KOT
+    ));
+    // Tell backend
+    api.post(`/online-orders/${order.id}/accept`, { outletId }).catch(() => {});
+    // Hand off to App.jsx to create POS order + send KOT
+    onAccept(order);
   }
 
+  // ── Reject ──────────────────────────────────────────────────────────────
   function handleReject() {
-    const updated = orders.map(o =>
-      o.id === rejectTarget.id
+    const order = rejectTarget;
+    setOrders(prev => prev.map(o =>
+      o.id === order.id
         ? { ...o, status: "rejected", rejectReason, rejectedAt: new Date().toISOString() }
         : o
-    );
-    persist(updated);
+    ));
+    api.post(`/online-orders/${order.id}/reject`, { outletId, reason: rejectReason }).catch(() => {});
     setRejectTarget(null);
   }
 
-  const visible = orders.filter(o => o.status === filter);
+  const visible      = orders.filter(o => o.status === filter);
   const pendingCount = orders.filter(o => o.status === "pending").length;
 
   return (
@@ -181,84 +145,81 @@ export function OnlineOrdersPanel({ onAccept, onClose }) {
 
           {/* Order list */}
           <div className="oo-list">
-            {visible.length === 0 && (
+            {loading ? (
+              <div className="pset-empty" style={{ padding: 40 }}>Loading orders…</div>
+            ) : visible.length === 0 ? (
               <div className="pset-empty" style={{ padding: 40 }}>
                 No {filter} orders right now
               </div>
-            )}
-            {visible.map(order => {
-              const plt   = PLATFORM_STYLES[order.platform] || PLATFORM_STYLES.Direct;
-              const total = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+            ) : (
+              visible.map(order => {
+                const plt   = PLATFORM_STYLES[order.platform] || PLATFORM_STYLES.Online;
+                const total = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
 
-              return (
-                <div key={order.id} className="oo-card">
-                  {/* Platform badge + order ID */}
-                  <div className="oo-card-head">
-                    <div className="oo-platform-badge"
-                      style={{ background: plt.light, color: plt.bg, borderColor: plt.bg }}>
-                      {plt.emoji} {order.platform}
+                return (
+                  <div key={order.id} className="oo-card">
+                    {/* Platform badge + order ID */}
+                    <div className="oo-card-head">
+                      <div className="oo-platform-badge"
+                        style={{ background: plt.light, color: plt.bg, borderColor: plt.bg }}>
+                        {plt.emoji} {order.platform}
+                      </div>
+                      <div className="oo-order-id">{order.orderId}</div>
+                      <TimeAgo isoDate={order.receivedAt || order.createdAt} />
+                      {order.etaMin && filter === "pending" && (
+                        <span className="oo-eta">🕐 {order.etaMin} min ETA</span>
+                      )}
                     </div>
-                    <div className="oo-order-id">{order.orderId}</div>
-                    <TimeAgo isoDate={order.createdAt} />
-                    {order.etaMin && filter === "pending" && (
-                      <span className="oo-eta">🕐 {order.etaMin} min ETA</span>
-                    )}
-                  </div>
 
-                  {/* Customer */}
-                  <div className="oo-customer">
-                    <span className="oo-cust-name">👤 {order.customer.name}</span>
-                    <span className="oo-cust-phone">{order.customer.phone}</span>
-                    {order.customer.address && (
-                      <span className="oo-cust-addr">📍 {order.customer.address}</span>
-                    )}
-                  </div>
+                    {/* Customer */}
+                    <div className="oo-customer">
+                      <span className="oo-cust-name">👤 {order.customer?.name}</span>
+                      {order.customer?.phone && <span className="oo-cust-phone">{order.customer.phone}</span>}
+                      {order.customer?.address && (
+                        <span className="oo-cust-addr">📍 {order.customer.address}</span>
+                      )}
+                    </div>
 
-                  {/* Items */}
-                  <div className="oo-items">
-                    {order.items.map((item, i) => (
-                      <div key={i} className="oo-item-row">
-                        <span>{item.name} × {item.quantity}</span>
-                        <span>₹{item.price * item.quantity}</span>
-                      </div>
-                    ))}
-                  </div>
+                    {/* Items */}
+                    <div className="oo-items">
+                      {order.items.map((item, i) => (
+                        <div key={i} className="oo-item-row">
+                          <span>{item.name} × {item.quantity}</span>
+                          <span>₹{item.price * item.quantity}</span>
+                        </div>
+                      ))}
+                    </div>
 
-                  {/* Notes */}
-                  {order.notes && (
-                    <div className="oo-notes">📝 {order.notes}</div>
-                  )}
+                    {/* Notes */}
+                    {order.notes && <div className="oo-notes">📝 {order.notes}</div>}
 
-                  {/* Total + actions */}
-                  <div className="oo-card-footer">
-                    <span className="oo-total">₹{total.toLocaleString("en-IN")}</span>
-                    {filter === "pending" && (
-                      <div className="oo-actions">
-                        <button type="button" className="oo-reject-btn"
-                          onClick={() => { setRejectTarget(order); setRejectReason(REJECT_REASONS[0]); }}>
-                          Reject
-                        </button>
-                        <button type="button" className="oo-accept-btn"
-                          style={{ background: plt.bg }}
-                          onClick={() => handleAccept(order)}>
-                          ✓ Accept &amp; Send KOT
-                        </button>
-                      </div>
-                    )}
-                    {filter === "accepted" && (
-                      <span className="oo-status-pill accepted">
-                        ✓ Accepted · KOT sent
-                      </span>
-                    )}
-                    {filter === "rejected" && (
-                      <span className="oo-status-pill rejected">
-                        ✕ {order.rejectReason}
-                      </span>
-                    )}
+                    {/* Total + actions */}
+                    <div className="oo-card-footer">
+                      <span className="oo-total">₹{total.toLocaleString("en-IN")}</span>
+                      {filter === "pending" && (
+                        <div className="oo-actions">
+                          <button type="button" className="oo-reject-btn"
+                            onClick={() => { setRejectTarget(order); setRejectReason(REJECT_REASONS[0]); }}>
+                            Reject
+                          </button>
+                          <button type="button" className="oo-accept-btn"
+                            style={{ background: plt.bg }}
+                            onClick={() => handleAccept(order)}>
+                            ✓ Accept &amp; Send KOT
+                          </button>
+                        </div>
+                      )}
+                      {filter === "accepted" && (
+                        <span className="oo-status-pill accepted">✓ Accepted · KOT sent</span>
+                      )}
+                      {filter === "rejected" && (
+                        <span className="oo-status-pill rejected">✕ {order.rejectReason}</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       </div>

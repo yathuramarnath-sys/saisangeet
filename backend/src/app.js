@@ -5,6 +5,7 @@ const helmet = require("helmet");
 const { Sentry } = require("./config/sentry");
 
 const { apiRouter } = require("./routes");
+const { webhooksRouter } = require("./modules/online-orders/online-orders.routes");
 const { errorHandler } = require("./middleware/error-handler");
 const { notFoundHandler } = require("./middleware/not-found");
 const { generalLimiter } = require("./middleware/rate-limit");
@@ -87,6 +88,9 @@ function createApp() {
       timestamp:   new Date().toISOString(),
     });
   });
+
+  // Public webhook routes — no JWT, no rate-limit (UrbanPiper hits these directly)
+  app.use("/webhooks", webhooksRouter);
 
   app.use("/api/v1", generalLimiter, apiRouter);
   app.use(notFoundHandler);

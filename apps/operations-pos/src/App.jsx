@@ -246,6 +246,7 @@ export default function App() {
   const [showSettings,       setShowSettings]       = useState(false);
   const [showPastOrders,     setShowPastOrders]     = useState(false);
   const [showOnlineOrders,   setShowOnlineOrders]   = useState(false);
+  const [pendingOnlineCount, setPendingOnlineCount] = useState(0);
   const [isSyncing,          setIsSyncing]          = useState(false);
   const [lastSyncedAt,       setLastSyncedAt]       = useState(() => {
     const s = localStorage.getItem("pos_last_synced");
@@ -378,6 +379,12 @@ export default function App() {
               socket.emit("order:update", { outletId: target.id, order });
             }
           });
+        });
+
+        // ── New online order arrives from UrbanPiper webhook ──────────────────
+        socket.on("online:order:new", () => {
+          // Bump the badge count — panel fetches fresh list when opened
+          setPendingOnlineCount(n => n + 1);
         });
 
       } catch (err) {
@@ -1264,10 +1271,6 @@ export default function App() {
   }
 
   // ── Quick stats ───────────────────────────────────────────────────────────
-  const onlineOrders = (() => {
-    try { return (JSON.parse(localStorage.getItem("pos_online_orders") || "[]") || []).filter(o => o.status === "pending"); }
-    catch { return []; }
-  })();
   const openTables = Object.values(orders).filter(o => o.items?.length && !o.isClosed && !o.isOnHold).length;
   const pendingKOT = Object.values(orders).reduce((s, o) => s + (o.items || []).filter(i => !i.sentToKot && !i.isVoided).length, 0);
 
@@ -1339,11 +1342,11 @@ export default function App() {
         {/* Left group: order actions */}
         <div className="pab-group">
           <button type="button" className="pab-btn orange"
-            onClick={() => setShowOnlineOrders(true)}>
+            onClick={() => { setShowOnlineOrders(true); setPendingOnlineCount(0); }}>
             <span className="pab-icon">📦</span>
             <span className="pab-label">Online Orders</span>
-            {onlineOrders.length > 0 && (
-              <span className="pab-badge">{onlineOrders.length}</span>
+            {pendingOnlineCount > 0 && (
+              <span className="pab-badge">{pendingOnlineCount}</span>
             )}
           </button>
           <button type="button" className="pab-btn blue"
@@ -1542,8 +1545,10 @@ export default function App() {
       {/* ── Online Orders panel ───────────────────────────────────────────── */}
       {showOnlineOrders && (
         <OnlineOrdersPanel
+          outletId={outlet?.id}
+          socket={socketRef.current}
           onAccept={handleAcceptOnlineOrder}
-          onClose={() => setShowOnlineOrders(false)}
+          onClose={() => { setShowOnlineOrders(false); setPendingOnlineCount(0); }}
         />
       )}
 
