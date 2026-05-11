@@ -1063,6 +1063,104 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   border: 1px solid var(--bill-border);
 }
 
+/* PhonePe QR button on Captain App order screen */
+.phonepe-qr-btn {
+  background: #f9f4ff;
+  color: #5f259f;
+  border: 1.5px solid #5f259f;
+  font-weight: 700;
+}
+.phonepe-qr-btn:active { background: #5f259f; color: #fff; }
+
+/* ─── PhonePe QR Modal (Captain App) ─────────────────────────────────────── */
+.ppqr-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 16px;
+}
+.ppqr-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.ppqr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #5f259f;
+  color: #fff;
+}
+.ppqr-logo { display: flex; align-items: center; gap: 8px; }
+.ppqr-phonepe-icon { font-size: 20px; }
+.ppqr-title { font-size: 15px; font-weight: 700; }
+.ppqr-close {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: #fff;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.ppqr-amount {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 14px 16px 8px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.ppqr-amt-label { font-size: 12px; color: #6b7280; margin-bottom: 2px; }
+.ppqr-amt-value { font-size: 28px; font-weight: 800; color: #111827; }
+.ppqr-amt-hint  { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.ppqr-center {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 24px 16px; gap: 6px;
+}
+.ppqr-error { color: #dc2626; }
+.ppqr-qr-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 16px 16px 0;
+}
+.ppqr-qr-img { border-radius: 8px; border: 3px solid #5f259f; display: block; }
+.ppqr-platforms {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  justify-content: center; margin-top: 10px; margin-bottom: 4px;
+}
+.ppqr-platforms span {
+  font-size: 11px; color: #6b7280;
+  background: #f3f4f6; border-radius: 4px; padding: 2px 6px;
+}
+.ppqr-timer { height: 4px; background: #e5e7eb; margin: 10px 16px 0; border-radius: 2px; overflow: hidden; }
+.ppqr-timer-bar { height: 100%; background: #5f259f; border-radius: 2px; transition: width 1s linear; }
+.ppqr-timer-label { text-align: center; font-size: 11px; color: #9ca3af; padding: 4px 16px 0; margin: 0; }
+.ppqr-retry-btn {
+  margin-top: 12px; padding: 8px 18px;
+  background: #5f259f; color: #fff;
+  border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.ppqr-success { color: #16a34a; }
+.ppqr-check {
+  width: 60px; height: 60px; border-radius: 50%;
+  background: #dcfce7; display: flex; align-items: center; justify-content: center;
+  font-size: 28px; color: #16a34a; font-weight: 700;
+}
+.ppqr-success-label { font-size: 18px; font-weight: 700; margin-top: 6px; }
+.ppqr-cancel-btn {
+  margin: 10px 16px 16px; padding: 10px;
+  background: none; border: 1px solid #e5e7eb;
+  border-radius: 8px; color: #6b7280; font-size: 13px; cursor: pointer;
+}
+
 /* ─── Menu Browser ───────────────────────────────────────────────────────── */
 
 .menu-page {

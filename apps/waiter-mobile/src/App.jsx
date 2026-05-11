@@ -578,6 +578,8 @@ export function App() {
             menuItems={menuItems}
             outletName={outlet?.name}
             orders={orders}
+            outletId={outlet?.id}
+            socket={socketRef.current}
             onBack={() => setSelectedTableId(null)}
             onSendKOT={handleSendKOT}
             onRequestBill={handleRequestBill}

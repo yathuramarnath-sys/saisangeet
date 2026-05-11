@@ -5,6 +5,7 @@ import { NoteModal }   from "./NoteModal";
 import { SplitBill }   from "./SplitBill";
 import { TransferModal } from "./TransferModal";
 import { MergeModal }    from "./MergeModal";
+import { PhonePeQRModal } from "./PhonePeQRModal";
 import {
   getStockState,
   subscribeStock,
@@ -12,16 +13,17 @@ import {
 
 export function OrderScreen({
   order, tableLabel, areas, categories, menuItems, outletName,
-  orders,
+  orders, outletId, socket,
   onBack, onSendKOT, onRequestBill, onPrintBill,
   onToggleHold, onUpdateOrder, onAddItem,
   onTransfer, onMerge, onForceClear,
 }) {
-  const [screen,       setScreen]       = useState("order"); // order | menu | split
-  const [noteItemIdx,  setNoteItemIdx]  = useState(null);
-  const [showTransfer, setShowTransfer] = useState(false);
-  const [showMerge,    setShowMerge]    = useState(false);
-  const [stockState,   setStockState]   = useState(() => getStockState());
+  const [screen,        setScreen]        = useState("order"); // order | menu | split
+  const [noteItemIdx,   setNoteItemIdx]   = useState(null);
+  const [showTransfer,  setShowTransfer]  = useState(false);
+  const [showMerge,     setShowMerge]     = useState(false);
+  const [showPhonePeQR, setShowPhonePeQR] = useState(false);
+  const [stockState,    setStockState]    = useState(() => getStockState());
 
   useEffect(() => {
     const unsub = subscribeStock((s) => setStockState({ ...s }));
@@ -239,6 +241,16 @@ export function OrderScreen({
                 Bill requested — awaiting cashier
               </div>
             )}
+
+            {/* PhonePe QR — captain can collect payment directly at the table */}
+            {order.items?.filter(i => !i.isVoided && !i.isComp).length > 0 && outletId && (
+              <button
+                className="action-btn phonepe-qr-btn"
+                onClick={() => { tapImpact(); setShowPhonePeQR(true); }}
+              >
+                📱 PhonePe QR Payment
+              </button>
+            )}
           </>
         )}
       </div>
@@ -279,6 +291,21 @@ export function OrderScreen({
             onMerge?.(cur, from);
           }}
           onClose={() => setShowMerge(false)}
+        />
+      )}
+
+      {/* PhonePe QR modal — captain collects payment at the table */}
+      {showPhonePeQR && (
+        <PhonePeQRModal
+          order={order}
+          outletId={outletId}
+          socket={socket}
+          onConfirmed={() => {
+            // Payment confirmed — table will clear via socket "order:updated"
+            // broadcast from the backend webhook. Just close the modal.
+            setShowPhonePeQR(false);
+          }}
+          onClose={() => setShowPhonePeQR(false)}
         />
       )}
     </div>
