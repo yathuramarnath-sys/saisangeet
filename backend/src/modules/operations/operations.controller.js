@@ -643,6 +643,42 @@ async function deviceCloseOrderHandler(req, res) {
     }
   }
 
+  // ── Fire-and-forget: push sale to Zoho Books if connected ────────────────
+  // Never awaited — never blocks the POS response. Errors are logged only.
+  setImmediate(async () => {
+    try {
+      const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+      const { pushSaleReceipt, getValidToken } = require("../zoho/zoho.service");
+      const data = await runWithTenant(tenantId, () => getOwnerSetupData());
+      const cfg  = data?.zoho;
+      if (!cfg?.enabled || !cfg?.refreshToken || !cfg?.organizationId) return;
+
+      // Refresh token if needed and persist updated expiry
+      const { refreshed } = await getValidToken(cfg);
+      if (refreshed) {
+        await runWithTenant(tenantId, () =>
+          updateOwnerSetupData(d => ({ ...d, zoho: { ...d.zoho, accessToken: cfg.accessToken, expiresAt: cfg.expiresAt } }))
+        );
+      }
+
+      await pushSaleReceipt(order, cfg, cfg.taxMap || {});
+
+      // Update lastSyncAt + totalPushed counters
+      await runWithTenant(tenantId, () =>
+        updateOwnerSetupData(d => ({
+          ...d,
+          zoho: {
+            ...d.zoho,
+            lastSyncAt:  new Date().toISOString(),
+            totalPushed: (d.zoho?.totalPushed || 0) + 1,
+          },
+        }))
+      );
+    } catch (err) {
+      console.warn(`[zoho] auto-push failed | tenant=${tenantId} | order=${order.billNo || order.orderNumber}:`, err.message);
+    }
+  });
+
   // Return the server-assigned bill number so the POS can stamp it on the
   // printed receipt and localStorage record without a second round-trip.
   res.json({

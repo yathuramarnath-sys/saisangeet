@@ -314,6 +314,274 @@ function IntegrationCard({ integration, connected, creds, onConnect, onDisconnec
   );
 }
 
+// ── Zoho Books config card ────────────────────────────────────────────────────
+function ZohoConfigCard() {
+  const [cfg,      setCfg]      = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [testing,  setTesting]  = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [msg,      setMsg]      = useState({ text: "", ok: true });
+  const [form,     setForm]     = useState({
+    clientId: "", clientSecret: "", stateCode: "TN", enabled: false,
+  });
+
+  // Check URL params for OAuth result
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("zoho_connected") === "1") {
+      setMsg({ text: "✓ Zoho Books connected successfully!", ok: true });
+      setExpanded(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (params.get("zoho_error")) {
+      setMsg({ text: "✗ " + params.get("zoho_error"), ok: false });
+      setExpanded(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  const loadConfig = () => {
+    api.get("/integrations/zoho/config")
+      .then(d => {
+        setCfg(d);
+        setForm(f => ({
+          ...f,
+          stateCode: d.stateCode || "TN",
+          enabled:   d.enabled   || false,
+        }));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadConfig(); }, []);
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true); setMsg({ text: "", ok: true });
+    try {
+      await api.post("/integrations/zoho/config", form);
+      setMsg({ text: "✓ Saved. Now click Connect to Zoho Books.", ok: true });
+      loadConfig();
+    } catch (err) {
+      setMsg({ text: "✗ " + (err.message || "Save failed"), ok: false });
+    } finally { setSaving(false); }
+  }
+
+  async function handleConnect() {
+    try {
+      const { url } = await api.get("/integrations/zoho/auth-url");
+      window.location.href = url;
+    } catch (err) {
+      setMsg({ text: "✗ " + (err.message || "Could not get auth URL. Save Client ID first."), ok: false });
+    }
+  }
+
+  async function handleDisconnect() {
+    if (!window.confirm("Disconnect Zoho Books? Auto-push will stop. You can reconnect anytime.")) return;
+    try {
+      await api.delete("/integrations/zoho/disconnect");
+      setMsg({ text: "Disconnected.", ok: true });
+      loadConfig();
+    } catch (err) {
+      setMsg({ text: "✗ " + err.message, ok: false });
+    }
+  }
+
+  async function handleTest() {
+    setTesting(true); setMsg({ text: "", ok: true });
+    try {
+      const res = await api.post("/integrations/zoho/test");
+      setMsg({ text: `✓ Test receipt ${res.receiptNumber} created in Zoho Books!`, ok: true });
+    } catch (err) {
+      setMsg({ text: "✗ " + (err.message || "Test failed"), ok: false });
+    } finally { setTesting(false); }
+  }
+
+  const STATE_CODES = [
+    ["AP","Andhra Pradesh"],["AR","Arunachal Pradesh"],["AS","Assam"],["BR","Bihar"],
+    ["CG","Chhattisgarh"],["DL","Delhi"],["GA","Goa"],["GJ","Gujarat"],
+    ["HR","Haryana"],["HP","Himachal Pradesh"],["JK","Jammu & Kashmir"],["JH","Jharkhand"],
+    ["KA","Karnataka"],["KL","Kerala"],["MP","Madhya Pradesh"],["MH","Maharashtra"],
+    ["MN","Manipur"],["ML","Meghalaya"],["MZ","Mizoram"],["NL","Nagaland"],
+    ["OD","Odisha"],["PB","Punjab"],["RJ","Rajasthan"],["SK","Sikkim"],
+    ["TN","Tamil Nadu"],["TS","Telangana"],["TR","Tripura"],["UP","Uttar Pradesh"],
+    ["UK","Uttarakhand"],["WB","West Bengal"],
+  ];
+
+  return (
+    <div className="integration-card" style={{ marginBottom: 16 }}>
+      {/* Card header */}
+      <div className="integration-card-head" style={{ display:"flex", alignItems:"center", gap:12 }}>
+        <span style={{ fontSize: 28 }}>📒</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <strong style={{ fontSize: 15 }}>Zoho Books</strong>
+            {cfg?.connected && cfg?.enabled && (
+              <span className="status online" style={{ fontSize: 11 }}>Connected</span>
+            )}
+            {cfg?.connected && !cfg?.enabled && (
+              <span className="status offline" style={{ fontSize: 11 }}>Paused</span>
+            )}
+            {cfg && !cfg.connected && (
+              <span className="status offline" style={{ fontSize: 11 }}>Not connected</span>
+            )}
+          </div>
+          <p style={{ fontSize: 12, color: "#6b7280", margin: "2px 0 0" }}>
+            {cfg?.connected && cfg?.orgName
+              ? `${cfg.orgName} · ${cfg.totalPushed || 0} receipts pushed`
+              : "Every settled bill auto-syncs to Zoho Books as a Sales Receipt."}
+          </p>
+        </div>
+        <button type="button" className="btn-outline" style={{ fontSize:12, padding:"4px 10px" }}
+          onClick={() => setExpanded(v => !v)}>
+          {expanded ? "Hide" : cfg?.connected ? "Manage" : "Setup"}
+        </button>
+      </div>
+
+      {/* Stats row when connected */}
+      {!expanded && cfg?.connected && (cfg.lastSyncAt || cfg.totalPushed > 0) && (
+        <div style={{ display:"flex", gap:24, marginTop:10, padding:"8px 0 0", borderTop:"1px solid #f3f4f6", fontSize:12, color:"#6b7280" }}>
+          <span>📅 Last sync: {cfg.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString("en-IN") : "—"}</span>
+          <span>📋 Total receipts: {cfg.totalPushed || 0}</span>
+        </div>
+      )}
+
+      {expanded && (
+        <div style={{ marginTop: 16, display:"flex", flexDirection:"column", gap:14 }}>
+
+          {msg.text && (
+            <div style={{
+              padding: "10px 14px", borderRadius: 8, fontSize: 13,
+              background: msg.ok ? "#f0fdf4" : "#fef2f2",
+              color: msg.ok ? "#16a34a" : "#dc2626",
+              border: `1px solid ${msg.ok ? "#bbf7d0" : "#fecaca"}`,
+            }}>
+              {msg.text}
+            </div>
+          )}
+
+          {/* Step 1: Credentials */}
+          <div style={{ background:"#f9fafb", borderRadius:10, padding:"12px 14px" }}>
+            <p style={{ fontSize:12, fontWeight:700, color:"#374151", margin:"0 0 10px" }}>
+              Step 1 — Enter your Zoho API credentials
+            </p>
+            <form onSubmit={handleSave} style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              <div className="form-row">
+                <label className="form-label">
+                  Client ID {cfg?.clientIdSet && <span style={{ color:"#16a34a", fontSize:11 }}>● saved</span>}
+                </label>
+                <input className="form-input" placeholder="From api-console.zoho.in"
+                  value={form.clientId}
+                  onChange={e => setForm(f => ({ ...f, clientId: e.target.value }))} />
+              </div>
+              <div className="form-row">
+                <label className="form-label">
+                  Client Secret {cfg?.secretSet && <span style={{ color:"#16a34a", fontSize:11 }}>● saved</span>}
+                </label>
+                <input className="form-input" type="password"
+                  placeholder={cfg?.secretSet ? "Leave blank to keep existing" : "From api-console.zoho.in"}
+                  value={form.clientSecret}
+                  onChange={e => setForm(f => ({ ...f, clientSecret: e.target.value }))} />
+              </div>
+              <div style={{ display:"flex", gap:12 }}>
+                <div className="form-row" style={{ flex:1 }}>
+                  <label className="form-label">Restaurant State (for GST)</label>
+                  <select className="form-input" value={form.stateCode}
+                    onChange={e => setForm(f => ({ ...f, stateCode: e.target.value }))}>
+                    {STATE_CODES.map(([code, name]) => (
+                      <option key={code} value={code}>{name} ({code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-row" style={{ flex:1, justifyContent:"flex-end" }}>
+                  <label className="form-label">Auto-push</label>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6 }}>
+                    <Toggle on={form.enabled} onChange={v => setForm(f => ({ ...f, enabled: v }))} />
+                    <span style={{ fontSize:12, color: form.enabled ? "#16a34a" : "#9ca3af" }}>
+                      {form.enabled ? "Push every settled bill" : "Off"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button type="submit" className="btn-primary" style={{ alignSelf:"flex-start" }} disabled={saving}>
+                {saving ? "Saving…" : "Save Credentials"}
+              </button>
+            </form>
+          </div>
+
+          {/* Redirect URI info */}
+          {cfg?.redirectUri && (
+            <div style={{ background:"#eff6ff", borderRadius:8, padding:"10px 14px", fontSize:12, color:"#1d4ed8" }}>
+              <strong>Register this Redirect URI in Zoho Developer Console:</strong><br />
+              <code style={{ fontSize:11, wordBreak:"break-all" }}>{cfg.redirectUri}</code>
+            </div>
+          )}
+
+          {/* Step 2: Connect */}
+          <div style={{ background:"#f9fafb", borderRadius:10, padding:"12px 14px" }}>
+            <p style={{ fontSize:12, fontWeight:700, color:"#374151", margin:"0 0 10px" }}>
+              Step 2 — Connect your Zoho Books account
+            </p>
+            {cfg?.connected ? (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:20 }}>✅</span>
+                  <div>
+                    <p style={{ margin:0, fontWeight:600, fontSize:14 }}>{cfg.orgName}</p>
+                    <p style={{ margin:0, fontSize:11, color:"#6b7280" }}>
+                      Org ID: {cfg.organizationId} · Connected {cfg.connectedAt ? new Date(cfg.connectedAt).toLocaleDateString("en-IN") : ""}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:10, marginTop:4 }}>
+                  <button type="button" className="btn-outline" onClick={handleTest} disabled={testing}>
+                    {testing ? "Testing…" : "🧪 Test Connection"}
+                  </button>
+                  <button type="button" className="btn-outline" onClick={handleConnect}
+                    style={{ color:"#f59e0b", borderColor:"#f59e0b" }}>
+                    🔄 Reconnect
+                  </button>
+                  <button type="button" className="btn-outline" onClick={handleDisconnect}
+                    style={{ color:"#dc2626", borderColor:"#dc2626" }}>
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                <p style={{ margin:0, fontSize:12, color:"#6b7280" }}>
+                  Click below to sign in to Zoho and grant Plato POS access to your Books account.
+                </p>
+                <button type="button" className="btn-primary" onClick={handleConnect}
+                  style={{ alignSelf:"flex-start", display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:16 }}>📒</span> Connect to Zoho Books
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Setup guide */}
+          <details style={{ fontSize:12, color:"#6b7280", cursor:"pointer" }}>
+            <summary style={{ fontWeight:600, color:"#374151", listStyle:"none", cursor:"pointer" }}>
+              📖 How to get your Client ID &amp; Secret
+            </summary>
+            <ol style={{ marginTop:8, paddingLeft:18, lineHeight:1.8 }}>
+              <li>Go to <strong>api-console.zoho.in</strong> → sign in with your Zoho account</li>
+              <li>Click <strong>Add Client</strong> → choose <strong>Server-based Applications</strong></li>
+              <li>Set <strong>Authorized Redirect URI</strong> to the URL shown above</li>
+              <li>Copy <strong>Client ID</strong> and <strong>Client Secret</strong> → paste above → Save</li>
+              <li>Click <strong>Connect to Zoho Books</strong> → approve access</li>
+              <li>Every bill settled on POS will now auto-sync as a Sales Receipt in Zoho Books</li>
+            </ol>
+          </details>
+
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Borzo Delivery config card ────────────────────────────────────────────────
 function BorzoConfigCard() {
   const [cfg,      setCfg]      = useState(null);
@@ -879,6 +1147,19 @@ export function IntegrationsPage() {
       </section>
 
       {msg && <div className="mobile-banner">{msg}</div>}
+
+      {/* ── Accounts & Finance ───────────────────────────────────────────────── */}
+      <section className="integrations-section">
+        <div className="integrations-section-head">
+          <div>
+            <h3 className="integrations-category-title">Accounts &amp; Finance</h3>
+            <p className="integrations-category-desc">
+              Every settled bill automatically appears as a Sales Receipt in Zoho Books — zero manual entry.
+            </p>
+          </div>
+        </div>
+        <ZohoConfigCard />
+      </section>
 
       {/* ── Delivery Partners ────────────────────────────────────────────────── */}
       <section className="integrations-section">
