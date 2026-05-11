@@ -9,7 +9,12 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { io as socketIO } from "socket.io-client";
 import { api } from "../../lib/api";
+
+const SOCKET_URL = import.meta.env.VITE_API_BASE_URL
+  ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/v1$/, "")
+  : "http://localhost:4000";
 
 // ─── Demo Data Banner ─────────────────────────────────────────────────────────
 
@@ -308,17 +313,46 @@ export function DashboardPage() {
 
   useEffect(() => {
     if (!isToday) return;
-    timerRef.current = setInterval(fetchData, 60_000);
+    timerRef.current = setInterval(fetchData, 15_000);
     return () => clearInterval(timerRef.current);
   }, [fetchData, isToday]);
 
+  // Refresh immediately when the owner switches back to this tab
+  useEffect(() => {
+    const handleVisible = () => {
+      if (document.visibilityState === "visible" && isToday) fetchData();
+    };
+    document.addEventListener("visibilitychange", handleVisible);
+    return () => document.removeEventListener("visibilitychange", handleVisible);
+  }, [fetchData, isToday]);
+
+  // Real-time push: connect to the socket server with the owner JWT so the
+  // backend can place this socket in the correct tenant room. When any POS
+  // settles a bill the backend emits "sales:updated" — we re-fetch immediately.
+  useEffect(() => {
+    if (!isToday) return;
+    const token = localStorage.getItem("pos_token");
+    if (!token) return;
+
+    const sock = socketIO(SOCKET_URL, {
+      query: { token },
+      transports: ["websocket"],
+      reconnectionDelay: 3000,
+      reconnectionDelayMax: 10000,
+    });
+
+    sock.on("sales:updated", () => fetchData());
+
+    return () => { sock.disconnect(); };
+  }, [isToday, fetchData]);
+
   // ── derived values ────────────────────────────────────────────────────────
-  const summary      = data?.dayEnd?.summary       || {};
-  const paymentModes = data?.dayEnd?.paymentModes  || [];
-  const sessions     = data?.dayEnd?.sessions      || [];
-  const orderTypes   = data?.dayEnd?.orderTypes    || [];
-  const itemSales    = data?.itemSales             || [];
-  const categorySales = data?.categorySales        || {};
+  const summary      = data?.salesData?.dayEnd?.summary       || {};
+  const paymentModes = data?.salesData?.dayEnd?.paymentModes  || [];
+  const sessions     = data?.salesData?.dayEnd?.sessions      || [];
+  const orderTypes   = data?.salesData?.dayEnd?.orderTypes    || [];
+  const itemSales    = data?.salesData?.itemSales             || [];
+  const categorySales = data?.salesData?.categorySales        || {};
   const topItems     = [...itemSales].sort((a, b) => b.amount - a.amount).slice(0, 5);
   const topItemMax   = topItems[0]?.amount || 1;
 
@@ -384,7 +418,7 @@ export function DashboardPage() {
           />
           {isToday && (
             <>
-              <span className="dash-live-dot" title="Auto-refreshes every 60 s" />
+              <span className="dash-live-dot" title="Updates instantly when orders are billed" />
               <span className="dash-live-label">Live</span>
             </>
           )}
