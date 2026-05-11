@@ -469,9 +469,14 @@ function ZohoConfigCard() {
             <form onSubmit={handleSave} style={{ display:"flex", flexDirection:"column", gap:10 }}>
               <div className="form-row">
                 <label className="form-label">
-                  Client ID {cfg?.clientIdSet && <span style={{ color:"#16a34a", fontSize:11 }}>● saved</span>}
+                  Client ID{" "}
+                  <a href="https://api-console.zoho.in" target="_blank" rel="noreferrer"
+                    style={{ fontSize:10, color:"#1d4ed8", fontWeight:400 }}>
+                    (get from api-console.zoho.in ↗)
+                  </a>
+                  {cfg?.clientIdSet && <span style={{ color:"#16a34a", fontSize:11, marginLeft:4 }}>● saved</span>}
                 </label>
-                <input className="form-input" placeholder="From api-console.zoho.in"
+                <input className="form-input" placeholder="Paste Client ID from Zoho Developer Console"
                   value={form.clientId}
                   onChange={e => setForm(f => ({ ...f, clientId: e.target.value }))} />
               </div>
@@ -567,7 +572,10 @@ function ZohoConfigCard() {
               📖 How to get your Client ID &amp; Secret
             </summary>
             <ol style={{ marginTop:8, paddingLeft:18, lineHeight:1.8 }}>
-              <li>Go to <strong>api-console.zoho.in</strong> → sign in with your Zoho account</li>
+              <li>Go to{" "}
+                <a href="https://api-console.zoho.in" target="_blank" rel="noreferrer" style={{ color:"#1d4ed8" }}>
+                  api-console.zoho.in
+                </a>{" "}→ sign in with your Zoho account</li>
               <li>Click <strong>Add Client</strong> → choose <strong>Server-based Applications</strong></li>
               <li>Set <strong>Authorized Redirect URI</strong> to the URL shown above</li>
               <li>Copy <strong>Client ID</strong> and <strong>Client Secret</strong> → paste above → Save</li>
@@ -669,7 +677,11 @@ function BorzoConfigCard() {
 
           <div style={{ background: "#f0f9ff", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#374151", lineHeight: 1.7 }}>
             <strong>How to set up Borzo:</strong><br />
-            1. Register at <strong>apitest.borzodelivery.com</strong> (sandbox) or <strong>business.borzodelivery.com</strong> (production)<br />
+            1. Register at{" "}
+            <a href="https://apitest.borzodelivery.com" target="_blank" rel="noreferrer" style={{ color:"#1d4ed8" }}>apitest.borzodelivery.com</a>
+            {" "}(sandbox) or{" "}
+            <a href="https://business.borzodelivery.com" target="_blank" rel="noreferrer" style={{ color:"#1d4ed8" }}>business.borzodelivery.com</a>
+            {" "}(production)<br />
             2. Go to <strong>Profile → API Token</strong> → copy token<br />
             3. Paste here and save<br />
             4. In POS → Online Orders → accepted order → click <strong>🛵 Dispatch Rider</strong>
@@ -810,9 +822,12 @@ function PhonePeConfigCard() {
 
           <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#6b7280", lineHeight: 1.6 }}>
             <strong style={{ color: "#374151" }}>How to set up PhonePe PG:</strong><br />
-            1. Log in to <strong>PhonePe Business</strong> → Developers → API Keys<br />
+            1. Log in to{" "}
+            <a href="https://business.phonepe.com" target="_blank" rel="noreferrer" style={{ color:"#5f259f" }}>business.phonepe.com</a>
+            {" "}→ Developers → API Keys<br />
             2. Copy your <strong>Merchant ID</strong> and <strong>Salt Key</strong><br />
-            3. Use <strong>UAT</strong> for testing, switch to <strong>Production</strong> when live<br />
+            3. Use <strong>UAT</strong> for testing — sandbox at{" "}
+            <a href="https://developer.phonepe.com/v1/reference/pay-api-1" target="_blank" rel="noreferrer" style={{ color:"#5f259f" }}>developer.phonepe.com</a><br />
             4. Enable and save — QR option will appear in POS payment sheet
           </div>
         </form>
@@ -1061,17 +1076,24 @@ function OnlineOrdersWebhookCard() {
             and sign up as a restaurant.
           </li>
           <li>
-            <strong>Link Swiggy &amp; Zomato</strong> — inside UrbanPiper dashboard, connect
-            your Swiggy and Zomato business accounts (~24h approval for first time).
+            <strong>Link Swiggy &amp; Zomato</strong> — inside{" "}
+            <a href="https://dashboard.urbanpiper.com" target="_blank" rel="noreferrer">UrbanPiper dashboard</a>,
+            connect your{" "}
+            <a href="https://partner.swiggy.com" target="_blank" rel="noreferrer">Swiggy Partner</a>{" "}
+            and{" "}
+            <a href="https://www.zomato.com/partners" target="_blank" rel="noreferrer">Zomato Partner</a>{" "}
+            accounts (~24h approval for first time).
           </li>
           <li>
-            <strong>Add Plato POS webhook</strong> — in UrbanPiper go to{" "}
-            <em>Settings → POS Integration → Custom Webhook</em>.
+            <strong>Add Plato POS webhook</strong> — in{" "}
+            <a href="https://dashboard.urbanpiper.com/settings" target="_blank" rel="noreferrer">UrbanPiper Settings</a>{" "}
+            → POS Integration → Custom Webhook.
             Paste the Webhook URL and Secret Key from above.
           </li>
           <li>
-            <strong>Add API credentials</strong> — in UrbanPiper go to{" "}
-            <em>Settings → API Access</em>, copy your Business ID and API Key,
+            <strong>Add API credentials</strong> — in{" "}
+            <a href="https://dashboard.urbanpiper.com/settings" target="_blank" rel="noreferrer">UrbanPiper Settings</a>{" "}
+            → API Access, copy your Business ID and API Key,
             paste them in the credentials section above and enable callbacks.
           </li>
           <li>
