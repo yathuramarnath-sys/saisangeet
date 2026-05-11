@@ -6031,3 +6031,24 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 }
 .int-setup-guide li { font-size: 13px; color: #374151; line-height: 1.5; }
 .int-setup-guide a  { color: #2563eb; }
+
+/* ─── UrbanPiper credentials form ────────────────────────────────────────── */
+.int-webhook-divider { height: 1px; background: #f3f4f6; margin: 16px 0; }
+.int-creds-head  { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.int-creds-title { font-size: 13px; font-weight: 700; color: #111827; margin: 0; display: flex; align-items: center; gap: 8px; }
+.int-creds-live-badge { font-size: 11px; font-weight: 600; color: #16a34a; background: #f0fdf4; padding: 2px 8px; border-radius: 20px; border: 1px solid #bbf7d0; }
+.int-creds-form  { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
+.int-creds-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+@media (max-width: 600px) { .int-creds-row { grid-template-columns: 1fr; } }
+.int-creds-field label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 5px; }
+.int-creds-field input {
+  width: 100%; box-sizing: border-box;
+  border: 1.5px solid #d1d5db; border-radius: 7px;
+  padding: 8px 10px; font-size: 13px; color: #111827;
+  background: #fff; outline: none; font-family: inherit;
+}
+.int-creds-field input:focus { border-color: #2563eb; }
+.int-key-set { font-size: 10px; font-weight: 600; color: #16a34a; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+.int-creds-enable-row { margin-top: 4px; }
+.int-creds-enable-label { font-size: 13px; color: #374151; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.int-creds-enable-label input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #2563eb; }

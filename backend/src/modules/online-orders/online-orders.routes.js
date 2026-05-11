@@ -29,6 +29,11 @@ const {
   updateOwnerSetupData,
   getAllCachedTenants,
 } = require("../../data/owner-setup-store");
+const {
+  acceptOrder: upAccept,
+  rejectOrder: upReject,
+  getUpCreds,
+} = require("./urbanpiper.service");
 
 const onlineOrdersRouter  = express.Router();   // private (JWT)
 const webhooksRouter      = express.Router();   // public (no JWT, no rate-limit override)
@@ -190,14 +195,21 @@ onlineOrdersRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const tenantId = req.user?.tenantId || "default";
-    const { outletId } = req.body;
+    const { outletId, prepMins } = req.body;
     if (!outletId) return res.status(400).json({ error: "outletId required" });
+
     const updated = updateOnlineOrderStatus(tenantId, outletId, req.params.orderId, "accepted", {
       acceptedAt: new Date().toISOString(),
       acceptedBy: req.user?.name || "POS",
     });
     if (!updated) return res.status(404).json({ error: "Order not found" });
-    res.json({ ok: true, order: updated });
+
+    // ── Fire UrbanPiper callback (non-blocking) ────────────────────────────
+    // Use the stored UrbanPiper order id (same as our order.id from normaliseUrbanPiper)
+    const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
+    upAccept(updated.id, tenantData, { prepMins: prepMins || 20 }).catch(() => {});
+
+    res.json({ ok: true, order: updated, upCallbackFired: !!getUpCreds(tenantData) });
   })
 );
 
@@ -209,12 +221,18 @@ onlineOrdersRouter.post(
     const tenantId = req.user?.tenantId || "default";
     const { outletId, reason } = req.body;
     if (!outletId) return res.status(400).json({ error: "outletId required" });
+
     const updated = updateOnlineOrderStatus(tenantId, outletId, req.params.orderId, "rejected", {
       rejectReason: reason || "Rejected",
       rejectedAt:   new Date().toISOString(),
     });
     if (!updated) return res.status(404).json({ error: "Order not found" });
-    res.json({ ok: true, order: updated });
+
+    // ── Fire UrbanPiper callback (non-blocking) ────────────────────────────
+    const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
+    upReject(updated.id, tenantData, { reason: reason || "Restaurant busy" }).catch(() => {});
+
+    res.json({ ok: true, order: updated, upCallbackFired: !!getUpCreds(tenantData) });
   })
 );
 
@@ -237,7 +255,7 @@ onlineOrdersRouter.post(
   })
 );
 
-/** GET /online-orders/config — return webhook URL + masked secret for Owner Console */
+/** GET /online-orders/config — webhook URL + masked secret + UP credentials status */
 onlineOrdersRouter.get(
   "/config",
   requireAuth,
@@ -246,7 +264,7 @@ onlineOrdersRouter.get(
     const data     = await runWithTenant(tenantId, () => getOwnerSetupData());
     const outlets  = (data?.outlets || []).filter(o => o.isActive !== false);
     const secret   = data?.onlineOrders?.webhookSecret || null;
-
+    const upCfg    = data?.onlineOrders?.urbanPiper    || {};
     const baseUrl  = process.env.PUBLIC_API_URL || "https://api.dinexpos.in";
 
     res.json({
@@ -257,11 +275,50 @@ onlineOrdersRouter.get(
         url:        `${baseUrl}/webhooks/online-order/${tenantId}/${o.id}`,
       })),
       secretConfigured: !!secret,
-      // Return masked secret — owner only sees last 6 chars to confirm it exists
       secretMasked: secret
-        ? `wh_live_${"•".repeat(secret.length - 12)}${secret.slice(-6)}`
+        ? `wh_live_${"•".repeat(Math.max(0, secret.length - 12))}${secret.slice(-6)}`
         : null,
+      // UrbanPiper API credentials status (never return the actual apiKey)
+      urbanPiper: {
+        enabled:       !!upCfg.enabled,
+        bizId:         upCfg.bizId || "",
+        apiKeySet:     !!upCfg.apiKey,
+        callbacksLive: !!(upCfg.enabled && upCfg.bizId && upCfg.apiKey),
+      },
     });
+  })
+);
+
+/**
+ * POST /online-orders/urbanpiper-config
+ * Save UrbanPiper API credentials (bizId + apiKey).
+ * Called from Owner Console → Integrations page.
+ */
+onlineOrdersRouter.post(
+  "/urbanpiper-config",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId || "default";
+    const { bizId, apiKey, enabled } = req.body;
+
+    await runWithTenant(tenantId, () =>
+      updateOwnerSetupData(data => ({
+        ...data,
+        onlineOrders: {
+          ...(data.onlineOrders || {}),
+          urbanPiper: {
+            bizId:   bizId   ?? data.onlineOrders?.urbanPiper?.bizId   ?? "",
+            // Only overwrite apiKey if a new one is provided (empty string = clear)
+            apiKey:  apiKey !== undefined
+              ? apiKey
+              : (data.onlineOrders?.urbanPiper?.apiKey ?? ""),
+            enabled: enabled ?? data.onlineOrders?.urbanPiper?.enabled ?? false,
+          },
+        },
+      }))
+    );
+
+    res.json({ ok: true });
   })
 );
 
