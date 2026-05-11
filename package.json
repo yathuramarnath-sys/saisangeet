@@ -9,7 +9,8 @@
     "build:pos":      "npm run build --workspace=apps/operations-pos",
     "build:kitchen":  "npm run build --workspace=apps/kitchen-display",
     "build:waiter":   "npm run build --workspace=apps/waiter-mobile",
-    "build:all":      "npm run build --workspace=apps/owner-web && npm run build --workspace=apps/operations-pos",
+    "build:all":      "npm run build --workspace=apps/owner-web && npm run build --workspace=apps/operations-pos && npm run build --workspace=apps/waiter-mobile && npm run build --workspace=apps/kitchen-display",
+    "deploy":         "npm run build:all && git add apps/*/dist && git commit -m 'chore: rebuild all dist' && git push origin main",
     "preview":        "npm run preview --workspace=apps/owner-web"
   },
   "workspaces": [
