@@ -15,6 +15,7 @@ const { hydrateShifts }          = require("./modules/operations/shifts-store");
 const { scheduleBackup }             = require("./jobs/daily-backup");
 const { scheduleDailySalesReport }   = require("./jobs/daily-sales-report");
 const { getAllCachedTenants }         = require("./data/owner-setup-store");
+const jwt                             = require("jsonwebtoken");
 
 // Resolve which tenant owns an outletId by searching the in-memory cache.
 // Returns the tenantId string, or "default" if not found.
@@ -59,7 +60,24 @@ const io = new SocketServer(server, {
 app.locals.io = io;
 
 io.on("connection", (socket) => {
-  const { outletId, kdsStation } = socket.handshake.query;
+  const { outletId, kdsStation, token: dashToken } = socket.handshake.query;
+
+  // ── Owner dashboard connections ──────────────────────────────────────────
+  // Owner-web connects without an outletId but passes a JWT in ?token=
+  // so we can verify identity and join the correct tenant room for push events.
+  if (!outletId && dashToken) {
+    try {
+      const decoded = jwt.verify(dashToken, env.jwtSecret);
+      if (decoded?.tenantId) {
+        socket.join(`tenant:${decoded.tenantId}`);
+        console.log(`[socket] dashboard | id=${socket.id} | tenant=${decoded.tenantId}`);
+      }
+    } catch (_) {
+      // Invalid/expired token — silently ignore; dashboard will still poll
+    }
+    return; // Dashboard clients don't need any other room logic
+  }
+
   const clientType = kdsStation !== undefined ? "KDS" : "POS/Captain";
   // Resolve which tenant owns this outlet so socket rooms are tenant-isolated.
   // Prevents one restaurant's devices from receiving events from another restaurant.

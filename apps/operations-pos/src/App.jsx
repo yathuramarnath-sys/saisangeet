@@ -21,6 +21,7 @@ import { CustomerFormModal }  from "./components/CustomerFormModal";
 import { PosSettingsModal }   from "./components/PosSettingsModal";
 import { PastOrdersModal }    from "./components/PastOrdersModal";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
+import { PhonePeQRModal }     from "./components/PhonePeQRModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
 import { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } from "./lib/kotPrint";
@@ -247,6 +248,7 @@ export default function App() {
   const [showPastOrders,     setShowPastOrders]     = useState(false);
   const [showOnlineOrders,   setShowOnlineOrders]   = useState(false);
   const [pendingOnlineCount, setPendingOnlineCount] = useState(0);
+  const [showPhonePeQR,      setShowPhonePeQR]      = useState(false);
   const [isSyncing,          setIsSyncing]          = useState(false);
   const [lastSyncedAt,       setLastSyncedAt]       = useState(() => {
     const s = localStorage.getItem("pos_last_synced");
@@ -385,6 +387,17 @@ export default function App() {
         socket.on("online:order:new", () => {
           // Bump the badge count — panel fetches fresh list when opened
           setPendingOnlineCount(n => n + 1);
+        });
+
+        // ── PhonePe QR payment confirmed (via webhook → socket) ───────────────
+        // Primary handling is inside PhonePeQRModal (onConfirmed prop).
+        // This listener catches the case where no modal is open (e.g. Captain App
+        // initiated the QR) — it shows a toast so the cashier knows to settle.
+        socket.on("payment:phonepe:confirmed", (payload) => {
+          const { tableId, amount, tableLabel: tLabel } = payload;
+          if (!tableId || !amount) return;
+          setShowPhonePeQR(false);
+          showToast(`📱 PhonePe payment ₹${amount} confirmed · ${tLabel || ""}`);
         });
 
       } catch (err) {
@@ -1480,6 +1493,21 @@ export default function App() {
           tableLabel={tableLabel}
           onClose={() => setShowPayment(false)}
           onSettle={handleSettle}
+          onPhonePeQR={() => { setShowPayment(false); setShowPhonePeQR(true); }}
+        />
+      )}
+
+      {/* ── PhonePe QR payment modal ──────────────────────────────────────── */}
+      {showPhonePeQR && selectedOrder && (
+        <PhonePeQRModal
+          order={selectedOrder}
+          outletId={outlet?.id}
+          socket={socketRef.current}
+          onConfirmed={(payload) => {
+            setShowPhonePeQR(false);
+            handleSettle([{ method: "phonepe", label: "PhonePe", amount: payload.amount }]);
+          }}
+          onClose={() => { setShowPhonePeQR(false); setShowPayment(true); }}
         />
       )}
 

@@ -7,7 +7,7 @@ const METHODS = [
   { id: "card", label: "Card",  icon: "💳" }
 ];
 
-export function PaymentSheet({ order, tableLabel, onClose, onSettle }) {
+export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR }) {
   const fin = getFinancials(order);
 
   // Local payments added during this modal session (not yet persisted)
@@ -80,7 +80,7 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle }) {
     }
   }
 
-  const methodLabel = { cash: "Cash", upi: "UPI", card: "Card" };
+  const methodLabel = { cash: "Cash", upi: "UPI", card: "Card", phonepe: "PhonePe QR" };
 
   return (
     <div className="payment-overlay" role="dialog" aria-modal="true">
@@ -173,6 +173,18 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle }) {
             </button>
           ))}
         </div>
+
+        {/* PhonePe QR — full-amount quick pay */}
+        {onPhonePeQR && remaining > 0 && (
+          <button
+            type="button"
+            className="payment-phonepe-btn"
+            onClick={onPhonePeQR}
+          >
+            <span className="payment-phonepe-btn-icon">📱</span>
+            Pay ₹{remaining} via PhonePe QR
+          </button>
+        )}
 
         {/* Amount input */}
         <div className="payment-amount-wrap">

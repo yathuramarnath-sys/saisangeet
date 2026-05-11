@@ -314,6 +314,147 @@ function IntegrationCard({ integration, connected, creds, onConnect, onDisconnec
   );
 }
 
+// ── PhonePe Payments config card ─────────────────────────────────────────────
+function PhonePeConfigCard() {
+  const [cfg,       setCfg]      = useState(null);
+  const [loading,   setLoading]  = useState(true);
+  const [saving,    setSaving]   = useState(false);
+  const [form,      setForm]     = useState({ merchantId: "", saltKey: "", saltIndex: "1", mode: "UAT", enabled: false });
+  const [msg,       setMsg]      = useState("");
+  const [expanded,  setExpanded] = useState(false);
+
+  useEffect(() => {
+    api.get("/payments/phonepe/config")
+      .then(d => {
+        setCfg(d);
+        setForm(f => ({
+          ...f,
+          merchantId: d.merchantId || "",
+          saltIndex:  d.saltIndex  || "1",
+          mode:       d.mode       || "UAT",
+          enabled:    d.enabled    || false,
+        }));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true); setMsg("");
+    try {
+      await api.post("/payments/phonepe/config", form);
+      const fresh = await api.get("/payments/phonepe/config");
+      setCfg(fresh);
+      setMsg("✓ Saved");
+      setTimeout(() => setMsg(""), 3000);
+    } catch (err) {
+      setMsg("✗ " + (err.message || "Save failed"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isConfigured = cfg?.configured;
+
+  return (
+    <div className="integration-card" style={{ marginBottom: 16 }}>
+      <div className="integration-card-head" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ fontSize: 28 }}>📱</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <strong style={{ fontSize: 15 }}>PhonePe Payment Gateway</strong>
+            {isConfigured && <span className="status online" style={{ fontSize: 11 }}>Configured</span>}
+            {cfg && !isConfigured && <span className="status offline" style={{ fontSize: 11 }}>Not configured</span>}
+          </div>
+          <p style={{ fontSize: 12, color: "#6b7280", margin: "2px 0 0" }}>
+            Show a PhonePe QR code on POS / Captain App. Table auto-clears on payment.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn-outline"
+          style={{ fontSize: 12, padding: "4px 10px" }}
+          onClick={() => setExpanded(v => !v)}
+        >
+          {expanded ? "Hide" : "Configure"}
+        </button>
+      </div>
+
+      {expanded && (
+        <form onSubmit={handleSave} style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <Toggle on={form.enabled} onChange={v => setForm(f => ({ ...f, enabled: v }))} />
+            <span style={{ fontSize: 13, color: form.enabled ? "#16a34a" : "#6b7280" }}>
+              {form.enabled ? "PhonePe QR payments enabled" : "Disabled"}
+            </span>
+          </div>
+
+          <div className="form-row">
+            <label className="form-label">Merchant ID</label>
+            <input
+              className="form-input"
+              placeholder="e.g. MERCHANT123"
+              value={form.merchantId}
+              onChange={e => setForm(f => ({ ...f, merchantId: e.target.value }))}
+            />
+          </div>
+
+          <div className="form-row">
+            <label className="form-label">Salt Key {cfg?.saltKeySet && <span style={{ color: "#16a34a", fontSize: 11 }}>● set</span>}</label>
+            <input
+              className="form-input"
+              type="password"
+              placeholder={cfg?.saltKeySet ? "Leave blank to keep existing key" : "Paste salt key from PhonePe dashboard"}
+              value={form.saltKey}
+              onChange={e => setForm(f => ({ ...f, saltKey: e.target.value }))}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: 12 }}>
+            <div className="form-row" style={{ flex: 1 }}>
+              <label className="form-label">Salt Index</label>
+              <input
+                className="form-input"
+                placeholder="1"
+                value={form.saltIndex}
+                onChange={e => setForm(f => ({ ...f, saltIndex: e.target.value }))}
+              />
+            </div>
+            <div className="form-row" style={{ flex: 1 }}>
+              <label className="form-label">Mode</label>
+              <select
+                className="form-input"
+                value={form.mode}
+                onChange={e => setForm(f => ({ ...f, mode: e.target.value }))}
+              >
+                <option value="UAT">UAT (Sandbox)</option>
+                <option value="PRODUCTION">Production</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? "Saving…" : "Save Credentials"}
+            </button>
+            {msg && <span style={{ fontSize: 13, color: msg.startsWith("✓") ? "#16a34a" : "#dc2626" }}>{msg}</span>}
+          </div>
+
+          <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#6b7280", lineHeight: 1.6 }}>
+            <strong style={{ color: "#374151" }}>How to set up PhonePe PG:</strong><br />
+            1. Log in to <strong>PhonePe Business</strong> → Developers → API Keys<br />
+            2. Copy your <strong>Merchant ID</strong> and <strong>Salt Key</strong><br />
+            3. Use <strong>UAT</strong> for testing, switch to <strong>Production</strong> when live<br />
+            4. Enable and save — QR option will appear in POS payment sheet
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 // ── UrbanPiper / Online Orders webhook card ───────────────────────────────────
 function OnlineOrdersWebhookCard() {
@@ -640,6 +781,19 @@ export function IntegrationsPage() {
       </section>
 
       {msg && <div className="mobile-banner">{msg}</div>}
+
+      {/* ── Payments ─────────────────────────────────────────────────────────── */}
+      <section className="integrations-section">
+        <div className="integrations-section-head">
+          <div>
+            <h3 className="integrations-category-title">Payment Gateway</h3>
+            <p className="integrations-category-desc">
+              Accept UPI QR payments via PhonePe. Customer scans, pays, and the table auto-clears instantly.
+            </p>
+          </div>
+        </div>
+        <PhonePeConfigCard />
+      </section>
 
       {/* ── Online Orders (Swiggy / Zomato via UrbanPiper) ─────────────────── */}
       <section className="integrations-section">

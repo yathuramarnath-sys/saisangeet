@@ -23,6 +23,7 @@ const { billingRouter }    = require("../modules/billing/billing.routes");
 const { whatsappRouter }   = require("../modules/whatsapp/whatsapp.routes");
 const { counterRouter }    = require("../modules/counter/counter.routes");
 const { onlineOrdersRouter } = require("../modules/online-orders/online-orders.routes");
+const { phonePeRouter }      = require("../modules/phonepe/phonepe.routes");
 const { requireAuth }      = require("../middleware/require-auth");
 const { asyncHandler }  = require("../utils/async-handler");
 const { updateOwnerSetupDataNow } = require("../data/owner-setup-store");
@@ -66,7 +67,8 @@ apiRouter.use("/admin/clients", clientsRouter);
 apiRouter.use("/billing",        billingRouter);
 apiRouter.use("/whatsapp",       whatsappRouter);
 apiRouter.use("/counter",        counterRouter);
-apiRouter.use("/online-orders",  onlineOrdersRouter);
+apiRouter.use("/online-orders",    onlineOrdersRouter);
+apiRouter.use("/payments/phonepe", phonePeRouter);
 
 // ── DELETE /demo-data  ────────────────────────────────────────────────────────
 // Removes all records flagged with _demo:true from this tenant's data.
