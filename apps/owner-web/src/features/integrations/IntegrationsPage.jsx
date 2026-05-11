@@ -314,6 +314,104 @@ function IntegrationCard({ integration, connected, creds, onConnect, onDisconnec
   );
 }
 
+// ── Borzo Delivery config card ────────────────────────────────────────────────
+function BorzoConfigCard() {
+  const [cfg,      setCfg]      = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [form,     setForm]     = useState({ token: "", mode: "sandbox", enabled: false });
+  const [msg,      setMsg]      = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    api.get("/delivery/borzo/config")
+      .then(d => { setCfg(d); setForm(f => ({ ...f, mode: d.mode || "sandbox", enabled: d.enabled || false })); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true); setMsg("");
+    try {
+      await api.post("/delivery/borzo/config", form);
+      const fresh = await api.get("/delivery/borzo/config");
+      setCfg(fresh);
+      setMsg("✓ Saved");
+      setTimeout(() => setMsg(""), 3000);
+    } catch (err) {
+      setMsg("✗ " + (err.message || "Save failed"));
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="integration-card" style={{ marginBottom: 16 }}>
+      <div className="integration-card-head" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ fontSize: 28 }}>🛵</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <strong style={{ fontSize: 15 }}>Borzo Delivery</strong>
+            {cfg?.configured && <span className="status online" style={{ fontSize: 11 }}>Active</span>}
+            {cfg && !cfg.configured && <span className="status offline" style={{ fontSize: 11 }}>Not configured</span>}
+          </div>
+          <p style={{ fontSize: 12, color: "#6b7280", margin: "2px 0 0" }}>
+            Dispatch riders instantly from accepted delivery orders. 23+ Indian cities.
+          </p>
+        </div>
+        <button type="button" className="btn-outline" style={{ fontSize: 12, padding: "4px 10px" }}
+          onClick={() => setExpanded(v => !v)}>
+          {expanded ? "Hide" : "Configure"}
+        </button>
+      </div>
+
+      {expanded && (
+        <form onSubmit={handleSave} style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Toggle on={form.enabled} onChange={v => setForm(f => ({ ...f, enabled: v }))} />
+            <span style={{ fontSize: 13, color: form.enabled ? "#16a34a" : "#6b7280" }}>
+              {form.enabled ? "Borzo dispatch enabled" : "Disabled"}
+            </span>
+          </div>
+
+          <div className="form-row">
+            <label className="form-label">
+              API Token {cfg?.tokenSet && <span style={{ color: "#16a34a", fontSize: 11 }}>● set</span>}
+            </label>
+            <input className="form-input" type="password"
+              placeholder={cfg?.tokenSet ? "Leave blank to keep existing token" : "Paste token from Borzo dashboard"}
+              value={form.token}
+              onChange={e => setForm(f => ({ ...f, token: e.target.value }))} />
+          </div>
+
+          <div className="form-row">
+            <label className="form-label">Mode</label>
+            <select className="form-input" value={form.mode}
+              onChange={e => setForm(f => ({ ...f, mode: e.target.value }))}>
+              <option value="sandbox">Sandbox (testing)</option>
+              <option value="production">Production</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+            {msg && <span style={{ fontSize: 13, color: msg.startsWith("✓") ? "#16a34a" : "#dc2626" }}>{msg}</span>}
+          </div>
+
+          <div style={{ background: "#f0f9ff", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#374151", lineHeight: 1.7 }}>
+            <strong>How to set up Borzo:</strong><br />
+            1. Register at <strong>apitest.borzodelivery.com</strong> (sandbox) or <strong>business.borzodelivery.com</strong> (production)<br />
+            2. Go to <strong>Profile → API Token</strong> → copy token<br />
+            3. Paste here and save<br />
+            4. In POS → Online Orders → accepted order → click <strong>🛵 Dispatch Rider</strong>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
 // ── PhonePe Payments config card ─────────────────────────────────────────────
 function PhonePeConfigCard() {
   const [cfg,       setCfg]      = useState(null);
@@ -781,6 +879,19 @@ export function IntegrationsPage() {
       </section>
 
       {msg && <div className="mobile-banner">{msg}</div>}
+
+      {/* ── Delivery Partners ────────────────────────────────────────────────── */}
+      <section className="integrations-section">
+        <div className="integrations-section-head">
+          <div>
+            <h3 className="integrations-category-title">Delivery Partners</h3>
+            <p className="integrations-category-desc">
+              Dispatch riders directly from accepted orders. Customer gets their food, you never leave the POS.
+            </p>
+          </div>
+        </div>
+        <BorzoConfigCard />
+      </section>
 
       {/* ── Payments ─────────────────────────────────────────────────────────── */}
       <section className="integrations-section">

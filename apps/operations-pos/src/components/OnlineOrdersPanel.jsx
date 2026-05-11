@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
+import { BorzoDispatchModal } from "./BorzoDispatchModal";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    Online Orders Panel
@@ -42,12 +43,15 @@ function TimeAgo({ isoDate }) {
 }
 
 /* ── Main component ─────────────────────────────────────────────────────── */
-export function OnlineOrdersPanel({ outletId, socket, onAccept, onClose }) {
-  const [orders,       setOrders]       = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [rejectTarget, setRejectTarget] = useState(null);
-  const [rejectReason, setRejectReason] = useState(REJECT_REASONS[0]);
-  const [filter,       setFilter]       = useState("pending");
+export function OnlineOrdersPanel({ outletId, outletName, outletAddress, socket, onAccept, onClose }) {
+  const [orders,        setOrders]        = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [rejectTarget,  setRejectTarget]  = useState(null);
+  const [rejectReason,  setRejectReason]  = useState(REJECT_REASONS[0]);
+  const [filter,        setFilter]        = useState("pending");
+  const [dispatchOrder, setDispatchOrder] = useState(null);  // order being dispatched via Borzo
+  // Track which orders have active Borzo deliveries: orderId → { borzoOrderId, status, ... }
+  const [deliveries,    setDeliveries]    = useState({});
 
   // ── Fetch from backend ──────────────────────────────────────────────────
   const fetchOrders = useCallback(() => {
@@ -83,6 +87,21 @@ export function OnlineOrdersPanel({ outletId, socket, onAccept, onClose }) {
     }
     socket.on("online:order:new", handleNew);
     return () => socket.off("online:order:new", handleNew);
+  }, [socket]);
+
+  // ── Borzo delivery status updates ───────────────────────────────────────
+  useEffect(() => {
+    if (!socket) return;
+    function onDeliveryStatus(payload) {
+      const { onlineOrderId, borzoOrderId, status, courierName, courierPhone, trackingUrl } = payload;
+      if (!onlineOrderId) return;
+      setDeliveries(prev => ({
+        ...prev,
+        [onlineOrderId]: { borzoOrderId, status, courierName, courierPhone, trackingUrl },
+      }));
+    }
+    socket.on("delivery:borzo:status", onDeliveryStatus);
+    return () => socket.off("delivery:borzo:status", onDeliveryStatus);
   }, [socket]);
 
   // ── Accept ──────────────────────────────────────────────────────────────
@@ -156,6 +175,8 @@ export function OnlineOrdersPanel({ outletId, socket, onAccept, onClose }) {
                 const plt   = PLATFORM_STYLES[order.platform] || PLATFORM_STYLES.Online;
                 const total = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
 
+                const delivery = deliveries[order.id];
+
                 return (
                   <div key={order.id} className="oo-card">
                     {/* Platform badge + order ID */}
@@ -193,6 +214,27 @@ export function OnlineOrdersPanel({ outletId, socket, onAccept, onClose }) {
                     {/* Notes */}
                     {order.notes && <div className="oo-notes">📝 {order.notes}</div>}
 
+                    {/* Borzo delivery status (if dispatched) */}
+                    {delivery && (
+                      <div className="oo-delivery-status"
+                        style={{ borderColor: delivery.status === "completed" ? "#16a34a" : "#3b82f6" }}>
+                        <span>🛵 Borzo</span>
+                        <span className="oo-delivery-badge" style={{
+                          background: delivery.status === "completed" ? "#dcfce7"
+                            : delivery.status === "canceled" ? "#fee2e2" : "#eff6ff",
+                          color: delivery.status === "completed" ? "#16a34a"
+                            : delivery.status === "canceled" ? "#dc2626" : "#1d4ed8",
+                        }}>
+                          {delivery.status}
+                        </span>
+                        {delivery.courierName && <span>· {delivery.courierName}</span>}
+                        <button type="button" className="oo-dispatch-track-btn"
+                          onClick={() => setDispatchOrder(order)}>
+                          View
+                        </button>
+                      </div>
+                    )}
+
                     {/* Total + actions */}
                     <div className="oo-card-footer">
                       <span className="oo-total">₹{total.toLocaleString("en-IN")}</span>
@@ -210,7 +252,15 @@ export function OnlineOrdersPanel({ outletId, socket, onAccept, onClose }) {
                         </div>
                       )}
                       {filter === "accepted" && (
-                        <span className="oo-status-pill accepted">✓ Accepted · KOT sent</span>
+                        <div className="oo-actions">
+                          <span className="oo-status-pill accepted">✓ Accepted · KOT sent</span>
+                          {!delivery && (
+                            <button type="button" className="oo-dispatch-btn"
+                              onClick={() => setDispatchOrder(order)}>
+                              🛵 Dispatch Rider
+                            </button>
+                          )}
+                        </div>
                       )}
                       {filter === "rejected" && (
                         <span className="oo-status-pill rejected">✕ {order.rejectReason}</span>
@@ -254,6 +304,18 @@ export function OnlineOrdersPanel({ outletId, socket, onAccept, onClose }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Borzo dispatch / tracking modal */}
+      {dispatchOrder && (
+        <BorzoDispatchModal
+          order={dispatchOrder}
+          outletId={outletId}
+          outletName={outletName}
+          outletAddress={outletAddress}
+          socket={socket}
+          onClose={() => setDispatchOrder(null)}
+        />
       )}
     </>
   );

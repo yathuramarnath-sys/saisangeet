@@ -1574,6 +1574,8 @@ export default function App() {
       {showOnlineOrders && (
         <OnlineOrdersPanel
           outletId={outlet?.id}
+          outletName={outlet?.name || branchConfig?.outletName}
+          outletAddress={outlet?.address || outlet?.location || ""}
           socket={socketRef.current}
           onAccept={handleAcceptOnlineOrder}
           onClose={() => { setShowOnlineOrders(false); setPendingOnlineCount(0); }}

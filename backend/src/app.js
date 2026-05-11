@@ -7,6 +7,7 @@ const { Sentry } = require("./config/sentry");
 const { apiRouter } = require("./routes");
 const { webhooksRouter }  = require("./modules/online-orders/online-orders.routes");
 const { phonePeWebhook }  = require("./modules/phonepe/phonepe.routes");
+const { borzoWebhook }    = require("./modules/borzo/borzo.routes");
 const { errorHandler } = require("./middleware/error-handler");
 const { notFoundHandler } = require("./middleware/not-found");
 const { generalLimiter } = require("./middleware/rate-limit");
@@ -93,6 +94,7 @@ function createApp() {
   // Public webhook routes — no JWT (UrbanPiper + PhonePe hit these directly)
   app.use("/webhooks", webhooksRouter);
   app.use("/webhooks", phonePeWebhook);
+  app.use("/webhooks", borzoWebhook);
 
   app.use("/api/v1", generalLimiter, apiRouter);
   app.use(notFoundHandler);
