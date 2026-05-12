@@ -2804,15 +2804,15 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 }
 
 .poslogin-logo {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.12);
-  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 10px;
+}
+.poslogin-logo-img {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
 }
 
 .poslogin-title {

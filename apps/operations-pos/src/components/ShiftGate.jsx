@@ -75,10 +75,7 @@ export function ShiftGate({ outletName, cashierName, onShiftStarted }) {
         {/* Brand */}
         <div className="sg-brand">
           <div className="sg-brand-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="9"/>
-              <path d="M8 12h8" strokeLinecap="round"/>
-            </svg>
+            <img src="/plato-pos-logo.svg" alt="Plato POS" style={{width: 48, height: 48, objectFit: "contain"}} />
           </div>
           <div className="sg-brand-text">
             <h2>{outletName || "Plato POS"}</h2>
