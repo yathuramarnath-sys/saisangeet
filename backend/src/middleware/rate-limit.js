@@ -1,4 +1,4 @@
-const rateLimit = require("express-rate-limit");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 
 /** Standard error response for rate-limited requests */
 function rateLimitHandler(_req, res) {
@@ -13,9 +13,15 @@ function rateLimitHandler(_req, res) {
  * fall back to req.ip which Express resolves via X-Forwarded-For when
  * trust proxy is set (see app.js).  Without this, all users behind
  * Cloudflare would share one rate-limit bucket (the Cloudflare egress IP).
+ *
+ * express-rate-limit v8 requires using ipKeyGenerator() when reading req.ip
+ * to ensure IPv6 addresses are handled and normalised correctly.
  */
 function cloudflareKeyGenerator(req) {
-  return req.headers["cf-connecting-ip"] || req.ip;
+  if (req.headers["cf-connecting-ip"]) {
+    return req.headers["cf-connecting-ip"];
+  }
+  return ipKeyGenerator(req);
 }
 
 /**
