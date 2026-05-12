@@ -29,7 +29,7 @@ const { zohoRouter }         = require("../modules/zoho/zoho.routes");
 const { settlementsRouter }  = require("../modules/settlements/settlements.routes");
 const { requireAuth }      = require("../middleware/require-auth");
 const { asyncHandler }  = require("../utils/async-handler");
-const { updateOwnerSetupDataNow } = require("../data/owner-setup-store");
+const { updateOwnerSetupDataNow, getOwnerSetupData } = require("../data/owner-setup-store");
 
 const apiRouter = express.Router();
 
@@ -90,6 +90,35 @@ apiRouter.delete("/demo-data", requireAuth, asyncHandler(async (req, res) => {
     return data;
   });
   res.json({ ok: true, message: "Demo data removed." });
+}));
+
+// ── GET /settings/security — fetch current security settings (PIN masked) ────
+apiRouter.get("/settings/security", requireAuth, asyncHandler(async (_req, res) => {
+  const data = getOwnerSetupData();
+  const pin  = data?.security?.managerPin || "";
+  // Never return the actual PIN — just tell the client whether one is set
+  res.json({ managerPinSet: pin.length > 0 });
+}));
+
+// ── PUT /settings/security — update manager PIN ───────────────────────────────
+// Body: { managerPin: "1234" }  (4–6 digits)
+apiRouter.put("/settings/security", requireAuth, asyncHandler(async (req, res) => {
+  const { managerPin } = req.body || {};
+  const pin = String(managerPin || "").trim();
+
+  if (pin && !/^\d{4,6}$/.test(pin)) {
+    return res.status(400).json({
+      error: "INVALID_PIN",
+      message: "Manager PIN must be 4–6 digits."
+    });
+  }
+
+  await updateOwnerSetupDataNow((data) => ({
+    ...data,
+    security: { ...(data.security || {}), managerPin: pin }
+  }));
+
+  res.json({ ok: true, managerPinSet: pin.length > 0 });
 }));
 
 module.exports = {

@@ -804,6 +804,9 @@ function SecurityTab() {
     setPinInput2("");
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+    // Sync PIN to backend so server-side void/discount validation uses it
+    api.put("/settings/security", { managerPin: pinInput })
+      .catch(err => console.warn("[POS] PIN sync to server failed:", err.message));
   }
 
   return (

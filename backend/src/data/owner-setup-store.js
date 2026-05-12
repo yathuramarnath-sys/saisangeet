@@ -1010,5 +1010,12 @@ function normalizeOwnerSetupData(data) {
   next.integrations.purchaseEntries = next.integrations.purchaseEntries || [];
   next.integrations.syncLog         = next.integrations.syncLog         || [];
 
+  // ── POS Security settings ─────────────────────────────────────────────────
+  // managerPin: 4–6 digit PIN required to approve voids and over-limit discounts.
+  // Empty string = PIN not configured (void/discount allowed without PIN server-side,
+  // but the POS UI still prompts if a local PIN is set in localStorage).
+  next.security = next.security || {};
+  next.security.managerPin = next.security.managerPin ?? "";
+
   return next;
 }

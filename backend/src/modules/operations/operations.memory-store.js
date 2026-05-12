@@ -16,6 +16,8 @@ function buildAuditEntry(label, actor, time) {
 }
 
 function appendAudit(order, entry) {
+  // Stamp every mutation — this is the single place called before every clone/return
+  order.updatedAt = Date.now();
   order.auditTrail = [entry, ...(order.auditTrail || [])].slice(0, 10);
 }
 
@@ -125,8 +127,16 @@ function buildEmptyOrder(tableId, fallbackOrderNumber = 10030) {
     deletedBillLog: [],
     controlAlerts: [],
     auditTrail: [],
-    items: []
+    items: [],
+    updatedAt: Date.now(),  // millisecond timestamp — used for stale-write detection
   };
+}
+
+// Stamps the current timestamp on an order after any mutation.
+// Callers should invoke this at the end of every function that modifies order state.
+function touchOrder(order) {
+  order.updatedAt = Date.now();
+  return order;
 }
 
 function buildInitialState() {

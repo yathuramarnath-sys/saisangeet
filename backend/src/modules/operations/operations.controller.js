@@ -22,6 +22,28 @@ const {
   requestOrderVoidApproval,
   clearTableAfterSettle
 } = require("./operations.service");
+const { getOwnerSetupData } = require("../../data/owner-setup-store");
+const { ApiError }          = require("../../utils/api-error");
+
+/**
+ * Validate the manager PIN from a request body against the PIN stored in
+ * the tenant's security settings.  Throws 403 if incorrect.
+ *
+ * Rules:
+ *  - If NO pin is configured on the server (security.managerPin is blank),
+ *    validation passes — this keeps backward compatibility for tenants that
+ *    haven't set a server-side PIN yet.
+ *  - If a PIN IS configured, the request must include a matching `managerPin`.
+ */
+function assertManagerPin(reqBody) {
+  const data       = getOwnerSetupData();
+  const storedPin  = (data?.security?.managerPin || "").trim();
+  if (!storedPin) return; // not configured — allow through
+  const provided   = String(reqBody?.managerPin || "").trim();
+  if (!provided || provided !== storedPin) {
+    throw new ApiError(403, "INVALID_MANAGER_PIN", "Manager PIN is incorrect.");
+  }
+}
 
 async function listOperationsSummaryHandler(_req, res) {
   const result = await getOperationsSummary();
@@ -111,11 +133,13 @@ async function closeOrderHandler(req, res) {
 }
 
 async function approveDiscountHandler(req, res) {
+  assertManagerPin(req.body);
   const result = await approveDiscountOverride(req.params.tableId, req.body);
   res.json(result);
 }
 
 async function approveVoidHandler(req, res) {
+  assertManagerPin(req.body);
   const result = await approveVoidRequest(req.params.tableId, req.body);
   res.json(result);
 }
@@ -574,6 +598,8 @@ async function deviceVoidOrderItemHandler(req, res) {
   if (tableId.startsWith("counter-") || tableId.startsWith("online-")) {
     return res.json({ ok: true, skipped: true });
   }
+  // Server-side PIN check — only enforced when a PIN is configured
+  assertManagerPin(req.body);
   const actor = req.user?.name || req.user?.type || "POS";
   const result = await updateOrderItemDetails(tableId, itemId, {
     isVoided:   true,

@@ -351,6 +351,17 @@ export default function App() {
 
         socket.on("order:updated", (updatedOrder) => {
           setOrders((prev) => {
+            const current = prev[updatedOrder.tableId];
+            // Stale-write guard: if our local copy is newer, ignore this event.
+            // Prevents a slow Captain socket event from overwriting POS changes
+            // that were made after the Captain last touched the order.
+            if (
+              current &&
+              !updatedOrder.isClosed &&
+              (current.updatedAt || 0) > (updatedOrder.updatedAt || 0)
+            ) {
+              return prev; // our version is newer — discard incoming
+            }
             const next = { ...prev, [updatedOrder.tableId]: updatedOrder };
             saveOrdersToStorage(next);
             return next;
@@ -1209,14 +1220,17 @@ export default function App() {
       return o;
     });
     showToast("Item voided");
-    // Persist void to backend so Captain app + KDS see the change immediately
+    // Persist void to backend so Captain app + KDS see the change immediately.
+    // Include managerPin so server-side validation passes when a PIN is configured.
     if (item?.id &&
         !selectedTableId.startsWith("counter-") &&
         !selectedTableId.startsWith("online-")) {
+      const sec = JSON.parse(localStorage.getItem("pos_security") || "{}");
       api.patch("/operations/order/item", {
         tableId:    selectedTableId,
         itemId:     item.id,
-        voidReason: reason || "Voided by POS"
+        voidReason: reason || "Voided by POS",
+        managerPin: sec.managerPin || ""
       }).catch(err => console.warn("[POS] item-void to backend failed:", err.message));
     }
   }

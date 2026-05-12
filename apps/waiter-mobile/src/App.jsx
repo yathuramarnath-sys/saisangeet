@@ -170,6 +170,11 @@ export function App() {
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
           }
+          // Stale-write guard: ignore events older than our current local copy
+          const current = p[o.tableId];
+          if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) {
+            return p; // our version is newer — discard
+          }
           return { ...p, [o.tableId]: o };
         }));
 
