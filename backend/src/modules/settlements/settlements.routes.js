@@ -61,6 +61,8 @@ settlementsRouter.post(
     const record = {
       id:                 `stl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       platform:           body.platform       || "swiggy",        // 'swiggy' | 'zomato'
+      outletId:           body.outletId       || "",
+      outletName:         body.outletName     || "",
       periodFrom:         body.periodFrom     || "",
       periodTo:           body.periodTo       || "",
       settlementDate:     body.settlementDate || "",

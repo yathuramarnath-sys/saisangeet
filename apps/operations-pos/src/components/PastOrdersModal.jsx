@@ -1,56 +1,8 @@
 import { useMemo, useState } from "react";
 import { getFinancials } from "./OrderPanel";
+import { printBill } from "../lib/printBill";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Zomato Pay", "Swiggy Pay"];
-
-/* ── Bill reprint helper ─────────────────────────────────────────────────── */
-function printBill(order, fin) {
-  const w = window.open("", "_blank");
-  const items = (order.items || []).filter(i => !i.isVoided);
-  w.document.write(`
-    <html><head><title>Bill #${order.billNo ?? order.orderNumber}</title>
-    <style>
-      body { font-family: 'Courier New', monospace; font-size: 12px; max-width: 300px; margin: 0 auto; padding: 16px; }
-      .center { text-align: center; }
-      .bold   { font-weight: bold; }
-      .row    { display: flex; justify-content: space-between; margin: 2px 0; }
-      .divider { border-top: 1px dashed #aaa; margin: 6px 0; }
-      .total  { font-size: 14px; font-weight: bold; }
-    </style></head><body>
-    <div class="center bold" style="font-size:15px">${order.outletName || "Restaurant"}</div>
-    <div class="center">Bill Receipt</div>
-    <div class="center" style="font-size:10px;color:#888">
-      ${new Date(order.closedAt || Date.now()).toLocaleString("en-IN")}
-    </div>
-    <div class="center" style="font-size:10px">
-      ${order.isCounter ? `Ticket #${String(order.ticketNumber || "").padStart(3,"0")}` : `Table ${order.tableNumber} · ${order.areaName}`}
-    </div>
-    <div class="divider"></div>
-    ${items.map(i => `
-      <div class="row">
-        <span>${i.name}${i.isComp ? " [COMP]" : ""} x${i.quantity}</span>
-        <span>₹${i.isComp ? 0 : i.price * i.quantity}</span>
-      </div>
-    `).join("")}
-    <div class="divider"></div>
-    <div class="row"><span>Subtotal</span><span>₹${fin.subtotal}</span></div>
-    ${fin.discountAmt > 0 ? `<div class="row"><span>Discount</span><span>-₹${fin.discountAmt}</span></div>` : ""}
-    <div class="row"><span>GST (5%)</span><span>₹${Math.round(fin.tax)}</span></div>
-    <div class="divider"></div>
-    <div class="row total"><span>TOTAL</span><span>₹${fin.total}</span></div>
-    <div class="divider"></div>
-    ${(order.payments || []).map(p => `
-      <div class="row"><span>${p.method}</span><span>₹${p.amount}</span></div>
-    `).join("")}
-    <div class="divider"></div>
-    <div class="center" style="font-size:10px">Thank you! Visit again.</div>
-    </body></html>
-  `);
-  w.document.close();
-  w.focus();
-  w.print();
-  w.close();
-}
 
 /* ── Edit Payment Modal ───────────────────────────────────────────────────── */
 function EditPaymentModal({ order, fin, onSave, onClose }) {
@@ -141,7 +93,7 @@ function EditPaymentModal({ order, fin, onSave, onClose }) {
 }
 
 /* ── Past Orders Modal ────────────────────────────────────────────────────── */
-export function PastOrdersModal({ orders, onClose, onEditPayment }) {
+export function PastOrdersModal({ orders, onClose, onEditPayment, outletName, cashierName }) {
   const [filter,    setFilter]    = useState("all");   // all | cash | card | upi | online
   const [search,    setSearch]    = useState("");
   const [editOrder, setEditOrder] = useState(null);
@@ -291,7 +243,7 @@ export function PastOrdersModal({ orders, onClose, onEditPayment }) {
                       <div className="past-fin-rows">
                         <div className="past-fin-row"><span>Subtotal</span><span>₹{fin.subtotal}</span></div>
                         {fin.discountAmt > 0 && <div className="past-fin-row discount"><span>Discount</span><span>−₹{fin.discountAmt}</span></div>}
-                        <div className="past-fin-row"><span>GST 5%</span><span>₹{Math.round(fin.tax)}</span></div>
+                        <div className="past-fin-row"><span>GST</span><span>₹{Math.round(fin.tax)}</span></div>
                         <div className="past-fin-row bold"><span>Total</span><span>₹{fin.total}</span></div>
                       </div>
                       <div className="past-payments">
@@ -301,7 +253,12 @@ export function PastOrdersModal({ orders, onClose, onEditPayment }) {
                       </div>
                       <div className="past-actions">
                         <button type="button" className="past-action-btn"
-                          onClick={() => printBill(order, fin)}>
+                          onClick={() => printBill(
+                            order,
+                            order.items,
+                            outletName || order.outletName || "Restaurant",
+                            { cashierName: cashierName || "Cashier" }
+                          )}>
                           🖨 Reprint Bill
                         </button>
                         <button type="button" className="past-action-btn warn"

@@ -152,6 +152,7 @@ export function MenuPage() {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [inventoryFilter, setInventoryFilter] = useState("Any");
   const [foodTypeFilter, setFoodTypeFilter] = useState("Any");
+  const [taxFilter, setTaxFilter] = useState("Any"); // "Any" | "Missing"
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -261,8 +262,9 @@ export function MenuPage() {
       (inventoryFilter === "Tracked" && item.inventoryTracking.enabled) ||
       (inventoryFilter === "Not tracked" && !item.inventoryTracking.enabled);
     const matchesFoodType = foodTypeFilter === "Any" || item.foodType === foodTypeFilter;
+    const matchesTax = taxFilter === "Any" || (taxFilter === "Missing" && Number(item.taxRate || 0) <= 0);
 
-    return matchesSearch && matchesCategory && matchesStatus && matchesInventory && matchesFoodType;
+    return matchesSearch && matchesCategory && matchesStatus && matchesInventory && matchesFoodType && matchesTax;
   });
 
   function updateItem(itemId, updater) {
@@ -974,10 +976,14 @@ export function MenuPage() {
           <strong>{vegItemCount}</strong>
           <p>Items currently marked as veg in the live menu data</p>
         </article>
-        <article className="metric-card warning">
+        <article
+          className={`metric-card warning${missingTaxCount > 0 ? " metric-card-clickable" : ""}`}
+          onClick={() => { if (missingTaxCount > 0) { setTaxFilter("Missing"); setActiveTab("items"); } }}
+          title={missingTaxCount > 0 ? "Click to filter items missing a GST rate" : undefined}
+        >
           <span className="metric-label">Missing GST</span>
           <strong>{missingTaxCount}</strong>
-          <p>Items missing tax mode or tax rate</p>
+          <p>{missingTaxCount > 0 ? "Click to view & fix these items" : "All items have a GST rate ✓"}</p>
         </article>
         <article className="metric-card">
           <span className="metric-label">Kitchen mapped</span>
@@ -1049,6 +1055,26 @@ export function MenuPage() {
             </div>
           )}
 
+          {/* ── Tax rate warning banner ──────────────────────────────────── */}
+          {missingTaxCount > 0 && (
+            <div className="tax-audit-banner">
+              <span className="tax-audit-icon">⚠️</span>
+              <div className="tax-audit-body">
+                <strong>{missingTaxCount} item{missingTaxCount !== 1 ? "s" : ""} have no GST rate set.</strong>
+                {" "}They will be billed at <strong>5% by default</strong> until fixed. This can cause incorrect GST filings.
+              </div>
+              {taxFilter !== "Missing" ? (
+                <button className="tax-audit-btn" onClick={() => setTaxFilter("Missing")}>
+                  Show only missing
+                </button>
+              ) : (
+                <button className="tax-audit-btn" onClick={() => setTaxFilter("Any")}>
+                  Show all items
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="menu-library-table">
             <div className="menu-library-row head">
               <span className="col-check">
@@ -1078,6 +1104,9 @@ export function MenuPage() {
                   <strong>{item.name}</strong>
                   {item.unit && (
                     <span className="unit-badge">{item.unit}</span>
+                  )}
+                  {Number(item.taxRate || 0) <= 0 && (
+                    <span className="tax-missing-badge" title="No GST rate set — will default to 5%">⚠️ GST</span>
                   )}
                 </span>
                 <span>{item.categoryName || "Unassigned"}</span>

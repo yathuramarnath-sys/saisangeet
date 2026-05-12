@@ -619,6 +619,11 @@ function markKotSent(tableId, actor = "Captain") {
   order.items = order.items.map((item) => ({ ...item, sentToKot: true }));
   order.pickupStatus = "new";
   order.notes = "KOT sent to kitchen";
+  // Fallback: capture captainName here too in case addOrderItem wasn't called
+  // (e.g. items pre-loaded, or order taken via POS then sent by captain)
+  if (actor && actor !== "System" && actor !== "POS" && actor !== "Captain") {
+    if (!order.captainName) order.captainName = actor;
+  }
   appendAudit(order, buildAuditEntry("KOT sent", actor, "Now"));
   return clone(order);
 }
