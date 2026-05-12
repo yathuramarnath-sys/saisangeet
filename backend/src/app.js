@@ -79,8 +79,11 @@ function createApp() {
       dbStatus = "error";
     }
 
+    // Always return 200 — the server is up regardless of DB state because
+    // we have JSON-file fallback storage. Returning 503 on DB latency caused
+    // Railway healthcheck to kill every deploy even when the app was healthy.
     const status = dbStatus === "ok" ? "ok" : "degraded";
-    res.status(status === "ok" ? 200 : 503).json({
+    res.status(200).json({
       status,
       service:     "plato-pos-backend",
       version:     process.env.npm_package_version || "1.0.0",
