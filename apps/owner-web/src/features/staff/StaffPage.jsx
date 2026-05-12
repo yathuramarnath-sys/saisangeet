@@ -46,7 +46,8 @@ function buildDefaultDraft(data) {
     mobileNumber: "",
     outletName: data.outlets?.[0]?.name || "Indiranagar",
     role: defaultRole,
-    pin: ""
+    pin: "",
+    incentivePct: 0
   };
 }
 
@@ -269,7 +270,8 @@ export function StaffPage() {
         mobileNumber: staffDraft.mobileNumber,
         outletName: staffDraft.outletName,
         roles: [staffDraft.role],
-        pin: staffDraft.pin
+        pin: staffDraft.pin,
+        incentivePct: Number(staffDraft.incentivePct || 0)
       });
     } catch (_) { /* offline — add to local state */ }
     const updatedStaff = [...staffData.staff, newMember];
@@ -284,7 +286,8 @@ export function StaffPage() {
     setEditStaffDraft({
       fullName: member.name, mobileNumber: member.mobileNumber || "",
       outletName: member.outlet, role: member.role,
-      pin: member.pin || "", isActive: member.status === "Active"
+      pin: member.pin || "", isActive: member.status === "Active",
+      incentivePct: member.incentivePct ?? 0
     });
     setError("");
   }
@@ -301,13 +304,15 @@ export function StaffPage() {
       role: editStaffDraft.role,
       pin: editStaffDraft.pin,
       login: editStaffDraft.pin ? "PIN" : "Password",
-      status: editStaffDraft.isActive ? "Active" : "Inactive"
+      status: editStaffDraft.isActive ? "Active" : "Inactive",
+      incentivePct: Number(editStaffDraft.incentivePct || 0)
     };
     try {
       await updateStaffMember(editingStaffId, {
         fullName: updated.name, mobileNumber: updated.mobileNumber,
         outletName: updated.outlet, roles: [updated.role],
-        pin: updated.pin, isActive: updated.status === "Active"
+        pin: updated.pin, isActive: updated.status === "Active",
+        incentivePct: updated.incentivePct
       });
     } catch (_) { /* offline */ }
     const updatedStaff = staffData.staff.map((m) => m.id === editingStaffId ? updated : m);
@@ -352,8 +357,8 @@ export function StaffPage() {
   // ── Export ───────────────────────────────────────────────
   function handleExportStaff() {
     const rows = [
-      ["Name", "Role", "Outlet", "Mobile", "Login", "Status"],
-      ...staffData.staff.map((m) => [m.name, m.role, m.outlet, m.mobileNumber || "", m.login, m.status])
+      ["Name", "Role", "Outlet", "Mobile", "Login", "Incentive %", "Status"],
+      ...staffData.staff.map((m) => [m.name, m.role, m.outlet, m.mobileNumber || "", m.login, m.incentivePct ?? 0, m.status])
     ];
     const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -664,6 +669,15 @@ export function StaffPage() {
                   ))}
                 </select>
               </label>
+              <label>
+                Incentive % (on sales)
+                <input
+                  type="number" min="0" max="100" step="0.5"
+                  value={staffDraft.incentivePct}
+                  onChange={(e) => setStaffDraft((p) => ({ ...p, incentivePct: e.target.value }))}
+                  placeholder="0"
+                />
+              </label>
             </div>
             <button type="submit" className="primary-btn" style={{ marginTop: "1rem" }}>
               Add Staff Member
@@ -690,6 +704,7 @@ export function StaffPage() {
                 <span>Role</span>
                 <span>Outlet</span>
                 <span>Login</span>
+                <span>Incentive %</span>
                 <span>Status</span>
                 <span>Actions</span>
               </div>
@@ -702,6 +717,9 @@ export function StaffPage() {
                     <span>{member.role}</span>
                     <span>{member.outlet}</span>
                     <span>{member.login}</span>
+                    <span style={{ color: (member.incentivePct > 0) ? "#1a7a3a" : "#999", fontWeight: (member.incentivePct > 0) ? 600 : 400 }}>
+                      {member.incentivePct > 0 ? `${member.incentivePct}%` : "—"}
+                    </span>
                     <span className={`status ${statusClass(member.status)}`}>{member.status}</span>
                     <span className="entity-actions">
                       <button type="button" className="ghost-chip" onClick={() => startEditStaff(member)}>
@@ -779,6 +797,15 @@ export function StaffPage() {
                               <option>Active</option>
                               <option>Inactive</option>
                             </select>
+                          </label>
+                          <label>
+                            Incentive % (on sales)
+                            <input
+                              type="number" min="0" max="100" step="0.5"
+                              value={editStaffDraft.incentivePct ?? 0}
+                              onChange={(e) => setEditStaffDraft((p) => ({ ...p, incentivePct: e.target.value }))}
+                              placeholder="0"
+                            />
                           </label>
                         </div>
                         <div className="entity-actions" style={{ marginTop: "0.75rem" }}>

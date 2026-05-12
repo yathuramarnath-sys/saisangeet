@@ -1163,7 +1163,7 @@ export function IntegrationsPage() {
           </p>
         </div>
         <div className="hero-stats">
-          <div><span>Available</span><strong>{INTEGRATIONS_CATALOG.length}</strong></div>
+          <div><span>Available</span><strong>5</strong></div>
           <div><span>Connected</span><strong>{totalCount}</strong></div>
         </div>
       </section>

@@ -91,7 +91,8 @@ async function createUser(payload) {
     outletId:   payload.outletId   || null,
     isActive: payload.isActive ?? true,
     pin: payload.pin || "",
-    mobileNumber: payload.mobileNumber || ""
+    mobileNumber: payload.mobileNumber || "",
+    incentivePct: payload.incentivePct ?? 0
   };
 
   updateOwnerSetupData((current) => ({
@@ -121,6 +122,7 @@ async function updateUser(userId, payload) {
         isActive:     payload.isActive     ?? user.isActive,
         pin:          payload.pin          ?? user.pin,
         mobileNumber: payload.mobileNumber ?? user.mobileNumber ?? "",
+        incentivePct: payload.incentivePct ?? user.incentivePct ?? 0,
         // Auth fields are intentionally omitted from the payload mapping and
         // MUST come from the existing user record only. They are never accepted
         // from the Staff Management UI payload — only auth.service endpoints

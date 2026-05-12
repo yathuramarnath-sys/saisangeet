@@ -54,6 +54,45 @@ function buildStaffSales(closedToday) {
   }));
 }
 
+function buildCaptainIncentives(closedToday, tenantId) {
+  // Build a lookup: captain name → incentivePct from owner setup data
+  const ownerData   = getOwnerSetupData(tenantId);
+  const staffList   = ownerData?.users || [];
+  const incentiveMap = {};
+  for (const u of staffList) {
+    const name = u.fullName || u.name || "";
+    if (name) incentiveMap[name.trim().toLowerCase()] = Number(u.incentivePct || 0);
+  }
+
+  const captainMap = {};
+
+  for (const order of closedToday) {
+    const captain = order.captainName || null;
+    if (!captain) continue;                    // counter/cashier order — skip
+    const outlet  = order.outletName || "All";
+    const items   = order.items || [];
+    const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+    const disc     = Math.min(order.discountAmount || 0, subtotal);
+    const net      = subtotal - disc;
+    const key      = `${captain}::${outlet}`;
+    const pct      = incentiveMap[captain.trim().toLowerCase()] ?? 0;
+
+    if (!captainMap[key]) {
+      captainMap[key] = { captain, outlet, orders: 0, sales: 0, discounts: 0, incentivePct: pct, incentiveAmt: 0 };
+    }
+    captainMap[key].orders    += 1;
+    captainMap[key].sales     += net;
+    captainMap[key].discounts += disc;
+  }
+
+  return Object.values(captainMap).map(r => ({
+    ...r,
+    sales:        Math.round(r.sales),
+    discounts:    Math.round(r.discounts),
+    incentiveAmt: Math.round(r.sales * (r.incentivePct / 100)),
+  }));
+}
+
 function buildSalesData(closedToday) {
   const paymentMap = {};
   const itemMap    = {};
@@ -559,7 +598,10 @@ async function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) 
   // Sales data — smart fetcher: memory for today, Postgres for history
   const closedToday     = await _getOrdersForRange(tenantId || "default", { dateFrom, dateTo, outletId });
   const todayOrderCount = closedToday.length;
-  const salesData       = buildSalesData(closedToday);
+  const salesData       = {
+    ...buildSalesData(closedToday),
+    captainIncentives: buildCaptainIncentives(closedToday, tenantId || "default"),
+  };
 
   return {
     popupAlert: {

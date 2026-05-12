@@ -26,6 +26,7 @@ const { onlineOrdersRouter } = require("../modules/online-orders/online-orders.r
 const { phonePeRouter }      = require("../modules/phonepe/phonepe.routes");
 const { borzoRouter }        = require("../modules/borzo/borzo.routes");
 const { zohoRouter }         = require("../modules/zoho/zoho.routes");
+const { settlementsRouter }  = require("../modules/settlements/settlements.routes");
 const { requireAuth }      = require("../middleware/require-auth");
 const { asyncHandler }  = require("../utils/async-handler");
 const { updateOwnerSetupDataNow } = require("../data/owner-setup-store");
@@ -73,6 +74,7 @@ apiRouter.use("/online-orders",    onlineOrdersRouter);
 apiRouter.use("/payments/phonepe", phonePeRouter);
 apiRouter.use("/delivery/borzo",   borzoRouter);
 apiRouter.use("/integrations/zoho", zohoRouter);
+apiRouter.use("/settlements",        settlementsRouter);
 
 // ── DELETE /demo-data  ────────────────────────────────────────────────────────
 // Removes all records flagged with _demo:true from this tenant's data.

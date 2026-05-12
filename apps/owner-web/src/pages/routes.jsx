@@ -16,6 +16,7 @@ import { AppStorePage } from "../features/appstore/AppStorePage";
 import { KitchenStationsPage } from "../features/kitchen/KitchenStationsPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { BillingPage } from "../features/billing/BillingPage";
+import { OnlineSalesPage } from "../features/settlements/OnlineSalesPage";
 import { PrototypePage } from "./PrototypePage";
 
 export function AppRoutes() {
@@ -78,6 +79,10 @@ export function AppRoutes() {
 
     if (item.mode === "react" && item.id === "billing") {
       return <BillingPage />;
+    }
+
+    if (item.mode === "react" && item.id === "online-sales") {
+      return <OnlineSalesPage />;
     }
 
     return <PrototypePage prototypeFile={item.prototypeFile} />;

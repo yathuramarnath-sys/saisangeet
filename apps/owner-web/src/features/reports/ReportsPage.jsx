@@ -536,6 +536,120 @@ function StaffSalesReport({ date, data }) {
   );
 }
 
+// ── 7b. Captain Incentives Report ────────────────────────────────────────────
+function CaptainIncentivesReport({ date, data }) {
+  const rows = data?.captainIncentives || [];
+  const hasData = rows.length > 0;
+
+  const totalSales   = rows.reduce((s, r) => s + r.sales, 0);
+  const totalOrders  = rows.reduce((s, r) => s + r.orders, 0);
+  const totalPayable = rows.reduce((s, r) => s + r.incentiveAmt, 0);
+
+  function exportCSV() {
+    downloadCSV(`CaptainIncentives_${date}`,
+      ["Captain", "Outlet", "Orders", "Sales (₹)", "Incentive %", "Payable (₹)"],
+      rows.map(r => [r.captain, r.outlet, r.orders, r.sales, r.incentivePct, r.incentiveAmt])
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <div className="rpt-body">
+        <div className="rpt-empty-state">
+          <div className="rpt-empty-icon">👨‍🍳</div>
+          <strong>No captain sales data</strong>
+          <p>
+            Incentive data appears here once waiters/captains take orders via the
+            Captain app. Make sure staff have an <strong>Incentive %</strong> set
+            in Staff &amp; Roles.
+          </p>
+          <p className="rpt-empty-hint">
+            Go to <strong>Staff &amp; Roles → Edit staff member → Incentive %</strong>
+            to assign a commission rate (e.g. 2%) per waiter.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rpt-body">
+      <ExportBar onPDF={printReport} onCSV={exportCSV} />
+
+      {/* KPI strip */}
+      <div className="rpt-kpi-row">
+        <KpiCard dark label="Total Incentive Payable" value={fmt(totalPayable)}   sub={`across ${rows.length} staff`} />
+        <KpiCard      label="Total Captain Sales"     value={fmt(totalSales)}     sub={`${totalOrders} orders`} />
+        <KpiCard      label="Active Captains"         value={rows.length}         sub="took orders today" />
+        <KpiCard      label="Top Earner"
+          value={rows.length ? [...rows].sort((a,b) => b.incentiveAmt - a.incentiveAmt)[0].captain : "—"}
+          sub={rows.length ? fmt([...rows].sort((a,b) => b.incentiveAmt - a.incentiveAmt)[0].incentiveAmt) : ""} />
+      </div>
+
+      {/* Visual cards per captain */}
+      <div className="inc-captain-grid">
+        {[...rows].sort((a, b) => b.incentiveAmt - a.incentiveAmt).map(r => {
+          const pctOfTotal = totalSales > 0 ? Math.round((r.sales / totalSales) * 100) : 0;
+          return (
+            <div key={r.captain + r.outlet} className="inc-captain-card">
+              <div className="inc-captain-avatar">{r.captain.charAt(0).toUpperCase()}</div>
+              <div className="inc-captain-info">
+                <strong className="inc-captain-name">{r.captain}</strong>
+                <span className="inc-captain-outlet">{r.outlet}</span>
+              </div>
+              <div className="inc-captain-stats">
+                <div className="inc-stat-row">
+                  <span>Orders</span><strong>{r.orders}</strong>
+                </div>
+                <div className="inc-stat-row">
+                  <span>Sales</span><strong>{fmt(r.sales)}</strong>
+                </div>
+                <div className="inc-stat-row">
+                  <span>Rate</span>
+                  <strong style={{ color: r.incentivePct > 0 ? "#1a7a3a" : "#999" }}>
+                    {r.incentivePct > 0 ? `${r.incentivePct}%` : "Not set"}
+                  </strong>
+                </div>
+              </div>
+              <div className="inc-captain-payable">
+                <span className="inc-payable-label">Payable</span>
+                <strong className="inc-payable-amt">{fmt(r.incentiveAmt)}</strong>
+                <div className="inc-share-bar-wrap">
+                  <div className="inc-share-bar" style={{ width: `${pctOfTotal}%` }} />
+                </div>
+                <span className="inc-share-pct">{pctOfTotal}% of sales</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Summary table */}
+      <div className="panel rpt-panel">
+        <SectionHead title="Incentive Summary" eyebrow="All staff payable amounts" />
+        <RptTable
+          cols={["Captain", "Outlet", "Orders", "Sales (₹)", "Incentive %", "Payable (₹)"]}
+          rows={[...rows].sort((a, b) => b.incentiveAmt - a.incentiveAmt).map(r => [
+            <strong>{r.captain}</strong>,
+            r.outlet,
+            r.orders,
+            fmt(r.sales),
+            r.incentivePct > 0
+              ? <span className="rpt-badge-ok">{r.incentivePct}%</span>
+              : <span className="rpt-badge-warn">Not set</span>,
+            <strong className="inc-payable-cell">{fmt(r.incentiveAmt)}</strong>
+          ])}
+          foot={["Total", "", totalOrders, fmt(totalSales), "", <strong>{fmt(totalPayable)}</strong>]}
+        />
+        <div className="inc-disclaimer">
+          ℹ Incentive % is set per staff member in <strong>Staff &amp; Roles</strong>.
+          These figures are calculated on net sales (after discount) for orders taken via the Captain app.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Email Trigger ────────────────────────────────────────────────────────────
 const EMAIL_KEY = "pos_report_email_settings";
 function loadEmail() {
@@ -941,6 +1055,7 @@ const REPORTS = [
   { key: "payments",   label: "Payment Report"    },
   { key: "discounts",  label: "Discount & Void"   },
   { key: "staff",      label: "Staff Sales"       },
+  { key: "incentives", label: "🏆 Incentives"     },
   { key: "orders",     label: "🗄 Order History"  },
   { key: "email",      label: "📧 Email Settings" }
 ];
@@ -1074,8 +1189,9 @@ export function ReportsPage() {
       {active === "gst"        && <GSTReport        outlet={selectedOutletName} month={month}                  data={salesData} />}
       {active === "payments"   && <PaymentReport    outlet={selectedOutletName} date={`${dateFrom}_${dateTo}`} data={salesData} />}
       {active === "discounts"  && <DiscountVoidReport date={`${dateFrom}_${dateTo}`}                           data={salesData} />}
-      {active === "staff"      && <StaffSalesReport  date={`${dateFrom}_${dateTo}`}                            data={salesData} />}
-      {active === "orders"     && <OrderHistoryTab   dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
+      {active === "staff"      && <StaffSalesReport        date={`${dateFrom}_${dateTo}`}                            data={salesData} />}
+      {active === "incentives" && <CaptainIncentivesReport date={`${dateFrom}_${dateTo}`}                            data={salesData} />}
+      {active === "orders"     && <OrderHistoryTab         dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "email"      && (
         <div className="rpt-body">
           <EmailTrigger />

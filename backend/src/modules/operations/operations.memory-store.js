@@ -674,6 +674,11 @@ function addOrderItem(tableId, payload, actor = "System") {
   }
 
   order.notes = "Items added";
+  // Capture the first real captain who adds to this order.
+  // "System", "POS", and the generic fallback "Captain" are not real names.
+  if (actor && actor !== "System" && actor !== "POS" && actor !== "Captain") {
+    if (!order.captainName) order.captainName = actor;
+  }
   appendAudit(order, buildAuditEntry("Item added", actor, "Now"));
   return clone(order);
 }
