@@ -6,9 +6,10 @@ const STATUS_CLASS = { open: "status-free", hold: "status-hold", bill: "status-b
 
 export function tableStatusOf(orders, tableId) {
   const o = orders[tableId];
-  if (!o?.items?.length) return "open";
-  if (o.isOnHold)        return "hold";
-  if (o.billRequested)   return "bill";
+  const activeItems = o?.items?.filter(i => !i.isVoided && !i.isComp);
+  if (!activeItems?.length) return "open";
+  if (o.isOnHold)           return "hold";
+  if (o.billRequested)      return "bill";
   return "running";
 }
 
@@ -76,8 +77,8 @@ export function TableFloor({ areas, orders, onSelectTable }) {
               {area.tables.map((table) => {
                 const st     = tableStatusOf(orders, table.id);
                 const order  = orders[table.id];
-                const count  = order?.items?.length || 0;
                 const _items  = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
+                const count  = _items.length;
                 const _sub    = _items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
                 const _tax    = _items.reduce((s, i) => {
                   const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;

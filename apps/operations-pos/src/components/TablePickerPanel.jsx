@@ -5,9 +5,10 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
 
   function tableStatus(tableId) {
     const o = orders[tableId];
+    const activeItems = o?.items?.filter(i => !i.isVoided && !i.isComp);
     // After handleSettle the order is reset to a blank order; isClosed won't exist.
     // We only show "closed" briefly before the reset — but the table is still clickable.
-    if (!o || !o.items?.length) return "available";
+    if (!o || !activeItems?.length) return "available";
     if (o.isClosed)      return "available";   // brief settle flash → treat as available
     if (o.isOnHold)      return "hold";
     if (o.voidRequested) return "void";
@@ -17,8 +18,8 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
 
   function tableTotal(tableId) {
     const o = orders[tableId];
-    if (!o?.items?.length) return null;
-    const billable  = o.items.filter(i => !i.isVoided && !i.isComp);
+    const billable  = o?.items?.filter(i => !i.isVoided && !i.isComp);
+    if (!billable?.length) return null;
     const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
     const disc      = Math.min(o.discountAmount || 0, sub);
     const afterDisc = sub - disc;

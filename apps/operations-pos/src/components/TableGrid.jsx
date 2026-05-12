@@ -1,18 +1,19 @@
 export function TableGrid({ areas, orders, selectedTableId, onSelectTable }) {
   function tableStatus(tableId) {
     const order = orders[tableId];
-    if (!order || !order.items?.length) return "available";
-    if (order.isClosed)     return "closed";
+    const activeItems = order?.items?.filter(i => !i.isVoided && !i.isComp);
+    if (!order || !activeItems?.length) return "available";
+    if (order.isClosed)      return "closed";
     if (order.voidRequested) return "void";
-    if (order.isOnHold)     return "hold";
+    if (order.isOnHold)      return "hold";
     if (order.billRequested) return "bill";
     return "occupied";
   }
 
   function tableTotal(tableId) {
     const order = orders[tableId];
-    if (!order?.items?.length) return null;
-    const billable  = order.items.filter(i => !i.isVoided && !i.isComp);
+    const billable  = order?.items?.filter(i => !i.isVoided && !i.isComp);
+    if (!billable?.length) return null;
     const subtotal  = billable.reduce((s, i) => s + i.price * i.quantity, 0);
     const disc      = Math.min(order.discountAmount || 0, subtotal);
     const afterDisc = subtotal - disc;
