@@ -31,6 +31,7 @@ const PLATFORM = {
 // ── Empty form state ──────────────────────────────────────────────────────────
 const EMPTY_FORM = {
   platform: "swiggy",
+  outletId: "", outletName: "",
   periodFrom: "", periodTo: "", settlementDate: "", bankUTR: "",
   orders: "",
   itemTotal: "", packagingCharges: "", discountShare: "", gstCollected: "",
@@ -44,7 +45,7 @@ const EMPTY_FORM = {
 };
 
 // ── Settlement form Modal ─────────────────────────────────────────────────────
-function AddSettlementModal({ onSave, onClose }) {
+function AddSettlementModal({ onSave, onClose, outlets }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
   const [err, setErr]   = useState("");
@@ -86,8 +87,8 @@ function AddSettlementModal({ onSave, onClose }) {
   async function handleSave(e) {
     e.preventDefault();
     setErr("");
-    if (!form.platform || !form.periodFrom || !form.periodTo) {
-      return setErr("Platform, Period From and Period To are required.");
+    if (!form.platform || !form.outletId || !form.periodFrom || !form.periodTo) {
+      return setErr("Platform, Branch, Period From and Period To are required.");
     }
     if (!num(form.itemTotal) && !num(form.totalCustomerPaid)) {
       return setErr("Enter at least Item Total or Total Customer Paid.");
@@ -128,7 +129,7 @@ function AddSettlementModal({ onSave, onClose }) {
         <form className="stl-modal-body" onSubmit={handleSave}>
 
           {/* ── Platform & Period ──────────────────────────────────────── */}
-          <div className="stl-group-head">Platform & Period</div>
+          <div className="stl-group-head">Platform & Branch</div>
           <div className="stl-row">
             <label className="stl-fld">
               <span>Platform *</span>
@@ -137,6 +138,25 @@ function AddSettlementModal({ onSave, onClose }) {
                 <option value="zomato">Zomato</option>
               </select>
             </label>
+            <label className="stl-fld">
+              <span>Branch / Outlet *</span>
+              <select
+                value={form.outletId}
+                onChange={e => {
+                  const sel = outlets.find(o => o.id === e.target.value);
+                  set("outletId", e.target.value);
+                  set("outletName", sel?.name || "");
+                }}
+                required
+              >
+                <option value="">— Select branch —</option>
+                {outlets.map(o => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="stl-row">
             {fld("Total Orders", "orders", { step: "1", placeholder: "e.g. 224" })}
           </div>
           <div className="stl-row">
@@ -293,6 +313,9 @@ function SettlementCard({ s, onDelete }) {
           <span className="stl-platform-badge" style={{ background: p.bg, color: p.color }}>
             {p.icon} {p.label}
           </span>
+          {s.outletName && (
+            <span className="stl-outlet-badge">🏪 {s.outletName}</span>
+          )}
           <span className="stl-period">
             {dateFmt(s.periodFrom)} — {dateFmt(s.periodTo)}
           </span>
@@ -426,11 +449,19 @@ export function OnlineSalesPage() {
   const [settlements, setSettlements] = useState([]);
   const [loading, setLoading]         = useState(true);
   const [showAdd, setShowAdd]         = useState(false);
-  const [filter, setFilter]           = useState("all"); // "all" | "swiggy" | "zomato"
+  const [platformFilter, setPlatformFilter] = useState("all"); // "all" | "swiggy" | "zomato"
+  const [outletFilter, setOutletFilter]     = useState("all"); // "all" | outletId
   const [delConfirm, setDelConfirm]   = useState(null);  // id to delete
+  const [outlets, setOutlets]         = useState([]);
 
   useEffect(() => {
     load();
+    api.get("/outlets")
+      .then(res => {
+        const list = Array.isArray(res) ? res : (res?.outlets || []);
+        setOutlets(list.map(o => ({ id: o.id, name: o.name })));
+      })
+      .catch(() => {});
   }, []);
 
   async function load() {
@@ -457,13 +488,16 @@ export function OnlineSalesPage() {
   }
 
   const filtered = useMemo(() => {
-    if (filter === "all") return settlements;
-    return settlements.filter(s => s.platform === filter);
-  }, [settlements, filter]);
+    return settlements.filter(s => {
+      if (platformFilter !== "all" && s.platform !== platformFilter) return false;
+      if (outletFilter   !== "all" && s.outletId   !== outletFilter)  return false;
+      return true;
+    });
+  }, [settlements, platformFilter, outletFilter]);
 
   // ── Aggregate Stats ────────────────────────────────────────────────────────
   const stats = useMemo(() => {
-    const src = filter === "all" ? settlements : filtered;
+    const src = filtered;
     const sum  = (key) => src.reduce((t, s) => t + num(s[key]), 0);
     const sumComputed = (fn) => src.reduce((t, s) => t + fn(s), 0);
 
@@ -491,7 +525,7 @@ export function OnlineSalesPage() {
       : "0";
 
     return { totalGross, totalNet, totalFood, totalComm, totalGstFees, totalAds, totalOrders, effComm, keepRate };
-  }, [settlements, filtered, filter]);
+  }, [filtered]);
 
   return (
     <div className="stl-page">
@@ -508,18 +542,41 @@ export function OnlineSalesPage() {
         </button>
       </div>
 
-      {/* ── Platform Filter ── */}
+      {/* ── Filters ── */}
       <div className="stl-filter-bar">
+        {/* Platform */}
         {["all", "swiggy", "zomato"].map(f => (
           <button
             key={f}
-            className={`stl-filter-btn${filter === f ? " active" : ""}`}
-            onClick={() => setFilter(f)}
-            style={filter === f && f !== "all" ? { background: PLATFORM[f]?.bg, color: PLATFORM[f]?.color, borderColor: PLATFORM[f]?.color } : {}}
+            className={`stl-filter-btn${platformFilter === f ? " active" : ""}`}
+            onClick={() => setPlatformFilter(f)}
+            style={platformFilter === f && f !== "all" ? { background: PLATFORM[f]?.bg, color: PLATFORM[f]?.color, borderColor: PLATFORM[f]?.color } : {}}
           >
             {f === "all" ? "All Platforms" : `${PLATFORM[f].icon} ${PLATFORM[f].label}`}
           </button>
         ))}
+
+        {/* Branch divider + outlet buttons (only if multiple outlets) */}
+        {outlets.length > 1 && (
+          <>
+            <span className="stl-filter-divider">|</span>
+            <button
+              className={`stl-filter-btn${outletFilter === "all" ? " active" : ""}`}
+              onClick={() => setOutletFilter("all")}
+            >
+              All Branches
+            </button>
+            {outlets.map(o => (
+              <button
+                key={o.id}
+                className={`stl-filter-btn${outletFilter === o.id ? " active" : ""}`}
+                onClick={() => setOutletFilter(o.id)}
+              >
+                🏪 {o.name}
+              </button>
+            ))}
+          </>
+        )}
       </div>
 
       {/* ── Summary KPIs ── */}
@@ -619,7 +676,7 @@ export function OnlineSalesPage() {
       {/* ── No results for filter ── */}
       {!loading && settlements.length > 0 && filtered.length === 0 && (
         <div className="stl-empty-filter">
-          No {PLATFORM[filter]?.label} settlements recorded yet.
+          No settlements found for the selected filters.
           <button className="stl-add-btn" style={{ marginLeft: 16 }} onClick={() => setShowAdd(true)}>
             Add One
           </button>
@@ -631,6 +688,7 @@ export function OnlineSalesPage() {
         <AddSettlementModal
           onSave={handleSave}
           onClose={() => setShowAdd(false)}
+          outlets={outlets}
         />
       )}
 
