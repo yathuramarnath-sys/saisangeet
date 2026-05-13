@@ -16,12 +16,12 @@
     "releaseDate": "2026-05-13"
   },
   "kds": {
-    "version": "1.5",
+    "version": "1.6",
     "label": "Kitchen Display",
-    "changelog": "Item availability sync from POS in real-time",
+    "changelog": "Stock toggle now broadcasts to POS and Captain in real-time",
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-kds.apk",
-    "releaseDate": "2026-05-12"
+    "releaseDate": "2026-05-13"
   },
   "ownerWeb": {
     "version": "0.2.0",

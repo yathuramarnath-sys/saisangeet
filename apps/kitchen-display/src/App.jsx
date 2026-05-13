@@ -400,7 +400,7 @@ function SettingRow({ label, sub, children }) {
   );
 }
 
-function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletName, menuData }) {
+function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletName, menuData, onToggleStock }) {
   const [tab,        setTab]        = useState("display");
   const [newStation, setNewStation] = useState("");
   const [stockState, setStockState] = useState(() => getStockState());
@@ -414,6 +414,9 @@ function KdsSettingsPanel({ settings, onUpdate, onClose, onForgetDevice, outletN
   function toggleStock(itemId, available) {
     setItemAvailability(itemId, available);
     setStockState(getStockState());
+    // Broadcast to POS, Captain and Owner Console so they update instantly.
+    // onToggleStock is provided by the parent App component and emits via socket.
+    onToggleStock?.(itemId, available);
   }
 
   function resetAllStock() {
@@ -1335,6 +1338,24 @@ export function App() {
     setShowRecall(false);
   }
 
+  // ── Item availability toggle — emits socket so POS + Captain update live ─────
+  function handleToggleStock(itemId, available) {
+    // Already stored in localStorage by KdsSettingsPanel's toggleStock().
+    // Here we broadcast via socket to every device in the outlet room.
+    const outletId = branchConfig?.outletId;
+    if (socketRef.current && outletId) {
+      socketRef.current.emit("item:availability", {
+        outletId,
+        itemId,
+        available,
+        source: "kds",
+      });
+    }
+    // Also tell the backend so the availability cache is updated and
+    // future POS/Captain connections receive the correct state on join.
+    api.post("/inventory/item-visibility", { itemId, posVisible: available }).catch(() => {});
+  }
+
   // Build station tabs from live tickets + settings
   const stationNames = (settings.stations || []).map(s => s.name);
 
@@ -1619,6 +1640,7 @@ export function App() {
           onClose={() => setShowSettings(false)}
           outletName={outlet?.name || branchConfig?.outletName}
           menuData={menuData}
+          onToggleStock={handleToggleStock}
           onForgetDevice={() => {
             clearKdsBranchConfig();
             setBranchConfig(null);

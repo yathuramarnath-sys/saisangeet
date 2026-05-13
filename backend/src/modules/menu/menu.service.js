@@ -38,8 +38,18 @@ function computeItemPrice(item) {
 }
 
 async function fetchMenuItems() {
-  const items = getOwnerSetupData().menu.items;
-  return items.map(item => ({ ...item, price: computeItemPrice(item) }));
+  const data       = getOwnerSetupData();
+  const items      = data.menu?.items      || [];
+  const categories = data.menu?.categories || [];
+  // Build a fast id→name lookup so every item gets its categoryName enriched.
+  // This means Inventory page / KDS stock tab / Captain menu all receive
+  // categoryName without needing their own join logic.
+  const catById = Object.fromEntries(categories.map(c => [c.id, c.name]));
+  return items.map(item => ({
+    ...item,
+    price:        computeItemPrice(item),
+    categoryName: item.categoryName || catById[item.categoryId] || "",
+  }));
 }
 
 async function fetchMenuConfig() {
