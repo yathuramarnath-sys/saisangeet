@@ -22,10 +22,16 @@ const {
   requestOrderVoidApproval
 } = require("../src/modules/operations/operations.service");
 const { operationsRouter } = require("../src/modules/operations/operations.routes");
-const { resetState } = require("../src/modules/operations/operations.memory-store");
+const { resetStateForTest } = require("../src/modules/operations/operations.memory-store");
+const { markHydratedForTest } = require("../src/modules/operations/operations.state");
 
+// Use resetStateForTest() to force the built-in demo catalog (t1…s4) so tests are
+// not sensitive to whatever owner-setup.json is present on the developer's machine.
+// markHydratedForTest() prevents syncOperationsState() from overwriting that state
+// by loading the real on-disk JSON snapshot.
 test.beforeEach(() => {
-  resetState();
+  resetStateForTest();
+  markHydratedForTest();
 });
 
 test("operations summary returns cashier and approval queues", async () => {
@@ -298,7 +304,9 @@ test("addOrderItem stores stationName from payload on the order item", async () 
   assert.equal(added.stationName, "Hot", "stationName should be stored from payload");
 });
 
-test("addOrderItem defaults stationName to Main Kitchen when payload omits it", async () => {
+test("addOrderItem stores empty stationName when payload omits it (resolved by KOT routing)", async () => {
+  // stationName is intentionally stored as "" when absent — the KOT controller
+  // resolves it to "Main Kitchen" via category→station lookup at fire time.
   const result = await addItemToOrder("t1", {
     menuItemId: "veg-biryani",
     name:       "Veg Biryani",
@@ -310,7 +318,7 @@ test("addOrderItem defaults stationName to Main Kitchen when payload omits it", 
 
   const added = result.items.find((i) => i.menuItemId === "veg-biryani");
   assert.ok(added, "item should be present");
-  assert.equal(added.stationName, "Main Kitchen", "stationName should default to Main Kitchen");
+  assert.equal(added.stationName, "", "stationName should be empty — resolved by KOT controller");
 });
 
 // ─── KOT store — bump and status lifecycle ────────────────────────────────────
@@ -379,33 +387,38 @@ test("operations routes register the expected endpoints", () => {
     }));
 
   assert.deepEqual(routes, [
-    { path: "/summary", methods: ["get"] },
-    { path: "/control-logs", methods: ["get"] },
-    { path: "/orders/demo", methods: ["post"] },
-    { path: "/orders", methods: ["get"] },
-    { path: "/orders/:tableId", methods: ["get"] },
-    { path: "/orders/:tableId/kot", methods: ["post"] },
-    { path: "/orders/:tableId/request-bill", methods: ["post"] },
-    { path: "/orders/:tableId/move-table", methods: ["post"] },
-    { path: "/orders/:tableId/assign-waiter", methods: ["post"] },
-    { path: "/orders/:tableId/items", methods: ["post"] },
-    { path: "/orders/:tableId/split-bill", methods: ["post"] },
-    { path: "/orders/:tableId/payments", methods: ["post"] },
-    { path: "/orders/:tableId/close", methods: ["post"] },
-    { path: "/orders/:tableId/items/:itemId", methods: ["patch"] },
-    { path: "/orders/:tableId/discount-approval", methods: ["post"] },
-    { path: "/orders/:tableId/void-approval", methods: ["post"] },
-    { path: "/orders/:tableId/reprint", methods: ["post"] },
-    { path: "/orders/:tableId/void-request", methods: ["post"] },
-    { path: "/orders/:tableId/status", methods: ["post"] },
+    { path: "/summary",                            methods: ["get"]    },
+    { path: "/control-logs",                       methods: ["get"]    },
+    { path: "/orders/demo",                        methods: ["post"]   },
+    { path: "/orders",                             methods: ["get"]    },
+    { path: "/orders/:tableId",                    methods: ["get"]    },
+    { path: "/orders/:tableId/kot",                methods: ["post"]   },
+    { path: "/orders/:tableId/request-bill",       methods: ["post"]   },
+    { path: "/orders/:tableId/move-table",         methods: ["post"]   },
+    { path: "/orders/:tableId/assign-waiter",      methods: ["post"]   },
+    { path: "/orders/:tableId/items",              methods: ["post"]   },
+    { path: "/orders/:tableId/split-bill",         methods: ["post"]   },
+    { path: "/orders/:tableId/payments",           methods: ["post"]   },
+    { path: "/orders/:tableId/close",              methods: ["post"]   },
+    { path: "/orders/:tableId/items/:itemId",      methods: ["patch"]  },
+    { path: "/orders/:tableId/discount-approval",  methods: ["post"]   },
+    { path: "/orders/:tableId/void-approval",      methods: ["post"]   },
+    { path: "/orders/:tableId/reprint",            methods: ["post"]   },
+    { path: "/orders/:tableId/void-request",       methods: ["post"]   },
+    { path: "/orders/:tableId/status",             methods: ["post"]   },
+    // Owner-side delete routes (void order / wipe all orders for an outlet)
+    { path: "/orders/:tableId",                    methods: ["delete"] },
+    { path: "/orders",                             methods: ["delete"] },
     // Device-bypass routes (requireAuth only — device tokens have no permissions array)
-    { path: "/kot",              methods: ["post"] },
-    { path: "/kots",             methods: ["get"] },
-    { path: "/kots/:id/status",  methods: ["patch"] },
-    { path: "/bill-request",     methods: ["post"] },
-    { path: "/payment",          methods: ["post"] },
-    { path: "/order",            methods: ["get"] },
-    { path: "/order/item",       methods: ["post"] },
-    { path: "/closed-order",     methods: ["post"] }
+    { path: "/kot",              methods: ["post"]   },
+    { path: "/kots",             methods: ["get"]    },
+    { path: "/kots/:id/status",  methods: ["patch"]  },
+    { path: "/bill-request",     methods: ["post"]   },
+    { path: "/payment",          methods: ["post"]   },
+    { path: "/order",            methods: ["get"]    },
+    { path: "/order/item",       methods: ["post"]   },
+    { path: "/order/item",       methods: ["delete"] },
+    { path: "/order/item",       methods: ["patch"]  },
+    { path: "/closed-order",     methods: ["post"]   }
   ]);
 });

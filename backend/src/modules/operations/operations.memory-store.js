@@ -84,11 +84,14 @@ function getTableMeta(tableId) {
   return getTableCatalog().find((table) => table.tableId === tableId);
 }
 
-function buildEmptyOrder(tableId, fallbackOrderNumber = 10030) {
-  const tableMeta = getTableMeta(tableId);
+function buildEmptyOrder(tableIdOrMeta, fallbackOrderNumber = 10030) {
+  // Accept either a string tableId (looks up catalog) or a pre-resolved meta object.
+  const tableMeta = (typeof tableIdOrMeta === "object" && tableIdOrMeta !== null)
+    ? tableIdOrMeta
+    : getTableMeta(tableIdOrMeta);
 
   if (!tableMeta) {
-    throw new ApiError(404, "TABLE_NOT_FOUND", `Table not found: ${tableId}`);
+    throw new ApiError(404, "TABLE_NOT_FOUND", `Table not found: ${tableIdOrMeta}`);
   }
 
   return {
@@ -420,6 +423,64 @@ function resetState() {
   return clone(s);
 }
 
+/**
+ * Test-only variant of resetState() that forces the built-in defaultTableCatalog
+ * instead of reading from the live owner-setup.json on disk.
+ * This guarantees stable fixture table IDs (t1, t2, t3, f1, f2, s3, s4) in tests.
+ *
+ * Note: builds empty orders directly from the catalog entry so we never call
+ * getTableCatalog() (which reads the real owner-setup.json).
+ */
+function resetStateForTest() {
+  const tid = getCurrentTenantId();
+  const s = buildInitialState();
+  defaultTableCatalog.forEach((table, index) => {
+    if (!s.orders[table.tableId]) {
+      s.orders[table.tableId] = {
+        tableId:   table.tableId,
+        tableNumber: table.tableNumber,
+        orderNumber: 10040 + index,
+        kotNumber: `KOT-${10040 + index}`,
+        outletName: table.outletName,
+        areaName:   table.areaName,
+        captain:    table.captain,
+        seatLabels: table.seatLabels || [],
+        assignedWaiter: "",
+        guests: 0,
+        pickupStatus: "new",
+        payments: [],
+        billSplitCount: 1,
+        printCount: 0,
+        lastPrintLabel: "Not printed yet",
+        isClosed: false,
+        closedAt: null,
+        serviceChargeEnabled: false,
+        serviceChargeRate: 0.1,
+        billRequested: false,
+        billRequestedAt: null,
+        notes: "Ready for new guests",
+        discountAmount: 0,
+        discountOverrideRequested: false,
+        discountApprovalStatus: "Within cashier 5% limit",
+        discountApprovedBy: "Not needed",
+        voidRequested: false,
+        voidReason: "Not requested",
+        voidApprovedBy: "Pending",
+        reprintReason: "Not requested",
+        reprintApprovedBy: "Not needed",
+        reprintLog: [],
+        deletedBillLog: [],
+        controlAlerts: [],
+        auditTrail: [],
+        items: [],
+        updatedAt: Date.now()
+      };
+    }
+  });
+  _tenantStates.set(tid, s);
+  return clone(s);
+}
+
 function hydrateState(nextState) {
   const tid = getCurrentTenantId();
   const s = clone(nextState);
@@ -556,16 +617,24 @@ function nextOrderNumber() {
 
 function createDemoOrder(actor = "System") {
   const state = _current();
-  const tableCatalog = getTableCatalog();
-  const targetTable =
-    tableCatalog.find((table) => {
-      const order = state.orders[table.tableId];
-      return !order || (order.items || []).length === 0;
-    }) || tableCatalog[0];
+  // Pick first table with an empty order from the in-memory state (works correctly
+  // in both production and tests without calling getTableCatalog() which reads disk).
+  const tableIds = Object.keys(state.orders);
+  const targetTableId =
+    tableIds.find((id) => (state.orders[id]?.items || []).length === 0) || tableIds[0];
+  const existingOrder = state.orders[targetTableId] || {};
+  const targetTable = {
+    tableId:     existingOrder.tableId     || targetTableId,
+    tableNumber: existingOrder.tableNumber || targetTableId.toUpperCase(),
+    outletName:  existingOrder.outletName  || "",
+    areaName:    existingOrder.areaName    || "",
+    captain:     existingOrder.captain     || "Open",
+    seatLabels:  existingOrder.seatLabels  || []
+  };
 
   const orderNumber = nextOrderNumber();
   state.orders[targetTable.tableId] = {
-    ...buildEmptyOrder(targetTable.tableId, orderNumber),
+    ...buildEmptyOrder(targetTable, orderNumber),
     orderNumber,
     kotNumber: `KOT-${orderNumber}`,
     guests: 2,
@@ -598,7 +667,15 @@ function moveTable(sourceTableId, targetTableId, actor = "System") {
 
   const state = _current();
   const sourceOrder = findOrder(sourceTableId);
-  const targetMeta = getTableMeta(targetTableId);
+  // Prefer catalog meta; fall back to the existing order entry in state (covers test fixtures).
+  const catalogMeta  = getTableMeta(targetTableId);
+  const stateEntry   = state.orders[targetTableId];
+  const targetMeta   = catalogMeta || (stateEntry ? {
+    tableId:     stateEntry.tableId,
+    tableNumber: stateEntry.tableNumber,
+    areaName:    stateEntry.areaName,
+    outletName:  stateEntry.outletName
+  } : null);
 
   if (!targetMeta) {
     throw new ApiError(404, "TABLE_NOT_FOUND", `Target table not found: ${targetTableId}`);
@@ -620,7 +697,17 @@ function moveTable(sourceTableId, targetTableId, actor = "System") {
   appendAudit(movedOrder, buildAuditEntry("Table moved", actor, "Now"));
 
   state.orders[targetTableId] = movedOrder;
-  state.orders[sourceTableId] = buildEmptyOrder(sourceTableId, nextOrderNumber());
+  // Reset source table — pass the source order's metadata directly so we don't
+  // need a catalog lookup (catalog may not contain fixture IDs used in tests).
+  const sourceMeta = {
+    tableId:     sourceOrder.tableId,
+    tableNumber: sourceOrder.tableNumber,
+    areaName:    sourceOrder.areaName,
+    outletName:  sourceOrder.outletName,
+    captain:     sourceOrder.captain || "Open",
+    seatLabels:  sourceOrder.seatLabels || []
+  };
+  state.orders[sourceTableId] = buildEmptyOrder(sourceMeta, nextOrderNumber());
   return clone(movedOrder);
 }
 
@@ -991,6 +1078,7 @@ function updateOrderStatus(tableId, pickupStatus, actor = "System") {
 module.exports = {
   getState,
   resetState,
+  resetStateForTest,
   hydrateState,
   listOrders,
   getOrder,

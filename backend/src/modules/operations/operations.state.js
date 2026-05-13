@@ -92,7 +92,17 @@ async function persistOperationsState() {
   return currentState;
 }
 
+/**
+ * Test helper: pre-mark the current tenant as hydrated so syncOperationsState()
+ * won't overwrite in-memory state with the on-disk JSON snapshot.
+ * Call this AFTER resetStateForTest() in test beforeEach hooks.
+ */
+function markHydratedForTest() {
+  _snapshotHydrated.add(getCurrentTenantId());
+}
+
 module.exports = {
   syncOperationsState,
-  persistOperationsState
+  persistOperationsState,
+  markHydratedForTest
 };

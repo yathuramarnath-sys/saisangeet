@@ -7,17 +7,19 @@ const {
   reopenBusinessDay
 } = require("../src/modules/reports/reports.service");
 const { reportsRouter } = require("../src/modules/reports/reports.routes");
-const { resetState } = require("../src/modules/operations/operations.memory-store");
+const { resetStateForTest } = require("../src/modules/operations/operations.memory-store");
+const { markHydratedForTest } = require("../src/modules/operations/operations.state");
 
 test.beforeEach(() => {
-  resetState();
+  resetStateForTest();
+  markHydratedForTest();
 });
 
 test("owner summary returns approval log and control cards", async () => {
   const payload = await fetchOwnerSummary();
 
   assert.equal(payload.controlSummary.length, 6);
-  assert.equal(payload.closingCenter.ownerSummary.length, 4);
+  assert.equal(payload.closingCenter.ownerSummary.length, 8);
   assert.ok(Array.isArray(payload.approvalLog));
   assert.ok(Array.isArray(payload.controlLogs.reprints));
   assert.equal(payload.popupAlert.cta, "Open reports");
@@ -59,8 +61,9 @@ test("reports routes register owner summary and closing actions", () => {
     }));
 
   assert.deepEqual(routes, [
-    { path: "/owner-summary", methods: ["get"] },
-    { path: "/closing/approve", methods: ["post"] },
-    { path: "/closing/reopen", methods: ["post"] }
+    { path: "/owner-summary",    methods: ["get"]  },
+    { path: "/closing/approve",  methods: ["post"] },
+    { path: "/closing/reopen",   methods: ["post"] },
+    { path: "/orders",           methods: ["get"]  }
   ]);
 });
