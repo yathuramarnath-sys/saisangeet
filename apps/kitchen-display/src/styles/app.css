@@ -293,19 +293,34 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
   border-radius: 14px;
   overflow: hidden;
   transition: transform 80ms;
+  /* Coloured left bar driven by data-source (fallback if top stripe preferred) */
 }
 
 .kot-card:hover { transform: translateY(-1px); }
 
-/* Urgency animations */
-.kot-card.warning {
-  border-color: rgba(245,158,11,0.35);
+/* ── Coloured top stripe — order source identity ─────────────────────────── */
+.kot-stripe {
+  height: 5px;
+  width: 100%;
+  opacity: 0.85;
 }
 
+/* Source-specific stripe colours mirror SOURCE object in JS */
+.kot-card[data-source="pos"]     .kot-stripe { background: #60a5fa; }
+.kot-card[data-source="captain"] .kot-stripe { background: #fbbf24; }
+.kot-card[data-source="online"]  .kot-stripe { background: #a78bfa; }
+
+/* Urgency overrides */
+.kot-card.warning {
+  border-color: rgba(245,158,11,0.45);
+}
+.kot-card.warning .kot-stripe { background: #f59e0b !important; opacity: 1; }
+
 .kot-card.urgent {
-  border-color: rgba(239,68,68,0.5);
+  border-color: rgba(239,68,68,0.6);
   animation: urgentPulse 1.8s ease infinite;
 }
+.kot-card.urgent .kot-stripe { background: #ef4444 !important; opacity: 1; }
 
 @keyframes urgentPulse {
   0%, 100% { border-color: rgba(239,68,68,0.4); }
@@ -390,15 +405,25 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
 }
 
 .kot-table {
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 1.45rem;   /* was 1.05 — table number is the hero now */
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .kot-area {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--kds-muted);
+  margin-top: 1px;
+}
+
+/* Operator name — who placed the order */
+.kot-operator {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--kds-muted);
+  font-style: italic;
 }
 
 /* ── Items ────────────────────────────────────────────────────────────────── */
@@ -468,10 +493,16 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
 }
 
 .kot-item-note {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--kds-warn);
-  line-height: 1.3;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #92400e;              /* dark amber — readable on light bg */
+  background: rgba(245,158,11,0.15);
+  border-left: 3px solid #f59e0b;
+  border-radius: 0 4px 4px 0;
+  padding: 2px 7px 2px 6px;
+  margin-top: 3px;
+  line-height: 1.4;
+  display: block;
 }
 
 /* ── Action footer ────────────────────────────────────────────────────────── */
@@ -1252,4 +1283,88 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
 .kds-flat-empty span:first-child {
   font-size: 3rem;
   opacity: 0.6;
+}
+
+/* ─── Large-screen responsive: 21–50" monitors & Android TV ─────────────────
+   Pure scale-up — no workflow changes. Only increases text/button sizes so
+   chefs can read cards from 2–10 feet away. Three breakpoints:
+     1280px  → 21–27" desktop monitors (Windows)
+     1920px  → 28–50" monitors / 1080p Android TV
+     2560px  → 4K / very large displays
+   Plus a pointer:coarse override for touch TVs / large Android tablets.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* 21–27" desktop monitors (1280px+) */
+@media (min-width: 1280px) {
+  .kds-flat-grid             { padding: 18px 24px; gap: 16px; }
+  .kot-table                 { font-size: 1.7rem; }
+  .kot-item-qty              { font-size: 1.2rem; width: 32px; }
+  .kot-item-name             { font-size: 1.0rem; }
+  .kot-action.bump           { padding: 13px 20px; font-size: 0.98rem; }
+  .kds-header                { padding: 14px 24px; }
+}
+
+/* 28–50" monitors / 1080p Android TV (1920px+) */
+@media (min-width: 1920px) {
+  .kds-flat-grid             { padding: 24px 36px; gap: 22px; }
+  .kot-table                 { font-size: 2.4rem; }
+  .kot-number                { font-size: 1.2rem; }
+  .kot-src-badge             { font-size: 0.82rem; padding: 3px 10px; }
+  .kot-area,
+  .kot-operator              { font-size: 0.85rem; }
+  .kot-timer                 { font-size: 1.05rem; }
+  .kot-item-qty              { font-size: 1.45rem; width: 38px; }
+  .kot-item-name             { font-size: 1.2rem; }
+  .kot-item                  { padding: 9px 0; }
+  .kot-item-note             { font-size: 0.92rem; padding: 4px 10px 4px 8px; }
+  .kot-check                 { font-size: 0.95rem; width: 22px; }
+  .kot-action.bump           { padding: 18px 24px; font-size: 1.15rem; border-radius: 12px; }
+  .kot-stripe                { height: 6px; }
+  .kot-card                  { border-radius: 16px; }
+  .kot-card-head             { padding: 14px 18px 12px; }
+  .kot-items                 { padding: 12px 18px 14px; }
+  .kot-foot                  { padding: 0 14px 16px; }
+  .kds-header                { padding: 16px 36px; gap: 24px; }
+  .kds-header-left strong    { font-size: 1.1rem; }
+  .kds-header-left p         { font-size: 0.85rem; }
+  .kds-brand-mark            { width: 44px; height: 44px; }
+}
+
+/* 4K / very large displays (2560px+) */
+@media (min-width: 2560px) {
+  .kds-flat-grid             { padding: 32px 52px; gap: 28px; }
+  .kot-table                 { font-size: 3.2rem; }
+  .kot-number                { font-size: 1.5rem; }
+  .kot-area,
+  .kot-operator              { font-size: 1.0rem; }
+  .kot-timer                 { font-size: 1.3rem; }
+  .kot-item-qty              { font-size: 1.75rem; width: 46px; }
+  .kot-item-name             { font-size: 1.5rem; }
+  .kot-item                  { padding: 11px 0; }
+  .kot-item-note             { font-size: 1.15rem; padding: 5px 14px 5px 10px; border-left-width: 4px; }
+  .kot-check                 { font-size: 1.2rem; width: 28px; }
+  .kot-action.bump           { padding: 24px 30px; font-size: 1.4rem; border-radius: 14px; }
+  .kot-stripe                { height: 8px; }
+  .kot-card                  { border-radius: 20px; border-width: 2px; }
+  .kot-card-head             { padding: 18px 22px 15px; }
+  .kot-items                 { padding: 14px 22px 18px; }
+  .kot-foot                  { padding: 0 18px 20px; }
+  .kds-header                { padding: 20px 52px; gap: 28px; }
+  .kds-header-left strong    { font-size: 1.35rem; }
+  .kds-header-left p         { font-size: 1.0rem; }
+  .kds-brand-mark            { width: 56px; height: 56px; }
+}
+
+/* Touch screens on large displays (Android TV with touchscreen, large Android tablets) */
+@media (pointer: coarse) and (min-width: 1280px) {
+  .kot-action.bump           { min-height: 64px; padding: 18px 24px; }
+  .kds-settings-btn          { width: 52px; height: 52px; }
+  .kds-station-btn           { padding: 10px 22px; font-size: 0.9rem; }
+  .kot-item.tappable         { min-height: 52px; align-items: center; }
+}
+
+@media (pointer: coarse) and (min-width: 1920px) {
+  .kot-action.bump           { min-height: 84px; font-size: 1.25rem; }
+  .kds-settings-btn          { width: 60px; height: 60px; }
+  .kot-item.tappable         { min-height: 64px; }
 }

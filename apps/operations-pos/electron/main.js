@@ -101,13 +101,48 @@ function getLocalIp() {
 function startLocalServer() {
   try {
     const httpServer = http.createServer((req, res) => {
-      // Health check endpoint — Captain/KDS "Find POS" scan hits this
+      // Health check — Captain/KDS "Find POS" scan hits this
       if (req.url === "/health" || req.url === "/plato-pos") {
         res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         res.end(JSON.stringify({ ok: true, app: "plato-pos", port: 4001, ip: getLocalIp() }));
-      } else {
-        res.writeHead(404); res.end();
+        return;
       }
+
+      // WiFi print proxy — Android Tablet POS POSTs here to print via TCP port 9100
+      // Accepts: POST /print { html, printerIp, paperWidthMm }
+      // The POS machine forwards the job to the thermal printer on the same network.
+      if (req.method === "POST" && req.url === "/print") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        let body = "";
+        req.on("data", chunk => { body += chunk; });
+        req.on("end", async () => {
+          try {
+            const { html, printerIp, paperWidthMm = 80 } = JSON.parse(body);
+            if (!html) { res.writeHead(400); res.end(JSON.stringify({ ok: false, error: "Missing html" })); return; }
+            const result = await printViaEscPosTcp(html, printerIp, 9100, paperWidthMm);
+            res.writeHead(result.ok ? 200 : 500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(result));
+          } catch (err) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+          }
+        });
+        return;
+      }
+
+      // CORS preflight for /print
+      if (req.method === "OPTIONS" && req.url === "/print") {
+        res.writeHead(204, {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        });
+        res.end();
+        return;
+      }
+
+      res.writeHead(404); res.end();
     });
 
     localIo = new SocketIOServer(httpServer, {

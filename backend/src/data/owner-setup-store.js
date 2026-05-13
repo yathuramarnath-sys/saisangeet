@@ -307,6 +307,26 @@ function getAllCachedTenants() {
   return _cache;
 }
 
+/**
+ * TEST ONLY — replaces the in-memory cache entry for a tenantId with a
+ * completely blank normalized record so the next signup sees no existing owner.
+ * The on-disk JSON file is NOT modified.
+ * Never called in production code.
+ */
+function resetOwnerSetupForTest(tenantId = "default") {
+  const blank = normalizeOwnerSetupData({
+    users:     [],
+    outlets:   [],
+    menu:      { categories: [], items: [], stations: [] },
+    taxes:     [],
+    discounts: [],
+    permissions: [],
+    settings:  {},
+    businessProfile: {},
+  });
+  _cache.set(tenantId, blank);
+}
+
 module.exports = {
   getOwnerSetupData,
   updateOwnerSetupData,
@@ -319,6 +339,7 @@ module.exports = {
   warmTenantCache,
   // Exported for testing only:
   _guardOwnerAuth: guardOwnerAuth,
+  resetOwnerSetupForTest,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

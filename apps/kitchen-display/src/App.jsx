@@ -799,35 +799,56 @@ function KotCard({ ticket, settings, onAdvance, onBump, onToggleItem, flash }) {
   const sizeClass = ` size-${settings.cardSize || "normal"}`;
 
   return (
-    <div className={`kot-card status-${ticket.status}${urgClass}${sizeClass}${flash ? " flash-in" : ""}`}>
+    <div
+      className={`kot-card status-${ticket.status}${urgClass}${sizeClass}${flash ? " flash-in" : ""}`}
+      data-source={ticket.source || "pos"}
+    >
 
-      {/* Header */}
+      {/* ── Coloured top stripe — identifies order type at a glance ─────── */}
+      <div className="kot-stripe" style={{ background: src.color }} />
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="kot-card-head">
+
+        {/* LEFT: Table is the hero — largest text on the card */}
         <div className="kot-head-left">
+          <div className="kot-table-row">
+            <span className="kot-table">
+              {ticket.areaName && ticket.tableNumber !== "—"
+                ? ticket.areaName === "Counter" || ticket.areaName === "Takeaway" || ticket.areaName === "Delivery"
+                  ? ticket.areaName
+                  : `T${ticket.tableNumber}`
+                : ticket.areaName || `T${ticket.tableNumber}`}
+            </span>
+          </div>
+          {/* Area name under table — only when showArea is on and area differs */}
+          {settings.showArea && ticket.areaName &&
+            ticket.areaName !== "Counter" && ticket.areaName !== "Takeaway" && ticket.areaName !== "Delivery" && (
+            <span className="kot-area">{ticket.areaName}</span>
+          )}
+          {/* KOT# + source + station — secondary info */}
           <div className="kot-head-row">
             <span className="kot-number">#{ticket.kotNumber || ticket.id?.slice(-4)}</span>
-            {settings.showSource && (
-              <span className="kot-src-badge" style={{ color: src.color, background: src.bg }}>
-                {ticket.operatorName || src.label}
-              </span>
-            )}
+            <span className="kot-src-badge" style={{ color: src.color, background: src.bg }}>
+              {src.label}
+            </span>
+            {ticket.station && <span className="kot-station">{ticket.station}</span>}
           </div>
-          {ticket.station && <span className="kot-station">{ticket.station}</span>}
+          {/* Operator name — who placed this order */}
+          {ticket.operatorName && (
+            <span className="kot-operator">{ticket.operatorName}</span>
+          )}
         </div>
+
+        {/* RIGHT: Timer */}
         <div className="kot-head-right">
           <span className={`kot-timer${urgency === 2 ? " urgent" : urgency === 1 ? " warning" : ""}`}>
-            ⏱ {elapsed}
+            {elapsed}
           </span>
-          <div className="kot-table-row">
-            <span className="kot-table">T{ticket.tableNumber}</span>
-            {settings.showArea && ticket.areaName && (
-              <span className="kot-area">{ticket.areaName}</span>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Items */}
+      {/* ── Items ────────────────────────────────────────────────────────── */}
       <div className="kot-items">
         {(ticket.items || []).map((item) => {
           const done = doneItems.includes(item.id);
@@ -840,18 +861,20 @@ function KotCard({ ticket, settings, onAdvance, onBump, onToggleItem, flash }) {
               <span className="kot-item-qty">{item.quantity}×</span>
               <div className="kot-item-body">
                 <span className="kot-item-name">{item.name}</span>
-                {item.note && <span className="kot-item-note">⚠ {item.note}</span>}
+                {item.note && (
+                  <span className="kot-item-note">{item.note}</span>
+                )}
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* Action — single BUMP button for all KOTs; glows green when all items ticked */}
+      {/* ── Action footer ────────────────────────────────────────────────── */}
       <div className="kot-foot">
         <button className={`kot-action bump${allDone ? " all-done" : ""}`}
           onClick={() => onBump(ticket.id)}>
-          {allDone ? "✓ All Done — BUMP" : "⚡ BUMP"}
+          {allDone ? "✓ All Done — BUMP" : "BUMP"}
         </button>
       </div>
     </div>

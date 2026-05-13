@@ -9,6 +9,7 @@ import { SplitBillSheet }     from "./components/SplitBillSheet";
 import { ShiftGate }          from "./components/ShiftGate";
 import { CashMovementModal, CloseShiftModal } from "./components/ShiftModals";
 import { AdvanceOrderModal }  from "./components/AdvanceOrderModal";
+import { AdvanceOrdersPanel } from "./components/AdvanceOrdersPanel";
 import { PosLogin }           from "./components/PosLogin";
 import {
   BranchSetupScreen,
@@ -274,7 +275,8 @@ export default function App() {
   const [showCashIn,       setShowCashIn]       = useState(false);
   const [showCashOut,      setShowCashOut]      = useState(false);
   const [showCloseShift,   setShowCloseShift]   = useState(false);
-  const [showAdvanceOrder, setShowAdvanceOrder] = useState(false);
+  const [showAdvanceOrder, setShowAdvanceOrder] = useState(false); // legacy — replaced by panel
+  const [showAdvancePanel, setShowAdvancePanel] = useState(false);
   const [counterTicketNum,   setCounterTicketNum]   = useState(() => {
     try { return parseInt(localStorage.getItem("pos_counter_ticket_num") || "1", 10); }
     catch { return 1; }
@@ -1680,7 +1682,7 @@ export default function App() {
             <span className="pab-label">Past Orders</span>
           </button>
           <button type="button" className="pab-btn purple"
-            onClick={() => setShowAdvanceOrder(true)}>
+            onClick={() => setShowAdvancePanel(true)}>
             <span className="pab-label">Advance</span>
           </button>
           <button type="button" className="pab-btn teal"
@@ -1847,12 +1849,160 @@ export default function App() {
         />
       )}
 
-      {/* ── Advance Order modal ───────────────────────────────────────────── */}
-      {showAdvanceOrder && (
-        <AdvanceOrderModal
+      {/* ── Advance Orders Panel ─────────────────────────────────────────── */}
+      {showAdvancePanel && (
+        <AdvanceOrdersPanel
           outlet={outlet}
-          onClose={() => setShowAdvanceOrder(false)}
-          onSaved={() => showToast("Advance order booked ✓")}
+          menuItems={menuItems}
+          tableAreas={tableAreas}
+          orders={orders}
+          onClose={() => setShowAdvancePanel(false)}
+          onCheckIn={(advOrder, tableId) => {
+            setShowAdvancePanel(false);
+
+            // ── Takeaway / Delivery → create a counter ticket ─────────────
+            if (!tableId) {
+              const orderType  = advOrder.orderType || "takeaway";
+              const ticketNum  = counterTicketNum;
+              const ticketId   = `counter-${Date.now()}`;
+              const areaLabel  = orderType === "delivery" ? "Delivery" : "Takeaway";
+              const areaObj    = { id: "counter", name: areaLabel };
+              const fakeTable  = { id: ticketId, number: String(ticketNum).padStart(3, "0") };
+              const orderNum   = Math.max(10050, ...Object.values(orders).map((o) => o.orderNumber || 10050)) + 1;
+
+              const counterOrder = {
+                ...buildBlankOrder(fakeTable, areaObj, outlet?.name || "Outlet", orderNum),
+                isCounter:    true,
+                ticketNumber: ticketNum,
+              };
+
+              // Enrich and add items from advance booking
+              const enriched = (advOrder.items || []).map((advItem) => {
+                const menuItem = menuItems.find((m) => m.id === advItem.menuItemId);
+                const itemCatName = (menuItem?.categoryName || menuItem?.category || "").trim().toLowerCase();
+                const resolvedStation =
+                  menuItem?.station ||
+                  kitchenStations.find((s) =>
+                    (Array.isArray(s.categories) &&
+                      s.categories.some((cid) => String(cid) === String(menuItem?.categoryId))) ||
+                    (Array.isArray(s.categoryNames) &&
+                      s.categoryNames.some((n) => n.trim().toLowerCase() === itemCatName))
+                  )?.name || "";
+                return {
+                  id:         `ci-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                  menuItemId: advItem.menuItemId,
+                  name:       advItem.name,
+                  price:      parsePriceNumber(advItem.price),
+                  quantity:   advItem.quantity || 1,
+                  sentToKot:  false,
+                  note:       advOrder.advanceAmount > 0
+                                ? `Advance paid ₹${advOrder.advanceAmount}`
+                                : "",
+                  station:    resolvedStation,
+                  categoryId: menuItem?.categoryId || "",
+                  category:
+                    categories.find((c) => c.id === menuItem?.categoryId)?.name ||
+                    menuItem?.categoryName || menuItem?.category || "",
+                };
+              });
+
+              counterOrder.items = enriched;
+
+              setOrders((prev) => ({ ...prev, [ticketId]: counterOrder }));
+              setCounterTicketNum((n) => n + 1);
+              setServiceMode(orderType === "delivery" ? "delivery" : "takeaway");
+              setSelectedTableId(ticketId);
+
+              const itemCount = enriched.reduce((s, i) => s + i.quantity, 0);
+              const advPaid   = advOrder.advanceAmount > 0
+                ? ` · ₹${advOrder.advanceAmount} advance paid`
+                : "";
+              showToast(
+                `${advOrder.customerName} · ${areaLabel} #${String(ticketNum).padStart(3, "0")} ✓${itemCount > 0 ? ` — ${itemCount} item${itemCount !== 1 ? "s" : ""} loaded` : ""}${advPaid}`
+              );
+              return;
+            }
+
+            // ── Enrich advance items with station + category data ──────────
+            const enrichedItems = (advOrder.items || []).map((advItem) => {
+              const menuItem    = menuItems.find((m) => m.id === advItem.menuItemId);
+              const itemCatName = (menuItem?.categoryName || menuItem?.category || "").trim().toLowerCase();
+              const resolvedStation =
+                menuItem?.station ||
+                kitchenStations.find((s) =>
+                  (Array.isArray(s.categories) &&
+                    s.categories.some((cid) => String(cid) === String(menuItem?.categoryId))) ||
+                  (Array.isArray(s.categoryNames) &&
+                    s.categoryNames.some((n) => n.trim().toLowerCase() === itemCatName))
+                )?.name || "";
+
+              return {
+                id:         `ci-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                menuItemId: advItem.menuItemId,
+                name:       advItem.name,
+                price:      parsePriceNumber(advItem.price),
+                quantity:   advItem.quantity || 1,
+                sentToKot:  false,
+                note:       advOrder.advanceAmount > 0
+                              ? `Advance paid ₹${advOrder.advanceAmount}`
+                              : "",
+                station:    resolvedStation,
+                categoryId: menuItem?.categoryId || "",
+                category:
+                  categories.find((c) => c.id === menuItem?.categoryId)?.name ||
+                  menuItem?.categoryName || menuItem?.category || "",
+              };
+            });
+
+            // ── Load items into the table order immediately ───────────────
+            mutateOrder(tableId, (order) => {
+              for (const item of enrichedItems) {
+                const existing = order.items.findIndex(
+                  (i) => i.menuItemId === item.menuItemId && !i.sentToKot
+                );
+                if (existing >= 0) {
+                  order.items[existing].quantity += item.quantity;
+                } else {
+                  order.items.push(item);
+                }
+              }
+              return order;
+            });
+
+            // ── Select the table so cashier sees the loaded order ─────────
+            setSelectedTableId(tableId);
+
+            // Toast with a clear summary
+            const itemCount = enrichedItems.reduce((s, i) => s + i.quantity, 0);
+            const advPaid   = advOrder.advanceAmount > 0
+              ? ` · ₹${advOrder.advanceAmount} advance paid`
+              : "";
+            showToast(
+              `${advOrder.customerName} seated ✓ — ${itemCount} item${itemCount !== 1 ? "s" : ""} loaded${advPaid}`
+            );
+
+            // ── Sync to backend in background (one call per unique item) ──
+            for (const item of enrichedItems) {
+              // Post once per item — backend merges quantity for unsent items
+              for (let q = 0; q < item.quantity; q++) {
+                api.post("/operations/order/item", {
+                  tableId,
+                  outletId: outlet?.id,
+                  item: {
+                    id:          item.id,
+                    menuItemId:  item.menuItemId,
+                    name:        item.name,
+                    price:       item.price,
+                    quantity:    1,
+                    note:        item.note,
+                    stationName: item.station,
+                    categoryId:  item.categoryId,
+                    category:    item.category,
+                  },
+                }).catch(() => {}); // silent — local state already updated
+              }
+            }
+          }}
         />
       )}
 

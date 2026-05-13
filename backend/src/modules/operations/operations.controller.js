@@ -22,7 +22,8 @@ const {
   requestOrderVoidApproval,
   clearTableAfterSettle
 } = require("./operations.service");
-const { getOwnerSetupData } = require("../../data/owner-setup-store");
+const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { runWithTenant }     = require("../../data/tenant-context");
 const { ApiError }          = require("../../utils/api-error");
 
 /**

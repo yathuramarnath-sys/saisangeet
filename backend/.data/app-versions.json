@@ -16,9 +16,9 @@
     "releaseDate": "2026-05-13"
   },
   "kds": {
-    "version": "1.6",
+    "version": "1.7",
     "label": "Kitchen Display",
-    "changelog": "Stock toggle now broadcasts to POS and Captain in real-time",
+    "changelog": "Coloured source stripe, table-first card header, highlighted item notes, large-screen support for Android TV and 21-50\" monitors",
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-kds.apk",
     "releaseDate": "2026-05-13"
