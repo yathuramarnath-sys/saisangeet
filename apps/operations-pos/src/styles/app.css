@@ -3233,9 +3233,9 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   font-size: 12px;
   font-weight: 800;
 }
-.tpp-sum-pill.free  { background: #E9F7EF; color: #27AE60; border: 1px solid rgba(39,174,96,0.3); }
-.tpp-sum-pill.occ   { background: #FFF3E0; color: #E67E22; border: 1px solid rgba(230,126,34,0.3); }
-.tpp-sum-pill.hold  { background: #FFFBEB; color: #D97706; border: 1px solid rgba(217,119,6,0.3); }
+.tpp-sum-pill.free  { background: #FEF3C7; color: #92700A; border: 1px solid #F5C332; }
+.tpp-sum-pill.occ   { background: #FEF3C7; color: #92700A; border: 1px solid #F5C332; }
+.tpp-sum-pill.hold  { background: #FEF3C7; color: #92700A; border: 1px solid #F5C332; }
 
 .tpp-area-tabs {
   display: flex;
@@ -5059,9 +5059,9 @@ body { background: var(--sq-bg); }
   padding: 5px 14px !important;
   border-radius: 20px !important;
 }
-.tpp-sum-pill.free { background: #ECFDF5; color: #CC9500; border-color: #A7F3D0; }
-.tpp-sum-pill.occ  { background: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
-.tpp-sum-pill.hold { background: #FFFBEB; color: #92400E; border-color: #FDE68A; }
+.tpp-sum-pill.free { background: #FEF3C7 !important; color: #92700A !important; border-color: #F5C332 !important; }
+.tpp-sum-pill.occ  { background: #FEF3C7 !important; color: #92700A !important; border-color: #F5C332 !important; }
+.tpp-sum-pill.hold { background: #FEF3C7 !important; color: #92700A !important; border-color: #F5C332 !important; }
 
 /* Table grid — 4 columns to match Captain app */
 .tpp-table-grid {
@@ -6999,12 +6999,12 @@ input, select, textarea {
 .sg-brand-text h2 { color: var(--v2-text) !important; }
 .sg-brand-text p  { color: var(--v2-text3) !important; }
 
-/* ── Online toggle — simplified to match palette ─────────────────────────── */
+/* ── Online toggle — amber when ON, matches all other action buttons ─────── */
 .online-toggle-btn.enabled {
-  background:   #ECFDF5 !important;
-  border-color: #6EE7B7 !important;
-  color:        #065F46 !important;
-  font-weight:  800 !important;
+  background:   #F5C332 !important;
+  border-color: #D4A010 !important;
+  color:        #1A1A1A !important;
+  font-weight:  700 !important;
 }
 
 /* ── Table legend chips — amber for selected/active ──────────────────────── */
