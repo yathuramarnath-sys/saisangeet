@@ -1635,7 +1635,7 @@ export default function App() {
             <button key={m.id} type="button"
               className={`pbb-mode-pill${serviceMode === m.id ? " active" : ""}`}
               onClick={() => { setServiceMode(m.id); setSelectedTableId(null); }}>
-              {m.id === "dine-in" ? "🪑" : m.id === "takeaway" ? "🛍" : "🛵"} {m.label}
+              {m.label}
             </button>
           ))}
         </div>

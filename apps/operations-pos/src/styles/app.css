@@ -6204,6 +6204,7 @@ body { background: var(--v2-bg) !important; }
   background:    #FFFFFF !important;
   border-bottom: 1px solid rgba(0,0,0,0.08) !important;
 }
+.pbb-icon  { color: var(--v2-amber) !important; }
 .pbb-name  { color: var(--v2-text) !important; }
 .pbb-sub   { color: var(--v2-text3) !important; }
 .pbb-cashier-name { color: var(--v2-text) !important; }
