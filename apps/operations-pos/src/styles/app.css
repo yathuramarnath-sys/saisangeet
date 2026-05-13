@@ -6097,11 +6097,11 @@ body { background: #F7F3EE; }
 
 /* ── 1. Root palette tokens ─────────────────────────────────────────────── */
 :root {
-  --v2-bg:          #F7F8FB;
-  --v2-surface:     #FFFFFF;
-  --v2-surface2:    #F1F4F8;
-  --v2-border:      rgba(0,0,0,0.08);
-  --v2-border-md:   rgba(0,0,0,0.13);
+  --v2-bg:          #f5f3ef;
+  --v2-surface:     rgba(255,255,255,0.92);
+  --v2-surface2:    #ede9e3;
+  --v2-border:      rgba(20,21,26,0.10);
+  --v2-border-md:   rgba(20,21,26,0.16);
   --v2-text:        #111827;
   --v2-text2:       #4B5563;
   --v2-text3:       #9CA3AF;
@@ -6131,11 +6131,15 @@ body { background: #F7F3EE; }
   --v2-hold-border: #E5E7EB;
 }
 
-/* ── 2. Shell ────────────────────────────────────────────────────────────── */
-body { background: var(--v2-bg) !important; }
+/* ── 2. Shell — warm creamy background matching Owner Web ───────────────── */
+body {
+  background:
+    radial-gradient(circle at top left, rgba(255,255,255,0.85), transparent 28%),
+    linear-gradient(180deg, #faf8f5 0%, #f3f1ec 100%) !important;
+}
 
 .pos-shell {
-  background: var(--v2-bg) !important;
+  background: transparent !important;
 }
 
 /* ── 3. Top bar — White header, amber active pill ───────────────────────── */

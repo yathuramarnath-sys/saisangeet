@@ -1833,14 +1833,20 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
    Pure visual overrides — all logic, JS, socket, print code untouched.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── 1. Page & surface backgrounds ── */
+/* ── 1. Page & surface backgrounds — matches Owner Web ── */
 :root {
-  --bg:        #F7F3EE;
-  --surface:   #FFFFFF;
-  --surface-2: #EDE8E0;
+  --bg:        #f5f3ef;
+  --surface:   rgba(255,255,255,0.92);
+  --surface-2: #ede9e3;
 }
-html, body, #root { background: #F7F3EE; }
-.captain-app { background: #F7F3EE; }
+html, body, #root {
+  background:
+    radial-gradient(circle at top left, rgba(255,255,255,0.85), transparent 28%),
+    linear-gradient(180deg, #faf8f5 0%, #f3f1ec 100%);
+}
+.captain-app {
+  background: transparent;
+}
 
 /* ── 2. Header: white background, dark text ── */
 .app-header {
