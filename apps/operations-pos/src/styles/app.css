@@ -6138,9 +6138,9 @@ body { background: var(--v2-bg) !important; }
   background: var(--v2-bg) !important;
 }
 
-/* ── 3. Top bar — Amber header, dark text ────────────────────────────────── */
+/* ── 3. Top bar — White header, amber active pill ───────────────────────── */
 .pos-topbar {
-  background:     var(--v2-amber) !important;
+  background:     #FFFFFF !important;
   border-bottom:  1px solid rgba(0,0,0,0.08) !important;
   padding:        0 20px !important;
   height:         54px !important;
@@ -6158,7 +6158,7 @@ body { background: var(--v2-bg) !important; }
   color:      rgba(0,0,0,0.45) !important;
 }
 
-/* Mode pills on amber header — NO white box, clean transparent style */
+/* Mode pills on white header — amber active (same style as category pills) */
 .pos-mode-pills {
   background:    transparent !important;
   border-radius: 0 !important;
@@ -6168,80 +6168,88 @@ body { background: var(--v2-bg) !important; }
 .pos-mode-pill {
   font-size:     13px !important;
   font-weight:   600 !important;
-  padding:       5px 18px !important;
-  color:         rgba(0,0,0,0.5) !important;
+  padding:       5px 16px !important;
+  color:         var(--v2-text3) !important;
   border-radius: 8px !important;
-  background:    transparent !important;
-  border:        none !important;
+  background:    var(--v2-surface2) !important;
+  border:        1.5px solid var(--v2-border-md) !important;
   transition:    all 130ms !important;
 }
 .pos-mode-pill.active {
-  background:    rgba(0,0,0,0.12) !important;
+  background:    var(--v2-amber) !important;
+  border-color:  var(--v2-amber) !important;
   color:         #1A1A1A !important;
   font-weight:   800 !important;
-  box-shadow:    none !important;
+  box-shadow:    0 2px 8px rgba(255,193,7,0.28) !important;
 }
 .pos-mode-pill:hover:not(.active) {
-  background: rgba(0,0,0,0.07) !important;
-  color:      rgba(0,0,0,0.7) !important;
+  background:    #EBEBEB !important;
+  border-color:  rgba(0,0,0,0.18) !important;
+  color:         var(--v2-text) !important;
 }
 
 .pos-topbar-time {
   font-size:   14px !important;
   font-weight: 700 !important;
-  color:       rgba(0,0,0,0.75) !important;
+  color:       var(--v2-text) !important;
 }
 .pos-topbar-cashier {
   font-size: 11px !important;
-  color:     rgba(0,0,0,0.45) !important;
+  color:     var(--v2-text3) !important;
 }
 
-/* pbb topbar variant (most used layout) */
+/* pbb topbar variant (most used layout) — WHITE header */
 .pos-brand-bar,
 [class*="brand-bar"] {
-  background:    var(--v2-amber) !important;
+  background:    #FFFFFF !important;
   border-bottom: 1px solid rgba(0,0,0,0.08) !important;
 }
-.pbb-name  { color: #1A1A1A !important; }
-.pbb-sub   { color: rgba(0,0,0,0.45) !important; }
-.pbb-cashier-name { color: #1A1A1A !important; }
-.pbb-session      { color: rgba(0,0,0,0.5) !important; }
+.pbb-name  { color: var(--v2-text) !important; }
+.pbb-sub   { color: var(--v2-text3) !important; }
+.pbb-cashier-name { color: var(--v2-text) !important; }
+.pbb-session      { color: var(--v2-text3) !important; }
 .pbb-ver-badge {
-  background: rgba(0,0,0,0.08) !important;
-  color:      rgba(0,0,0,0.5) !important;
+  background:    var(--v2-amber) !important;
+  color:         #1A1A1A !important;
+  font-weight:   800 !important;
+  border-radius: 5px !important;
+  padding:       2px 6px !important;
+  font-size:     10px !important;
 }
 
-/* Cashier chip on amber bg */
+/* Cashier chip on white header */
 .pbb-cashier-chip {
-  background:    rgba(0,0,0,0.08) !important;
-  border:        1px solid rgba(0,0,0,0.1) !important;
+  background:    var(--v2-surface2) !important;
+  border:        1.5px solid var(--v2-border-md) !important;
   border-radius: 10px !important;
 }
 .pbb-avatar {
-  background: rgba(0,0,0,0.15) !important;
+  background: var(--v2-amber) !important;
   color:      #1A1A1A !important;
+  font-weight: 800 !important;
 }
 
-/* Mode pills on amber header — transparent, no white boxes */
+/* Mode pills on white header — amber active */
 .pbb-mode-pill {
-  background:    transparent !important;
-  color:         rgba(0,0,0,0.5) !important;
-  border:        none !important;
+  background:    var(--v2-surface2) !important;
+  color:         var(--v2-text3) !important;
+  border:        1.5px solid var(--v2-border-md) !important;
   font-size:     13px !important;
   font-weight:   600 !important;
-  padding:       5px 18px !important;
+  padding:       5px 16px !important;
   border-radius: 8px !important;
 }
 .pbb-mode-pill.active {
-  background:    rgba(0,0,0,0.12) !important;
+  background:    var(--v2-amber) !important;
+  border-color:  var(--v2-amber) !important;
   color:         #1A1A1A !important;
-  border:        none !important;
   font-weight:   800 !important;
-  box-shadow:    none !important;
+  box-shadow:    0 2px 8px rgba(255,193,7,0.28) !important;
 }
 .pbb-mode-pill:hover:not(.active) {
-  background: rgba(0,0,0,0.07) !important;
-  color:      rgba(0,0,0,0.7) !important;
+  background:    #EBEBEB !important;
+  border-color:  rgba(0,0,0,0.18) !important;
+  color:         var(--v2-text) !important;
 }
 
 /* ── 4. Left panel + area tabs ───────────────────────────────────────────── */
@@ -6782,12 +6790,11 @@ input, select, textarea {
 .sg-start-btn:hover  { background: #E6AC00 !important; transform: translateY(-1px) !important; }
 .sg-start-btn:active { transform: scale(0.98) !important; }
 
-/* ── 17. Action bar — unified, clean ────────────────────────────────────── */
+/* ── 17. Action bar — amber accent, unified look ────────────────────────── */
 /*
-   Goal: every action bar button shares the same base style.
-   Only End Shift gets a distinct red tint to signal its critical nature.
-   Cash In / Cash Out get VERY subtle tints so cashiers can distinguish
-   at a glance — not loud colors.
+   Goal: every action bar button is amber (matches active category style).
+   One colour = one language = clean, consistent brand.
+   End Shift / Logout remain red — too critical to blend in.
 */
 .pos-action-bar {
   background:    var(--v2-surface) !important;
@@ -6797,16 +6804,16 @@ input, select, textarea {
   height:        44px !important;
 }
 
-/* Reset all pab-btn color variants to the same neutral base */
+/* All action bar buttons — amber accent (matches active category style) */
 .pab-btn {
   padding:       0 11px !important;
   height:        30px !important;
   border-radius: 8px !important;
   font-size:     11.5px !important;
   font-weight:   700 !important;
-  background:    var(--v2-surface2) !important;
-  color:         var(--v2-text2) !important;
-  border:        1.5px solid var(--v2-border-md) !important;
+  background:    var(--v2-amber) !important;
+  color:         #1A1A1A !important;
+  border:        1.5px solid var(--v2-amber-dark) !important;
   display:       inline-flex !important;
   align-items:   center !important;
   gap:           5px !important;
@@ -6814,10 +6821,11 @@ input, select, textarea {
   transition:    all 120ms !important;
 }
 .pab-btn:hover {
-  background:    #E8ECF2 !important;
-  color:         var(--v2-text) !important;
+  background:    #E6AC00 !important;
+  border-color:  #C99200 !important;
+  color:         #1A1A1A !important;
   transform:     translateY(-1px) !important;
-  box-shadow:    0 2px 6px rgba(0,0,0,0.09) !important;
+  box-shadow:    0 3px 10px rgba(255,193,7,0.35) !important;
   filter:        none !important;
 }
 .pab-btn:active {
@@ -6825,58 +6833,37 @@ input, select, textarea {
   box-shadow: none !important;
 }
 
-/* Override ALL color variants to neutral — then selectively re-apply */
+/* Override all color variants to amber — uniform look */
 .pab-btn.orange, .pab-btn.blue, .pab-btn.purple,
 .pab-btn.teal,   .pab-btn.green,.pab-btn.gray,
 .pab-btn.cyan,   .pab-btn.dark  {
-  background: var(--v2-surface2) !important;
-  color:      var(--v2-text2) !important;
-  border:     1.5px solid var(--v2-border-md) !important;
+  background: var(--v2-amber) !important;
+  color:      #1A1A1A !important;
+  border:     1.5px solid var(--v2-amber-dark) !important;
 }
 
-/* Cash In — subtle green tint only */
-.pab-btn.green {
-  background: #F0FDF4 !important;
-  color:      #15803D !important;
-  border-color: #BBF7D0 !important;
-}
-.pab-btn.green:hover { background: #DCFCE7 !important; }
-
-/* Cash Out — subtle orange/red tint only */
-.pab-btn.orange {
-  background: #FFF7ED !important;
-  color:      #C2410C !important;
-  border-color: #FED7AA !important;
-}
-.pab-btn.orange:hover { background: #FFEDD5 !important; }
-
-/* End Shift — clear red/danger — most distinct */
-.pab-btn.dark {
+/* End Shift / Logout — keeps a distinct red so cashiers don't close shift by mistake */
+.pab-btn.dark,
+.pab-btn.logout-btn {
   background:    #FEF2F2 !important;
   color:         #DC2626 !important;
   border-color:  #FECACA !important;
   font-weight:   800 !important;
 }
-.pab-btn.dark:hover {
+.pab-btn.dark:hover,
+.pab-btn.logout-btn:hover {
   background:   #FEE2E2 !important;
   border-color: #FCA5A5 !important;
   color:        #B91C1C !important;
   transform:    translateY(-1px) !important;
 }
 
-/* Logout variant — same as end shift */
-.pab-btn.logout-btn {
-  background:   #FEF2F2 !important;
-  color:        #DC2626 !important;
-  border-color: #FECACA !important;
-}
-
-/* Syncing spinner — keep neutral */
+/* Syncing spinner */
 .pab-btn.syncing .pab-icon { animation: spin 1s linear infinite !important; }
 
-/* Stats pill — cleaner */
+/* Stats pill (balance/revenue area) — stays white/neutral */
 .pab-stats {
-  background:    var(--v2-surface2) !important;
+  background:    #FFFFFF !important;
   border:        1px solid var(--v2-border) !important;
   border-radius: 8px !important;
   height:        30px !important;
@@ -6901,15 +6888,7 @@ input, select, textarea {
   height:     18px !important;
 }
 
-/* Mode pills in action bar (Online Orders, Past Orders, etc.) */
-.pab-group .pab-btn.blue,
-.pab-group .pab-btn.purple {
-  background: var(--v2-surface2) !important;
-  color:      var(--v2-text2) !important;
-  border-color: var(--v2-border-md) !important;
-}
-
-/* Online toggle — keep it distinct (it's a state indicator) */
+/* Online toggle — amber when ON, red when OFF */
 .online-toggle-btn {
   height:        30px !important;
   padding:       0 12px !important;
@@ -6919,9 +6898,9 @@ input, select, textarea {
   border-width:  1.5px !important;
 }
 .online-toggle-btn.enabled {
-  background:   #F0FDF4 !important;
-  border-color: #86EFAC !important;
-  color:        #15803D !important;
+  background:   var(--v2-amber) !important;
+  border-color: var(--v2-amber-dark) !important;
+  color:        #1A1A1A !important;
 }
 .online-toggle-btn.disabled {
   background:   #FEF2F2 !important;
