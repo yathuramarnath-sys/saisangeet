@@ -860,9 +860,66 @@ function SecurityTab() {
   );
 }
 
+/* ─── Devices Tab ────────────────────────────────────────────────────────────── */
+function DevicesTab() {
+  const [info, setInfo] = useState(null);
+
+  useEffect(() => {
+    if (!window.electronAPI?.getLocalServerInfo) return;
+    window.electronAPI.getLocalServerInfo().then(setInfo).catch(() => {});
+  }, []);
+
+  return (
+    <div className="pset-section">
+      <div className="pset-section-head">
+        <div><h4>Local WiFi Server</h4><p>Captain and KDS tablets connect to this POS machine directly over WiFi — no internet needed.</p></div>
+      </div>
+
+      {info ? (
+        <div className="pset-local-server-info">
+          <div className="pset-lsi-row">
+            <span className="pset-lsi-label">POS Machine IP</span>
+            <span className="pset-lsi-value">{info.ip}</span>
+          </div>
+          <div className="pset-lsi-row">
+            <span className="pset-lsi-label">Local Server Port</span>
+            <span className="pset-lsi-value">{info.port}</span>
+          </div>
+          <p className="pset-lsi-hint">
+            Enter <strong>{info.ip}</strong> as the POS Local IP in the <strong>Plato Captain</strong> and <strong>Plato KDS</strong> setup screens.
+            Tablets will connect directly to this machine and receive KOTs even if internet is down.
+          </p>
+        </div>
+      ) : (
+        <p className="pset-lsi-hint">Local server info not available (only shown in Electron mode).</p>
+      )}
+
+      {/* Static IP setup instruction */}
+      <div className="pset-static-ip-box">
+        <div className="pset-sib-title">⚠ Important — Set a Fixed IP on this PC</div>
+        <p className="pset-sib-body">
+          Your WiFi router assigns a new IP to this PC every time it restarts. If the IP changes, Captain and KDS
+          tablets may take a few seconds to reconnect automatically. To avoid this, set a <strong>Static (Fixed) IP</strong>
+          on this Windows machine once — it never changes after that.
+        </p>
+        <div className="pset-sib-steps">
+          <div className="pset-sib-step"><span className="pset-sib-num">1</span> Open <strong>Windows Settings → Network &amp; Internet → Wi-Fi</strong> (or Ethernet) → click your connection → <strong>Edit</strong> under IP assignment</div>
+          <div className="pset-sib-step"><span className="pset-sib-num">2</span> Set <strong>Manual</strong> → turn on IPv4</div>
+          <div className="pset-sib-step"><span className="pset-sib-num">3</span> <span>Enter <strong>IP:</strong> <code>192.168.1.100</code> &nbsp; <strong>Subnet:</strong> <code>255.255.255.0</code><br/><strong>Gateway:</strong> <code>192.168.1.1</code> &nbsp;(your router's IP — usually this)</span></div>
+          <div className="pset-sib-step"><span className="pset-sib-num">4</span> Save → come back here and confirm the IP above shows <code>192.168.1.100</code></div>
+          <div className="pset-sib-step"><span className="pset-sib-num">5</span> Enter <code>192.168.1.100</code> as the POS Local IP in Captain and KDS setup screens</div>
+        </div>
+        <p className="pset-sib-note">
+          Even without a static IP the system auto-discovers the POS on the network — but a fixed IP gives instant, zero-delay reconnection after every power cut.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main PosSettingsModal ─────────────────────────────────────────────────── */
 export function PosSettingsModal({ cashierName, activeShift, onClose }) {
-  const TABS = ["Printers", "Tables", "Cashier", "Display", "Security"];
+  const TABS = ["Printers", "Tables", "Cashier", "Display", "Devices", "Security"];
   const [tab, setTab] = useState("Printers");
 
   return (
@@ -893,6 +950,7 @@ export function PosSettingsModal({ cashierName, activeShift, onClose }) {
           {tab === "Tables"    && <TablesTab />}
           {tab === "Cashier"   && <CashierTab cashierName={cashierName} activeShift={activeShift} />}
           {tab === "Display"   && <DisplayTab />}
+          {tab === "Devices"   && <DevicesTab />}
           {tab === "Security"  && <SecurityTab />}
         </div>
 

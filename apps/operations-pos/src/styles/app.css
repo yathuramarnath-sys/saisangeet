@@ -6138,10 +6138,10 @@ body { background: var(--v2-bg) !important; }
   background: var(--v2-bg) !important;
 }
 
-/* ── 3. Top bar ──────────────────────────────────────────────────────────── */
+/* ── 3. Top bar — Amber header, dark text ────────────────────────────────── */
 .pos-topbar {
-  background:     var(--v2-navy) !important;
-  border-bottom:  1px solid rgba(255,255,255,0.05) !important;
+  background:     var(--v2-amber) !important;
+  border-bottom:  1px solid rgba(0,0,0,0.08) !important;
   padding:        0 20px !important;
   height:         54px !important;
 }
@@ -6149,45 +6149,89 @@ body { background: var(--v2-bg) !important; }
 .pos-topbar-name {
   font-size:      15px !important;
   font-weight:    800 !important;
-  color:          #FFFFFF !important;
+  color:          #1A1A1A !important;
   letter-spacing: -0.025em !important;
 }
 
 .pos-topbar-sub {
   font-size:  11px !important;
-  color:      rgba(255,255,255,0.42) !important;
+  color:      rgba(0,0,0,0.45) !important;
 }
 
-/* Mode pills — amber active instead of white */
+/* Mode pills on amber header — white active pill */
 .pos-mode-pills {
-  background:    rgba(255,255,255,0.09) !important;
+  background:    rgba(0,0,0,0.08) !important;
   border-radius: 10px !important;
   padding:       4px !important;
 }
 .pos-mode-pill {
-  font-size:   12.5px !important;
-  font-weight: 600 !important;
-  padding:     5px 16px !important;
-  color:       rgba(255,255,255,0.55) !important;
+  font-size:     12.5px !important;
+  font-weight:   600 !important;
+  padding:       5px 16px !important;
+  color:         rgba(0,0,0,0.5) !important;
   border-radius: 7px !important;
-  transition: all 130ms !important;
+  transition:    all 130ms !important;
 }
 .pos-mode-pill.active {
-  background:  var(--v2-amber) !important;
+  background:  #FFFFFF !important;
   color:       #1A1A1A !important;
   font-weight: 800 !important;
-  box-shadow:  0 1px 6px rgba(255,193,7,0.35) !important;
+  box-shadow:  0 1px 6px rgba(0,0,0,0.12) !important;
 }
-.pos-mode-pill:hover:not(.active) { color: rgba(255,255,255,0.85) !important; }
+.pos-mode-pill:hover:not(.active) { color: rgba(0,0,0,0.75) !important; }
 
 .pos-topbar-time {
   font-size:   14px !important;
   font-weight: 700 !important;
-  color:       rgba(255,255,255,0.88) !important;
+  color:       rgba(0,0,0,0.75) !important;
 }
 .pos-topbar-cashier {
   font-size: 11px !important;
-  color:     rgba(255,255,255,0.4) !important;
+  color:     rgba(0,0,0,0.45) !important;
+}
+
+/* pbb topbar variant (most used layout) */
+.pos-brand-bar,
+[class*="brand-bar"] {
+  background:    var(--v2-amber) !important;
+  border-bottom: 1px solid rgba(0,0,0,0.08) !important;
+}
+.pbb-name  { color: #1A1A1A !important; }
+.pbb-sub   { color: rgba(0,0,0,0.45) !important; }
+.pbb-cashier-name { color: #1A1A1A !important; }
+.pbb-session      { color: rgba(0,0,0,0.5) !important; }
+.pbb-ver-badge {
+  background: rgba(0,0,0,0.08) !important;
+  color:      rgba(0,0,0,0.5) !important;
+}
+
+/* Cashier chip on amber bg */
+.pbb-cashier-chip {
+  background:    rgba(0,0,0,0.08) !important;
+  border:        1px solid rgba(0,0,0,0.1) !important;
+  border-radius: 10px !important;
+}
+.pbb-avatar {
+  background: rgba(0,0,0,0.15) !important;
+  color:      #1A1A1A !important;
+}
+
+/* Mode pills on amber bg (pbb variant) */
+.pbb-mode-pill {
+  background:    rgba(0,0,0,0.07) !important;
+  color:         rgba(0,0,0,0.5) !important;
+  border:        1.5px solid rgba(0,0,0,0.08) !important;
+}
+.pbb-mode-pill.active {
+  background:    #FFFFFF !important;
+  color:         #1A1A1A !important;
+  border-color:  #FFFFFF !important;
+  font-weight:   800 !important;
+  box-shadow:    0 1px 6px rgba(0,0,0,0.12) !important;
+}
+.pbb-mode-pill:hover:not(.active) {
+  background: rgba(0,0,0,0.12) !important;
+  color:      rgba(0,0,0,0.75) !important;
 }
 
 /* ── 4. Left panel + area tabs ───────────────────────────────────────────── */
@@ -6875,7 +6919,106 @@ input, select, textarea {
   color:        #DC2626 !important;
 }
 
-/* ── 18. Version badge in cashier chip ───────────────────────────────────── */
+/* ── 18. Category sidebar — white bg, amber active ──────────────────────── */
+/*
+   Remove the dark navy sidebar entirely.
+   All categories: white bg, dark text, amber active row.
+   The emoji/icon still shows but without a colored box bg.
+*/
+.cat-sidebar {
+  background:    #FFFFFF !important;
+  border-right:  1px solid var(--v2-border) !important;
+}
+
+/* Brand strip inside sidebar (outlet name + sub) */
+.cat-sidebar-brand {
+  border-bottom: 1px solid var(--v2-border) !important;
+  background:    var(--v2-amber) !important;
+}
+.cat-sidebar-brand-icon { color: rgba(0,0,0,0.5) !important; }
+.cat-sidebar-brand-name {
+  color:      #1A1A1A !important;
+  font-size:  12px !important;
+  font-weight: 900 !important;
+}
+.cat-sidebar-brand-sub { color: rgba(0,0,0,0.45) !important; }
+
+/* "CATEGORIES" label */
+.cat-sidebar-label {
+  color:          var(--v2-text3) !important;
+  letter-spacing: 0.8px !important;
+}
+
+/* Nav scrollbar */
+.cat-sidebar-nav::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1) !important; }
+
+/* Category rows — inactive */
+.cat-sidebar-item {
+  color:         var(--v2-text2) !important;
+  border-radius: 10px !important;
+}
+.cat-sidebar-item:hover {
+  background: var(--v2-surface2) !important;
+  color:      var(--v2-text) !important;
+}
+
+/* Active category — amber, no random colored gradients */
+.cat-sidebar-item.active {
+  background: var(--v2-amber) !important;
+  color:      #1A1A1A !important;
+  box-shadow: 0 2px 8px rgba(255,193,7,0.25) !important;
+}
+
+/* Icon box — neutral on inactive, transparent on active */
+.cat-sidebar-icon-box {
+  background: var(--v2-surface2) !important;
+  border-radius: 8px !important;
+}
+.cat-sidebar-item.active .cat-sidebar-icon-box {
+  background: rgba(0,0,0,0.08) !important;
+}
+
+.cat-sidebar-name {
+  font-size:   12px !important;
+  font-weight: 700 !important;
+  color:       inherit !important;
+}
+
+/* Count badge */
+.cat-sidebar-count {
+  background: var(--v2-surface2) !important;
+  color:      var(--v2-text3) !important;
+}
+.cat-sidebar-item.active .cat-sidebar-count {
+  background: rgba(0,0,0,0.1) !important;
+  color:      rgba(0,0,0,0.6) !important;
+}
+
+/* ── Left panel area tabs (secondary layout) — amber active ──────────────── */
+.pos-area-tab.active {
+  background:   var(--v2-amber) !important;
+  border-color: var(--v2-amber) !important;
+  color:        #1A1A1A !important;
+}
+
+/* ── Session/shift gate pills — already amber but reinforce ──────────────── */
+.sg-card { background: #FFFFFF !important; }
+.sg-brand-icon { background: var(--v2-amber) !important; }
+.sg-brand-text h2 { color: var(--v2-text) !important; }
+.sg-brand-text p  { color: var(--v2-text3) !important; }
+
+/* ── Online toggle — simplified to match palette ─────────────────────────── */
+.online-toggle-btn.enabled {
+  background:   #ECFDF5 !important;
+  border-color: #6EE7B7 !important;
+  color:        #065F46 !important;
+  font-weight:  800 !important;
+}
+
+/* ── Table legend chips — amber for selected/active ──────────────────────── */
+/* Keep existing status colors for table cards — they carry meaning */
+
+/* ── Version badge in cashier chip ───────────────────────────────────────── */
 .pbb-ver-badge {
   display:        inline-block;
   margin-left:    5px;

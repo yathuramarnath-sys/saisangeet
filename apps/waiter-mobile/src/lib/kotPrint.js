@@ -1,9 +1,12 @@
 /* ══════════════════════════════════════════════════════════════════════════════
-   KOT PRINT UTILITY
+   KOT PRINT UTILITY  — Captain / Waiter app
    Generates a thermal-style KOT and prints it.
 
    Production path  (Windows Electron): silent via window.electronAPI.printHTML()
-   Fallback         (browser / web):    popup window + window.print()
+   Android / web:   NO-OP — KOT is already routed to kitchen via socket/API.
+                    The POS Electron app is the only device that talks TCP
+                    to the thermal printer (port 9100). Captain app must NOT
+                    open a browser popup — it never reaches the network printer.
 
    Works for 80mm and 58mm paper widths.
    ══════════════════════════════════════════════════════════════════════════════ */
@@ -78,13 +81,17 @@ export function getBillPrinter() {
 export function printKOT(order, items, printer = null, kotSeq = null, options = {}) {
   if (!items || !items.length) return;
 
+  // ── Android / web: no-op. KOT already sent to kitchen via socket.
+  //    Only the POS Electron app can reach the TCP thermal printer.
+  if (!window.electronAPI?.printHTML) return;
+
   const resolvedPrinter = printer || getKotPrinter();
   const paper   = resolvedPrinter?.paper || "80mm";
   const width   = paper === "58mm" ? "200px" : "280px";
   const outletName = order.outletName || "Restaurant";
   const tableLabel = order.isCounter
     ? `${order.areaName || "Counter"} #${String(order.ticketNumber || "").padStart(3, "0")}`
-    : `Table ${order.tableNumber}  ·  ${order.areaName || ""}`;
+    : `T${order.tableNumber}${order.areaName ? " - " + order.areaName : ""}`;
 
   const now     = new Date();
   const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
@@ -125,8 +132,8 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
 
     .kot-header {
       text-align: center;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
+      margin-bottom: 6px;
+      padding-bottom: 6px;
       border-bottom: 2px dashed #000;
     }
     .kot-outlet {
@@ -145,9 +152,29 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
     }
 
     .kot-meta {
-      margin: 8px 0;
+      margin: 6px 0;
       border-bottom: 1px dashed #aaa;
-      padding-bottom: 8px;
+      padding-bottom: 6px;
+    }
+    /* KOT# + Table on same compact line */
+    .kot-meta-id {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 13px;
+      font-weight: 900;
+      margin: 4px 0 2px;
+    }
+    .kot-meta-id .kot-num  { font-size: 15px; font-weight: 900; }
+    .kot-meta-id .kot-tbl  { font-size: 13px; font-weight: 800; }
+    /* Date + Time on same compact line */
+    .kot-meta-dt {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 600;
+      color: #555;
+      margin: 1px 0;
     }
     .kot-meta-row {
       display: flex;
@@ -156,11 +183,8 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       margin: 2px 0;
       font-weight: 700;
     }
-    .kot-meta-row.large {
-      font-size: 14px;
-      font-weight: 900;
-      margin: 5px 0 3px;
-    }
+    /* Keep .large for legacy compat — hidden via display:none below */
+    .kot-meta-row.large { display: none; }
     .kot-meta-row .label { color: #666; font-weight: 600; }
 
     .kot-items {
@@ -239,7 +263,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
         size: ${paper} auto;
         margin: 0;
       }
-      body { padding: 6px 8px; }
+      body { padding: 6px 8px 32px; }
     }
   </style>
 </head>
@@ -250,16 +274,14 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   </div>
 
   <div class="kot-meta">
-    <div class="kot-meta-row large">
-      <span>${tableLabel}</span>
-      <span>${kotNum}</span>
+    <!-- KOT# + Table on same compact row -->
+    <div class="kot-meta-id">
+      <span class="kot-num">${kotNum}</span>
+      <span class="kot-tbl">${tableLabel}</span>
     </div>
-    <div class="kot-meta-row">
-      <span class="label">Date</span>
+    <!-- Date + Time on same compact row -->
+    <div class="kot-meta-dt">
       <span>${dateStr}</span>
-    </div>
-    <div class="kot-meta-row">
-      <span class="label">Time</span>
       <span>${timeStr}</span>
     </div>
     ${order.guests > 0 ? `
@@ -288,52 +310,27 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
 </body>
 </html>`;
 
-  // ── Production path: Windows Electron silent printing ─────────────────────
-  if (window.electronAPI?.printHTML) {
-    // winName is the exact Windows printer name set in Settings → Printers.
-    // Falls back to printer.name; null → Electron uses the Windows default printer.
-    const printerName = resolvedPrinter?.winName || resolvedPrinter?.name || null;
+  // ── Electron silent printing (already guarded above — this path IS Electron) ──
+  // winName is the exact Windows printer name; falls back to display name.
+  const winPrinterName = resolvedPrinter?.winName || resolvedPrinter?.name || null;
+  const printerIp      = resolvedPrinter?.ip?.trim() || null;
 
-    window.electronAPI
-      .printHTML({ html, printerName, paperWidthMm: paper === "58mm" ? 58 : 80 })
-      .then((result) => {
-        if (!result?.ok) {
-          console.warn("[printKOT] Electron print failed:", result?.error);
-          window.dispatchEvent(new CustomEvent("dinex:print-error", {
-            detail: { source: "KOT", printerName, error: result?.error },
-          }));
-        }
-      })
-      .catch((err) => {
-        console.error("[printKOT] Electron printHTML error:", err);
+  window.electronAPI
+    .printHTML({ html, printerName: winPrinterName, printerIp, paperWidthMm: paper === "58mm" ? 58 : 80 })
+    .then((result) => {
+      if (!result?.ok) {
+        console.warn("[printKOT] Electron print failed:", result?.error);
         window.dispatchEvent(new CustomEvent("dinex:print-error", {
-          detail: { source: "KOT", printerName, error: err?.message || "unknown" },
+          detail: { source: "KOT", printerName: winPrinterName, error: result?.error },
         }));
-      });
-
-    return; // do NOT open a popup in Electron mode
-  }
-
-  // ── Fallback: browser popup + window.print() (plain browser / web mode) ──
-  const w = window.open("", "_blank", `width=340,height=500,scrollbars=no`);
-  if (!w) {
-    console.warn("KOT print: popup blocked. Please allow popups for this site.");
-    return;
-  }
-  w.document.write(html);
-  w.document.close();
-
-  // Auto-print after fonts load
-  w.onload = () => {
-    setTimeout(() => {
-      w.focus();
-      w.print();
-      // Close after print dialog dismissed (most browsers)
-      w.onafterprint = () => w.close();
-      // Fallback close if onafterprint isn't fired
-      setTimeout(() => { try { w.close(); } catch {} }, 3000);
-    }, 350);
-  };
+      }
+    })
+    .catch((err) => {
+      console.error("[printKOT] Electron printHTML error:", err);
+      window.dispatchEvent(new CustomEvent("dinex:print-error", {
+        detail: { source: "KOT", printerName: winPrinterName, error: err?.message || "unknown" },
+      }));
+    });
 }
 
 /**

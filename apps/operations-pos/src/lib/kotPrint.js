@@ -89,7 +89,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   const outletName = order.outletName || "Restaurant";
   const tableLabel = order.isCounter
     ? `${order.areaName || "Counter"} #${String(order.ticketNumber || "").padStart(3, "0")}`
-    : `Table ${order.tableNumber}  ·  ${order.areaName || ""}`;
+    : `T${order.tableNumber}${order.areaName ? " - " + order.areaName : ""}`;
 
   const now     = new Date();
   const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
@@ -130,8 +130,8 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
 
     .kot-header {
       text-align: center;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
+      margin-bottom: 6px;
+      padding-bottom: 6px;
       border-bottom: 2px dashed #000;
     }
     .kot-outlet {
@@ -141,18 +141,38 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       text-transform: uppercase;
     }
     .kot-title {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
-      letter-spacing: 3px;
-      color: #444;
-      margin-top: 3px;
+      letter-spacing: 2px;
+      color: #555;
+      margin-top: 2px;
       text-transform: uppercase;
     }
 
     .kot-meta {
-      margin: 8px 0;
+      margin: 6px 0;
       border-bottom: 1px dashed #aaa;
-      padding-bottom: 8px;
+      padding-bottom: 6px;
+    }
+    /* KOT# + Table on same compact line */
+    .kot-meta-id {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 13px;
+      font-weight: 900;
+      margin: 4px 0 2px;
+    }
+    .kot-meta-id .kot-num  { font-size: 15px; font-weight: 900; }
+    .kot-meta-id .kot-tbl  { font-size: 13px; font-weight: 800; }
+    /* Date + Time on same compact line */
+    .kot-meta-dt {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 600;
+      color: #555;
+      margin: 1px 0;
     }
     .kot-meta-row {
       display: flex;
@@ -161,11 +181,8 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       margin: 2px 0;
       font-weight: 700;
     }
-    .kot-meta-row.large {
-      font-size: 14px;
-      font-weight: 900;
-      margin: 5px 0 3px;
-    }
+    /* Keep .large for legacy compat — hidden via display:none below */
+    .kot-meta-row.large { display: none; }
     .kot-meta-row .label { color: #666; font-weight: 600; }
 
     .kot-items {
@@ -244,27 +261,25 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
         size: ${paper} auto;
         margin: 0;
       }
-      body { padding: 6px 8px; }
+      body { padding: 6px 8px 32px; }
     }
   </style>
 </head>
 <body>
   <div class="kot-header">
     <div class="kot-outlet">${outletName}</div>
-    <div class="kot-title">★ Kitchen Order Ticket ★</div>
+    <div class="kot-title">*** KITCHEN ORDER ***</div>
   </div>
 
   <div class="kot-meta">
-    <div class="kot-meta-row large">
-      <span>${tableLabel}</span>
-      <span>${kotNum}</span>
+    <!-- KOT# + Table on same compact row -->
+    <div class="kot-meta-id">
+      <span class="kot-num">${kotNum}</span>
+      <span class="kot-tbl">${tableLabel}</span>
     </div>
-    <div class="kot-meta-row">
-      <span class="label">Date</span>
+    <!-- Date + Time on same compact row -->
+    <div class="kot-meta-dt">
       <span>${dateStr}</span>
-    </div>
-    <div class="kot-meta-row">
-      <span class="label">Time</span>
       <span>${timeStr}</span>
     </div>
     ${order.guests > 0 ? `

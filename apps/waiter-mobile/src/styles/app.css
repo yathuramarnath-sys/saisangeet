@@ -69,8 +69,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 /* ─── Top Header ─────────────────────────────────────────────────────────── */
 
 .app-header {
-  background:    #1A2332;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background:    #FFC107;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
   flex-shrink:   0;
   z-index:       10;
   padding-top:   env(safe-area-inset-top);
@@ -107,28 +107,32 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   font-size:   0.93rem;
   font-weight: 800;
   line-height: 1.2;
-  color:       #FFFFFF;
+  color:       #1A1A1A;
 }
 
 .header-sub {
   font-size:   0.72rem;
-  color:       rgba(255,255,255,0.45);
+  color:       rgba(0,0,0,0.48);
   font-weight: 500;
   line-height: 1.2;
+}
+
+.header-avatar {
+  opacity: 0.85;
 }
 
 .signout-btn {
   padding:       7px 13px;
   border-radius: 9px;
-  background:    rgba(255,255,255,0.1);
-  border:        1px solid rgba(255,255,255,0.14);
+  background:    rgba(0,0,0,0.1);
+  border:        1px solid rgba(0,0,0,0.1);
   font-size:     0.75rem;
   font-weight:   700;
-  color:         rgba(255,255,255,0.7);
+  color:         rgba(0,0,0,0.6);
   flex-shrink:   0;
   transition:    background 0.15s;
 }
-.signout-btn:active { background: rgba(255,255,255,0.18); }
+.signout-btn:active { background: rgba(0,0,0,0.16); }
 
 /* ─── Main content area ──────────────────────────────────────────────────── */
 
@@ -2493,7 +2497,8 @@ html, body, #root { background: #F7F3EE; }
   align-items:     center;
   justify-content: space-between;
   padding:         env(safe-area-inset-top, 14px) 16px 14px;
-  background:      #1A2332;
+  background:      #FFC107;
+  border-bottom:   1px solid rgba(0,0,0,0.08);
   flex-shrink:     0;
 }
 .drawer-brand {
@@ -2505,17 +2510,17 @@ html, body, #root { background: #F7F3EE; }
 .drawer-brand-name {
   font-size:   15px;
   font-weight: 700;
-  color:       #FFFFFF;
+  color:       #1A1A1A;
 }
 .drawer-brand-outlet {
   font-size:  12px;
-  color:      rgba(255,255,255,0.55);
+  color:      rgba(0,0,0,0.48);
   margin-top: 1px;
 }
 .drawer-close {
   background:   transparent;
   border:       none;
-  color:        rgba(255,255,255,0.6);
+  color:        rgba(0,0,0,0.5);
   font-size:    18px;
   cursor:       pointer;
   padding:      6px;
@@ -2714,10 +2719,10 @@ html, body, #root { background: #F7F3EE; }
   border-radius: 8px;
   -webkit-tap-highlight-color: transparent;
 }
-.drawer-open-btn:active { background: rgba(255,255,255,0.15); }
+.drawer-open-btn:active { background: rgba(0,0,0,0.1); }
 .drawer-open-icon {
   font-size:  20px;
-  color:      #FFFFFF;
+  color:      rgba(0,0,0,0.6);
   line-height: 1;
   display:    block;
 }

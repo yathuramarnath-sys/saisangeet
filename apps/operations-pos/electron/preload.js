@@ -68,4 +68,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   // Quit and install the downloaded update immediately
   installUpdate: () => ipcRenderer.send("update:install-now"),
+
+  // ── Local network server ──────────────────────────────────────────────────
+  // Returns { ip, port, url } of the local socket server running in main process.
+  // Displayed in POS Settings so the owner can configure Captain/KDS tablets.
+  getLocalServerInfo: () => ipcRenderer.invoke("get-local-server-info"),
+
+  // Push current order state to main process local store (keeps tablets in sync)
+  pushOrdersToLocal: (orders) => ipcRenderer.send("local:push-orders", orders),
 });
