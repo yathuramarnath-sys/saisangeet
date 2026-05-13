@@ -32,8 +32,8 @@
   --hold-border: #E5E7EB;
 
   /* Action colours */
-  --kot-bg:      #FFC107;
-  --kot-shadow:  rgba(255,193,7,0.28);
+  --kot-bg:      #059669;
+  --kot-shadow:  rgba(5,150,105,0.28);
 
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -1913,8 +1913,8 @@ html, body, #root { background: #F7F3EE; }
 .status-hold .table-status-dot    { background: #9E9E9E !important; }
 
 /* ── 4. Area tabs, category chips ── */
-.area-tab-active  { background: #FFC107 !important; border-color: #FFC107 !important; color: #212121 !important; }
-.cat-chip-active  { background: #FFC107 !important; border-color: #FFC107 !important; color: #212121 !important; }
+.area-tab-active  { background: #059669 !important; border-color: #047857 !important; color: #FFFFFF !important; }
+.cat-chip-active  { background: #059669 !important; border-color: #047857 !important; color: #FFFFFF !important; }
 
 /* ── 5. Floor summary bar ── */
 .floor-summary { background: #FFFFFF !important; }
@@ -1922,13 +1922,13 @@ html, body, #root { background: #F7F3EE; }
 
 /* ── 6. KOT button: yellow brand colour — larger + glow + pulse ── */
 .kot-btn {
-  background: #FFC107 !important;
+  background: #059669 !important;
   color: #212121 !important;
   padding: 20px !important;
   font-size: 1.05rem !important;
   font-weight: 800 !important;
   border-radius: 18px !important;
-  box-shadow: 0 6px 20px rgba(255,193,7,0.40) !important;
+  box-shadow: 0 6px 20px rgba(5,150,105,0.40) !important;
 }
 
 /* Pulse glow when there are pending (unsent) items */
@@ -1936,23 +1936,23 @@ html, body, #root { background: #F7F3EE; }
   animation: kotPulse 2s ease-in-out infinite !important;
 }
 @keyframes kotPulse {
-  0%,100% { box-shadow: 0 4px 12px rgba(255,193,7,0.40); }
-  50%      { box-shadow: 0 6px 22px rgba(255,193,7,0.70); }
+  0%,100% { box-shadow: 0 4px 12px rgba(5,150,105,0.40); }
+  50%      { box-shadow: 0 6px 22px rgba(5,150,105,0.70); }
 }
 
 /* ── 7. Login page ── */
 .login-page { background: #F7F3EE !important; }
-.login-logo { background: #FFC107 !important; color: #212121 !important; }
-.staff-card:active { border-color: #FFC107 !important; }
+.login-logo { background: #059669 !important; color: #212121 !important; }
+.staff-card:active { border-color: #059669 !important; }
 
 /* ── 8. PIN numpad keys ── */
-.numpad-key:active { background: #FFC107 !important; border-color: #FFC107 !important; color: #212121 !important; }
-.pin-dot.filled    { background: #FFC107 !important; border-color: #E6AC00 !important; }
+.numpad-key:active { background: #059669 !important; border-color: #047857 !important; color: #FFFFFF !important; }
+.pin-dot.filled    { background: #059669 !important; border-color: #047857 !important; }
 
 /* ── 9. Order screen ── */
 .order-page { background: #F7F3EE !important; }
 .order-header { background: #FFFFFF !important; }
-.add-items-btn { background: #FFC107 !important; color: #212121 !important; }
+.add-items-btn { background: #059669 !important; color: #212121 !important; }
 .order-actions { background: #F7F3EE !important; }
 
 /* ── 10. Menu items — 2-column box grid (faster browsing for captain) ── */
@@ -2038,7 +2038,7 @@ html, body, #root { background: #F7F3EE; }
   color: #212121 !important;
   width: 34px !important;
   height: 34px !important;
-  background: #FFC107 !important;
+  background: #059669 !important;
   border-radius: 10px !important;
   flex-shrink: 0 !important;
 }
@@ -2050,21 +2050,21 @@ html, body, #root { background: #F7F3EE; }
   height: 30px !important;
   font-size: 1rem !important;
 }
-.qty-btn.qty-btn-add { background: #FFC107 !important; border-color: #E6AC00 !important; color: #212121 !important; }
+.qty-btn.qty-btn-add { background: #059669 !important; border-color: #047857 !important; color: #212121 !important; }
 .qty-num { font-size: 0.88rem !important; min-width: 18px !important; }
 
 /* Empty state spans full grid */
 .menu-empty { grid-column: 1 / -1 !important; }
 
 /* Cart bar */
-.cart-bar-btn { background: #FFC107 !important; color: #212121 !important; }
+.cart-bar-btn { background: #059669 !important; color: #212121 !important; }
 
 /* ── KOT sent badge — keep neutral green, not bill-red ── */
 .kot-badge { background: #E8F5E9 !important; color: #4CAF50 !important; border-color: rgba(76,175,80,0.3) !important; }
 
 /* ── 11. Quick-notes / modals ── */
-.quick-chip-active { background: #FFC107 !important; border-color: #E6AC00 !important; color: #212121 !important; }
-.sheet-save-btn    { background: #FFC107 !important; color: #212121 !important; }
+.quick-chip-active { background: #059669 !important; border-color: #047857 !important; color: #212121 !important; }
+.sheet-save-btn    { background: #059669 !important; color: #212121 !important; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    TABLE CARD BADGES — timer (top-left) and unsent KOT count (top-right)
@@ -2267,14 +2267,14 @@ html, body, #root { background: #F7F3EE; }
 /* Primary (Edit Order) — slightly highlighted */
 .tas-primary {
   background: #FFF8E1;
-  border-color: rgba(255,193,7,0.35);
+  border-color: rgba(5,150,105,0.35);
 }
 .tas-primary .tas-action-label { color: #7B4F00; }
 
 /* KOT action — amber accent */
 .tas-action-kot {
   background:   #FFFDE7;
-  border-color: rgba(255,193,7,0.4);
+  border-color: rgba(5,150,105,0.4);
 }
 .tas-action-kot .tas-action-label { color: #5D4037; }
 .tas-unsent-badge {
@@ -2417,9 +2417,9 @@ html, body, #root { background: #F7F3EE; }
   outline:     none;
 }
 .cis-field input:focus {
-  border-color: #FFC107;
+  border-color: #059669;
   background:   #fff;
-  box-shadow:   0 0 0 3px rgba(255,193,7,0.15);
+  box-shadow:   0 0 0 3px rgba(5,150,105,0.15);
 }
 .cis-field-sm { max-width: 160px; }
 
@@ -2446,15 +2446,15 @@ html, body, #root { background: #F7F3EE; }
   padding:       13px;
   border-radius: 11px;
   border:        none;
-  background:    #FFC107;
+  background:    #059669;
   font-family:   inherit;
   font-size:     15px;
   font-weight:   700;
   color:         #212121;
   cursor:        pointer;
-  box-shadow:    0 2px 8px rgba(255,193,7,0.35);
+  box-shadow:    0 2px 8px rgba(5,150,105,0.35);
 }
-.cis-btn-save:active   { background: #E6AC00; }
+.cis-btn-save:active   { background: #047857; }
 .cis-btn-cancel:active { background: #EAEAE8; }
 
 /* ════════════════════════════════════════════════════════════════════════════
