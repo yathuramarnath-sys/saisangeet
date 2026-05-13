@@ -18,11 +18,12 @@ export function OrderScreen({
   onBack, onSendKOT, onRequestBill, onPrintBill,
   onToggleHold, onUpdateOrder, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear,
+  autoOpen = null, // "transfer" | "merge" | "split" — open modal immediately on mount
 }) {
-  const [screen,        setScreen]        = useState("order"); // order | menu | split
+  const [screen,        setScreen]        = useState(autoOpen === "split" ? "split" : "order");
   const [noteItemIdx,   setNoteItemIdx]   = useState(null);
-  const [showTransfer,  setShowTransfer]  = useState(false);
-  const [showMerge,     setShowMerge]     = useState(false);
+  const [showTransfer,  setShowTransfer]  = useState(autoOpen === "transfer");
+  const [showMerge,     setShowMerge]     = useState(autoOpen === "merge");
   const [showPhonePeQR, setShowPhonePeQR] = useState(false);
   const [stockState,    setStockState]    = useState(() => getStockState());
 
@@ -220,17 +221,7 @@ export function OrderScreen({
           </button>
         )}
 
-        {hasItems && (
-          <>
-            {/* Hold only — Merge/Transfer/Split/Print Bill via long press on table */}
-            <button
-              className={`action-btn${order.isOnHold ? " hold-active-btn" : " hold-btn"}`}
-              onClick={() => { tapImpact(); onToggleHold(); }}
-            >
-              {order.isOnHold ? "▶ Resume Order" : "⏸ Hold"}
-            </button>
-          </>
-        )}
+        {/* Hold removed — Merge/Transfer/Split/Print Bill all via long press on table */}
       </div>
 
       {/* Note modal */}

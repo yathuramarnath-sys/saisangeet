@@ -110,6 +110,7 @@ export function App() {
   const [actionArea,      setActionArea]       = useState(null);
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
   const [showDrawer,      setShowDrawer]       = useState(false);
+  const [autoOpenAction,  setAutoOpenAction]   = useState(null); // "transfer"|"merge"|"split"
   const [scanning,        setScanning]         = useState(false);
   const [updateInfo,      setUpdateInfo]       = useState(null); // update available for drawer badge
   // KOT queue — failed sends stored here so staff can retry from the drawer
@@ -378,7 +379,7 @@ export function App() {
 
   // ── Check for Captain app updates (shown in drawer, not top banner) ──────
   useEffect(() => {
-    const APP_VERSION_CAPTAIN = "1.7";
+    const APP_VERSION_CAPTAIN = "1.9";
     const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1");
     function checkUpdate() {
       fetch(`${API_BASE}/app-versions`, { cache: "no-store" })
@@ -415,7 +416,8 @@ export function App() {
   }
 
   // Extracted so both direct-tap and "Edit Order" from action sheet call the same logic
-  async function openOrderScreen(tableId, area) {
+  // autoOpen: null | "transfer" | "merge" | "split" — immediately opens the relevant modal
+  async function openOrderScreen(tableId, area, autoOpen = null) {
     // Capture the local items synchronously BEFORE the async server fetch.
     // A socket event may clear orders[tableId] while the fetch is in flight —
     // using a closure variable avoids losing items that only existed locally.
@@ -430,6 +432,7 @@ export function App() {
       return { ...prev, [tableId]: buildBlankOrder(t, area) };
     });
     setActionTableId(null);   // close action sheet if open
+    setAutoOpenAction(autoOpen);
     setSelectedTableId(tableId);
     setSelectedArea(area);
 
@@ -740,14 +743,11 @@ export function App() {
     toast.success("Guest info saved");
   }
 
-  // ── Sign out — clear branch config + staff login, return to setup screen ──
+  // ── Sign out — clear staff login only, keep branch config (device stays linked)
+  // Returns to the staff PIN selection screen, not the setup/sync code screen.
   function handleSignOut() {
     setShowDrawer(false);
-    clearCaptainBranchConfig();
-    setLoggedInStaff(null);
-    setBranchConfig(null);
-    socketRef.current?.disconnect();
-    localSocketRef.current?.disconnect();
+    setLoggedInStaff(null);   // goes back to PIN login (branchConfig stays intact)
   }
 
   // ── Drawer: Sync data ────────────────────────────────────────────────────
@@ -992,7 +992,8 @@ export function App() {
             orders={orders}
             outletId={outlet?.id}
             socket={socketRef.current}
-            onBack={() => setSelectedTableId(null)}
+            autoOpen={autoOpenAction}
+            onBack={() => { setSelectedTableId(null); setAutoOpenAction(null); }}
             onSendKOT={handleSendKOT}
             onRequestBill={handleRequestBill}
             onPrintBill={handlePrintBill}
@@ -1038,10 +1039,9 @@ export function App() {
             onClose={() => { setActionTableId(null); setActionArea(null); }}
             onEditOrder={() => openOrderScreen(actionTableId, actionArea)}
             onSendKOT={() => handleSendKOT(actionTableId)}
-            onHoldToggle={() => handleToggleHold(actionTableId)}
-            onMoveTable={() => openOrderScreen(actionTableId, actionArea)}
-            onMerge={() => openOrderScreen(actionTableId, actionArea)}
-            onSplitBill={() => { openOrderScreen(actionTableId, actionArea); }}
+            onMoveTable={() => openOrderScreen(actionTableId, actionArea, "transfer")}
+            onMerge={() => openOrderScreen(actionTableId, actionArea, "merge")}
+            onSplitBill={() => openOrderScreen(actionTableId, actionArea, "split")}
             onPrintBill={() => handlePrintBill(actionTableId)}
             onCustomerInfo={() => { setShowCustomerInfo(true); }}
           />

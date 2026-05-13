@@ -24,7 +24,7 @@ import { tapImpact } from "../lib/haptics";
 export function TableActionsSheet({
   tableNumber, areaName, order,
   onClose, onEditOrder, onSendKOT,
-  onHoldToggle, onMoveTable, onMerge, onSplitBill, onPrintBill, onCustomerInfo,
+  onMoveTable, onMerge, onSplitBill, onPrintBill, onCustomerInfo,
 }) {
   const [elapsed, setElapsed] = useState("");
 
@@ -51,7 +51,6 @@ export function TableActionsSheet({
   const unsent       = items.filter(i => !i.sentToKot && !i.isVoided);
   const itemCount    = billable.length;
   const unsentCount  = unsent.length;
-  const isOnHold     = order?.isOnHold;
   const billRequested = order?.billRequested;
 
   const subtotal = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
@@ -138,12 +137,6 @@ export function TableActionsSheet({
 
         {/* ── Secondary actions ───────────────────────────────────────── */}
         <div className="tas-section tas-section-secondary">
-
-          {/* Hold / Unhold */}
-          <button className="tas-action-sm" onClick={() => { tapImpact(); onHoldToggle(); }}>
-            <span>{isOnHold ? "▶" : "⏸"}</span>
-            <span>{isOnHold ? "Resume Order" : "Put on Hold"}</span>
-          </button>
 
           {/* Move Table */}
           <button className="tas-action-sm" onClick={() => { tapImpact(); onMoveTable(); }}>

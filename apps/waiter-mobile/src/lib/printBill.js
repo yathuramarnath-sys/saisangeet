@@ -1,18 +1,15 @@
 /**
  * printBill.js — thermal bill printing for Captain / Waiter app
  *
- * Production path  (Windows Electron): silent via window.electronAPI.printHTML()
- * Android / web:   NO-OP — the cashier POS handles all billing and GST receipt
- *                  printing via TCP ESC/POS to port 9100. The Captain app cannot
- *                  reach the thermal printer from Android. Opening a browser
- *                  popup on Android does nothing useful — so we bail out silently.
+ * Android path: sends HTML to the Windows POS local server (port 4001/print)
+ * which forwards to the thermal printer via TCP ESC/POS port 9100.
+ * The POS IP is stored as "captain_local_server_ip" (set via Find POS in ☰ menu).
  */
 
 import { getBillPrinter } from "./kotPrint";
+import { tabletPrintBill } from "./wifiPrint";
 
 export function printBill(order, items, outletName, options = {}) {
-  // ── Android / web: no-op. Bill printing is the POS cashier's responsibility.
-  if (!window.electronAPI?.printHTML) return;
 
   const { seatLabel = null, cashierName = null } = options;
   const _printer      = getBillPrinter();
@@ -203,25 +200,20 @@ export function printBill(order, items, outletName, options = {}) {
 </body>
 </html>`;
 
-  // ── Electron silent printing ──────────────────────────────────────────────
-  const printerName  = _printer?.winName || _printer?.name || null;
-  const printerIp    = _printer?.ip?.trim() || null;
-  const paperWidthMm = _paperWidthMm;
-
-  window.electronAPI
-    .printHTML({ html, printerName, printerIp, paperWidthMm })
+  // ── Android / web: send via WiFi proxy (Windows POS port 4001) ──────────
+  tabletPrintBill(html, _paperWidthMm)
     .then((result) => {
       if (!result?.ok) {
-        console.warn("[printBill] Electron print failed:", result?.error);
+        console.warn("[printBill] WiFi print failed:", result?.error);
         window.dispatchEvent(new CustomEvent("dinex:print-error", {
-          detail: { source: "Bill", printerName, error: result?.error },
+          detail: { source: "Bill", error: result?.error || "Print failed" },
         }));
       }
     })
     .catch((err) => {
-      console.error("[printBill] Electron printHTML error:", err);
+      console.warn("[printBill] WiFi print error:", err?.message);
       window.dispatchEvent(new CustomEvent("dinex:print-error", {
-        detail: { source: "Bill", printerName, error: err?.message || "unknown" },
+        detail: { source: "Bill", error: err?.message || "No POS found on network. Use Find POS in ☰ menu." },
       }));
     });
 }

@@ -8,9 +8,9 @@
     "releaseDate": "2026-05-13"
   },
   "captain": {
-    "version": "1.8",
+    "version": "1.9",
     "label": "Captain App",
-    "changelog": "Tap table to open order directly, long press for Merge/Transfer/Split/Print Bill, Sign Out in menu, stuck item bug fixed",
+    "changelog": "Move/Merge/Split bill fixed, bill print from captain working, sign out fixed, version display fixed",
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
     "releaseDate": "2026-05-14"
