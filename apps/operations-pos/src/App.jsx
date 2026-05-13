@@ -1260,14 +1260,16 @@ export default function App() {
 
     // ── Print receipt after settle ─────────────────────────────────────────
     // Print once here — AFTER the server has assigned the official billNo.
-    // This ensures the thermal receipt shows the sequential GST bill number
-    // (e.g. "Bill No: #42") rather than the local POS orderNumber.
-    printBill(
-      closedOrder,
-      closedOrder.items,
-      outlet || branchConfig?.outletName,
-      { cashierName }
-    );
+    // Print bill after settlement — skip if cashier already printed via "Print Bill" button
+    // (avoids duplicate printouts for dine-in tables)
+    if (!order.billPrinted) {
+      printBill(
+        closedOrder,
+        closedOrder.items,
+        outlet || branchConfig?.outletName,
+        { cashierName }
+      );
+    }
 
     setShowPayment(false);
     setSelectedTableId(null);
@@ -1477,13 +1479,13 @@ export default function App() {
       return o;
     });
 
-    // Print a pre-bill (ESTIMATE) immediately so customer can review before payment
-    printBill(order, order.items, outlet || branchConfig?.outletName, {
-      cashierName,
-      preBill: true,
-    });
+    // Print the GST bill immediately — customer takes this, cashier then collects payment
+    printBill(order, order.items, outlet || branchConfig?.outletName, { cashierName });
 
-    showToast("📋 Pre-bill printed · Collect payment to issue GST receipt");
+    // Mark as already printed so settlement doesn't print a duplicate
+    mutateOrder(tableId, (o) => { o.billPrinted = true; return o; });
+
+    showToast("🖨️ Bill printed · Collect payment");
 
     // Close the order panel — table stays blue until payment is collected
     setSelectedTableId(null);
