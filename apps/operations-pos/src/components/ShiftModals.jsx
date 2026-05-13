@@ -147,7 +147,7 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
 }
 
 /* ── Shift Closing Receipt (printable) ────────────────────────────────────── */
-function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, shiftOrders }) {
+function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, shiftOrders, denomBreakdown }) {
   // shiftOrders is an array of closed orders for this shift
   const totalOrders = (shiftOrders || []).length;
   const totalSales  = (shiftOrders || []).reduce((s, o) => {
@@ -197,6 +197,15 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
       <div className="sr-row"><span>Cash Sales</span><span>{fmt(cashSales)}</span></div>
       <div className="sr-row bold"><span>Expected in Drawer</span><span>{fmt(expectedCash)}</span></div>
       <div className="sr-row bold"><span>Counted</span><span>{fmt(closingNum)}</span></div>
+      {(denomBreakdown || []).length > 0 && <>
+        <div className="sr-section-title">DENOMINATION BREAKDOWN</div>
+        {(denomBreakdown || []).map(d => (
+          <div key={d.note} className="sr-row sr-denom-row">
+            <span>₹{d.note} × {d.count}</span>
+            <span>{fmt(d.total)}</span>
+          </div>
+        ))}
+      </>}
       <div className={`sr-row bold ${variance === 0 ? "ok" : variance < 0 ? "short" : "over"}`}>
         <span>Variance</span>
         <span>{variance === 0 ? "✓ MATCH" : variance > 0 ? `+${fmt(variance)} OVER` : `${fmt(variance)} SHORT`}</span>
@@ -228,14 +237,22 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
 }
 
 /* ── Close Shift modal ────────────────────────────────────────────────────── */
+const DENOMS = [500, 200, 100, 50, 20, 10, 5, 2, 1];
+
 export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
   // Safety guard — if shift becomes null before the modal unmounts, render nothing
   if (!shift) return null;
 
-  const [closingCash,  setClosingCash]  = useState("0");
+  const [denomCounts, setDenomCounts] = useState(() =>
+    Object.fromEntries(DENOMS.map(d => [d, ""]))
+  );
   const [note,         setNote]         = useState("");
   const [showReceipt,  setShowReceipt]  = useState(false);
-  const [closedRecord, setClosedRecord] = useState(null); // holds the closed shift object
+  const [closedRecord, setClosedRecord] = useState(null);
+
+  // Auto-calculate total from denomination counts
+  const closingNum = DENOMS.reduce((sum, d) => sum + d * (Number(denomCounts[d]) || 0), 0);
+  const closingCash = String(closingNum); // kept for compatibility
 
   // Read all closed orders for this shift from pos_closed_orders.
   // (The `orders` state prop has already been reset to blank tables by the time
@@ -261,9 +278,8 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
     - (shift.cashOut || 0)
     + cashSales;
 
-  const closingNum = Number(closingCash) || 0;
   const variance   = closingNum - expectedCash;
-  const counted    = closingCash !== "0";
+  const counted    = closingNum > 0;
   const isShort    = counted && variance < 0;
   const isOver     = counted && variance > 0;
   const isExact    = counted && variance === 0;
@@ -271,6 +287,11 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
   function fmt(n) { return "₹" + Math.abs(n).toLocaleString("en-IN"); }
 
   function handleClose() {
+    // Build denomination summary for print
+    const denomBreakdown = DENOMS
+      .filter(d => Number(denomCounts[d]) > 0)
+      .map(d => ({ note: d, count: Number(denomCounts[d]), total: d * Number(denomCounts[d]) }));
+
     const closed = {
       ...shift,
       closingCash:  closingNum,
@@ -278,7 +299,8 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
       variance,
       closedAt:     new Date().toISOString(),
       status:       variance !== 0 ? "mismatch" : "closed",
-      note:         note.trim()
+      note:         note.trim(),
+      denomBreakdown,
     };
 
     let active  = [];
@@ -364,6 +386,7 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
               closingNum={closingNum}
               variance={variance}
               shiftOrders={shiftOrders}
+              denomBreakdown={closedRecord?.denomBreakdown}
             />
           </div>
           <div className="sm-footer">
@@ -415,11 +438,37 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
             </div>
           </div>
 
-          {/* Count cash */}
-          <div className="sm-field">
-            <label>Count Cash in Drawer</label>
-            <div className="sm-cash-display">₹ {closingNum.toLocaleString("en-IN")}</div>
-            <NumPad value={closingCash} onChange={setClosingCash} />
+          {/* Denomination count table */}
+          <div className="sm-denom-section">
+            <div className="sm-denom-header">
+              <span>Count Cash in Drawer</span>
+              <span className="sm-denom-total">₹ {closingNum.toLocaleString("en-IN")}</span>
+            </div>
+            <div className="sm-denom-table">
+              <div className="sm-denom-row sm-denom-head">
+                <span>Note / Coin</span>
+                <span>Count</span>
+                <span>Amount</span>
+              </div>
+              {DENOMS.map(d => {
+                const count = Number(denomCounts[d]) || 0;
+                const total = d * count;
+                return (
+                  <div key={d} className="sm-denom-row">
+                    <span className="sm-denom-label">₹{d}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="sm-denom-input"
+                      value={denomCounts[d]}
+                      placeholder="0"
+                      onChange={e => setDenomCounts(prev => ({ ...prev, [d]: e.target.value }))}
+                    />
+                    <span className="sm-denom-amt">{count > 0 ? `₹${total.toLocaleString("en-IN")}` : "—"}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Variance result */}

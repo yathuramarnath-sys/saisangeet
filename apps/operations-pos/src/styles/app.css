@@ -1983,6 +1983,40 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .sm-sum-row.expected span   { color: var(--sq-text); font-weight: 700; }
 .sm-sum-row.expected strong { font-size: 15px; }
 
+/* ── Denomination count table ── */
+.sm-denom-section {
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 12px; overflow: hidden; margin: 4px 0;
+}
+.sm-denom-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px 8px;
+  font-size: 12px; font-weight: 700; color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+.sm-denom-total { font-size: 16px; font-weight: 800; color: #0f172a; }
+.sm-denom-table { padding: 4px 0; }
+.sm-denom-row {
+  display: grid; grid-template-columns: 1fr 80px 90px;
+  align-items: center; padding: 5px 14px; gap: 8px;
+}
+.sm-denom-head {
+  font-size: 10px; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 2px;
+}
+.sm-denom-label { font-size: 13px; font-weight: 700; color: #1e293b; }
+.sm-denom-input {
+  width: 100%; padding: 4px 8px; border: 1px solid #cbd5e1;
+  border-radius: 6px; font-size: 13px; font-weight: 700;
+  text-align: center; background: #fff; color: #0f172a;
+}
+.sm-denom-input:focus { outline: none; border-color: #6366f1; }
+.sm-denom-input::-webkit-inner-spin-button,
+.sm-denom-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.sm-denom-amt { font-size: 12px; font-weight: 700; color: #059669; text-align: right; }
+.sr-denom-row { font-size: 11px !important; color: #555; }
+
 .sm-variance-bar {
   border-radius: 12px;
   padding: 12px 16px;

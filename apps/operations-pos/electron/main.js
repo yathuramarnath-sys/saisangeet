@@ -355,18 +355,18 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
 
             // ── KOT receipt ───────────────────────────────────────────────────
             if (q('.kot-outlet')) {
-              const metaRows = qa('.kot-meta-row');
-              const largeRow = q('.kot-meta-row.large');
+              const idRow    = q('.kot-meta-id');   // contains kot-tbl + kot-num
+              const dtRow    = q('.kot-meta-dt');   // contains date + time spans
               const footRows = qa('.kot-footer-row');
+              const guestRow = qa('.kot-meta-row');
               return {
                 type:    'KOT',
-                outlet:  q('.kot-outlet')?.innerText || '',
-                // Use :first-child/:last-child instead of positional index — robust if wrapper elements are added
-                table:   largeRow?.querySelector(':first-child')?.innerText?.trim() || '',
-                kotNum:  largeRow?.querySelector(':last-child')?.innerText?.trim()  || '',
-                date:    metaRows.find(r => r.innerText.includes('Date'))?.querySelector(':last-child')?.innerText?.trim()  || '',
-                time:    metaRows.find(r => r.innerText.includes('Time'))?.querySelector(':last-child')?.innerText?.trim()  || '',
-                guests:  metaRows.find(r => r.innerText.includes('Guest'))?.querySelector(':last-child')?.innerText?.trim() || '',
+                outlet:  q('.kot-outlet')?.innerText?.trim() || '',
+                table:   q('.kot-tbl')?.innerText?.trim() || '',
+                kotNum:  q('.kot-num')?.innerText?.trim() || '',
+                date:    dtRow?.querySelector('span:first-child')?.innerText?.trim() || '',
+                time:    dtRow?.querySelector('span:last-child')?.innerText?.trim()  || '',
+                guests:  guestRow.find(r => r.innerText.includes('Guest'))?.querySelector(':last-child')?.innerText?.trim() || '',
                 items:   qa('.kot-item').map(el => ({
                   qty:  el.querySelector('.kot-qty')?.innerText?.trim() || '',
                   name: el.querySelector('.kot-item-name')?.innerText?.trim() || '',
@@ -470,14 +470,15 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
           cmd += CENTER + BOLD1 + BIG + (data.outlet || 'KITCHEN') + NORMAL + BOLD0 + LF;
           cmd += CENTER + '*** KITCHEN ORDER ***' + LF;
           cmd += DASH48 + LF;
-          // KOT# + Table on SAME compact line (DBLH = double-height, not double-width)
-          const kotNumStr = (data.kotNum || '').padEnd(12);
-          const kotTblStr = kotTable;
-          cmd += DBLH + BOLD1 + kotNumStr + kotTblStr + NORMAL + BOLD0 + LF;
-          // Date + Time on SAME compact line
+          // Table (left) + KOT number (right) — single bold line
+          const tblStr = kotTable.substring(0, 18).padEnd(18);
+          const kotStr = (data.kotNum || '').padStart(14);
+          cmd += BOLD1 + tblStr + kotStr + BOLD0 + LF;
+          // Date (left) + Time (right) — same line, normal size
           if (data.date || data.time) {
-            const dt = ((data.date || '') + '   ' + (data.time || '')).trim();
-            cmd += LEFT + dt + LF;
+            const dateL = (data.date || '').padEnd(18);
+            const timeR = (data.time || '').padStart(14);
+            cmd += dateL + timeR + LF;
           }
           if (data.guests) cmd += LEFT + 'Guests: ' + data.guests + LF;
           cmd += DASH48 + LF;
@@ -513,15 +514,15 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
           if (data.cashier)   cmd += LEFT + 'Cashier : ' + data.cashier + LF;
           if (data.billNo)    cmd += LEFT + 'Bill No : ' + data.billNo + LF;
           cmd += DASH48 + LF;
-          // Column header
-          cmd += BOLD1 + 'Item            Qty   Rate    Amt' + BOLD0 + LF;
+          // Column header  (16 + 3 + 7 + 8 = 34 chars — fits 80mm)
+          cmd += BOLD1 + 'Item            Qty     Rate     Amt' + BOLD0 + LF;
           cmd += DASH48 + LF;
           // Items — strip ₹/Rs. from rate/amt (latin1 can't encode ₹, renders as garbage)
           for (const item of (data.items || [])) {
             const name  = (item.name || '').substring(0, 16).padEnd(16);
             const qty   = (item.qty  || '').padStart(3);
-            const rate  = (item.rate || '').replace(/[₹Rs.]/g, '').trim().padStart(7);
-            const amt   = (item.amt  || '').replace(/[₹Rs.]/g, '').trim().padStart(6);
+            const rate  = (item.rate || '').replace(/[₹Rs\s]/g, '').trim().padStart(8);
+            const amt   = (item.amt  || '').replace(/[₹Rs\s]/g, '').trim().padStart(8);
             cmd += name + qty + rate + amt + LF;
             if (item.note) cmd += '     >> ' + item.note + LF;
           }

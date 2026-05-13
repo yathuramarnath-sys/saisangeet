@@ -73,8 +73,8 @@ export function printBill(order, items, outletOrName, options = {}) {
     <tr>
       <td class="col-item">${i.name}${i.note ? `<div class="item-note">${i.note}</div>` : ""}</td>
       <td class="col-qty">${i.quantity}</td>
-      <td class="col-rate">${i.price.toFixed(0)}</td>
-      <td class="col-amt">${(i.price * i.quantity).toFixed(0)}</td>
+      <td class="col-rate">${i.price.toFixed(2)}</td>
+      <td class="col-amt">${(i.price * i.quantity).toFixed(2)}</td>
     </tr>`).join("");
 
   const html = `<!DOCTYPE html>
@@ -210,13 +210,13 @@ export function printBill(order, items, outletOrName, options = {}) {
   <hr class="div-dash">
 
   <!-- Summary -->
-  <div class="sum-row"><span>Subtotal</span><span class="val">₹${subtotal.toFixed(0)}</span></div>
-  ${discount > 0 ? `<div class="sum-row"><span>Discount</span><span class="val" style="color:#e53">−₹${discount.toFixed(0)}</span></div>` : ""}
+  <div class="sum-row"><span>Subtotal</span><span class="val">₹${subtotal.toFixed(2)}</span></div>
+  ${discount > 0 ? `<div class="sum-row"><span>Discount</span><span class="val" style="color:#e53">−₹${discount.toFixed(2)}</span></div>` : ""}
   ${taxRows.map(t => `
-  <div class="sum-row"><span>CGST (${t.cgstPct}%)</span><span class="val">₹${t.cgst}</span></div>
-  <div class="sum-row"><span>SGST (${t.cgstPct}%)</span><span class="val">₹${t.sgst}</span></div>`).join("")}
+  <div class="sum-row"><span>CGST (${t.cgstPct}%)</span><span class="val">₹${t.cgst.toFixed(2)}</span></div>
+  <div class="sum-row"><span>SGST (${t.cgstPct}%)</span><span class="val">₹${t.sgst.toFixed(2)}</span></div>`).join("")}
   <hr class="div-dash">
-  <div class="total-row"><span>TOTAL</span><span>₹${total.toFixed(0)}</span></div>
+  <div class="total-row"><span>TOTAL</span><span>₹${total.toFixed(2)}</span></div>
   <hr class="div-dash">
 
   <!-- Footer -->
