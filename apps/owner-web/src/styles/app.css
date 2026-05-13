@@ -2161,6 +2161,102 @@ body {
 .inv-catalog-info strong { font-size: 0.9rem; color: #1a2a1a; }
 .inv-catalog-info span   { font-size: 0.72rem; color: #aaa; }
 
+/* ── Inventory: count badge in panel header ──────────────────────────────── */
+.inv-count-badge {
+  font-size: 0.75rem; font-weight: 700;
+  color: #555; background: #f0f0f0;
+  border-radius: 20px; padding: 3px 10px;
+  white-space: nowrap;
+}
+
+/* ── Inventory: filter bar (search + category pills) ─────────────────────── */
+.inv-filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+/* Search */
+.inv-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.inv-search-icon {
+  position: absolute;
+  left: 12px;
+  color: #aaa;
+  pointer-events: none;
+}
+.inv-search-input {
+  width: 100%;
+  padding: 9px 36px 9px 36px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  background: #fafafa;
+  transition: border-color 0.15s, background 0.15s;
+  outline: none;
+}
+.inv-search-input:focus {
+  border-color: #1a7a3a;
+  background: #fff;
+}
+.inv-search-input::placeholder { color: #bbb; }
+.inv-search-clear {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #aaa;
+  font-size: 13px;
+  padding: 4px;
+  line-height: 1;
+}
+.inv-search-clear:hover { color: #333; }
+
+/* Category pills */
+.inv-cat-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.inv-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid #e0e0e0;
+  background: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.inv-cat-pill:hover { border-color: #1a7a3a; color: #1a7a3a; background: #f0fdf4; }
+.inv-cat-pill.active {
+  background: #1a7a3a;
+  border-color: #1a7a3a;
+  color: #fff;
+}
+.inv-cat-pill.active .inv-cat-pill-count { background: rgba(255,255,255,0.25); color: #fff; }
+.inv-cat-pill-count {
+  background: #f0f0f0;
+  color: #888;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+}
+
 .inv-auto-value {
   padding: 9px 12px;
   border: 1.5px solid #dde8dd;

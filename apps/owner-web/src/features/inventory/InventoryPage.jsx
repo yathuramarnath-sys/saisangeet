@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import {
   INVENTORY_TRACKING_KEY,
@@ -81,6 +81,7 @@ export function InventoryPage() {
   // UI state
   const [activeSession, setActiveSession] = useState("Lunch");
   const [activeCat,     setActiveCat]     = useState("All");
+  const [searchQ,       setSearchQ]       = useState("");
   const [msg,           setMsg]           = useState("");
   const [newSide,       setNewSide]       = useState("");
 
@@ -144,12 +145,16 @@ export function InventoryPage() {
 
   function flash(t) { setMsg(t); setTimeout(() => setMsg(""), 3000); }
 
-  // ── Category filter ──────────────────────────────────────────────────────────
+  // ── Search + Category filter ─────────────────────────────────────────────────
 
   const categories = ["All", ...new Set(menuCatalog.map(m => m.category))];
-  const filteredCatalog = activeCat === "All"
-    ? menuCatalog
-    : menuCatalog.filter(m => m.category === activeCat);
+
+  const filteredCatalog = menuCatalog.filter(m => {
+    const matchesCat    = activeCat === "All" || m.category === activeCat;
+    const q             = searchQ.trim().toLowerCase();
+    const matchesSearch = !q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q);
+    return matchesCat && matchesSearch;
+  });
 
   // ── Tracking toggle helpers ──────────────────────────────────────────────────
 
@@ -278,10 +283,41 @@ export function InventoryPage() {
             <p className="eyebrow">Menu Items</p>
             <h3>Enable Inventory Tracking</h3>
           </div>
-          <div className="inv-session-tabs">
+          <span className="inv-count-badge">{filteredCatalog.length} of {menuCatalog.length} items</span>
+        </div>
+
+        {/* ── Search + Category filter bar ─── */}
+        <div className="inv-filter-bar">
+          <div className="inv-search-wrap">
+            <svg className="inv-search-icon" width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              className="inv-search-input"
+              type="text"
+              placeholder="Search items by name or category…"
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+            />
+            {searchQ && (
+              <button type="button" className="inv-search-clear" onClick={() => setSearchQ("")}>✕</button>
+            )}
+          </div>
+          <div className="inv-cat-pills">
             {categories.map(c => (
-              <button key={c} className={`inv-session-tab${activeCat === c ? " active" : ""}`}
-                onClick={() => setActiveCat(c)}>{c}</button>
+              <button
+                key={c}
+                className={`inv-cat-pill${activeCat === c ? " active" : ""}`}
+                onClick={() => setActiveCat(c)}
+              >
+                {c}
+                {c !== "All" && (
+                  <span className="inv-cat-pill-count">
+                    {menuCatalog.filter(m => m.category === c).length}
+                  </span>
+                )}
+              </button>
             ))}
           </div>
         </div>
@@ -292,6 +328,12 @@ export function InventoryPage() {
           <div className="inv-empty-state">
             <span>🍽️</span>
             <p>No menu items found. Go to <strong>Menu</strong> and add items first — they'll appear here for tracking.</p>
+          </div>
+        ) : filteredCatalog.length === 0 ? (
+          <div className="inv-empty-state">
+            <span>🔍</span>
+            <p>No items match <strong>"{searchQ}"</strong>{activeCat !== "All" ? ` in ${activeCat}` : ""}.</p>
+            <button className="ghost-chip" onClick={() => { setSearchQ(""); setActiveCat("All"); }}>Clear filters</button>
           </div>
         ) : (
           <>
