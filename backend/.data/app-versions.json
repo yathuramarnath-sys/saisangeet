@@ -30,5 +30,13 @@
     "downloadUrl": null,
     "apkUrl": null,
     "releaseDate": "2026-05-12"
+  },
+  "tabletPos": {
+    "version": "1.0",
+    "label": "Tablet POS",
+    "changelog": "Full POS on Android tablet — orders, payments, GST bills, shifts, WiFi printing",
+    "downloadUrl": null,
+    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-Tablet-POS-v1.0.apk",
+    "releaseDate": "2026-05-13"
   }
 }
