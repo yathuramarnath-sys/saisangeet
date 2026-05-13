@@ -517,6 +517,11 @@ export default function App() {
           }
         });
 
+        // ── Captain app printed bill → don't reprint at settlement ───────────
+        socket.on("bill:printed", ({ tableId }) => {
+          if (tableId) billPrintedTablesRef.current.add(tableId);
+        });
+
         // ── When a new device (Captain App / KDS) joins the outlet room,
         //    broadcast all current active orders so they get correct table state ──
         socket.on("request:order-sync", () => {
@@ -587,6 +592,11 @@ export default function App() {
             };
           });
           showToast(`🖨 KOT #${kot.kotNumber} (local) → Kitchen`);
+        });
+
+        // Captain app printed bill via local WiFi → don't reprint at settlement
+        localSock.on("bill:printed", ({ tableId }) => {
+          if (tableId) billPrintedTablesRef.current.add(tableId);
         });
 
         // ── New online order arrives from UrbanPiper webhook ──────────────────

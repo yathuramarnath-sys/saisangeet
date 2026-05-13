@@ -715,6 +715,10 @@ export function App() {
       outlet?.name || branchConfig?.outletName,
       { cashierName: loggedInStaff?.name || "Waiter" }
     );
+    // Notify POS (cloud + local) so it skips printing again at settlement
+    const billPrintedPayload = { tableId: tid, outletId: outlet?.id };
+    socketRef.current?.emit("bill:printed", billPrintedPayload);
+    localSocketRef.current?.emit("bill:printed", billPrintedPayload);
     toast("Printing bill…", { icon: "🖨️" });
     if (tid === selectedTableId) setSelectedTableId(null);
     setActionTableId(null);
