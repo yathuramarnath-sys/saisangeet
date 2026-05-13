@@ -6158,27 +6158,33 @@ body { background: var(--v2-bg) !important; }
   color:      rgba(0,0,0,0.45) !important;
 }
 
-/* Mode pills on amber header — white active pill */
+/* Mode pills on amber header — NO white box, clean transparent style */
 .pos-mode-pills {
-  background:    rgba(0,0,0,0.08) !important;
-  border-radius: 10px !important;
-  padding:       4px !important;
+  background:    transparent !important;
+  border-radius: 0 !important;
+  padding:       0 !important;
+  gap:           4px !important;
 }
 .pos-mode-pill {
-  font-size:     12.5px !important;
+  font-size:     13px !important;
   font-weight:   600 !important;
-  padding:       5px 16px !important;
+  padding:       5px 18px !important;
   color:         rgba(0,0,0,0.5) !important;
-  border-radius: 7px !important;
+  border-radius: 8px !important;
+  background:    transparent !important;
+  border:        none !important;
   transition:    all 130ms !important;
 }
 .pos-mode-pill.active {
-  background:  #FFFFFF !important;
-  color:       #1A1A1A !important;
-  font-weight: 800 !important;
-  box-shadow:  0 1px 6px rgba(0,0,0,0.12) !important;
+  background:    rgba(0,0,0,0.12) !important;
+  color:         #1A1A1A !important;
+  font-weight:   800 !important;
+  box-shadow:    none !important;
 }
-.pos-mode-pill:hover:not(.active) { color: rgba(0,0,0,0.75) !important; }
+.pos-mode-pill:hover:not(.active) {
+  background: rgba(0,0,0,0.07) !important;
+  color:      rgba(0,0,0,0.7) !important;
+}
 
 .pos-topbar-time {
   font-size:   14px !important;
@@ -6216,22 +6222,26 @@ body { background: var(--v2-bg) !important; }
   color:      #1A1A1A !important;
 }
 
-/* Mode pills on amber bg (pbb variant) */
+/* Mode pills on amber header — transparent, no white boxes */
 .pbb-mode-pill {
-  background:    rgba(0,0,0,0.07) !important;
+  background:    transparent !important;
   color:         rgba(0,0,0,0.5) !important;
-  border:        1.5px solid rgba(0,0,0,0.08) !important;
+  border:        none !important;
+  font-size:     13px !important;
+  font-weight:   600 !important;
+  padding:       5px 18px !important;
+  border-radius: 8px !important;
 }
 .pbb-mode-pill.active {
-  background:    #FFFFFF !important;
+  background:    rgba(0,0,0,0.12) !important;
   color:         #1A1A1A !important;
-  border-color:  #FFFFFF !important;
+  border:        none !important;
   font-weight:   800 !important;
-  box-shadow:    0 1px 6px rgba(0,0,0,0.12) !important;
+  box-shadow:    none !important;
 }
 .pbb-mode-pill:hover:not(.active) {
-  background: rgba(0,0,0,0.12) !important;
-  color:      rgba(0,0,0,0.75) !important;
+  background: rgba(0,0,0,0.07) !important;
+  color:      rgba(0,0,0,0.7) !important;
 }
 
 /* ── 4. Left panel + area tabs ───────────────────────────────────────────── */
