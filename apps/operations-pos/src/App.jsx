@@ -481,10 +481,19 @@ export default function App() {
         });
 
         // ── Receive full availability state on connect (sent by backend) ──────
+        // Bulk state received on connect (server catch-up)
         socket.on("item:availability:state", (state) => {
           Object.entries(state || {}).forEach(([id, val]) => {
             setItemAvailability(id, val !== false ? true : false);
           });
+        });
+
+        // Live update when a single item availability changes
+        // (from POS toggle, OR from Owner Console "Show in POS" toggle)
+        socket.on("item:availability", (data) => {
+          if (data?.itemId != null) {
+            setItemAvailability(data.itemId, data.available !== false);
+          }
         });
 
         // ── When a new device (Captain App / KDS) joins the outlet room,

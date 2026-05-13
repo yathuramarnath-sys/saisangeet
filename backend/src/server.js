@@ -198,6 +198,10 @@ const outletAvailability = {};
 // ── Online-orders enabled state per outlet ───────────────────────────────────
 const outletOnlineEnabled = {};
 
+// Expose caches to REST route handlers (inventory routes need to update + read these)
+app.locals.outletAvailability  = outletAvailability;
+app.locals.outletOnlineEnabled = outletOnlineEnabled;
+
 // Bind the port FIRST so Railway's healthcheck passes immediately,
 // then run migrations + hydration in the background.
 // This avoids healthcheck timeouts when Postgres migrations are slow.

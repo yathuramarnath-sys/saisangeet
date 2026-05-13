@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api } from "../../lib/api";
 import {
   INVENTORY_TRACKING_KEY,
@@ -90,14 +90,15 @@ export function InventoryPage() {
     session: "Lunch", branch: ""
   });
 
-  // ── Load outlets + menu items from API ──────────────────────────────────────
+  // ── Load outlets + menu items + server visibility state from API ─────────────
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
       api.get("/outlets").catch(() => []),
-      api.get("/menu/items").catch(() => [])
-    ]).then(([outletList, itemList]) => {
+      api.get("/menu/items").catch(() => []),
+      api.get("/inventory/item-visibility").catch(() => ({})),
+    ]).then(([outletList, itemList, serverVisibility]) => {
       const activeOutlets = (outletList || []).filter(o => o.isActive !== false);
       setOutlets(activeOutlets);
 
@@ -112,6 +113,29 @@ export function InventoryPage() {
       // Pre-select first outlet in wastage form
       if (activeOutlets.length > 0) {
         setForm(f => ({ ...f, branch: f.branch || activeOutlets[0].name }));
+      }
+
+      // Merge server visibility state into local tracking config.
+      // Server is the source of truth for posVisible — overrides stale localStorage.
+      if (serverVisibility && Object.keys(serverVisibility).length > 0) {
+        setTracking(prev => {
+          const next = [...prev];
+          for (const [itemId, state] of Object.entries(serverVisibility)) {
+            const idx = next.findIndex(t => t.id === itemId);
+            if (idx >= 0) {
+              next[idx] = { ...next[idx], posVisible: state.posVisible !== false };
+            } else {
+              next.push({
+                id: itemId, trackingEnabled: false,
+                posVisible: state.posVisible !== false,
+                online: true, unit: "Pcs",
+                sessions: { Breakfast: {opening:0,current:0}, Lunch: {opening:0,current:0}, Dinner: {opening:0,current:0} }
+              });
+            }
+          }
+          saveTracking(next);
+          return next;
+        });
       }
 
       setLoading(false);
@@ -147,6 +171,17 @@ export function InventoryPage() {
       : [...tracking, { ...getT(id), ...changes }];
     setTracking(next);
     saveTracking(next);
+
+    // ── Sync posVisible / online changes to backend so ALL POS devices update ──
+    // "Tracking" toggle is owner-side only — no POS sync needed.
+    if ("posVisible" in changes || "online" in changes) {
+      const payload = { itemId: id };
+      if ("posVisible" in changes) payload.posVisible = !!changes.posVisible;
+      if ("online"     in changes) payload.online     = changes.online !== false;
+      api.post("/inventory/item-visibility", payload).catch(err => {
+        console.warn("[Inventory] Failed to sync item visibility to backend:", err);
+      });
+    }
   }
 
   function updateStock(id, session, field, val) {
