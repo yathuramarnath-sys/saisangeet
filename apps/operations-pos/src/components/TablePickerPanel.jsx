@@ -36,11 +36,11 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
     : tableAreas;
 
   const STATUS_COLORS = {
-    available: { bg: "#ffffff", border: "#E2E8F0", text: "#374151",  label: "Free",     dot: "#10B981" },
-    occupied:  { bg: "#FF6600", border: "#FF6600", text: "#ffffff",  label: "Occupied", dot: "#FF6600" },
-    hold:      { bg: "#F59E0B", border: "#F59E0B", text: "#ffffff",  label: "On Hold",  dot: "#F59E0B" },
-    bill:      { bg: "#3B82F6", border: "#3B82F6", text: "#ffffff",  label: "Bill",     dot: "#3B82F6" },
-    void:      { bg: "#EF4444", border: "#EF4444", text: "#ffffff",  label: "Void",     dot: "#EF4444" },
+    available: { bg: "#ffffff", border: "#E2E8F0", text: "#374151",  label: "Free",     dot: "#F5C332" },
+    occupied:  { bg: "#FF6600", border: "#FF6600", text: "#ffffff",  label: "Occupied", dot: "#F5C332" },
+    hold:      { bg: "#F59E0B", border: "#F59E0B", text: "#ffffff",  label: "On Hold",  dot: "#F5C332" },
+    bill:      { bg: "#3B82F6", border: "#3B82F6", text: "#ffffff",  label: "Bill",     dot: "#F5C332" },
+    void:      { bg: "#EF4444", border: "#EF4444", text: "#ffffff",  label: "Void",     dot: "#F5C332" },
     closed:    { bg: "#F1F5F9", border: "#E2E8F0", text: "#94A3B8",  label: "Closed",   dot: "#94A3B8" },
   };
 

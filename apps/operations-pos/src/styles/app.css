@@ -5125,9 +5125,9 @@ body { background: var(--sq-bg); }
   border-radius: 8px !important;
 }
 .tpp-area-tab.active, .tpp-area-tab:hover {
-  background: #FFC107 !important;
-  color: #212121 !important;
-  border-color: #FFC107 !important;
+  background: #F5C332 !important;
+  color: #1A1A1A !important;
+  border-color: #D4A010 !important;
 }
 
 /* Legend */
@@ -6843,19 +6843,19 @@ input, select, textarea {
   border:     1.5px solid var(--v2-amber-dark) !important;
 }
 
-/* End Shift / Logout — keeps a distinct red so cashiers don't close shift by mistake */
+/* End Shift / Logout — same amber as all other buttons */
 .pab-btn.dark,
 .pab-btn.logout-btn {
-  background:    #FEF2F2 !important;
-  color:         #DC2626 !important;
-  border-color:  #FECACA !important;
-  font-weight:   800 !important;
+  background:   var(--v2-amber) !important;
+  color:        #1A1A1A !important;
+  border-color: var(--v2-amber-dark) !important;
+  font-weight:  700 !important;
 }
 .pab-btn.dark:hover,
 .pab-btn.logout-btn:hover {
-  background:   #FEE2E2 !important;
-  border-color: #FCA5A5 !important;
-  color:        #B91C1C !important;
+  background:   #DFB020 !important;
+  border-color: #C49A10 !important;
+  color:        #1A1A1A !important;
   transform:    translateY(-1px) !important;
 }
 
@@ -6902,11 +6902,13 @@ input, select, textarea {
   background:   var(--v2-amber) !important;
   border-color: var(--v2-amber-dark) !important;
   color:        #1A1A1A !important;
+  font-weight:  700 !important;
 }
 .online-toggle-btn.disabled {
-  background:   #FEF2F2 !important;
-  border-color: #FECACA !important;
-  color:        #DC2626 !important;
+  background:   var(--v2-surface2) !important;
+  border-color: var(--v2-border-md) !important;
+  color:        var(--v2-text2) !important;
+  font-weight:  700 !important;
 }
 
 /* ── 18. Category sidebar — white bg, amber active ──────────────────────── */
