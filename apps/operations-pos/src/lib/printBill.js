@@ -12,7 +12,7 @@ export function printBill(order, items, outletOrName, options = {}) {
   const outlet = (outletOrName && typeof outletOrName === "object") ? outletOrName : null;
   const outletName = outlet?.name || (typeof outletOrName === "string" ? outletOrName : null) || "Restaurant";
 
-  const { seatLabel = null, cashierName = null } = options;
+  const { seatLabel = null, cashierName = null, preBill = false } = options;
   // Resolve paper width early so the @page CSS can use it
   const _printer      = getBillPrinter();
   const _paperWidthMm = _printer?.paper || 80;
@@ -171,6 +171,7 @@ export function printBill(order, items, outletOrName, options = {}) {
     ${outletGstin ? `<div class="outlet-gstin">GSTIN: ${outletGstin}</div>` : ""}
     ${outletFssai ? `<div class="outlet-fssai">FSSAI: ${outletFssai}</div>` : ""}
     ${seatLabel ? `<div><span class="seat-tag">${seatLabel}</span></div>` : ""}
+    ${preBill ? `<div style="margin-top:5px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border:1px dashed #999;padding:2px 6px;display:inline-block">ESTIMATE / PRE-BILL</div>` : ""}
   </div>
   <hr class="div-dash">
 

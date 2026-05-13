@@ -477,6 +477,22 @@ export default function App() {
           showToast("KOT sent to kitchen");
         });
 
+        // ── KOT from Captain app (cloud path) → print on KOT printer ──────────
+        // Backend emits kot:new to ALL devices when Captain sends a KOT.
+        // POS must print it — but skip KOTs it sent itself (source === "pos").
+        socket.on("kot:new", (kot) => {
+          if (kot.source === "pos") return; // POS already printed this itself
+          const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
+          const waiterPrinter = getKotPrinter();
+          printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
+          (kot.stationGroups || []).forEach(sg => {
+            const stPrinter = getKotPrinterForStation(sg.station);
+            if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
+              printKOT(order, sg.items, stPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
+            }
+          });
+        });
+
         // ── Auto-sync when Owner Web changes menu / stations ──────────────────
         socket.on("sync:config", () => {
           syncMenuData(target.id);
@@ -1461,7 +1477,13 @@ export default function App() {
       return o;
     });
 
-    showToast("📋 Bill requested · Collect payment to print receipt");
+    // Print a pre-bill (ESTIMATE) immediately so customer can review before payment
+    printBill(order, order.items, outlet || branchConfig?.outletName, {
+      cashierName,
+      preBill: true,
+    });
+
+    showToast("📋 Pre-bill printed · Collect payment to issue GST receipt");
 
     // Close the order panel — table stays blue until payment is collected
     setSelectedTableId(null);
