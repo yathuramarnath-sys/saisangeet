@@ -1662,7 +1662,6 @@ export default function App() {
         <div className="pab-group">
           <button type="button" className="pab-btn orange"
             onClick={() => { setShowOnlineOrders(true); setPendingOnlineCount(0); }}>
-            <span className="pab-icon">📦</span>
             <span className="pab-label">Online Orders</span>
             {pendingOnlineCount > 0 && onlineOrdersEnabled && (
               <span className="pab-badge">{pendingOnlineCount}</span>
@@ -1674,22 +1673,18 @@ export default function App() {
             onClick={handleToggleOnlineOrders}
             title={onlineOrdersEnabled ? "Online orders ON — click to pause" : "Online orders PAUSED — click to enable"}
           >
-            <span>{onlineOrdersEnabled ? "🟢" : "🔴"}</span>
             <span>{onlineOrdersEnabled ? "Online ON" : "Online OFF"}</span>
           </button>
           <button type="button" className="pab-btn blue"
             onClick={() => setShowPastOrders(true)}>
-            <span className="pab-icon">📋</span>
             <span className="pab-label">Past Orders</span>
           </button>
           <button type="button" className="pab-btn purple"
             onClick={() => setShowAdvanceOrder(true)}>
-            <span className="pab-icon">📅</span>
             <span className="pab-label">Advance</span>
           </button>
           <button type="button" className="pab-btn teal"
             onClick={() => selectedTableId ? setShowCustomerForm(true) : showToast("Select a table first")}>
-            <span className="pab-icon">👤</span>
             <span className="pab-label">Customer</span>
           </button>
         </div>
@@ -1711,35 +1706,30 @@ export default function App() {
         <div className="pab-group">
           <button type="button" className="pab-btn green"
             onClick={() => setShowCashIn(true)}>
-            <span className="pab-icon">↑</span>
             <span className="pab-label">Cash In</span>
           </button>
           <button type="button" className="pab-btn red"
             onClick={() => setShowCashOut(true)}>
-            <span className="pab-icon">↓</span>
             <span className="pab-label">Cash Out</span>
           </button>
           <button type="button" className={`pab-btn cyan${isSyncing ? " syncing" : ""}`}
             onClick={() => syncMenuData()}
             title={lastSyncedAt ? `Last synced: ${lastSyncedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}` : "Sync menu from server"}
             disabled={isSyncing}>
-            <span className="pab-icon">{isSyncing ? "⏳" : "🔄"}</span>
             <span className="pab-label">{isSyncing ? "Syncing…" : "Sync"}</span>
           </button>
           <button type="button" className="pab-btn gray"
             onClick={() => setShowSettings(true)}>
-            <span className="pab-icon">⚙️</span>
             <span className="pab-label">Settings</span>
           </button>
           <button type="button" className="pab-btn dark"
             onClick={() => setShowCloseShift(true)}>
-            <span className="pab-icon">⏹</span>
             <span className="pab-label">End Shift</span>
           </button>
           <button type="button" className="pab-btn logout-btn"
             onClick={() => { setCashierName(null); setActiveShift(null); setSelectedTableId(null); }}
             title="Logout">
-            <span className="pab-icon">⏻</span>
+            <span className="pab-label">Exit</span>
           </button>
         </div>
       </div>
