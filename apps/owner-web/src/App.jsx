@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
-import { UpdateBanner }  from "./components/UpdateBanner";
+import { UpdateBanner }       from "./components/UpdateBanner";
+import { AppUpdateNotifier }  from "./components/AppUpdateNotifier";
 import { AuthProvider } from "./lib/AuthContext";
 import { OwnerLayout } from "./components/OwnerLayout";
 import { AppRoutes } from "./pages/routes";
@@ -13,6 +14,7 @@ export function App() {
   return (
     <>
     <UpdateBanner />
+    <AppUpdateNotifier />
     <AuthProvider>
       <BrowserRouter>
         <Routes>

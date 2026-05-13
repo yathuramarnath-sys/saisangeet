@@ -96,7 +96,9 @@ export function App() {
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [selectedArea,    setSelectedArea]    = useState(null);
   const [outlet,          setOutlet]          = useState(null);
-  const socketRef = useRef(null);
+  const socketRef      = useRef(null);
+  const localSocketRef = useRef(null);
+  const [localConn, setLocalConn] = useState(false);
 
   // Staff: from branch config or fallback — Captain app only shows Captain/Waiter roles
   const CAPTAIN_ROLES = ["captain", "waiter", "server", "steward"];
@@ -118,6 +120,26 @@ export function App() {
       })
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Offline config cache helpers ─────────────────────────────────────────
+  function saveCaptainCache({ outlet, categories, menuItems, areas }) {
+    try {
+      if (outlet)           localStorage.setItem("captain_cache_outlet",     JSON.stringify(outlet));
+      if (categories?.length) localStorage.setItem("captain_cache_categories", JSON.stringify(categories));
+      if (menuItems?.length)  localStorage.setItem("captain_cache_menu_items", JSON.stringify(menuItems));
+      if (areas?.length)      localStorage.setItem("captain_cache_areas",      JSON.stringify(areas));
+    } catch (_) {}
+  }
+
+  function loadCaptainCache() {
+    const p = (key, fb) => { try { return JSON.parse(localStorage.getItem(key) || "null") || fb; } catch { return fb; } };
+    return {
+      outlet:     p("captain_cache_outlet",     null),
+      categories: p("captain_cache_categories", []),
+      menuItems:  p("captain_cache_menu_items",  []),
+      areas:      p("captain_cache_areas",       null),
+    };
+  }
 
   // ── Bootstrap: load outlet, menu, orders, open socket ────────────────────
   useEffect(() => {
@@ -154,6 +176,14 @@ export function App() {
           setKitchenStations(enriched);
         }
 
+        // Save full config to offline cache for power-cut / no-internet starts
+        saveCaptainCache({
+          outlet:     target,
+          categories: cats,
+          menuItems:  items,
+          areas:      builtAreas,
+        });
+
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         if (liveOrders.length) {
           setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
@@ -162,8 +192,29 @@ export function App() {
         // Open socket
         const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
           .replace("/api/v1", "");
-        const socket = io(socketUrl, { query: { outletId: target.id } });
+        const socket = io(socketUrl, {
+          query: { outletId: target.id },
+          reconnection:         true,
+          reconnectionDelay:    1000,
+          reconnectionDelayMax: 10000,
+          reconnectionAttempts: Infinity,
+        });
         socketRef.current = socket;
+
+        // Re-fetch orders on reconnect so table state is fresh after power cut
+        let wasOffline = false;
+        socket.on("connect", () => {
+          if (wasOffline) {
+            api.get(`/operations/orders?outletId=${target.id}`)
+              .then((orders) => {
+                if (orders.length) setOrders(Object.fromEntries(orders.map((o) => [o.tableId, o])));
+              })
+              .catch(() => {});
+          }
+          wasOffline = false;
+        });
+        socket.on("disconnect",    () => { wasOffline = true; });
+        socket.on("connect_error", () => { wasOffline = true; });
 
         socket.on("order:updated", (o) => setOrders((p) => {
           if (!o.items?.length || o.isClosed) {
@@ -195,13 +246,114 @@ export function App() {
             if (items) setMenuItems(items);
           } catch (_) { /* non-critical */ }
         });
+
+        // ── Local POS WiFi server — auto-reconnect + auto-scan ───────────────
+        // Scans 192.168.1/0 and 10.0.0 subnets when saved IP stops responding,
+        // updates the saved IP, and reconnects silently. No manual steps needed
+        // after router restart even if DHCP assigns a new IP to the POS machine.
+
+        async function findPosOnNetwork() {
+          const subnets = ["192.168.1", "192.168.0", "10.0.0"];
+          for (const subnet of subnets) {
+            for (let i = 1; i <= 50; i++) {
+              const ip = `${subnet}.${i}`;
+              try {
+                const r = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(400) });
+                if (r.ok) return ip;
+              } catch (_) {}
+            }
+          }
+          return null;
+        }
+
+        function connectLocalSocket(ip) {
+          if (localSocketRef.current) {
+            localSocketRef.current.removeAllListeners();
+            localSocketRef.current.disconnect();
+            localSocketRef.current = null;
+          }
+          setLocalConn(false);
+
+          const lSock = io(`http://${ip}:4001`, {
+            query:                { role: "captain", outletId: target.id },
+            reconnection:         true,
+            reconnectionDelay:    1000,
+            reconnectionDelayMax: 6000,
+            reconnectionAttempts: Infinity,
+            timeout:              4000,
+          });
+          localSocketRef.current = lSock;
+
+          let errorCount = 0;
+          let scanning   = false;
+
+          lSock.on("connect", () => {
+            errorCount = 0;
+            setLocalConn(true);
+            lSock.emit("request:orders", { outletId: target.id });
+          });
+          lSock.on("disconnect", () => setLocalConn(false));
+          lSock.on("connect_error", () => {
+            setLocalConn(false);
+            errorCount++;
+            if (errorCount >= 5 && !scanning) {
+              scanning = true;
+              findPosOnNetwork().then(newIp => {
+                scanning = false;
+                errorCount = 0;
+                if (!newIp) return; // not found — socket.io keeps retrying saved IP
+                localStorage.setItem("captain_local_server_ip", newIp);
+                connectLocalSocket(newIp);
+              });
+            }
+          });
+          lSock.on("order:updated", (o) => setOrders((p) => {
+            if (!o.items?.length || o.isClosed) {
+              const { [o.tableId]: _r, ...rest } = p;
+              return rest;
+            }
+            const current = p[o.tableId];
+            if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) return p;
+            return { ...p, [o.tableId]: o };
+          }));
+        }
+
+        const savedLocalIp = localStorage.getItem("captain_local_server_ip")?.trim();
+        if (savedLocalIp) connectLocalSocket(savedLocalIp);
       } catch (err) {
-        console.error("Captain App bootstrap failed:", err.message);
+        console.error("Captain App bootstrap failed (offline?) — loading from cache:", err.message);
+        // Restore from offline cache so waiters can take orders even without internet
+        const cache = loadCaptainCache();
+        if (cache.outlet)           setOutlet(cache.outlet);
+        if (cache.categories.length) setCategories(cache.categories);
+        if (cache.menuItems.length)  setMenuItems(cache.menuItems.map(i => ({
+          ...i, price: parsePriceNumber(i.basePrice || i.price)
+        })));
+        if (cache.areas)            setAreas(cache.areas);
+
+        // Retry when server becomes available — socket reconnects automatically
+        const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
+          .replace("/api/v1", "");
+        const socket = io(socketUrl, {
+          query: { outletId: branchConfig.outletId },
+          reconnection:         true,
+          reconnectionDelay:    2000,
+          reconnectionDelayMax: 15000,
+          reconnectionAttempts: Infinity,
+        });
+        socketRef.current = socket;
+        socket.on("connect", () => {
+          bootstrap(); // server is back — re-run full bootstrap
+          socket.disconnect();
+        });
       }
     }
 
     bootstrap();
-    return () => socketRef.current?.disconnect();
+    return () => {
+      socketRef.current?.disconnect();
+      localSocketRef.current?.disconnect();
+    };
   }, [branchConfig]);
 
   // ── Select table ──────────────────────────────────────────────────────────
@@ -253,10 +405,11 @@ export function App() {
     setSelectedTableId(null);
   }
 
-  // ── Update order (local + socket) ─────────────────────────────────────────
+  // ── Update order (local + cloud socket + local socket) ───────────────────
   function handleUpdateOrder(nextOrder) {
     setOrders((p) => ({ ...p, [nextOrder.tableId]: nextOrder }));
-    socketRef.current?.emit("order:update", { outletId: outlet?.id, order: nextOrder });
+    socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: nextOrder });
+    localSocketRef.current?.emit("order:update", { order: nextOrder });
   }
 
   // ── Add item (POST to backend, reconcile) ─────────────────────────────────
@@ -349,6 +502,17 @@ export function App() {
     } catch (e) {
       console.error("[captain] KOT send failed:", e.message);
     }
+
+    // ── Local WiFi path: emit kot:send to POS directly ────────────────────
+    // POS relays to KDS via local socket. Works even when cloud is unreachable.
+    localSocketRef.current?.emit("kot:send", {
+      outletId:    effectiveOutletId,
+      tableId:     order.tableId,
+      tableNumber: order.tableNumber,
+      areaName:    order.areaName,
+      items:       unsent,
+      actorName:   loggedInStaff?.name || "Captain",
+    });
 
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
 
@@ -542,6 +706,11 @@ export function App() {
   return (
     <div className="captain-app">
       <UpdateBanner />
+      {localConn && (
+        <div className="captain-local-banner">
+          &#x1F4F6; Local · Connected to POS directly
+        </div>
+      )}
       {/* App header */}
       <header className="app-header">
         <div className="app-header-inner">

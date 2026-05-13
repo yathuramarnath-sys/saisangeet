@@ -1,7 +1,9 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
-const path = require("path");
-const net  = require("net");
-const os   = require("os");
+const path   = require("path");
+const net    = require("net");
+const os     = require("os");
+const http   = require("http");
+const { Server: SocketIOServer } = require("socket.io");
 
 // Auto-updater — only active in packaged builds (not dev mode)
 let autoUpdater = null;
@@ -76,9 +78,136 @@ ipcMain.on("update:install-now", () => {
   autoUpdater?.quitAndInstall();
 });
 
+// ── Local Network Server ──────────────────────────────────────────────────────
+// Runs on port 4001, bound to all interfaces (0.0.0.0).
+// Captain/KDS connect directly over local WiFi — no internet required.
+// When internet is down, all floor operations (orders, KOTs, table status)
+// continue uninterrupted through this server.
+
+let localIo = null;
+let localKotSeq = 9000;          // local KOT numbers (L-prefix avoids cloud collision)
+const localOrderStore = {};       // tableId → latest order snapshot
+
+function getLocalIp() {
+  const nets = os.networkInterfaces();
+  for (const iface of Object.values(nets)) {
+    for (const addr of iface) {
+      if (addr.family === "IPv4" && !addr.internal) return addr.address;
+    }
+  }
+  return "127.0.0.1";
+}
+
+function startLocalServer() {
+  try {
+    const httpServer = http.createServer((req, res) => {
+      // Health check endpoint — Captain/KDS "Find POS" scan hits this
+      if (req.url === "/health" || req.url === "/plato-pos") {
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ ok: true, app: "plato-pos", port: 4001, ip: getLocalIp() }));
+      } else {
+        res.writeHead(404); res.end();
+      }
+    });
+
+    localIo = new SocketIOServer(httpServer, {
+      cors: { origin: "*", methods: ["GET", "POST"] },
+      pingTimeout: 10000,
+      pingInterval: 5000,
+    });
+
+    localIo.on("connection", (socket) => {
+      console.log("[local] device connected:", socket.id, socket.handshake.query?.role || "");
+
+      // ── New device joins — send current order snapshot ────────────────────
+      socket.on("request:orders", () => {
+        socket.emit("orders:snapshot", Object.values(localOrderStore));
+      });
+
+      // ── POS pushes its full order state (on POS start + after each settle) ─
+      socket.on("pos:sync-orders", (orders) => {
+        if (Array.isArray(orders)) {
+          orders.forEach(o => { if (o?.tableId) localOrderStore[o.tableId] = o; });
+        }
+      });
+
+      // ── Order update (from POS or Captain) → relay to all other devices ────
+      socket.on("order:update", ({ order }) => {
+        if (order?.tableId) localOrderStore[order.tableId] = order;
+        socket.broadcast.emit("order:updated", order);
+      });
+
+      // ── Table cleared after settlement → remove from store + relay ─────────
+      socket.on("order:clear", ({ tableId }) => {
+        delete localOrderStore[tableId];
+        socket.broadcast.emit("order:cleared", { tableId });
+      });
+
+      // ── KOT from Captain → assign local number → relay to KDS + POS ───────
+      // The POS renderer receives kot:new and calls printKOT() directly.
+      socket.on("kot:send", (kotData) => {
+        localKotSeq++;
+        const kot = { ...kotData, kotNumber: localKotSeq, localMode: true };
+        // Mark items as sent in local store
+        if (localOrderStore[kot.tableId]) {
+          const kotItemIds = new Set((kot.items || []).map(i => i.id));
+          localOrderStore[kot.tableId] = {
+            ...localOrderStore[kot.tableId],
+            items: (localOrderStore[kot.tableId].items || []).map(i =>
+              kotItemIds.has(i.id) ? { ...i, sentToKot: true } : i
+            ),
+          };
+        }
+        localIo.emit("kot:new", kot);                                    // KDS + POS receive
+        socket.emit("kot:confirmed", { kotNumber: localKotSeq });        // ack to Captain
+      });
+
+      // ── Bill request from Captain → relay to POS ───────────────────────────
+      socket.on("bill:request", ({ tableId }) => {
+        if (localOrderStore[tableId]) {
+          localOrderStore[tableId] = { ...localOrderStore[tableId], billRequested: true };
+        }
+        socket.broadcast.emit("order:updated",
+          localOrderStore[tableId] || { tableId, billRequested: true }
+        );
+      });
+
+      socket.on("disconnect", () => {
+        console.log("[local] device disconnected:", socket.id);
+      });
+    });
+
+    httpServer.listen(4001, "0.0.0.0", () => {
+      console.log(`[local] server running — http://${getLocalIp()}:4001`);
+    });
+
+    httpServer.on("error", (err) => {
+      console.error("[local] server error:", err.message);
+    });
+  } catch (err) {
+    console.error("[local] failed to start:", err.message);
+  }
+}
+
+// ── Local server IPC ──────────────────────────────────────────────────────────
+
+// Renderer calls this to get the machine's local IP + port for display in Settings
+ipcMain.handle("get-local-server-info", () => ({
+  ip:   getLocalIp(),
+  port: 4001,
+  url:  `http://${getLocalIp()}:4001`,
+}));
+
+// Renderer pushes orders to keep the local store in sync after each mutation
+ipcMain.on("local:push-orders", (_event, orders) => {
+  if (!Array.isArray(orders)) return;
+  orders.forEach(o => { if (o?.tableId) localOrderStore[o.tableId] = o; });
+});
+
 app.whenReady().then(() => {
   createWindow();
   setupAutoUpdater();
+  startLocalServer();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -267,15 +396,20 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
               return '';
             }
             return {
-              type:      'BILL',
-              outlet:    q2('.outlet-name')?.innerText?.trim() || '',
-              seatLabel: q2('.seat-tag')?.innerText?.trim() || '',
-              date:      getInfoVal('Date'),
-              time:      getInfoVal('Time'),
-              table:     getInfoVal('Table'),
-              orderType: getInfoVal('Type'),
-              cashier:   getInfoVal('Cashier'),
-              billNo:    getInfoVal('Bill No'),
+              type:          'BILL',
+              outlet:        q2('.outlet-name')?.innerText?.trim() || '',
+              invoiceHeader: q2('.invoice-header')?.innerText?.trim() || '',
+              addr:          q2('.outlet-addr')?.innerText?.trim() || '',
+              phone:         q2('.outlet-sub')?.innerText?.trim() || '',
+              gstin:         q2('.outlet-gstin')?.innerText?.trim() || '',
+              fssai:         q2('.outlet-fssai')?.innerText?.trim() || '',
+              seatLabel:     q2('.seat-tag')?.innerText?.trim() || '',
+              date:          getInfoVal('Date'),
+              time:          getInfoVal('Time'),
+              table:         getInfoVal('Table'),
+              orderType:     getInfoVal('Type'),
+              cashier:       getInfoVal('Cashier'),
+              billNo:        getInfoVal('Bill No'),
               items: qa2('.items-tbl tbody tr').map(el => ({
                 name: el.querySelector('.col-item')?.childNodes[0]?.textContent?.trim() || '',
                 note: el.querySelector('.item-note')?.innerText?.trim() || '',
@@ -287,7 +421,8 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
                 const spans = el.querySelectorAll('span');
                 return { label: spans[0]?.innerText?.trim() || '', value: spans[1]?.innerText?.trim() || '' };
               }),
-              total: q2('.total-row span:last-child')?.innerText?.trim() || '',
+              total:   q2('.total-row span:last-child')?.innerText?.trim() || '',
+              footer:  q2('.footer p:last-child')?.innerText?.trim() || '',
             };
           })()
         `);
@@ -329,16 +464,21 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
           if (data.footer) cmd += CENTER + data.footer + LF;
 
         } else if (data.type === 'KOT') {
-          // Header
+          // Sanitise table label — replace · (U+00B7) which isn't latin1-safe
+          const kotTable = (data.table || '').replace(/·/g, '-').replace(/⋅/g, '-');
+          // Header — outlet name only (no subtitle to save paper)
           cmd += CENTER + BOLD1 + BIG + (data.outlet || 'KITCHEN') + NORMAL + BOLD0 + LF;
           cmd += CENTER + '*** KITCHEN ORDER ***' + LF;
           cmd += DASH48 + LF;
-          // Table + KOT number (most important — large)
-          cmd += CENTER + BOLD1 + BIG + data.table + '   ' + data.kotNum + NORMAL + BOLD0 + LF;
-          cmd += DASH48 + LF;
-          // Meta
-          if (data.date) cmd += LEFT + 'Date : ' + data.date + LF;
-          if (data.time) cmd += LEFT + 'Time : ' + data.time + LF;
+          // KOT# + Table on SAME compact line (DBLH = double-height, not double-width)
+          const kotNumStr = (data.kotNum || '').padEnd(12);
+          const kotTblStr = kotTable;
+          cmd += DBLH + BOLD1 + kotNumStr + kotTblStr + NORMAL + BOLD0 + LF;
+          // Date + Time on SAME compact line
+          if (data.date || data.time) {
+            const dt = ((data.date || '') + '   ' + (data.time || '')).trim();
+            cmd += LEFT + dt + LF;
+          }
           if (data.guests) cmd += LEFT + 'Guests: ' + data.guests + LF;
           cmd += DASH48 + LF;
           // Items header
@@ -359,7 +499,12 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
         } else if (data.type === 'BILL') {
           // ── Bill receipt ─────────────────────────────────────────────────────
           // Header
+          if (data.invoiceHeader) cmd += CENTER + data.invoiceHeader + LF;
           cmd += CENTER + BOLD1 + BIG + (data.outlet || 'RESTAURANT') + NORMAL + BOLD0 + LF;
+          if (data.addr)  cmd += CENTER + data.addr + LF;
+          if (data.phone) cmd += CENTER + data.phone + LF;
+          if (data.gstin) cmd += CENTER + data.gstin + LF;
+          if (data.fssai) cmd += CENTER + data.fssai + LF;
           if (data.seatLabel) cmd += CENTER + BOLD1 + '[ ' + data.seatLabel + ' ]' + BOLD0 + LF;
           cmd += DASH48 + LF;
           // Info rows
@@ -369,14 +514,14 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
           if (data.billNo)    cmd += LEFT + 'Bill No : ' + data.billNo + LF;
           cmd += DASH48 + LF;
           // Column header
-          cmd += BOLD1 + 'Item             Qty  Rate    Amt' + BOLD0 + LF;
+          cmd += BOLD1 + 'Item            Qty   Rate    Amt' + BOLD0 + LF;
           cmd += DASH48 + LF;
-          // Items
+          // Items — strip ₹/Rs. from rate/amt (latin1 can't encode ₹, renders as garbage)
           for (const item of (data.items || [])) {
-            const name  = (item.name || '').substring(0, 17).padEnd(17);
+            const name  = (item.name || '').substring(0, 16).padEnd(16);
             const qty   = (item.qty  || '').padStart(3);
-            const rate  = (item.rate || '').padStart(6);
-            const amt   = (item.amt  || '').padStart(7);
+            const rate  = (item.rate || '').replace(/[₹Rs.]/g, '').trim().padStart(7);
+            const amt   = (item.amt  || '').replace(/[₹Rs.]/g, '').trim().padStart(6);
             cmd += name + qty + rate + amt + LF;
             if (item.note) cmd += '     >> ' + item.note + LF;
           }
@@ -393,10 +538,10 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
           cmd += CENTER + BOLD1 + BIG + 'TOTAL  ' + (data.total || '') + NORMAL + BOLD0 + LF;
           cmd += DASH48 + LF;
           cmd += CENTER + 'Please pay at the counter' + LF;
-          cmd += CENTER + 'Thank you for dining with us!' + LF;
+          cmd += CENTER + (data.footer || 'Thank you for dining with us!') + LF;
         }
 
-        cmd += LF + LF + CUT;
+        cmd += LF + LF + LF + LF + CUT;
 
         // ── Send via TCP ───────────────────────────────────────────────────
         // Guard against double-resolve: timeout + write-callback could both fire
@@ -404,7 +549,7 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
         function tcpResolve(result) { if (!tcpDone) { tcpDone = true; resolve(result); } }
 
         const sock = new net.Socket();
-        sock.setTimeout(5000);
+        sock.setTimeout(12000);
         sock.once('connect', () => {
           // latin1 (= binary, 1:1 byte mapping) is correct for ESC/POS byte sequences
           sock.write(Buffer.from(cmd, 'latin1'), () => {
@@ -412,7 +557,7 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
             tcpResolve({ ok: true });
           });
         });
-        sock.once('timeout', () => { sock.destroy(); tcpResolve({ ok: false, error: 'TCP timeout' }); });
+        sock.once('timeout', () => { sock.destroy(); tcpResolve({ ok: false, error: 'TCP timeout — check printer IP and network connection' }); });
         sock.once('error',   (err) => { sock.destroy(); tcpResolve({ ok: false, error: err.message }); });
         sock.connect(port, ip.trim());
 

@@ -27,6 +27,7 @@ import { api } from "./lib/api";
 import { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } from "./lib/kotPrint";
 import { printBill } from "./lib/printBill";
 import { openCashDrawer, hasCashPayment } from "./lib/cashDrawer";
+import { setItemAvailability } from "../../../packages/shared-types/src/stockAvailability.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -186,6 +187,36 @@ function saveOrdersToStorage(ordersMap) {
   }
 }
 
+// ── Offline menu / config cache ───────────────────────────────────────────
+// Saved on every successful bootstrap or sync so the POS can start fully
+// functional even when the server is unreachable (power cut, no internet).
+const CACHE_OUTLET      = "pos_cache_outlet";
+const CACHE_CATEGORIES  = "pos_cache_categories";
+const CACHE_MENU_ITEMS  = "pos_cache_menu_items";
+const CACHE_TABLE_AREAS = "pos_cache_table_areas";
+
+function saveConfigCache({ outlet, categories, menuItems, tableAreas }) {
+  try {
+    if (outlet)     localStorage.setItem(CACHE_OUTLET,      JSON.stringify(outlet));
+    if (categories?.length) localStorage.setItem(CACHE_CATEGORIES,  JSON.stringify(categories));
+    if (menuItems?.length)  localStorage.setItem(CACHE_MENU_ITEMS,   JSON.stringify(menuItems));
+    if (tableAreas?.length) localStorage.setItem(CACHE_TABLE_AREAS,  JSON.stringify(tableAreas));
+  } catch (e) { console.warn("[cache] save failed:", e.message); }
+}
+
+function loadConfigCache() {
+  const parse = (key, fallback) => {
+    try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; }
+    catch { return fallback; }
+  };
+  return {
+    outlet:     parse(CACHE_OUTLET,      null),
+    categories: parse(CACHE_CATEGORIES,  []),
+    menuItems:  parse(CACHE_MENU_ITEMS,  []),
+    tableAreas: parse(CACHE_TABLE_AREAS, null),
+  };
+}
+
 // Load active shift from localStorage
 function loadActiveShift() {
   try {
@@ -227,9 +258,14 @@ export default function App() {
   const [activeArea,      setActiveArea]      = useState(null);
   const [serviceMode,     setServiceMode]     = useState("dine-in");
   const [toast,           setToast]           = useState(null);
-  const socketRef  = useRef(null);
+  const socketRef      = useRef(null);   // cloud socket
+  const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
   const ordersRef  = useRef({});
+  // Tracks socket connection state for reconnect-resync logic
+  const socketConnRef = useRef("connecting"); // "connecting" | "live" | "offline"
+  const [serverConn,  setServerConn]  = useState("connecting"); // for UI banner
+  const [localConn,   setLocalConn]   = useState(false);        // local WiFi server status
 
   // ── Shift state ───────────────────────────────────────────────────────────
   const [activeShift,      setActiveShift]      = useState(() => loadActiveShift());
@@ -246,8 +282,11 @@ export default function App() {
   const [showCustomerForm,   setShowCustomerForm]   = useState(false);
   const [showSettings,       setShowSettings]       = useState(false);
   const [showPastOrders,     setShowPastOrders]     = useState(false);
-  const [showOnlineOrders,   setShowOnlineOrders]   = useState(false);
-  const [pendingOnlineCount, setPendingOnlineCount] = useState(0);
+  const [showOnlineOrders,    setShowOnlineOrders]    = useState(false);
+  const [pendingOnlineCount,  setPendingOnlineCount]  = useState(0);
+  const [onlineOrdersEnabled, setOnlineOrdersEnabled] = useState(() =>
+    localStorage.getItem("pos_online_orders_enabled") !== "false"
+  );
   const [showPhonePeQR,      setShowPhonePeQR]      = useState(false);
   const [isSyncing,          setIsSyncing]          = useState(false);
   const [lastSyncedAt,       setLastSyncedAt]       = useState(() => {
@@ -298,10 +337,16 @@ export default function App() {
           })));
         }
 
-        if (target.tables?.length) {
-          const builtAreas = buildAreasFromOutlet(target);
-          setTableAreas(builtAreas);
-        }
+        const builtAreas = target.tables?.length ? buildAreasFromOutlet(target) : null;
+        if (builtAreas) setTableAreas(builtAreas);
+
+        // ── Save everything to offline cache so the next cold start is instant ──
+        saveConfigCache({
+          outlet:     target,
+          categories: cats,
+          menuItems:  items,
+          tableAreas: builtAreas,
+        });
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         const apiMap     = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
@@ -339,15 +384,67 @@ export default function App() {
           });
           return ensureOrders(
             merged,
-            target.tables?.length ? buildAreasFromOutlet(target) : seedAreas,
+            builtAreas || (target.tables?.length ? buildAreasFromOutlet(target) : seedAreas),
             target.name
           );
         });
 
+        setServerConn("live");
+        socketConnRef.current = "live";
+
         const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
           .replace("/api/v1", "");
-        const socket = io(socketUrl, { query: { outletId: target.id } });
+        const socket = io(socketUrl, {
+          query: { outletId: target.id },
+          reconnection:      true,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 8000,
+          reconnectionAttempts: Infinity,
+        });
         socketRef.current = socket;
+
+        // ── Socket reconnect: re-fetch live orders & flush queues ─────────────
+        socket.on("connect", () => {
+          const wasOffline = socketConnRef.current === "offline";
+          socketConnRef.current = "live";
+          setServerConn("live");
+          if (wasOffline) {
+            // Internet / server came back — resync everything
+            api.get(`/operations/orders?outletId=${target.id}`)
+              .then((liveOrders) => {
+                const apiMap = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
+                setOrders((prev) => {
+                  const merged = { ...prev };
+                  Object.entries(apiMap).forEach(([tableId, serverOrder]) => {
+                    const local = prev[tableId];
+                    const serverItemIds = new Set((serverOrder.items || []).map(i => i.id));
+                    const localOnlyUnsent = (local?.items || []).filter(
+                      li => !li.sentToKot && !serverItemIds.has(li.id)
+                    );
+                    merged[tableId] = localOnlyUnsent.length
+                      ? { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] }
+                      : serverOrder;
+                  });
+                  return merged;
+                });
+              })
+              .catch(() => {});
+            flushKotQueue(target.id).catch(() => {});
+            flushClosedOrderQueue(target.id).catch(() => {});
+          }
+        });
+
+        socket.on("disconnect", () => {
+          socketConnRef.current = "offline";
+          setServerConn("offline");
+        });
+
+        socket.on("connect_error", () => {
+          if (socketConnRef.current !== "offline") {
+            socketConnRef.current = "offline";
+            setServerConn("offline");
+          }
+        });
 
         socket.on("order:updated", (updatedOrder) => {
           setOrders((prev) => {
@@ -383,6 +480,13 @@ export default function App() {
           syncMenuData(target.id);
         });
 
+        // ── Receive full availability state on connect (sent by backend) ──────
+        socket.on("item:availability:state", (state) => {
+          Object.entries(state || {}).forEach(([id, val]) => {
+            setItemAvailability(id, val !== false ? true : false);
+          });
+        });
+
         // ── When a new device (Captain App / KDS) joins the outlet room,
         //    broadcast all current active orders so they get correct table state ──
         socket.on("request:order-sync", () => {
@@ -394,10 +498,74 @@ export default function App() {
           });
         });
 
+        // ── Local WiFi socket (localhost:4001) ────────────────────────────────
+        // Connects to the local server running in the Electron main process.
+        // Tablets on the same WiFi connect to this directly — no internet needed.
+        const localSock = io("http://localhost:4001", {
+          reconnection:         true,
+          reconnectionDelay:    500,
+          reconnectionDelayMax: 3000,
+          reconnectionAttempts: Infinity,
+          query: { role: "pos" },
+        });
+        localSocketRef.current = localSock;
+
+        localSock.on("connect", () => {
+          setLocalConn(true);
+          // Push current order state so tablets get it immediately on connect
+          const active = Object.values(ordersRef.current).filter(o => !o.isClosed);
+          localSock.emit("pos:sync-orders", active);
+        });
+        localSock.on("disconnect", () => setLocalConn(false));
+
+        // Order update from Captain via local WiFi → update POS table state
+        localSock.on("order:updated", (updatedOrder) => {
+          setOrders((prev) => {
+            const current = prev[updatedOrder.tableId];
+            if (current && (current.updatedAt || 0) > (updatedOrder.updatedAt || 0)) return prev;
+            const next = { ...prev, [updatedOrder.tableId]: updatedOrder };
+            saveOrdersToStorage(next);
+            return next;
+          });
+        });
+
+        // KOT sent by Captain via local WiFi → print it + mark items sent
+        localSock.on("kot:new", (kot) => {
+          if (!kot.localMode) return; // cloud KOTs handled by the cloud socket path
+          const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
+          // Print on default KOT printer
+          const waiterPrinter = getKotPrinter();
+          printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.actorName });
+          // Per-station printers
+          (kot.stationGroups || []).forEach(sg => {
+            const stPrinter = getKotPrinterForStation(sg.station);
+            if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
+              printKOT(order, sg.items, stPrinter, kot.kotNumber, { sentBy: kot.actorName });
+            }
+          });
+          // Mark items as sent on POS table
+          const kotItemIds = new Set((kot.items || []).map(i => i.id));
+          setOrders(prev => {
+            const o = prev[kot.tableId];
+            if (!o) return prev;
+            return {
+              ...prev,
+              [kot.tableId]: {
+                ...o,
+                items: o.items.map(i => kotItemIds.has(i.id) ? { ...i, sentToKot: true } : i),
+              },
+            };
+          });
+          showToast(`🖨 KOT #${kot.kotNumber} (local) → Kitchen`);
+        });
+
         // ── New online order arrives from UrbanPiper webhook ──────────────────
         socket.on("online:order:new", () => {
-          // Bump the badge count — panel fetches fresh list when opened
-          setPendingOnlineCount(n => n + 1);
+          // Only bump badge if online orders are currently enabled
+          setOnlineOrdersEnabled(enabled => {
+            if (enabled) setPendingOnlineCount(n => n + 1);
+            return enabled;
+          });
         });
 
         // ── PhonePe QR payment confirmed (via webhook → socket) ───────────────
@@ -412,15 +580,72 @@ export default function App() {
         });
 
       } catch (err) {
-        console.error("POS bootstrap failed (offline?):", err.message);
-        // Restore last known orders from localStorage so no active table is lost
+        console.error("POS bootstrap failed (offline?) — loading from cache:", err.message);
+
+        // ── Restore full working state from offline cache ─────────────────────
+        // This runs when the server is unreachable on startup (power cut, no internet).
+        // Everything was saved on the last successful bootstrap / sync, so the POS
+        // starts with the real restaurant menu, real table layout, and all open orders.
+        const cache = loadConfigCache();
+
+        if (cache.outlet) {
+          setOutlet(cache.outlet);
+        }
+        if (cache.categories.length) {
+          setCategories(cache.categories);
+        }
+        if (cache.menuItems.length) {
+          setMenuItems(cache.menuItems.map(i => ({
+            ...i,
+            price: parsePriceNumber(i.basePrice || i.price)
+          })));
+        }
+        const cachedAreas = cache.tableAreas;
+        if (cachedAreas) {
+          setTableAreas(cachedAreas);
+        }
+
+        // Restore orders from localStorage — merge with cached table layout
+        const savedOrders = loadSavedOrders();
         setOrders((prev) =>
           ensureOrders(
-            Object.keys(prev).length ? prev : loadSavedOrders(),
-            tableAreas,
-            outlet?.name || "Outlet"
+            Object.keys(prev).length ? prev : savedOrders,
+            cachedAreas || tableAreas,
+            cache.outlet?.name || "Outlet"
           )
         );
+
+        setServerConn("offline");
+        socketConnRef.current = "offline";
+
+        // ── Retry bootstrap in background — connect when server becomes available ──
+        // Socket.io will auto-reconnect once the server is reachable. The socket is
+        // created with reconnection:true so no manual retry loop is needed here.
+        const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
+          .replace("/api/v1", "");
+        const socket = io(socketUrl, {
+          query: { outletId: branchConfig.outletId },
+          reconnection:      true,
+          reconnectionDelay: 2000,
+          reconnectionDelayMax: 15000,
+          reconnectionAttempts: Infinity,
+        });
+        socketRef.current = socket;
+
+        socket.on("connect", () => {
+          // Server came back — do a full resync
+          socketConnRef.current = "live";
+          setServerConn("live");
+          bootstrap(); // re-run with server now available
+          socket.disconnect(); // the re-run creates a fresh socket
+        });
+
+        socket.on("disconnect", () => {
+          if (socketConnRef.current !== "offline") {
+            socketConnRef.current = "offline";
+            setServerConn("offline");
+          }
+        });
       }
     }
 
@@ -454,6 +679,16 @@ export default function App() {
           localStorage.setItem("pos_table_config", JSON.stringify(builtAreas));
         }
       }
+      // Persist fresh config to offline cache
+      const freshOutlet = Array.isArray(outletsList) ? outletsList.find(o => o.id === id) : null;
+      const freshAreas  = freshOutlet?.tables?.length ? buildAreasFromOutlet(freshOutlet) : null;
+      saveConfigCache({
+        outlet:     freshOutlet || null,
+        categories: cats    || [],
+        menuItems:  items   || [],
+        tableAreas: freshAreas,
+      });
+
       const now = new Date();
       setLastSyncedAt(now);
       localStorage.setItem("pos_last_synced", now.toISOString());
@@ -481,14 +716,24 @@ export default function App() {
     localStorage.setItem("pos_counter_ticket_num", String(counterTicketNum));
   }, [counterTicketNum]);
 
-  // Track online / offline + flush queued KOTs when connection returns
+  // Track online / offline via browser events (secondary to socket events above).
+  // In Electron, the browser "online/offline" events fire when the OS reports a
+  // network change — useful as a supplement to the socket disconnect handler.
   useEffect(() => {
     const goOnline = () => {
       setIsOnline(true);
-      flushKotQueue(outlet?.id).catch(() => {});
-      flushClosedOrderQueue(outlet?.id).catch(() => {});
+      // Socket reconnect handler is the primary queue-flush trigger.
+      // This is a safety-net in case the socket reconnect fires before the outlet
+      // state is set (race at startup).
+      if (outlet?.id) {
+        flushKotQueue(outlet.id).catch(() => {});
+        flushClosedOrderQueue(outlet.id).catch(() => {});
+      }
     };
-    const goOffline = () => setIsOnline(false);
+    const goOffline = () => {
+      setIsOnline(false);
+      // Don't override socket-based serverConn — socket handles its own state
+    };
     window.addEventListener("online",  goOnline);
     window.addEventListener("offline", goOffline);
     return () => {
@@ -543,9 +788,32 @@ export default function App() {
       const order = prev[tableId];
       if (!order) return prev;
       const next = updater(structuredClone(order));
+      // Emit to cloud socket (for Owner Web + remote Captain/KDS)
       socketRef.current?.emit("order:update", { outletId: outlet?.id, order: next });
+      // Emit to local socket (for tablets on same WiFi — works without internet)
+      localSocketRef.current?.emit("order:update", { order: next });
+      // Keep Electron main process local store in sync
+      window.electronAPI?.pushOrdersToLocal?.([next]);
       return { ...prev, [tableId]: next };
     });
+  }
+
+  function handleToggleAvailability(itemId, currentlySoldOut) {
+    const nowAvailable = currentlySoldOut; // toggling: soldOut→available, available→soldOut
+    setItemAvailability(itemId, nowAvailable);
+    socketRef.current?.emit("item:availability", {
+      outletId: outlet?.id,
+      itemId,
+      available: nowAvailable,
+    });
+  }
+
+  function handleToggleOnlineOrders() {
+    const next = !onlineOrdersEnabled;
+    setOnlineOrdersEnabled(next);
+    localStorage.setItem("pos_online_orders_enabled", String(next));
+    socketRef.current?.emit("online:orders:toggle", { outletId: outlet?.id, enabled: next });
+    if (!next) setPendingOnlineCount(0);
   }
 
   async function handleAddItem(item) {
@@ -912,8 +1180,10 @@ export default function App() {
 
     // 2. Temporarily mark as closed so UI shows ✓ for 1.5 s
     setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
-    // Notify Captain App that this table's bill is settled
+    // Notify Captain App + KDS that this table's bill is settled
     socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
+    localSocketRef.current?.emit("order:clear", { tableId });
+    window.electronAPI?.pushOrdersToLocal?.([]);
 
     // 3. Push full closed order to backend so Owner Web shows real sales figures.
     // This is also the gate for the fresh-table reset: clearTableAfterSettle runs
@@ -968,7 +1238,7 @@ export default function App() {
     printBill(
       closedOrder,
       closedOrder.items,
-      outlet?.name || branchConfig?.outletName,
+      outlet || branchConfig?.outletName,
       { cashierName }
     );
 
@@ -1308,8 +1578,8 @@ export default function App() {
       {/* ── Update banner ────────────────────────────────────────────────── */}
       <UpdateBanner />
 
-      {/* ── Offline banner ───────────────────────────────────────────────── */}
-      {!isOnline && (
+      {/* ── Connection banner ────────────────────────────────────────────── */}
+      {serverConn === "offline" && (
         <div className="pos-offline-banner">
           {(() => {
             const kots    = loadKotQueue().length;
@@ -1318,9 +1588,19 @@ export default function App() {
             if (kots    > 0) parts.push(`${kots} KOT${kots > 1 ? "s" : ""}`);
             if (settled > 0) parts.push(`${settled} bill${settled > 1 ? "s" : ""}`);
             return parts.length > 0
-              ? `📡 Offline — ${parts.join(" & ")} queued, will sync when connection returns. Printing unaffected.`
-              : "📡 No internet — operating on local network. Orders & printing unaffected.";
+              ? `📡 Server offline — ${parts.join(" & ")} queued · will auto-sync when connection returns · Printing unaffected`
+              : "📡 Server offline — all orders saved locally · Printing unaffected · Auto-syncing when connection returns";
           })()}
+        </div>
+      )}
+      {serverConn === "connecting" && (
+        <div className="pos-connecting-banner">
+          ⏳ Connecting to server…
+        </div>
+      )}
+      {localConn && (
+        <div className="pos-local-banner">
+          📶 Local WiFi server active — tablets work without internet
         </div>
       )}
 
@@ -1372,9 +1652,18 @@ export default function App() {
             onClick={() => { setShowOnlineOrders(true); setPendingOnlineCount(0); }}>
             <span className="pab-icon">📦</span>
             <span className="pab-label">Online Orders</span>
-            {pendingOnlineCount > 0 && (
+            {pendingOnlineCount > 0 && onlineOrdersEnabled && (
               <span className="pab-badge">{pendingOnlineCount}</span>
             )}
+          </button>
+          <button
+            type="button"
+            className={`online-toggle-btn ${onlineOrdersEnabled ? "enabled" : "disabled"}`}
+            onClick={handleToggleOnlineOrders}
+            title={onlineOrdersEnabled ? "Online orders ON — click to pause" : "Online orders PAUSED — click to enable"}
+          >
+            <span>{onlineOrdersEnabled ? "🟢" : "🔴"}</span>
+            <span>{onlineOrdersEnabled ? "Online ON" : "Online OFF"}</span>
           </button>
           <button type="button" className="pab-btn blue"
             onClick={() => setShowPastOrders(true)}>
@@ -1461,6 +1750,7 @@ export default function App() {
           menuItems={menuItems}
           activeCategory={activeCategory || categories[0]?.name}
           onAddItem={handleAddItem}
+          onToggleAvailability={handleToggleAvailability}
         />
       </div>
 
@@ -1579,6 +1869,7 @@ export default function App() {
           orders={orders}
           onClose={() => setShowPastOrders(false)}
           onEditPayment={handleEditPayment}
+          outlet={outlet}
           outletName={outlet?.name || branchConfig?.outletName}
           cashierName={cashierName}
         />

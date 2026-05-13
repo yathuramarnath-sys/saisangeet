@@ -7,12 +7,27 @@
 
 import { getBillPrinter } from "./kotPrint";
 
-export function printBill(order, items, outletName, options = {}) {
+export function printBill(order, items, outletOrName, options = {}) {
+  // outletOrName can be a string (legacy) or a full outlet object
+  const outlet = (outletOrName && typeof outletOrName === "object") ? outletOrName : null;
+  const outletName = outlet?.name || (typeof outletOrName === "string" ? outletOrName : null) || "Restaurant";
+
   const { seatLabel = null, cashierName = null } = options;
   // Resolve paper width early so the @page CSS can use it
   const _printer      = getBillPrinter();
   const _paperWidthMm = _printer?.paper || 80;
   const servedBy = cashierName || order.cashierName || null;
+
+  // ── Outlet header fields ───────────────────────────────────────────────────
+  const outletPhone   = outlet?.phone       || "";
+  const outletAddr1   = outlet?.addressLine1 || "";
+  const outletAddr2   = outlet?.addressLine2 || "";
+  const outletCity    = outlet?.city         || "";
+  const outletState   = outlet?.state        || "";
+  const outletGstin   = outlet?.gstin        || "";
+  const outletFssai   = outlet?.fssaiNo      || "";
+  const invoiceHeader = outlet?.invoiceHeader || "";
+  const invoiceFooter = outlet?.invoiceFooter || "Thank you for dining with us!";
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -58,8 +73,8 @@ export function printBill(order, items, outletName, options = {}) {
     <tr>
       <td class="col-item">${i.name}${i.note ? `<div class="item-note">${i.note}</div>` : ""}</td>
       <td class="col-qty">${i.quantity}</td>
-      <td class="col-rate">₹${i.price.toFixed(0)}</td>
-      <td class="col-amt">₹${(i.price * i.quantity).toFixed(0)}</td>
+      <td class="col-rate">${i.price.toFixed(0)}</td>
+      <td class="col-amt">${(i.price * i.quantity).toFixed(0)}</td>
     </tr>`).join("");
 
   const html = `<!DOCTYPE html>
@@ -76,14 +91,18 @@ export function printBill(order, items, outletName, options = {}) {
       font-family: 'Manrope', 'Courier New', monospace;
       font-size: ${_paperWidthMm <= 58 ? 11 : 12}px;
       color: #111;
-      padding: 10px 12px 20px;
+      padding: 10px 12px 40px;
       width: ${_paperWidthMm}mm;
     }
 
     /* ── Header ── */
     .hdr { text-align: center; margin-bottom: 6px; }
-    .outlet-name { font-size: 17px; font-weight: 800; letter-spacing: 0.3px; }
-    .outlet-sub  { font-size: 10px; color: #777; margin-top: 1px; }
+    .outlet-name    { font-size: 17px; font-weight: 800; letter-spacing: 0.3px; }
+    .outlet-sub     { font-size: 10px; color: #777; margin-top: 1px; }
+    .outlet-addr    { font-size: 10px; color: #555; margin-top: 2px; line-height: 1.5; }
+    .outlet-gstin   { font-size: 10px; color: #555; margin-top: 1px; }
+    .outlet-fssai   { font-size: 10px; color: #555; margin-top: 1px; }
+    .invoice-header { font-size: 11px; color: #333; font-weight: 600; margin-top: 3px; }
 
     /* ── Info grid ── */
     .info-grid {
@@ -144,7 +163,13 @@ export function printBill(order, items, outletName, options = {}) {
 
   <!-- Header -->
   <div class="hdr">
+    ${invoiceHeader ? `<div class="invoice-header">${invoiceHeader}</div>` : ""}
     <div class="outlet-name">${outletName || "Restaurant"}</div>
+    ${(outletAddr1 || outletAddr2 || outletCity || outletState) ? `
+    <div class="outlet-addr">${[outletAddr1, outletAddr2, outletCity, outletState].filter(Boolean).join(", ")}</div>` : ""}
+    ${outletPhone ? `<div class="outlet-sub">Ph: ${outletPhone}</div>` : ""}
+    ${outletGstin ? `<div class="outlet-gstin">GSTIN: ${outletGstin}</div>` : ""}
+    ${outletFssai ? `<div class="outlet-fssai">FSSAI: ${outletFssai}</div>` : ""}
     ${seatLabel ? `<div><span class="seat-tag">${seatLabel}</span></div>` : ""}
   </div>
   <hr class="div-dash">
@@ -197,7 +222,7 @@ export function printBill(order, items, outletName, options = {}) {
   <!-- Footer -->
   <div class="footer">
     <p>Please pay at the counter</p>
-    <p>Thank you for dining with us!</p>
+    <p>${invoiceFooter}</p>
   </div>
 
 </body>

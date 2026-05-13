@@ -6,6 +6,8 @@ export function SetupScreen({ onComplete }) {
   const [status,   setStatus]   = useState("idle"); // idle | loading | success | error
   const [result,   setResult]   = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [localIp,  setLocalIp]  = useState(() => localStorage.getItem("captain_local_server_ip") || "");
+  const [scanning, setScanning] = useState(false);
 
   async function handleVerify(e) {
     e.preventDefault();
@@ -36,7 +38,29 @@ export function SetupScreen({ onComplete }) {
     };
     localStorage.setItem("captain_branch_config", JSON.stringify(config));
     if (result.deviceToken) localStorage.setItem("captain_token", result.deviceToken);
+    const ip = localIp.trim();
+    if (ip) localStorage.setItem("captain_local_server_ip", ip);
+    else    localStorage.removeItem("captain_local_server_ip");
     onComplete(config);
+  }
+
+  async function handleScanForPOS() {
+    setScanning(true);
+    // Try common POS machine IPs on the local subnet — probe port 4001
+    const subnet = "192.168.1";
+    const candidates = Array.from({ length: 20 }, (_, i) => `${subnet}.${i + 1}`);
+    for (const ip of candidates) {
+      try {
+        const res = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(600) });
+        if (res.ok) {
+          setLocalIp(ip);
+          setScanning(false);
+          return;
+        }
+      } catch (_) {}
+    }
+    setScanning(false);
+    alert("POS not found on 192.168.1.x — enter IP manually from POS Settings.");
   }
 
   return (
@@ -104,6 +128,31 @@ export function SetupScreen({ onComplete }) {
               {result.tables?.length || 0} tables
               {result.staff?.length ? ` · ${result.staff.length} staff` : ""}
             </p>
+
+            {/* Local POS IP — optional, for direct WiFi connection */}
+            <div className="setup-local-section">
+              <p className="setup-local-label">POS Local IP (optional)</p>
+              <p className="setup-local-hint">Enter the Windows PC IP shown in POS → Settings. Enables offline floor operations when internet is down.</p>
+              <div className="setup-local-row">
+                <input
+                  className="setup-input setup-local-input"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="e.g. 192.168.1.10"
+                  value={localIp}
+                  onChange={e => setLocalIp(e.target.value)}
+                />
+                <button
+                  className="setup-scan-btn"
+                  type="button"
+                  disabled={scanning}
+                  onClick={handleScanForPOS}
+                >
+                  {scanning ? "Scanning…" : "Find POS"}
+                </button>
+              </div>
+            </div>
+
             <button className="setup-btn success-btn" onClick={handleConfirm}>
               Open Plato Captain →
             </button>

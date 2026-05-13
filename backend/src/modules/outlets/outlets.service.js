@@ -1,7 +1,22 @@
 const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
 
 async function fetchOutlets() {
-  return getOwnerSetupData().outlets;
+  const data = getOwnerSetupData();
+  const bp   = data.businessProfile || {};
+  // Merge business-profile receipt fields into each outlet so POS/Captain
+  // can print a complete bill header without a separate API call.
+  return (data.outlets || []).map(o => ({
+    ...o,
+    phone:         o.phone         || bp.phone         || "",
+    addressLine1:  o.addressLine1  || bp.addressLine1  || "",
+    addressLine2:  o.addressLine2  || bp.addressLine2  || "",
+    city:          o.city          || bp.city          || "",
+    state:         o.state         || bp.state         || "",
+    gstin:         o.gstin         || bp.gstin         || "",
+    fssaiNo:       o.fssaiNo       || bp.fssaiNo       || "",
+    invoiceHeader: o.invoiceHeader || bp.invoiceHeader || "",
+    invoiceFooter: o.invoiceFooter || bp.invoiceFooter || "",
+  }));
 }
 
 /**

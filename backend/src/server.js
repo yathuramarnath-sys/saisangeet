@@ -157,9 +157,46 @@ io.on("connection", (socket) => {
       const tid = resolveTenantByOutlet(data.outletId);
       socket.to(`outlet:${tid}:${data.outletId}`).emit("kot:bumped", data);
     }
-    // no broadcast fallback — without outletId we can't target safely
+  });
+
+  // ── Item availability toggle (POS → Captain + KDS) ───────────────────────
+  // data: { outletId, itemId, available: bool }
+  socket.on("item:availability", (data) => {
+    if (!data.outletId || !data.itemId) return;
+    const tid = resolveTenantByOutlet(data.outletId);
+    // Update server-side cache
+    if (!outletAvailability[data.outletId]) outletAvailability[data.outletId] = {};
+    if (data.available) {
+      delete outletAvailability[data.outletId][data.itemId];
+    } else {
+      outletAvailability[data.outletId][data.itemId] = false;
+    }
+    // Relay to all other devices in the outlet
+    socket.to(`outlet:${tid}:${data.outletId}`).emit("item:availability", data);
+  });
+
+  // On connect, send the current availability state so new devices are in sync
+  if (outletId && outletAvailability[outletId]) {
+    socket.emit("item:availability:state", outletAvailability[outletId]);
+  }
+
+  // ── Online orders on/off toggle (POS → all) ──────────────────────────────
+  // data: { outletId, enabled: bool }
+  socket.on("online:orders:toggle", (data) => {
+    if (!data.outletId) return;
+    const tid = resolveTenantByOutlet(data.outletId);
+    outletOnlineEnabled[data.outletId] = data.enabled;
+    socket.to(`outlet:${tid}:${data.outletId}`).emit("online:orders:toggle", data);
   });
 });
+
+// ── Per-outlet item availability cache ──────────────────────────────────────
+// Keyed by outletId. Value: { [itemId]: false } — only stores sold-out items.
+// Lost on server restart (devices re-broadcast their state on reconnect).
+const outletAvailability = {};
+
+// ── Online-orders enabled state per outlet ───────────────────────────────────
+const outletOnlineEnabled = {};
 
 // Bind the port FIRST so Railway's healthcheck passes immediately,
 // then run migrations + hydration in the background.

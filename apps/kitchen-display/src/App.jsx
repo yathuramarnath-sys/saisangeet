@@ -133,6 +133,8 @@ function KdsBranchSetupScreen({ onComplete }) {
   const [status,   setStatus]   = useState("idle");
   const [result,   setResult]   = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [localIp,  setLocalIp]  = useState(() => localStorage.getItem("kds_local_server_ip") || "");
+  const [scanning, setScanning] = useState(false);
 
   async function handleVerify(e) {
     e.preventDefault();
@@ -161,29 +163,45 @@ function KdsBranchSetupScreen({ onComplete }) {
       configuredAt: new Date().toISOString(),
     };
     saveKdsBranchConfig(config);
-    // Save device token so all API calls use the correct tenant
     if (result.deviceToken) {
       localStorage.setItem("kds_token", result.deviceToken);
     }
+    const ip = localIp.trim();
+    if (ip) localStorage.setItem("kds_local_server_ip", ip);
+    else    localStorage.removeItem("kds_local_server_ip");
     onComplete(config);
+  }
+
+  async function handleScanForPOS() {
+    setScanning(true);
+    const subnet = "192.168.1";
+    const candidates = Array.from({ length: 20 }, (_, i) => `${subnet}.${i + 1}`);
+    for (const ip of candidates) {
+      try {
+        const res = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(600) });
+        if (res.ok) { setLocalIp(ip); setScanning(false); return; }
+      } catch (_) {}
+    }
+    setScanning(false);
+    alert("POS not found on 192.168.1.x — enter IP manually from POS Settings.");
   }
 
   return (
     <div style={{
       minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(135deg, #0a0c10 0%, #111827 100%)",
+      background: "#0D1117",
       fontFamily: "'Manrope', sans-serif", padding: 24,
     }}>
       <div style={{
-        background: "#111827", border: "1px solid #1f2937", borderRadius: 20,
+        background: "#1C2128", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
         padding: "48px 40px", width: "100%", maxWidth: 420,
         display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-        boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
       }}>
         <div style={{
           width: 64, height: 64, borderRadius: "50%",
-          background: "rgba(255,255,255,0.1)",
-          color: "#fff",
+          background: "#FFC107",
+          color: "#212121",
           display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4,
         }}>
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -222,11 +240,13 @@ function KdsBranchSetupScreen({ onComplete }) {
               <button
                 style={{
                   width: "100%", padding: 15,
-                  background: status === "loading" ? "#374151" : "linear-gradient(135deg, #059669, #047857)",
-                  color: "#fff", border: "none", borderRadius: 12,
-                  fontSize: 15, fontWeight: 700, cursor: "pointer",
+                  background: status === "loading" ? "#374151" : "#FFC107",
+                  color: status === "loading" ? "#fff" : "#212121",
+                  border: "none", borderRadius: 8,
+                  fontSize: 16, fontWeight: 800, cursor: "pointer",
                   opacity: (status === "loading" || !code.trim()) ? 0.5 : 1,
                   fontFamily: "'Manrope', sans-serif",
+                  boxShadow: status === "loading" ? "none" : "0 4px 16px rgba(255,193,7,0.35)",
                 }}
                 type="submit" disabled={status === "loading" || !code.trim()}
               >
@@ -249,13 +269,50 @@ function KdsBranchSetupScreen({ onComplete }) {
             <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 12px" }}>
               {result.tables?.length || 0} tables · KDS ready
             </p>
+
+            {/* Local POS IP — optional */}
+            <div style={{
+              width: "100%", background: "#0F172A", border: "1px solid #1E3A5F",
+              borderRadius: 10, padding: "12px 14px", marginBottom: 12, textAlign: "left",
+            }}>
+              <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#38BDF8", margin: "0 0 3px" }}>
+                POS Local IP (optional)
+              </p>
+              <p style={{ fontSize: 11, color: "#4B5563", lineHeight: 1.4, margin: "0 0 8px" }}>
+                Enter POS IP from POS → Settings for direct WiFi KOT delivery.
+              </p>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  style={{
+                    flex: 1, padding: "8px 10px", fontSize: 14, background: "#0a0c10",
+                    border: "1px solid #1f2937", borderRadius: 8, color: "#f9fafb",
+                    fontFamily: "monospace", boxSizing: "border-box",
+                  }}
+                  type="text" inputMode="decimal" placeholder="e.g. 192.168.1.10"
+                  value={localIp} onChange={e => setLocalIp(e.target.value)}
+                />
+                <button
+                  style={{
+                    background: "#1E3A5F", color: "#90CAF9", border: "1px solid #2563EB",
+                    borderRadius: 8, padding: "0 12px", fontSize: 12, fontWeight: 700,
+                    cursor: scanning ? "not-allowed" : "pointer", opacity: scanning ? 0.5 : 1,
+                    whiteSpace: "nowrap",
+                  }}
+                  type="button" disabled={scanning} onClick={handleScanForPOS}
+                >
+                  {scanning ? "Scanning…" : "Find POS"}
+                </button>
+              </div>
+            </div>
+
             <button
               style={{
                 width: "100%", padding: 15,
-                background: "linear-gradient(135deg, #10b981, #059669)",
-                color: "#fff", border: "none", borderRadius: 12,
-                fontSize: 15, fontWeight: 700, cursor: "pointer",
+                background: "#FFC107",
+                color: "#212121", border: "none", borderRadius: 8,
+                fontSize: 16, fontWeight: 800, cursor: "pointer",
                 fontFamily: "'Manrope', sans-serif",
+                boxShadow: "0 4px 16px rgba(255,193,7,0.35)",
               }}
               onClick={handleConfirm}
             >
@@ -834,8 +891,10 @@ export function App() {
   const [showSettings,  setShowSettings]  = useState(false);
   const [showRecall,    setShowRecall]    = useState(false);   // recall panel
   const [newIds,        setNewIds]        = useState(new Set());
-  const [connState,     setConnState]     = useState("connecting"); // connecting | live | offline
-  const socketRef  = useRef(null);
+  const [connState,     setConnState]     = useState("connecting"); // connecting | live | offline | reconnected
+  const prevConnRef = useRef("connecting");
+  const socketRef      = useRef(null);
+  const localSocketRef = useRef(null);
   const audioReady = useRef(false);
   // Always-current ref so socket handlers (which close over stale state) can
   // read the latest assignedStation without depending on the closure.
@@ -910,7 +969,14 @@ export function App() {
 
     // ── Connection lifecycle ──────────────────────────────────────────────
     socket.on("connect", async () => {
-      setConnState("live");
+      // Show green "Connected" banner briefly if we were offline
+      if (prevConnRef.current === "offline") {
+        setConnState("reconnected");
+        setTimeout(() => setConnState("live"), 3000);
+      } else {
+        setConnState("live");
+      }
+      prevConnRef.current = "live";
       // Subscribe to this screen's station room so the server routes KOTs correctly
       socket.emit("kds:join-station", {
         outletId:    branchConfig.outletId,
@@ -938,8 +1004,16 @@ export function App() {
       } catch (_) {}
     });
 
-    socket.on("disconnect", () => setConnState("offline"));
-    socket.on("connect_error", () => setConnState("offline"));
+    socket.on("disconnect", () => { prevConnRef.current = "offline"; setConnState("offline"); });
+    socket.on("connect_error", () => { prevConnRef.current = "offline"; setConnState("offline"); });
+
+    // ── Item availability sync from POS ──────────────────────────────────────
+    socket.on("item:availability", (data) => {
+      setItemAvailability(data.itemId, data.available);
+    });
+    socket.on("item:availability:state", (state) => {
+      Object.entries(state || {}).forEach(([id, val]) => setItemAvailability(id, val !== false));
+    });
 
     // ── kot:new is registered in a SEPARATE effect (fresh-closure pattern) ──
     // See useEffect([settings.assignedStation, branchConfig]) below.
@@ -1026,8 +1100,66 @@ export function App() {
       }
     }
 
+    // ── Local POS WiFi server — auto-reconnect + auto-scan ───────────────────
+    async function findPosOnNetwork() {
+      const subnets = ["192.168.1", "192.168.0", "10.0.0"];
+      for (const subnet of subnets) {
+        for (let i = 1; i <= 50; i++) {
+          const ip = `${subnet}.${i}`;
+          try {
+            const r = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(400) });
+            if (r.ok) return ip;
+          } catch (_) {}
+        }
+      }
+      return null;
+    }
+
+    function connectLocalSocket(ip) {
+      if (localSocketRef.current) {
+        localSocketRef.current.removeAllListeners();
+        localSocketRef.current.disconnect();
+        localSocketRef.current = null;
+      }
+
+      const lSock = io(`http://${ip}:4001`, {
+        query:                { role: "kds", outletId: branchConfig.outletId, kdsStation: settings.assignedStation || "" },
+        reconnection:         true,
+        reconnectionDelay:    1000,
+        reconnectionDelayMax: 6000,
+        reconnectionAttempts: Infinity,
+        timeout:              4000,
+      });
+      localSocketRef.current = lSock;
+
+      let errorCount = 0;
+      let scanning   = false;
+
+      lSock.on("connect_error", () => {
+        errorCount++;
+        if (errorCount >= 5 && !scanning) {
+          scanning = true;
+          findPosOnNetwork().then(newIp => {
+            scanning   = false;
+            errorCount = 0;
+            if (!newIp) return;
+            localStorage.setItem("kds_local_server_ip", newIp);
+            connectLocalSocket(newIp);
+          });
+        }
+      });
+      // kot:new registered in the fresh-closure effect below (reads localSocketRef.current)
+    }
+
+    const savedLocalIp = localStorage.getItem("kds_local_server_ip")?.trim();
+    if (savedLocalIp) connectLocalSocket(savedLocalIp);
+
     bootstrap();
-    return () => { socket.disconnect(); };
+    return () => {
+      socket.disconnect();
+      localSocketRef.current?.disconnect();
+      localSocketRef.current = null;
+    };
   }, [branchConfig]);
 
   // ── Fresh-closure kot:new handler ─────────────────────────────────────────────
@@ -1081,7 +1213,17 @@ export function App() {
     socket.off("kot:new");
     socket.on("kot:new", kotNewHandler);
 
-    return () => { socket.off("kot:new", kotNewHandler); };
+    // Also register on local WiFi socket if connected
+    const localSock = localSocketRef.current;
+    if (localSock) {
+      localSock.off("kot:new");
+      localSock.on("kot:new", kotNewHandler);
+    }
+
+    return () => {
+      socket.off("kot:new", kotNewHandler);
+      localSock?.off("kot:new", kotNewHandler);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.assignedStation, branchConfig]);
 
@@ -1241,13 +1383,14 @@ export function App() {
         </div>
       )}
 
-      {/* ── Offline banner ──────────────────────────────────────── */}
+      {/* ── Offline / Reconnected banner ────────────────────────── */}
       {connState === "offline" && (
         <div className="kds-offline-banner">
-          <span>📡 Cloud disconnected — showing last known tickets. New KOTs will appear when reconnected.</span>
+          <span>📡 Disconnected — showing last known tickets</span>
           <button
             className="kds-reconnect-btn"
             onClick={() => {
+              prevConnRef.current = "offline";
               setConnState("connecting");
               socketRef.current?.disconnect();
               socketRef.current?.connect();
@@ -1255,6 +1398,11 @@ export function App() {
           >
             Reconnect
           </button>
+        </div>
+      )}
+      {connState === "reconnected" && (
+        <div className="kds-reconnected-banner">
+          <span>✓ Connected</span>
         </div>
       )}
 
@@ -1307,7 +1455,7 @@ export function App() {
           {servedTickets.length > 0 && (
             <button
               className="kds-served-pill"
-              style={{ cursor: "pointer", background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.4)", color: "#10b981" }}
+              style={{ cursor: "pointer", background: "rgba(255,193,7,0.15)", border: "1px solid rgba(255,193,7,0.4)", color: "#FFC107" }}
               onClick={e => { e.stopPropagation(); setShowRecall(true); }}
               title="Recall a completed ticket"
             >
@@ -1431,16 +1579,8 @@ export function App() {
                       ))}
                     </div>
                     {/* Recall button */}
-                    <button
-                      style={{
-                        width: "100%", padding: "8px 0", borderRadius: 8,
-                        background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.4)",
-                        color: "#10b981", fontWeight: 700, fontSize: 13,
-                        cursor: "pointer", fontFamily: "'Manrope', sans-serif",
-                      }}
-                      onClick={() => handleRecall(t)}
-                    >
-                      ↩ Recall to Preparing
+                    <button className="kds-recall-btn" onClick={() => handleRecall(t)}>
+                      ↩ Recall
                     </button>
                   </div>
                 );

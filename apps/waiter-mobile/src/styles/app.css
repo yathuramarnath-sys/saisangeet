@@ -18,22 +18,22 @@
   --shadow-lg:   0 8px 32px rgba(0,0,0,0.10);
 
   /* Status colours */
-  --free-fg:     #16A34A;
-  --free-bg:     #F0FDF4;
-  --free-border: rgba(22,163,74,0.18);
-  --running-fg:  #E67E22;
+  --free-fg:     #4CAF50;
+  --free-bg:     #E8F5E9;
+  --free-border: rgba(76,175,80,0.18);
+  --running-fg:  #FF9800;
   --running-bg:  #FFF3E0;
-  --running-border: #E67E22;
-  --bill-fg:     #2563EB;
-  --bill-bg:     #EFF6FF;
-  --bill-border: #3B82F6;
-  --hold-fg:     #7C3AED;
-  --hold-bg:     #F5F3FF;
-  --hold-border: #A855F7;
+  --running-border: #FF9800;
+  --bill-fg:     #F44336;
+  --bill-bg:     #FFEBEE;
+  --bill-border: #F44336;
+  --hold-fg:     #9E9E9E;
+  --hold-bg:     #F5F5F5;
+  --hold-border: #E0E0E0;
 
   /* Action colours */
-  --kot-bg:      #16A34A;
-  --kot-shadow:  rgba(22,163,74,0.24);
+  --kot-bg:      #FFC107;
+  --kot-shadow:  rgba(255,193,7,0.24);
 
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -316,6 +316,68 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   font-weight: 600;
   text-decoration: underline;
   padding: 8px;
+}
+
+/* ─── Setup — local IP section ──────────────────────────────────────────── */
+
+.setup-local-section {
+  width: 100%;
+  background: #0F172A;
+  border: 1px solid #1E3A5F;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+.setup-local-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #38BDF8;
+  margin-bottom: 4px;
+}
+.setup-local-hint {
+  font-size: 0.75rem;
+  color: #64748B;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+.setup-local-row {
+  display: flex;
+  gap: 8px;
+}
+.setup-local-input {
+  flex: 1;
+  font-size: 0.9rem !important;
+  padding: 10px 12px !important;
+}
+.setup-scan-btn {
+  background: #1E3A5F;
+  color: #90CAF9;
+  border: 1px solid #2563EB;
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.setup-scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─── Captain local-connection banner ────────────────────────────────────── */
+
+.captain-local-banner {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 200;
+  background: #0d3320;
+  color: #69f0ae;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px 16px;
+  letter-spacing: 0.2px;
 }
 
 /* ─── Login Screen ───────────────────────────────────────────────────────── */
@@ -1802,67 +1864,84 @@ html, body, #root { background: #F7F3EE; }
 
 /* Free — green left strip */
 .status-free {
-  border-left-color: #22C55E !important;
+  border-left-color: #4CAF50 !important;
   background: #FFFFFF !important;
 }
 .status-free .table-number      { color: #1E293B !important; }
-.status-free .table-status-text { color: #16A34A !important; }
+.status-free .table-status-text { color: #4CAF50 !important; }
 
 /* Running/Occupied — orange (matches POS occupied exactly) */
 .status-running {
-  border-left-color: #E67E22 !important;
+  border-left-color: #FF9800 !important;
   background: #FFF3E0 !important;
 }
-.status-running .table-number      { color: #BF5200 !important; }
-.status-running .table-status-text { color: #E67E22 !important; }
-.status-running .table-amount      { color: #BF5200 !important; }
+.status-running .table-number      { color: #E65100 !important; }
+.status-running .table-status-text { color: #FF9800 !important; }
+.status-running .table-amount      { color: #E65100 !important; }
 
-/* Bill — blue tint (matches POS bill) */
+/* Bill — red tint (matches POS bill requested = urgent) */
 .status-bill {
-  border-left-color: #3B82F6 !important;
-  background: #EFF6FF !important;
+  border-left-color: #F44336 !important;
+  background: #FFEBEE !important;
 }
 .status-bill .table-number      { color: #1E293B !important; }
-.status-bill .table-status-text { color: #2563EB !important; }
+.status-bill .table-status-text { color: #F44336 !important; }
 
-/* Hold — purple tint (matches POS hold) */
+/* Hold — gray tint (matches POS hold) */
 .status-hold {
-  border-left-color: #A855F7 !important;
-  background: #F5F3FF !important;
+  border-left-color: #9E9E9E !important;
+  background: #F5F5F5 !important;
 }
 .status-hold .table-number      { color: #1E293B !important; }
-.status-hold .table-status-text { color: #7C3AED !important; }
+.status-hold .table-status-text { color: #757575 !important; }
 
 /* Status dot — use strip colour */
-.status-free .table-status-dot    { background: #22C55E !important; }
-.status-running .table-status-dot { background: #E67E22 !important; }
-.status-bill .table-status-dot    { background: #3B82F6 !important; }
-.status-hold .table-status-dot    { background: #A855F7 !important; }
+.status-free .table-status-dot    { background: #4CAF50 !important; }
+.status-running .table-status-dot { background: #FF9800 !important; }
+.status-bill .table-status-dot    { background: #F44336 !important; }
+.status-hold .table-status-dot    { background: #9E9E9E !important; }
 
 /* ── 4. Area tabs, category chips ── */
-.area-tab-active  { background: #1A2332 !important; border-color: #1A2332 !important; }
-.cat-chip-active  { background: #1A2332 !important; border-color: #1A2332 !important; }
+.area-tab-active  { background: #FFC107 !important; border-color: #FFC107 !important; color: #212121 !important; }
+.cat-chip-active  { background: #FFC107 !important; border-color: #FFC107 !important; color: #212121 !important; }
 
 /* ── 5. Floor summary bar ── */
 .floor-summary { background: #FFFFFF !important; }
-.active-num    { color: #E67E22 !important; }
+.active-num    { color: #FF9800 !important; }
 
-/* ── 6. KOT button: keep green ── */
-.kot-btn { background: #16A34A !important; box-shadow: 0 4px 16px rgba(22,163,74,0.25) !important; }
+/* ── 6. KOT button: yellow brand colour — larger + glow + pulse ── */
+.kot-btn {
+  background: #FFC107 !important;
+  color: #212121 !important;
+  padding: 20px !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 6px 20px rgba(255,193,7,0.40) !important;
+}
+
+/* Pulse glow when there are pending (unsent) items */
+.kot-btn.has-pending {
+  animation: kotPulse 2s ease-in-out infinite !important;
+}
+@keyframes kotPulse {
+  0%,100% { box-shadow: 0 4px 12px rgba(255,193,7,0.40); }
+  50%      { box-shadow: 0 6px 22px rgba(255,193,7,0.70); }
+}
 
 /* ── 7. Login page ── */
 .login-page { background: #F7F3EE !important; }
-.login-logo { background: #1A2332 !important; }
-.staff-card:active { border-color: #1A2332 !important; }
+.login-logo { background: #FFC107 !important; color: #212121 !important; }
+.staff-card:active { border-color: #FFC107 !important; }
 
 /* ── 8. PIN numpad keys ── */
-.numpad-key:active { background: #1A2332 !important; border-color: #1A2332 !important; }
-.pin-dot.filled    { background: #1A2332 !important; border-color: #1A2332 !important; }
+.numpad-key:active { background: #FFC107 !important; border-color: #FFC107 !important; color: #212121 !important; }
+.pin-dot.filled    { background: #FFC107 !important; border-color: #E6AC00 !important; }
 
 /* ── 9. Order screen ── */
 .order-page { background: #F7F3EE !important; }
 .order-header { background: #FFFFFF !important; }
-.add-items-btn { background: #1A2332 !important; }
+.add-items-btn { background: #FFC107 !important; color: #212121 !important; }
 .order-actions { background: #F7F3EE !important; }
 
 /* ── 10. Menu items — 2-column box grid (faster browsing for captain) ── */
@@ -1945,9 +2024,10 @@ html, body, #root { background: #F7F3EE; }
 
 /* + add button: compact circle */
 .menu-add-btn {
+  color: #212121 !important;
   width: 34px !important;
   height: 34px !important;
-  background: #1A2332 !important;
+  background: #FFC107 !important;
   border-radius: 10px !important;
   flex-shrink: 0 !important;
 }
@@ -1959,15 +2039,18 @@ html, body, #root { background: #F7F3EE; }
   height: 30px !important;
   font-size: 1rem !important;
 }
-.qty-btn.qty-btn-add { background: #1A2332 !important; border-color: #1A2332 !important; }
+.qty-btn.qty-btn-add { background: #FFC107 !important; border-color: #E6AC00 !important; color: #212121 !important; }
 .qty-num { font-size: 0.88rem !important; min-width: 18px !important; }
 
 /* Empty state spans full grid */
 .menu-empty { grid-column: 1 / -1 !important; }
 
 /* Cart bar */
-.cart-bar-btn { background: #1A2332 !important; }
+.cart-bar-btn { background: #FFC107 !important; color: #212121 !important; }
+
+/* ── KOT sent badge — keep neutral green, not bill-red ── */
+.kot-badge { background: #E8F5E9 !important; color: #4CAF50 !important; border-color: rgba(76,175,80,0.3) !important; }
 
 /* ── 11. Quick-notes / modals ── */
-.quick-chip-active { background: #1A2332 !important; border-color: #1A2332 !important; }
-.sheet-save-btn    { background: #1A2332 !important; }
+.quick-chip-active { background: #FFC107 !important; border-color: #E6AC00 !important; color: #212121 !important; }
+.sheet-save-btn    { background: #FFC107 !important; color: #212121 !important; }

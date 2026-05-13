@@ -102,6 +102,37 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   line-height: 1.6;
 }
 
+.pos-connecting-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  background: #0d2137;
+  color: #90caf9;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px 16px;
+  letter-spacing: 0.2px;
+  animation: connPulse 1.6s ease-in-out infinite;
+}
+@keyframes connPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.pos-local-banner {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 100;
+  background: #0d3320;
+  color: #69f0ae;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 3px 16px;
+  letter-spacing: 0.2px;
+}
+
 /* ─── Top bar ─────────────────────────────────────────────────────────────── */
 
 .pos-topbar {
@@ -3668,6 +3699,91 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
 .pset-empty { font-size: 12px; color: var(--sq-muted); padding: 12px; text-align: center; }
 
+/* ─── Devices tab — local server info ───────────────────────────────────── */
+.pset-local-server-info {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 12px;
+}
+.pset-lsi-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #d1fae5;
+}
+.pset-lsi-row:last-of-type { border-bottom: none; }
+.pset-lsi-label { font-size: 12px; color: #065f46; font-weight: 700; }
+.pset-lsi-value { font-size: 13px; color: #064e3b; font-weight: 800; }
+.pset-lsi-hint  { font-size: 12px; color: #047857; margin-top: 12px; line-height: 1.5; }
+.pset-lsi-hint strong { color: #065f46; }
+
+.pset-static-ip-box {
+  margin-top: 16px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  padding: 16px;
+}
+.pset-sib-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #92400e;
+  margin-bottom: 8px;
+}
+.pset-sib-body {
+  font-size: 12px;
+  color: #78350f;
+  line-height: 1.55;
+  margin-bottom: 12px;
+}
+.pset-sib-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pset-sib-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
+  color: #78350f;
+  line-height: 1.5;
+}
+.pset-sib-step strong { color: #92400e; }
+.pset-sib-step code {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #78350f;
+}
+.pset-sib-num {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+.pset-sib-note {
+  font-size: 11px;
+  color: #a16207;
+  line-height: 1.5;
+  font-style: italic;
+}
+
 
 /* ══════════════════════════════════════════════════════════════════════════════
    SHIFT CLOSING RECEIPT
@@ -5436,6 +5552,42 @@ body { background: #F7F3EE; }
   flex-shrink: 0 !important;
 }
 .menu-food-card:hover .mfc-add-btn { transform: scale(1.12) !important; }
+
+/* ── Item availability toggle ── */
+.mfc-avail-toggle {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  z-index: 2;
+  padding: 0;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.mfc-avail-toggle.on  { background: #22C55E; color: #fff; opacity: 0; }
+.mfc-avail-toggle.off { background: #EF4444; color: #fff; opacity: 1; }
+.menu-food-card:hover .mfc-avail-toggle.on  { opacity: 1; }
+.menu-food-card { position: relative; }
+
+/* ── Online orders toggle button ── */
+.online-toggle-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1.5px solid;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.online-toggle-btn.enabled  { background: #dcfce7; border-color: #22C55E; color: #15803d; }
+.online-toggle-btn.disabled { background: #fee2e2; border-color: #EF4444; color: #b91c1c; }
 
 /* Veg badge: hidden — left strip already indicates veg/nonveg */
 .mfc-veg-badge { display: none !important; }

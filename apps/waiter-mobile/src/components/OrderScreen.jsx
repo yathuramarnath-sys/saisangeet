@@ -9,6 +9,7 @@ import { PhonePeQRModal } from "./PhonePeQRModal";
 import {
   getStockState,
   subscribeStock,
+  setItemAvailability,
 } from "../../../../packages/shared-types/src/stockAvailability.js";
 
 export function OrderScreen({
@@ -29,6 +30,23 @@ export function OrderScreen({
     const unsub = subscribeStock((s) => setStockState({ ...s }));
     return unsub;
   }, []);
+
+  // Sync item availability from POS via socket
+  useEffect(() => {
+    if (!socket) return;
+    function onAvail(data) {
+      setItemAvailability(data.itemId, data.available);
+    }
+    function onAvailState(state) {
+      Object.entries(state || {}).forEach(([id, val]) => setItemAvailability(id, val !== false));
+    }
+    socket.on("item:availability", onAvail);
+    socket.on("item:availability:state", onAvailState);
+    return () => {
+      socket.off("item:availability", onAvail);
+      socket.off("item:availability:state", onAvailState);
+    };
+  }, [socket]);
 
   const items      = order.items || [];
   const unsentCount = items.filter(i => !i.sentToKot).length;
@@ -187,7 +205,7 @@ export function OrderScreen({
       <div className="order-actions">
         {/* Send KOT */}
         {unsentCount > 0 && (
-          <button className="action-btn kot-btn" onClick={() => { tapImpact(); onSendKOT(); }}>
+          <button className={`action-btn kot-btn${unsentCount > 0 ? " has-pending" : ""}`} onClick={() => { tapImpact(); onSendKOT(); }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
             </svg>

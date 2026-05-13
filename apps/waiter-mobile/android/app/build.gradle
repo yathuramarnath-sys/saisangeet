@@ -7,8 +7,8 @@ android {
         applicationId "in.dinexpos.captain"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
-        versionName "1.4"
+        versionCode 7
+        versionName "1.6"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,7 +18,7 @@ android {
     }
     signingConfigs {
         release {
-            storeFile     file(System.getProperty("user.home") + "/Desktop/APKS/dinex-captain.jks")
+            storeFile     file(System.getProperty("user.home") + "/Desktop/🔑 Signing Keys/dinex-captain.jks")
             storePassword "Dinex@123"
             keyAlias      "dinex"
             keyPassword   "Dinex@123"

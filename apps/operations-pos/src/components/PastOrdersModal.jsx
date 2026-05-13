@@ -93,7 +93,7 @@ function EditPaymentModal({ order, fin, onSave, onClose }) {
 }
 
 /* ── Past Orders Modal ────────────────────────────────────────────────────── */
-export function PastOrdersModal({ orders, onClose, onEditPayment, outletName, cashierName }) {
+export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outletName, cashierName }) {
   const [filter,    setFilter]    = useState("all");   // all | cash | card | upi | online
   const [search,    setSearch]    = useState("");
   const [editOrder, setEditOrder] = useState(null);
@@ -256,7 +256,7 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outletName, ca
                           onClick={() => printBill(
                             order,
                             order.items,
-                            outletName || order.outletName || "Restaurant",
+                            outlet || outletName || order.outletName || "Restaurant",
                             { cashierName: cashierName || "Cashier" }
                           )}>
                           🖨 Reprint Bill

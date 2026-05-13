@@ -75,7 +75,7 @@ const PALETTE = [
   { bg: "#D35400", light: "#FDEBD0", grad: "linear-gradient(135deg,#E67E22,#9A3412)" },
 ];
 
-export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem }) {
+export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability }) {
   const [search,      setSearch]      = useState("");
   const [stockState,  setStockState]  = useState(() => getStockState());
 
@@ -180,9 +180,20 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
               type="button"
               className={`menu-food-card${soldOut ? " sold-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}`}
               onClick={() => !soldOut && onAddItem({ ...item, price })}
-              disabled={soldOut}
-              title={soldOut ? "Sold Out — not available right now" : undefined}
+              title={soldOut ? "Sold Out — tap toggle to re-enable" : undefined}
             >
+              {/* Availability toggle */}
+              {onToggleAvailability && (
+                <button
+                  type="button"
+                  className={`mfc-avail-toggle${soldOut ? " off" : " on"}`}
+                  title={soldOut ? "Mark available" : "Mark sold out"}
+                  onClick={(e) => { e.stopPropagation(); onToggleAvailability(item.id, soldOut); }}
+                >
+                  {soldOut ? "✕" : "✓"}
+                </button>
+              )}
+
               {/* Emoji icon area */}
               <div className="mfc-icon-area" style={{ background: soldOut ? "#e5e7eb" : color.grad }}>
                 <span className="mfc-emoji">{soldOut ? "🚫" : emoji}</span>
