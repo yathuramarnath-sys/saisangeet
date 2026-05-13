@@ -26,7 +26,8 @@ function buildStaffSales(closedToday) {
   const staffMap = {};
 
   for (const order of closedToday) {
-    const cashier = order.cashierName || "Cashier";
+    const cashier = order.cashierName ||
+      (order.outletName ? `${order.outletName} Counter` : "Counter");
     const outlet  = order.outletName  || "All";
     const items   = order.items || [];
     const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);

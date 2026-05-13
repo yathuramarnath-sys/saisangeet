@@ -332,11 +332,12 @@ export async function fetchStaffData() {
   try {
     const state = loadRestaurantState();
 
-    const [roles, permissions, users, outlets] = await Promise.all([
+    const [roles, permissions, users, outlets, discountSettings] = await Promise.all([
       api.get("/roles"),
       api.get("/permissions"),
       api.get("/users"),
-      api.get("/outlets")
+      api.get("/outlets"),
+      api.get("/settings/discounts").catch(() => null)
     ]);
 
     const normalizedRoles = normalizeRoles(roles);
@@ -359,8 +360,12 @@ export async function fetchStaffData() {
       alerts,
       outlets,
       policyValues: {
-        cashierDiscountLimitPercent: state.permissionPolicies?.["cashier-discount-limit-percent"] ?? 5,
-        cashierVoidLimitAmount: state.permissionPolicies?.["cashier-void-limit-amount"] ?? 200
+        cashierDiscountLimitPercent:
+          discountSettings?.defaults?.cashierLimitPercent ??
+          state.permissionPolicies?.["cashier-discount-limit-percent"] ?? 5,
+        cashierVoidLimitAmount:
+          discountSettings?.defaults?.cashierVoidLimitAmount ??
+          state.permissionPolicies?.["cashier-void-limit-amount"] ?? 200
       }
     };
   } catch (_error) {

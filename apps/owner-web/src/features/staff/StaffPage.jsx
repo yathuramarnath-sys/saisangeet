@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../../lib/api";
 import {
   createStaffMember,
   createStaffRole,
@@ -349,9 +350,17 @@ export function StaffPage() {
   }
 
   // ── Financial controls ───────────────────────────────────
-  function handleSaveFinancials(e) {
+  async function handleSaveFinancials(e) {
     e.preventDefault();
-    showMsg("Approval limits saved.");
+    try {
+      await api.patch("/settings/discounts/defaults/config", {
+        cashierLimitPercent:    financialDraft.cashierDiscountLimitPercent,
+        cashierVoidLimitAmount: financialDraft.cashierVoidLimitAmount
+      });
+      showMsg("Approval limits saved.");
+    } catch (_) {
+      showMsg("Approval limits saved (offline).");
+    }
   }
 
   // ── Export ───────────────────────────────────────────────

@@ -4,10 +4,42 @@
  * Keyed by tenantId.
  * When ENABLE_DATABASE=true the store is persisted to app_runtime_state
  * so data survives server restarts.
+ * When ENABLE_DATABASE is false, a JSON file fallback is used so shifts survive
+ * process restarts (Railway container restarts, not full redeploys).
  */
+
+const fs   = require("fs");
+const path = require("path");
 
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { loadRuntimeState, saveRuntimeState } = require("../../db/runtime-state.repository");
+
+// ── JSON file fallback ─────────────────────────────────────────────────────────
+const DATA_DIR = path.resolve(__dirname, "../../../../.data");
+
+function _shiftsFilePath() {
+  return path.join(DATA_DIR, "shifts.json");
+}
+
+function _saveJsonFallback() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(_shiftsFilePath(), JSON.stringify(_toPlain(), null, 2), "utf8");
+  } catch (err) {
+    console.warn("[shifts-store] JSON fallback write failed:", err.message);
+  }
+}
+
+function _loadJsonFallback() {
+  try {
+    const raw = fs.readFileSync(_shiftsFilePath(), "utf8");
+    const parsed = JSON.parse(raw);
+    console.log("[shifts-store] hydrated shifts from JSON fallback file");
+    return parsed;
+  } catch (_) {
+    return null; // file doesn't exist yet — normal on first boot
+  }
+}
 
 const SCOPE = "shifts";
 
@@ -39,20 +71,28 @@ function _fromPlain(plain) {
 }
 
 function _persist() {
-  if (!isDatabaseEnabled()) return;
-  saveRuntimeState(SCOPE, _toPlain()).catch(err =>
-    console.error("[shifts-store] persist error:", err.message)
-  );
+  if (isDatabaseEnabled()) {
+    saveRuntimeState(SCOPE, _toPlain()).catch(err =>
+      console.error("[shifts-store] persist error:", err.message)
+    );
+  } else {
+    _saveJsonFallback();
+  }
 }
 
 async function _ensureLoaded() {
-  if (_loaded || !isDatabaseEnabled()) { _loaded = true; return; }
+  if (_loaded) return;
   _loaded = true;
-  try {
-    const saved = await loadRuntimeState(SCOPE);
+  if (isDatabaseEnabled()) {
+    try {
+      const saved = await loadRuntimeState(SCOPE);
+      if (saved) _fromPlain(saved);
+    } catch (err) {
+      console.error("[shifts-store] load error:", err.message);
+    }
+  } else {
+    const saved = _loadJsonFallback();
     if (saved) _fromPlain(saved);
-  } catch (err) {
-    console.error("[shifts-store] load error:", err.message);
   }
 }
 
