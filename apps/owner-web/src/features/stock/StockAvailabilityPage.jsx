@@ -7,6 +7,7 @@ import {
   setItemAvailability,
   subscribeStock,
 } from "../../../../../packages/shared-types/src/stockAvailability.js";
+import { api } from "../../lib/api";
 import { fetchMenuData } from "../menu/menu.service";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -134,10 +135,20 @@ export function StockAvailabilityPage() {
   const [filterMode,  setFilterMode]  = useState("all"); // all | available | soldout
   const [flash,       setFlash]       = useState(null);  // itemId that just changed
 
-  // Load menu data
+  // Load menu data + sync server-side availability state
   useEffect(() => {
-    fetchMenuData().then((data) => {
+    Promise.all([
+      fetchMenuData(),
+      api.get("/inventory/item-visibility").catch(() => ({}))
+    ]).then(([data, serverState]) => {
       setMenuData(data);
+      // Merge server posVisible into local stock state (server is source of truth)
+      Object.entries(serverState).forEach(([itemId, state]) => {
+        if (state.posVisible === false) {
+          setItemAvailability(itemId, false);
+        }
+      });
+      setStockState(getStockState());
       setLoading(false);
     });
   }, []);
@@ -151,6 +162,11 @@ export function StockAvailabilityPage() {
   function toggleItem(itemId, available) {
     setItemAvailability(itemId, available);
     setStockState(getStockState());
+    // Broadcast to backend so all POS, Captain, KDS devices update in real-time.
+    // posVisible: false = sold out on all POS, posVisible: true = available again.
+    api.post("/inventory/item-visibility", { itemId, posVisible: available }).catch(() => {
+      // Silent fail — localStorage update already applied above; sync will retry on reconnect
+    });
     // Flash the toggled item briefly
     setFlash(itemId);
     setTimeout(() => setFlash(null), 800);
@@ -160,6 +176,10 @@ export function StockAvailabilityPage() {
     if (!window.confirm("Mark ALL items as Available? This will reset all sold-out items.")) return;
     resetAllToAvailable();
     setStockState({});
+    // Broadcast reset to backend for all menu items
+    menuData.items.forEach((item) => {
+      api.post("/inventory/item-visibility", { itemId: item.id, posVisible: true }).catch(() => {});
+    });
   }
 
   // Filter + search items
