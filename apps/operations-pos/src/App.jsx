@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
-import { UpdateBanner }       from "./components/UpdateBanner";
+import { UpdateBanner, APP_VERSION } from "./components/UpdateBanner";
 import { MenuPanel }          from "./components/MenuPanel";
 import { OrderPanel }         from "./components/OrderPanel";
 import { PaymentSheet }       from "./components/PaymentSheet";
@@ -1646,7 +1646,10 @@ export default function App() {
             <div className="pbb-avatar">{cashierName?.[0]}</div>
             <div>
               <div className="pbb-cashier-name">{activeShift.cashier}</div>
-              <div className="pbb-session">{activeShift.session}</div>
+              <div className="pbb-session">
+                {activeShift.session}
+                <span className="pbb-ver-badge">v{APP_VERSION}</span>
+              </div>
             </div>
           </div>
           <Clock />

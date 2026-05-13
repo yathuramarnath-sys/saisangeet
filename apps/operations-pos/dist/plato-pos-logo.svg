@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" fill="none">
+  <!-- Outer ring -->
+  <circle cx="100" cy="95" r="78" stroke="#FFC107" stroke-width="10" fill="none"/>
+  <!-- P letter inside circle -->
+  <text x="100" y="128" font-family="Manrope, Arial Black, sans-serif" font-weight="900" font-size="88" fill="#FFC107" text-anchor="middle" dominant-baseline="auto">P</text>
+  <!-- PLATO POS text -->
+  <text x="100" y="205" font-family="Manrope, Arial, sans-serif" font-weight="700" font-size="28" fill="#212121" text-anchor="middle" letter-spacing="4">PLATO POS</text>
+</svg>
