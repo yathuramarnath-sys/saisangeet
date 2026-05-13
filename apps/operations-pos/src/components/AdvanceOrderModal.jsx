@@ -1,8 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const OUTLETS = ["Indiranagar", "Koramangala", "HSR Layout", "Whitefield"];
+/**
+ * AdvanceOrderModal — book a future reservation/order.
+ *
+ * Props
+ *   outlet   {id, name, ...}  — the currently connected outlet (from App.jsx)
+ *   onClose  ()               — close handler
+ *   onSaved  (advance)        — called after saving
+ *
+ * Data is stored in localStorage keyed by outletId so each POS
+ * only ever sees bookings for its own branch. No cross-branch leakage.
+ */
+export function AdvanceOrderModal({ outlet, onClose, onSaved }) {
+  const outletId   = outlet?.id   || "unknown";
+  const outletName = outlet?.name || "This Outlet";
 
-export function AdvanceOrderModal({ onClose, onSaved }) {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const defaultDate = tomorrow.toISOString().slice(0, 10);
@@ -12,14 +24,29 @@ export function AdvanceOrderModal({ onClose, onSaved }) {
   const [guests, setGuests] = useState("2");
   const [date,   setDate]   = useState(defaultDate);
   const [time,   setTime]   = useState("13:00");
-  const [outlet, setOutlet] = useState(OUTLETS[0]);
   const [note,   setNote]   = useState("");
   const [errors, setErrors] = useState({});
+
+  // Load existing bookings for THIS outlet only
+  const [existing, setExisting] = useState(() => loadForOutlet(outletId));
+
+  // Reload if outlet changes (safety measure)
+  useEffect(() => {
+    setExisting(loadForOutlet(outletId));
+  }, [outletId]);
+
+  function loadForOutlet(id) {
+    try {
+      const all = JSON.parse(localStorage.getItem("pos_advance_orders") || "[]") || [];
+      return all.filter(o => o.outletId === id);
+    } catch { return []; }
+  }
 
   function validate() {
     const e = {};
     if (!name.trim())  e.name  = "Required";
-    if (!phone.trim() || phone.length < 10) e.phone = "Enter valid phone";
+    if (!phone.trim() || phone.replace(/\D/g, "").length < 10)
+      e.phone = "Enter valid 10-digit number";
     return e;
   }
 
@@ -29,27 +56,36 @@ export function AdvanceOrderModal({ onClose, onSaved }) {
 
     const advance = {
       id:           `adv-${Date.now()}`,
+      outletId,                         // ← strict branch tagging
+      outletName,
       customerName: name.trim(),
       phone:        phone.trim(),
       guests:       Number(guests) || 1,
       date,
       time,
-      outlet,
       note:         note.trim(),
       createdAt:    new Date().toISOString(),
       status:       "pending"
     };
 
-    let existing = [];
-    try { existing = JSON.parse(localStorage.getItem("pos_advance_orders") || "[]") || []; }
+    // Merge: keep ALL branches' orders, just append the new one
+    let allOrders = [];
+    try { allOrders = JSON.parse(localStorage.getItem("pos_advance_orders") || "[]") || []; }
     catch {}
-    localStorage.setItem("pos_advance_orders", JSON.stringify([...existing, advance]));
+    localStorage.setItem("pos_advance_orders", JSON.stringify([...allOrders, advance]));
 
     onSaved?.(advance);
     onClose();
   }
 
-  const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+  const fmtDate = (d) =>
+    new Date(d).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+
+  // Upcoming bookings for this outlet (next 7 days)
+  const upcoming = existing
+    .filter(o => o.date >= new Date().toISOString().slice(0, 10))
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+    .slice(0, 5);
 
   return (
     <div className="adv-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -59,7 +95,7 @@ export function AdvanceOrderModal({ onClose, onSaved }) {
         <div className="adv-head">
           <div>
             <h3>📅 Advance Order</h3>
-            <p>Schedule a future order for a customer</p>
+            <p>Schedule a future booking for <strong>{outletName}</strong></p>
           </div>
           <button type="button" className="sm-close-btn" onClick={onClose}>✕</button>
         </div>
@@ -116,11 +152,14 @@ export function AdvanceOrderModal({ onClose, onSaved }) {
             </div>
           </div>
 
+          {/* Outlet display — read-only, locked to synced branch */}
           <div className="adv-field">
-            <label>Outlet</label>
-            <select value={outlet} onChange={e => setOutlet(e.target.value)}>
-              {OUTLETS.map(o => <option key={o}>{o}</option>)}
-            </select>
+            <label>Branch</label>
+            <div className="adv-outlet-locked">
+              <span className="adv-outlet-icon">🏪</span>
+              <span className="adv-outlet-name">{outletName}</span>
+              <span className="adv-outlet-badge">Synced Branch</span>
+            </div>
           </div>
 
           {/* Notes */}
@@ -140,9 +179,24 @@ export function AdvanceOrderModal({ onClose, onSaved }) {
               <div className="adv-preview-icon">📅</div>
               <div>
                 <strong>{name}</strong> · {phone}
-                <p>{fmtDate(date)} at {time} · {guests} guests · {outlet}</p>
+                <p>{fmtDate(date)} at {time} · {guests} guests · {outletName}</p>
                 {note && <p className="adv-preview-note">"{note}"</p>}
               </div>
+            </div>
+          )}
+
+          {/* Upcoming bookings for this outlet */}
+          {upcoming.length > 0 && (
+            <div className="adv-upcoming">
+              <div className="adv-section-label">Upcoming at {outletName}</div>
+              {upcoming.map(o => (
+                <div key={o.id} className="adv-upcoming-row">
+                  <span className="adv-upcoming-name">{o.customerName}</span>
+                  <span className="adv-upcoming-detail">
+                    {fmtDate(o.date)} {o.time} · {o.guests}p
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>

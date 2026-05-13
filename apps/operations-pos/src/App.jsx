@@ -1848,6 +1848,7 @@ export default function App() {
       {/* ── Advance Order modal ───────────────────────────────────────────── */}
       {showAdvanceOrder && (
         <AdvanceOrderModal
+          outlet={outlet}
           onClose={() => setShowAdvanceOrder(false)}
           onSaved={() => showToast("Advance order booked ✓")}
         />

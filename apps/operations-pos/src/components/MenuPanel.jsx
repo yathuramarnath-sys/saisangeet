@@ -175,14 +175,18 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
           const soldOut = stockState[item.id]?.available === false;
 
           return (
-            <button
+            /* Use <div> not <button> so the inner toggle <button> is valid HTML
+               and receives click events reliably (nested <button> is invalid HTML). */
+            <div
               key={item.id}
-              type="button"
+              role="button"
+              tabIndex={0}
               className={`menu-food-card${soldOut ? " sold-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}`}
               onClick={() => !soldOut && onAddItem({ ...item, price })}
+              onKeyDown={(e) => e.key === "Enter" && !soldOut && onAddItem({ ...item, price })}
               title={soldOut ? "Sold Out — tap toggle to re-enable" : undefined}
             >
-              {/* Availability toggle */}
+              {/* Availability toggle — must be a real <button> to receive events */}
               {onToggleAvailability && (
                 <button
                   type="button"
@@ -218,7 +222,7 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
                   </div>
                 )}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
