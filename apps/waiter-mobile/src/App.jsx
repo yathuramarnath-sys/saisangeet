@@ -715,10 +715,10 @@ export function App() {
       outlet?.name || branchConfig?.outletName,
       { cashierName: loggedInStaff?.name || "Waiter" }
     );
-    // Notify POS (cloud + local) so it skips printing again at settlement
-    const billPrintedPayload = { tableId: tid, outletId: outlet?.id };
-    socketRef.current?.emit("bill:printed", billPrintedPayload);
-    localSocketRef.current?.emit("bill:printed", billPrintedPayload);
+    // Mark billRequested: true — table turns blue on POS, backend persists the flag.
+    // POS settlement checks order.billRequested to skip duplicate print.
+    handleUpdateOrder({ ...order, billRequested: true });
+    api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid }).catch(() => {});
     toast("Printing bill…", { icon: "🖨️" });
     if (tid === selectedTableId) setSelectedTableId(null);
     setActionTableId(null);
