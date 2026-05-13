@@ -265,6 +265,9 @@ export default function App() {
   const ordersRef  = useRef({});
   // Tracks socket connection state for reconnect-resync logic
   const socketConnRef = useRef("connecting"); // "connecting" | "live" | "offline"
+  // Tracks tables whose bill was already printed — stored in a ref so socket
+  // order:updated events can't overwrite this client-only flag
+  const billPrintedTablesRef = useRef(new Set());
   const [serverConn,  setServerConn]  = useState("connecting"); // for UI banner
   const [localConn,   setLocalConn]   = useState(false);        // local WiFi server status
 
@@ -1259,10 +1262,9 @@ export default function App() {
     }
 
     // ── Print receipt after settle ─────────────────────────────────────────
-    // Print once here — AFTER the server has assigned the official billNo.
-    // Print bill after settlement — skip if cashier already printed via "Print Bill" button
-    // (avoids duplicate printouts for dine-in tables)
-    if (!order.billPrinted) {
+    // Skip if cashier already clicked "Print Bill" (flag stored in ref, immune to
+    // socket order:updated overwrites). Counter/quick orders always print here.
+    if (!billPrintedTablesRef.current.has(tableId)) {
       printBill(
         closedOrder,
         closedOrder.items,
@@ -1270,6 +1272,7 @@ export default function App() {
         { cashierName }
       );
     }
+    billPrintedTablesRef.current.delete(tableId); // clean up after settlement
 
     setShowPayment(false);
     setSelectedTableId(null);
@@ -1482,8 +1485,9 @@ export default function App() {
     // Print the GST bill immediately — customer takes this, cashier then collects payment
     printBill(order, order.items, outlet || branchConfig?.outletName, { cashierName });
 
-    // Mark as already printed so settlement doesn't print a duplicate
-    mutateOrder(tableId, (o) => { o.billPrinted = true; return o; });
+    // Mark as already printed so settlement doesn't print a duplicate.
+    // Use a ref (not state) — socket order:updated events won't overwrite it.
+    billPrintedTablesRef.current.add(tableId);
 
     showToast("🖨️ Bill printed · Collect payment");
 
