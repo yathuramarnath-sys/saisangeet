@@ -1,11 +1,11 @@
 {
   "pos": {
-    "version": "1.3.5",
+    "version": "1.3.6",
     "label": "POS Terminal",
-    "changelog": "Item on/off toggle, online orders switch, bill header with address & GSTIN, TCP timeout fix",
+    "changelog": "Fix item toggle ON bug, advance order shows only current branch data",
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-05-12"
+    "releaseDate": "2026-05-13"
   },
   "captain": {
     "version": "1.6",
