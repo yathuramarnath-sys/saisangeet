@@ -1625,7 +1625,9 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .sg-overlay {
   position: fixed;
   inset: 0;
-  background: var(--sq-black);
+  background:
+    radial-gradient(circle at top left, rgba(255,255,255,0.85), transparent 28%),
+    linear-gradient(180deg, #faf8f5 0%, #f3f1ec 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5611,8 +5613,9 @@ body { background: #F7F3EE; }
   width: 26px !important;
   height: 26px !important;
   border-radius: 7px !important;
-  background: #F59E0B !important;
-  box-shadow: 0 2px 5px rgba(245,158,11,0.28) !important;
+  background: #059669 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 2px 5px rgba(5,150,105,0.28) !important;
   font-size: 19px !important;
   flex-shrink: 0 !important;
 }
@@ -6208,7 +6211,7 @@ body {
   background:    #FFFFFF !important;
   border-bottom: 1px solid rgba(0,0,0,0.08) !important;
 }
-.pbb-icon  { color: var(--v2-amber) !important; }
+.pbb-icon  { color: var(--v2-navy) !important; }
 .pbb-name  { color: var(--v2-text) !important; }
 .pbb-sub   { color: var(--v2-text3) !important; }
 .pbb-cashier-name { color: var(--v2-text) !important; }
