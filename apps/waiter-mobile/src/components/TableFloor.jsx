@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { tapImpact } from "../lib/haptics";
 
 // Calculates "25 min" or "1h 10m" from a timestamp
@@ -23,7 +23,43 @@ export function tableStatusOf(orders, tableId) {
   return "running";
 }
 
-export function TableFloor({ areas, orders, onSelectTable }) {
+// Long-press hook — fires onLongPress after 500ms hold, cancels on release/move
+function useLongPress(onLongPress, onPress, ms = 500) {
+  const timerRef = useRef(null);
+  const firedRef = useRef(false);
+
+  function start(e) {
+    firedRef.current = false;
+    timerRef.current = setTimeout(() => {
+      firedRef.current = true;
+      tapImpact();
+      onLongPress(e);
+    }, ms);
+  }
+
+  function cancel() {
+    clearTimeout(timerRef.current);
+  }
+
+  function end(e) {
+    clearTimeout(timerRef.current);
+    if (!firedRef.current) {
+      tapImpact();
+      onPress(e);
+    }
+  }
+
+  return {
+    onTouchStart: start,
+    onTouchEnd:   end,
+    onTouchMove:  cancel,
+    onMouseDown:  start,
+    onMouseUp:    end,
+    onMouseLeave: cancel,
+  };
+}
+
+export function TableFloor({ areas, orders, onSelectTable, onLongPressTable }) {
   const [activeArea, setActiveArea] = useState(null);
   const [tick, setTick] = useState(0); // triggers re-render every minute for timers
   const visible = activeArea ? areas.filter((a) => a.id === activeArea) : areas;
@@ -105,12 +141,20 @@ export function TableFloor({ areas, orders, onSelectTable }) {
                 const unsentCount = (order?.items || []).filter(i => !i.sentToKot && !i.isVoided).length;
                 const seatedTs = order?.seatedAt || order?.createdAt || order?.openedAt;
                 const timer   = (st !== "open") ? elapsedLabel(seatedTs) : null;
+                const isOccupied = st !== "open";
+
+                // Tap → open order directly
+                // Long press → show action sheet (Merge/Transfer/Split/Print Bill)
+                const pressHandlers = useLongPress(
+                  () => isOccupied && onLongPressTable?.(table.id, area),
+                  () => onSelectTable(table.id, area)
+                );
 
                 return (
                   <button
                     key={table.id}
                     className={`table-card ${STATUS_CLASS[st]}`}
-                    onClick={() => { tapImpact(); onSelectTable(table.id, area); }}
+                    {...pressHandlers}
                   >
                     {/* Timer badge — top left */}
                     {timer && (

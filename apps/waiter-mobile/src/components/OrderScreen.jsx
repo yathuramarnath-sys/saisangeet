@@ -222,60 +222,13 @@ export function OrderScreen({
 
         {hasItems && (
           <>
-            {/* Secondary actions row */}
-            <div className="actions-row-2">
-              <button
-                className={`action-btn half-btn${order.isOnHold ? " hold-active-btn" : " hold-btn"}`}
-                onClick={() => { tapImpact(); onToggleHold(); }}
-              >
-                {order.isOnHold ? "▶ Resume" : "⏸ Hold"}
-              </button>
-              <button className="action-btn half-btn print-btn" onClick={() => { tapImpact(); onPrintBill(); }}>
-                🖨 Print Bill
-              </button>
-            </div>
-
-            {/* Transfer + Merge row */}
-            <div className="actions-row-2">
-              <button className="action-btn half-btn secondary-btn" onClick={() => { tapImpact(); setShowTransfer(true); }}>
-                ⇄ Transfer
-              </button>
-              <button
-                className="action-btn half-btn secondary-btn"
-                onClick={() => { tapImpact(); setShowMerge(true); }}
-              >
-                ⊕ Merge
-              </button>
-            </div>
-
-            {/* Split bill */}
-            <button className="action-btn secondary-btn" onClick={() => { tapImpact(); setScreen("split"); }}>
-              ✂ Split Bill
+            {/* Hold only — Merge/Transfer/Split/Print Bill via long press on table */}
+            <button
+              className={`action-btn${order.isOnHold ? " hold-active-btn" : " hold-btn"}`}
+              onClick={() => { tapImpact(); onToggleHold(); }}
+            >
+              {order.isOnHold ? "▶ Resume Order" : "⏸ Hold"}
             </button>
-
-            {/* Request bill */}
-            {!order.billRequested ? (
-              <button className="action-btn bill-btn" onClick={() => { tapImpact(); onRequestBill(); }}>
-                Request Bill
-              </button>
-            ) : (
-              <div className="bill-requested-banner">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-                Bill requested — awaiting cashier
-              </div>
-            )}
-
-            {/* PhonePe QR — captain can collect payment directly at the table */}
-            {order.items?.filter(i => !i.isVoided && !i.isComp).length > 0 && outletId && (
-              <button
-                className="action-btn phonepe-qr-btn"
-                onClick={() => { tapImpact(); setShowPhonePeQR(true); }}
-              >
-                📱 PhonePe QR Payment
-              </button>
-            )}
           </>
         )}
       </div>

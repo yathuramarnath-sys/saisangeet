@@ -111,6 +111,7 @@ export function App() {
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
   const [showDrawer,      setShowDrawer]       = useState(false);
   const [scanning,        setScanning]         = useState(false);
+  const [updateInfo,      setUpdateInfo]       = useState(null); // update available for drawer badge
   // KOT queue — failed sends stored here so staff can retry from the drawer
   const [pendingKots, setPendingKots] = useState(() => {
     try { return JSON.parse(localStorage.getItem("captain_pending_kots") || "[]"); } catch { return []; }
@@ -375,20 +376,42 @@ export function App() {
     };
   }, [branchConfig]);
 
+  // ── Check for Captain app updates (shown in drawer, not top banner) ──────
+  useEffect(() => {
+    const APP_VERSION_CAPTAIN = "1.7";
+    const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1");
+    function checkUpdate() {
+      fetch(`${API_BASE}/app-versions`, { cache: "no-store" })
+        .then(r => r.json())
+        .then(data => {
+          const latest = data?.captain;
+          if (!latest?.version) return;
+          const pa = APP_VERSION_CAPTAIN.split(".").map(Number);
+          const pb = latest.version.split(".").map(Number);
+          const newer = pb.some((v, i) => v > (pa[i] || 0));
+          if (newer) setUpdateInfo(latest);
+        })
+        .catch(() => {});
+    }
+    checkUpdate();
+    const t = setInterval(checkUpdate, 30 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+
   // ── Select table ──────────────────────────────────────────────────────────
+  // TAP → always go straight to OrderScreen (occupied or free)
   async function handleSelectTable(tableId, area) {
+    await openOrderScreen(tableId, area);
+  }
+
+  // LONG PRESS on occupied table → show action sheet (Merge/Transfer/Split/Print Bill)
+  function handleLongPressTable(tableId, area) {
     const existingOrder = orders[tableId];
     const isOccupied = (existingOrder?.items || []).filter(i => !i.isVoided && !i.isComp).length > 0;
-
-    // Occupied table → show action sheet first
     if (isOccupied) {
       setActionTableId(tableId);
       setActionArea(area);
-      return;
     }
-
-    // Free table → go directly to OrderScreen (existing behaviour, unchanged)
-    await openOrderScreen(tableId, area);
   }
 
   // Extracted so both direct-tap and "Edit Order" from action sheet call the same logic
@@ -678,9 +701,10 @@ export function App() {
     } catch (_) {}
   }
 
-  // ── Print bill ────────────────────────────────────────────────────────────
-  function handlePrintBill() {
-    const order = orders[selectedTableId];
+  // ── Print bill (works from OrderScreen inline or from long-press action sheet)
+  function handlePrintBill(tableId) {
+    const tid   = tableId || selectedTableId;
+    const order = orders[tid];
     if (!order?.items?.length) { toast.error("No items to print"); return; }
     printBill(
       order,
@@ -689,7 +713,8 @@ export function App() {
       { cashierName: loggedInStaff?.name || "Waiter" }
     );
     toast("Printing bill…", { icon: "🖨️" });
-    setSelectedTableId(null);
+    if (tid === selectedTableId) setSelectedTableId(null);
+    setActionTableId(null);
   }
 
   // ── Toggle hold ───────────────────────────────────────────────────────────
@@ -713,6 +738,16 @@ export function App() {
     if (!order) return;
     handleUpdateOrder({ ...order, guestInfo: info });
     toast.success("Guest info saved");
+  }
+
+  // ── Sign out — clear branch config + staff login, return to setup screen ──
+  function handleSignOut() {
+    setShowDrawer(false);
+    clearCaptainBranchConfig();
+    setLoggedInStaff(null);
+    setBranchConfig(null);
+    socketRef.current?.disconnect();
+    localSocketRef.current?.disconnect();
   }
 
   // ── Drawer: Sync data ────────────────────────────────────────────────────
@@ -893,7 +928,7 @@ export function App() {
   // 3. Main app
   return (
     <div className="captain-app">
-      <UpdateBanner />
+      {/* UpdateBanner removed — update notification now lives inside the ☰ drawer */}
       {localConn && (
         <div className="captain-local-banner">
           &#x1F4F6; Local · Connected to POS directly
@@ -919,8 +954,16 @@ export function App() {
               className="drawer-open-btn"
               onClick={() => setShowDrawer(true)}
               aria-label="Menu"
+              style={{ position: "relative" }}
             >
               <span className="drawer-open-icon">☰</span>
+              {updateInfo && (
+                <span style={{
+                  position: "absolute", top: 2, right: 2,
+                  width: 8, height: 8, borderRadius: "50%",
+                  background: "#ef4444", border: "1.5px solid #fff"
+                }} />
+              )}
             </button>
           </div>
         </div>
@@ -933,6 +976,7 @@ export function App() {
             areas={areas}
             orders={orders}
             onSelectTable={handleSelectTable}
+            onLongPressTable={handleLongPressTable}
           />
         ) : (
           <OrderScreen
@@ -970,10 +1014,12 @@ export function App() {
           serverUrl={(import.meta.env.VITE_API_BASE_URL || "").replace("/api/v1", "")}
           localPosIp={localStorage.getItem("captain_local_server_ip") || null}
           pendingKots={pendingKots}
+          updateInfo={updateInfo}
           scanning={scanning}
           onClose={() => setShowDrawer(false)}
           onSync={async () => { setShowDrawer(false); await handleSync(); }}
           onFindPOS={() => { setShowDrawer(false); handleFindPOS(); }}
+          onSignOut={handleSignOut}
           onRetryKot={handleRetryKot}
           onRetryAll={handleRetryAllKots}
           onClearKot={handleClearKot}
@@ -992,10 +1038,11 @@ export function App() {
             onClose={() => { setActionTableId(null); setActionArea(null); }}
             onEditOrder={() => openOrderScreen(actionTableId, actionArea)}
             onSendKOT={() => handleSendKOT(actionTableId)}
-            onRequestBill={() => handleRequestBill(actionTableId)}
             onHoldToggle={() => handleToggleHold(actionTableId)}
             onMoveTable={() => openOrderScreen(actionTableId, actionArea)}
             onMerge={() => openOrderScreen(actionTableId, actionArea)}
+            onSplitBill={() => { openOrderScreen(actionTableId, actionArea); }}
+            onPrintBill={() => handlePrintBill(actionTableId)}
             onCustomerInfo={() => { setShowCustomerInfo(true); }}
           />
         );

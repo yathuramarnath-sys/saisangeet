@@ -22,7 +22,8 @@ const APP_VERSION = "1.7";
 export function SideDrawer({
   outletName, serverUrl, localPosIp,
   pendingKots = [],
-  onClose, onSync, onFindPOS,
+  updateInfo = null,
+  onClose, onSync, onFindPOS, onSignOut,
   onRetryKot, onRetryAll, onClearKot,
   scanning = false,
 }) {
@@ -112,6 +113,30 @@ export function SideDrawer({
           )}
         </div>
 
+        {/* ── Update available ─────────────────────────────────────────── */}
+        {updateInfo && (
+          <div className="drawer-section">
+            <div className="drawer-update-banner">
+              <div className="drawer-update-text">
+                <span className="drawer-update-icon">🎉</span>
+                <div>
+                  <strong>v{updateInfo.version} available</strong>
+                  {updateInfo.changelog && <div style={{fontSize:12,opacity:0.85,marginTop:2}}>{updateInfo.changelog}</div>}
+                </div>
+              </div>
+              <a
+                href={updateInfo.apkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="drawer-update-btn"
+                onClick={onClose}
+              >
+                Download APK
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* ── Sync & Tools ─────────────────────────────────────────────── */}
         <div className="drawer-section">
           <div className="drawer-section-title">Tools</div>
@@ -148,6 +173,18 @@ export function SideDrawer({
             <DevRow label="Server"      value={serverUrl  || "—"} mono />
             <DevRow label="Local POS"   value={localPosIp ? `${localPosIp}:4001` : "Not connected"} mono />
           </div>
+        </div>
+
+        {/* ── Sign Out ──────────────────────────────────────────────────── */}
+        <div className="drawer-section">
+          <button
+            className="drawer-action-btn drawer-signout-btn"
+            onClick={() => { tapImpact(); onSignOut(); }}
+          >
+            <span>🚪</span>
+            <span>Sign Out</span>
+            <span className="drawer-action-hint">Return to login screen</span>
+          </button>
         </div>
       </div>
     </>

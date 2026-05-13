@@ -8,12 +8,12 @@
     "releaseDate": "2026-05-13"
   },
   "captain": {
-    "version": "1.7",
+    "version": "1.8",
     "label": "Captain App",
-    "changelog": "Action sheet for occupied tables, elapsed timer badges, unsent KOT badge, optional guest info capture",
+    "changelog": "Tap table to open order directly, long press for Merge/Transfer/Split/Print Bill, Sign Out in menu, stuck item bug fixed",
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
-    "releaseDate": "2026-05-13"
+    "releaseDate": "2026-05-14"
   },
   "kds": {
     "version": "1.7",

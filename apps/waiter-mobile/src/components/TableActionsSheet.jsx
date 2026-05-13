@@ -24,7 +24,7 @@ import { tapImpact } from "../lib/haptics";
 export function TableActionsSheet({
   tableNumber, areaName, order,
   onClose, onEditOrder, onSendKOT,
-  onRequestBill, onHoldToggle, onMoveTable, onMerge, onCustomerInfo,
+  onHoldToggle, onMoveTable, onMerge, onSplitBill, onPrintBill, onCustomerInfo,
 }) {
   const [elapsed, setElapsed] = useState("");
 
@@ -123,24 +123,16 @@ export function TableActionsSheet({
             </button>
           )}
 
-          {/* Request Bill */}
-          {!billRequested ? (
-            <button className="tas-action tas-action-bill" onClick={() => { tapImpact(); onRequestBill(); }}>
-              <span className="tas-action-icon">🧾</span>
+          {/* Print Bill */}
+          {itemCount > 0 && (
+            <button className="tas-action tas-action-bill" onClick={() => { tapImpact(); onPrintBill?.(); onClose(); }}>
+              <span className="tas-action-icon">🖨️</span>
               <div className="tas-action-body">
-                <span className="tas-action-label">Request Bill</span>
-                <span className="tas-action-hint">Notify cashier to prepare bill</span>
+                <span className="tas-action-label">Print Bill</span>
+                <span className="tas-action-hint">Print GST bill for this table</span>
               </div>
               <span className="tas-action-chevron">›</span>
             </button>
-          ) : (
-            <div className="tas-action tas-action-bill-done">
-              <span className="tas-action-icon">✅</span>
-              <div className="tas-action-body">
-                <span className="tas-action-label">Bill Requested</span>
-                <span className="tas-action-hint">Cashier has been notified</span>
-              </div>
-            </div>
           )}
         </div>
 
@@ -164,6 +156,14 @@ export function TableActionsSheet({
             <span>⊕</span>
             <span>Merge Tables</span>
           </button>
+
+          {/* Split Bill */}
+          {itemCount > 0 && onSplitBill && (
+            <button className="tas-action-sm" onClick={() => { tapImpact(); onSplitBill(); }}>
+              <span>✂</span>
+              <span>Split Bill</span>
+            </button>
+          )}
 
           {/* Customer Info — optional, soft */}
           {onCustomerInfo && (
