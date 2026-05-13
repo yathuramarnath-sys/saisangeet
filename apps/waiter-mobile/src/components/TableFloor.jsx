@@ -1,5 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { tapImpact } from "../lib/haptics";
+
+// Calculates "25 min" or "1h 10m" from a timestamp
+function elapsedLabel(ts) {
+  if (!ts) return null;
+  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+  if (mins < 1)       return "< 1m";
+  if (mins < 60)      return `${mins}m`;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return `${h}h${m > 0 ? ` ${m}m` : ""}`;
+}
 
 const STATUS_LABEL = { open: "Free", hold: "Hold", bill: "Bill Due", running: "Occupied" };
 const STATUS_CLASS = { open: "status-free", hold: "status-hold", bill: "status-bill", running: "status-running" };
@@ -15,7 +25,14 @@ export function tableStatusOf(orders, tableId) {
 
 export function TableFloor({ areas, orders, onSelectTable }) {
   const [activeArea, setActiveArea] = useState(null);
+  const [tick, setTick] = useState(0); // triggers re-render every minute for timers
   const visible = activeArea ? areas.filter((a) => a.id === activeArea) : areas;
+
+  // Refresh timers every 60 seconds
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
 
   // Count tables by status for summary bar
   const totalTables  = areas.flatMap(a => a.tables).length;
@@ -85,12 +102,24 @@ export function TableFloor({ areas, orders, onSelectTable }) {
                   return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
                 }, 0);
                 const amount  = _sub + _tax;
+                const unsentCount = (order?.items || []).filter(i => !i.sentToKot && !i.isVoided).length;
+                const seatedTs = order?.seatedAt || order?.createdAt || order?.openedAt;
+                const timer   = (st !== "open") ? elapsedLabel(seatedTs) : null;
+
                 return (
                   <button
                     key={table.id}
                     className={`table-card ${STATUS_CLASS[st]}`}
                     onClick={() => { tapImpact(); onSelectTable(table.id, area); }}
                   >
+                    {/* Timer badge — top left */}
+                    {timer && (
+                      <span className="tc-timer">{timer}</span>
+                    )}
+                    {/* Unsent KOT badge — top right */}
+                    {unsentCount > 0 && (
+                      <span className="tc-unsent">{unsentCount}</span>
+                    )}
                     <span className="table-number">{table.number}</span>
                     <span className={`table-status-dot dot-${st}`} />
                     <span className="table-status-text">{STATUS_LABEL[st]}</span>
@@ -98,7 +127,7 @@ export function TableFloor({ areas, orders, onSelectTable }) {
                       <span className="table-items-count">{count} items</span>
                     )}
                     {amount > 0 && (
-                      <span className="table-amount">₹{amount}</span>
+                      <span className="table-amount">₹{amount.toLocaleString("en-IN")}</span>
                     )}
                   </button>
                 );

@@ -11,10 +11,13 @@ import {
   mobileMenuItems  as seedMenuItems,
 } from "./data/mobile.seed";
 
-import { SetupScreen }  from "./components/SetupScreen";
-import { LoginScreen, avatarBg }  from "./components/LoginScreen";
-import { TableFloor }   from "./components/TableFloor";
-import { OrderScreen }  from "./components/OrderScreen";
+import { SetupScreen }        from "./components/SetupScreen";
+import { LoginScreen, avatarBg } from "./components/LoginScreen";
+import { TableFloor }          from "./components/TableFloor";
+import { OrderScreen }         from "./components/OrderScreen";
+import { TableActionsSheet }   from "./components/TableActionsSheet";
+import { CustomerInfoSheet }   from "./components/CustomerInfoSheet";
+import { SideDrawer }         from "./components/SideDrawer";
 
 // ─── Build areas from outlet tables ──────────────────────────────────────────
 
@@ -52,6 +55,12 @@ function saveCaptainBranchConfig(cfg) {
 function clearCaptainBranchConfig() {
   localStorage.removeItem(CAPTAIN_LS_KEY);
   localStorage.removeItem("captain_token");
+}
+
+// ─── KOT queue helpers ────────────────────────────────────────────────────────
+
+function savePendingKots(kots) {
+  try { localStorage.setItem("captain_pending_kots", JSON.stringify(kots)); } catch (_) {}
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -96,6 +105,16 @@ export function App() {
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [selectedArea,    setSelectedArea]    = useState(null);
   const [outlet,          setOutlet]          = useState(null);
+  // Table action sheet state
+  const [actionTableId,   setActionTableId]   = useState(null);
+  const [actionArea,      setActionArea]       = useState(null);
+  const [showCustomerInfo, setShowCustomerInfo] = useState(false);
+  const [showDrawer,      setShowDrawer]       = useState(false);
+  const [scanning,        setScanning]         = useState(false);
+  // KOT queue — failed sends stored here so staff can retry from the drawer
+  const [pendingKots, setPendingKots] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("captain_pending_kots") || "[]"); } catch { return []; }
+  });
   const socketRef      = useRef(null);
   const localSocketRef = useRef(null);
   const [localConn, setLocalConn] = useState(false);
@@ -358,6 +377,22 @@ export function App() {
 
   // ── Select table ──────────────────────────────────────────────────────────
   async function handleSelectTable(tableId, area) {
+    const existingOrder = orders[tableId];
+    const isOccupied = (existingOrder?.items || []).filter(i => !i.isVoided && !i.isComp).length > 0;
+
+    // Occupied table → show action sheet first
+    if (isOccupied) {
+      setActionTableId(tableId);
+      setActionArea(area);
+      return;
+    }
+
+    // Free table → go directly to OrderScreen (existing behaviour, unchanged)
+    await openOrderScreen(tableId, area);
+  }
+
+  // Extracted so both direct-tap and "Edit Order" from action sheet call the same logic
+  async function openOrderScreen(tableId, area) {
     // Capture the local items synchronously BEFORE the async server fetch.
     // A socket event may clear orders[tableId] while the fetch is in flight —
     // using a closure variable avoids losing items that only existed locally.
@@ -371,6 +406,7 @@ export function App() {
       if (!t) return prev;
       return { ...prev, [tableId]: buildBlankOrder(t, area) };
     });
+    setActionTableId(null);   // close action sheet if open
     setSelectedTableId(tableId);
     setSelectedArea(area);
 
@@ -461,9 +497,13 @@ export function App() {
   }
 
   // ── Send KOT ──────────────────────────────────────────────────────────────
-  async function handleSendKOT() {
-    const order  = orders[selectedTableId];
+  // tableId is optional — falls back to selectedTableId (existing call sites unaffected)
+  async function handleSendKOT(tableId) {
+    const tid    = tableId || selectedTableId;
+    const order  = orders[tid];
     if (!order) return;
+    // Ensure selectedTableId is set so post-KOT state updates work correctly
+    if (tid !== selectedTableId) setSelectedTableId(tid);
     const unsent = (order.items || []).filter((i) => !i.sentToKot);
     if (!unsent.length) return;
 
@@ -501,6 +541,24 @@ export function App() {
       if (result?.order) lastServerOrder = result.order;
     } catch (e) {
       console.error("[captain] KOT send failed:", e.message);
+      // Queue the KOT for manual retry from the drawer
+      const failedKot = {
+        id:          `kot-${Date.now()}`,
+        tableId:     order.tableId,
+        tableNumber: order.tableNumber,
+        areaName:    order.areaName,
+        outletId:    effectiveOutletId,
+        orderId:     order.id,
+        items:       unsent,
+        actorName:   loggedInStaff?.name || "Captain",
+        failedAt:    new Date().toISOString(),
+      };
+      setPendingKots((prev) => {
+        const next = [...prev, failedKot];
+        savePendingKots(next);
+        return next;
+      });
+      toast.error("KOT queued — retry from menu when back online");
     }
 
     // ── Local WiFi path: emit kot:send to POS directly ────────────────────
@@ -554,7 +612,7 @@ export function App() {
 
     if (lastServerOrder) {
       setOrders((prev) => {
-        const local = prev[selectedTableId];
+        const local = prev[tid];
         if (!local) return prev;
         const serverItemIds = new Set((lastServerOrder.items || []).map((i) => i.id));
         const localOnlyUnsent = (local.items || []).filter(
@@ -562,7 +620,7 @@ export function App() {
         );
         return {
           ...prev,
-          [selectedTableId]: {
+          [tid]: {
             ...lastServerOrder,
             items: [...(lastServerOrder.items || []), ...localOnlyUnsent],
           },
@@ -570,17 +628,21 @@ export function App() {
       });
     }
 
+    setActionTableId(null);    // close action sheet if it was open
     setSelectedTableId(null);
   }
 
   // ── Request bill ──────────────────────────────────────────────────────────
-  async function handleRequestBill() {
-    const order = orders[selectedTableId];
+  // tableId is optional — falls back to selectedTableId
+  async function handleRequestBill(tableId) {
+    const tid   = tableId || selectedTableId;
+    const order = orders[tid];
     if (!order) return;
     handleUpdateOrder({ ...order, billRequested: true });
     toast.success("Bill requested — cashier notified");
+    if (tableId) setActionTableId(null);   // close action sheet when called from it
     try {
-      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: selectedTableId });
+      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid });
     } catch (_) {}
   }
 
@@ -599,13 +661,107 @@ export function App() {
   }
 
   // ── Toggle hold ───────────────────────────────────────────────────────────
-  function handleToggleHold() {
-    const order = orders[selectedTableId];
+  // tableId is optional — falls back to selectedTableId
+  function handleToggleHold(tableId) {
+    const tid   = tableId || selectedTableId;
+    const order = orders[tid];
     if (!order) return;
     const next = { ...order, isOnHold: !order.isOnHold };
     handleUpdateOrder(next);
     toast(next.isOnHold ? "Order placed on hold" : "Order resumed", {
       icon: next.isOnHold ? "⏸" : "▶",
+    });
+    if (tableId) setActionTableId(null);   // close action sheet when called from it
+  }
+
+  // ── Save guest info ───────────────────────────────────────────────────────
+  function handleCustomerInfoSave(tableId, info) {
+    const tid   = tableId || selectedTableId;
+    const order = orders[tid];
+    if (!order) return;
+    handleUpdateOrder({ ...order, guestInfo: info });
+    toast.success("Guest info saved");
+  }
+
+  // ── Drawer: Sync data ────────────────────────────────────────────────────
+  async function handleSync() {
+    if (!outlet?.id) return;
+    try {
+      const [liveOrders, cats, items] = await Promise.all([
+        api.get(`/operations/orders?outletId=${outlet.id}`).catch(() => null),
+        api.get(`/menu/categories?outletId=${outlet.id}`).catch(() => null),
+        api.get(`/menu/items?outletId=${outlet.id}`).catch(() => null),
+      ]);
+      if (liveOrders) setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
+      if (cats)  setCategories(cats);
+      if (items) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
+      toast.success("Data synced");
+    } catch (_) {
+      toast.error("Sync failed — check connection");
+    }
+  }
+
+  // ── Drawer: Find POS on network ──────────────────────────────────────────
+  async function handleFindPOS() {
+    setScanning(true);
+    try {
+      const subnets = ["192.168.1", "192.168.0", "10.0.0"];
+      for (const subnet of subnets) {
+        for (let i = 1; i <= 50; i++) {
+          const ip = `${subnet}.${i}`;
+          try {
+            const r = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(400) });
+            if (r.ok) {
+              localStorage.setItem("captain_local_server_ip", ip);
+              toast.success(`POS found at ${ip}`);
+              setScanning(false);
+              return;
+            }
+          } catch (_) {}
+        }
+      }
+      toast("POS not found on this network", { icon: "📡" });
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  // ── Drawer: Retry a pending KOT ──────────────────────────────────────────
+  async function handleRetryKot(kot) {
+    try {
+      await api.post("/operations/kot", {
+        outletId:    kot.outletId,
+        tableId:     kot.tableId,
+        tableNumber: kot.tableNumber,
+        areaName:    kot.areaName,
+        items:       kot.items,
+        orderId:     kot.orderId,
+        actorName:   kot.actorName,
+        source:      "captain",
+      });
+      setPendingKots((prev) => {
+        const next = prev.filter((k) => k.id !== kot.id);
+        savePendingKots(next);
+        return next;
+      });
+      toast.success(`KOT for Table ${kot.tableNumber} sent`);
+    } catch (_) {
+      toast.error("Retry failed — still offline");
+    }
+  }
+
+  async function handleRetryAllKots() {
+    const results = await Promise.allSettled(pendingKots.map(handleRetryKot));
+    const failed  = results.filter((r) => r.status === "rejected").length;
+    if (!failed) toast.success("All pending KOTs sent");
+    else toast(`${results.length - failed} sent, ${failed} still failed`, { icon: "⚠️" });
+  }
+
+  function handleClearKot(kotId) {
+    setPendingKots((prev) => {
+      const next = prev.filter((k) => k.id !== kotId);
+      savePendingKots(next);
+      return next;
     });
   }
 
@@ -723,12 +879,18 @@ export function App() {
               <p className="header-sub">{loggedInStaff.role} · {outlet?.name || branchConfig.outletName || "Restaurant"}</p>
             </div>
           </div>
-          <button
-            className="signout-btn"
-            onClick={() => { setLoggedInStaff(null); setSelectedTableId(null); }}
-          >
-            Sign out
-          </button>
+          <div className="header-right">
+            {pendingKots.length > 0 && (
+              <span className="header-kot-dot">{pendingKots.length}</span>
+            )}
+            <button
+              className="drawer-open-btn"
+              onClick={() => setShowDrawer(true)}
+              aria-label="Menu"
+            >
+              <span className="drawer-open-icon">☰</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -767,6 +929,57 @@ export function App() {
           />
         )}
       </main>
+
+      {/* Side Drawer */}
+      {showDrawer && (
+        <SideDrawer
+          outletName={outlet?.name || branchConfig?.outletName}
+          serverUrl={(import.meta.env.VITE_API_BASE_URL || "").replace("/api/v1", "")}
+          localPosIp={localStorage.getItem("captain_local_server_ip") || null}
+          pendingKots={pendingKots}
+          scanning={scanning}
+          onClose={() => setShowDrawer(false)}
+          onSync={async () => { setShowDrawer(false); await handleSync(); }}
+          onFindPOS={() => { setShowDrawer(false); handleFindPOS(); }}
+          onRetryKot={handleRetryKot}
+          onRetryAll={handleRetryAllKots}
+          onClearKot={handleClearKot}
+        />
+      )}
+
+      {/* Table Action Sheet — slides up when captain taps an OCCUPIED table */}
+      {actionTableId && !selectedTableId && (() => {
+        const actionOrder = orders[actionTableId];
+        const actionTable = actionArea?.tables?.find((t) => t.id === actionTableId);
+        return (
+          <TableActionsSheet
+            tableNumber={actionTable?.number || actionTableId}
+            areaName={actionArea?.name || ""}
+            order={actionOrder}
+            onClose={() => { setActionTableId(null); setActionArea(null); }}
+            onEditOrder={() => openOrderScreen(actionTableId, actionArea)}
+            onSendKOT={() => handleSendKOT(actionTableId)}
+            onRequestBill={() => handleRequestBill(actionTableId)}
+            onHoldToggle={() => handleToggleHold(actionTableId)}
+            onMoveTable={() => openOrderScreen(actionTableId, actionArea)}
+            onMerge={() => openOrderScreen(actionTableId, actionArea)}
+            onCustomerInfo={() => { setShowCustomerInfo(true); }}
+          />
+        );
+      })()}
+
+      {/* Customer Info Sheet — optional, layered on top of action sheet */}
+      {showCustomerInfo && actionTableId && (() => {
+        const actionOrder = orders[actionTableId];
+        return (
+          <CustomerInfoSheet
+            tableNumber={actionOrder?.tableNumber || actionTableId}
+            guestInfo={actionOrder?.guestInfo || {}}
+            onSave={(info) => handleCustomerInfoSave(actionTableId, info)}
+            onClose={() => setShowCustomerInfo(false)}
+          />
+        );
+      })()}
 
       <Toaster
         position="top-center"

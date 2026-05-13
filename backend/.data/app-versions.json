@@ -8,12 +8,12 @@
     "releaseDate": "2026-05-13"
   },
   "captain": {
-    "version": "1.6",
+    "version": "1.7",
     "label": "Captain App",
-    "changelog": "Item availability sync from POS in real-time",
+    "changelog": "Action sheet for occupied tables, elapsed timer badges, unsent KOT badge, optional guest info capture",
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
-    "releaseDate": "2026-05-12"
+    "releaseDate": "2026-05-13"
   },
   "kds": {
     "version": "1.5",

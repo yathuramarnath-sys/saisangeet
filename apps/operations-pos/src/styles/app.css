@@ -6073,3 +6073,806 @@ body { background: #F7F3EE; }
   border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
 }
 .brz-done-btn:hover { background: #e5e7eb; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PLATO POS — DESIGN REFRESH v2.0   (Clean Modern Light)
+   Applied 2026-05-13 · Overrides all previous theme layers
+   ════════════════════════════════════════════════════════════════════════════
+
+   Palette
+   ───────
+   Page bg      #F7F8FB   very light cool gray
+   Surface      #FFFFFF   pure white cards
+   Surface-2    #F1F4F8   inputs / secondary bg
+   Border       rgba(0,0,0,0.08)
+   Border-md    rgba(0,0,0,0.13)
+   Text-1       #111827   headings / numbers
+   Text-2       #4B5563   secondary labels
+   Text-3       #9CA3AF   hints / placeholders
+   Topbar       #1A2332   warm navy (retains brand identity)
+   Amber        #FFC107   CTA accent (unchanged)
+   Shadow-sm    0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)
+   Shadow-md    0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.05)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Root palette tokens ─────────────────────────────────────────────── */
+:root {
+  --v2-bg:          #F7F8FB;
+  --v2-surface:     #FFFFFF;
+  --v2-surface2:    #F1F4F8;
+  --v2-border:      rgba(0,0,0,0.08);
+  --v2-border-md:   rgba(0,0,0,0.13);
+  --v2-text:        #111827;
+  --v2-text2:       #4B5563;
+  --v2-text3:       #9CA3AF;
+  --v2-navy:        #1A2332;
+  --v2-amber:       #FFC107;
+  --v2-amber-dark:  #D97706;
+  --v2-amber-bg:    #FFFBEB;
+  --v2-shadow-sm:   0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --v2-shadow-md:   0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.05);
+  --v2-shadow-lg:   0 12px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
+  --v2-radius-sm:   8px;
+  --v2-radius-md:   12px;
+  --v2-radius-lg:   16px;
+
+  /* Status palette — cleaner modern tones */
+  --v2-free-fg:     #059669;
+  --v2-free-bg:     #ECFDF5;
+  --v2-free-border: #A7F3D0;
+  --v2-occ-fg:      #D97706;
+  --v2-occ-bg:      #FFFBEB;
+  --v2-occ-border:  #FDE68A;
+  --v2-bill-fg:     #DC2626;
+  --v2-bill-bg:     #FEF2F2;
+  --v2-bill-border: #FECACA;
+  --v2-hold-fg:     #6B7280;
+  --v2-hold-bg:     #F9FAFB;
+  --v2-hold-border: #E5E7EB;
+}
+
+/* ── 2. Shell ────────────────────────────────────────────────────────────── */
+body { background: var(--v2-bg) !important; }
+
+.pos-shell {
+  background: var(--v2-bg) !important;
+}
+
+/* ── 3. Top bar ──────────────────────────────────────────────────────────── */
+.pos-topbar {
+  background:     var(--v2-navy) !important;
+  border-bottom:  1px solid rgba(255,255,255,0.05) !important;
+  padding:        0 20px !important;
+  height:         54px !important;
+}
+
+.pos-topbar-name {
+  font-size:      15px !important;
+  font-weight:    800 !important;
+  color:          #FFFFFF !important;
+  letter-spacing: -0.025em !important;
+}
+
+.pos-topbar-sub {
+  font-size:  11px !important;
+  color:      rgba(255,255,255,0.42) !important;
+}
+
+/* Mode pills — amber active instead of white */
+.pos-mode-pills {
+  background:    rgba(255,255,255,0.09) !important;
+  border-radius: 10px !important;
+  padding:       4px !important;
+}
+.pos-mode-pill {
+  font-size:   12.5px !important;
+  font-weight: 600 !important;
+  padding:     5px 16px !important;
+  color:       rgba(255,255,255,0.55) !important;
+  border-radius: 7px !important;
+  transition: all 130ms !important;
+}
+.pos-mode-pill.active {
+  background:  var(--v2-amber) !important;
+  color:       #1A1A1A !important;
+  font-weight: 800 !important;
+  box-shadow:  0 1px 6px rgba(255,193,7,0.35) !important;
+}
+.pos-mode-pill:hover:not(.active) { color: rgba(255,255,255,0.85) !important; }
+
+.pos-topbar-time {
+  font-size:   14px !important;
+  font-weight: 700 !important;
+  color:       rgba(255,255,255,0.88) !important;
+}
+.pos-topbar-cashier {
+  font-size: 11px !important;
+  color:     rgba(255,255,255,0.4) !important;
+}
+
+/* ── 4. Left panel + area tabs ───────────────────────────────────────────── */
+.pos-left {
+  background:   var(--v2-surface) !important;
+  border-right: 1px solid var(--v2-border) !important;
+}
+
+.pos-area-tabs {
+  padding:       10px 12px !important;
+  gap:           6px !important;
+  border-bottom: 1px solid var(--v2-border) !important;
+  background:    var(--v2-surface) !important;
+}
+
+.pos-area-tab {
+  padding:       6px 14px !important;
+  border-radius: 8px !important;
+  border:        1.5px solid var(--v2-border-md) !important;
+  background:    var(--v2-surface2) !important;
+  font-size:     12px !important;
+  font-weight:   700 !important;
+  color:         var(--v2-text2) !important;
+  transition:    all 110ms !important;
+}
+.pos-area-tab.active {
+  background:    var(--v2-navy) !important;
+  border-color:  var(--v2-navy) !important;
+  color:         #FFFFFF !important;
+}
+.pos-area-tab:hover:not(.active) {
+  border-color: rgba(0,0,0,0.2) !important;
+  color:        var(--v2-text) !important;
+}
+
+/* ── 5. Table cards ──────────────────────────────────────────────────────── */
+.table-area-label {
+  font-size:      10px !important;
+  font-weight:    800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  color:          var(--v2-text3) !important;
+  margin-bottom:  8px !important;
+}
+
+.table-area-grid {
+  gap: 9px !important;
+}
+
+.table-btn {
+  min-height:    76px !important;
+  padding:       11px 11px 9px !important;
+  border-radius: var(--v2-radius-lg) !important;
+  border-width:  1.5px !important;
+  border-left-width: 4px !important;
+  transition:    all 120ms !important;
+  box-shadow:    var(--v2-shadow-sm) !important;
+}
+.table-btn:hover {
+  transform:  translateY(-2px) !important;
+  box-shadow: var(--v2-shadow-md) !important;
+}
+.table-btn:active { transform: scale(0.97) !important; }
+
+.table-btn-number {
+  font-size:      18px !important;
+  font-weight:    800 !important;
+  letter-spacing: -0.03em !important;
+}
+.table-btn-label {
+  font-size:   10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  opacity:     0.8 !important;
+}
+.table-btn-amount {
+  font-size:   12px !important;
+  font-weight: 700 !important;
+}
+
+/* Status — modern clean palette */
+.table-btn.status-available {
+  background:       var(--v2-free-bg) !important;
+  border-color:     var(--v2-free-border) !important;
+  border-left-color: var(--v2-free-fg) !important;
+}
+.table-btn.status-available .table-btn-number { color: var(--v2-text) !important; }
+.table-btn.status-available .table-btn-label  { color: var(--v2-free-fg) !important; }
+
+.table-btn.status-occupied {
+  background:       var(--v2-occ-bg) !important;
+  border-color:     var(--v2-occ-border) !important;
+  border-left-color: var(--v2-occ-fg) !important;
+  box-shadow:       0 2px 8px rgba(217,119,6,0.12) !important;
+}
+.table-btn.status-occupied .table-btn-number { color: var(--v2-text) !important; font-size: 18px !important; }
+.table-btn.status-occupied .table-btn-label  { color: var(--v2-occ-fg) !important; }
+.table-btn.status-occupied .table-btn-amount { color: var(--v2-occ-fg) !important; }
+
+.table-btn.status-bill {
+  background:       var(--v2-bill-bg) !important;
+  border-color:     var(--v2-bill-border) !important;
+  border-left-color: var(--v2-bill-fg) !important;
+  box-shadow:       0 2px 8px rgba(220,38,38,0.10) !important;
+}
+.table-btn.status-bill .table-btn-number { color: var(--v2-text) !important; }
+.table-btn.status-bill .table-btn-label  { color: var(--v2-bill-fg) !important; }
+
+.table-btn.status-void {
+  background:       var(--v2-bill-bg) !important;
+  border-color:     var(--v2-bill-border) !important;
+  border-left-color: var(--v2-bill-fg) !important;
+}
+
+.table-btn.selected {
+  background:       var(--v2-navy) !important;
+  border-color:     var(--v2-navy) !important;
+  border-left-color: var(--v2-amber) !important;
+  box-shadow:       0 4px 16px rgba(26,35,50,0.22) !important;
+}
+.table-btn.selected .table-btn-number,
+.table-btn.selected .table-btn-label,
+.table-btn.selected .table-btn-amount,
+.table-btn.selected .table-btn-seats {
+  color: #FFFFFF !important;
+  opacity: 1 !important;
+}
+
+/* Legend */
+.pos-legend {
+  background:   var(--v2-surface) !important;
+  border-top:   1px solid var(--v2-border) !important;
+  padding:      8px 12px !important;
+  gap:          6px !important;
+}
+.pos-legend-item {
+  font-size:    10.5px !important;
+  font-weight:  700 !important;
+  padding:      3px 9px !important;
+  border-radius: 6px !important;
+}
+.legend-available { background: var(--v2-free-bg) !important;  color: var(--v2-free-fg) !important; }
+.legend-occupied  { background: var(--v2-occ-bg) !important;   color: var(--v2-occ-fg) !important; }
+.legend-bill      { background: var(--v2-bill-bg) !important;  color: var(--v2-bill-fg) !important; }
+.legend-void      { background: var(--v2-bill-bg) !important;  color: var(--v2-bill-fg) !important; }
+
+/* ── 6. Center panel + menu ──────────────────────────────────────────────── */
+.pos-center { background: var(--v2-bg) !important; }
+
+/* Search bar */
+.menu-search-wrap { padding: 12px 14px 8px !important; }
+.menu-search {
+  border:        1.5px solid var(--v2-border-md) !important;
+  border-radius: var(--v2-radius-md) !important;
+  background:    var(--v2-surface) !important;
+  font-size:     13.5px !important;
+  box-shadow:    var(--v2-shadow-sm) !important;
+  padding:       10px 32px 10px 36px !important;
+  color:         var(--v2-text) !important;
+}
+.menu-search:focus {
+  border-color: var(--v2-amber) !important;
+  box-shadow:   0 0 0 3px rgba(255,193,7,0.15), var(--v2-shadow-sm) !important;
+}
+
+/* Category tabs */
+.menu-cats { padding: 2px 14px 10px !important; gap: 6px !important; }
+.menu-cat-btn {
+  padding:       7px 15px !important;
+  border-radius: 20px !important;
+  border:        1.5px solid var(--v2-border-md) !important;
+  background:    var(--v2-surface) !important;
+  font-size:     12.5px !important;
+  font-weight:   700 !important;
+  color:         var(--v2-text2) !important;
+  box-shadow:    var(--v2-shadow-sm) !important;
+  transition:    all 110ms !important;
+  white-space:   nowrap !important;
+}
+.menu-cat-btn.active {
+  background:    var(--v2-amber) !important;
+  border-color:  var(--v2-amber) !important;
+  color:         #1A1A1A !important;
+  font-weight:   800 !important;
+  box-shadow:    0 2px 8px rgba(255,193,7,0.28) !important;
+}
+.menu-cat-btn:hover:not(.active) {
+  border-color: rgba(0,0,0,0.2) !important;
+  color:        var(--v2-text) !important;
+  background:   #FAFBFC !important;
+}
+
+/* Menu item cards */
+.menu-items-grid {
+  gap:     10px !important;
+  padding: 0 14px 14px !important;
+}
+
+.menu-item-btn {
+  border-radius: var(--v2-radius-lg) !important;
+  border:        1.5px solid var(--v2-border) !important;
+  background:    var(--v2-surface) !important;
+  padding:       14px 12px 12px !important;
+  min-height:    88px !important;
+  box-shadow:    var(--v2-shadow-sm) !important;
+  transition:    all 130ms !important;
+}
+.menu-item-btn:hover {
+  border-color: rgba(0,0,0,0.16) !important;
+  transform:    translateY(-2px) !important;
+  box-shadow:   var(--v2-shadow-md) !important;
+}
+.menu-item-btn:active {
+  transform:  scale(0.975) !important;
+  box-shadow: var(--v2-shadow-sm) !important;
+}
+
+.menu-item-name {
+  font-size:   13px !important;
+  font-weight: 700 !important;
+  color:       var(--v2-text) !important;
+  line-height: 1.35 !important;
+}
+.menu-item-price {
+  font-size:      15px !important;
+  font-weight:    800 !important;
+  color:          var(--v2-text) !important;
+  letter-spacing: -0.025em !important;
+}
+
+/* Sold-out state */
+.menu-item-btn.sold-out {
+  opacity:    0.5 !important;
+  background: var(--v2-surface2) !important;
+}
+
+/* ── 7. Food card variant (alternate layout) ─────────────────────────────── */
+.menu-food-card {
+  border-radius: var(--v2-radius-lg) !important;
+  border:        1.5px solid var(--v2-border) !important;
+  background:    var(--v2-surface) !important;
+  box-shadow:    var(--v2-shadow-sm) !important;
+  transition:    all 130ms !important;
+}
+.menu-food-card:hover {
+  border-color: rgba(0,0,0,0.16) !important;
+  transform:    translateY(-2px) !important;
+  box-shadow:   var(--v2-shadow-md) !important;
+}
+
+/* ── 8. Right panel — Order ───────────────────────────────────────────────── */
+.pos-right {
+  background:  var(--v2-surface) !important;
+  border-left: 1px solid var(--v2-border) !important;
+}
+
+/* Order header */
+.order-panel-head {
+  padding:       14px 16px 12px !important;
+  border-bottom: 1px solid var(--v2-border) !important;
+  background:    var(--v2-surface) !important;
+}
+.order-table-label {
+  font-size:      16px !important;
+  font-weight:    800 !important;
+  color:          var(--v2-text) !important;
+  letter-spacing: -0.03em !important;
+}
+.order-meta {
+  font-size:  12px !important;
+  color:      var(--v2-text3) !important;
+  margin-top: 3px !important;
+}
+
+/* Order items */
+.order-items { padding: 4px 14px !important; }
+.order-item {
+  padding:       10px 0 !important;
+  border-bottom: 1px solid var(--v2-border) !important;
+}
+.order-item-name {
+  font-size:   13px !important;
+  font-weight: 700 !important;
+  color:       var(--v2-text) !important;
+}
+.order-item.sent .order-item-name { color: var(--v2-text3) !important; }
+
+.order-item-kot-tag {
+  font-size:    9.5px !important;
+  font-weight:  800 !important;
+  padding:      2px 6px !important;
+  border-radius: 5px !important;
+  background:   #ECFDF5 !important;
+  color:        #059669 !important;
+  letter-spacing: 0.03em !important;
+}
+
+/* Qty controls */
+.qty-btn {
+  width:         26px !important;
+  height:        26px !important;
+  border-radius: 7px !important;
+  border:        1.5px solid var(--v2-border-md) !important;
+  background:    var(--v2-surface2) !important;
+  font-size:     14px !important;
+  font-weight:   700 !important;
+  color:         var(--v2-text) !important;
+  transition:    all 100ms !important;
+}
+.qty-btn:hover {
+  background:   var(--v2-navy) !important;
+  border-color: var(--v2-navy) !important;
+  color:        #FFFFFF !important;
+}
+.qty-value {
+  font-size:  13px !important;
+  font-weight: 800 !important;
+  color:      var(--v2-text) !important;
+}
+
+.order-item-price {
+  font-size:   13px !important;
+  font-weight: 800 !important;
+  color:       var(--v2-text) !important;
+}
+
+/* Totals */
+.order-discount { padding: 9px 14px !important; border-top: 1px solid var(--v2-border) !important; }
+.order-totals   { padding: 9px 14px !important; border-top: 1px solid var(--v2-border) !important; }
+.order-total-row {
+  font-size:  13px !important;
+  color:      var(--v2-text2) !important;
+  padding:    4px 0 !important;
+}
+.order-total-row.discount { color: #DC2626 !important; }
+.order-total-row.total {
+  font-size:      16px !important;
+  font-weight:    800 !important;
+  color:          var(--v2-text) !important;
+  border-top:     1.5px solid var(--v2-border-md) !important;
+  margin-top:     6px !important;
+  padding-top:    10px !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* ── 9. Action buttons ────────────────────────────────────────────────────── */
+.order-actions {
+  padding:    10px 14px 16px !important;
+  border-top: 1px solid var(--v2-border) !important;
+  gap:        8px !important;
+}
+
+.pos-btn {
+  border-radius: var(--v2-radius-md) !important;
+  font-size:     13px !important;
+  font-weight:   700 !important;
+  padding:       12px 14px !important;
+  transition:    all 130ms !important;
+}
+
+/* KOT — clean blue */
+.pos-btn.kot {
+  background:    #EFF6FF !important;
+  color:         #1D4ED8 !important;
+  border:        1.5px solid #BFDBFE !important;
+}
+.pos-btn.kot:hover {
+  background:    #DBEAFE !important;
+  border-color:  #93C5FD !important;
+}
+
+/* Secondary buttons */
+.pos-btn.split,
+.pos-btn.bill-req {
+  background:    var(--v2-surface2) !important;
+  color:         var(--v2-text) !important;
+  border:        1.5px solid var(--v2-border-md) !important;
+}
+.pos-btn.split:hover,
+.pos-btn.bill-req:hover {
+  background:    #E8ECF2 !important;
+}
+
+/* Pay / Settle — primary amber CTA */
+.pos-btn.pay {
+  background:    var(--v2-amber) !important;
+  color:         #1A1A1A !important;
+  border:        none !important;
+  font-size:     15px !important;
+  font-weight:   800 !important;
+  padding:       15px 14px !important;
+  border-radius: 14px !important;
+  box-shadow:    0 4px 16px rgba(255,193,7,0.30) !important;
+  letter-spacing: -0.01em !important;
+}
+.pos-btn.pay:hover {
+  background:    #E6AC00 !important;
+  transform:     translateY(-1px) !important;
+  box-shadow:    0 8px 24px rgba(255,193,7,0.38) !important;
+}
+.pos-btn:active { transform: scale(0.975) !important; }
+
+/* ── 10. Payment sheet ────────────────────────────────────────────────────── */
+.payment-overlay {
+  background: rgba(0,0,0,0.45) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+.payment-sheet {
+  border-radius: 22px !important;
+  box-shadow:    var(--v2-shadow-lg) !important;
+  padding:       26px 24px 24px !important;
+  border:        1px solid var(--v2-border) !important;
+}
+.payment-sheet-head h3 {
+  font-size:      19px !important;
+  font-weight:    800 !important;
+  letter-spacing: -0.03em !important;
+  color:          var(--v2-text) !important;
+}
+.payment-table-label {
+  font-size: 13px !important;
+  color:     var(--v2-text3) !important;
+}
+.payment-close {
+  background:    var(--v2-surface2) !important;
+  border-radius: 9px !important;
+  color:         var(--v2-text2) !important;
+}
+.payment-close:hover { background: #E2E8F0 !important; color: var(--v2-text) !important; }
+
+/* ── 11. Modals — general cleanup ─────────────────────────────────────────── */
+.modal-overlay {
+  background: rgba(0,0,0,0.45) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+.modal-box, .modal-card {
+  border-radius: 20px !important;
+  box-shadow:    var(--v2-shadow-lg) !important;
+  border:        1px solid var(--v2-border) !important;
+}
+
+/* ── 12. Summary bar (table floor header) ────────────────────────────────── */
+.pos-summary {
+  background:    var(--v2-surface) !important;
+  border-bottom: 1px solid var(--v2-border) !important;
+}
+.summary-stat-num {
+  font-size:      22px !important;
+  font-weight:    800 !important;
+  color:          var(--v2-text) !important;
+  letter-spacing: -0.04em !important;
+}
+.summary-stat-num.occupied { color: var(--v2-occ-fg) !important; }
+.summary-stat-label {
+  font-size:  11px !important;
+  color:      var(--v2-text3) !important;
+  font-weight: 600 !important;
+}
+.summary-divider {
+  background: var(--v2-border) !important;
+  width:      1px !important;
+}
+
+/* ── 13. Online/counter order tabs ───────────────────────────────────────── */
+.online-orders-panel,
+.counter-panel {
+  background: var(--v2-bg) !important;
+}
+
+/* ── 14. Scrollbar refinement ────────────────────────────────────────────── */
+.pos-left-scroll::-webkit-scrollbar,
+.menu-items-grid::-webkit-scrollbar,
+.order-items::-webkit-scrollbar { width: 4px !important; }
+.pos-left-scroll::-webkit-scrollbar-track,
+.menu-items-grid::-webkit-scrollbar-track,
+.order-items::-webkit-scrollbar-track { background: transparent !important; }
+.pos-left-scroll::-webkit-scrollbar-thumb,
+.menu-items-grid::-webkit-scrollbar-thumb,
+.order-items::-webkit-scrollbar-thumb {
+  background:    rgba(0,0,0,0.12) !important;
+  border-radius: 4px !important;
+}
+
+/* ── 15. Input refinement ────────────────────────────────────────────────── */
+input, select, textarea {
+  font-family: inherit !important;
+}
+.order-discount input {
+  border:        1.5px solid var(--v2-border-md) !important;
+  border-radius: var(--v2-radius-sm) !important;
+  background:    var(--v2-surface2) !important;
+  font-weight:   700 !important;
+  font-size:     13px !important;
+  color:         var(--v2-text) !important;
+}
+.order-discount input:focus {
+  border-color: var(--v2-amber) !important;
+  outline:      none !important;
+}
+
+/* ── 16. Session pill fix (Start Shift screen) ──────────────────────────── */
+/* Base theme sets active to near-black nav; force to amber for clarity */
+.sg-pill {
+  padding:       8px 18px !important;
+  border-radius: 10px !important;
+  border:        1.5px solid var(--v2-border-md) !important;
+  background:    var(--v2-surface2) !important;
+  font-size:     13px !important;
+  font-weight:   700 !important;
+  color:         var(--v2-text2) !important;
+  transition:    all 110ms !important;
+}
+.sg-pill.active {
+  background:    var(--v2-amber) !important;
+  border-color:  var(--v2-amber) !important;
+  color:         #1A1A1A !important;
+  font-weight:   800 !important;
+  box-shadow:    0 3px 10px rgba(255,193,7,0.28) !important;
+}
+.sg-pill:hover:not(.active) {
+  border-color: rgba(0,0,0,0.2) !important;
+  color:        var(--v2-text) !important;
+}
+
+/* Start Shift button */
+.sg-start-btn {
+  background:    var(--v2-amber) !important;
+  color:         #1A1A1A !important;
+  font-weight:   800 !important;
+  font-size:     15px !important;
+  border-radius: 14px !important;
+  padding:       15px !important;
+  box-shadow:    0 4px 16px rgba(255,193,7,0.32) !important;
+  border:        none !important;
+}
+.sg-start-btn:hover  { background: #E6AC00 !important; transform: translateY(-1px) !important; }
+.sg-start-btn:active { transform: scale(0.98) !important; }
+
+/* ── 17. Action bar — unified, clean ────────────────────────────────────── */
+/*
+   Goal: every action bar button shares the same base style.
+   Only End Shift gets a distinct red tint to signal its critical nature.
+   Cash In / Cash Out get VERY subtle tints so cashiers can distinguish
+   at a glance — not loud colors.
+*/
+.pos-action-bar {
+  background:    var(--v2-surface) !important;
+  border-bottom: 1px solid var(--v2-border) !important;
+  box-shadow:    0 1px 4px rgba(0,0,0,0.05) !important;
+  padding:       0 14px !important;
+  height:        44px !important;
+}
+
+/* Reset all pab-btn color variants to the same neutral base */
+.pab-btn {
+  padding:       0 11px !important;
+  height:        30px !important;
+  border-radius: 8px !important;
+  font-size:     11.5px !important;
+  font-weight:   700 !important;
+  background:    var(--v2-surface2) !important;
+  color:         var(--v2-text2) !important;
+  border:        1.5px solid var(--v2-border-md) !important;
+  display:       inline-flex !important;
+  align-items:   center !important;
+  gap:           5px !important;
+  white-space:   nowrap !important;
+  transition:    all 120ms !important;
+}
+.pab-btn:hover {
+  background:    #E8ECF2 !important;
+  color:         var(--v2-text) !important;
+  transform:     translateY(-1px) !important;
+  box-shadow:    0 2px 6px rgba(0,0,0,0.09) !important;
+  filter:        none !important;
+}
+.pab-btn:active {
+  transform: translateY(0) !important;
+  box-shadow: none !important;
+}
+
+/* Override ALL color variants to neutral — then selectively re-apply */
+.pab-btn.orange, .pab-btn.blue, .pab-btn.purple,
+.pab-btn.teal,   .pab-btn.green,.pab-btn.gray,
+.pab-btn.cyan,   .pab-btn.dark  {
+  background: var(--v2-surface2) !important;
+  color:      var(--v2-text2) !important;
+  border:     1.5px solid var(--v2-border-md) !important;
+}
+
+/* Cash In — subtle green tint only */
+.pab-btn.green {
+  background: #F0FDF4 !important;
+  color:      #15803D !important;
+  border-color: #BBF7D0 !important;
+}
+.pab-btn.green:hover { background: #DCFCE7 !important; }
+
+/* Cash Out — subtle orange/red tint only */
+.pab-btn.orange {
+  background: #FFF7ED !important;
+  color:      #C2410C !important;
+  border-color: #FED7AA !important;
+}
+.pab-btn.orange:hover { background: #FFEDD5 !important; }
+
+/* End Shift — clear red/danger — most distinct */
+.pab-btn.dark {
+  background:    #FEF2F2 !important;
+  color:         #DC2626 !important;
+  border-color:  #FECACA !important;
+  font-weight:   800 !important;
+}
+.pab-btn.dark:hover {
+  background:   #FEE2E2 !important;
+  border-color: #FCA5A5 !important;
+  color:        #B91C1C !important;
+  transform:    translateY(-1px) !important;
+}
+
+/* Logout variant — same as end shift */
+.pab-btn.logout-btn {
+  background:   #FEF2F2 !important;
+  color:        #DC2626 !important;
+  border-color: #FECACA !important;
+}
+
+/* Syncing spinner — keep neutral */
+.pab-btn.syncing .pab-icon { animation: spin 1s linear infinite !important; }
+
+/* Stats pill — cleaner */
+.pab-stats {
+  background:    var(--v2-surface2) !important;
+  border:        1px solid var(--v2-border) !important;
+  border-radius: 8px !important;
+  height:        30px !important;
+  padding:       0 12px !important;
+}
+.pab-stat-val  {
+  font-size:   13px !important;
+  font-weight: 900 !important;
+  color:       var(--v2-text) !important;
+}
+.pab-stat-val.warn { color: var(--v2-occ-fg) !important; }
+.pab-stat-lbl {
+  font-size:  8.5px !important;
+  color:      var(--v2-text3) !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+.pab-stat-divider {
+  background: var(--v2-border) !important;
+  width:      1px !important;
+  height:     18px !important;
+}
+
+/* Mode pills in action bar (Online Orders, Past Orders, etc.) */
+.pab-group .pab-btn.blue,
+.pab-group .pab-btn.purple {
+  background: var(--v2-surface2) !important;
+  color:      var(--v2-text2) !important;
+  border-color: var(--v2-border-md) !important;
+}
+
+/* Online toggle — keep it distinct (it's a state indicator) */
+.online-toggle-btn {
+  height:        30px !important;
+  padding:       0 12px !important;
+  border-radius: 8px !important;
+  font-size:     11.5px !important;
+  font-weight:   800 !important;
+  border-width:  1.5px !important;
+}
+.online-toggle-btn.enabled {
+  background:   #F0FDF4 !important;
+  border-color: #86EFAC !important;
+  color:        #15803D !important;
+}
+.online-toggle-btn.disabled {
+  background:   #FEF2F2 !important;
+  border-color: #FECACA !important;
+  color:        #DC2626 !important;
+}
+
+/* ── END DESIGN REFRESH v2.0 ────────────────────────────────────────────── */

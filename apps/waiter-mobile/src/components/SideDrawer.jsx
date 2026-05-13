@@ -1,0 +1,171 @@
+import { useState } from "react";
+import { tapImpact } from "../lib/haptics";
+
+const APP_VERSION = "1.7";
+
+/**
+ * SideDrawer — Captain App utility menu
+ *
+ * Props:
+ *   outletName      string
+ *   serverUrl       string
+ *   localPosIp      string | null
+ *   pendingKots     array   — failed KOT payloads queued for retry
+ *   onClose         ()
+ *   onSync          ()      — force-pull orders + menu from server
+ *   onFindPOS       ()      — re-scan network for local POS IP
+ *   onRetryKot      (kot)   — retry a single pending KOT
+ *   onRetryAll      ()      — retry all pending KOTs
+ *   onClearKot      (kotId) — dismiss a pending KOT without retry
+ *   scanning        bool    — true while network scan is running
+ */
+export function SideDrawer({
+  outletName, serverUrl, localPosIp,
+  pendingKots = [],
+  onClose, onSync, onFindPOS,
+  onRetryKot, onRetryAll, onClearKot,
+  scanning = false,
+}) {
+  const [syncing, setSyncing] = useState(false);
+
+  async function handleSync() {
+    tapImpact();
+    setSyncing(true);
+    try { await onSync(); } finally { setSyncing(false); }
+  }
+
+  return (
+    <>
+      <div className="drawer-backdrop" onClick={onClose} />
+
+      <div className="drawer-panel">
+        {/* Header */}
+        <div className="drawer-header">
+          <div className="drawer-brand">
+            <span className="drawer-brand-icon">🍽️</span>
+            <div>
+              <div className="drawer-brand-name">Plato Captain</div>
+              <div className="drawer-brand-outlet">{outletName || "Restaurant"}</div>
+            </div>
+          </div>
+          <button className="drawer-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* ── Pending KOTs ─────────────────────────────────────────────── */}
+        <div className="drawer-section">
+          <div className="drawer-section-title">
+            <span>Pending KOTs</span>
+            {pendingKots.length > 0 && (
+              <span className="drawer-badge drawer-badge-red">{pendingKots.length}</span>
+            )}
+          </div>
+
+          {pendingKots.length === 0 ? (
+            <div className="drawer-empty-row">
+              <span className="drawer-empty-icon">✅</span>
+              <span>All KOTs sent successfully</span>
+            </div>
+          ) : (
+            <>
+              {pendingKots.map((kot) => (
+                <div key={kot.id} className="drawer-kot-row">
+                  <div className="drawer-kot-info">
+                    <span className="drawer-kot-table">Table {kot.tableNumber}</span>
+                    <span className="drawer-kot-items">
+                      {kot.items?.length || 0} item{(kot.items?.length || 0) !== 1 ? "s" : ""}
+                      {" · "}
+                      {kot.areaName}
+                    </span>
+                    {kot.failedAt && (
+                      <span className="drawer-kot-time">
+                        Failed {timeSince(kot.failedAt)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="drawer-kot-actions">
+                    <button
+                      className="drawer-kot-retry"
+                      onClick={() => { tapImpact(); onRetryKot(kot); }}
+                    >
+                      Retry
+                    </button>
+                    <button
+                      className="drawer-kot-clear"
+                      onClick={() => { tapImpact(); onClearKot(kot.id); }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {pendingKots.length > 1 && (
+                <button
+                  className="drawer-action-btn drawer-action-warn"
+                  onClick={() => { tapImpact(); onRetryAll(); }}
+                >
+                  <span>🔄</span>
+                  <span>Retry All ({pendingKots.length})</span>
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ── Sync & Tools ─────────────────────────────────────────────── */}
+        <div className="drawer-section">
+          <div className="drawer-section-title">Tools</div>
+
+          <button
+            className={`drawer-action-btn${syncing ? " drawer-action-loading" : ""}`}
+            onClick={handleSync}
+            disabled={syncing}
+          >
+            <span>{syncing ? "⏳" : "🔄"}</span>
+            <span>{syncing ? "Syncing…" : "Sync Data"}</span>
+            <span className="drawer-action-hint">Refresh orders + menu</span>
+          </button>
+
+          <button
+            className={`drawer-action-btn${scanning ? " drawer-action-loading" : ""}`}
+            onClick={() => { tapImpact(); onFindPOS(); }}
+            disabled={scanning}
+          >
+            <span>{scanning ? "⏳" : "📡"}</span>
+            <span>{scanning ? "Scanning network…" : "Find POS"}</span>
+            <span className="drawer-action-hint">
+              {localPosIp ? `Connected: ${localPosIp}` : "Scan Wi-Fi for POS machine"}
+            </span>
+          </button>
+        </div>
+
+        {/* ── Device Info ───────────────────────────────────────────────── */}
+        <div className="drawer-section drawer-device-section">
+          <div className="drawer-section-title">Device Info</div>
+          <div className="drawer-device-grid">
+            <DevRow label="App Version" value={`v${APP_VERSION}`} />
+            <DevRow label="Outlet"      value={outletName || "—"} />
+            <DevRow label="Server"      value={serverUrl  || "—"} mono />
+            <DevRow label="Local POS"   value={localPosIp ? `${localPosIp}:4001` : "Not connected"} mono />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function DevRow({ label, value, mono }) {
+  return (
+    <div className="drawer-dev-row">
+      <span className="drawer-dev-label">{label}</span>
+      <span className={`drawer-dev-value${mono ? " mono" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+function timeSince(ts) {
+  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+  if (mins < 1)  return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ago`;
+}
