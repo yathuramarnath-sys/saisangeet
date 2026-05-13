@@ -16,7 +16,7 @@ export function OrderScreen({
   order, tableLabel, areas, categories, menuItems, outletName,
   orders, outletId, socket,
   onBack, onSendKOT, onRequestBill, onPrintBill,
-  onToggleHold, onUpdateOrder, onAddItem,
+  onToggleHold, onUpdateOrder, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear,
 }) {
   const [screen,        setScreen]        = useState("order"); // order | menu | split
@@ -61,10 +61,17 @@ export function OrderScreen({
 
   function changeQty(idx, delta) {
     const next = [...items];
-    const newQty = (next[idx]?.quantity || 1) + delta;
-    if (newQty <= 0) next.splice(idx, 1);
-    else next[idx] = { ...next[idx], quantity: newQty };
-    onUpdateOrder({ ...order, items: next });
+    const item  = next[idx];
+    const newQty = (item?.quantity || 1) + delta;
+    if (newQty <= 0) {
+      // Use dedicated remove handler so backend memory store is updated too
+      // (socket order:update alone doesn't update backend — causes stuck item bug)
+      if (onRemoveItem && item?.id) onRemoveItem(item.id);
+      else { next.splice(idx, 1); onUpdateOrder({ ...order, items: next }); }
+    } else {
+      next[idx] = { ...item, quantity: newQty };
+      onUpdateOrder({ ...order, items: next });
+    }
     tapImpact();
   }
 

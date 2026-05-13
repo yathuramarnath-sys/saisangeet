@@ -448,6 +448,38 @@ export function App() {
     localSocketRef.current?.emit("order:update", { order: nextOrder });
   }
 
+  // ── Remove unsent item from order (DELETE to backend so it doesn't ghost) ──
+  // Root cause of the "stuck item" bug: socket order:update only relays to other
+  // devices but never updates the backend memory store. So a removed item stays
+  // on the server and comes back on next sync. This calls DELETE /order/item to
+  // remove it from the backend store properly.
+  async function handleRemoveItem(itemId) {
+    const tableId = selectedTableId;
+    if (!tableId || !itemId) return;
+
+    // Optimistic local remove immediately
+    setOrders((prev) => {
+      const order = prev[tableId];
+      if (!order) return prev;
+      const next = { ...order, items: order.items.filter((i) => i.id !== itemId) };
+      socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: next });
+      localSocketRef.current?.emit("order:update", { order: next });
+      return { ...prev, [tableId]: next };
+    });
+
+    // Persist removal to backend — prevents item ghosting on POS after sync
+    try {
+      await api.delete(`/operations/order/item`, {
+        tableId,
+        outletId: outlet?.id || branchConfig?.outletId,
+        itemId,
+        actorName: loggedInStaff?.name || "Captain",
+      });
+    } catch (err) {
+      console.warn("[captain] removeItem sync failed:", err.message);
+    }
+  }
+
   // ── Add item (POST to backend, reconcile) ─────────────────────────────────
   async function handleAddItem(item) {
     const tableId = selectedTableId;
@@ -922,6 +954,7 @@ export function App() {
             onPrintBill={handlePrintBill}
             onToggleHold={handleToggleHold}
             onUpdateOrder={handleUpdateOrder}
+            onRemoveItem={handleRemoveItem}
             onAddItem={handleAddItem}
             onTransfer={handleTableTransfer}
             onMerge={handleTableMerge}
