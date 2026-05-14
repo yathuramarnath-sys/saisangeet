@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { tapImpact } from "../lib/haptics";
 
-const APP_VERSION = "1.9";
+const APP_VERSION = "1.10";
 
 /**
  * SideDrawer — Captain App utility menu

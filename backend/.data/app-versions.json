@@ -8,9 +8,9 @@
     "releaseDate": "2026-05-14"
   },
   "captain": {
-    "version": "1.9",
+    "version": "1.10",
     "label": "Captain App",
-    "changelog": "Assign waiter to table, waiter name on KOT & bill, improved receipt layout, paper size bug fix",
+    "changelog": "Direct WiFi printing — bill and KOT print straight to printer, no POS machine needed",
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
     "releaseDate": "2026-05-14"
