@@ -549,14 +549,14 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
           if (data.cashier)   cmd += LEFT + 'Cashier : ' + data.cashier + LF;
           if (data.billNo)    cmd += LEFT + 'Bill No : ' + data.billNo + LF;
           cmd += DASH48 + LF;
-          // Column header  (16 + 3 + 7 + 8 = 34 chars — fits 80mm)
-          cmd += BOLD1 + 'Item            Qty     Rate     Amt' + BOLD0 + LF;
+          // Column header  (18 + 3 + 7 + 8 = 36 chars — fits 80mm)
+          cmd += BOLD1 + 'Item              Qty    Rate      Amt' + BOLD0 + LF;
           cmd += DASH48 + LF;
           // Items — strip ₹/Rs. from rate/amt (latin1 can't encode ₹, renders as garbage)
           for (const item of (data.items || [])) {
-            const name  = (item.name || '').substring(0, 16).padEnd(16);
+            const name  = (item.name || '').substring(0, 18).padEnd(18);
             const qty   = (item.qty  || '').padStart(3);
-            const rate  = (item.rate || '').replace(/[₹Rs\s]/g, '').trim().padStart(8);
+            const rate  = (item.rate || '').replace(/[₹Rs\s]/g, '').trim().padStart(7);
             const amt   = (item.amt  || '').replace(/[₹Rs\s]/g, '').trim().padStart(8);
             cmd += name + qty + rate + amt + LF;
             if (item.note) cmd += '     >> ' + item.note + LF;

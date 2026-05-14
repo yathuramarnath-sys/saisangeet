@@ -57,7 +57,26 @@ export function getKotPrinter() {
   return kotPrinters.find(p => p.isDefault) || kotPrinters[0];
 }
 
-/** Find the best Bill printer (Bills & KOTs station, or Bill Printer type) */
+/**
+ * Get the waiter/full-copy KOT printer.
+ * Prefers a printer with NO station assignment (dedicated waiter copy printer).
+ * Falls back to getKotPrinter() if all printers have stations.
+ * Falls back to getBillPrinter() if that has an IP (bill printer also prints KOTs).
+ */
+export function getWaiterKotPrinter() {
+  const printers = loadPrinters();
+  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both");
+  // First choice: KOT printer with no station (pure default/waiter printer)
+  const noStation = kotPrinters.filter(p => !p.station || p.station.trim() === "");
+  if (noStation.length) return noStation.find(p => p.isDefault) || noStation[0];
+  // Second choice: any printer with no station (e.g. type Both/Bill also prints KOTs)
+  const anyNoStation = printers.filter(p => !p.station || p.station.trim() === "");
+  if (anyNoStation.length) return anyNoStation.find(p => p.isDefault) || anyNoStation[0];
+  // Last resort: first available printer
+  return getKotPrinter();
+}
+
+/** Find the best Bill printer — falls back to KOT printer if no bill-type printer configured */
 export function getBillPrinter() {
   const printers = loadPrinters();
   // Prefer printer on "Bills & KOTs" station
@@ -67,8 +86,9 @@ export function getBillPrinter() {
   );
   if (billingStation) return billingStation;
   const billPrinters = printers.filter(p => p.type === "Bill Printer" || p.type === "Both");
-  if (!billPrinters.length) return printers.find(p => p.isDefault) || null;
-  return billPrinters.find(p => p.isDefault) || billPrinters[0];
+  if (billPrinters.length) return billPrinters.find(p => p.isDefault) || billPrinters[0];
+  // No dedicated bill printer — fall back to the waiter KOT printer (same physical printer)
+  return getWaiterKotPrinter();
 }
 
 /**

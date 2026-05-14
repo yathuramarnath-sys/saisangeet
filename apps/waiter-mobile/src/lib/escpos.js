@@ -73,15 +73,15 @@ export function buildBillEscPos(data) {
   cmd += DASH + LF;
 
   // ── Items header ───────────────────────────────────────────────────────────
-  cmd += BOLD1 + "Item            Qty     Rate      Amt" + BOLD0 + LF;
+  cmd += BOLD1 + "Item              Qty    Rate      Amt" + BOLD0 + LF;
   cmd += DASH + LF;
 
   // ── Items ──────────────────────────────────────────────────────────────────
   for (const item of (data.items || [])) {
-    const name = safe(item.name || "").substring(0, 16).padEnd(16);
+    const name = safe(item.name || "").substring(0, 18).padEnd(18);
     const qty  = String(item.qty  || "").padStart(3);
-    const rate = stripRupee(item.rate).padStart(8);
-    const amt  = stripRupee(item.amt).padStart(9);
+    const rate = stripRupee(item.rate).padStart(7);
+    const amt  = stripRupee(item.amt).padStart(8);
     cmd += name + qty + rate + amt + LF;
     if (item.note) cmd += "     >> " + safe(item.note) + LF;
   }

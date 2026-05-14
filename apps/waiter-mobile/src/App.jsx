@@ -638,14 +638,16 @@ export function App() {
     //   • Kitchen station printer → prints only that station's items
     //                               (only if a DEDICATED printer is configured for that station)
     try {
-      const { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } =
+      const { printKOT, getWaiterKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } =
         await import("./lib/kotPrint.js");
       if (kotAutoSendEnabled()) {
-        const waiterPrinter = getKotPrinter();
+        // Waiter printer = printer with NO station assignment (full copy for waiter)
+        // Distinct from station printers so full copy always prints separately
+        const waiterPrinter = getWaiterKotPrinter();
         const kotNumber     = serverKotNumber;
         const actorName     = loggedInStaff?.name || "Captain";
 
-        // 1. Waiter slip — ALL items on the default/waiter KOT printer
+        // 1. Waiter slip — ALL items on the waiter/default KOT printer (no station)
         printKOT(order, unsent, waiterPrinter, kotNumber, { sentBy: actorName });
 
         // 2. Kitchen station slips — one per station, only if a dedicated printer is configured
