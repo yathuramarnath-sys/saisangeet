@@ -506,6 +506,23 @@ function findOrder(tableId) {
   return order;
 }
 
+/**
+ * Throws a 409 if the order is already closed.
+ * Call this at the top of every function that mutates order state.
+ *
+ * @param {object} order  — live order object (not a clone)
+ * @param {string} action — human label shown in the error (e.g. "add item")
+ */
+function assertOrderOpen(order, action = "modify order") {
+  if (order.isClosed) {
+    throw new ApiError(
+      409,
+      "ORDER_ALREADY_CLOSED",
+      `Cannot ${action}: order for table ${order.tableNumber || order.tableId} is already closed.`
+    );
+  }
+}
+
 function listOrders() {
   return Object.values(getState().orders);
 }
@@ -667,6 +684,7 @@ function moveTable(sourceTableId, targetTableId, actor = "System") {
 
   const state = _current();
   const sourceOrder = findOrder(sourceTableId);
+  assertOrderOpen(sourceOrder, "move table");
   // Prefer catalog meta; fall back to the existing order entry in state (covers test fixtures).
   const catalogMeta  = getTableMeta(targetTableId);
   const stateEntry   = state.orders[targetTableId];
@@ -713,6 +731,7 @@ function moveTable(sourceTableId, targetTableId, actor = "System") {
 
 function markKotSent(tableId, actor = "Captain") {
   const order = findOrder(tableId);
+  assertOrderOpen(order, "send KOT");
   order.items = order.items.map((item) => ({ ...item, sentToKot: true }));
   order.pickupStatus = "new";
   order.notes = "KOT sent to kitchen";
@@ -731,6 +750,7 @@ function markKotSent(tableId, actor = "Captain") {
  */
 function stampBillNo(tableId, billNo, billNoMode, billNoFY, billNoDate) {
   const order = findOrder(tableId);
+  assertOrderOpen(order, "assign bill number");
   if (order.billNo) return clone(order); // already stamped — don't reassign
   order.billNo     = billNo;
   order.billNoMode = billNoMode || null;
@@ -742,6 +762,7 @@ function stampBillNo(tableId, billNo, billNoMode, billNoFY, billNoDate) {
 
 function requestBill(tableId, actor = "Waiter") {
   const order = findOrder(tableId);
+  assertOrderOpen(order, "request bill");
   order.billRequested = true;
   order.billRequestedAt = "Now";
   order.notes = "Bill requested from service floor";
@@ -751,6 +772,7 @@ function requestBill(tableId, actor = "Waiter") {
 
 function assignWaiter(tableId, waiterName, actor = "Captain") {
   const order = findOrder(tableId);
+  assertOrderOpen(order, "assign waiter");
   order.assignedWaiter = waiterName;
   order.notes = `${waiterName} assigned`;
   appendAudit(order, buildAuditEntry("Waiter assigned", actor, "Now"));
@@ -759,6 +781,7 @@ function assignWaiter(tableId, waiterName, actor = "Captain") {
 
 function addOrderItem(tableId, payload, actor = "System") {
   const order = findOrder(tableId);
+  assertOrderOpen(order, "add item");
   const incomingMenuItemId = payload.menuItemId || payload.id || `item-${Date.now()}`;
 
   // Consolidate: if the same menu item already has an unsent, non-voided line, increment its
@@ -804,6 +827,7 @@ function addOrderItem(tableId, payload, actor = "System") {
 // No-op if the item is already sentToKot (can't un-send a KOT).
 function removeOrderItem(tableId, itemId, actor = "System") {
   const order = findOrder(tableId);
+  assertOrderOpen(order, "remove item");
   const idx = order.items.findIndex(i => i.id === itemId && !i.sentToKot && !i.isVoided);
   if (idx === -1) return clone(order); // already sent or not found — no-op
   order.items.splice(idx, 1);
@@ -833,6 +857,7 @@ function getOrCreateOrder(tableId) {
 
 function updateOrderItem(tableId, itemId, payload, actor = "System") {
   const order = findOrder(tableId);
+  assertOrderOpen(order, "update item");
   const item = order.items.find((entry) => entry.id === itemId);
 
   if (!item) {
@@ -897,6 +922,7 @@ function calculateOrderTotals(order) {
 
 function splitOrderBill(tableId, actor = "System") {
   const order = findOrder(tableId);
+  assertOrderOpen(order, "split bill");
   const maxSplits = Math.min(Math.max(Number(order.guests || 0), 2), 4);
   order.billSplitCount = order.billSplitCount >= maxSplits ? 1 : (order.billSplitCount || 1) + 1;
   order.notes = `Bill split updated to ${order.billSplitCount}`;
@@ -906,6 +932,7 @@ function splitOrderBill(tableId, actor = "System") {
 
 function addOrderPayment(tableId, payload, actor = "System") {
   const order = findOrder(tableId);
+  assertOrderOpen(order, "add payment");
   const totals = calculateOrderTotals(order);
   const requestedAmount = Number(payload.amount || 0);
   const amount = Math.min(requestedAmount, totals.remainingAmount);
@@ -1105,6 +1132,7 @@ module.exports = {
   createDemoOrder,
   moveTable,
   markKotSent,
+  assertOrderOpen,
   stampBillNo,
   requestBill,
   assignWaiter,
