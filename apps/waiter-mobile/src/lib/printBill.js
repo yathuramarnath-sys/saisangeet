@@ -97,7 +97,7 @@ export function printBill(order, items, outletData, options = {}) {
       table:         tableLabel,
       orderType:     orderType,
       cashier:       servedBy   || "",
-      billNo:        order.billNo || order.orderNumber || "",
+      billNo:        order.billNo || "",   // orderNumber is internal (10031+), not the GST bill no
       items: billableItems.map(i => ({
         name: i.name,
         note: i.note || "",
@@ -210,10 +210,10 @@ export function printBill(order, items, outletData, options = {}) {
     <div class="left"><span class="info-lbl">Table</span><span class="info-sep">:</span><span class="info-val">${tableLabel}</span></div>
     <div class="right"><span class="info-lbl">Type</span><span class="info-sep">:</span><span class="info-val">${orderType}</span></div>
   </div>
-  ${(servedBy || order.billNo || order.orderNumber) ? `
+  ${(servedBy || order.billNo) ? `
   <div class="info-row">
     ${servedBy ? `<div class="left"><span class="info-lbl">Cashier</span><span class="info-sep">:</span><span class="info-val">${servedBy}</span></div>` : "<div></div>"}
-    ${(order.billNo || order.orderNumber) ? `<div class="right"><span class="info-lbl">Bill No</span><span class="info-sep">:</span><span class="info-val">#${order.billNo || order.orderNumber}</span></div>` : ""}
+    ${order.billNo ? `<div class="right"><span class="info-lbl">Bill No</span><span class="info-sep">:</span><span class="info-val">#${order.billNo}</span></div>` : ""}
   </div>` : ""}
   <hr class="div-dash">
   <table class="items-tbl">
