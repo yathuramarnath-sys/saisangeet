@@ -8,9 +8,9 @@
     "releaseDate": "2026-05-14"
   },
   "captain": {
-    "version": "1.12",
+    "version": "1.13",
     "label": "Captain App",
-    "changelog": "Bill number assigned at Print Bill, correct GST sequential number from owner-console settings",
+    "changelog": "Offline sync queue — item adds/removes and bill requests now retry automatically when connection returns",
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
     "releaseDate": "2026-05-14"
