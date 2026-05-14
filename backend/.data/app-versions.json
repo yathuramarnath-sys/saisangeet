@@ -8,9 +8,9 @@
     "releaseDate": "2026-05-14"
   },
   "captain": {
-    "version": "1.10",
+    "version": "1.11",
     "label": "Captain App",
-    "changelog": "Direct WiFi printing — bill and KOT print straight to printer, no POS machine needed",
+    "changelog": "Bill now shows outlet address, GSTIN, FSSAI and correct waiter name from owner console",
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
     "releaseDate": "2026-05-14"

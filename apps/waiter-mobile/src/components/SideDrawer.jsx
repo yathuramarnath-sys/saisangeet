@@ -21,7 +21,7 @@ function savePrinterConfig(ip, paper) {
   localStorage.setItem("captain_printers", JSON.stringify(printer));
 }
 
-const APP_VERSION = "1.10";
+const APP_VERSION = "1.11";
 
 /**
  * SideDrawer — Captain App utility menu
