@@ -27,6 +27,8 @@ export function OrderScreen({
   const [showPhonePeQR,   setShowPhonePeQR]    = useState(false);
   const [showAssignModal, setShowAssignModal]  = useState(false);
   const [assignPick,      setAssignPick]       = useState(order.assignedWaiter || "");
+  // Only show Waiter/Server/Steward roles in the assign modal (not Captains)
+  const waiterStaff = staff.filter(s => /waiter|server|steward/i.test(s.role || ""));
   const [stockState,      setStockState]       = useState(() => getStockState());
 
   useEffect(() => {
@@ -300,7 +302,7 @@ export function OrderScreen({
                   onChange={() => setAssignPick("")}
                 />
               </label>
-              {staff.map(s => (
+              {waiterStaff.map(s => (
                 <label key={s.id} className="assign-staff-row">
                   <span className="assign-staff-name">{s.name}</span>
                   <input
