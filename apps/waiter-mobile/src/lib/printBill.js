@@ -75,62 +75,62 @@ export function printBill(order, items, outletName, options = {}) {
       font-family: 'Manrope', 'Courier New', monospace;
       font-size: ${_paperWidthMm <= 58 ? 11 : 12}px;
       color: #111;
-      padding: 10px 12px 40px;
+      padding: 10px 10px 40px;
       width: ${_paperWidthMm}mm;
     }
 
     /* ── Header ── */
-    .hdr { text-align: center; margin-bottom: 6px; }
+    .hdr { text-align: center; margin-bottom: 5px; }
     .outlet-name { font-size: 17px; font-weight: 800; letter-spacing: 0.3px; }
 
-    /* ── Info grid ── */
-    .info-grid {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 11px;
-      margin: 6px 0;
-    }
-    .info-grid td { padding: 1px 0; vertical-align: top; }
-    .info-grid .lbl { color: #888; width: 42%; }
-    .info-grid .val { font-weight: 700; }
-    .info-grid .sep { width: 8%; text-align: center; color: #bbb; }
-
     /* ── Divider ── */
-    .div-dash { border: none; border-top: 1px dashed #bbb; margin: 5px 0; }
+    .div-dash { border: none; border-top: 1px dashed #aaa; margin: 4px 0; }
+
+    /* ── Info rows — 2-column flex, label auto-width ── */
+    .info-row {
+      display: flex; justify-content: space-between;
+      font-size: 11px; margin: 2px 0;
+    }
+    .info-row .left, .info-row .right { display: flex; gap: 3px; align-items: baseline; }
+    .info-lbl  { color: #666; white-space: nowrap; }
+    .info-sep  { color: #aaa; }
+    .info-val  { font-weight: 700; }
 
     /* ── Items table ── */
     .items-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
     .items-tbl th {
       font-size: 10px; font-weight: 700; text-transform: uppercase;
-      color: #999; padding: 2px 0; text-align: right;
+      color: #888; padding: 2px 0; text-align: right; border-bottom: 1px solid #ddd;
     }
     .items-tbl th.col-item { text-align: left; }
-    .items-tbl td { padding: 4px 0; vertical-align: top; }
-    .col-item { width: 50%; }
-    .col-qty  { width: 12%; text-align: right; font-weight: 700; }
-    .col-rate { width: 18%; text-align: right; color: #666; }
-    .col-amt  { width: 20%; text-align: right; font-weight: 700; }
+    .items-tbl td { padding: 3px 0; vertical-align: top; }
+    .items-tbl tbody tr { border-bottom: 1px dotted #eee; }
+    .items-tbl tbody tr:last-child { border-bottom: none; }
+    .col-item { width: 60%; }
+    .col-qty  { width: 8%;  text-align: right; font-weight: 700; }
+    .col-rate { width: 16%; text-align: right; color: #555; }
+    .col-amt  { width: 16%; text-align: right; font-weight: 700; }
     .item-note { font-size: 10px; color: #999; margin-top: 1px; }
 
     /* ── Summary rows ── */
     .sum-row {
-      display: flex; justify-content: space-between;
-      font-size: 11px; color: #555; margin: 2px 0;
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 11px; color: #444; margin: 1px 0;
     }
     .sum-row .val { font-weight: 700; }
+    .sum-row.disc .val { color: #c33; }
 
     /* ── Total ── */
     .total-row {
-      display: flex; justify-content: space-between;
-      font-size: 15px; font-weight: 800; margin: 4px 0 2px;
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 15px; font-weight: 800; margin: 3px 0 0;
     }
 
     /* ── Seat tag ── */
     .seat-tag {
-      display: inline-block;
-      background: #111; color: #fff;
+      display: inline-block; background: #111; color: #fff;
       padding: 2px 10px; border-radius: 20px;
-      font-size: 11px; font-weight: 800; margin: 4px 0;
+      font-size: 11px; font-weight: 800; margin: 3px 0;
     }
 
     /* ── Footer ── */
@@ -146,33 +146,30 @@ export function printBill(order, items, outletName, options = {}) {
   </div>
   <hr class="div-dash">
 
-  <!-- Bill info grid -->
-  <table class="info-grid">
-    <tr>
-      <td class="lbl">Date</td><td class="sep">:</td><td class="val">${dateStr}</td>
-      <td class="lbl" style="padding-left:6px">Time</td><td class="sep">:</td><td class="val">${timeStr}</td>
-    </tr>
-    <tr>
-      <td class="lbl">Table</td><td class="sep">:</td><td class="val">${tableLabel}</td>
-      <td class="lbl" style="padding-left:6px">Type</td><td class="sep">:</td><td class="val">${orderType}</td>
-    </tr>
-    ${servedBy ? `<tr>
-      <td class="lbl">Cashier</td><td class="sep">:</td><td class="val" colspan="4">${servedBy}</td>
-    </tr>` : ""}
-    ${(order.billNo || order.orderNumber) ? `<tr>
-      <td class="lbl">Bill No</td><td class="sep">:</td><td class="val" colspan="4">#${order.billNo || order.orderNumber}</td>
-    </tr>` : ""}
-  </table>
+  <!-- Bill info — 2-column layout -->
+  <div class="info-row">
+    <div class="left"><span class="info-lbl">Date</span><span class="info-sep">:</span><span class="info-val">${dateStr}</span></div>
+    <div class="right"><span class="info-lbl">Time</span><span class="info-sep">:</span><span class="info-val">${timeStr}</span></div>
+  </div>
+  <div class="info-row">
+    <div class="left"><span class="info-lbl">Table</span><span class="info-sep">:</span><span class="info-val">${tableLabel}</span></div>
+    <div class="right"><span class="info-lbl">Type</span><span class="info-sep">:</span><span class="info-val">${orderType}</span></div>
+  </div>
+  ${(servedBy || order.billNo || order.orderNumber) ? `
+  <div class="info-row">
+    ${servedBy ? `<div class="left"><span class="info-lbl">Cashier</span><span class="info-sep">:</span><span class="info-val">${servedBy}</span></div>` : "<div></div>"}
+    ${(order.billNo || order.orderNumber) ? `<div class="right"><span class="info-lbl">Bill No</span><span class="info-sep">:</span><span class="info-val">#${order.billNo || order.orderNumber}</span></div>` : ""}
+  </div>` : ""}
   <hr class="div-dash">
 
   <!-- Items -->
   <table class="items-tbl">
     <thead>
       <tr>
-        <th class="col-item">Item</th>
-        <th class="col-qty">Qty</th>
-        <th class="col-rate">Rate</th>
-        <th class="col-amt">Amt</th>
+        <th class="col-item">ITEM</th>
+        <th class="col-qty">QTY</th>
+        <th class="col-rate">RATE</th>
+        <th class="col-amt">AMT</th>
       </tr>
     </thead>
     <tbody>
@@ -181,15 +178,12 @@ export function printBill(order, items, outletName, options = {}) {
   </table>
   <hr class="div-dash">
 
-  <!-- Summary -->
-  <div class="sum-row"><span>Subtotal</span><span class="val">&#8377;${subtotal.toFixed(0)}</span></div>
-  ${discount > 0 ? `<div class="sum-row"><span>Discount</span><span class="val" style="color:#e53">&#8722;&#8377;${discount.toFixed(0)}</span></div>` : ""}
-  ${taxRows.map(t => `
-  <div class="sum-row"><span>CGST (${t.cgstPct}%)</span><span class="val">&#8377;${t.cgst}</span></div>
-  <div class="sum-row"><span>SGST (${t.cgstPct}%)</span><span class="val">&#8377;${t.sgst}</span></div>`).join("")}
+  <!-- Summary — no extra lines between rows -->
+  <div class="sum-row"><span>Subtotal</span><span class="val">&#8377;${subtotal.toFixed(2)}</span></div>
+  ${discount > 0 ? `<div class="sum-row disc"><span>Discount</span><span class="val">&#8722;&#8377;${discount.toFixed(2)}</span></div>` : ""}
+  ${taxRows.map(t => `<div class="sum-row"><span>CGST (${t.cgstPct}%)</span><span class="val">&#8377;${t.cgst.toFixed(2)}</span></div><div class="sum-row"><span>SGST (${t.cgstPct}%)</span><span class="val">&#8377;${t.sgst.toFixed(2)}</span></div>`).join("")}
   <hr class="div-dash">
-  <div class="total-row"><span>TOTAL</span><span>&#8377;${total.toFixed(0)}</span></div>
-  <hr class="div-dash">
+  <div class="total-row"><span>TOTAL</span><span>&#8377;${total.toFixed(2)}</span></div>
 
   <!-- Footer -->
   <div class="footer">

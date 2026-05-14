@@ -85,7 +85,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
 
   const resolvedPrinter = printer || getKotPrinter();
   const paper   = resolvedPrinter?.paper || "80mm";
-  const width   = paper === "58mm" ? "200px" : "280px";
+  const width   = paper; // use mm to match actual paper width exactly
   const outletName = order.outletName || "Restaurant";
   const tableLabel = order.isCounter
     ? `${order.areaName || "Counter"} #${String(order.ticketNumber || "").padStart(3, "0")}`
@@ -99,13 +99,10 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   const sentBy      = options.sentBy || order.cashierName || null;
 
   const itemsHTML = items.map(item => `
-    <div class="kot-item">
-      <span class="kot-qty">${item.quantity}</span>
-      <div class="kot-item-info">
-        <span class="kot-item-name">${item.name}</span>
-        ${item.note ? `<span class="kot-item-note">${item.note}</span>` : ""}
-      </div>
-    </div>
+    <tr class="kot-item-row">
+      <td class="kot-qty">${item.quantity}</td>
+      <td class="kot-item-name">${item.name}${item.note ? `<div class="kot-item-note">${item.note}</div>` : ""}</td>
+    </tr>
   `).join("");
 
   const html = `<!DOCTYPE html>
@@ -186,47 +183,40 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
     .kot-meta-row .label { color: #666; font-weight: 600; }
 
     .kot-items {
-      margin: 10px 0;
+      margin: 8px 0;
       border-bottom: 2px dashed #000;
-      padding-bottom: 10px;
+      padding-bottom: 8px;
     }
-    .kot-items-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      font-weight: 800;
-      color: #777;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-      padding-bottom: 4px;
-      border-bottom: 1px solid #ddd;
+    /* Table-based items layout — QTY narrow left, ITEM wide right */
+    .kot-items-tbl {
+      width: 100%;
+      border-collapse: collapse;
     }
-    .kot-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 5px 0;
-      border-bottom: 1px dotted #e0e0e0;
+    .kot-items-tbl thead tr {
+      border-bottom: 1px dashed #aaa;
     }
-    .kot-item:last-child { border-bottom: none; }
+    .kot-items-tbl th {
+      font-size: 10px; font-weight: 800; color: #777;
+      letter-spacing: 1px; text-transform: uppercase;
+      padding: 2px 0;
+    }
+    .kot-items-tbl th.kot-qty  { text-align: center; }
+    .kot-items-tbl th.kot-item-name { text-align: left; padding-left: 6px; }
+    .kot-item-row td { padding: 5px 0; vertical-align: top; border-bottom: 1px dotted #e0e0e0; }
+    .kot-item-row:last-child td { border-bottom: none; }
     .kot-qty {
       font-size: 20px;
       font-weight: 900;
-      min-width: 28px;
+      width: 28px;
       text-align: center;
       line-height: 1.1;
       color: #000;
     }
-    .kot-item-info {
-      flex: 1;
-      padding-top: 2px;
-    }
     .kot-item-name {
       font-size: 13px;
       font-weight: 800;
-      display: block;
       line-height: 1.3;
+      padding-left: 6px;
     }
     .kot-item-note {
       font-size: 10px;
@@ -234,6 +224,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       font-style: italic;
       display: block;
       margin-top: 2px;
+      font-weight: 600;
     }
 
     .kot-footer {
@@ -290,11 +281,14 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   </div>
 
   <div class="kot-items">
-    <div class="kot-items-header">
-      <span>QTY</span>
-      <span>ITEM</span>
-    </div>
-    ${itemsHTML}
+    <table class="kot-items-tbl">
+      <thead>
+        <tr><th class="kot-qty">QTY</th><th class="kot-item-name">ITEM</th></tr>
+      </thead>
+      <tbody>
+        ${itemsHTML}
+      </tbody>
+    </table>
   </div>
 
   <div class="kot-footer">
