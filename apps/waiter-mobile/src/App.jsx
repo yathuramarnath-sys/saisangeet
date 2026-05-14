@@ -129,6 +129,8 @@ export function App() {
   );
 
   // ── Refresh staff from backend on every boot ──────────────────────────────
+  // Also updates loggedInStaff so the printed name is always from owner console,
+  // not from a stale cached entry (e.g. fallback "Priya" instead of real "Sundar")
   useEffect(() => {
     if (!branchConfig) return;
     api.get("/devices/staff")
@@ -137,6 +139,12 @@ export function App() {
           const updated = { ...branchConfig, staff: res.staff };
           setBranchConfig(updated);
           saveCaptainBranchConfig(updated);
+          // Refresh already-logged-in staff record from server data
+          setLoggedInStaff(prev => {
+            if (!prev) return prev;
+            const fresh = res.staff.find(s => s.pin === prev.pin || s.id === prev.id);
+            return fresh ? { ...fresh } : prev;
+          });
         }
       })
       .catch(() => {});
@@ -714,7 +722,7 @@ export function App() {
     printBill(
       order,
       order.items,
-      outlet?.name || branchConfig?.outletName,
+      outlet || { name: branchConfig?.outletName || "Restaurant" },
       { cashierName: loggedInStaff?.name || "Waiter" }
     );
     // Mark billRequested: true — table turns blue on POS, backend persists the flag.

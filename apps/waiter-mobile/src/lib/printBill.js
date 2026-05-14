@@ -13,7 +13,14 @@ import { tabletPrintBill } from "./wifiPrint";
 import { isNativeAndroid, sendToThermalPrinter } from "./thermalPrint";
 import { buildBillEscPos } from "./escpos";
 
-export function printBill(order, items, outletName, options = {}) {
+export function printBill(order, items, outletData, options = {}) {
+
+  // outletData can be a full outlet object { name, addressLine1, city, gstin, fssaiNo, ... }
+  // or a plain string (legacy). Handle both.
+  const outletObj  = typeof outletData === "string" ? { name: outletData } : (outletData || {});
+  const outletName = outletObj.name || "Restaurant";
+  const addrParts  = [outletObj.addressLine1, outletObj.addressLine2, outletObj.city, outletObj.state].filter(Boolean);
+  const addrStr    = addrParts.join(", ");
 
   const { seatLabel = null, cashierName = null } = options;
   const _printer      = getBillPrinter();
@@ -78,7 +85,12 @@ export function printBill(order, items, outletName, options = {}) {
     });
 
     const escPosData = buildBillEscPos({
-      outlet:        outletName || "Restaurant",
+      outlet:        outletName,
+      invoiceHeader: outletObj.invoiceHeader || "",
+      addr:          addrStr,
+      phone:         outletObj.phone   || "",
+      gstin:         outletObj.gstin   || "",
+      fssai:         outletObj.fssaiNo || "",
       seatLabel:     seatLabel  || "",
       date:          dateStr,
       time:          timeStr,
@@ -95,7 +107,7 @@ export function printBill(order, items, outletName, options = {}) {
       })),
       summary: summaryRows,
       total:   total.toFixed(2),
-      footer:  "Thank you for dining with us!",
+      footer:  outletObj.invoiceFooter || "Thank you for dining with us!",
     });
 
     sendToThermalPrinter(printerIp, escPosData)
@@ -181,7 +193,12 @@ export function printBill(order, items, outletName, options = {}) {
 </head>
 <body>
   <div class="hdr">
-    <div class="outlet-name">${outletName || "Restaurant"}</div>
+    ${outletObj.invoiceHeader ? `<div style="font-size:10px;color:#666;margin-bottom:2px;">${outletObj.invoiceHeader}</div>` : ""}
+    <div class="outlet-name">${outletName}</div>
+    ${addrStr ? `<div style="font-size:10px;color:#555;margin-top:2px;">${addrStr}</div>` : ""}
+    ${outletObj.phone ? `<div style="font-size:10px;color:#555;">Ph: ${outletObj.phone}</div>` : ""}
+    ${outletObj.gstin   ? `<div style="font-size:10px;color:#555;">GSTIN: ${outletObj.gstin}</div>`     : ""}
+    ${outletObj.fssaiNo ? `<div style="font-size:10px;color:#555;">FSSAI: ${outletObj.fssaiNo}</div>` : ""}
     ${seatLabel ? `<div><span class="seat-tag">${seatLabel}</span></div>` : ""}
   </div>
   <hr class="div-dash">
@@ -218,7 +235,7 @@ export function printBill(order, items, outletName, options = {}) {
   <div class="total-row"><span>TOTAL</span><span>&#8377;${total.toFixed(2)}</span></div>
   <div class="footer">
     <p>Please pay at the counter</p>
-    <p>Thank you for dining with us!</p>
+    <p>${outletObj.invoiceFooter || "Thank you for dining with us!"}</p>
   </div>
 </body>
 </html>`;
