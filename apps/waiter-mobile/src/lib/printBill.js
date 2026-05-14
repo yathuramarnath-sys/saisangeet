@@ -1,27 +1,32 @@
 /**
  * printBill.js — thermal bill printing for Captain / Waiter app
  *
- * Android path: sends HTML to the Windows POS local server (port 4001/print)
- * which forwards to the thermal printer via TCP ESC/POS port 9100.
- * The POS IP is stored as "captain_local_server_ip" (set via Find POS in ☰ menu).
+ * Android (native APK):  builds ESC/POS directly → TCP plugin → printer port 9100
+ *                        No POS proxy needed. Fully independent.
+ *
+ * Web / browser fallback: sends HTML to Windows POS local server (port 4001/print)
+ *                         which forwards to thermal printer via TCP.
  */
 
 import { getBillPrinter } from "./kotPrint";
 import { tabletPrintBill } from "./wifiPrint";
+import { isNativeAndroid, sendToThermalPrinter } from "./thermalPrint";
+import { buildBillEscPos } from "./escpos";
 
 export function printBill(order, items, outletName, options = {}) {
 
   const { seatLabel = null, cashierName = null } = options;
   const _printer      = getBillPrinter();
-  const _paperWidthMm = parseInt(_printer?.paper) || 80;  // "80mm"→80, "58mm"→58
-  const servedBy = cashierName || order.cashierName || order.assignedWaiter || null;
+  const _paperWidthMm = parseInt(_printer?.paper) || 80;
+  const printerIp     = _printer?.ip?.trim() || "";
+  const servedBy      = cashierName || order.cashierName || order.assignedWaiter || null;
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const discount  = Math.min(order.discountAmount || 0, subtotal);
   const afterDisc = subtotal - discount;
 
-  // ── Per-item tax calculation (reads item.taxRate; defaults to 5% if not set) ──
+  // ── Per-item tax calculation ───────────────────────────────────────────────
   const taxBreakdown = {};
   billableItems.forEach(i => {
     const lineAmt   = i.price * i.quantity;
@@ -43,16 +48,69 @@ export function printBill(order, items, outletName, options = {}) {
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
-  const isCounter   = order.isCounter;
-  const orderType   = isCounter
+  const isCounter  = order.isCounter;
+  const orderType  = isCounter
     ? (order.onlinePlatform ? order.onlinePlatform : "Takeaway")
     : "Dine In";
-  const tableLabel  = isCounter
+  const tableLabel = isCounter
     ? (order.onlinePlatform
         ? `${order.onlinePlatform} #${order.ticketNumber}`
         : `Token #${order.ticketNumber}`)
     : `${order.tableNumber}${order.areaName ? " · " + order.areaName : ""}`;
 
+  // ── Android: direct TCP — no POS proxy needed ─────────────────────────────
+  if (isNativeAndroid()) {
+    if (!printerIp) {
+      window.dispatchEvent(new CustomEvent("dinex:print-error", {
+        detail: { source: "Bill", error: "No printer IP set. Go to Settings → Printers." },
+      }));
+      return;
+    }
+
+    // Build structured data for ESC/POS builder
+    const summaryRows = [];
+    summaryRows.push({ label: "Subtotal", value: `${subtotal.toFixed(2)}` });
+    if (discount > 0)
+      summaryRows.push({ label: "Discount", value: `-${discount.toFixed(2)}` });
+    taxRows.forEach(t => {
+      summaryRows.push({ label: `CGST (${t.cgstPct}%)`, value: `${t.cgst.toFixed(2)}` });
+      summaryRows.push({ label: `SGST (${t.cgstPct}%)`, value: `${t.sgst.toFixed(2)}` });
+    });
+
+    const escPosData = buildBillEscPos({
+      outlet:        outletName || "Restaurant",
+      seatLabel:     seatLabel  || "",
+      date:          dateStr,
+      time:          timeStr,
+      table:         tableLabel,
+      orderType:     orderType,
+      cashier:       servedBy   || "",
+      billNo:        order.billNo || order.orderNumber || "",
+      items: billableItems.map(i => ({
+        name: i.name,
+        note: i.note || "",
+        qty:  String(i.quantity),
+        rate: i.price.toFixed(0),
+        amt:  (i.price * i.quantity).toFixed(0),
+      })),
+      summary: summaryRows,
+      total:   total.toFixed(2),
+      footer:  "Thank you for dining with us!",
+    });
+
+    sendToThermalPrinter(printerIp, escPosData)
+      .then(result => {
+        if (!result?.ok) {
+          window.dispatchEvent(new CustomEvent("dinex:print-error", {
+            detail: { source: "Bill", error: result?.error || "Print failed" },
+          }));
+        }
+      });
+
+    return;
+  }
+
+  // ── Web fallback: HTML → POS proxy → printer ──────────────────────────────
   const itemsHtml = billableItems.map((i) => `
     <tr>
       <td class="col-item">${i.name}${i.note ? `<div class="item-note">${i.note}</div>` : ""}</td>
@@ -78,15 +136,9 @@ export function printBill(order, items, outletName, options = {}) {
       padding: 10px 10px 40px;
       width: ${_paperWidthMm}mm;
     }
-
-    /* ── Header ── */
     .hdr { text-align: center; margin-bottom: 5px; }
     .outlet-name { font-size: 17px; font-weight: 800; letter-spacing: 0.3px; }
-
-    /* ── Divider ── */
     .div-dash { border: none; border-top: 1px dashed #aaa; margin: 4px 0; }
-
-    /* ── Info rows — 2-column flex, label auto-width ── */
     .info-row {
       display: flex; justify-content: space-between;
       font-size: 11px; margin: 2px 0;
@@ -95,8 +147,6 @@ export function printBill(order, items, outletName, options = {}) {
     .info-lbl  { color: #666; white-space: nowrap; }
     .info-sep  { color: #aaa; }
     .info-val  { font-weight: 700; }
-
-    /* ── Items table ── */
     .items-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
     .items-tbl th {
       font-size: 10px; font-weight: 700; text-transform: uppercase;
@@ -111,42 +161,30 @@ export function printBill(order, items, outletName, options = {}) {
     .col-rate { width: 16%; text-align: right; color: #555; }
     .col-amt  { width: 16%; text-align: right; font-weight: 700; }
     .item-note { font-size: 10px; color: #999; margin-top: 1px; }
-
-    /* ── Summary rows ── */
     .sum-row {
       display: flex; justify-content: space-between; align-items: baseline;
       font-size: 11px; color: #444; margin: 1px 0;
     }
     .sum-row .val { font-weight: 700; }
     .sum-row.disc .val { color: #c33; }
-
-    /* ── Total ── */
     .total-row {
       display: flex; justify-content: space-between; align-items: baseline;
       font-size: 15px; font-weight: 800; margin: 3px 0 0;
     }
-
-    /* ── Seat tag ── */
     .seat-tag {
       display: inline-block; background: #111; color: #fff;
       padding: 2px 10px; border-radius: 20px;
       font-size: 11px; font-weight: 800; margin: 3px 0;
     }
-
-    /* ── Footer ── */
     .footer { text-align: center; font-size: 10px; color: #999; margin-top: 8px; line-height: 1.7; }
   </style>
 </head>
 <body>
-
-  <!-- Header -->
   <div class="hdr">
     <div class="outlet-name">${outletName || "Restaurant"}</div>
     ${seatLabel ? `<div><span class="seat-tag">${seatLabel}</span></div>` : ""}
   </div>
   <hr class="div-dash">
-
-  <!-- Bill info — 2-column layout -->
   <div class="info-row">
     <div class="left"><span class="info-lbl">Date</span><span class="info-sep">:</span><span class="info-val">${dateStr}</span></div>
     <div class="right"><span class="info-lbl">Time</span><span class="info-sep">:</span><span class="info-val">${timeStr}</span></div>
@@ -161,8 +199,6 @@ export function printBill(order, items, outletName, options = {}) {
     ${(order.billNo || order.orderNumber) ? `<div class="right"><span class="info-lbl">Bill No</span><span class="info-sep">:</span><span class="info-val">#${order.billNo || order.orderNumber}</span></div>` : ""}
   </div>` : ""}
   <hr class="div-dash">
-
-  <!-- Items -->
   <table class="items-tbl">
     <thead>
       <tr>
@@ -172,29 +208,21 @@ export function printBill(order, items, outletName, options = {}) {
         <th class="col-amt">AMT</th>
       </tr>
     </thead>
-    <tbody>
-      ${itemsHtml}
-    </tbody>
+    <tbody>${itemsHtml}</tbody>
   </table>
   <hr class="div-dash">
-
-  <!-- Summary — no extra lines between rows -->
   <div class="sum-row"><span>Subtotal</span><span class="val">&#8377;${subtotal.toFixed(2)}</span></div>
   ${discount > 0 ? `<div class="sum-row disc"><span>Discount</span><span class="val">&#8722;&#8377;${discount.toFixed(2)}</span></div>` : ""}
   ${taxRows.map(t => `<div class="sum-row"><span>CGST (${t.cgstPct}%)</span><span class="val">&#8377;${t.cgst.toFixed(2)}</span></div><div class="sum-row"><span>SGST (${t.cgstPct}%)</span><span class="val">&#8377;${t.sgst.toFixed(2)}</span></div>`).join("")}
   <hr class="div-dash">
   <div class="total-row"><span>TOTAL</span><span>&#8377;${total.toFixed(2)}</span></div>
-
-  <!-- Footer -->
   <div class="footer">
     <p>Please pay at the counter</p>
     <p>Thank you for dining with us!</p>
   </div>
-
 </body>
 </html>`;
 
-  // ── Android / web: send via WiFi proxy (Windows POS port 4001) ──────────
   tabletPrintBill(html, _paperWidthMm)
     .then((result) => {
       if (!result?.ok) {
@@ -207,7 +235,7 @@ export function printBill(order, items, outletName, options = {}) {
     .catch((err) => {
       console.warn("[printBill] WiFi print error:", err?.message);
       window.dispatchEvent(new CustomEvent("dinex:print-error", {
-        detail: { source: "Bill", error: err?.message || "No POS found on network. Use Find POS in ☰ menu." },
+        detail: { source: "Bill", error: err?.message || "No POS found on network." },
       }));
     });
 }

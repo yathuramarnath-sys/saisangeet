@@ -81,8 +81,61 @@ export function getBillPrinter() {
 export function printKOT(order, items, printer = null, kotSeq = null, options = {}) {
   if (!items || !items.length) return;
 
-  // ── Android / web: no-op. KOT already sent to kitchen via socket.
-  //    Only the POS Electron app can reach the TCP thermal printer.
+  const resolvedPrinter0 = printer || getKotPrinter();
+  const printerIp0       = resolvedPrinter0?.ip?.trim() || "";
+
+  // ── Android native: direct TCP → printer (no POS proxy needed) ────────────
+  // Import lazily to avoid loading Capacitor on non-Android paths
+  if (typeof window !== "undefined" && !window.electronAPI?.printHTML) {
+    import("./thermalPrint").then(({ isNativeAndroid, sendToThermalPrinter }) => {
+      if (!isNativeAndroid()) return; // web fallback — no KOT print on plain browser
+
+      import("./escpos").then(({ buildKotEscPos }) => {
+        if (!printerIp0) {
+          window.dispatchEvent(new CustomEvent("dinex:print-error", {
+            detail: { source: "KOT", error: "No printer IP set. Go to Settings → Printers." },
+          }));
+          return;
+        }
+
+        const now0     = new Date();
+        const timeStr0 = now0.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+        const dateStr0 = now0.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        const kotNum0  = kotSeq
+          ? `KOT-${String(kotSeq).padStart(4, "0")}`
+          : (order.kotNumber || `KOT-${order.orderNumber}`);
+        const tableLabel0 = order.isCounter
+          ? `${order.areaName || "Counter"} #${String(order.ticketNumber || "").padStart(3, "0")}`
+          : `T${order.tableNumber}${order.areaName ? " - " + order.areaName : ""}`;
+
+        const escPosData = buildKotEscPos({
+          outlet:      order.outletName || "Restaurant",
+          table:       tableLabel0,
+          kotNum:      kotNum0,
+          date:        dateStr0,
+          time:        timeStr0,
+          guests:      order.guests > 0 ? String(order.guests) : "",
+          items:       items.map(i => ({ qty: i.quantity, name: i.name, note: i.note || "" })),
+          totalItems:  items.reduce((s, i) => s + i.quantity, 0),
+          sentBy:      options.sentBy || order.cashierName || "",
+          waiter:      order.assignedWaiter || "",
+          printerName: resolvedPrinter0?.name || "Kitchen",
+        });
+
+        sendToThermalPrinter(printerIp0, escPosData)
+          .then(result => {
+            if (!result?.ok) {
+              window.dispatchEvent(new CustomEvent("dinex:print-error", {
+                detail: { source: "KOT", error: result?.error || "KOT print failed" },
+              }));
+            }
+          });
+      });
+    });
+    return; // Android handled above
+  }
+
+  // ── Web / non-Android: no-op (KOT sent to kitchen via socket, POS prints it)
   if (!window.electronAPI?.printHTML) return;
 
   const resolvedPrinter = printer || getKotPrinter();
