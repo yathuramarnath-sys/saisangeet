@@ -844,6 +844,128 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   border: 1px solid var(--hold-border);
 }
 
+/* Right side of order header — assign btn + guests together */
+.order-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Assign Waiter button */
+.assign-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border-md);
+  background: var(--bg);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-2);
+  white-space: nowrap;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.assign-btn-active {
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #059669;
+}
+
+/* Assign modal backdrop */
+.assign-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 900;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* Assign modal card */
+.assign-modal {
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 480px;
+  padding: 20px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.assign-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.assign-staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.assign-staff-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border-lt);
+  cursor: pointer;
+}
+.assign-staff-row:last-child { border-bottom: none; }
+
+.assign-staff-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.assign-staff-row input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #10b981;
+  cursor: pointer;
+}
+
+.assign-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.assign-cancel-btn {
+  flex: 1;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-md);
+  background: var(--bg);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.assign-done-btn {
+  flex: 2;
+  padding: 13px;
+  border-radius: 12px;
+  background: #10b981;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #fff;
+}
+.assign-done-btn:active { background: #059669; }
+
 .order-guests-block {
   display: flex;
   flex-direction: column;

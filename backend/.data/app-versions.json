@@ -2,15 +2,15 @@
   "pos": {
     "version": "1.3.6",
     "label": "POS Terminal",
-    "changelog": "Fix item toggle ON bug, advance order shows only current branch data",
+    "changelog": "Assign waiter shown on KOT & bill, improved receipt layout, paper size bug fix, no duplicate bill print on settlement",
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-05-13"
+    "releaseDate": "2026-05-14"
   },
   "captain": {
     "version": "1.9",
     "label": "Captain App",
-    "changelog": "Move/Merge/Split bill fixed, bill print from captain working, sign out fixed, version display fixed",
+    "changelog": "Assign waiter to table, waiter name on KOT & bill, improved receipt layout, paper size bug fix",
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
     "releaseDate": "2026-05-14"

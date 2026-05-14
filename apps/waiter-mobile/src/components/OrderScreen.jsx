@@ -14,18 +14,20 @@ import {
 
 export function OrderScreen({
   order, tableLabel, areas, categories, menuItems, outletName,
-  orders, outletId, socket,
+  orders, outletId, socket, staff = [],
   onBack, onSendKOT, onRequestBill, onPrintBill,
   onToggleHold, onUpdateOrder, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear,
   autoOpen = null, // "transfer" | "merge" | "split" — open modal immediately on mount
 }) {
-  const [screen,        setScreen]        = useState(autoOpen === "split" ? "split" : "order");
-  const [noteItemIdx,   setNoteItemIdx]   = useState(null);
-  const [showTransfer,  setShowTransfer]  = useState(autoOpen === "transfer");
-  const [showMerge,     setShowMerge]     = useState(autoOpen === "merge");
-  const [showPhonePeQR, setShowPhonePeQR] = useState(false);
-  const [stockState,    setStockState]    = useState(() => getStockState());
+  const [screen,          setScreen]          = useState(autoOpen === "split" ? "split" : "order");
+  const [noteItemIdx,     setNoteItemIdx]      = useState(null);
+  const [showTransfer,    setShowTransfer]     = useState(autoOpen === "transfer");
+  const [showMerge,       setShowMerge]        = useState(autoOpen === "merge");
+  const [showPhonePeQR,   setShowPhonePeQR]    = useState(false);
+  const [showAssignModal, setShowAssignModal]  = useState(false);
+  const [assignPick,      setAssignPick]       = useState(order.assignedWaiter || "");
+  const [stockState,      setStockState]       = useState(() => getStockState());
 
   useEffect(() => {
     const unsub = subscribeStock((s) => setStockState({ ...s }));
@@ -117,17 +119,31 @@ export function OrderScreen({
               {order.isOnHold && <span className="hold-badge">⏸ Hold</span>}
             </p>
           </div>
-          <div className="order-guests-block">
-            <span className="guests-label">Guests</span>
-            <input
-              className="guests-input"
-              type="number"
-              min="0"
-              max="20"
-              value={order.guests || ""}
-              placeholder="0"
-              onChange={e => onUpdateOrder({ ...order, guests: Number(e.target.value) })}
-            />
+          <div className="order-header-right">
+            {/* Assign Waiter button */}
+            <button
+              className={`assign-btn${order.assignedWaiter ? " assign-btn-active" : ""}`}
+              onClick={() => { tapImpact(); setAssignPick(order.assignedWaiter || ""); setShowAssignModal(true); }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              {order.assignedWaiter ? order.assignedWaiter : "Assign"}
+            </button>
+            {/* Guests */}
+            <div className="order-guests-block">
+              <span className="guests-label">Guests</span>
+              <input
+                className="guests-input"
+                type="number"
+                min="0"
+                max="20"
+                value={order.guests || ""}
+                placeholder="0"
+                onChange={e => onUpdateOrder({ ...order, guests: Number(e.target.value) })}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -261,6 +277,50 @@ export function OrderScreen({
           }}
           onClose={() => setShowMerge(false)}
         />
+      )}
+
+      {/* Assign Waiter modal */}
+      {showAssignModal && (
+        <div className="assign-backdrop" onClick={() => setShowAssignModal(false)}>
+          <div className="assign-modal" onClick={e => e.stopPropagation()}>
+            <div className="assign-modal-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              Assign Waiter
+            </div>
+            <div className="assign-staff-list">
+              {/* None option */}
+              <label className="assign-staff-row">
+                <span className="assign-staff-name">None</span>
+                <input
+                  type="radio" name="assign-waiter"
+                  checked={assignPick === ""}
+                  onChange={() => setAssignPick("")}
+                />
+              </label>
+              {staff.map(s => (
+                <label key={s.id} className="assign-staff-row">
+                  <span className="assign-staff-name">{s.name}</span>
+                  <input
+                    type="radio" name="assign-waiter"
+                    checked={assignPick === s.name}
+                    onChange={() => setAssignPick(s.name)}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="assign-modal-actions">
+              <button className="assign-cancel-btn" onClick={() => setShowAssignModal(false)}>Cancel</button>
+              <button className="assign-done-btn" onClick={() => {
+                tapImpact();
+                onUpdateOrder({ ...order, assignedWaiter: assignPick || null });
+                setShowAssignModal(false);
+              }}>Done</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* PhonePe QR modal — captain collects payment at the table */}

@@ -97,7 +97,8 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const kotNum      = kotSeq ? `KOT-${String(kotSeq).padStart(4, "0")}` : (order.kotNumber || `KOT-${order.orderNumber}`);
   const printerName = resolvedPrinter?.name || "Kitchen";
-  const sentBy      = options.sentBy || order.cashierName || null;
+  const sentBy         = options.sentBy || order.cashierName || null;
+  const assignedWaiter = order.assignedWaiter || null;
 
   const itemsHTML = items.map(item => `
     <tr class="kot-item-row">
@@ -298,6 +299,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       <span>${items.reduce((s, i) => s + i.quantity, 0)}</span>
     </div>
     ${sentBy ? `<div class="kot-footer-row"><span>Sent by:</span><span style="font-weight:900">${sentBy}</span></div>` : ""}
+    ${assignedWaiter ? `<div class="kot-footer-row"><span>Waiter:</span><span style="font-weight:900">${assignedWaiter}</span></div>` : ""}
     <div class="kot-printer-tag">→ ${printerName}</div>
   </div>
 </body>

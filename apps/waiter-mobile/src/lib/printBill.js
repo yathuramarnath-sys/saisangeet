@@ -14,7 +14,7 @@ export function printBill(order, items, outletName, options = {}) {
   const { seatLabel = null, cashierName = null } = options;
   const _printer      = getBillPrinter();
   const _paperWidthMm = parseInt(_printer?.paper) || 80;  // "80mm"→80, "58mm"→58
-  const servedBy = cashierName || order.cashierName || null;
+  const servedBy = cashierName || order.cashierName || order.assignedWaiter || null;
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);

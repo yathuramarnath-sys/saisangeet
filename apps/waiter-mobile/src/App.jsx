@@ -996,6 +996,7 @@ export function App() {
             orders={orders}
             outletId={outlet?.id}
             socket={socketRef.current}
+            staff={branchStaff}
             autoOpen={autoOpenAction}
             onBack={() => { setSelectedTableId(null); setAutoOpenAction(null); }}
             onSendKOT={handleSendKOT}
