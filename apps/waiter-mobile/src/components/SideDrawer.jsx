@@ -42,6 +42,7 @@ const APP_VERSION = "1.12";
 export function SideDrawer({
   outletName, serverUrl, localPosIp,
   pendingKots = [],
+  syncFailed  = 0,
   updateInfo = null,
   onClose, onSync, onFindPOS, onSignOut,
   onRetryKot, onRetryAll, onClearKot,
@@ -156,6 +157,18 @@ export function SideDrawer({
             </>
           )}
         </div>
+
+        {/* ── Sync failures ────────────────────────────────────────────── */}
+        {syncFailed > 0 && (
+          <div className="drawer-section">
+            <div className="drawer-empty-row" style={{ color: "#f59e0b", fontWeight: 600 }}>
+              <span>⚠️</span>
+              <span>
+                {syncFailed} action{syncFailed !== 1 ? "s" : ""} failed to sync — retrying automatically
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* ── Update available ─────────────────────────────────────────── */}
         {updateInfo && (

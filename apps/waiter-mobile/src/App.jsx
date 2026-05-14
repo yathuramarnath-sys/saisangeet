@@ -6,6 +6,13 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { api }        from "./lib/api";
 import { printBill }  from "./lib/printBill";
 import {
+  ACTION as SYNC_ACTION,
+  enqueue       as syncEnqueue,
+  flushQueue    as syncFlushQueue,
+  startRetryWorker,
+  getFailedCount as syncFailedCount,
+} from "./lib/syncQueue";
+import {
   mobileAreas      as seedAreas,
   mobileCategories as seedCategories,
   mobileMenuItems  as seedMenuItems,
@@ -119,7 +126,8 @@ export function App() {
   });
   const socketRef      = useRef(null);
   const localSocketRef = useRef(null);
-  const [localConn, setLocalConn] = useState(false);
+  const [localConn,   setLocalConn]   = useState(false);
+  const [syncFailed,  setSyncFailed]  = useState(() => syncFailedCount());
 
   // Staff: from branch config or fallback — Captain app only shows Captain/Waiter roles
   const CAPTAIN_ROLES = ["captain", "waiter", "server", "steward"];
@@ -230,7 +238,8 @@ export function App() {
         });
         socketRef.current = socket;
 
-        // Re-fetch orders on reconnect so table state is fresh after power cut
+        // Re-fetch orders on reconnect so table state is fresh after power cut.
+        // Also flush the sync queue immediately — server is reachable again.
         let wasOffline = false;
         socket.on("connect", () => {
           if (wasOffline) {
@@ -239,6 +248,7 @@ export function App() {
                 if (orders.length) setOrders(Object.fromEntries(orders.map((o) => [o.tableId, o])));
               })
               .catch(() => {});
+            flushSyncQueue();  // replay queued ADD_ITEM / REMOVE_ITEM / BILL_REQUEST
           }
           wasOffline = false;
         });
@@ -378,12 +388,45 @@ export function App() {
       }
     }
 
+    // ── Sync queue flush function ────────────────────────────────────────────
+    // Retries any ADD_ITEM / REMOVE_ITEM / BILL_REQUEST entries that failed
+    // while the device was offline.  Called on reconnect and every 30 s.
+    async function flushSyncQueue() {
+      const currentOutletId = outlet?.id || branchConfig?.outletId;
+      await syncFlushQueue(async (entry) => {
+        if (entry.action === SYNC_ACTION.ADD_ITEM) {
+          // Check server first — item may have arrived via a later socket update.
+          // Re-add only if it's genuinely missing from the server order.
+          const serverOrder = await api.get(
+            `/operations/order?tableId=${entry.payload.tableId}&outletId=${entry.payload.outletId || currentOutletId}`
+          ).catch(() => null);
+          const alreadyThere = (serverOrder?.items || []).some(
+            i => i.id === entry.payload.item.id
+          );
+          if (!alreadyThere) {
+            await api.post("/operations/order/item", entry.payload);
+          }
+        } else if (entry.action === SYNC_ACTION.REMOVE_ITEM) {
+          await api.delete("/operations/order/item", entry.payload);
+        } else if (entry.action === SYNC_ACTION.BILL_REQUEST) {
+          await api.post("/operations/bill-request", entry.payload);
+        }
+      });
+      // Refresh the failed-count badge in the drawer
+      setSyncFailed(syncFailedCount());
+    }
+
     bootstrap();
+
+    // Start background retry worker — fires every 30 s when there are pending entries
+    const stopWorker = startRetryWorker(flushSyncQueue);
+
     return () => {
       socketRef.current?.disconnect();
       localSocketRef.current?.disconnect();
+      stopWorker();
     };
-  }, [branchConfig]);
+  }, [branchConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Check for Captain app updates (shown in drawer, not top banner) ──────
   useEffect(() => {
@@ -502,15 +545,17 @@ export function App() {
     });
 
     // Persist removal to backend — prevents item ghosting on POS after sync
+    const removePayload = {
+      tableId,
+      outletId:  outlet?.id || branchConfig?.outletId,
+      itemId,
+      actorName: loggedInStaff?.name || "Captain",
+    };
     try {
-      await api.delete(`/operations/order/item`, {
-        tableId,
-        outletId: outlet?.id || branchConfig?.outletId,
-        itemId,
-        actorName: loggedInStaff?.name || "Captain",
-      });
+      await api.delete(`/operations/order/item`, removePayload);
     } catch (err) {
-      console.warn("[captain] removeItem sync failed:", err.message);
+      console.warn("[captain] removeItem sync failed — queuing for retry:", err.message);
+      syncEnqueue(SYNC_ACTION.REMOVE_ITEM, removePayload);
     }
   }
 
@@ -558,7 +603,30 @@ export function App() {
         };
       });
     } catch (err) {
-      console.warn("[captain] addItem sync failed:", err.message);
+      console.warn("[captain] addItem sync failed — queuing for retry:", err.message);
+      syncEnqueue(SYNC_ACTION.ADD_ITEM, {
+        tableId,
+        outletId:  outlet?.id || branchConfig?.outletId,
+        item: {
+          id:           item.id,
+          menuItemId:   item.menuItemId || item.id,
+          name:         item.name,
+          price:        item.price,
+          quantity:     1,
+          note:         item.note || "",
+          stationName:  (() => {
+            const raw = item.station || item.stationName ||
+              kitchenStations.find(s =>
+                (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
+                (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === (item.category || item.categoryName || "").trim().toLowerCase()))
+              )?.name || "";
+            return (raw === "Main Kitchen" || raw === "Main kitchen") ? "" : raw;
+          })(),
+          categoryId:   item.categoryId || "",
+          categoryName: item.categoryName || item.category || "",
+        },
+        actorName: loggedInStaff?.name || "Captain",
+      });
     }
   }
 
@@ -709,9 +777,13 @@ export function App() {
     handleUpdateOrder({ ...order, billRequested: true });
     toast.success("Bill requested — cashier notified");
     if (tableId) setActionTableId(null);   // close action sheet when called from it
+    const billReqPayload = { outletId: outlet?.id, tableId: tid };
     try {
-      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid });
-    } catch (_) {}
+      await api.post("/operations/bill-request", billReqPayload);
+    } catch (err) {
+      console.warn("[captain] bill-request sync failed — queuing for retry:", err.message);
+      syncEnqueue(SYNC_ACTION.BILL_REQUEST, billReqPayload);
+    }
   }
 
   // ── Print bill (works from OrderScreen inline or from long-press action sheet)
@@ -1046,6 +1118,7 @@ export function App() {
           serverUrl={(import.meta.env.VITE_API_BASE_URL || "").replace("/api/v1", "")}
           localPosIp={localStorage.getItem("captain_local_server_ip") || null}
           pendingKots={pendingKots}
+          syncFailed={syncFailed}
           updateInfo={updateInfo}
           scanning={scanning}
           onClose={() => setShowDrawer(false)}
