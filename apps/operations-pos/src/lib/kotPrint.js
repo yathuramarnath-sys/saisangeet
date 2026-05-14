@@ -84,8 +84,9 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   if (!items || !items.length) return;
 
   const resolvedPrinter = printer || getKotPrinter();
-  const paper   = resolvedPrinter?.paper || "80mm";
-  const width   = paper; // use mm to match actual paper width exactly
+  const paper      = resolvedPrinter?.paper || "80mm";
+  const paperMm    = parseInt(paper) || 80;   // "80mm" → 80, "58mm" → 58, etc.
+  const width      = `${paperMm}mm`;          // always a clean "NNmm" string
   const outletName = order.outletName || "Restaurant";
   const tableLabel = order.isCounter
     ? `${order.areaName || "Counter"} #${String(order.ticketNumber || "").padStart(3, "0")}`
@@ -249,7 +250,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
 
     @media print {
       @page {
-        size: ${paper} auto;
+        size: ${width} auto;
         margin: 0;
       }
       body { padding: 6px 8px 32px; }
@@ -312,7 +313,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
     const printerIp   = resolvedPrinter?.ip?.trim() || null;
 
     window.electronAPI
-      .printHTML({ html, printerName, printerIp, paperWidthMm: paper === "58mm" ? 58 : 80 })
+      .printHTML({ html, printerName, printerIp, paperWidthMm: paperMm })
       .then((result) => {
         if (!result?.ok) {
           console.warn("[printKOT] Electron print failed:", result?.error);

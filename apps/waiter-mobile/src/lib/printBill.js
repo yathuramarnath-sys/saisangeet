@@ -13,7 +13,7 @@ export function printBill(order, items, outletName, options = {}) {
 
   const { seatLabel = null, cashierName = null } = options;
   const _printer      = getBillPrinter();
-  const _paperWidthMm = _printer?.paper || 80;
+  const _paperWidthMm = parseInt(_printer?.paper) || 80;  // "80mm"→80, "58mm"→58
   const servedBy = cashierName || order.cashierName || null;
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);

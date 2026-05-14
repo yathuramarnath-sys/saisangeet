@@ -348,7 +348,7 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
         const printer = getBillPrinter();
         const printerName  = printer?.winName || printer?.name || null;
         const printerIp    = printer?.ip?.trim() || null;
-        const paperWidthMm = printer?.paper === "58mm" ? 58 : 80;
+        const paperWidthMm = parseInt(printer?.paper) || 80;
         window.electronAPI.printHTML({ html: fullHtml, printerName, printerIp, paperWidthMm })
           .then(result => {
             if (!result?.ok) console.warn("[ShiftPrint] Print failed:", result?.error);

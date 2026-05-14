@@ -15,7 +15,7 @@ export function printBill(order, items, outletOrName, options = {}) {
   const { seatLabel = null, cashierName = null } = options;
   // Resolve paper width early so the @page CSS can use it
   const _printer      = getBillPrinter();
-  const _paperWidthMm = _printer?.paper || 80;
+  const _paperWidthMm = parseInt(_printer?.paper) || 80;  // "80mm"→80, "58mm"→58
   const servedBy = cashierName || order.cashierName || null;
 
   // ── Outlet header fields ───────────────────────────────────────────────────

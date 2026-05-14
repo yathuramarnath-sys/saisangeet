@@ -20,7 +20,7 @@ function areasToApiTables(areas) {
 
 const PRINTER_TYPES  = ["KOT Printer", "Bill Printer", "Both (KOT + Bill)"];
 const PRINTER_CONNS  = ["Network (IP)", "USB", "Bluetooth"];
-const PAPER_SIZES    = ["80mm", "58mm"];
+const PAPER_SIZES    = ["80mm", "76mm", "72mm", "58mm"];
 const PRINTER_MODELS = ["Epson TM-T82", "Epson TM-T88", "TVS RP 3160 Gold", "TVS RP 45 Shoppe", "Other"];
 
 function load(key, fallback) {
