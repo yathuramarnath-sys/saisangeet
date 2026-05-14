@@ -31,6 +31,7 @@ const {
   deviceListKotsHandler,
   deviceUpdateKotStatusHandler,
   deviceBillRequestHandler,
+  assignBillNoHandler,
   devicePaymentHandler,
   deviceGetOrCreateOrderHandler,
   deviceAddOrderItemHandler,
@@ -163,8 +164,9 @@ operationsRouter.delete(
 operationsRouter.post("/kot",          requireAuth, createKotRules, validate, asyncHandler(deviceSendKotHandler));
 operationsRouter.get("/kots",          requireAuth, asyncHandler(deviceListKotsHandler));
 operationsRouter.patch("/kots/:id/status", requireAuth, asyncHandler(deviceUpdateKotStatusHandler));
-operationsRouter.post("/bill-request", requireAuth, asyncHandler(deviceBillRequestHandler));
-operationsRouter.post("/payment",      requireAuth, asyncHandler(devicePaymentHandler));
+operationsRouter.post("/bill-request",   requireAuth, asyncHandler(deviceBillRequestHandler));
+operationsRouter.post("/assign-bill-no", requireAuth, asyncHandler(assignBillNoHandler));
+operationsRouter.post("/payment",        requireAuth, asyncHandler(devicePaymentHandler));
 // Device get-or-create order: returns existing order or creates empty one for a known table.
 // POS calls this on every table open so ORDER_NOT_FOUND is never the normal first-open path.
 operationsRouter.get("/order",         requireAuth, asyncHandler(deviceGetOrCreateOrderHandler));

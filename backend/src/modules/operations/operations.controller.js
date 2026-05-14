@@ -611,6 +611,55 @@ async function deviceVoidOrderItemHandler(req, res) {
 }
 
 const { addClosedOrder } = require("./closed-orders-store");
+const { stampBillNo }   = require("./operations.memory-store");
+
+/**
+ * POST /operations/assign-bill-no
+ * Body: { outletId, tableId }
+ *
+ * Assigns the next sequential bill number (per owner-console settings: FY or daily)
+ * to the live in-memory order and returns it.  Idempotent — if the order already has
+ * a billNo (bill was printed before), returns the existing number unchanged.
+ *
+ * Called by Captain app and POS "Print Bill" button so the number is stamped at
+ * print-time, not at settlement.  Settlement re-uses the existing number.
+ */
+async function assignBillNoHandler(req, res) {
+  const { outletId, tableId } = req.body;
+  if (!tableId) return res.status(400).json({ error: "tableId required" });
+
+  const tenantId = req.user?.tenantId || "default";
+
+  // Get current order from memory store
+  let order;
+  try {
+    const { getOrder } = require("./operations.memory-store");
+    order = getOrder(tableId);
+  } catch (_) {}
+
+  // Idempotent: already has a bill number — return it
+  if (order?.billNo) {
+    return res.json({
+      ok:         true,
+      billNo:     order.billNo,
+      billNoMode: order.billNoMode || null,
+      billNoFY:   order.billNoFY   || null,
+      billNoDate: order.billNoDate || null,
+    });
+  }
+
+  // Assign next bill number from counter service
+  const { billNo, mode, fy, date } = getNextBillNo(tenantId);
+
+  // Stamp onto in-memory order
+  try {
+    stampBillNo(tableId, billNo, mode, fy, date);
+  } catch (_) {
+    // Counter/online order IDs have no memory slot — still return the number
+  }
+
+  return res.json({ ok: true, billNo, billNoMode: mode, billNoFY: fy || null, billNoDate: date });
+}
 
 /**
  * POST /operations/closed-order
@@ -626,13 +675,16 @@ async function deviceCloseOrderHandler(req, res) {
   }
   const tenantId = req.user?.tenantId || "default";
 
-  // Assign sequential bill number (server-side, always authoritative)
-  const { billNo, mode, fy, date } = getNextBillNo(tenantId);
-  order.billNo     = billNo;
-  order.billNoMode = mode;
-  order.billNoFY   = fy   || null;
-  order.billNoDate = date || null;
-  order.closedAt   = new Date().toISOString(); // exact ISO timestamp
+  // Use bill number already assigned at print-time (idempotent).
+  // Only assign now if the bill was settled without a prior print (e.g. quick counter settle).
+  if (!order.billNo) {
+    const { billNo, mode, fy, date } = getNextBillNo(tenantId);
+    order.billNo     = billNo;
+    order.billNoMode = mode;
+    order.billNoFY   = fy   || null;
+    order.billNoDate = date || null;
+  }
+  order.closedAt = new Date().toISOString();
 
   addClosedOrder(tenantId, outletId, order);
 
@@ -773,6 +825,7 @@ module.exports = {
   deviceListKotsHandler,
   deviceUpdateKotStatusHandler,
   deviceBillRequestHandler,
+  assignBillNoHandler,
   devicePaymentHandler,
   deviceGetOrCreateOrderHandler,
   deviceAddOrderItemHandler,

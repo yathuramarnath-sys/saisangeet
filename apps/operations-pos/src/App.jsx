@@ -1258,18 +1258,9 @@ export default function App() {
       saveClosedOrderQueue(q);
     }
 
-    // ── Print receipt after settle ─────────────────────────────────────────
-    // Table turns blue when bill is printed (billRequested: true on backend).
-    // If that flag is set, the bill was already printed — skip to avoid duplicate.
-    // Counter / quick orders never go through Print Bill, so always print here.
-    if (!order.billRequested) {
-      printBill(
-        closedOrder,
-        closedOrder.items,
-        outlet || branchConfig?.outletName,
-        { cashierName }
-      );
-    }
+    // No auto-print at settlement.
+    // Bill is always printed BEFORE settlement via the "Print Bill" button
+    // (which assigns the bill number at that point). Settlement = payment + close only.
 
     setShowPayment(false);
     setSelectedTableId(null);
@@ -1462,30 +1453,41 @@ export default function App() {
   }
 
   // ── Print bill ────────────────────────────────────────────────────────────
-  // This button MARKS the table as "Bill Due" (turns it blue on the floor plan
-  // and notifies Captain app). The actual receipt prints after settlement so the
-  // bill number on the receipt is the server-assigned sequential GST bill number.
-  function handlePrintBill() {
+  // Assigns the next sequential bill number (FY or daily, per owner-console setting)
+  // at print-time via the backend. Idempotent: if Captain already printed and
+  // assigned a number, POS gets the same number back.
+  async function handlePrintBill() {
     if (!selectedTableId) return;
     const tableId = selectedTableId;
     const order   = orders[tableId];
     if (!order?.items?.length) { showToast("No items to print"); return; }
 
-    // Mark bill as requested — changes table to blue on POS table picker
-    // and broadcasts via socket so Captain app also shows "Bill Due"
+    // Get / assign bill number from server
+    let printOrder = { ...order };
+    try {
+      const result = await api.post("/operations/assign-bill-no", {
+        outletId: outlet?.id,
+        tableId,
+      });
+      if (result?.billNo != null) {
+        printOrder = { ...printOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
+        mutateOrder(tableId, o => { o.billNo = result.billNo; return o; });
+      }
+    } catch (err) {
+      console.warn("[POS] assign-bill-no failed:", err.message);
+    }
+
+    // Mark bill as requested — changes table to blue on POS + notifies Captain
     mutateOrder(tableId, (o) => {
       o.billRequested   = true;
       o.billRequestedAt = new Date().toISOString();
       return o;
     });
 
-    // Print the GST bill — table turns blue (billRequested: true on backend).
-    // Settlement checks order.billRequested to skip duplicate print.
-    printBill(order, order.items, outlet || branchConfig?.outletName, { cashierName });
+    printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, { cashierName });
 
     showToast("🖨️ Bill printed · Collect payment");
 
-    // Close the order panel — table stays blue until payment is collected
     setSelectedTableId(null);
 
     // Persist billRequested to backend (fire-and-forget)

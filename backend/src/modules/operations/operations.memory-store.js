@@ -725,6 +725,21 @@ function markKotSent(tableId, actor = "Captain") {
   return clone(order);
 }
 
+/**
+ * Stamp a server-assigned bill number onto the live in-memory order.
+ * Idempotent: if billNo is already set, returns the existing order unchanged.
+ */
+function stampBillNo(tableId, billNo, billNoMode, billNoFY, billNoDate) {
+  const order = findOrder(tableId);
+  if (order.billNo) return clone(order); // already stamped — don't reassign
+  order.billNo     = billNo;
+  order.billNoMode = billNoMode || null;
+  order.billNoFY   = billNoFY   || null;
+  order.billNoDate = billNoDate || null;
+  appendAudit(order, buildAuditEntry(`Bill no ${billNo} assigned`, "Server", "Now"));
+  return clone(order);
+}
+
 function requestBill(tableId, actor = "Waiter") {
   const order = findOrder(tableId);
   order.billRequested = true;
@@ -1090,6 +1105,7 @@ module.exports = {
   createDemoOrder,
   moveTable,
   markKotSent,
+  stampBillNo,
   requestBill,
   assignWaiter,
   addOrderItem,

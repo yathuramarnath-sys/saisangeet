@@ -715,19 +715,35 @@ export function App() {
   }
 
   // ── Print bill (works from OrderScreen inline or from long-press action sheet)
-  function handlePrintBill(tableId) {
+  async function handlePrintBill(tableId) {
     const tid   = tableId || selectedTableId;
     const order = orders[tid];
     if (!order?.items?.length) { toast.error("No items to print"); return; }
+
+    // Assign bill number from server (FY or daily, per owner-console setting).
+    // Idempotent: if POS already printed and assigned a number, returns the same one.
+    let printOrder = { ...order };
+    try {
+      const result = await api.post("/operations/assign-bill-no", {
+        outletId: outlet?.id || branchConfig?.outletId,
+        tableId:  tid,
+      });
+      if (result?.billNo != null) {
+        printOrder = { ...printOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
+      }
+    } catch (err) {
+      console.warn("[captain] assign-bill-no failed:", err.message);
+    }
+
     printBill(
-      order,
-      order.items,
+      printOrder,
+      printOrder.items,
       outlet || { name: branchConfig?.outletName || "Restaurant" },
       { cashierName: loggedInStaff?.name || "Waiter" }
     );
-    // Mark billRequested: true — table turns blue on POS, backend persists the flag.
-    // POS settlement checks order.billRequested to skip duplicate print.
-    handleUpdateOrder({ ...order, billRequested: true });
+
+    // Mark billRequested: true — table turns blue on POS floor plan
+    handleUpdateOrder({ ...printOrder, billRequested: true });
     api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid }).catch(() => {});
     toast("Printing bill…", { icon: "🖨️" });
     if (tid === selectedTableId) setSelectedTableId(null);
