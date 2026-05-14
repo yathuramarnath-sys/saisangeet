@@ -90,8 +90,8 @@ export function printBill(order, items, outletName, options = {}) {
         name: i.name,
         note: i.note || "",
         qty:  String(i.quantity),
-        rate: i.price.toFixed(0),
-        amt:  (i.price * i.quantity).toFixed(0),
+        rate: i.price.toFixed(2),
+        amt:  (i.price * i.quantity).toFixed(2),
       })),
       summary: summaryRows,
       total:   total.toFixed(2),
@@ -115,8 +115,8 @@ export function printBill(order, items, outletName, options = {}) {
     <tr>
       <td class="col-item">${i.name}${i.note ? `<div class="item-note">${i.note}</div>` : ""}</td>
       <td class="col-qty">${i.quantity}</td>
-      <td class="col-rate">${i.price.toFixed(0)}</td>
-      <td class="col-amt">${(i.price * i.quantity).toFixed(0)}</td>
+      <td class="col-rate">${i.price.toFixed(2)}</td>
+      <td class="col-amt">${(i.price * i.quantity).toFixed(2)}</td>
     </tr>`).join("");
 
   const html = `<!DOCTYPE html>

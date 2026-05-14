@@ -73,15 +73,15 @@ export function buildBillEscPos(data) {
   cmd += DASH + LF;
 
   // ── Items header ───────────────────────────────────────────────────────────
-  cmd += BOLD1 + "Item              Qty    Rate      Amt" + BOLD0 + LF;
+  cmd += BOLD1 + "Item                Qty  Rate      Amt" + BOLD0 + LF;
   cmd += DASH + LF;
 
   // ── Items ──────────────────────────────────────────────────────────────────
   for (const item of (data.items || [])) {
-    const name = safe(item.name || "").substring(0, 18).padEnd(18);
+    const name = safe(item.name || "").substring(0, 20).padEnd(20);
     const qty  = String(item.qty  || "").padStart(3);
-    const rate = stripRupee(item.rate).padStart(7);
-    const amt  = stripRupee(item.amt).padStart(8);
+    const rate = stripRupee(item.rate).padStart(6);
+    const amt  = stripRupee(item.amt).padStart(7);
     cmd += name + qty + rate + amt + LF;
     if (item.note) cmd += "     >> " + safe(item.note) + LF;
   }
@@ -156,7 +156,7 @@ export function buildKotEscPos(data) {
   if (data.totalItems) cmd += "Total Items : " + data.totalItems + LF;
   if (data.sentBy)     cmd += BOLD1 + "Sent by : " + safe(data.sentBy) + BOLD0 + LF;
   if (data.waiter)     cmd += BOLD1 + "Waiter  : " + safe(data.waiter) + BOLD0 + LF;
-  if (data.printerName) cmd += "→ " + safe(data.printerName) + LF;
+  if (data.printerName) cmd += "-> " + safe(data.printerName) + LF;
 
   cmd += LF + LF + LF + LF + CUT;
   return cmd;
