@@ -1370,22 +1370,40 @@ export default function App() {
   }
 
   // ── Transfer table ─────────────────────────────────────────────────────────
-  function handleTransferTable(toTableId) {
+  async function handleTransferTable(toTableId) {
     if (!selectedTableId || !toTableId || selectedTableId === toTableId) return;
+    const fromOrder = orders[selectedTableId];
+    const toOrder   = orders[toTableId];
+    if (!fromOrder || !toOrder) return;
+
+    const toTableNumber = toOrder.tableNumber || toTableId;
+
+    // Call backend first — same pattern as Captain app to avoid race conditions
+    try {
+      await api.post(`/operations/orders/${selectedTableId}/move-table`, {
+        targetTableId: toTableId,
+        actorName: cashierName || "POS",
+        actorRole: "POS",
+      });
+    } catch (err) {
+      showToast(`Transfer failed: ${err.message || "Server error"}`, "error");
+      console.warn("[POS] transfer failed:", err.message);
+      return;
+    }
+
+    // Backend confirmed — update local state and navigate to new table
     setOrders(prev => {
-      const fromOrder = prev[selectedTableId];
-      const toOrder   = prev[toTableId];
-      if (!fromOrder || !toOrder) return prev;
+      const from = prev[selectedTableId];
+      const to   = prev[toTableId];
+      if (!from || !to) return prev;
       const next = { ...prev };
-      // Move order items/data to new table
-      next[toTableId]     = { ...fromOrder, tableId: toTableId, tableNumber: toOrder.tableNumber, areaName: toOrder.areaName };
-      // Clear the from-table
-      next[selectedTableId] = { ...toOrder, items: [], payments: [], discountAmount: 0,
+      next[toTableId]       = { ...from, tableId: toTableId, tableNumber: to.tableNumber, areaName: to.areaName };
+      next[selectedTableId] = { ...to, items: [], payments: [], discountAmount: 0,
         billRequested: false, isOnHold: false, isClosed: false };
       return next;
     });
     setSelectedTableId(toTableId);
-    showToast(`Order transferred to Table ${orders[toTableId]?.tableNumber || toTableId}`);
+    showToast(`Order transferred to Table ${toTableNumber}`);
   }
 
   // ── Edit payment on closed order ─────────────────────────────────────────

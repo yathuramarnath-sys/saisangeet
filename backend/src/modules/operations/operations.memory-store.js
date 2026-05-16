@@ -725,7 +725,11 @@ function moveTable(sourceTableId, targetTableId, actor = "System") {
     captain:     sourceOrder.captain || "Open",
     seatLabels:  sourceOrder.seatLabels || []
   };
-  state.orders[sourceTableId] = buildEmptyOrder(sourceMeta, nextOrderNumber());
+  const blankSource = buildEmptyOrder(sourceMeta, nextOrderNumber());
+  // Stamp updatedAt so devices' stale-write guards accept this blank and
+  // don't reject it in favour of the old occupied order they still hold locally.
+  appendAudit(blankSource, buildAuditEntry("Table cleared after move", actor, "Now"));
+  state.orders[sourceTableId] = blankSource;
   return clone(movedOrder);
 }
 
@@ -762,7 +766,10 @@ function mergeTables(currentTableId, sourceTableId, actor = "System") {
     captain:     sourceOrder.captain || "Open",
     seatLabels:  sourceOrder.seatLabels || [],
   };
-  state.orders[sourceTableId] = buildEmptyOrder(sourceMeta, nextOrderNumber());
+  const blankMergeSource = buildEmptyOrder(sourceMeta, nextOrderNumber());
+  // Stamp updatedAt so devices' stale-write guards accept this blank
+  appendAudit(blankMergeSource, buildAuditEntry("Table cleared after merge", actor, "Now"));
+  state.orders[sourceTableId] = blankMergeSource;
   return { mergedOrder: clone(mergedOrder), clearedTableId: sourceTableId };
 }
 
