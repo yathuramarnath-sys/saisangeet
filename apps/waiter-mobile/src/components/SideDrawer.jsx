@@ -21,7 +21,7 @@ function savePrinterConfig(ip, paper) {
   localStorage.setItem("captain_printers", JSON.stringify(printer));
 }
 
-const APP_VERSION = "1.13";
+const APP_VERSION = "1.16";
 
 /**
  * SideDrawer — Captain App utility menu
@@ -41,9 +41,10 @@ const APP_VERSION = "1.13";
  */
 export function SideDrawer({
   outletName, serverUrl, localPosIp,
-  pendingKots = [],
-  syncFailed  = 0,
-  updateInfo = null,
+  pendingKots  = [],
+  syncFailed   = 0,
+  printFailed  = 0,
+  updateInfo   = null,
   onClose, onSync, onFindPOS, onSignOut,
   onRetryKot, onRetryAll, onClearKot,
   scanning = false,
@@ -165,6 +166,18 @@ export function SideDrawer({
               <span>⚠️</span>
               <span>
                 {syncFailed} action{syncFailed !== 1 ? "s" : ""} failed to sync — retrying automatically
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Print failures ────────────────────────────────────────────── */}
+        {printFailed > 0 && (
+          <div className="drawer-section">
+            <div className="drawer-empty-row" style={{ color: "#ef4444", fontWeight: 600 }}>
+              <span>🖨️</span>
+              <span>
+                {printFailed} print{printFailed !== 1 ? "s" : ""} failed — check printer connection
               </span>
             </div>
           </div>

@@ -13,6 +13,11 @@ import {
   getFailedCount as syncFailedCount,
 } from "./lib/syncQueue";
 import {
+  startPrintWorker,
+  flushQueue     as printFlushQueue,
+  getFailedCount as printFailedCount,
+} from "./lib/printQueue";
+import {
   mobileAreas      as seedAreas,
   mobileCategories as seedCategories,
   mobileMenuItems  as seedMenuItems,
@@ -126,8 +131,13 @@ export function App() {
   });
   const socketRef      = useRef(null);
   const localSocketRef = useRef(null);
-  const [localConn,   setLocalConn]   = useState(false);
-  const [syncFailed,  setSyncFailed]  = useState(() => syncFailedCount());
+  const [localConn,    setLocalConn]    = useState(false);
+  const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
+  const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
+  // Waiter assignment picker — shown before every KOT send
+  const [showWaiterPick,    setShowWaiterPick]    = useState(false);
+  const [kotPendingTableId, setKotPendingTableId] = useState(null);
+  const [pickedWaiter,      setPickedWaiter]      = useState(null);
 
   // Staff: from branch config or fallback — Captain app only shows Captain/Waiter roles
   const CAPTAIN_ROLES = ["captain", "waiter", "server", "steward"];
@@ -249,6 +259,7 @@ export function App() {
               })
               .catch(() => {});
             flushSyncQueue();  // replay queued ADD_ITEM / REMOVE_ITEM / BILL_REQUEST
+            flushPrints();     // retry any queued print jobs
           }
           wasOffline = false;
         });
@@ -416,21 +427,38 @@ export function App() {
       setSyncFailed(syncFailedCount());
     }
 
+    // ── Print queue flush function ───────────────────────────────────────────
+    // Passes sendToThermalPrinter (Capacitor TCP) lazily so printQueue.js stays
+    // free of Capacitor imports.  Retries failed prints every 10 s.
+    async function flushPrints() {
+      const { sendToThermalPrinter } = await import("./lib/thermalPrint.js");
+      await printFlushQueue(sendToThermalPrinter);
+      setPrintFailed(printFailedCount());
+    }
+
     bootstrap();
 
-    // Start background retry worker — fires every 30 s when there are pending entries
-    const stopWorker = startRetryWorker(flushSyncQueue);
+    // Start background retry workers
+    const stopWorker      = startRetryWorker(flushSyncQueue);   // sync mutations every 30 s
+    const stopPrintWorker = startPrintWorker(flushPrints);      // print queue retries every 10 s
+
+    // Immediate flush on print: kotPrint / printBill dispatch this event right after
+    // enqueue() so the first attempt fires NOW (same timing as before), while the
+    // 10 s worker only handles retries after failure.
+    window.addEventListener("dinex:flush-prints", flushPrints);
 
     return () => {
       socketRef.current?.disconnect();
       localSocketRef.current?.disconnect();
       stopWorker();
+      stopPrintWorker();
+      window.removeEventListener("dinex:flush-prints", flushPrints);
     };
   }, [branchConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Check for Captain app updates (shown in drawer, not top banner) ──────
   useEffect(() => {
-    const APP_VERSION_CAPTAIN = "1.13";
+    const APP_VERSION_CAPTAIN = "1.16";
     const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1");
     function checkUpdate() {
       fetch(`${API_BASE}/app-versions`, { cache: "no-store" })
@@ -630,9 +658,23 @@ export function App() {
     }
   }
 
-  // ── Send KOT ──────────────────────────────────────────────────────────────
+  // ── Send KOT — step 1: show waiter picker ─────────────────────────────────
   // tableId is optional — falls back to selectedTableId (existing call sites unaffected)
-  async function handleSendKOT(tableId) {
+  function handleSendKOT(tableId) {
+    const tid   = tableId || selectedTableId;
+    const order = orders[tid];
+    if (!order) return;
+    const unsent = (order.items || []).filter((i) => !i.sentToKot);
+    if (!unsent.length) return;
+    // Pre-select the currently logged-in staff as default
+    setPickedWaiter(loggedInStaff?.name || null);
+    setKotPendingTableId(tid);
+    setShowWaiterPick(true);
+  }
+
+  // ── Send KOT — step 2: actually send after waiter is confirmed ─────────────
+  // waiterName = the staff member assigned to serve this table's order
+  async function doSendKOT(tableId, waiterName) {
     const tid    = tableId || selectedTableId;
     const order  = orders[tid];
     if (!order) return;
@@ -649,8 +691,12 @@ export function App() {
       return;
     }
 
-    // Optimistic UI — mark items sent immediately so screen feels instant
-    handleUpdateOrder({ ...order, items: order.items.map((i) => ({ ...i, sentToKot: true })) });
+    const actorName    = loggedInStaff?.name || "Captain";
+    const waiterToShow = waiterName || actorName;  // who serves — shown on KOT slip
+
+    // Stamp assignedWaiter on the order so it persists until the next KOT
+    handleUpdateOrder({ ...order, assignedWaiter: waiterToShow,
+      items: order.items.map((i) => ({ ...i, sentToKot: true })) });
 
     // Send ALL items in ONE request — backend splits by station and assigns ONE KOT number
     // to all station-splits. This guarantees the printed slip and every KDS ticket share
@@ -667,7 +713,7 @@ export function App() {
         // No stationName — backend splits by menu-item station / category / Owner config
         items:       unsent,
         orderId:     order.id,
-        actorName:   loggedInStaff?.name || "Captain",
+        actorName:   actorName,
         source:      "captain",
       });
       if (result?.kots?.length)  serverKots = result.kots;
@@ -684,7 +730,7 @@ export function App() {
         outletId:    effectiveOutletId,
         orderId:     order.id,
         items:       unsent,
-        actorName:   loggedInStaff?.name || "Captain",
+        actorName:   actorName,
         failedAt:    new Date().toISOString(),
       };
       setPendingKots((prev) => {
@@ -703,7 +749,7 @@ export function App() {
       tableNumber: order.tableNumber,
       areaName:    order.areaName,
       items:       unsent,
-      actorName:   loggedInStaff?.name || "Captain",
+      actorName:   actorName,
     });
 
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
@@ -721,10 +767,10 @@ export function App() {
         // Distinct from station printers so full copy always prints separately
         const waiterPrinter = getWaiterKotPrinter();
         const kotNumber     = serverKotNumber;
-        const actorName     = loggedInStaff?.name || "Captain";
 
         // 1. Waiter slip — ALL items on the waiter/default KOT printer (no station)
-        printKOT(order, unsent, waiterPrinter, kotNumber, { sentBy: actorName });
+        // waiterToShow = assigned waiter from picker; sentBy = captain who tapped Send
+        printKOT(order, unsent, waiterPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
 
         // 2. Kitchen station slips — one per station, only if a dedicated printer is configured
         serverKots.forEach(kot => {
@@ -737,14 +783,18 @@ export function App() {
             // Use original unsent items (have price/note) matched by id; fall back to kot.items
             const kotItemIds = new Set((kot.items || []).map(i => i.id));
             const stItems    = unsent.filter(i => kotItemIds.has(i.id));
-            printKOT(order, stItems.length ? stItems : kot.items, stPrinter, kotNumber, { sentBy: actorName });
+            printKOT(order, stItems.length ? stItems : kot.items, stPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
           }
         });
       }
     } catch (_) { /* printer not configured — KDS still receives it */ }
 
     // Show the server-assigned KOT number — same number on all station slips
-    toast.success(serverKotNumber != null ? `KOT #${serverKotNumber} sent to kitchen` : "KOT sent to kitchen");
+    toast.success(
+      serverKotNumber != null
+        ? `KOT-${String(serverKotNumber).padStart(4, "0")} sent to kitchen`
+        : "KOT sent to kitchen"
+    );
 
     if (lastServerOrder) {
       setOrders((prev) => {
@@ -758,6 +808,7 @@ export function App() {
           ...prev,
           [tid]: {
             ...lastServerOrder,
+            assignedWaiter: waiterToShow,  // stamp waiter on server-refreshed order too
             items: [...(lastServerOrder.items || []), ...localOnlyUnsent],
           },
         };
@@ -935,7 +986,7 @@ export function App() {
   }
 
   // ── Table transfer ────────────────────────────────────────────────────────
-  function handleTableTransfer(fromId, toId) {
+  async function handleTableTransfer(fromId, toId) {
     const fromOrder = orders[fromId];
     if (!fromOrder) return;
 
@@ -946,25 +997,34 @@ export function App() {
     }
     if (!toTable || !toArea) return;
 
-    const movedOrder = { ...fromOrder, tableId: toId, tableNumber: toTable.number, areaName: toArea.name };
+    const fromArea  = areas.find((a) => a.tables.some((t) => t.id === fromId));
+    const fromTable = fromArea?.tables.find((t) => t.id === fromId);
 
-    setOrders((prev) => {
-      const next = { ...prev };
-      const fromArea = areas.find((a) => a.tables.some((t) => t.id === fromId));
-      const fromTable = fromArea?.tables.find((t) => t.id === fromId);
-      next[fromId] = fromTable && fromArea ? buildBlankOrder(fromTable, fromArea) : undefined;
-      if (!next[fromId]) delete next[fromId];
-      next[toId] = movedOrder;
-      return next;
-    });
+    // Optimistic local update so UI responds instantly
+    const now            = Date.now();
+    const movedOrder     = { ...fromOrder, tableId: toId, tableNumber: toTable.number, areaName: toArea.name, updatedAt: now };
+    const blankFromOrder = fromTable && fromArea ? { ...buildBlankOrder(fromTable, fromArea), updatedAt: now + 1 } : null;
+    handleUpdateOrder(movedOrder);
+    if (blankFromOrder) handleUpdateOrder(blankFromOrder);
 
     setSelectedTableId(toId);
     setSelectedArea(toArea);
     toast.success(`Order moved to Table ${toTable.number}`);
+
+    // Persist to backend so reconnect fetches clean state
+    try {
+      await api.post(`/operations/orders/${fromId}/move-table`, {
+        targetTableId: toId,
+        actorName:     loggedInStaff?.name,
+        actorRole:     loggedInStaff?.role,
+      });
+    } catch (err) {
+      console.warn("move-table API failed:", err.message);
+    }
   }
 
   // ── Table merge ───────────────────────────────────────────────────────────
-  function handleTableMerge(currentId, mergeFromId) {
+  async function handleTableMerge(currentId, mergeFromId) {
     const current   = orders[currentId];
     const mergeFrom = orders[mergeFromId];
     if (!current || !mergeFrom) return;
@@ -981,14 +1041,26 @@ export function App() {
       if (t) { mfTable = t; mfArea = area; break; }
     }
 
-    setOrders((prev) => ({
-      ...prev,
-      [currentId]:   mergedOrder,
-      [mergeFromId]: mfTable && mfArea ? buildBlankOrder(mfTable, mfArea) : prev[mergeFromId],
-    }));
+    const now            = Date.now();
+    const blankMergeFrom = mfTable && mfArea ? { ...buildBlankOrder(mfTable, mfArea), updatedAt: now + 1 } : null;
+
+    // Optimistic local update
+    handleUpdateOrder({ ...mergedOrder, updatedAt: now });
+    if (blankMergeFrom) handleUpdateOrder(blankMergeFrom);
 
     const fromNum = mergeFrom.tableNumber || mergeFromId;
     toast.success(`Table ${fromNum} merged into this order`);
+
+    // Persist to backend so reconnect fetches clean state
+    try {
+      await api.post(`/operations/orders/${currentId}/merge-from`, {
+        sourceTableId: mergeFromId,
+        actorName:     loggedInStaff?.name,
+        actorRole:     loggedInStaff?.role,
+      });
+    } catch (err) {
+      console.warn("merge-from API failed:", err.message);
+    }
   }
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -1119,6 +1191,7 @@ export function App() {
           localPosIp={localStorage.getItem("captain_local_server_ip") || null}
           pendingKots={pendingKots}
           syncFailed={syncFailed}
+          printFailed={printFailed}
           updateInfo={updateInfo}
           scanning={scanning}
           onClose={() => setShowDrawer(false)}
@@ -1164,6 +1237,54 @@ export function App() {
           />
         );
       })()}
+
+      {/* ── Waiter assignment picker — shown before every KOT send ────────────── */}
+      {showWaiterPick && (
+        <div className="assign-backdrop" onClick={() => setShowWaiterPick(false)}>
+          <div className="assign-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="assign-modal-title">
+              <span>🧑‍🍽️</span>
+              <span>Assign Waiter</span>
+            </div>
+            <div className="assign-staff-list">
+              {branchStaff.map((s) => (
+                <label key={s.id} className="assign-staff-row" onClick={() => setPickedWaiter(s.name)}>
+                  <span className="assign-staff-name">
+                    {s.name}
+                    <span style={{ fontSize: "0.75rem", color: "#9ca3af", marginLeft: 6, fontWeight: 500 }}>
+                      {s.role}
+                    </span>
+                  </span>
+                  <input
+                    type="radio"
+                    name="waiter-pick"
+                    readOnly
+                    checked={pickedWaiter === s.name}
+                    onChange={() => setPickedWaiter(s.name)}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="assign-modal-actions">
+              <button
+                className="assign-cancel-btn"
+                onClick={() => { setShowWaiterPick(false); setKotPendingTableId(null); }}
+              >
+                Cancel
+              </button>
+              <button
+                className="assign-done-btn"
+                onClick={() => {
+                  setShowWaiterPick(false);
+                  doSendKOT(kotPendingTableId, pickedWaiter);
+                }}
+              >
+                Send to Kitchen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toaster
         position="top-center"

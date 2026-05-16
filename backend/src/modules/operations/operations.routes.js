@@ -13,6 +13,7 @@ const {
   sendKotHandler,
   requestBillHandler,
   moveTableHandler,
+  mergeTablesHandler,
   assignWaiterHandler,
   addOrderItemHandler,
   updateOrderItemHandler,
@@ -73,8 +74,14 @@ operationsRouter.post(
 operationsRouter.post(
   "/orders/:tableId/move-table",
   requireAuth,
-  requirePermission("operations.order.edit"),
+  requirePermission("operations.table.move"),
   asyncHandler(moveTableHandler)
+);
+operationsRouter.post(
+  "/orders/:tableId/merge-from",
+  requireAuth,
+  requirePermission("operations.table.move"),
+  asyncHandler(mergeTablesHandler)
 );
 operationsRouter.post(
   "/orders/:tableId/assign-waiter",
@@ -176,6 +183,20 @@ operationsRouter.post("/order/item",   requireAuth, asyncHandler(deviceAddOrderI
 operationsRouter.delete("/order/item", requireAuth, asyncHandler(deviceRemoveOrderItemHandler));
 operationsRouter.patch("/order/item",  requireAuth, asyncHandler(deviceVoidOrderItemHandler));
 operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
+
+// Action log — Owner Console audit trail
+operationsRouter.get("/action-logs",   requireAuth, asyncHandler(async (req, res) => {
+  const { getActionLogs } = require("../action-log/actionLog.service");
+  const tenantId = req.user?.tenantId || "default";
+  const { outletId, tableId, action: actionFilter, limit } = req.query;
+  const logs = getActionLogs(tenantId, {
+    outletId,
+    tableId,
+    action:    actionFilter,
+    limit:     limit ? Number(limit) : 200,
+  });
+  res.json(logs);
+}));
 
 module.exports = {
   operationsRouter

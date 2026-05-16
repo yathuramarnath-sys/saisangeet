@@ -2,6 +2,7 @@ const {
   getOperationsSummary,
   createDemoOperationsOrder,
   moveOrderToTable,
+  mergeTableOrders,
   getOrders,
   getOrder,
   getOrCreateOrderForTable,
@@ -25,6 +26,7 @@ const {
 const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
 const { runWithTenant }     = require("../../data/tenant-context");
 const { ApiError }          = require("../../utils/api-error");
+const { ACTION, logAction } = require("../action-log/actionLog.service");
 
 /**
  * Validate the manager PIN from a request body against the PIN stored in
@@ -100,6 +102,12 @@ async function requestBillHandler(req, res) {
 
 async function moveTableHandler(req, res) {
   const result = await moveOrderToTable(req.params.tableId, req.body);
+  res.json(result);
+}
+
+async function mergeTablesHandler(req, res) {
+  const { sourceTableId, actorName, actorRole } = req.body;
+  const result = await mergeTableOrders(req.params.tableId, sourceTableId, actorName, actorRole);
   res.json(result);
 }
 
@@ -428,6 +436,21 @@ async function deviceSendKotHandler(req, res) {
     }
   }
 
+  logAction({
+    tenantId:  tenantId,
+    outletId:  outletId,
+    tableId:   tableId || null,
+    action:    ACTION.KOT_SENT,
+    actorName: req.body.actorName || null,
+    device:    req.body.source    || "pos",
+    details:   {
+      kotNo:       kots[0]?.kotNumber,
+      tableNumber: tableNumber,
+      stations:    kots.map(k => k.station),
+      itemCount:   items?.length || 0,
+    },
+  });
+
   // Return `kots` array (new) and `kot` (first entry, backward-compat for older clients)
   res.status(201).json({ kots, kot: kots[0], order: updatedOrder });
 }
@@ -493,6 +516,16 @@ async function deviceBillRequestHandler(req, res) {
     }
   }
 
+  logAction({
+    tenantId:  req.user?.tenantId || "default",
+    outletId,
+    tableId,
+    action:    ACTION.BILL_REQUESTED,
+    actorName: req.user?.name || null,
+    device:    "captain",
+    details:   null,
+  });
+
   res.json({ ok: true, order: updatedOrder });
 }
 
@@ -529,6 +562,16 @@ async function devicePaymentHandler(req, res) {
       }
     }
   }
+
+  logAction({
+    tenantId:  req.user?.tenantId || "default",
+    outletId,
+    tableId:   tableId || null,
+    action:    ACTION.PAYMENT_RECORDED,
+    actorName: req.user?.name || null,
+    device:    "pos",
+    details:   { method: method || "cash", amount: Number(amount) || 0 },
+  });
 
   res.json({ ok: true, order: updatedOrder });
 }
@@ -568,6 +611,17 @@ async function deviceAddOrderItemHandler(req, res) {
   // Merge actor name into payload so operations.service.resolveActor picks it up
   const actor = req.user?.name || req.user?.type || "POS";
   const result = await addItemToOrder(tableId, { ...item, actorName: actor });
+
+  logAction({
+    tenantId:  req.user?.tenantId || "default",
+    outletId:  req.body.outletId  || null,
+    tableId,
+    action:    ACTION.ADD_ITEM,
+    actorName: req.body.actorName || actor,
+    device:    req.body.source    || "pos",
+    details:   { itemName: item.name, price: item.price, qty: item.quantity || 1 },
+  });
+
   res.status(201).json(result);
 }
 
@@ -586,6 +640,17 @@ async function deviceRemoveOrderItemHandler(req, res) {
   }
   const actor = req.user?.name || req.user?.type || "POS";
   const result = await removeItemFromOrder(tableId, itemId, actor);
+
+  logAction({
+    tenantId:  req.user?.tenantId || "default",
+    outletId:  req.body.outletId  || null,
+    tableId,
+    action:    ACTION.REMOVE_ITEM,
+    actorName: req.body.actorName || actor,
+    device:    req.body.source    || "pos",
+    details:   { itemId },
+  });
+
   res.json(result);
 }
 
@@ -607,6 +672,17 @@ async function deviceVoidOrderItemHandler(req, res) {
     voidReason: voidReason || "Voided by POS",
     actorName:  actor
   });
+
+  logAction({
+    tenantId:  req.user?.tenantId || "default",
+    outletId:  null,
+    tableId,
+    action:    ACTION.ITEM_VOIDED,
+    actorName: actor,
+    device:    req.body.source || "pos",
+    details:   { itemId, voidReason: voidReason || "Voided by POS" },
+  });
+
   res.json(result);
 }
 
@@ -658,6 +734,16 @@ async function assignBillNoHandler(req, res) {
     // Counter/online order IDs have no memory slot — still return the number
   }
 
+  logAction({
+    tenantId,
+    outletId:  outletId || null,
+    tableId:   tableId  || null,
+    action:    ACTION.BILL_NO_ASSIGNED,
+    actorName: req.user?.name || null,
+    device:    req.body.source || "captain",
+    details:   { billNo, billNoMode: mode, billNoFY: fy || null },
+  });
+
   return res.json({ ok: true, billNo, billNoMode: mode, billNoFY: fy || null, billNoDate: date });
 }
 
@@ -687,6 +773,22 @@ async function deviceCloseOrderHandler(req, res) {
   order.closedAt = new Date().toISOString();
 
   addClosedOrder(tenantId, outletId, order);
+
+  logAction({
+    tenantId,
+    outletId,
+    tableId:   order.tableId  || null,
+    action:    ACTION.ORDER_SETTLED,
+    actorName: req.user?.name || null,
+    device:    "pos",
+    details:   {
+      billNo:      order.billNo,
+      tableNumber: order.tableNumber,
+      total:       order.total || null,
+      itemCount:   order.items?.length || 0,
+      payments:    (order.payments || []).map(p => ({ method: p.method, amount: p.amount })),
+    },
+  });
 
   // Broadcast to owner dashboard listeners so the console can live-update
   const io = req.app.locals.io;
@@ -808,6 +910,7 @@ module.exports = {
   sendKotHandler,
   requestBillHandler,
   moveTableHandler,
+  mergeTablesHandler,
   assignWaiterHandler,
   addOrderItemHandler,
   updateOrderItemHandler,

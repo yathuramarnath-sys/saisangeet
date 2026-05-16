@@ -267,3 +267,20 @@ CREATE TABLE app_runtime_state (
   payload JSONB NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ── Action log — structured audit trail for every POS/Captain mutation ────────
+CREATE TABLE IF NOT EXISTS action_logs (
+  id         TEXT         PRIMARY KEY,
+  tenant_id  TEXT         NOT NULL,
+  outlet_id  TEXT,
+  table_id   TEXT,
+  action     TEXT         NOT NULL,
+  actor_name TEXT,
+  device     TEXT,
+  details    JSONB,
+  created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_action_logs_tenant_ts   ON action_logs (tenant_id,  created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_action_logs_outlet_ts   ON action_logs (outlet_id,  created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_action_logs_table_ts    ON action_logs (table_id,   created_at DESC);

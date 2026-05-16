@@ -402,7 +402,7 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
                 date:    dtRow?.querySelector('span:first-child')?.innerText?.trim() || '',
                 time:    dtRow?.querySelector('span:last-child')?.innerText?.trim()  || '',
                 guests:  guestRow.find(r => r.innerText.includes('Guest'))?.querySelector(':last-child')?.innerText?.trim() || '',
-                items:   qa('.kot-item').map(el => ({
+                items:   qa('.kot-item-row').map(el => ({
                   qty:  el.querySelector('.kot-qty')?.innerText?.trim() || '',
                   name: el.querySelector('.kot-item-name')?.innerText?.trim() || '',
                   note: el.querySelector('.kot-item-note')?.innerText?.trim() || '',

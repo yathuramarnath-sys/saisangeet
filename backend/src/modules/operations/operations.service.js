@@ -2,6 +2,7 @@ const {
   fetchOperationsSummary,
   createOperationsDemoOrder,
   moveOrderTableAssignment,
+  mergeOrderTables,
   fetchOrders,
   fetchOrderByTable,
   fetchOrCreateOrderByTable,
@@ -148,6 +149,10 @@ async function requestOrderVoidApproval(tableId, payload = {}) {
   );
 }
 
+async function mergeTableOrders(currentTableId, sourceTableId, actorName, actorRole) {
+  return mergeOrderTables(currentTableId, sourceTableId, resolveActor(actorName, actorRole));
+}
+
 async function clearTableAfterSettle(tableId) {
   return clearTableOrderAfterSettle(tableId);
 }
@@ -156,6 +161,7 @@ module.exports = {
   getOperationsSummary,
   createDemoOperationsOrder,
   moveOrderToTable,
+  mergeTableOrders,
   getOrders,
   getOrder,
   getOrCreateOrderForTable,

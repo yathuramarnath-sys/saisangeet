@@ -1,249 +1,298 @@
 {
-  "businessProfile": {
-    "id": "business-1",
-    "legalName": "Saisangeet Hospitality Private Limited",
-    "tradeName": "Saisangeet",
-    "gstin": "29ABCDE1234F1Z5",
-    "phone": "+91 98765 43210",
-    "email": "info@dinexpos.in",
-    "addressLine1": "12 MG Road",
-    "addressLine2": "Near Metro Station",
-    "city": "Bengaluru",
-    "state": "Karnataka",
-    "postalCode": "560001",
-    "country": "India",
-    "timezone": "Asia/Kolkata",
-    "currencyCode": "INR",
-    "logoUrl": "",
-    "invoiceHeader": "Pure veg family restaurant",
-    "invoiceFooter": "Thank you, visit again"
-  },
+  "users": [
+    {
+      "id": "user-owner-1778673240328",
+      "fullName": "Smoke Test Owner",
+      "name": "Smoke Test Owner",
+      "email": "smoke+1778673240218@test.dinexpos.in",
+      "phone": "9999999999",
+      "passwordHash": "$2b$10$VEUEIzkR.2zaHpsTAk8eauqIXq/bl71/QGG7MAYcUixbGLpvTaDkm",
+      "roles": [
+        "Owner"
+      ],
+      "outletName": "All Outlets",
+      "isActive": true,
+      "pin": "0000"
+    },
+    {
+      "id": "staff-demo-c-AULT",
+      "fullName": "Demo Cashier",
+      "name": "Demo Cashier",
+      "email": null,
+      "phone": null,
+      "passwordHash": null,
+      "roles": [
+        "Cashier"
+      ],
+      "pin": "1234",
+      "outletName": "Main Branch",
+      "isActive": true,
+      "_demo": true
+    },
+    {
+      "id": "staff-demo-k-AULT",
+      "fullName": "Demo Captain",
+      "name": "Demo Captain",
+      "email": null,
+      "phone": null,
+      "passwordHash": null,
+      "roles": [
+        "Captain"
+      ],
+      "pin": "5678",
+      "outletName": "Main Branch",
+      "isActive": true,
+      "_demo": true
+    }
+  ],
   "outlets": [
     {
-      "hours": "09:15 - 22:15",
-      "services": [
-        "Dine-in",
+      "id": "outlet-demo-AULT",
+      "code": "DEMOAULT",
+      "name": "Main Branch",
+      "city": "",
+      "state": "",
+      "gstin": "",
+      "reportEmail": "",
+      "isActive": true,
+      "_demo": true,
+      "createdAt": "2026-05-13T11:54:00.222Z"
+    }
+  ],
+  "menu": {
+    "categories": [
+      {
+        "id": "cat-demo-starter",
+        "name": "Starters",
+        "_demo": true
+      },
+      {
+        "id": "cat-demo-main",
+        "name": "Main Course",
+        "_demo": true
+      },
+      {
+        "id": "cat-demo-bread",
+        "name": "Breads",
+        "_demo": true
+      },
+      {
+        "id": "cat-demo-beverage",
+        "name": "Beverages",
+        "_demo": true
+      }
+    ],
+    "items": [
+      {
+        "id": "item-d-01",
+        "name": "Paneer Tikka",
+        "categoryId": "cat-demo-starter",
+        "price": 220,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-02",
+        "name": "Veg Spring Roll",
+        "categoryId": "cat-demo-starter",
+        "price": 160,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-03",
+        "name": "Chicken 65",
+        "categoryId": "cat-demo-starter",
+        "price": 260,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-04",
+        "name": "Soup of the Day",
+        "categoryId": "cat-demo-starter",
+        "price": 100,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-05",
+        "name": "Dal Makhani",
+        "categoryId": "cat-demo-main",
+        "price": 200,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-06",
+        "name": "Paneer Butter Masala",
+        "categoryId": "cat-demo-main",
+        "price": 240,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-07",
+        "name": "Chicken Curry",
+        "categoryId": "cat-demo-main",
+        "price": 280,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-08",
+        "name": "Veg Biryani",
+        "categoryId": "cat-demo-main",
+        "price": 220,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-09",
+        "name": "Chicken Biryani",
+        "categoryId": "cat-demo-main",
+        "price": 300,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-10",
+        "name": "Butter Naan",
+        "categoryId": "cat-demo-bread",
+        "price": 40,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-11",
+        "name": "Tandoori Roti",
+        "categoryId": "cat-demo-bread",
+        "price": 30,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-12",
+        "name": "Garlic Naan",
+        "categoryId": "cat-demo-bread",
+        "price": 50,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-13",
+        "name": "Paratha",
+        "categoryId": "cat-demo-bread",
+        "price": 60,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-14",
+        "name": "Lassi (Sweet)",
+        "categoryId": "cat-demo-beverage",
+        "price": 80,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-15",
+        "name": "Mango Shake",
+        "categoryId": "cat-demo-beverage",
+        "price": 100,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-16",
+        "name": "Masala Chai",
+        "categoryId": "cat-demo-beverage",
+        "price": 40,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-17",
+        "name": "Cold Coffee",
+        "categoryId": "cat-demo-beverage",
+        "price": 120,
+        "unit": "PCS",
+        "_demo": true
+      },
+      {
+        "id": "item-d-18",
+        "name": "Fresh Lime Soda",
+        "categoryId": "cat-demo-beverage",
+        "price": 60,
+        "unit": "PCS",
+        "_demo": true
+      }
+    ],
+    "stations": [],
+    "config": {
+      "defaultPricingMode": "Area + order type",
+      "pricingZones": [
+        "AC",
+        "Non-AC",
+        "Self Service"
+      ],
+      "orderTypes": [
+        "Dine-In",
         "Takeaway",
         "Delivery"
       ],
-      "workAreas": [
-        "AC",
-        "Non-AC",
-        "Self Service"
-      ],
-      "tables": [],
-      "reportEmail": "yathuramarnath@gmail.com",
-      "id": "outlet-indiranagar",
-      "code": "BLR-01",
-      "name": "Indiranagar",
-      "gstin": "29ABCDE1234F1Z5",
-      "city": "Bengaluru",
-      "state": "Karnataka",
-      "isActive": true,
       "defaultTaxProfileId": "tax-5",
-      "receiptTemplateId": "receipt-dine-in"
+      "defaultPricingProfileId": "pricing-standard",
+      "menuStructureNote": "One page, simple assignment"
     },
-    {
-      "hours": "9:00 AM - 11:30 PM",
-      "services": [
-        "Dine-in",
-        "Takeaway"
-      ],
-      "workAreas": [
-        "AC",
-        "Non-AC",
-        "Self Service"
-      ],
-      "tables": [],
-      "reportEmail": "",
-      "id": "outlet-koramangala",
-      "code": "BLR-02",
-      "name": "Koramangala",
-      "gstin": "29ABCDE1234F1Z5",
-      "city": "Bengaluru",
-      "state": "Karnataka",
-      "isActive": true,
-      "defaultTaxProfileId": "tax-5",
-      "receiptTemplateId": "receipt-dine-in"
-    },
-    {
-      "hours": "9:00 AM - 11:00 PM",
-      "services": [
-        "Dine-in",
-        "Takeaway"
-      ],
-      "workAreas": [
-        "AC",
-        "Non-AC",
-        "Self Service"
-      ],
-      "tables": [],
-      "reportEmail": "",
-      "id": "outlet-1776228758702",
-      "code": "TST-01",
-      "name": "Test Outlet",
-      "gstin": "33ABCDE1234F1Z5",
-      "city": "Chennai",
-      "state": "Tamil Nadu",
-      "isActive": true,
-      "defaultTaxProfileId": "tax-5",
-      "receiptTemplateId": null
-    },
-    {
-      "hours": "9:00 AM - 11:00 PM",
-      "services": [
-        "Dine-in",
-        "Takeaway"
-      ],
-      "workAreas": [
-        "AC",
-        "Non-AC",
-        "Self Service"
-      ],
-      "tables": [],
-      "reportEmail": "",
-      "id": "outlet-1776229340639",
-      "code": "BLR-05",
-      "name": "Electronic City",
-      "gstin": "29ABCDE1234F1Z5",
-      "city": "Bengaluru",
-      "state": "Karnataka",
-      "isActive": true,
-      "defaultTaxProfileId": "tax-5",
-      "receiptTemplateId": null
-    },
-    {
-      "hours": "10:00 - 23:00",
-      "services": [
-        "Takeaway"
-      ],
-      "workAreas": [
-        "Only Takeaway"
-      ],
-      "tables": [],
-      "reportEmail": "yathuramarnath@gmail.com",
-      "id": "outlet-1776229358623",
-      "code": "BLR-05",
-      "name": "Chennai 1",
-      "gstin": "29ABCDE1234F1Z5",
-      "city": "Bengaluru",
-      "state": "Karnataka",
-      "isActive": true,
-      "defaultTaxProfileId": "tax-5",
-      "receiptTemplateId": "receipt-takeaway"
-    },
-    {
-      "hours": "09:00 - 23:00",
-      "services": [
-        "Dine-in",
-        "Takeaway"
-      ],
-      "workAreas": [
-        "AC",
-        "Non-AC",
-        "Self Service"
-      ],
-      "tables": [],
-      "reportEmail": "ecity-reports@saisangeet.in",
-      "id": "outlet-1776310932436",
-      "code": "BLR-05",
-      "name": "Electronic City",
-      "gstin": "29ABCDE1234F1Z5",
-      "city": "Bengaluru",
-      "state": "Karnataka",
-      "isActive": true,
-      "defaultTaxProfileId": "tax-5",
-      "receiptTemplateId": "receipt-dine-in"
-    },
-    {
-      "hours": "09:00 - 23:00",
-      "services": [
-        "Dine-in",
-        "Takeaway"
-      ],
-      "workAreas": [
-        "AC",
-        "Non-AC",
-        "Self Service"
-      ],
-      "tables": [],
-      "reportEmail": "ecity-reports@saisangeet.in",
-      "id": "outlet-1776310947132",
-      "code": "BLR-05",
-      "name": "Electronic City 1",
-      "gstin": "29ABCDE1234F1Z5",
-      "city": "Bengaluru",
-      "state": "Karnataka",
-      "isActive": true,
-      "defaultTaxProfileId": "tax-5",
-      "receiptTemplateId": "receipt-dine-in"
-    },
-    {
-      "hours": "09:00 - 23:00",
-      "services": [
-        "Dine-in",
-        "Takeaway"
-      ],
-      "workAreas": [
-        "AC",
-        "Non-AC",
-        "Self Service"
-      ],
-      "tables": [
-        {
-          "id": "table-1776313862908-oc7zy",
-          "workArea": "AC",
-          "name": "T1",
-          "seats": 4,
-          "seatLabels": [
-            "T1S1",
-            "T1S2",
-            "T1S3",
-            "T1S4"
-          ]
-        },
-        {
-          "id": "table-1776313879702-435tl",
-          "workArea": "AC",
-          "name": "T2",
-          "seats": 4,
-          "seatLabels": [
-            "T2S1",
-            "T2S2",
-            "T2S3",
-            "T2S4"
-          ]
-        },
-        {
-          "id": "table-1776319277204-ryxt2",
-          "workArea": "AC",
-          "name": "T3",
-          "seats": 9,
-          "seatLabels": [
-            "T3S1",
-            "T3S2",
-            "T3S3",
-            "T3S4",
-            "T3S5",
-            "T3S6",
-            "T3S7",
-            "T3S8",
-            "T3S9"
-          ]
-        }
-      ],
-      "reportEmail": "ecity-reports@saisangeet.in",
-      "id": "outlet-1776313993222",
-      "code": "BLR-05",
-      "name": "Electronic City",
-      "gstin": "29ABCDE1234F1Z5",
-      "city": "Bengaluru",
-      "state": "Karnataka",
-      "isActive": true,
-      "defaultTaxProfileId": "tax-5",
-      "receiptTemplateId": "receipt-dine-in"
-    }
-  ],
+    "pricingProfiles": [
+      {
+        "id": "pricing-standard",
+        "name": "Standard Service Pricing",
+        "dineInMode": "Area wise",
+        "takeawayMode": "Single price",
+        "deliveryMode": "Single price",
+        "takeawayParcelChargeType": "None",
+        "takeawayParcelChargeValue": 0,
+        "deliveryParcelChargeType": "Fixed",
+        "deliveryParcelChargeValue": 25,
+        "isActive": true
+      },
+      {
+        "id": "pricing-premium",
+        "name": "Premium Delivery Pricing",
+        "dineInMode": "Area wise",
+        "takeawayMode": "Single price",
+        "deliveryMode": "Single price",
+        "takeawayParcelChargeType": "Fixed",
+        "takeawayParcelChargeValue": 10,
+        "deliveryParcelChargeType": "Percentage",
+        "deliveryParcelChargeValue": 5,
+        "isActive": false
+      }
+    ],
+    "menuGroups": [],
+    "menuAssignments": [
+      {
+        "channels": "Dine-In, Takeaway, Delivery",
+        "availability": "Always on",
+        "status": "Ready",
+        "id": "assign-1",
+        "menuGroupId": "all-day",
+        "outletId": "outlet-indiranagar"
+      },
+      {
+        "channels": "Dine-In, Takeaway",
+        "availability": "7:00 AM - 11:00 AM",
+        "status": "Scheduled",
+        "id": "assign-2",
+        "menuGroupId": "breakfast",
+        "outletId": "outlet-koramangala"
+      }
+    ]
+  },
+  "taxes": [],
+  "discounts": [],
   "permissions": [
     {
       "id": "perm-1",
@@ -366,6 +415,14 @@
       "scope": "kitchen"
     }
   ],
+  "settings": {},
+  "businessProfile": {
+    "tradeName": "Smoke Café 1778673240218",
+    "legalName": "Smoke Café 1778673240218",
+    "email": "smoke+1778673240218@test.dinexpos.in",
+    "phone": "9999999999"
+  },
+  "devices": [],
   "roles": [
     {
       "id": "role-owner",
@@ -407,18 +464,10 @@
       ]
     },
     {
-      "id": "role-1776275610938",
+      "id": "role-cashier",
       "name": "Cashier",
-      "description": "Cashier role created from owner dashboard",
+      "description": "Billing, edits, cancellations, and optional table setup",
       "permissions": [
-        "menu.manage",
-        "users.manage",
-        "tax.manage",
-        "receipt_templates.manage",
-        "devices.manage",
-        "operations.kot.send",
-        "operations.bill.request",
-        "operations.discount.approve",
         "operations.table.create",
         "operations.bill.edit",
         "floor.table.seats.manage"
@@ -427,10 +476,9 @@
     {
       "id": "role-captain",
       "name": "Captain",
-      "description": "Floor service and KOT operations",
+      "description": "Floor service, KOT, table movement, and split bill request",
       "permissions": [
         "operations.kot.send",
-        "operations.bill.request",
         "operations.bill.split",
         "operations.table.move"
       ]
@@ -452,1018 +500,6 @@
       ]
     }
   ],
-  "users": [
-    {
-      "id": "user-owner",
-      "fullName": "Amarnath",
-      "name": "Amarnath",
-      "roles": [
-        "Owner"
-      ],
-      "outletName": "All Outlets",
-      "isActive": true,
-      "pin": "1234",
-      "email": "info@dinexpos.in",
-      "phone": "+919876543210",
-      "passwordHash": "$2b$10$AKd7eYWKnyxcoLQG/IznSu5W.L168EHROC7pkr/6UtVsW56JDw6MO"
-    },
-    {
-      "id": "user-manager-1",
-      "fullName": "Priya Manager",
-      "name": "Priya Manager",
-      "roles": [
-        "Manager"
-      ],
-      "outletName": "Indiranagar",
-      "isActive": true,
-      "pin": "2244"
-    },
-    {
-      "id": "user-1776228273746",
-      "fullName": "Karthik",
-      "name": "Karthik",
-      "roles": [
-        "Captain"
-      ],
-      "outletName": "Indiranagar",
-      "isActive": true,
-      "pin": "1234"
-    },
-    {
-      "id": "user-1776228302591",
-      "fullName": "amarnath",
-      "name": "amarnath",
-      "roles": [
-        "Manager"
-      ],
-      "outletName": "Koramangala",
-      "isActive": true,
-      "pin": "5546"
-    },
-    {
-      "id": "user-1776228757846",
-      "fullName": "Test Staff",
-      "name": "Test Staff",
-      "roles": [
-        "Captain"
-      ],
-      "outletName": "Indiranagar",
-      "isActive": true,
-      "pin": "1234"
-    }
-  ],
-  "taxProfiles": [
-    {
-      "id": "tax-5",
-      "name": "GST 5%",
-      "cgstRate": 2.5,
-      "sgstRate": 2.5,
-      "igstRate": 5,
-      "cessRate": 0,
-      "isInclusive": false,
-      "isDefault": true
-    },
-    {
-      "id": "tax-18",
-      "name": "GST 18%",
-      "cgstRate": 9,
-      "sgstRate": 9,
-      "igstRate": 18,
-      "cessRate": 0,
-      "isInclusive": false,
-      "isDefault": false
-    }
-  ],
-  "receiptTemplates": [
-    {
-      "id": "receipt-dine-in",
-      "name": "Dine-In Standard",
-      "showQrPayment": true,
-      "showTaxBreakdown": true,
-      "footerNote": "Thank you, visit again",
-      "outletName": "All Outlets"
-    },
-    {
-      "id": "receipt-takeaway",
-      "name": "Takeaway Standard",
-      "showQrPayment": true,
-      "showTaxBreakdown": true,
-      "footerNote": "Packed with care",
-      "outletName": "All Outlets"
-    }
-  ],
-  "devices": [
-    {
-      "id": "device-1",
-      "deviceName": "Front Cashier POS",
-      "deviceType": "POS Terminal",
-      "outletName": "Indiranagar",
-      "status": "active",
-      "linkCode": "INDR-1001"
-    },
-    {
-      "id": "device-2",
-      "deviceName": "Billing Counter 2",
-      "deviceType": "POS Terminal",
-      "outletName": "Koramangala",
-      "status": "inactive",
-      "linkCode": "KORA-1002"
-    },
-    {
-      "id": "device-kitchen-printer-default",
-      "deviceName": "Kitchen Printer 1",
-      "deviceType": "Kitchen Printer",
-      "outletName": "Indiranagar",
-      "status": "active",
-      "linkCode": "KPR-DEFAULT"
-    },
-    {
-      "id": "device-kitchen-display-default",
-      "deviceName": "Hot Kitchen Display",
-      "deviceType": "Kitchen Display",
-      "outletName": "Indiranagar",
-      "status": "active",
-      "linkCode": "KDS-DEFAULT"
-    }
-  ],
-  "menu": {
-    "categories": [
-      {
-        "station": "Main kitchen",
-        "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display",
-        "id": "cat-starters",
-        "name": "Starters",
-        "itemCount": 6,
-        "availableFrom": "12:00",
-        "availableTo": "16:00"
-      },
-      {
-        "station": "Main kitchen",
-        "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display",
-        "id": "cat-main-course",
-        "name": "Main Course",
-        "itemCount": 3
-      },
-      {
-        "station": "Main kitchen",
-        "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display",
-        "id": "cat-beverages",
-        "name": "Beverages",
-        "itemCount": 1
-      },
-      {
-        "station": "Main kitchen",
-        "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display",
-        "id": "cat-1776228760653",
-        "name": "Soups",
-        "itemCount": 0
-      },
-      {
-        "station": "Main kitchen",
-        "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display",
-        "id": "cat-1776229234828",
-        "name": "Rice",
-        "itemCount": 0
-      },
-      {
-        "station": "Main kitchen",
-        "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display",
-        "id": "cat-1776229243197",
-        "name": "Juices",
-        "itemCount": 0
-      },
-      {
-        "station": "Main kitchen",
-        "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display",
-        "id": "cat-1776253943627",
-        "name": "North Indian",
-        "itemCount": 0
-      },
-      {
-        "station": "Main kitchen",
-        "printerTarget": "Kitchen Printer 1",
-        "displayTarget": "Hot Kitchen Display",
-        "id": "cat-1776271785173",
-        "name": "Break Fast",
-        "itemCount": 1,
-        "availableFrom": "07:00",
-        "availableTo": "11:00"
-      }
-    ],
-    "items": [
-      {
-        "id": "item-1776271803537",
-        "categoryId": "cat-1776271785173",
-        "name": "podi Dosa",
-        "station": "south indian",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Custom item",
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          },
-          {
-            "outlet": "HSR Layout",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Item wise",
-          "note": "Track sellable stock for POS and waiter ordering"
-        },
-        "takeawayPrice": "Rs 185",
-        "deliveryPrice": "Rs 205",
-        "parcelCharges": {
-          "takeaway": {
-            "type": "None",
-            "value": 0
-          },
-          "delivery": {
-            "type": "None",
-            "value": 0
-          }
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 190",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 180",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 170",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          }
-        ]
-      },
-      {
-        "id": "item-1776258348885",
-        "categoryId": "cat-starters",
-        "name": "Gobi Manchurian",
-        "station": "North Indian",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Custom item",
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          },
-          {
-            "outlet": "HSR Layout",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Item wise",
-          "note": "Track sellable stock for POS and waiter ordering"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 190",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 180",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 170",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          }
-        ],
-        "takeawayPrice": "Rs 185",
-        "deliveryPrice": "Rs 205",
-        "parcelCharges": {
-          "takeaway": {
-            "type": "None",
-            "value": 0
-          },
-          "delivery": {
-            "type": "None",
-            "value": 0
-          }
-        }
-      },
-      {
-        "id": "item-1776253807085",
-        "categoryId": "cat-starters",
-        "name": "Gobi Manchurian Dry",
-        "station": "North Indian",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Custom item",
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          },
-          {
-            "outlet": "HSR Layout",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Item wise",
-          "note": "Track sellable stock for POS and waiter ordering"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 190",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 180",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 170",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          }
-        ],
-        "takeawayPrice": "Rs 185",
-        "deliveryPrice": "Rs 205",
-        "parcelCharges": {
-          "takeaway": {
-            "type": "None",
-            "value": 0
-          },
-          "delivery": {
-            "type": "None",
-            "value": 0
-          }
-        }
-      },
-      {
-        "id": "item-1776230443898",
-        "categoryId": "cat-starters",
-        "name": "Test",
-        "station": "Fry station",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Custom item",
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          },
-          {
-            "outlet": "HSR Layout",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Item wise",
-          "note": "Track sellable stock for POS and waiter ordering"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 190",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 180",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 195"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 170",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 185"
-          }
-        ]
-      },
-      {
-        "id": "item-1776229309045",
-        "categoryId": "cat-main-course",
-        "name": "Veg Fried Rice",
-        "station": "Fry station",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Custom item",
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          },
-          {
-            "outlet": "HSR Layout",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Item wise",
-          "note": "Track sellable stock for POS and waiter ordering"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 190",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 180",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 195"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 170",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 185"
-          }
-        ]
-      },
-      {
-        "id": "item-1776229307238",
-        "categoryId": "cat-main-course",
-        "name": "Veg Fried Rice",
-        "station": "Fry station",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Custom item",
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          },
-          {
-            "outlet": "HSR Layout",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Item wise",
-          "note": "Track sellable stock for POS and waiter ordering"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 190",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 180",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 195"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 170",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 185"
-          }
-        ]
-      },
-      {
-        "id": "item-1776188816859",
-        "categoryId": "cat-starters",
-        "name": "Gobi Manchurian",
-        "station": "Fry station",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Custom item",
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          },
-          {
-            "outlet": "HSR Layout",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Item wise",
-          "note": "Track sellable stock for POS and waiter ordering"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 190",
-            "takeaway": "Rs 185",
-            "delivery": "Rs 205"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 180",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 195"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 170",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 185"
-          }
-        ]
-      },
-      {
-        "id": "item-paneer-tikka",
-        "categoryId": "cat-starters",
-        "name": "Paneer Tikka",
-        "station": "Grill station",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Area + service pricing",
-          "Available",
-          "Tracked"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Item wise",
-          "note": "Track sellable stock for POS and waiter ordering"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 220",
-            "takeaway": "Rs 210",
-            "delivery": "Rs 230"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 210",
-            "takeaway": "Rs 205",
-            "delivery": "Rs 225"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 195",
-            "takeaway": "Rs 190",
-            "delivery": "Rs 215"
-          }
-        ]
-      },
-      {
-        "id": "item-crispy-corn",
-        "categoryId": "cat-starters",
-        "name": "Crispy Corn",
-        "station": "Fry station",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Area + service pricing",
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": false
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": false,
-          "mode": "Optional",
-          "note": "Inventory tracking is disabled for this item"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 180",
-            "takeaway": "Rs 175",
-            "delivery": "Rs 195"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 170",
-            "takeaway": "Rs 165",
-            "delivery": "Rs 185"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 160",
-            "takeaway": "Rs 155",
-            "delivery": "Rs 175"
-          }
-        ]
-      },
-      {
-        "id": "item-veg-biryani",
-        "categoryId": "cat-main-course",
-        "name": "Veg Biryani",
-        "station": "Main kitchen",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Popular",
-          "Tracked"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": true,
-          "mode": "Category wise",
-          "note": "Included in opening stock category-wise sales tracking"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 240",
-            "takeaway": "Rs 230",
-            "delivery": "Rs 250"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 230",
-            "takeaway": "Rs 225",
-            "delivery": "Rs 245"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 220",
-            "takeaway": "Rs 215",
-            "delivery": "Rs 235"
-          }
-        ]
-      },
-      {
-        "id": "item-sweet-lime",
-        "categoryId": "cat-beverages",
-        "name": "Sweet Lime Soda",
-        "station": "Beverages",
-        "gstLabel": "GST 5%",
-        "status": "Live",
-        "foodType": "Veg",
-        "badges": [
-          "Available"
-        ],
-        "salesAvailability": "Available",
-        "outletAvailability": [
-          {
-            "outlet": "Indiranagar",
-            "enabled": true
-          },
-          {
-            "outlet": "Koramangala",
-            "enabled": true
-          }
-        ],
-        "inventoryTracking": {
-          "enabled": false,
-          "mode": "Optional later",
-          "note": "No stock tracking for beverages in this setup"
-        },
-        "pricing": [
-          {
-            "area": "AC",
-            "dineIn": "Rs 90",
-            "takeaway": "Rs 85",
-            "delivery": "Rs 95"
-          },
-          {
-            "area": "Non-AC",
-            "dineIn": "Rs 90",
-            "takeaway": "Rs 85",
-            "delivery": "Rs 95"
-          },
-          {
-            "area": "Self Service",
-            "dineIn": "Rs 90",
-            "takeaway": "Rs 85",
-            "delivery": "Rs 95"
-          }
-        ]
-      }
-    ],
-    "stations": [
-      {
-        "id": "station-1776252949381",
-        "name": "South Indian",
-        "outletId": "all",
-        "categories": []
-      },
-      {
-        "id": "station-1776253807079",
-        "name": "North Indian",
-        "outletId": "all",
-        "categories": []
-      },
-      {
-        "id": "station-1776253866086",
-        "name": "Tandoor Station",
-        "outletId": "all",
-        "categories": []
-      }
-    ],
-    "config": {
-      "defaultPricingMode": "Area + order type",
-      "pricingZones": [
-        "AC",
-        "Non-AC",
-        "Self Service"
-      ],
-      "orderTypes": [
-        "Dine-In",
-        "Takeaway",
-        "Delivery"
-      ],
-      "defaultTaxProfileId": "tax-5",
-      "menuStructureNote": "One page, simple assignment"
-    },
-    "menuGroups": [
-      {
-        "status": "Scheduled",
-        "categoryIds": [
-          "cat-starters"
-        ],
-        "channels": "Dine-In, Takeaway",
-        "availability": "Always on",
-        "note": "",
-        "id": "group-1776257380248",
-        "name": "DOSA Group"
-      },
-      {
-        "status": "Live",
-        "categoryIds": [
-          "cat-starters",
-          "cat-main-course",
-          "cat-beverages"
-        ],
-        "channels": "Dine-In, Takeaway, Delivery",
-        "availability": "Always on",
-        "note": "Primary menu used through the full service day",
-        "id": "all-day",
-        "name": "All Day Menu"
-      },
-      {
-        "status": "Scheduled",
-        "categoryIds": [
-          "cat-beverages"
-        ],
-        "channels": "Dine-In, Takeaway",
-        "availability": "7:00 AM - 11:00 AM",
-        "note": "Shown from 7:00 AM to 11:00 AM",
-        "id": "breakfast",
-        "name": "Breakfast Menu"
-      },
-      {
-        "status": "Review",
-        "categoryIds": [
-          "cat-main-course"
-        ],
-        "channels": "Delivery",
-        "availability": "6:00 PM - 10:30 PM",
-        "note": "Owner should review pricing and availability before launch",
-        "id": "delivery-only",
-        "name": "Delivery Specials"
-      }
-    ],
-    "menuAssignments": [
-      {
-        "channels": "Dine-In, Takeaway",
-        "availability": "Always on",
-        "status": "Ready",
-        "id": "assignment-1776257457326",
-        "menuGroupId": "group-1776257380248",
-        "outletId": "outlet-1776229358623"
-      },
-      {
-        "channels": "Dine-In, Takeaway, Delivery",
-        "availability": "Always on",
-        "status": "Ready",
-        "id": "assign-1",
-        "menuGroupId": "all-day",
-        "outletId": "outlet-indiranagar"
-      },
-      {
-        "channels": "Dine-In, Takeaway",
-        "availability": "7:00 AM - 11:00 AM",
-        "status": "Scheduled",
-        "id": "assign-2",
-        "menuGroupId": "breakfast",
-        "outletId": "outlet-koramangala"
-      }
-    ],
-    "pricingProfiles": [
-      {
-        "id": "pricing-standard",
-        "name": "Standard Service Pricing",
-        "dineInMode": "Area wise",
-        "takeawayMode": "Single price",
-        "deliveryMode": "Single price",
-        "takeawayParcelChargeType": "None",
-        "takeawayParcelChargeValue": 0,
-        "deliveryParcelChargeType": "Fixed",
-        "deliveryParcelChargeValue": 25,
-        "isActive": true
-      },
-      {
-        "id": "pricing-premium",
-        "name": "Premium Delivery Pricing",
-        "dineInMode": "Area wise",
-        "takeawayMode": "Single price",
-        "deliveryMode": "Single price",
-        "takeawayParcelChargeType": "Fixed",
-        "takeawayParcelChargeValue": 10,
-        "deliveryParcelChargeType": "Percentage",
-        "deliveryParcelChargeValue": 5,
-        "isActive": false
-      }
-    ]
-  },
-  "discounts": {
-    "rules": [
-      {
-        "discountType": "percentage",
-        "discountScope": "order",
-        "value": 10,
-        "outletScope": "All Outlets",
-        "appliesToRole": "Cashier",
-        "requiresApproval": false,
-        "timeWindow": "12:00 PM - 03:00 PM",
-        "isActive": true,
-        "notes": "Lunch hour bill discount",
-        "id": "discount-lunch",
-        "name": "Lunch Promo"
-      },
-      {
-        "discountType": "flat",
-        "discountScope": "order",
-        "value": 50,
-        "outletScope": "Selected Outlets",
-        "appliesToRole": "Cashier",
-        "requiresApproval": false,
-        "timeWindow": "Always on",
-        "isActive": true,
-        "notes": "Takeaway bills above minimum threshold",
-        "id": "discount-takeaway",
-        "name": "Takeaway Saver"
-      }
-    ],
-    "approvalPolicy": [
-      {
-        "manualDiscountLimit": 6,
-        "orderVoid": "Not allowed",
-        "billDelete": "Not allowed",
-        "approvalRoute": "Above 5% goes to Manager / Owner",
-        "status": "Protected",
-        "id": "approval-cashier",
-        "role": "Cashier"
-      },
-      {
-        "manualDiscountLimit": 10,
-        "orderVoid": "Allowed with note",
-        "billDelete": "Allowed with reason",
-        "approvalRoute": "Above 15% goes to Owner",
-        "status": "Sensitive",
-        "id": "approval-manager",
-        "role": "Manager"
-      },
-      {
-        "manualDiscountLimit": 50,
-        "orderVoid": "Allowed",
-        "billDelete": "Allowed",
-        "approvalRoute": "Final authority",
-        "status": "Full access",
-        "id": "approval-owner",
-        "role": "Owner"
-      }
-    ],
-    "defaults": {
-      "cashierLimitPercent": 6,
-      "managerLimitPercent": 10,
-      "reasonRequired": true,
-      "auditLogEnabled": true,
-      "allowRuleStacking": false
-    }
-  },
   "integrations": {
     "zohoBooks": {
       "enabled": true,
@@ -1474,7 +510,7 @@
       "dataCenter": "IN",
       "refreshToken": "",
       "connectionStatus": "Needs setup",
-      "lastSyncAt": "2026-04-16T08:07:05.527Z",
+      "lastSyncAt": "Not synced yet",
       "autoSyncSales": true,
       "autoSyncPurchases": true,
       "autoSyncDayClose": true
@@ -1488,72 +524,7 @@
       "vendorPayableAccount": "Accounts Payable",
       "purchaseExpenseAccount": "Kitchen Purchase"
     },
-    "outletMappings": [
-      {
-        "id": "integration-outlet-indiranagar",
-        "outletId": "outlet-indiranagar",
-        "outletName": "Indiranagar",
-        "zohoBooksEnabled": true,
-        "salesContactName": "Indiranagar Walk-In Sales",
-        "branchLabel": "BLR-01"
-      },
-      {
-        "id": "integration-outlet-koramangala",
-        "outletId": "outlet-koramangala",
-        "outletName": "Koramangala",
-        "zohoBooksEnabled": true,
-        "salesContactName": "Koramangala Walk-In Sales",
-        "branchLabel": "BLR-02"
-      },
-      {
-        "id": "integration-outlet-1776228758702",
-        "outletId": "outlet-1776228758702",
-        "outletName": "Test Outlet",
-        "zohoBooksEnabled": true,
-        "salesContactName": "Test Outlet Walk-In Sales",
-        "branchLabel": "TST-01"
-      },
-      {
-        "id": "integration-outlet-1776229340639",
-        "outletId": "outlet-1776229340639",
-        "outletName": "Electronic City",
-        "zohoBooksEnabled": true,
-        "salesContactName": "Electronic City Walk-In Sales",
-        "branchLabel": "BLR-05"
-      },
-      {
-        "id": "integration-outlet-1776229358623",
-        "outletId": "outlet-1776229358623",
-        "outletName": "Chennai 1",
-        "zohoBooksEnabled": true,
-        "salesContactName": "Chennai 1 Walk-In Sales",
-        "branchLabel": "BLR-05"
-      },
-      {
-        "id": "integration-outlet-1776310932436",
-        "outletId": "outlet-1776310932436",
-        "outletName": "Electronic City",
-        "zohoBooksEnabled": true,
-        "salesContactName": "Electronic City Walk-In Sales",
-        "branchLabel": "BLR-05"
-      },
-      {
-        "id": "integration-outlet-1776310947132",
-        "outletId": "outlet-1776310947132",
-        "outletName": "Electronic City 1",
-        "zohoBooksEnabled": true,
-        "salesContactName": "Electronic City 1 Walk-In Sales",
-        "branchLabel": "BLR-05"
-      },
-      {
-        "id": "integration-outlet-1776313993222",
-        "outletId": "outlet-1776313993222",
-        "outletName": "Electronic City",
-        "zohoBooksEnabled": true,
-        "salesContactName": "Electronic City Walk-In Sales",
-        "branchLabel": "BLR-05"
-      }
-    ],
+    "outletMappings": [],
     "vendorMappings": [
       {
         "id": "vendor-a1",
@@ -1571,39 +542,29 @@
         "itemName": "Vegetable Purchase",
         "amount": 3200,
         "expenseAccount": "Kitchen Purchase",
-        "status": "Prepared",
+        "status": "Queued",
         "createdAt": "Today"
       }
     ],
-    "syncLog": [
-      {
-        "id": "sync-cash-out-expense-1776326825529",
-        "time": "2026-04-16T08:07:05.527Z",
-        "type": "Expense",
-        "source": "Cashier cash-out expenses",
-        "account": "Outlet Expenses",
-        "amount": 1150,
-        "status": "Needs credentials"
-      },
-      {
-        "id": "sync-day-close-shortage-1776326825529",
-        "time": "2026-04-16T08:07:05.527Z",
-        "type": "Journal Entry",
-        "source": "Day close shortage",
-        "account": "Revenue Loss",
-        "amount": 1200,
-        "status": "Needs credentials"
-      },
-      {
-        "id": "sync-vendor-purchases-1776326825529",
-        "time": "2026-04-16T08:07:05.527Z",
-        "type": "Vendor Bill",
-        "source": "Kitchen purchases",
-        "account": "Accounts Payable / Kitchen Purchase",
-        "amount": 3200,
-        "status": "Needs credentials"
-      }
-    ]
+    "syncLog": []
   },
-  "pendingLinkTokens": []
+  "security": {
+    "managerPin": ""
+  },
+  "pendingLinkTokens": [],
+  "counterConfig": {
+    "billMode": "fy",
+    "fyBill": {
+      "fy": "2026-27",
+      "last": 1
+    },
+    "dailyBill": {
+      "date": "2026-05-13",
+      "last": 0
+    },
+    "kot": {
+      "date": "2026-05-13",
+      "last": 1
+    }
+  }
 }

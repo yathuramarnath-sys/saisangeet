@@ -10,8 +10,9 @@
 
 import { getBillPrinter } from "./kotPrint";
 import { tabletPrintBill } from "./wifiPrint";
-import { isNativeAndroid, sendToThermalPrinter } from "./thermalPrint";
+import { isNativeAndroid } from "./thermalPrint";
 import { buildBillEscPos } from "./escpos";
+import { enqueue as printEnqueue, PRINT_TYPE } from "./printQueue";
 
 export function printBill(order, items, outletData, options = {}) {
 
@@ -110,14 +111,14 @@ export function printBill(order, items, outletData, options = {}) {
       footer:  outletObj.invoiceFooter || "Thank you for dining with us!",
     });
 
-    sendToThermalPrinter(printerIp, escPosData)
-      .then(result => {
-        if (!result?.ok) {
-          window.dispatchEvent(new CustomEvent("dinex:print-error", {
-            detail: { source: "Bill", error: result?.error || "Print failed" },
-          }));
-        }
-      });
+    // ── Enqueue then flush immediately (same timing as before, + auto-retry) ──
+    printEnqueue(PRINT_TYPE.BILL, printerIp, escPosData, {
+      table:  tableLabel,
+      billNo: order.billNo || "",
+    });
+    // Signal App.jsx to flush right now — printer fires immediately,
+    // retry worker only kicks in if this first attempt fails.
+    window.dispatchEvent(new CustomEvent("dinex:flush-prints"));
 
     return;
   }

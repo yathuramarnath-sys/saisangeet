@@ -828,7 +828,7 @@ function KotCard({ ticket, settings, onAdvance, onBump, onToggleItem, flash }) {
           )}
           {/* KOT# + source + station — secondary info */}
           <div className="kot-head-row">
-            <span className="kot-number">#{ticket.kotNumber || ticket.id?.slice(-4)}</span>
+            <span className="kot-number">KOT-{String(ticket.kotNumber || 0).padStart(4, "0")}</span>
             <span className="kot-src-badge" style={{ color: src.color, background: src.bg }}>
               {src.label}
             </span>
@@ -1598,7 +1598,7 @@ export function App() {
                     {/* Row 1: KOT# + source badge + table + time */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontWeight: 800, fontSize: 14, color: "#f9fafb" }}>#{t.kotNumber || t.id?.slice(-4)}</span>
+                        <span style={{ fontWeight: 800, fontSize: 14, color: "#f9fafb" }}>KOT-{String(t.kotNumber || 0).padStart(4, "0")}</span>
                         <span style={{ fontSize: 11, fontWeight: 700, color: src.color, background: src.bg, padding: "2px 7px", borderRadius: 4 }}>
                           {t.operatorName || src.label}
                         </span>

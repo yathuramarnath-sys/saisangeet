@@ -12,3 +12,12 @@ electron-dist/
 # In production: apps use the .env file (https://api.dinexpos.in/api/v1)
 .env.local
 apps/*/.env.local
+
+# Android release keystores — sensitive signing keys, never commit binaries
+# The KEYSTORE_INFO.md readme IS committed (no secrets, just instructions)
+backend/keystores/*.jks
+backend/keystores/*.keystore
+
+# Built release artifacts — too large for git, distribute via GitHub Releases
+backend/keystores/releases/*.apk
+backend/keystores/releases/*.exe

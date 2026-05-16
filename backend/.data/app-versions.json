@@ -1,19 +1,19 @@
 {
   "pos": {
-    "version": "1.3.7",
+    "version": "1.3.8",
     "label": "POS Terminal",
-    "changelog": "Bill number assigned at Print Bill (not settlement), correct sequential numbering per owner-console settings",
+    "changelog": "Fix bill double-print — settle no longer prints a second copy when Print Bill was clicked just before",
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-05-14"
+    "releaseDate": "2026-05-15"
   },
   "captain": {
-    "version": "1.13",
+    "version": "1.16",
     "label": "Captain App",
-    "changelog": "Offline sync queue — item adds/removes and bill requests now retry automatically when connection returns",
+    "changelog": "Fix merge/transfer sync — freed table clears properly on POS; secondary actions now show as single-line list",
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
-    "releaseDate": "2026-05-14"
+    "releaseDate": "2026-05-15"
   },
   "kds": {
     "version": "1.7",
@@ -32,11 +32,11 @@
     "releaseDate": "2026-05-12"
   },
   "tabletPos": {
-    "version": "1.0",
+    "version": "1.1.0",
     "label": "Tablet POS",
-    "changelog": "Full POS on Android tablet — orders, payments, GST bills, shifts, WiFi printing",
+    "changelog": "Fix bill double-print — Print Bill now prints immediately; Settle only auto-prints if Print Bill was skipped",
     "downloadUrl": null,
-    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-Tablet-POS-v1.0.apk",
-    "releaseDate": "2026-05-13"
+    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-Tablet-POS-v1.1.0.apk",
+    "releaseDate": "2026-05-15"
   }
 }

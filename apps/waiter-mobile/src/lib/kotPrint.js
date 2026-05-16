@@ -107,7 +107,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   // ── Android native: direct TCP → printer (no POS proxy needed) ────────────
   // Import lazily to avoid loading Capacitor on non-Android paths
   if (typeof window !== "undefined" && !window.electronAPI?.printHTML) {
-    import("./thermalPrint").then(({ isNativeAndroid, sendToThermalPrinter }) => {
+    import("./thermalPrint").then(({ isNativeAndroid }) => {
       if (!isNativeAndroid()) return; // web fallback — no KOT print on plain browser
 
       import("./escpos").then(({ buildKotEscPos }) => {
@@ -138,18 +138,21 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
           items:       items.map(i => ({ qty: i.quantity, name: i.name, note: i.note || "" })),
           totalItems:  items.reduce((s, i) => s + i.quantity, 0),
           sentBy:      options.sentBy || order.cashierName || "",
-          waiter:      order.assignedWaiter || "",
+          // options.waiter (logged-in staff) takes priority over stale order.assignedWaiter
+          waiter:      options.waiter || order.assignedWaiter || "",
           printerName: resolvedPrinter0?.name || "Kitchen",
         });
 
-        sendToThermalPrinter(printerIp0, escPosData)
-          .then(result => {
-            if (!result?.ok) {
-              window.dispatchEvent(new CustomEvent("dinex:print-error", {
-                detail: { source: "KOT", error: result?.error || "KOT print failed" },
-              }));
-            }
+        // ── Enqueue then flush immediately (same timing as before, + auto-retry) ─
+        import("./printQueue.js").then(({ enqueue, PRINT_TYPE }) => {
+          enqueue(PRINT_TYPE.KOT, printerIp0, escPosData, {
+            table:  tableLabel0,
+            kotNum: kotNum0,
           });
+          // Signal App.jsx to flush right now — printer fires immediately,
+          // retry worker only kicks in if this first attempt fails.
+          window.dispatchEvent(new CustomEvent("dinex:flush-prints"));
+        });
       });
     });
     return; // Android handled above

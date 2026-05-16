@@ -18,8 +18,8 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 // ⚠️  Keep this in sync with package.json "version" on every release.
-const APP_VERSION = "1.3.6";
-const APP_KEY     = "pos";
+const APP_VERSION = "1.1.0";
+const APP_KEY     = "tabletPos";
 const API_BASE    = import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1";
 const DISMISS_KEY = "pos_update_dismissed_for";  // localStorage: stores version user dismissed
 

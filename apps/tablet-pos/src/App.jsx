@@ -29,7 +29,7 @@ import { printBill } from "./lib/printBill";
 import { openCashDrawer, hasCashPayment } from "./lib/cashDrawer";
 import { setItemAvailability } from "./lib/stockAvailability.js";
 
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.1.0";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -264,6 +264,8 @@ export default function App() {
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
   const ordersRef  = useRef({});
+  // Guard: prevent handlePrintBill from firing twice (double-tap)
+  const billPrintingRef = useRef(false);
   // Tracks socket connection state for reconnect-resync logic
   const socketConnRef = useRef("connecting"); // "connecting" | "live" | "offline"
   const [serverConn,  setServerConn]  = useState("connecting"); // for UI banner
@@ -1244,15 +1246,19 @@ export default function App() {
     }
 
     // ── Print receipt after settle ─────────────────────────────────────────
-    // Print once here — AFTER the server has assigned the official billNo.
-    // This ensures the thermal receipt shows the sequential GST bill number
-    // (e.g. "Bill No: #42") rather than the local POS orderNumber.
-    printBill(
-      closedOrder,
-      closedOrder.items,
-      outlet || branchConfig?.outletName,
-      { cashierName }
-    );
+    // Only auto-print here if the cashier did NOT already click "Print Bill"
+    // (order.billRequested is false = bill was not printed earlier).
+    // When cashier clicks "Print Bill" first, handlePrintBill() already printed
+    // and set billRequested: true — so we skip the second print here.
+    // This prevents the double-print: Print Bill → Settle → two receipts.
+    if (!order.billRequested) {
+      printBill(
+        closedOrder,
+        closedOrder.items,
+        outlet || branchConfig?.outletName,
+        { cashierName }
+      );
+    }
 
     setShowPayment(false);
     setSelectedTableId(null);
@@ -1445,32 +1451,58 @@ export default function App() {
   }
 
   // ── Print bill ────────────────────────────────────────────────────────────
-  // This button MARKS the table as "Bill Due" (turns it blue on the floor plan
-  // and notifies Captain app). The actual receipt prints after settlement so the
-  // bill number on the receipt is the server-assigned sequential GST bill number.
-  function handlePrintBill() {
+  // Assigns a server bill number, prints the thermal receipt, and marks the
+  // table as "Bill Due" (turns it blue). If the cashier skips this and goes
+  // straight to Settle, handleSettle auto-prints exactly once.
+  async function handlePrintBill() {
     if (!selectedTableId) return;
+    if (billPrintingRef.current) return;
+    billPrintingRef.current = true;
     const tableId = selectedTableId;
     const order   = orders[tableId];
-    if (!order?.items?.length) { showToast("No items to print"); return; }
+    if (!order?.items?.length) { billPrintingRef.current = false; showToast("No items to print"); return; }
+
+    // Assign bill number from server so the printed receipt shows the correct
+    // sequential bill number (e.g. "Bill No: #42"). Idempotent — if a number
+    // was already assigned it returns the same one.
+    let printOrder = { ...order };
+    try {
+      const result = await api.post("/operations/assign-bill-no", {
+        outletId: outlet?.id,
+        tableId,
+      });
+      if (result?.billNo != null) {
+        printOrder = { ...printOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
+        mutateOrder(tableId, o => { o.billNo = result.billNo; return o; });
+      }
+    } catch (err) {
+      console.warn("[tablet-pos] assign-bill-no failed:", err.message);
+    }
 
     // Mark bill as requested — changes table to blue on POS table picker
-    // and broadcasts via socket so Captain app also shows "Bill Due"
+    // and broadcasts via socket so Captain app also shows "Bill Due".
+    // This also serves as a guard so handleSettle won't auto-print a second copy.
     mutateOrder(tableId, (o) => {
       o.billRequested   = true;
       o.billRequestedAt = new Date().toISOString();
       return o;
     });
 
-    showToast("📋 Bill requested · Collect payment to print receipt");
+    // Actual thermal print
+    printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, { cashierName });
+
+    showToast("🖨️ Bill printed · Collect payment");
 
     // Close the order panel — table stays blue until payment is collected
     setSelectedTableId(null);
 
+    // Release guard after 3 s — long enough to block accidental double-tap
+    setTimeout(() => { billPrintingRef.current = false; }, 3000);
+
     // Persist billRequested to backend (fire-and-forget)
     if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
       api.post("/operations/bill-request", { outletId: outlet?.id, tableId })
-        .catch(err => console.warn("[POS] bill-request after print failed:", err.message));
+        .catch(err => console.warn("[tablet-pos] bill-request after print failed:", err.message));
     }
   }
 

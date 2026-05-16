@@ -1,7 +1,8 @@
 {
   "businessProfile": {
     "id": "bp-1",
-    "tradeName": "Auth-Test Restaurant"
+    "tradeName": "New Name",
+    "invoiceFooter": "Thank you!"
   },
   "outlets": [
     {
@@ -340,5 +341,8 @@
     "vendorMappings": [],
     "purchaseEntries": [],
     "syncLog": []
+  },
+  "security": {
+    "managerPin": ""
   }
 }

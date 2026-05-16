@@ -5,6 +5,7 @@ const {
   getSummary,
   createDemoOrder,
   moveTable,
+  mergeTables,
   markKotSent,
   requestBill,
   assignWaiter,
@@ -46,6 +47,10 @@ async function createOperationsDemoOrder(actor) {
 
 async function moveOrderTableAssignment(sourceTableId, targetTableId, actor) {
   return runWrite(() => moveTable(sourceTableId, targetTableId, actor));
+}
+
+async function mergeOrderTables(currentTableId, sourceTableId, actor) {
+  return runWrite(() => mergeTables(currentTableId, sourceTableId, actor));
 }
 
 async function fetchOrders() {
@@ -133,6 +138,7 @@ module.exports = {
   fetchOperationsSummary,
   createOperationsDemoOrder,
   moveOrderTableAssignment,
+  mergeOrderTables,
   fetchOrders,
   fetchOrderByTable,
   fetchOrCreateOrderByTable,

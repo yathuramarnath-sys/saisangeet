@@ -729,6 +729,43 @@ function moveTable(sourceTableId, targetTableId, actor = "System") {
   return clone(movedOrder);
 }
 
+function mergeTables(currentTableId, sourceTableId, actor = "System") {
+  if (currentTableId === sourceTableId) {
+    throw new ApiError(409, "TABLE_MERGE_INVALID", "Cannot merge a table with itself");
+  }
+
+  const state       = _current();
+  const currentOrder = findOrder(currentTableId);
+  const sourceOrder  = findOrder(sourceTableId);
+  assertOrderOpen(currentOrder, "merge tables");
+  assertOrderOpen(sourceOrder,  "merge tables");
+
+  const mergedItems = [
+    ...(currentOrder.items || []),
+    ...(sourceOrder.items  || []),
+  ];
+
+  const mergedOrder = {
+    ...clone(currentOrder),
+    items:  mergedItems,
+    guests: (currentOrder.guests || 0) + (sourceOrder.guests || 0),
+  };
+  appendAudit(mergedOrder, buildAuditEntry(`Merged table ${sourceOrder.tableNumber} into ${currentOrder.tableNumber}`, actor, "Now"));
+  state.orders[currentTableId] = mergedOrder;
+
+  // Clear the source table
+  const sourceMeta = {
+    tableId:     sourceOrder.tableId,
+    tableNumber: sourceOrder.tableNumber,
+    areaName:    sourceOrder.areaName,
+    outletName:  sourceOrder.outletName,
+    captain:     sourceOrder.captain || "Open",
+    seatLabels:  sourceOrder.seatLabels || [],
+  };
+  state.orders[sourceTableId] = buildEmptyOrder(sourceMeta, nextOrderNumber());
+  return { mergedOrder: clone(mergedOrder), clearedTableId: sourceTableId };
+}
+
 function markKotSent(tableId, actor = "Captain") {
   const order = findOrder(tableId);
   assertOrderOpen(order, "send KOT");
@@ -1131,6 +1168,7 @@ module.exports = {
   reopenClosingState,
   createDemoOrder,
   moveTable,
+  mergeTables,
   markKotSent,
   assertOrderOpen,
   stampBillNo,

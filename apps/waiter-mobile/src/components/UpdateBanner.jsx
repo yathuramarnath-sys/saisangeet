@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.16";
 const APP_KEY     = "captain";
 const API_BASE    = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) || "https://api.dinexpos.in/api/v1";
 const BANNER_COLOR = "#059669";

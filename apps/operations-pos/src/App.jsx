@@ -263,6 +263,8 @@ export default function App() {
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
   const ordersRef  = useRef({});
+  // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
+  const billPrintingRef = useRef(false);
   // Tracks socket connection state for reconnect-resync logic
   const socketConnRef = useRef("connecting"); // "connecting" | "live" | "offline"
   const [serverConn,  setServerConn]  = useState("connecting"); // for UI banner
@@ -583,7 +585,7 @@ export default function App() {
               },
             };
           });
-          showToast(`🖨 KOT #${kot.kotNumber} (local) → Kitchen`);
+          showToast(`🖨 KOT-${String(kot.kotNumber).padStart(4, "0")} (local) → Kitchen`);
         });
 
         // ── New online order arrives from UrbanPiper webhook ──────────────────
@@ -1034,7 +1036,10 @@ export default function App() {
     //   • Waiter KOT printer  → prints ALL items (1 full slip, always)
     //   • Kitchen station printer → prints only that station's items
     //                               (only if a DEDICATED printer is configured for that station)
-    if (kotAutoSendEnabled()) {
+    // Always print KOT when staff explicitly sends from POS.
+    // kotAutoSendEnabled() only gates automated/background scenarios — a
+    // deliberate "Send KOT" click must always fire the printer.
+    {
       const waiterPrinter = getKotPrinter();
 
       // Waiter slip: all items on the default/waiter KOT printer
@@ -1055,7 +1060,7 @@ export default function App() {
 
     const printer = getKotPrinter();
     const printerLabel = printer ? ` → ${printer.name}` : "";
-    showToast(`🖨️ KOT #${serverKotNumber} sent${printerLabel}`);
+    showToast(`🖨️ KOT-${String(serverKotNumber).padStart(4, "0")} sent${printerLabel}`);
 
     // Reconcile from the last server response (most up-to-date order state).
     // All items across all station groups are sentToKot: true on the server by
@@ -1458,9 +1463,13 @@ export default function App() {
   // assigned a number, POS gets the same number back.
   async function handlePrintBill() {
     if (!selectedTableId) return;
+    // Guard: prevent double-print if button is tapped twice quickly or
+    // if Captain app already triggered a print on another device
+    if (billPrintingRef.current) return;
+    billPrintingRef.current = true;
     const tableId = selectedTableId;
     const order   = orders[tableId];
-    if (!order?.items?.length) { showToast("No items to print"); return; }
+    if (!order?.items?.length) { billPrintingRef.current = false; showToast("No items to print"); return; }
 
     // Get / assign bill number from server
     let printOrder = { ...order };
@@ -1477,6 +1486,16 @@ export default function App() {
       console.warn("[POS] assign-bill-no failed:", err.message);
     }
 
+    // ── Race-condition guard ──────────────────────────────────────────────────
+    // The await above suspends this function. If the cashier opened the payment
+    // sheet and clicked "Settle & Close" while assign-bill-no was in flight,
+    // the order is already closed by the time we resume here.
+    // Printing now would produce a duplicate receipt — abort instead.
+    if (ordersRef.current[tableId]?.isClosed) {
+      billPrintingRef.current = false;
+      return;
+    }
+
     // Mark bill as requested — changes table to blue on POS + notifies Captain
     mutateOrder(tableId, (o) => {
       o.billRequested   = true;
@@ -1489,6 +1508,10 @@ export default function App() {
     showToast("🖨️ Bill printed · Collect payment");
 
     setSelectedTableId(null);
+
+    // Release the guard after a 3-second window — long enough to block accidental
+    // double-click but short enough to allow a genuine reprint if needed.
+    setTimeout(() => { billPrintingRef.current = false; }, 3000);
 
     // Persist billRequested to backend (fire-and-forget)
     if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {

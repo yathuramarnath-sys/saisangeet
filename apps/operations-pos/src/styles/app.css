@@ -5745,6 +5745,14 @@ body { background: var(--sq-bg); }
   font-weight: 800 !important;
 }
 .pos-btn.print-bill:hover { background: #DCFCE7 !important; border-color: #16A34A !important; }
+/* Already-printed state — muted green so staff knows it was printed */
+.pos-btn.print-bill.bill-reprinted {
+  background: #f0f9f4 !important;
+  border-color: #86efac !important;
+  color: #15803d !important;
+  opacity: 0.75 !important;
+}
+.pos-btn.print-bill.bill-reprinted:hover { opacity: 1 !important; background: #dcfce7 !important; }
 
 /* Order item borders */
 .order-item { border-bottom-color: #F1F4F9 !important; }

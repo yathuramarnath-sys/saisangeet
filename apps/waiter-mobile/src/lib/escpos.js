@@ -21,7 +21,7 @@ const LEFT   = ESC + "a\x00";     // Align left
 const BIG    = ESC + "!\x30";     // Double height + width
 const DBLH   = ESC + "!\x10";     // Double height only
 const NORMAL = ESC + "!\x00";     // Normal size
-const DASH   = "-".repeat(32);    // Divider line (fits 80mm & 58mm)
+const DASH   = "-".repeat(40);    // Divider line (80mm thermal)
 
 // Strip ₹ symbol — latin1 can't encode it, renders as garbage on thermal paper
 function stripRupee(s) {
@@ -73,15 +73,18 @@ export function buildBillEscPos(data) {
   cmd += DASH + LF;
 
   // ── Items header ───────────────────────────────────────────────────────────
-  cmd += BOLD1 + "Item                Qty  Rate      Amt" + BOLD0 + LF;
+  // Column layout: name(20) + qty(4) + rate(8) + amt(8) = 40 chars
+  // qty padStart(4) gives "   1" — the 2 leading spaces in rate padStart(8)
+  // then guarantee a visible gap:  "   1  190.00  190.00"  — never "  1190.00"
+  cmd += BOLD1 + "Item                 Qty    Rate     Amt" + BOLD0 + LF;
   cmd += DASH + LF;
 
   // ── Items ──────────────────────────────────────────────────────────────────
   for (const item of (data.items || [])) {
     const name = safe(item.name || "").substring(0, 20).padEnd(20);
-    const qty  = String(item.qty  || "").padStart(3);
-    const rate = stripRupee(item.rate).padStart(6);
-    const amt  = stripRupee(item.amt).padStart(7);
+    const qty  = String(item.qty  || "").padStart(4);   //  "   1"
+    const rate = stripRupee(item.rate).padStart(8);     // "  190.00"
+    const amt  = stripRupee(item.amt).padStart(8);      // "  190.00"
     cmd += name + qty + rate + amt + LF;
     if (item.note) cmd += "     >> " + safe(item.note) + LF;
   }
