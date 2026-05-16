@@ -101,13 +101,45 @@ async function requestBillHandler(req, res) {
 }
 
 async function moveTableHandler(req, res) {
-  const result = await moveOrderToTable(req.params.tableId, req.body);
-  res.json(result);
+  const sourceTableId = req.params.tableId;
+  const { targetTableId } = req.body;
+  const movedOrder = await moveOrderToTable(sourceTableId, req.body);
+
+  // Broadcast to all devices in the outlet so POS/KDS update instantly
+  const io       = req.app.locals.io;
+  const tenantId = req.user?.tenantId || "default";
+  const outletId = movedOrder.outletId || req.body.outletId;
+  if (io && outletId) {
+    const room = `outlet:${tenantId}:${outletId}`;
+    // Moved order now lives on target table
+    io.to(room).emit("order:updated", movedOrder);
+    // Fetch the now-blank source order and broadcast it too
+    try {
+      const blankSource = await getOrder(sourceTableId);
+      io.to(room).emit("order:updated", blankSource);
+    } catch (_) {}
+  }
+
+  res.json(movedOrder);
 }
 
 async function mergeTablesHandler(req, res) {
   const { sourceTableId, actorName, actorRole } = req.body;
   const result = await mergeTableOrders(req.params.tableId, sourceTableId, actorName, actorRole);
+
+  // Broadcast both the merged order and the cleared source table
+  const io       = req.app.locals.io;
+  const tenantId = req.user?.tenantId || "default";
+  const outletId = result.mergedOrder?.outletId || req.body.outletId;
+  if (io && outletId) {
+    const room = `outlet:${tenantId}:${outletId}`;
+    io.to(room).emit("order:updated", result.mergedOrder);
+    try {
+      const blankSource = await getOrder(sourceTableId);
+      io.to(room).emit("order:updated", blankSource);
+    } catch (_) {}
+  }
+
   res.json(result);
 }
 
