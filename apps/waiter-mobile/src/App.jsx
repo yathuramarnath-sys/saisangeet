@@ -1000,7 +1000,24 @@ export function App() {
     const fromArea  = areas.find((a) => a.tables.some((t) => t.id === fromId));
     const fromTable = fromArea?.tables.find((t) => t.id === fromId);
 
-    // Optimistic local update so UI responds instantly
+    // ── Call backend FIRST so we know it succeeded before touching local state ──
+    // This avoids the race condition where openOrderScreen fetches server state
+    // before the move is processed, overwriting the optimistic update with stale data.
+    const tid = toast.loading(`Moving to Table ${toTable.number}…`);
+    try {
+      await api.post(`/operations/orders/${fromId}/move-table`, {
+        targetTableId: toId,
+        actorName:     loggedInStaff?.name,
+        actorRole:     loggedInStaff?.role,
+      });
+    } catch (err) {
+      const msg = err.message || "Move failed";
+      toast.error(`Could not move: ${msg}`, { id: tid });
+      console.warn("move-table API failed:", err.message);
+      return; // don't touch local state if backend rejected
+    }
+
+    // Backend confirmed — update local state and navigate
     const now            = Date.now();
     const movedOrder     = { ...fromOrder, tableId: toId, tableNumber: toTable.number, areaName: toArea.name, updatedAt: now };
     const blankFromOrder = fromTable && fromArea ? { ...buildBlankOrder(fromTable, fromArea), updatedAt: now + 1 } : null;
@@ -1009,18 +1026,7 @@ export function App() {
 
     setSelectedTableId(toId);
     setSelectedArea(toArea);
-    toast.success(`Order moved to Table ${toTable.number}`);
-
-    // Persist to backend so reconnect fetches clean state
-    try {
-      await api.post(`/operations/orders/${fromId}/move-table`, {
-        targetTableId: toId,
-        actorName:     loggedInStaff?.name,
-        actorRole:     loggedInStaff?.role,
-      });
-    } catch (err) {
-      console.warn("move-table API failed:", err.message);
-    }
+    toast.success(`Order moved to Table ${toTable.number}`, { id: tid });
   }
 
   // ── Table merge ───────────────────────────────────────────────────────────
@@ -1029,29 +1035,16 @@ export function App() {
     const mergeFrom = orders[mergeFromId];
     if (!current || !mergeFrom) return;
 
-    const mergedOrder = {
-      ...current,
-      items:  [...(current.items || []), ...(mergeFrom.items || [])],
-      guests: (current.guests || 0) + (mergeFrom.guests || 0),
-    };
-
     let mfTable = null, mfArea = null;
     for (const area of areas) {
       const t = area.tables.find((x) => x.id === mergeFromId);
       if (t) { mfTable = t; mfArea = area; break; }
     }
 
-    const now            = Date.now();
-    const blankMergeFrom = mfTable && mfArea ? { ...buildBlankOrder(mfTable, mfArea), updatedAt: now + 1 } : null;
-
-    // Optimistic local update
-    handleUpdateOrder({ ...mergedOrder, updatedAt: now });
-    if (blankMergeFrom) handleUpdateOrder(blankMergeFrom);
-
     const fromNum = mergeFrom.tableNumber || mergeFromId;
-    toast.success(`Table ${fromNum} merged into this order`);
 
-    // Persist to backend so reconnect fetches clean state
+    // ── Call backend FIRST so we know it succeeded before touching local state ──
+    const tid = toast.loading(`Merging Table ${fromNum}…`);
     try {
       await api.post(`/operations/orders/${currentId}/merge-from`, {
         sourceTableId: mergeFromId,
@@ -1059,8 +1052,25 @@ export function App() {
         actorRole:     loggedInStaff?.role,
       });
     } catch (err) {
+      const msg = err.message || "Merge failed";
+      toast.error(`Could not merge: ${msg}`, { id: tid });
       console.warn("merge-from API failed:", err.message);
+      return; // don't touch local state if backend rejected
     }
+
+    // Backend confirmed — update local state
+    const mergedOrder = {
+      ...current,
+      items:  [...(current.items || []), ...(mergeFrom.items || [])],
+      guests: (current.guests || 0) + (mergeFrom.guests || 0),
+    };
+    const now            = Date.now();
+    const blankMergeFrom = mfTable && mfArea ? { ...buildBlankOrder(mfTable, mfArea), updatedAt: now + 1 } : null;
+
+    handleUpdateOrder({ ...mergedOrder, updatedAt: now });
+    if (blankMergeFrom) handleUpdateOrder(blankMergeFrom);
+
+    toast.success(`Table ${fromNum} merged into this order`, { id: tid });
   }
 
   // ── Derived state ──────────────────────────────────────────────────────────
