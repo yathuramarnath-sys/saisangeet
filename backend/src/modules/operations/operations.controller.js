@@ -567,6 +567,59 @@ async function deviceBillRequestHandler(req, res) {
 }
 
 /**
+ * POST /operations/split-bill-record
+ * Body: { outletId, tableId, seatLabel, billNo, items, subtotal, tax, total }
+ *
+ * Records one person's split bill on the in-memory order so POS can show
+ * settlement status per person. Broadcasts order:updated to all devices.
+ */
+async function recordSplitBillHandler(req, res) {
+  const { outletId, tableId, seatLabel, billNo, items, subtotal, tax, total } = req.body;
+  const tenantId = req.user?.tenantId || "default";
+  const io       = req.app.locals.io;
+
+  let updatedOrder;
+  try {
+    const { getOrder } = require("./operations.memory-store");
+    const order = getOrder(tableId); // clone
+
+    // Append this person's split entry (avoid duplicates by billNo)
+    const existing = (order.splitBills || []).filter(s => s.billNo !== billNo);
+    order.splitBills = [
+      ...existing,
+      {
+        id:            `split-${billNo}-${Date.now()}`,
+        seatLabel:     seatLabel || "Person",
+        billNo,
+        items:         items || [],
+        subtotal:      subtotal || 0,
+        tax:           tax     || 0,
+        total:         total   || 0,
+        paid:          false,
+        paymentMethod: null,
+        paidAt:        null,
+      },
+    ].sort((a, b) => (a.billNo || 0) - (b.billNo || 0));
+    order.isSplitBill  = true;
+    order.billRequested = true;
+    order.updatedAt    = Date.now();
+
+    // Write back to memory store
+    const { stampSplitBills } = require("./operations.memory-store");
+    updatedOrder = stampSplitBills(tableId, order.splitBills);
+  } catch (err) {
+    console.warn("[split-bill-record] failed:", err.message);
+  }
+
+  // Broadcast updated order to POS and all devices
+  if (io && outletId && updatedOrder) {
+    io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", updatedOrder);
+  }
+
+  res.json({ ok: true, order: updatedOrder });
+}
+
+/**
  * POST /operations/payment
  * Body: { outletId, orderId, tableId, method, amount, label?, reference? }
  * Broadcasts order:paid via socket AND persists the payment to the in-memory order.
@@ -965,6 +1018,7 @@ module.exports = {
   deviceListKotsHandler,
   deviceUpdateKotStatusHandler,
   deviceBillRequestHandler,
+  recordSplitBillHandler,
   assignBillNoHandler,
   devicePaymentHandler,
   deviceGetOrCreateOrderHandler,

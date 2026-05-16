@@ -815,6 +815,20 @@ function requestBill(tableId, actor = "Waiter", isSplit = false) {
   return clone(order);
 }
 
+function stampSplitBills(tableId, splitBills) {
+  try {
+    const order = findOrder(tableId);
+    order.splitBills   = splitBills;
+    order.isSplitBill  = true;
+    order.billRequested = true;
+    order.updatedAt    = Date.now();
+    appendAudit(order, buildAuditEntry("Split bill recorded", "Captain", "Now"));
+    return clone(order);
+  } catch (_) {
+    return null;
+  }
+}
+
 function assignWaiter(tableId, waiterName, actor = "Captain") {
   const order = findOrder(tableId);
   assertOrderOpen(order, "assign waiter");
@@ -1180,6 +1194,7 @@ module.exports = {
   markKotSent,
   assertOrderOpen,
   stampBillNo,
+  stampSplitBills,
   requestBill,
   assignWaiter,
   addOrderItem,
