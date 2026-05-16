@@ -536,7 +536,7 @@ async function deviceBillRequestHandler(req, res) {
   const tenantId = req.user?.tenantId || "default";
   const io = req.app.locals.io;
   if (io && outletId) {
-    io.to(`outlet:${tenantId}:${outletId}`).emit("bill:requested", { tableId, requestedAt: new Date().toISOString() });
+    io.to(`outlet:${tenantId}:${outletId}`).emit("bill:requested", { tableId, requestedAt: new Date().toISOString(), isSplit: !!isSplit });
   }
 
   let updatedOrder;
