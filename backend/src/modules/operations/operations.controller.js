@@ -532,7 +532,7 @@ async function deviceUpdateKotStatusHandler(req, res) {
  * Response: { ok: true, order? } — order present for dine-in tables.
  */
 async function deviceBillRequestHandler(req, res) {
-  const { outletId, tableId } = req.body;
+  const { outletId, tableId, isSplit } = req.body;
   const tenantId = req.user?.tenantId || "default";
   const io = req.app.locals.io;
   if (io && outletId) {
@@ -542,10 +542,15 @@ async function deviceBillRequestHandler(req, res) {
   let updatedOrder;
   if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
     try {
-      updatedOrder = await requestBillForOrder(tableId, { actorName: req.user?.name || "POS" });
+      updatedOrder = await requestBillForOrder(tableId, { actorName: req.user?.name || "POS", isSplit: !!isSplit });
     } catch (err) {
       console.warn(`[bill-request] requestBill skipped for ${tableId}:`, err.message);
     }
+  }
+
+  // Broadcast full updated order to all devices so POS sees isSplitBill flag immediately
+  if (io && outletId && updatedOrder) {
+    io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", updatedOrder);
   }
 
   logAction({
@@ -555,7 +560,7 @@ async function deviceBillRequestHandler(req, res) {
     action:    ACTION.BILL_REQUESTED,
     actorName: req.user?.name || null,
     device:    "captain",
-    details:   null,
+    details:   { isSplit: !!isSplit },
   });
 
   res.json({ ok: true, order: updatedOrder });

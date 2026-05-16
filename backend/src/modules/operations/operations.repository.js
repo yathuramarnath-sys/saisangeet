@@ -72,8 +72,8 @@ async function sendKot(tableId, actor) {
   return runWrite(() => markKotSent(tableId, actor));
 }
 
-async function requestOrderBill(tableId, actor) {
-  return runWrite(() => requestBill(tableId, actor));
+async function requestOrderBill(tableId, actor, isSplit) {
+  return runWrite(() => requestBill(tableId, actor, isSplit));
 }
 
 async function assignOrderWaiter(tableId, waiterName, actor) {
