@@ -50,6 +50,8 @@ export function TableGrid({ areas, orders, selectedTableId, onSelectTable }) {
               const total     = tableTotal(table.id);
               const guests    = tableGuests(table.id);
 
+              const isSplit = orders[table.id]?.isSplitBill && orders[table.id]?.billRequested;
+              const seatCount = table.seats || 0;
               return (
                 <button
                   key={table.id}
@@ -58,12 +60,15 @@ export function TableGrid({ areas, orders, selectedTableId, onSelectTable }) {
                   onClick={() => onSelectTable(table.id)}
                 >
                   <span className="table-btn-number">{table.number}</span>
-                  <span className="table-btn-label">{statusLabels[status]}</span>
+                  <span className="table-btn-label">
+                    {statusLabels[status]}
+                    {isSplit && <span className="split-badge">SPLIT</span>}
+                  </span>
                   {status !== "available" && total !== null && (
                     <span className="table-btn-amount">₹{total}</span>
                   )}
-                  {guests > 0 && status !== "available" && (
-                    <span className="table-btn-seats">{guests}p</span>
+                  {seatCount > 0 && (
+                    <span className="table-btn-seats">{seatCount} seats</span>
                   )}
                 </button>
               );

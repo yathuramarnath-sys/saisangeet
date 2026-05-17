@@ -767,6 +767,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   letter-spacing: 0.04em;
 }
 
+.tc-seats {
+  font-size: 0.62rem;
+  font-weight: 700;
+  opacity: 0.55;
+  letter-spacing: 0.02em;
+}
+
 .table-items-count {
   font-size: 0.65rem;
   font-weight: 700;

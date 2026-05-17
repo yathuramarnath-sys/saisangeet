@@ -167,6 +167,9 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable }) {
                     <span className="table-number">{table.number}</span>
                     <span className={`table-status-dot dot-${st}`} />
                     <span className="table-status-text">{STATUS_LABEL[st]}</span>
+                    {table.seats > 0 && (
+                      <span className="tc-seats">👤 {table.seats}</span>
+                    )}
                     {count > 0 && (
                       <span className="table-items-count">{count} items</span>
                     )}
