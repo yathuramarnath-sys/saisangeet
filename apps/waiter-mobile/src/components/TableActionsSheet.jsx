@@ -1,26 +1,6 @@
 import { useState, useEffect } from "react";
 import { tapImpact } from "../lib/haptics";
 
-/**
- * TableActionsSheet
- * ─────────────────
- * Bottom sheet that slides up when a captain taps an OCCUPIED table.
- * Does NOT replace the existing OrderScreen — it's a shortcut layer on top.
- *
- * Props:
- *   tableId       string
- *   tableNumber   string | number
- *   areaName      string
- *   order         object   — current order for this table
- *   onClose       ()       — dismiss sheet
- *   onEditOrder   ()       — open full OrderScreen (existing flow)
- *   onSendKOT     ()       — quick-send KOT from floor (unsent items exist)
- *   onRequestBill ()       — request bill
- *   onHoldToggle  ()       — hold / unhold
- *   onMoveTable   ()       — open TransferModal
- *   onMerge       ()       — open MergeModal
- *   onCustomerInfo()       — optional customer info sheet
- */
 export function TableActionsSheet({
   tableNumber, areaName, order,
   onClose, onEditOrder, onSendKOT,
@@ -28,7 +8,6 @@ export function TableActionsSheet({
 }) {
   const [elapsed, setElapsed] = useState("");
 
-  // ── Calculate time seated ─────────────────────────────────────────────────
   useEffect(() => {
     function calc() {
       const ts = order?.seatedAt || order?.createdAt || order?.openedAt;
@@ -46,12 +25,11 @@ export function TableActionsSheet({
     return () => clearInterval(t);
   }, [order]);
 
-  const items        = order?.items || [];
-  const billable     = items.filter(i => !i.isVoided && !i.isComp);
-  const unsent       = items.filter(i => !i.sentToKot && !i.isVoided);
-  const itemCount    = billable.length;
-  const unsentCount  = unsent.length;
-  const billRequested = order?.billRequested;
+  const items       = order?.items || [];
+  const billable    = items.filter(i => !i.isVoided && !i.isComp);
+  const unsent      = items.filter(i => !i.sentToKot && !i.isVoided);
+  const itemCount   = billable.length;
+  const unsentCount = unsent.length;
 
   const subtotal = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
   const tax      = billable.reduce((s, i) => {
@@ -62,115 +40,64 @@ export function TableActionsSheet({
 
   return (
     <>
-      {/* Backdrop */}
       <div className="tas-backdrop" onClick={onClose} />
-
-      {/* Sheet */}
       <div className="tas-sheet">
-
-        {/* Drag handle */}
         <div className="tas-handle" />
 
-        {/* Table info header */}
+        {/* Header */}
         <div className="tas-header">
           <div className="tas-table-badge">
-            <span className="tas-table-icon">🪑</span>
             <div>
               <div className="tas-table-num">Table {tableNumber}</div>
               {areaName && <div className="tas-table-area">{areaName}</div>}
             </div>
           </div>
           <div className="tas-meta">
-            {itemCount > 0 && (
-              <span className="tas-chip">{itemCount} items</span>
-            )}
-            {total > 0 && (
-              <span className="tas-chip tas-chip-amount">₹{total.toLocaleString("en-IN")}</span>
-            )}
-            {elapsed && (
-              <span className="tas-chip tas-chip-time">🕐 {elapsed}</span>
-            )}
+            {itemCount > 0 && <span className="tas-chip">{itemCount} items</span>}
+            {total > 0 && <span className="tas-chip tas-chip-amount">₹{total.toLocaleString("en-IN")}</span>}
+            {elapsed && <span className="tas-chip tas-chip-time">{elapsed}</span>}
           </div>
         </div>
 
-        {/* ── Primary actions ─────────────────────────────────────────── */}
-        <div className="tas-section">
+        {/* All actions — plain list */}
+        <div className="tas-section tas-section-secondary">
 
-          {/* Edit / View Order — always shown */}
-          <button className="tas-action tas-primary" onClick={() => { tapImpact(); onEditOrder(); }}>
-            <span className="tas-action-icon">📋</span>
-            <div className="tas-action-body">
-              <span className="tas-action-label">
-                {itemCount > 0 ? "View / Edit Order" : "Start Order"}
-              </span>
-              {itemCount > 0 && (
-                <span className="tas-action-hint">Add items, modify quantities</span>
-              )}
-            </div>
-            <span className="tas-action-chevron">›</span>
-          </button>
-
-          {/* Send KOT — only if unsent items exist */}
           {unsentCount > 0 && (
-            <button className="tas-action tas-action-kot" onClick={() => { tapImpact(); onSendKOT(); }}>
-              <span className="tas-action-icon">🔥</span>
-              <div className="tas-action-body">
-                <span className="tas-action-label">Send to Kitchen</span>
-                <span className="tas-action-hint">{unsentCount} item{unsentCount > 1 ? "s" : ""} not yet sent</span>
-              </div>
+            <button className="tas-action-sm" onClick={() => { tapImpact(); onSendKOT(); }}>
+              <span>Send to Kitchen</span>
               <span className="tas-unsent-badge">{unsentCount}</span>
             </button>
           )}
 
-          {/* Print Bill */}
           {itemCount > 0 && (
-            <button className="tas-action tas-action-bill" onClick={() => { tapImpact(); onPrintBill?.(); onClose(); }}>
-              <span className="tas-action-icon">🖨️</span>
-              <div className="tas-action-body">
-                <span className="tas-action-label">Print Bill</span>
-                <span className="tas-action-hint">Print GST bill for this table</span>
-              </div>
-              <span className="tas-action-chevron">›</span>
+            <button className="tas-action-sm" onClick={() => { tapImpact(); onPrintBill?.(); onClose(); }}>
+              <span>Print Bill</span>
             </button>
           )}
-        </div>
 
-        {/* ── Secondary actions ───────────────────────────────────────── */}
-        <div className="tas-section tas-section-secondary">
-
-          {/* Move Table */}
           <button className="tas-action-sm" onClick={() => { tapImpact(); onMoveTable(); }}>
-            <span>↔</span>
             <span>Move Table</span>
           </button>
 
-          {/* Merge Tables */}
           <button className="tas-action-sm" onClick={() => { tapImpact(); onMerge(); }}>
-            <span>⊕</span>
             <span>Merge Tables</span>
           </button>
 
-          {/* Split Bill */}
           {itemCount > 0 && onSplitBill && (
             <button className="tas-action-sm" onClick={() => { tapImpact(); onSplitBill(); }}>
-              <span>✂</span>
               <span>Split Bill</span>
             </button>
           )}
 
-          {/* Customer Info — optional, soft */}
           {onCustomerInfo && (
             <button className="tas-action-sm tas-action-sm-ghost" onClick={() => { tapImpact(); onCustomerInfo(); }}>
-              <span>👤</span>
               <span>Guest Info</span>
             </button>
           )}
 
         </div>
 
-        {/* Close */}
         <button className="tas-close-btn" onClick={onClose}>Close</button>
-
       </div>
     </>
   );

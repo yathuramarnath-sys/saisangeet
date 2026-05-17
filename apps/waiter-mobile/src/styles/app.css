@@ -2466,7 +2466,6 @@ html, body, #root {
   -webkit-tap-highlight-color: transparent;
 }
 .tas-action-sm:last-child { border-bottom: none; }
-.tas-action-sm span:first-child { font-size: 18px; width: 26px; text-align: center; flex-shrink: 0; }
 .tas-action-sm:active { background: #f5f5f3; }
 
 /* Ghost variant — slightly faded */
