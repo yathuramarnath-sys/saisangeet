@@ -1,38 +1,72 @@
 import { useState } from "react";
 import { getFinancials } from "./OrderPanel";
 
-const SPLIT_OPTIONS = [2, 3, 4, 5, 6, 7, 8];
+export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit }) {
+  const seatLabels  = order.seatLabels || [];
+  const billable    = (order.items || []).filter(i => !i.isVoided && !i.isComp);
 
-export function SplitBillSheet({ order, tableLabel, onClose, onPaySplit }) {
-  const [splitCount, setSplitCount] = useState(2);
+  // Use real seat labels if available, else generic "Person N"
+  const displayLabels = seatLabels.length > 0
+    ? seatLabels
+    : ["Person 1", "Person 2"];
 
-  const fin = getFinancials(order);
-  if (!fin) return null;
+  // assignments: { [itemId]: seatIndex 1-based, 0 = unassigned }
+  const [assignments, setAssignments] = useState({});
 
-  const total     = fin.total;
-  const perPerson = Math.floor(total / splitCount);
-  // Person 1 gets the remainder so total adds up exactly
-  const remainder  = total - perPerson * splitCount;
-
-  const persons = Array.from({ length: splitCount }, (_, i) => ({
-    index:  i + 1,
-    share:  i === 0 ? perPerson + remainder : perPerson,
-    isFirst: i === 0
-  }));
-
-  function handleCharge(amount) {
-    onPaySplit(amount);
-    onClose();
+  function toggleAssign(itemId, seatIdx) {
+    setAssignments(prev => ({
+      ...prev,
+      [itemId]: prev[itemId] === seatIdx ? 0 : seatIdx,
+    }));
   }
 
-  function handlePayAll() {
-    onPaySplit(total);
+  function getSeatData(seatIdx) {
+    const items    = billable.filter(i => (assignments[i.id] ?? 0) === seatIdx);
+    const totalSub = billable.reduce((s, i) => s + i.price * i.quantity, 0);
+    const sub      = items.reduce((s, i) => s + i.price * i.quantity, 0);
+    const discountAmt = Math.min(order.discountAmount || 0, totalSub);
+    const ratio       = totalSub > 0 ? sub / totalSub : 0;
+    const seatDisc    = Math.floor(discountAmt * ratio);
+    const afterDisc   = sub - seatDisc;
+    const tax = items.reduce((s, i) => {
+      const lineAfter = totalSub > 0 ? (i.price * i.quantity) * ((totalSub - discountAmt) / totalSub) : 0;
+      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      return s + Math.round(lineAfter * rate / 100);
+    }, 0);
+    return { items, sub, seatDisc, afterDisc, tax, total: afterDisc + tax };
+  }
+
+  const unassignedItems = billable.filter(i => (assignments[i.id] ?? 0) === 0);
+  const fin = getFinancials(order);
+
+  function handleConfirm() {
+    const splits = displayLabels
+      .map((label, idx) => {
+        const seatIdx = idx + 1;
+        const { items, sub, seatDisc, afterDisc, tax, total } = getSeatData(seatIdx);
+        if (items.length === 0) return null;
+        return {
+          seatLabel:    label,
+          billNo:       seatIdx,
+          items:        items.map(i => ({ name: i.name, quantity: i.quantity, price: i.price })),
+          subtotal:     sub,
+          discount:     seatDisc,
+          afterDiscount: afterDisc,
+          tax,
+          total,
+        };
+      })
+      .filter(Boolean);
+
+    if (splits.length === 0) return;
+    onConfirmSplit(splits);
     onClose();
   }
 
   return (
     <div className="split-overlay" role="dialog" aria-modal="true">
       <div className="split-sheet">
+
         {/* Header */}
         <div className="split-sheet-head">
           <div>
@@ -45,54 +79,87 @@ export function SplitBillSheet({ order, tableLabel, onClose, onPaySplit }) {
         {/* Total */}
         <div className="split-total-display">
           <p className="split-total-label">Bill Total</p>
-          <p className="split-total-amount">₹{total}</p>
+          <p className="split-total-amount">₹{fin?.total || 0}</p>
         </div>
 
-        {/* Split count selector */}
-        <div className="split-count-section">
-          <p className="split-count-label">Split between</p>
-          <div className="split-count-pills">
-            {SPLIT_OPTIONS.map((n) => (
-              <button
-                key={n}
-                type="button"
-                className={`split-count-pill${splitCount === n ? " active" : ""}`}
-                onClick={() => setSplitCount(n)}
-              >
-                {n}
-              </button>
-            ))}
+        {/* Items assignment */}
+        <div className="split-items-section">
+          <p className="split-section-label">Tap a seat to assign each item</p>
+          <div className="split-items-list">
+            {billable.length === 0 && (
+              <p className="split-no-items">No billable items on this table.</p>
+            )}
+            {billable.map(item => {
+              const assigned = assignments[item.id] ?? 0;
+              return (
+                <div key={item.id} className={`split-item-row${assigned > 0 ? " assigned" : ""}`}>
+                  <div className="split-item-info">
+                    <span className="split-item-name">
+                      {item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ""}
+                    </span>
+                    <span className="split-item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
+                  </div>
+                  <div className="split-seat-btns">
+                    {displayLabels.map((lbl, idx) => (
+                      <button key={idx} type="button"
+                        className={`split-seat-pill${assignments[item.id] === idx + 1 ? " active" : ""}`}
+                        onClick={() => toggleAssign(item.id, idx + 1)}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="split-divider" />
-
-        {/* Per-person cards */}
-        <div className="split-persons">
-          {persons.map((person) => (
-            <div key={person.index} className="split-person-card">
-              <div className="split-person-info">
-                <span className="split-person-name">Person {person.index}</span>
-                <span className="split-person-share">₹{person.share}</span>
-                {person.isFirst && remainder > 0 && (
-                  <span className="split-person-note">Includes ₹{remainder} rounding</span>
-                )}
-              </div>
-              <button
-                type="button"
-                className="split-charge-btn"
-                onClick={() => handleCharge(person.share)}
-              >
-                Charge
-              </button>
+        {/* Per-seat totals */}
+        {billable.length > 0 && (
+          <>
+            <div className="split-divider" />
+            <div className="split-persons">
+              {displayLabels.map((label, idx) => {
+                const { items, total } = getSeatData(idx + 1);
+                if (items.length === 0) return null;
+                return (
+                  <div key={idx} className="split-person-card">
+                    <div className="split-person-info">
+                      <span className="split-person-name">{label}</span>
+                      <span className="split-person-share">₹{total}</span>
+                      <span className="split-person-items">
+                        {items.length} item{items.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {unassignedItems.length > 0 && (
+                <div className="split-person-card split-unassigned-card">
+                  <div className="split-person-info">
+                    <span className="split-person-name">⚠ Unassigned</span>
+                    <span className="split-person-share" style={{ color: "#ef4444" }}>
+                      {unassignedItems.length} item{unassignedItems.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
-        </div>
+          </>
+        )}
 
-        {/* Pay all button */}
-        <button type="button" className="split-pay-all-btn" onClick={handlePayAll}>
-          Pay All Equal Splits · ₹{total}
+        {/* Confirm button */}
+        <button
+          type="button"
+          className="split-pay-all-btn"
+          disabled={unassignedItems.length > 0 || billable.length === 0}
+          onClick={handleConfirm}
+        >
+          {unassignedItems.length > 0
+            ? `Assign ${unassignedItems.length} remaining item${unassignedItems.length !== 1 ? "s" : ""} first`
+            : "Confirm Split → Record Bills"}
         </button>
+
       </div>
     </div>
   );

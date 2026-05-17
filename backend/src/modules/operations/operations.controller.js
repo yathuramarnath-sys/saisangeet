@@ -631,9 +631,18 @@ async function recordSplitBillHandler(req, res) {
     console.warn("[split-bill-record] failed:", err.message);
   }
 
-  // Broadcast updated order to POS and all devices
+  // Broadcast to all devices.
+  // "split:updated" bypasses the POS stale-write guard so the settlement panel
+  // appears immediately even if the POS order timestamp is newer than the server's.
   if (io && outletId && updatedOrder) {
-    io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", updatedOrder);
+    const room = `outlet:${tenantId}:${outletId}`;
+    io.to(room).emit("order:updated", updatedOrder);
+    io.to(room).emit("split:updated", {
+      tableId:    updatedOrder.tableId,
+      isSplitBill: true,
+      billRequested: true,
+      splitBills: updatedOrder.splitBills || [],
+    });
   }
 
   res.json({ ok: true, order: updatedOrder });

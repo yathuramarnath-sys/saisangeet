@@ -1565,6 +1565,129 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(20,20,20,0.24);
 }
+.split-pay-all-btn:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── New seat-based split sheet styles ── */
+.split-items-section {
+  margin-bottom: 10px;
+}
+.split-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sq-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+.split-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.split-no-items {
+  font-size: 13px;
+  color: var(--sq-muted);
+  text-align: center;
+  padding: 16px 0;
+}
+.split-item-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1.5px solid var(--sq-border);
+  transition: border-color 120ms;
+}
+.split-item-row.assigned {
+  border-color: #059669;
+  background: #f0fdf4;
+}
+.split-item-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.split-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sq-text);
+}
+.split-item-price {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sq-text);
+}
+.split-seat-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.split-seat-pill {
+  padding: 3px 9px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #475569;
+  border: 1.5px solid transparent;
+  transition: all 100ms;
+}
+.split-seat-pill.active {
+  background: #059669;
+  color: #fff;
+  border-color: #047857;
+}
+.split-person-items {
+  font-size: 11px;
+  color: var(--sq-muted);
+  font-weight: 500;
+}
+.split-unassigned-card {
+  border-color: #fca5a5;
+  background: #fff5f5;
+}
+
+/* ── Menu card +/− quantity controls ── */
+.mfc-qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mfc-qty-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: all 120ms;
+}
+.mfc-qty-btn:hover { transform: scale(1.12); }
+.mfc-qty-val {
+  font-size: 14px;
+  font-weight: 800;
+  min-width: 18px;
+  text-align: center;
+  color: var(--sq-text);
+}
+.menu-food-card.in-cart {
+  outline: 2px solid #059669;
+  outline-offset: 1px;
+}
 
 /* ─── Toast ──────────────────────────────────────────────────────────────── */
 

@@ -471,6 +471,23 @@ export default function App() {
         });
 
         // ── Bill requested from Captain (split or normal) ───────────────────
+        // ── Split bill recorded by Captain → show SplitSettlementPanel ──────
+        // This event bypasses the stale-write guard so POS always gets it.
+        socket.on("split:updated", ({ tableId, isSplitBill, billRequested, splitBills }) => {
+          setOrders((prev) => {
+            const order = prev[tableId];
+            if (!order) return prev;
+            const updated = {
+              ...order,
+              isSplitBill:   true,
+              billRequested: true,
+              splitBills:    splitBills || order.splitBills || [],
+            };
+            saveOrdersToStorage({ ...prev, [tableId]: updated });
+            return { ...prev, [tableId]: updated };
+          });
+        });
+
         socket.on("bill:requested", ({ tableId, isSplit }) => {
           setOrders((prev) => {
             const order = prev[tableId];
@@ -995,6 +1012,20 @@ export default function App() {
     }
   }
 
+  // Decrement quantity of the last unsent instance of an item (for menu −/+ buttons)
+  function handleDecrementItem(item) {
+    if (!selectedTableId) return;
+    const order = orders[selectedTableId];
+    if (!order) return;
+    // Find last unsent item matching this menuItemId
+    const idx = [...(order.items || [])]
+      .map((i, index) => ({ i, index }))
+      .reverse()
+      .find(({ i }) => i.menuItemId === item.id && !i.sentToKot)?.index;
+    if (idx == null) return;
+    handleChangeQty(idx, (order.items[idx].quantity || 1) - 1);
+  }
+
   function handleNoteChange(idx, note) {
     if (!selectedTableId) return;
     mutateOrder(selectedTableId, (order) => { order.items[idx].note = note; return order; });
@@ -1320,10 +1351,25 @@ export default function App() {
     }, 1500);
   }
 
-  async function handlePaySplit(amount) {
-    if (!selectedTableId) return;
-    await handleSettle([{ method: "cash", amount, reference: undefined }]);
-    showToast(`Split payment · ₹${amount}`);
+  async function handleConfirmSplit(splits) {
+    if (!selectedTableId || !outlet?.id) return;
+    for (const split of splits) {
+      try {
+        await api.post("/operations/split-bill-record", {
+          outletId:  outlet.id,
+          tableId:   selectedTableId,
+          seatLabel: split.seatLabel,
+          billNo:    split.billNo,
+          items:     split.items,
+          subtotal:  split.subtotal,
+          tax:       split.tax,
+          total:     split.total,
+        });
+      } catch (err) {
+        console.warn("[POS] split-bill-record failed:", err.message);
+      }
+    }
+    showToast("Split recorded · Collect per seat");
   }
 
   // ── Counter order ─────────────────────────────────────────────────────────
@@ -1368,11 +1414,18 @@ export default function App() {
         const localOnlyUnsent = (localOrder?.items || []).filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
+        // Clean ghost voided items: items that were voided before any KOT was ever sent
+        // (no KOT sent = kotCount is 0/undefined). These were pre-KOT deletions that got
+        // stuck as "VOID" badges. Drop them so the order panel stays clean.
+        const kotEverSent = (serverOrder.kotCount || 0) > 0;
+        const cleanedServerItems = kotEverSent
+          ? (serverOrder.items || [])
+          : (serverOrder.items || []).filter(i => !i.isVoided);
         return {
           ...prev,
           [tableId]: {
             ...serverOrder,
-            items: [...(serverOrder.items || []), ...localOnlyUnsent]
+            items: [...cleanedServerItems, ...localOnlyUnsent]
           }
         };
       });
@@ -1697,6 +1750,18 @@ export default function App() {
   const openTables = Object.values(orders).filter(o => o.items?.length && !o.isClosed && !o.isOnHold).length;
   const pendingKOT = Object.values(orders).reduce((s, o) => s + (o.items || []).filter(i => !i.sentToKot && !i.isVoided).length, 0);
 
+  // Quantities of unsent items in current order — used by MenuPanel for +/− display
+  const menuQuantities = useMemo(() => {
+    const map = {};
+    if (!selectedOrder) return map;
+    (selectedOrder.items || [])
+      .filter(i => !i.sentToKot && !i.isVoided)
+      .forEach(i => {
+        if (i.menuItemId) map[i.menuItemId] = (map[i.menuItemId] || 0) + i.quantity;
+      });
+    return map;
+  }, [selectedOrder]);
+
   // ─── Main POS UI ──────────────────────────────────────────────────────────
   return (
     <div className="pos-shell">
@@ -1876,6 +1941,8 @@ export default function App() {
           activeCategory={activeCategory || categories[0]?.name}
           onAddItem={handleAddItem}
           onToggleAvailability={handleToggleAvailability}
+          quantities={menuQuantities}
+          onDecrement={handleDecrementItem}
         />
       </div>
 
@@ -1952,7 +2019,7 @@ export default function App() {
           order={selectedOrder}
           tableLabel={tableLabel}
           onClose={() => setShowSplitBill(false)}
-          onPaySplit={handlePaySplit}
+          onConfirmSplit={handleConfirmSplit}
         />
       )}
 
