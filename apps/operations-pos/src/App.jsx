@@ -5,7 +5,8 @@ import { UpdateBanner, APP_VERSION } from "./components/UpdateBanner";
 import { MenuPanel }          from "./components/MenuPanel";
 import { OrderPanel }         from "./components/OrderPanel";
 import { PaymentSheet }       from "./components/PaymentSheet";
-import { SplitBillSheet }     from "./components/SplitBillSheet";
+import { SplitBillSheet }          from "./components/SplitBillSheet";
+import { SplitSettlementPanel }    from "./components/SplitSettlementPanel";
 import { ShiftGate }          from "./components/ShiftGate";
 import { CashMovementModal, CloseShiftModal } from "./components/ShiftModals";
 import { AdvanceOrderModal }  from "./components/AdvanceOrderModal";
@@ -469,6 +470,21 @@ export default function App() {
           });
         });
 
+        // ── Bill requested from Captain (split or normal) ───────────────────
+        socket.on("bill:requested", ({ tableId, isSplit }) => {
+          setOrders((prev) => {
+            const order = prev[tableId];
+            if (!order) return prev;
+            const updated = {
+              ...order,
+              billRequested: true,
+              ...(isSplit ? { isSplitBill: true } : {}),
+            };
+            saveOrdersToStorage({ ...prev, [tableId]: updated });
+            return { ...prev, [tableId]: updated };
+          });
+        });
+
         socket.on("kot:sent", ({ tableId }) => {
           setOrders((prev) => {
             if (!prev[tableId]) return prev;
@@ -629,8 +645,17 @@ export default function App() {
             price: parsePriceNumber(i.basePrice || i.price)
           })));
         }
-        const cachedAreas = cache.tableAreas;
+        // Rebuild areas from outlet if cached areas are missing seats (stale cache)
+        let cachedAreas = cache.tableAreas;
         if (cachedAreas) {
+          const missingSeats = cachedAreas.some(a => a.tables?.some(t => !t.seats));
+          if (missingSeats && cache.outlet?.tables?.length) {
+            cachedAreas = buildAreasFromOutlet(cache.outlet);
+            saveConfigCache({ outlet: cache.outlet, categories: cache.categories, menuItems: cache.menuItems, tableAreas: cachedAreas });
+          }
+          setTableAreas(cachedAreas);
+        } else if (cache.outlet?.tables?.length) {
+          cachedAreas = buildAreasFromOutlet(cache.outlet);
           setTableAreas(cachedAreas);
         }
 
@@ -1476,6 +1501,31 @@ export default function App() {
   }
 
   // ── Print bill ────────────────────────────────────────────────────────────
+  // Mark one person's split bill as paid
+  function handleSplitMarkPaid(billNo, paymentMethod) {
+    if (!selectedTableId) return;
+    mutateOrder(selectedTableId, (order) => {
+      const splits = order.splitBills || [];
+      order.splitBills = splits.map(s =>
+        s.billNo === billNo
+          ? { ...s, paid: true, paymentMethod, paidAt: new Date().toISOString() }
+          : s
+      );
+      order.updatedAt = Date.now();
+      return order;
+    });
+    // Sync to all devices via socket
+    const updatedOrder = orders[selectedTableId];
+    if (updatedOrder) {
+      socketRef.current?.emit("order:update", { outletId: outlet?.id, order: { ...updatedOrder,
+        splitBills: (updatedOrder.splitBills || []).map(s =>
+          s.billNo === billNo ? { ...s, paid: true, paymentMethod, paidAt: new Date().toISOString() } : s
+        ),
+        updatedAt: Date.now(),
+      }});
+    }
+  }
+
   // Assigns the next sequential bill number (FY or daily, per owner-console setting)
   // at print-time via the backend. Idempotent: if Captain already printed and
   // assigned a number, POS gets the same number back.
@@ -1756,17 +1806,23 @@ export default function App() {
           </button>
         </div>
 
-        {/* Center: quick stats */}
+        {/* Center: pending KOT — clickable, jumps to first table with unsent items */}
         <div className="pab-stats">
-          <div className="pab-stat">
-            <span className="pab-stat-val">{openTables}</span>
-            <span className="pab-stat-lbl">Open Tables</span>
-          </div>
-          <div className="pab-stat-divider" />
-          <div className="pab-stat">
-            <span className={`pab-stat-val${pendingKOT > 0 ? " warn" : ""}`}>{pendingKOT}</span>
+          <button
+            type="button"
+            className={`pab-stat pab-stat-btn${pendingKOT > 0 ? " pab-stat-warn" : ""}`}
+            onClick={() => {
+              if (pendingKOT === 0) return;
+              const tableWithKot = tableAreas.flatMap(a => a.tables).find(t => {
+                const o = orders[t.id];
+                return (o?.items || []).some(i => !i.sentToKot && !i.isVoided);
+              });
+              if (tableWithKot) setSelectedTableId(tableWithKot.id);
+            }}
+          >
+            <span className="pab-stat-val">{pendingKOT}</span>
             <span className="pab-stat-lbl">Pending KOT</span>
-          </div>
+          </button>
         </div>
 
         {/* Right group: shift actions */}
@@ -1832,6 +1888,12 @@ export default function App() {
             onSelectTable={handleSelectTable}
             serviceMode={serviceMode}
             onNewCounterOrder={handleNewCounterOrder}
+          />
+        ) : selectedOrder?.isSplitBill && selectedOrder?.splitBills?.length > 0 ? (
+          <SplitSettlementPanel
+            order={selectedOrder}
+            onMarkPaid={handleSplitMarkPaid}
+            onBack={() => setSelectedTableId(null)}
           />
         ) : (
         <OrderPanel
