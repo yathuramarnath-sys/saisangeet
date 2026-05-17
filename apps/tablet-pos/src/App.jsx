@@ -828,6 +828,17 @@ export default function App() {
     return "";
   }, [selectedTableId, selectedTable, selectedOrder, serviceMode]);
 
+  // Quantities of unsent items in current order — used by MenuPanel +/− buttons.
+  // MUST be here (before any conditional returns) to obey React Rules of Hooks.
+  const menuQuantities = useMemo(() => {
+    const map = {};
+    if (!selectedOrder) return map;
+    (selectedOrder.items || [])
+      .filter(i => !i.sentToKot && !i.isVoided)
+      .forEach(i => { if (i.menuItemId) map[i.menuItemId] = (map[i.menuItemId] || 0) + i.quantity; });
+    return map;
+  }, [selectedOrder]);
+
   // ── Order mutations ───────────────────────────────────────────────────────
   function mutateOrder(tableId, updater) {
     setOrders((prev) => {
@@ -1677,18 +1688,6 @@ export default function App() {
   // ── Quick stats ───────────────────────────────────────────────────────────
   const openTables = Object.values(orders).filter(o => o.items?.length && !o.isClosed && !o.isOnHold).length;
   const pendingKOT = Object.values(orders).reduce((s, o) => s + (o.items || []).filter(i => !i.sentToKot && !i.isVoided).length, 0);
-
-  // Quantities of unsent items in current order — for MenuPanel +/− display
-  const menuQuantities = useMemo(() => {
-    const map = {};
-    if (!selectedOrder) return map;
-    (selectedOrder.items || [])
-      .filter(i => !i.sentToKot && !i.isVoided)
-      .forEach(i => {
-        if (i.menuItemId) map[i.menuItemId] = (map[i.menuItemId] || 0) + i.quantity;
-      });
-    return map;
-  }, [selectedOrder]);
 
   // ─── Main POS UI ──────────────────────────────────────────────────────────
   return (
