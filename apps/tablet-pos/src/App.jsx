@@ -4,7 +4,8 @@ import { io } from "socket.io-client";
 import { MenuPanel }          from "./components/MenuPanel";
 import { OrderPanel }         from "./components/OrderPanel";
 import { PaymentSheet }       from "./components/PaymentSheet";
-import { SplitBillSheet }     from "./components/SplitBillSheet";
+import { SplitBillSheet }          from "./components/SplitBillSheet";
+import { SplitSettlementPanel }    from "./components/SplitSettlementPanel";
 import { ShiftGate }          from "./components/ShiftGate";
 import { CashMovementModal, CloseShiftModal } from "./components/ShiftModals";
 import { AdvanceOrderModal }  from "./components/AdvanceOrderModal";
@@ -29,7 +30,7 @@ import { printBill } from "./lib/printBill";
 import { openCashDrawer, hasCashPayment } from "./lib/cashDrawer";
 import { setItemAvailability } from "./lib/stockAvailability.js";
 
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.1.1";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -467,6 +468,37 @@ export default function App() {
             const next = { ...prev, [updatedOrder.tableId]: updatedOrder };
             saveOrdersToStorage(next);
             return next;
+          });
+        });
+
+        // ── Bill requested from Captain ───────────────────────────────────
+        socket.on("bill:requested", ({ tableId, isSplit }) => {
+          setOrders((prev) => {
+            const order = prev[tableId];
+            if (!order) return prev;
+            const updated = {
+              ...order,
+              billRequested: true,
+              ...(isSplit ? { isSplitBill: true } : {}),
+            };
+            saveOrdersToStorage({ ...prev, [tableId]: updated });
+            return { ...prev, [tableId]: updated };
+          });
+        });
+
+        // ── Split bill recorded by Captain → show SplitSettlementPanel ──────
+        socket.on("split:updated", ({ tableId, splitBills }) => {
+          setOrders((prev) => {
+            const order = prev[tableId];
+            if (!order) return prev;
+            const updated = {
+              ...order,
+              isSplitBill:   true,
+              billRequested: true,
+              splitBills:    splitBills || order.splitBills || [],
+            };
+            saveOrdersToStorage({ ...prev, [tableId]: updated });
+            return { ...prev, [tableId]: updated };
           });
         });
 
@@ -1288,10 +1320,38 @@ export default function App() {
     }, 1500);
   }
 
-  async function handlePaySplit(amount) {
+  async function handleConfirmSplit(splits) {
+    if (!selectedTableId || !outlet?.id) return;
+    for (const split of splits) {
+      try {
+        await api.post("/operations/split-bill-record", {
+          outletId:  outlet.id,
+          tableId:   selectedTableId,
+          seatLabel: split.seatLabel,
+          billNo:    split.billNo,
+          items:     split.items,
+          subtotal:  split.subtotal,
+          tax:       split.tax,
+          total:     split.total,
+        });
+      } catch (err) {
+        console.warn("[POS] split-bill-record failed:", err.message);
+      }
+    }
+    showToast("Split recorded · Collect per seat");
+  }
+
+  // Decrement qty of last unsent instance of an item (for menu −/+ buttons)
+  function handleDecrementItem(item) {
     if (!selectedTableId) return;
-    await handleSettle([{ method: "cash", amount, reference: undefined }]);
-    showToast(`Split payment · ₹${amount}`);
+    const order = orders[selectedTableId];
+    if (!order) return;
+    const idx = [...(order.items || [])]
+      .map((i, index) => ({ i, index }))
+      .reverse()
+      .find(({ i }) => i.menuItemId === item.id && !i.sentToKot)?.index;
+    if (idx == null) return;
+    handleChangeQty(idx, (order.items[idx].quantity || 1) - 1);
   }
 
   // ── Counter order ─────────────────────────────────────────────────────────
@@ -1331,21 +1391,24 @@ export default function App() {
 
       setOrders((prev) => {
         const localOrder = prev[tableId];
-        // Preserve unsent local items whose IDs are absent from server state (offline adds)
         const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
         const localOnlyUnsent = (localOrder?.items || []).filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
+        // Drop ghost voided items if no KOT was ever sent (pre-KOT voids stuck as VOID badge)
+        const kotEverSent = (serverOrder.kotCount || 0) > 0;
+        const cleanedServerItems = kotEverSent
+          ? (serverOrder.items || [])
+          : (serverOrder.items || []).filter(i => !i.isVoided);
         return {
           ...prev,
           [tableId]: {
             ...serverOrder,
-            items: [...(serverOrder.items || []), ...localOnlyUnsent]
+            items: [...cleanedServerItems, ...localOnlyUnsent]
           }
         };
       });
     } catch (err) {
-      // Offline or server unreachable — keep local state, no data lost
       console.warn("[POS] table fetch failed (offline?):", err.message);
     }
   }
@@ -1615,6 +1678,18 @@ export default function App() {
   const openTables = Object.values(orders).filter(o => o.items?.length && !o.isClosed && !o.isOnHold).length;
   const pendingKOT = Object.values(orders).reduce((s, o) => s + (o.items || []).filter(i => !i.sentToKot && !i.isVoided).length, 0);
 
+  // Quantities of unsent items in current order — for MenuPanel +/− display
+  const menuQuantities = useMemo(() => {
+    const map = {};
+    if (!selectedOrder) return map;
+    (selectedOrder.items || [])
+      .filter(i => !i.sentToKot && !i.isVoided)
+      .forEach(i => {
+        if (i.menuItemId) map[i.menuItemId] = (map[i.menuItemId] || 0) + i.quantity;
+      });
+    return map;
+  }, [selectedOrder]);
+
   // ─── Main POS UI ──────────────────────────────────────────────────────────
   return (
     <div className="pos-shell">
@@ -1785,6 +1860,8 @@ export default function App() {
           activeCategory={activeCategory || categories[0]?.name}
           onAddItem={handleAddItem}
           onToggleAvailability={handleToggleAvailability}
+          quantities={menuQuantities}
+          onDecrement={handleDecrementItem}
         />
       </div>
 
@@ -1797,6 +1874,22 @@ export default function App() {
             onSelectTable={handleSelectTable}
             serviceMode={serviceMode}
             onNewCounterOrder={handleNewCounterOrder}
+          />
+        ) : selectedOrder?.isSplitBill && selectedOrder?.splitBills?.length > 0 ? (
+          <SplitSettlementPanel
+            order={selectedOrder}
+            onMarkPaid={(billNo, method) => {
+              mutateOrder(selectedTableId, (order) => {
+                order.splitBills = (order.splitBills || []).map(s =>
+                  s.billNo === billNo
+                    ? { ...s, paid: true, paymentMethod: method, paidAt: new Date().toISOString() }
+                    : s
+                );
+                order.updatedAt = Date.now();
+                return order;
+              });
+            }}
+            onBack={() => setSelectedTableId(null)}
           />
         ) : (
         <OrderPanel
@@ -1855,7 +1948,7 @@ export default function App() {
           order={selectedOrder}
           tableLabel={tableLabel}
           onClose={() => setShowSplitBill(false)}
-          onPaySplit={handlePaySplit}
+          onConfirmSplit={handleConfirmSplit}
         />
       )}
 

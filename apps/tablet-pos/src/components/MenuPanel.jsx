@@ -75,7 +75,7 @@ const PALETTE = [
   { bg: "#D35400", light: "#FDEBD0", grad: "linear-gradient(135deg,#E67E22,#9A3412)" },
 ];
 
-export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability }) {
+export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, quantities, onDecrement }) {
   const [search,      setSearch]      = useState("");
   const [stockState,  setStockState]  = useState(() => getStockState());
 
@@ -173,20 +173,15 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
           const color   = search ? PALETTE[0] : itemCatColor(item);
           const emoji   = getItemEmoji(item.name);
           const soldOut = stockState[item.id]?.available === false;
+          const qty     = (quantities && quantities[item.id]) || 0;
 
           return (
-            /* Use <div> not <button> so the inner toggle <button> is valid HTML
-               and receives click events reliably (nested <button> is invalid HTML). */
             <div
               key={item.id}
-              role="button"
-              tabIndex={0}
-              className={`menu-food-card${soldOut ? " sold-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}`}
-              onClick={() => !soldOut && onAddItem({ ...item, price })}
-              onKeyDown={(e) => e.key === "Enter" && !soldOut && onAddItem({ ...item, price })}
+              className={`menu-food-card${soldOut ? " sold-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}${qty > 0 ? " in-cart" : ""}`}
               title={soldOut ? "Sold Out — tap toggle to re-enable" : undefined}
             >
-              {/* Availability toggle — must be a real <button> to receive events */}
+              {/* Availability toggle */}
               {onToggleAvailability && (
                 <button
                   type="button"
@@ -218,7 +213,20 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
                     <span className="mfc-price" style={{ color: color.bg }}>
                       ₹{price}{item.unit ? <span className="mfc-unit">/{item.unit}</span> : null}
                     </span>
-                    <span className="mfc-add-btn" style={{ background: color.bg }}>+</span>
+                    {qty > 0 ? (
+                      <div className="mfc-qty-controls" onClick={e => e.stopPropagation()}>
+                        <button type="button" className="mfc-qty-btn mfc-minus"
+                          style={{ background: color.bg }}
+                          onClick={() => onDecrement?.({ ...item, price })}>−</button>
+                        <span className="mfc-qty-val">{qty}</span>
+                        <button type="button" className="mfc-qty-btn mfc-plus"
+                          style={{ background: color.bg }}
+                          onClick={() => onAddItem({ ...item, price })}>+</button>
+                      </div>
+                    ) : (
+                      <button type="button" className="mfc-add-btn" style={{ background: color.bg }}
+                        onClick={() => onAddItem({ ...item, price })}>+</button>
+                    )}
                   </div>
                 )}
               </div>

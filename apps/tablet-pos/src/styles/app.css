@@ -1551,6 +1551,116 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(20,20,20,0.24);
 }
+.split-pay-all-btn:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Seat-based split sheet ── */
+.split-items-section { margin-bottom: 10px; }
+.split-section-label {
+  font-size: 11px; font-weight: 600; color: var(--sq-muted);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;
+}
+.split-items-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 220px; overflow-y: auto;
+}
+.split-no-items { font-size: 13px; color: var(--sq-muted); text-align: center; padding: 16px 0; }
+.split-item-row {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 8px 12px; border-radius: 10px;
+  background: #f8fafc; border: 1.5px solid var(--sq-border); transition: border-color 120ms;
+}
+.split-item-row.assigned { border-color: #059669; background: #f0fdf4; }
+.split-item-info { display: flex; align-items: center; justify-content: space-between; }
+.split-item-name { font-size: 13px; font-weight: 600; color: var(--sq-text); }
+.split-item-price { font-size: 13px; font-weight: 700; color: var(--sq-text); }
+.split-seat-btns { display: flex; flex-wrap: wrap; gap: 5px; }
+.split-seat-pill {
+  padding: 3px 9px; border-radius: 100px; font-size: 11px; font-weight: 700;
+  background: #e2e8f0; color: #475569; border: 1.5px solid transparent; transition: all 100ms;
+}
+.split-seat-pill.active { background: #059669; color: #fff; border-color: #047857; }
+.split-person-items { font-size: 11px; color: var(--sq-muted); font-weight: 500; }
+.split-unassigned-card { border-color: #fca5a5; background: #fff5f5; }
+
+/* ── Menu card +/− quantity controls ── */
+.mfc-qty-controls { display: flex; align-items: center; gap: 4px; }
+.mfc-qty-btn {
+  width: 26px; height: 26px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 16px; font-weight: 700; line-height: 1;
+  flex-shrink: 0; transition: all 120ms;
+}
+.mfc-qty-btn:hover { transform: scale(1.12); }
+.mfc-qty-val { font-size: 14px; font-weight: 800; min-width: 18px; text-align: center; color: var(--sq-text); }
+.menu-food-card.in-cart { outline: 2px solid #059669; outline-offset: 1px; }
+
+/* ── Split Settlement Panel ── */
+.split-settle-panel {
+  display: flex; flex-direction: column; height: 100%;
+  background: var(--sq-surface); border-radius: 18px;
+  padding: 20px; overflow-y: auto;
+}
+.split-settle-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+}
+.ssp-back-btn {
+  width: 36px; height: 36px; border-radius: 10px; background: #f0f0f0;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ssp-title { font-size: 16px; font-weight: 800; color: var(--sq-text); }
+.ssp-meta { font-size: 12px; color: var(--sq-muted); margin-top: 2px; }
+.ssp-status-tag {
+  margin-left: auto; padding: 4px 10px; border-radius: 100px;
+  font-size: 11px; font-weight: 700;
+}
+.ssp-status-tag.all-paid { background: #d1fae5; color: #065f46; }
+.ssp-status-tag.pending  { background: #fef3c7; color: #92400e; }
+.ssp-rows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.ssp-empty { font-size: 13px; color: var(--sq-muted); text-align: center; padding: 24px 0; }
+.ssp-row {
+  padding: 14px; border-radius: 13px; background: #f8fafc;
+  border: 1.5px solid var(--sq-border);
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+}
+.ssp-row-paid { background: #f0fdf4; border-color: #86efac; }
+.ssp-row-left { flex: 1; min-width: 0; }
+.ssp-row-label { font-size: 14px; font-weight: 700; color: var(--sq-text); margin-bottom: 6px; }
+.ssp-bill-no { font-size: 11px; color: var(--sq-muted); margin-left: 6px; }
+.ssp-row-items { display: flex; flex-wrap: wrap; gap: 4px; }
+.ssp-item-chip {
+  padding: 2px 8px; border-radius: 100px; background: #e2e8f0;
+  font-size: 11px; color: #475569; font-weight: 500;
+}
+.ssp-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ssp-amount { font-size: 18px; font-weight: 800; color: var(--sq-text); }
+.ssp-paid-tag { font-size: 12px; font-weight: 700; color: #059669; }
+.ssp-pay-btn {
+  padding: 8px 14px; border-radius: 10px; background: var(--sq-black);
+  color: #fff; font-size: 13px; font-weight: 700;
+}
+.ssp-pay-inline { display: flex; flex-direction: column; gap: 6px; }
+.ssp-method-btns { display: flex; gap: 5px; flex-wrap: wrap; }
+.ssp-method-btn {
+  padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  background: #f0f0f0; color: var(--sq-text); border: 1.5px solid transparent;
+}
+.ssp-method-btn.active { background: var(--sq-black); color: #fff; }
+.ssp-pay-actions { display: flex; gap: 6px; }
+.ssp-cancel-btn {
+  padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700;
+  background: #f0f0f0; color: var(--sq-muted);
+}
+.ssp-confirm-btn {
+  padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700;
+  background: #059669; color: #fff;
+}
+.ssp-footer { text-align: center; padding: 12px 0; }
+.ssp-all-done { font-size: 13px; font-weight: 700; color: #059669; }
 
 /* ─── Toast ──────────────────────────────────────────────────────────────── */
 

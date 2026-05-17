@@ -228,23 +228,7 @@ export function OrderPanel({
                       <span className="order-item-void-tag">VOID</span>
                     )}
                   </div>
-                  {/* Item actions: comp + void */}
-                  {!item.isVoided && !order.isClosed && (
-                    <div className="item-action-btns">
-                      <button type="button"
-                        className={`item-act-btn comp${item.isComp ? " on" : ""}`}
-                        title={item.isComp ? "Remove comp" : "Complimentary"}
-                        onClick={() => onCompToggle?.(idx)}>
-                        🎁
-                      </button>
-                      <button type="button"
-                        className="item-act-btn void"
-                        title="Void item"
-                        onClick={() => setVoidingIdx(idx)}>
-                        🗑
-                      </button>
-                    </div>
-                  )}
+                  {/* Item actions: removed comp + void buttons — PIN-protected void coming later */}
                 </div>
 
                 {!item.isVoided && (
@@ -386,21 +370,9 @@ export function OrderPanel({
             </div>
           )}
 
-          {/* Row 2: Request Bill + Print Bill */}
+          {/* Row 2: Print Bill */}
           {hasItems && (
             <div className="order-actions-row">
-              {!order.billRequested && (
-                <button type="button" className="pos-btn bill-req" onClick={onRequestBill}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2.5">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                  </svg>
-                  Request Bill
-                </button>
-              )}
               {onPrintBill && (
                 <button type="button" className="pos-btn print-bill" onClick={onPrintBill}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
