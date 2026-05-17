@@ -829,6 +829,14 @@ function stampSplitBills(tableId, splitBills) {
   }
 }
 
+function updateGuests(tableId, guests, actor = "Captain") {
+  const order = findOrder(tableId);
+  assertOrderOpen(order, "update guests");
+  order.guests = Math.max(0, Number(guests) || 0);
+  order.updatedAt = Date.now();
+  return clone(order);
+}
+
 function assignWaiter(tableId, waiterName, actor = "Captain") {
   const order = findOrder(tableId);
   assertOrderOpen(order, "assign waiter");
@@ -1196,6 +1204,7 @@ module.exports = {
   stampBillNo,
   stampSplitBills,
   requestBill,
+  updateGuests,
   assignWaiter,
   addOrderItem,
   removeOrderItem,

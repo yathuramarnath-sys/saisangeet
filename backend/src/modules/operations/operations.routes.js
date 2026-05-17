@@ -15,6 +15,7 @@ const {
   moveTableHandler,
   mergeTablesHandler,
   assignWaiterHandler,
+  updateGuestsHandler,
   addOrderItemHandler,
   updateOrderItemHandler,
   splitBillHandler,
@@ -87,6 +88,11 @@ operationsRouter.post(
   requireAuth,
   requirePermission("operations.waiter.assign"),
   asyncHandler(assignWaiterHandler)
+);
+operationsRouter.post(
+  "/orders/:tableId/guests",
+  requireAuth,
+  asyncHandler(updateGuestsHandler)
 );
 operationsRouter.post(
   "/orders/:tableId/items",

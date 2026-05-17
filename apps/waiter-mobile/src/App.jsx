@@ -553,6 +553,22 @@ export function App() {
     localSocketRef.current?.emit("order:update", { order: nextOrder });
   }
 
+  // ── Persist guest count to backend so it survives syncs ──────────────────
+  async function handleUpdateGuests(tableId, guests) {
+    const order = orders[tableId];
+    if (!order) return;
+    const updated = { ...order, guests };
+    setOrders((p) => ({ ...p, [tableId]: updated }));
+    try {
+      await api.post(`/operations/orders/${tableId}/guests`, {
+        outletId: outlet?.id || branchConfig?.outletId,
+        guests,
+      });
+    } catch (err) {
+      console.warn("[captain] updateGuests failed:", err.message);
+    }
+  }
+
   // ── Remove unsent item from order (DELETE to backend so it doesn't ghost) ──
   // Root cause of the "stuck item" bug: socket order:update only relays to other
   // devices but never updates the backend memory store. So a removed item stays
@@ -1248,6 +1264,7 @@ export function App() {
             onPrintSplitBill={handlePrintSplitBill}
             onToggleHold={handleToggleHold}
             onUpdateOrder={handleUpdateOrder}
+            onUpdateGuests={handleUpdateGuests}
             onRemoveItem={handleRemoveItem}
             onAddItem={handleAddItem}
             onTransfer={handleTableTransfer}

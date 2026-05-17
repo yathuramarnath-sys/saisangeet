@@ -15,8 +15,8 @@ import {
 export function OrderScreen({
   order, tableLabel, areas, categories, menuItems, outletName,
   orders, outletId, socket, staff = [],
-  onBack, onSendKOT, onRequestBill, onPrintBill,
-  onToggleHold, onUpdateOrder, onRemoveItem, onAddItem,
+  onBack, onSendKOT, onRequestBill, onPrintBill, onPrintSplitBill,
+  onToggleHold, onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear,
   autoOpen = null, // "transfer" | "merge" | "split" — open modal immediately on mount
 }) {
@@ -27,6 +27,7 @@ export function OrderScreen({
   const [showPhonePeQR,   setShowPhonePeQR]    = useState(false);
   const [showAssignModal, setShowAssignModal]  = useState(false);
   const [assignPick,      setAssignPick]       = useState(order.assignedWaiter || "");
+  const [guestVal,        setGuestVal]         = useState(order.guests || "");
   // Only show Waiter/Server/Steward roles in the assign modal (not Captains)
   const waiterStaff = staff.filter(s => /waiter|server|steward/i.test(s.role || ""));
   const [stockState,      setStockState]       = useState(() => getStockState());
@@ -35,6 +36,11 @@ export function OrderScreen({
     const unsub = subscribeStock((s) => setStockState({ ...s }));
     return unsub;
   }, []);
+
+  // Keep local guestVal in sync when order.guests changes (e.g. after backend sync)
+  useEffect(() => {
+    setGuestVal(order.guests || "");
+  }, [order.guests]);
 
   // Sync item availability from POS via socket
   useEffect(() => {
@@ -101,7 +107,14 @@ export function OrderScreen({
   }
 
   if (screen === "split") {
-    return <SplitBill order={order} outletName={outletName} onBack={() => setScreen("order")} />;
+    return (
+      <SplitBill
+        order={order}
+        outletName={outletName}
+        onBack={() => setScreen("order")}
+        onPrint={(items, seatLabel) => onPrintSplitBill?.(order.tableId, items, seatLabel)}
+      />
+    );
   }
 
   return (
@@ -141,9 +154,14 @@ export function OrderScreen({
                 type="number"
                 min="0"
                 max="20"
-                value={order.guests || ""}
+                value={guestVal}
                 placeholder="0"
-                onChange={e => onUpdateOrder({ ...order, guests: Number(e.target.value) })}
+                onChange={e => setGuestVal(e.target.value)}
+                onBlur={e => {
+                  const n = Math.max(0, Number(e.target.value) || 0);
+                  setGuestVal(n || "");
+                  onUpdateGuests?.(order.tableId, n);
+                }}
               />
             </div>
           </div>

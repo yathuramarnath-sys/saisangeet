@@ -148,6 +148,26 @@ async function assignWaiterHandler(req, res) {
   res.json(result);
 }
 
+async function updateGuestsHandler(req, res) {
+  const { updateGuests } = require("./operations.memory-store");
+  const { tableId } = req.params;
+  const { guests, outletId } = req.body;
+  const result = updateGuests(tableId, guests);
+  // Broadcast updated order to all devices
+  const io = req.app.get("io");
+  if (io && outletId) {
+    const { runWithTenant } = require("../../data/tenant-context");
+    const { resolveTenantByOutlet } = require("../../data/owner-setup-store");
+    const tid = resolveTenantByOutlet(outletId);
+    if (tid) {
+      runWithTenant(tid, () => {
+        io.to(`outlet:${tid}:${outletId}`).emit("order:updated", result);
+      });
+    }
+  }
+  res.json(result);
+}
+
 async function addOrderItemHandler(req, res) {
   const result = await addItemToOrder(req.params.tableId, req.body);
   res.status(201).json(result);
@@ -1002,6 +1022,7 @@ module.exports = {
   moveTableHandler,
   mergeTablesHandler,
   assignWaiterHandler,
+  updateGuestsHandler,
   addOrderItemHandler,
   updateOrderItemHandler,
   splitBillHandler,
