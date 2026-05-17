@@ -458,7 +458,7 @@ export function App() {
 
   // ── Check for Captain app updates (shown in drawer, not top banner) ──────
   useEffect(() => {
-    const APP_VERSION_CAPTAIN = "1.16";
+    const APP_VERSION_CAPTAIN = "1.22";
     const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1");
     function checkUpdate() {
       fetch(`${API_BASE}/app-versions`, { cache: "no-store" })
@@ -873,6 +873,69 @@ export function App() {
     setActionTableId(null);
   }
 
+  // ── Split bill print ──────────────────────────────────────────────────────
+  // Called from SplitBill component when user taps "Print Person N" or "Print Full Bill".
+  // Awaits bill-number assignment BEFORE printing so every slip has a number.
+  // Each person tap gets its own unique bill number (correct behaviour).
+  async function handlePrintSplitBill(tableId, items, seatLabel) {
+    const tid   = tableId || selectedTableId;
+    const order = orders[tid];
+    if (!order || !items?.length) return;
+
+    // 1. Assign a new bill number first — MUST complete before printing
+    let printOrder = { ...order };
+    try {
+      const result = await api.post("/operations/assign-bill-no", {
+        outletId: outlet?.id || branchConfig?.outletId,
+        tableId:  tid,
+      });
+      if (result?.billNo != null) {
+        printOrder = {
+          ...printOrder,
+          billNo:     result.billNo,
+          billNoMode: result.billNoMode,
+          billNoFY:   result.billNoFY,
+        };
+      }
+    } catch (err) {
+      console.warn("[captain] assign-bill-no (split) failed:", err.message);
+    }
+
+    // 2. Print with bill number
+    printBill(
+      printOrder,
+      items,
+      outlet || { name: branchConfig?.outletName || "Restaurant" },
+      { cashierName: loggedInStaff?.name || "Waiter", seatLabel }
+    );
+    toast("Printing split bill…", { icon: "🖨️" });
+
+    // 3. Mark billRequested + notify POS
+    const now = Date.now();
+    const updatedOrder = { ...printOrder, billRequested: true, isSplitBill: true, updatedAt: now };
+    handleUpdateOrder(updatedOrder);
+
+    // 4. Send split bill record to backend → POS shows settlement panel
+    const billableItems = (items || []).filter(i => !i.isVoided && !i.isComp);
+    const subtotal = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
+    const tax = billableItems.reduce((s, i) => {
+      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      return s + Math.round(i.price * i.quantity * rate / 100);
+    }, 0);
+    api.post("/operations/split-bill-record", {
+      outletId:  outlet?.id || branchConfig?.outletId,
+      tableId:   tid,
+      seatLabel: seatLabel || "Person",
+      billNo:    printOrder.billNo,
+      items:     billableItems,
+      subtotal,
+      tax,
+      total:     subtotal + tax,
+    }).catch(() => {});
+
+    api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, isSplit: true }).catch(() => {});
+  }
+
   // ── Toggle hold ───────────────────────────────────────────────────────────
   // tableId is optional — falls back to selectedTableId
   function handleToggleHold(tableId) {
@@ -1182,6 +1245,7 @@ export function App() {
             onSendKOT={handleSendKOT}
             onRequestBill={handleRequestBill}
             onPrintBill={handlePrintBill}
+            onPrintSplitBill={handlePrintSplitBill}
             onToggleHold={handleToggleHold}
             onUpdateOrder={handleUpdateOrder}
             onRemoveItem={handleRemoveItem}
