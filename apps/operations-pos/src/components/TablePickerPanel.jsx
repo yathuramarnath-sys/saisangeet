@@ -130,7 +130,7 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
                     <span className="tpp-table-num">{table.number}</span>
                     <span className="tpp-table-status" style={{ color: st === "available" ? col.dot : col.text }}>{col.label}</span>
                     {total !== null && <span className="tpp-table-amt">₹{total}</span>}
-                    {guests > 0 && <span className="tpp-table-guests">{guests}p</span>}
+                    {(table.seats || 0) > 0 && <span className="tpp-table-seats">{table.seats} seats</span>}
                   </button>
                 );
               })}
