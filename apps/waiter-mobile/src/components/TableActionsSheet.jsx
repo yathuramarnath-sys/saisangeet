@@ -3,8 +3,7 @@ import { tapImpact } from "../lib/haptics";
 
 export function TableActionsSheet({
   tableNumber, areaName, order,
-  onClose, onEditOrder, onSendKOT,
-  onMoveTable, onMerge, onSplitBill, onPrintBill, onCustomerInfo,
+  onClose, onMoveTable, onMerge, onSplitBill, onPrintBill, onCustomerInfo,
 }) {
   const [elapsed, setElapsed] = useState("");
 
@@ -25,11 +24,9 @@ export function TableActionsSheet({
     return () => clearInterval(t);
   }, [order]);
 
-  const items       = order?.items || [];
-  const billable    = items.filter(i => !i.isVoided && !i.isComp);
-  const unsent      = items.filter(i => !i.sentToKot && !i.isVoided);
-  const itemCount   = billable.length;
-  const unsentCount = unsent.length;
+  const items     = order?.items || [];
+  const billable  = items.filter(i => !i.isVoided && !i.isComp);
+  const itemCount = billable.length;
 
   const subtotal = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
   const tax      = billable.reduce((s, i) => {
@@ -61,13 +58,6 @@ export function TableActionsSheet({
 
         {/* All actions — plain list */}
         <div className="tas-section tas-section-secondary">
-
-          {unsentCount > 0 && (
-            <button className="tas-action-sm" onClick={() => { tapImpact(); onSendKOT(); }}>
-              <span>Send to Kitchen</span>
-              <span className="tas-unsent-badge">{unsentCount}</span>
-            </button>
-          )}
 
           {itemCount > 0 && (
             <button className="tas-action-sm" onClick={() => { tapImpact(); onPrintBill?.(); onClose(); }}>
