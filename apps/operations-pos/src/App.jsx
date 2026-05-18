@@ -1580,29 +1580,117 @@ export default function App() {
   }
 
   // ── Print bill ────────────────────────────────────────────────────────────
-  // Mark one person's split bill as paid
+  // Mark one person's split bill as paid.
+  // When the LAST seat is paid, auto-close the table — no second settlement needed.
   function handleSplitMarkPaid(billNo, paymentMethod) {
     if (!selectedTableId) return;
-    mutateOrder(selectedTableId, (order) => {
-      const splits = order.splitBills || [];
-      order.splitBills = splits.map(s =>
-        s.billNo === billNo
-          ? { ...s, paid: true, paymentMethod, paidAt: new Date().toISOString() }
-          : s
-      );
-      order.updatedAt = Date.now();
-      return order;
+    const tableId = selectedTableId;
+    const order   = orders[tableId];
+    if (!order) return;
+
+    // Compute the updated splits upfront so we can check allPaid immediately
+    const updatedSplits = (order.splitBills || []).map(s =>
+      s.billNo === billNo
+        ? { ...s, paid: true, paymentMethod, paidAt: new Date().toISOString() }
+        : s
+    );
+
+    mutateOrder(tableId, (o) => {
+      o.splitBills = updatedSplits;
+      o.updatedAt  = Date.now();
+      return o;
     });
+
     // Sync to all devices via socket
-    const updatedOrder = orders[selectedTableId];
-    if (updatedOrder) {
-      socketRef.current?.emit("order:update", { outletId: outlet?.id, order: { ...updatedOrder,
-        splitBills: (updatedOrder.splitBills || []).map(s =>
-          s.billNo === billNo ? { ...s, paid: true, paymentMethod, paidAt: new Date().toISOString() } : s
-        ),
-        updatedAt: Date.now(),
-      }});
+    socketRef.current?.emit("order:update", { outletId: outlet?.id, order: {
+      ...order, splitBills: updatedSplits, updatedAt: Date.now(),
+    }});
+
+    // ── All seats settled → auto-close the table ─────────────────────────
+    const allPaid = updatedSplits.length > 0 && updatedSplits.every(s => s.paid);
+    if (allPaid) {
+      // Build payments grouped by payment method from split totals
+      const paymentMap = {};
+      for (const s of updatedSplits) {
+        const m = s.paymentMethod || "Cash";
+        paymentMap[m] = (paymentMap[m] || 0) + (s.total || 0);
+      }
+      const payments = Object.entries(paymentMap).map(([method, amount]) => ({ method, amount }));
+      autoCloseSplitTable(tableId, { ...order, splitBills: updatedSplits }, payments);
     }
+  }
+
+  // Close a table after all split seats are paid — mirrors handleSettle but skips
+  // the paid-vs-total check (splits are already fully settled by definition).
+  async function autoCloseSplitTable(tableId, order, payments) {
+    const closedOrder = {
+      ...structuredClone(order),
+      payments,
+      isClosed:    true,
+      closedAt:    new Date().toISOString(),
+      cashierName: cashierName || "POS",
+    };
+
+    // 1. Save to pos_closed_orders
+    try {
+      const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+      prev.unshift(closedOrder);
+      localStorage.setItem("pos_closed_orders", JSON.stringify(prev.slice(0, 500)));
+    } catch {}
+
+    // 2. Optimistic close + broadcast to Captain / KDS
+    setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
+    socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
+    localSocketRef.current?.emit("order:clear", { tableId });
+    window.electronAPI?.pushOrdersToLocal?.([]);
+
+    // 3. Push to backend so Owner Web sees sales figures
+    let backendConfirmed = false;
+    try {
+      const closeResult = await api.post("/operations/closed-order", {
+        outletId: outlet?.id,
+        order:    closedOrder,
+      });
+      backendConfirmed = true;
+      if (closeResult?.billNo != null) {
+        closedOrder.billNo     = closeResult.billNo;
+        closedOrder.billNoMode = closeResult.billNoMode  || null;
+        closedOrder.billNoFY   = closeResult.billNoFY    || null;
+        closedOrder.billNoDate = closeResult.billNoDate  || null;
+        closedOrder.closedAt   = closeResult.closedAt    || closedOrder.closedAt;
+        try {
+          const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+          if (prev.length && prev[0].orderNumber === closedOrder.orderNumber) prev[0] = closedOrder;
+          localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
+        } catch {}
+      }
+    } catch (err) {
+      console.warn("[POS] split auto-close sync failed (offline?) — queuing:", err.message);
+      const q = loadClosedOrderQueue();
+      q.push({ order: closedOrder });
+      saveClosedOrderQueue(q);
+    }
+
+    // 4. Close UI
+    setSelectedTableId(null);
+    if (hasCashPayment(payments)) openCashDrawer();
+    showToast(
+      backendConfirmed
+        ? "✓ Split bill settled · Table is ready"
+        : "✓ Split bill settled · Syncing in background"
+    );
+
+    // 5. Reset table to blank after 1.5 s (same as normal settle)
+    setTimeout(() => {
+      const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
+      const table = area?.tables.find(t => t.id === tableId);
+      if (!table || !area) return;
+      setOrders(prev => {
+        const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
+        const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
+        return { ...prev, [tableId]: fresh };
+      });
+    }, 1500);
   }
 
   // Assigns the next sequential bill number (FY or daily, per owner-console setting)

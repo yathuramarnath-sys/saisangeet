@@ -98,7 +98,7 @@ export function SplitSettlementPanel({ order, onMarkPaid, onBack }) {
       {/* Footer */}
       {allPaid && (
         <div className="ssp-footer">
-          <p className="ssp-all-done">✓ All {splits.length} bills settled — close table from POS</p>
+          <p className="ssp-all-done">✓ All {splits.length} bills settled — closing table…</p>
         </div>
       )}
     </div>
