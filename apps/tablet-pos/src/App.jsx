@@ -1406,7 +1406,8 @@ export default function App() {
         const localOnlyUnsent = (localOrder?.items || []).filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
-        // Drop ghost voided items if no KOT was ever sent (pre-KOT voids stuck as VOID badge)
+        // Drop ghost voided items if no KOT was ever sent (pre-KOT voids stuck as VOID badge).
+        // Also DELETE them from the backend so they never come back on re-open.
         const kotEverSent = (serverOrder.kotCount || 0) > 0;
         const cleanedServerItems = kotEverSent
           ? (serverOrder.items || [])
@@ -1419,6 +1420,17 @@ export default function App() {
           }
         };
       });
+
+      // Permanently delete ghost items from backend so server never sends them back
+      const kotEverSent = (serverOrder.kotCount || 0) > 0;
+      if (!kotEverSent) {
+        (serverOrder.items || [])
+          .filter(i => i.isVoided)
+          .forEach(({ id: itemId }) => {
+            api.delete("/operations/order/item", { tableId, itemId })
+              .catch(() => {}); // silent best-effort cleanup
+          });
+      }
     } catch (err) {
       console.warn("[POS] table fetch failed (offline?):", err.message);
     }

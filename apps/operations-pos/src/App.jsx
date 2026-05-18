@@ -1425,10 +1425,13 @@ export default function App() {
         const localOnlyUnsent = (localOrder?.items || []).filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
-        // Clean ghost voided items: items that were voided before any KOT was ever sent
-        // (no KOT sent = kotCount is 0/undefined). These were pre-KOT deletions that got
-        // stuck as "VOID" badges. Drop them so the order panel stays clean.
+        // Clean ghost voided items: items voided before any KOT was ever sent
+        // (kotCount 0/undefined = nothing reached the kitchen).
+        // We also DELETE them from the backend so they never come back on re-open.
         const kotEverSent = (serverOrder.kotCount || 0) > 0;
+        const ghostItems  = kotEverSent
+          ? []
+          : (serverOrder.items || []).filter(i => i.isVoided);
         const cleanedServerItems = kotEverSent
           ? (serverOrder.items || [])
           : (serverOrder.items || []).filter(i => !i.isVoided);
@@ -1440,6 +1443,18 @@ export default function App() {
           }
         };
       });
+
+      // Permanently delete ghost items from backend so server never sends them back
+      const kotEverSent = (serverOrder.kotCount || 0) > 0;
+      if (!kotEverSent) {
+        const ghostIds = (serverOrder.items || [])
+          .filter(i => i.isVoided)
+          .map(i => i.id);
+        ghostIds.forEach(itemId => {
+          api.delete("/operations/order/item", { tableId, itemId })
+            .catch(() => {}); // silent — best-effort cleanup
+        });
+      }
     } catch (err) {
       // Offline or server unreachable — keep local state, no data lost
       console.warn("[POS] table fetch failed (offline?):", err.message);
