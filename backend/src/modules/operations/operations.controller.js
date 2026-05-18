@@ -787,9 +787,10 @@ async function deviceVoidOrderItemHandler(req, res) {
   assertManagerPin(req.body);
   const actor = req.user?.name || req.user?.type || "POS";
   const result = await updateOrderItemDetails(tableId, itemId, {
-    isVoided:   true,
-    voidReason: voidReason || "Voided by POS",
-    actorName:  actor
+    isVoided:    true,
+    voidReason:  voidReason || "Voided by POS",
+    isGhostVoid: req.body.isGhostVoid === true, // item voided before any KOT was sent
+    actorName:   actor
   });
 
   logAction({

@@ -1425,16 +1425,13 @@ export default function App() {
         const localOnlyUnsent = (localOrder?.items || []).filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
-        // Clean ghost voided items: items voided before any KOT was ever sent
-        // (kotCount 0/undefined = nothing reached the kitchen).
-        // We also DELETE them from the backend so they never come back on re-open.
-        const kotEverSent = (serverOrder.kotCount || 0) > 0;
-        const ghostItems  = kotEverSent
-          ? []
-          : (serverOrder.items || []).filter(i => i.isVoided);
-        const cleanedServerItems = kotEverSent
-          ? (serverOrder.items || [])
-          : (serverOrder.items || []).filter(i => !i.isVoided);
+        // Clean ghost voided items: items voided BEFORE they were ever sent to the kitchen.
+        // isGhostVoid flag (reliable — set by handleVoidItem when item.sentToKot was false).
+        // Legacy fallback: if kotCount=0, ALL voided items are ghosts (covers old orders).
+        const kotEverSent  = (serverOrder.kotCount || 0) > 0;
+        const isGhostItem  = (i) => i.isGhostVoid === true || (!kotEverSent && i.isVoided);
+        const ghostItems   = (serverOrder.items || []).filter(isGhostItem);
+        const cleanedServerItems = (serverOrder.items || []).filter(i => !isGhostItem(i));
         return {
           ...prev,
           [tableId]: {
@@ -1444,17 +1441,17 @@ export default function App() {
         };
       });
 
-      // Permanently delete ghost items from backend so server never sends them back
-      const kotEverSent = (serverOrder.kotCount || 0) > 0;
-      if (!kotEverSent) {
-        const ghostIds = (serverOrder.items || [])
-          .filter(i => i.isVoided)
-          .map(i => i.id);
-        ghostIds.forEach(itemId => {
-          api.delete("/operations/order/item", { tableId, itemId })
-            .catch(() => {}); // silent — best-effort cleanup
-        });
-      }
+      // Permanently delete ghost items from backend so server never sends them back.
+      // Same isGhostItem predicate used above — keeps real post-KOT voids untouched.
+      const kotEverSent2 = (serverOrder.kotCount || 0) > 0;
+      const isGhostItem2 = (i) => i.isGhostVoid === true || (!kotEverSent2 && i.isVoided);
+      const ghostIdsToDelete = (serverOrder.items || [])
+        .filter(isGhostItem2)
+        .map(i => i.id);
+      ghostIdsToDelete.forEach(itemId => {
+        api.delete("/operations/order/item", { tableId, itemId })
+          .catch(() => {}); // silent — best-effort cleanup
+      });
     } catch (err) {
       // Offline or server unreachable — keep local state, no data lost
       console.warn("[POS] table fetch failed (offline?):", err.message);
@@ -1774,11 +1771,18 @@ export default function App() {
   function handleVoidItem(idx, reason) {
     if (!selectedTableId) return;
     const item = orders[selectedTableId]?.items?.[idx];
+    // Ghost void: item was voided BEFORE it was ever sent to the kitchen.
+    // We stamp isGhostVoid so the backend can permanently delete it on next table-open.
+    const wasNeverSentToKot = item && !item.sentToKot;
+
     mutateOrder(selectedTableId, o => {
       if (o.items[idx]) {
-        o.items[idx].isVoided   = true;
-        o.items[idx].voidReason = reason;
-        o.items[idx].sentToKot  = true; // treat as sent so it can't be re-sent
+        o.items[idx].isVoided    = true;
+        o.items[idx].voidReason  = reason;
+        o.items[idx].sentToKot   = true; // treat as sent so it can't be re-sent
+        if (wasNeverSentToKot) {
+          o.items[idx].isGhostVoid = true; // never reached kitchen — safe to delete
+        }
       }
       return o;
     });
@@ -1790,10 +1794,11 @@ export default function App() {
         !selectedTableId.startsWith("online-")) {
       const sec = JSON.parse(localStorage.getItem("pos_security") || "{}");
       api.patch("/operations/order/item", {
-        tableId:    selectedTableId,
-        itemId:     item.id,
-        voidReason: reason || "Voided by POS",
-        managerPin: sec.managerPin || ""
+        tableId:     selectedTableId,
+        itemId:      item.id,
+        isGhostVoid: wasNeverSentToKot || false,
+        voidReason:  reason || "Voided by POS",
+        managerPin:  sec.managerPin || ""
       }).catch(err => console.warn("[POS] item-void to backend failed:", err.message));
     }
   }

@@ -955,6 +955,12 @@ function updateOrderItem(tableId, itemId, payload, actor = "System") {
     }
   }
 
+  // isGhostVoid: true when item was voided BEFORE any KOT was sent (never reached kitchen).
+  // Used by POS to permanently delete these items rather than just filtering them locally.
+  if (payload.isGhostVoid !== undefined) {
+    item.isGhostVoid = payload.isGhostVoid;
+  }
+
   const auditLabel = payload.isVoided ? "Item voided" : payload.note ? "Kitchen note added" : "Order item updated";
   order.notes = payload.isVoided ? `Item voided: ${item.name || itemId}` : payload.note ? `Instruction added: ${payload.note}` : "Order updated";
   appendAudit(order, buildAuditEntry(auditLabel, actor, "Now"));
