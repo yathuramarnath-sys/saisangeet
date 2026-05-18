@@ -890,13 +890,17 @@ function addOrderItem(tableId, payload, actor = "System") {
   return clone(order);
 }
 
-// Removes an unsent (not yet KOT'd) item from the order by its item ID.
-// No-op if the item is already sentToKot (can't un-send a KOT).
+// Removes an item from the order by its item ID.
+// Handles two cases:
+//   1. Unsent items (!sentToKot) — normal removal before KOT
+//   2. Voided items (isVoided) — ghost cleanup: item was voided before KOT reached kitchen;
+//      the frontend only calls DELETE for items it has already identified as ghost voids,
+//      so this will never accidentally remove a legitimately KOT'd item.
 function removeOrderItem(tableId, itemId, actor = "System") {
   const order = findOrder(tableId);
   assertOrderOpen(order, "remove item");
-  const idx = order.items.findIndex(i => i.id === itemId && !i.sentToKot && !i.isVoided);
-  if (idx === -1) return clone(order); // already sent or not found — no-op
+  const idx = order.items.findIndex(i => i.id === itemId && (!i.sentToKot || i.isVoided));
+  if (idx === -1) return clone(order); // not found — no-op
   order.items.splice(idx, 1);
   appendAudit(order, buildAuditEntry("Item removed", actor, "Now"));
   return clone(order);
