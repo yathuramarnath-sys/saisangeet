@@ -373,12 +373,16 @@ export default function App() {
               return;
             }
             // Server knows this table: server wins for metadata and sentToKot items.
-            // Append any unsent local items whose IDs are absent from the server state
-            // (items that were added offline and never reached the backend write path).
+            // Append any unsent local items whose IDs are absent from the server state,
+            // but ONLY when the local item belongs to the same order session (same
+            // orderNumber). A different orderNumber means the table was reset between
+            // sessions — local unsent items are stale and must be discarded.
             const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
-            const localOnlyUnsent = (savedOrder?.items || []).filter(
-              (li) => !li.sentToKot && !serverItemIds.has(li.id)
-            );
+            const sameSession   = !savedOrder?.orderNumber || !serverOrder.orderNumber ||
+                                  savedOrder.orderNumber === serverOrder.orderNumber;
+            const localOnlyUnsent = sameSession
+              ? (savedOrder?.items || []).filter((li) => !li.sentToKot && !serverItemIds.has(li.id))
+              : [];
             if (localOnlyUnsent.length > 0) {
               merged[tableId] = {
                 ...serverOrder,
@@ -422,10 +426,12 @@ export default function App() {
                   const merged = { ...prev };
                   Object.entries(apiMap).forEach(([tableId, serverOrder]) => {
                     const local = prev[tableId];
-                    const serverItemIds = new Set((serverOrder.items || []).map(i => i.id));
-                    const localOnlyUnsent = (local?.items || []).filter(
-                      li => !li.sentToKot && !serverItemIds.has(li.id)
-                    );
+                    const serverItemIds  = new Set((serverOrder.items || []).map(i => i.id));
+                    const sameSession    = !local?.orderNumber || !serverOrder.orderNumber ||
+                                          local.orderNumber === serverOrder.orderNumber;
+                    const localOnlyUnsent = sameSession
+                      ? (local?.items || []).filter(li => !li.sentToKot && !serverItemIds.has(li.id))
+                      : [];
                     merged[tableId] = localOnlyUnsent.length
                       ? { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] }
                       : serverOrder;
@@ -1420,11 +1426,14 @@ export default function App() {
 
       setOrders((prev) => {
         const localOrder = prev[tableId];
-        // Preserve unsent local items whose IDs are absent from server state (offline adds)
-        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
-        const localOnlyUnsent = (localOrder?.items || []).filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
-        );
+        // Preserve unsent local items for the SAME order session (offline adds).
+        // If orderNumber differs, the table was reset between sessions — discard stale items.
+        const serverItemIds   = new Set((serverOrder.items || []).map((i) => i.id));
+        const sameSession     = !localOrder?.orderNumber || !serverOrder.orderNumber ||
+                                localOrder.orderNumber === serverOrder.orderNumber;
+        const localOnlyUnsent = sameSession
+          ? (localOrder?.items || []).filter((li) => !li.sentToKot && !serverItemIds.has(li.id))
+          : [];
         // Clean ghost voided items: items voided BEFORE they were ever sent to the kitchen.
         // isGhostVoid flag (reliable — set by handleVoidItem when item.sentToKot was false).
         // Legacy fallback: if kotCount=0, ALL voided items are ghosts (covers old orders).
