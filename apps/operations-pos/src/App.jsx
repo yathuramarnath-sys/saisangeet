@@ -378,8 +378,11 @@ export default function App() {
             // orderNumber). A different orderNumber means the table was reset between
             // sessions — local unsent items are stale and must be discarded.
             const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
-            const sameSession   = !savedOrder?.orderNumber || !serverOrder.orderNumber ||
-                                  savedOrder.orderNumber === serverOrder.orderNumber;
+            // STRICT session check: BOTH orderNumbers must be present AND equal.
+            // If server has a blank/new order (orderNumber=null), treat as new session
+            // and discard all stale local unsent items — prevents ghost item resurrection.
+            const sameSession   = !!(savedOrder?.orderNumber && serverOrder.orderNumber &&
+                                  savedOrder.orderNumber === serverOrder.orderNumber);
             const localOnlyUnsent = sameSession
               ? (savedOrder?.items || []).filter((li) => !li.sentToKot && !serverItemIds.has(li.id))
               : [];
@@ -427,8 +430,8 @@ export default function App() {
                   Object.entries(apiMap).forEach(([tableId, serverOrder]) => {
                     const local = prev[tableId];
                     const serverItemIds  = new Set((serverOrder.items || []).map(i => i.id));
-                    const sameSession    = !local?.orderNumber || !serverOrder.orderNumber ||
-                                          local.orderNumber === serverOrder.orderNumber;
+                    const sameSession    = !!(local?.orderNumber && serverOrder.orderNumber &&
+                                          local.orderNumber === serverOrder.orderNumber);
                     const localOnlyUnsent = sameSession
                       ? (local?.items || []).filter(li => !li.sentToKot && !serverItemIds.has(li.id))
                       : [];
@@ -1429,8 +1432,8 @@ export default function App() {
         // Preserve unsent local items for the SAME order session (offline adds).
         // If orderNumber differs, the table was reset between sessions — discard stale items.
         const serverItemIds   = new Set((serverOrder.items || []).map((i) => i.id));
-        const sameSession     = !localOrder?.orderNumber || !serverOrder.orderNumber ||
-                                localOrder.orderNumber === serverOrder.orderNumber;
+        const sameSession     = !!(localOrder?.orderNumber && serverOrder.orderNumber &&
+                                localOrder.orderNumber === serverOrder.orderNumber);
         const localOnlyUnsent = sameSession
           ? (localOrder?.items || []).filter((li) => !li.sentToKot && !serverItemIds.has(li.id))
           : [];

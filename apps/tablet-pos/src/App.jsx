@@ -377,8 +377,8 @@ export default function App() {
             // Append unsent local items ONLY if they belong to the same order session
             // (same orderNumber). A mismatch means the table was reset — stale items discarded.
             const serverItemIds   = new Set((serverOrder.items || []).map((i) => i.id));
-            const sameSession     = !savedOrder?.orderNumber || !serverOrder.orderNumber ||
-                                    savedOrder.orderNumber === serverOrder.orderNumber;
+            const sameSession     = !!(savedOrder?.orderNumber && serverOrder.orderNumber &&
+                                    savedOrder.orderNumber === serverOrder.orderNumber);
             const localOnlyUnsent = sameSession
               ? (savedOrder?.items || []).filter((li) => !li.sentToKot && !serverItemIds.has(li.id))
               : [];
@@ -426,8 +426,8 @@ export default function App() {
                   Object.entries(apiMap).forEach(([tableId, serverOrder]) => {
                     const local = prev[tableId];
                     const serverItemIds   = new Set((serverOrder.items || []).map(i => i.id));
-                    const sameSession     = !local?.orderNumber || !serverOrder.orderNumber ||
-                                           local.orderNumber === serverOrder.orderNumber;
+                    const sameSession     = !!(local?.orderNumber && serverOrder.orderNumber &&
+                                           local.orderNumber === serverOrder.orderNumber);
                     const localOnlyUnsent = sameSession
                       ? (local?.items || []).filter(li => !li.sentToKot && !serverItemIds.has(li.id))
                       : [];
@@ -1511,8 +1511,8 @@ export default function App() {
         const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
         // Only merge offline-added items for the SAME order session.
         // If orderNumber differs, the table was reset — discard stale local items.
-        const sameSession     = !localOrder?.orderNumber || !serverOrder.orderNumber ||
-                                localOrder.orderNumber === serverOrder.orderNumber;
+        const sameSession     = !!(localOrder?.orderNumber && serverOrder.orderNumber &&
+                                localOrder.orderNumber === serverOrder.orderNumber);
         const localOnlyUnsent = sameSession
           ? (localOrder?.items || []).filter((li) => !li.sentToKot && !serverItemIds.has(li.id))
           : [];
