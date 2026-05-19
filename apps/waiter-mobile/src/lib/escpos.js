@@ -48,6 +48,7 @@ function safe(s) {
  * @param {object} data
  *   outlet, invoiceHeader, addr, phone, gstin, fssai,
  *   seatLabel, date, time, table, orderType, cashier, billNo,
+ *   captain, waiter,
  *   items: [{ name, note, qty, rate, amt }],
  *   summary: [{ label, value }],
  *   total, footer
@@ -66,10 +67,17 @@ export function buildBillEscPos(data) {
   cmd += DASH + LF;
 
   // ── Info rows ──────────────────────────────────────────────────────────────
-  if (data.date)      cmd += LEFT + "Date    : " + safe(data.date) + "   " + safe(data.time || "") + LF;
-  if (data.table)     cmd += LEFT + "Table   : " + safe(data.table) + (data.orderType ? "   (" + safe(data.orderType) + ")" : "") + LF;
-  if (data.cashier)   cmd += LEFT + "Cashier : " + safe(data.cashier) + LF;
-  if (data.billNo)    cmd += LEFT + "Bill No : " + safe(data.billNo) + LF;
+  // Date and time on same line (left: date, right: time)
+  cmd += LEFT + "Date    : " + safe(data.date || "") + "   " + safe(data.time || "") + LF;
+  cmd += LEFT + "Table   : " + safe(data.table || "") + (data.orderType ? "   (" + safe(data.orderType) + ")" : "") + LF;
+  // Cashier always shown; Bill No always shown (falls back to order number)
+  cmd += LEFT + "Cashier : " + safe(data.cashier || "-") + LF;
+  cmd += LEFT + "Bill No : " + safe(String(data.billNo || "-")) + LF;
+  // Captain / Waiter row — only if at least one name is present
+  if (data.captain || data.waiter) {
+    if (data.captain) cmd += LEFT + "Captain : " + safe(data.captain) + LF;
+    if (data.waiter)  cmd += LEFT + "Waiter  : " + safe(data.waiter)  + LF;
+  }
   cmd += DASH + LF;
 
   // ── Items header ───────────────────────────────────────────────────────────
@@ -91,10 +99,13 @@ export function buildBillEscPos(data) {
   cmd += DASH + LF;
 
   // ── Summary rows (Subtotal, Discount, CGST, SGST) ─────────────────────────
+  // Column layout: name(20)+qty(4)+rate(8)+amt(8) = 40 chars total.
+  // Amt column starts at position 32. Use padEnd(32)+padStart(8) so values
+  // align under the AMT column, not the Rate column.
   for (const row of (data.summary || [])) {
     if (!row.label || !row.value) continue;
-    const lbl = safe(row.label).padEnd(22);
-    const val = stripRupee(row.value).padStart(10);
+    const lbl = safe(row.label).padEnd(32);
+    const val = stripRupee(row.value).padStart(8);
     cmd += lbl + val + LF;
   }
   cmd += DASH + LF;

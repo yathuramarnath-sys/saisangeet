@@ -1771,7 +1771,11 @@ export default function App() {
       return o;
     });
 
-    printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, { cashierName });
+    printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
+      cashierName,
+      captainName: printOrder.captainName    || null,
+      waiterName:  printOrder.assignedWaiter || null,
+    });
 
     showToast("🖨️ Bill printed · Collect payment");
 

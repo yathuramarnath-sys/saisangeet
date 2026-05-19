@@ -23,11 +23,14 @@ export function printBill(order, items, outletData, options = {}) {
   const addrParts  = [outletObj.addressLine1, outletObj.addressLine2, outletObj.city, outletObj.state].filter(Boolean);
   const addrStr    = addrParts.join(", ");
 
-  const { seatLabel = null, cashierName = null } = options;
+  const { seatLabel = null, cashierName = null, captainName = null, waiterName = null } = options;
   const _printer      = getBillPrinter();
   const _paperWidthMm = parseInt(_printer?.paper) || 80;
   const printerIp     = _printer?.ip?.trim() || "";
-  const servedBy      = cashierName || order.cashierName || order.assignedWaiter || null;
+  const servedBy      = cashierName || order.cashierName || "-";
+  // Captain and waiter — hide row entirely if both empty
+  const captainStr    = captainName  || order.captainName      || "";
+  const waiterStr     = waiterName   || order.assignedWaiter   || "";
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -97,8 +100,10 @@ export function printBill(order, items, outletData, options = {}) {
       time:          timeStr,
       table:         tableLabel,
       orderType:     orderType,
-      cashier:       servedBy   || "",
-      billNo:        order.billNo || "",   // orderNumber is internal (10031+), not the GST bill no
+      cashier:       servedBy,
+      billNo:        String(order.billNo || order.orderNumber || "-"),
+      captain:       captainStr,
+      waiter:        waiterStr,
       items: billableItems.map(i => ({
         name: i.name,
         note: i.note || "",
@@ -189,6 +194,10 @@ export function printBill(order, items, outletData, options = {}) {
       padding: 2px 10px; border-radius: 20px;
       font-size: 11px; font-weight: 800; margin: 3px 0;
     }
+    .sum-lbl  { font-size: 11px; color: #444; text-align: right; padding-right: 6px; }
+    .sum-val  { font-weight: 700; font-size: 11px; }
+    .disc-lbl { color: #c33; }
+    .disc-val { color: #c33; }
     .footer { text-align: center; font-size: 10px; color: #999; margin-top: 8px; line-height: 1.7; }
   </style>
 </head>
@@ -211,10 +220,14 @@ export function printBill(order, items, outletData, options = {}) {
     <div class="left"><span class="info-lbl">Table</span><span class="info-sep">:</span><span class="info-val">${tableLabel}</span></div>
     <div class="right"><span class="info-lbl">Type</span><span class="info-sep">:</span><span class="info-val">${orderType}</span></div>
   </div>
-  ${(servedBy || order.billNo) ? `
   <div class="info-row">
-    ${servedBy ? `<div class="left"><span class="info-lbl">Cashier</span><span class="info-sep">:</span><span class="info-val">${servedBy}</span></div>` : "<div></div>"}
-    ${order.billNo ? `<div class="right"><span class="info-lbl">Bill No</span><span class="info-sep">:</span><span class="info-val">#${order.billNo}</span></div>` : ""}
+    <div class="left"><span class="info-lbl">Cashier</span><span class="info-sep">:</span><span class="info-val">${servedBy}</span></div>
+    <div class="right"><span class="info-lbl">Bill No</span><span class="info-sep">:</span><span class="info-val">#${order.billNo || order.orderNumber || "-"}</span></div>
+  </div>
+  ${(captainStr || waiterStr) ? `
+  <div class="info-row">
+    ${captainStr ? `<div class="left"><span class="info-lbl">Captain</span><span class="info-sep">:</span><span class="info-val">${captainStr}</span></div>` : "<div></div>"}
+    ${waiterStr  ? `<div class="right"><span class="info-lbl">Waiter</span><span class="info-sep">:</span><span class="info-val">${waiterStr}</span></div>` : ""}
   </div>` : ""}
   <hr class="div-dash">
   <table class="items-tbl">
@@ -229,9 +242,16 @@ export function printBill(order, items, outletData, options = {}) {
     <tbody>${itemsHtml}</tbody>
   </table>
   <hr class="div-dash">
-  <div class="sum-row"><span>Subtotal</span><span class="val">&#8377;${subtotal.toFixed(2)}</span></div>
-  ${discount > 0 ? `<div class="sum-row disc"><span>Discount</span><span class="val">&#8722;&#8377;${discount.toFixed(2)}</span></div>` : ""}
-  ${taxRows.map(t => `<div class="sum-row"><span>CGST (${t.cgstPct}%)</span><span class="val">&#8377;${t.cgst.toFixed(2)}</span></div><div class="sum-row"><span>SGST (${t.cgstPct}%)</span><span class="val">&#8377;${t.sgst.toFixed(2)}</span></div>`).join("")}
+  <!-- Summary aligned under AMT column using same table structure as items -->
+  <table class="items-tbl">
+    <tbody>
+      <tr><td colspan="3" class="sum-lbl">Subtotal</td><td class="col-amt sum-val">&#8377;${subtotal.toFixed(2)}</td></tr>
+      ${discount > 0 ? `<tr><td colspan="3" class="sum-lbl disc-lbl">Discount</td><td class="col-amt sum-val disc-val">&#8722;&#8377;${discount.toFixed(2)}</td></tr>` : ""}
+      ${taxRows.map(t => `
+      <tr><td colspan="3" class="sum-lbl">CGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.cgst.toFixed(2)}</td></tr>
+      <tr><td colspan="3" class="sum-lbl">SGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.sgst.toFixed(2)}</td></tr>`).join("")}
+    </tbody>
+  </table>
   <hr class="div-dash">
   <div class="total-row"><span>TOTAL</span><span>&#8377;${total.toFixed(2)}</span></div>
   <div class="footer">

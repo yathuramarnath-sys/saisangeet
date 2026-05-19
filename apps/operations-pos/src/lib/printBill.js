@@ -12,11 +12,14 @@ export function printBill(order, items, outletOrName, options = {}) {
   const outlet = (outletOrName && typeof outletOrName === "object") ? outletOrName : null;
   const outletName = outlet?.name || (typeof outletOrName === "string" ? outletOrName : null) || "Restaurant";
 
-  const { seatLabel = null, cashierName = null } = options;
+  const { seatLabel = null, cashierName = null, captainName = null, waiterName = null } = options;
   // Resolve paper width early so the @page CSS can use it
   const _printer      = getBillPrinter();
   const _paperWidthMm = parseInt(_printer?.paper) || 80;  // "80mm"→80, "58mm"→58
-  const servedBy = cashierName || order.cashierName || order.assignedWaiter || null;
+  const servedBy   = cashierName || order.cashierName || "-";
+  // Captain and waiter — row hidden entirely if both are empty
+  const captainStr = captainName || order.captainName    || "";
+  const waiterStr  = waiterName  || order.assignedWaiter || "";
 
   // ── Outlet header fields ───────────────────────────────────────────────────
   const outletPhone   = outlet?.phone       || "";
@@ -133,13 +136,11 @@ export function printBill(order, items, outletOrName, options = {}) {
     .col-amt  { width: 16%; text-align: right; font-weight: 700; }
     .item-note { font-size: 10px; color: #999; margin-top: 1px; }
 
-    /* ── Summary rows ── */
-    .sum-row {
-      display: flex; justify-content: space-between; align-items: baseline;
-      font-size: 11px; color: #444; margin: 1px 0;
-    }
-    .sum-row .val { font-weight: 700; }
-    .sum-row.disc .val { color: #c33; }
+    /* ── Summary rows — aligned under AMT column via table ── */
+    .sum-lbl  { font-size: 11px; color: #444; text-align: right; padding-right: 6px; }
+    .sum-val  { font-weight: 700; font-size: 11px; }
+    .disc-lbl { color: #c33; }
+    .disc-val { color: #c33; }
 
     /* ── Total ── */
     .total-row {
@@ -171,7 +172,7 @@ export function printBill(order, items, outletOrName, options = {}) {
   </div>
   <hr class="div-dash">
 
-  <!-- Bill info — 2-column layout -->
+  <!-- Bill info — 2-column layout, all rows always shown -->
   <div class="info-row">
     <div class="left"><span class="info-lbl">Date</span><span class="info-sep">:</span><span class="info-val">${dateStr}</span></div>
     <div class="right"><span class="info-lbl">Time</span><span class="info-sep">:</span><span class="info-val">${timeStr}</span></div>
@@ -180,10 +181,14 @@ export function printBill(order, items, outletOrName, options = {}) {
     <div class="left"><span class="info-lbl">Table</span><span class="info-sep">:</span><span class="info-val">${tableLabel}</span></div>
     <div class="right"><span class="info-lbl">Type</span><span class="info-sep">:</span><span class="info-val">${orderType}</span></div>
   </div>
-  ${(servedBy || order.billNo || order.orderNumber) ? `
   <div class="info-row">
-    ${servedBy ? `<div class="left"><span class="info-lbl">Cashier</span><span class="info-sep">:</span><span class="info-val">${servedBy}</span></div>` : "<div></div>"}
-    ${(order.billNo || order.orderNumber) ? `<div class="right"><span class="info-lbl">Bill No</span><span class="info-sep">:</span><span class="info-val">#${order.billNo || order.orderNumber}</span></div>` : ""}
+    <div class="left"><span class="info-lbl">Cashier</span><span class="info-sep">:</span><span class="info-val">${servedBy}</span></div>
+    <div class="right"><span class="info-lbl">Bill No</span><span class="info-sep">:</span><span class="info-val">#${order.billNo || order.orderNumber || "-"}</span></div>
+  </div>
+  ${(captainStr || waiterStr) ? `
+  <div class="info-row">
+    ${captainStr ? `<div class="left"><span class="info-lbl">Captain</span><span class="info-sep">:</span><span class="info-val">${captainStr}</span></div>` : "<div></div>"}
+    ${waiterStr  ? `<div class="right"><span class="info-lbl">Waiter</span><span class="info-sep">:</span><span class="info-val">${waiterStr}</span></div>` : ""}
   </div>` : ""}
   <hr class="div-dash">
 
@@ -203,10 +208,16 @@ export function printBill(order, items, outletOrName, options = {}) {
   </table>
   <hr class="div-dash">
 
-  <!-- Summary — no extra lines between rows -->
-  <div class="sum-row"><span>Subtotal</span><span class="val">&#8377;${subtotal.toFixed(2)}</span></div>
-  ${discount > 0 ? `<div class="sum-row disc"><span>Discount</span><span class="val">&#8722;&#8377;${discount.toFixed(2)}</span></div>` : ""}
-  ${taxRows.map(t => `<div class="sum-row"><span>CGST (${t.cgstPct}%)</span><span class="val">&#8377;${t.cgst.toFixed(2)}</span></div><div class="sum-row"><span>SGST (${t.cgstPct}%)</span><span class="val">&#8377;${t.sgst.toFixed(2)}</span></div>`).join("")}
+  <!-- Summary aligned under AMT column using same table structure as items -->
+  <table class="items-tbl">
+    <tbody>
+      <tr><td colspan="3" class="sum-lbl">Subtotal</td><td class="col-amt sum-val">&#8377;${subtotal.toFixed(2)}</td></tr>
+      ${discount > 0 ? `<tr><td colspan="3" class="sum-lbl disc-lbl">Discount</td><td class="col-amt sum-val disc-val">&#8722;&#8377;${discount.toFixed(2)}</td></tr>` : ""}
+      ${taxRows.map(t => `
+      <tr><td colspan="3" class="sum-lbl">CGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.cgst.toFixed(2)}</td></tr>
+      <tr><td colspan="3" class="sum-lbl">SGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.sgst.toFixed(2)}</td></tr>`).join("")}
+    </tbody>
+  </table>
   <hr class="div-dash">
   <div class="total-row"><span>TOTAL</span><span>&#8377;${total.toFixed(2)}</span></div>
 

@@ -878,7 +878,11 @@ export function App() {
       printOrder,
       printOrder.items,
       outlet || { name: branchConfig?.outletName || "Restaurant" },
-      { cashierName: loggedInStaff?.name || "Waiter" }
+      {
+        cashierName: loggedInStaff?.name || "Waiter",
+        captainName: printOrder.captainName    || null,
+        waiterName:  printOrder.assignedWaiter || null,
+      }
     );
 
     // Mark billRequested: true — table turns blue on POS floor plan
@@ -922,7 +926,12 @@ export function App() {
       printOrder,
       items,
       outlet || { name: branchConfig?.outletName || "Restaurant" },
-      { cashierName: loggedInStaff?.name || "Waiter", seatLabel }
+      {
+        cashierName: loggedInStaff?.name || "Waiter",
+        seatLabel,
+        captainName: printOrder.captainName    || null,
+        waiterName:  printOrder.assignedWaiter || null,
+      }
     );
     toast("Printing split bill…", { icon: "🖨️" });
 
