@@ -1517,10 +1517,10 @@ export default function App() {
           ? (localOrder?.items || []).filter((li) => !li.sentToKot && !serverItemIds.has(li.id))
           : [];
         // Clean ghost voided items: items voided BEFORE they were ever sent to the kitchen.
-        // isGhostVoid flag (reliable — set by handleVoidItem when item.sentToKot was false).
-        // Legacy fallback: if kotCount=0, ALL voided items are ghosts (covers old orders).
-        const kotEverSent  = (serverOrder.kotCount || 0) > 0;
-        const isGhostItem  = (i) => i.isGhostVoid === true || (!kotEverSent && i.isVoided);
+        // PRIMARY: isGhostVoid flag (set by handleVoidItem when item.sentToKot was false).
+        // CATCH-ALL: any item that is voided AND sentToKot===false is by definition a ghost —
+        // covers old items created before the isGhostVoid flag was introduced.
+        const isGhostItem  = (i) => i.isGhostVoid === true || (i.isVoided === true && i.sentToKot === false);
         const cleanedServerItems = (serverOrder.items || []).filter(i => !isGhostItem(i));
         return {
           ...prev,
@@ -1532,8 +1532,8 @@ export default function App() {
       });
 
       // Permanently delete ghost items from backend so server never sends them back.
-      const kotEverSent2  = (serverOrder.kotCount || 0) > 0;
-      const isGhostItem2  = (i) => i.isGhostVoid === true || (!kotEverSent2 && i.isVoided);
+      // Same catch-all predicate: voided + never sent to KOT = ghost, always.
+      const isGhostItem2  = (i) => i.isGhostVoid === true || (i.isVoided === true && i.sentToKot === false);
       (serverOrder.items || [])
         .filter(isGhostItem2)
         .forEach(({ id: itemId }) => {

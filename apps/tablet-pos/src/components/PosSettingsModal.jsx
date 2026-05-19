@@ -709,6 +709,36 @@ function CashierTab({ cashierName, activeShift }) {
           🔗 Forget this device &amp; re-link
         </button>
       </div>
+
+      {/* ── Clear order cache ─────────────────────────────────────────────── */}
+      <div className="pset-section-head" style={{ marginTop: 24 }}>
+        <div>
+          <h4>Clear Device Cache</h4>
+          <p>Wipes ghost orders and stale items from this device's local storage. Use when ghost items keep reappearing on tables.</p>
+        </div>
+      </div>
+      <div className="pset-device-info">
+        <p style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
+          ⚠️ Clears active order cache only. Printers, settings, and branch link are <strong>not</strong> affected.
+        </p>
+        <button
+          className="pset-forget-btn"
+          style={{ background: "#fef2f2", color: "#dc2626", borderColor: "#fca5a5" }}
+          onClick={() => {
+            if (window.confirm("Clear all cached order data on this device?\n\nThis removes ghost items from local storage. Settings, printers, and branch link are kept.")) {
+              [
+                "pos_active_orders",
+                "pos_kot_queue",
+                "pos_closed_order_queue",
+                "pos_closed_orders",
+              ].forEach(k => localStorage.removeItem(k));
+              window.location.reload();
+            }
+          }}
+        >
+          🗑️ Clear Order Cache &amp; Reload
+        </button>
+      </div>
     </div>
   );
 }
