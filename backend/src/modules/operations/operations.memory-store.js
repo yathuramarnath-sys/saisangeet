@@ -132,6 +132,7 @@ function buildEmptyOrder(tableIdOrMeta, fallbackOrderNumber = 10030) {
     auditTrail: [],
     items: [],
     updatedAt: Date.now(),  // millisecond timestamp — used for stale-write detection
+    _deletedItemIds: [],    // tombstone: item IDs deleted before KOT — addOrderItem rejects these
   };
 }
 
@@ -851,6 +852,14 @@ function addOrderItem(tableId, payload, actor = "System") {
   assertOrderOpen(order, "add item");
   const incomingMenuItemId = payload.menuItemId || payload.id || `item-${Date.now()}`;
 
+  // Tombstone guard: if this exact item ID was already deleted (e.g. race where api.delete
+  // arrived before api.post), reject silently. This permanently prevents ghost resurrection
+  // even when network packets arrive out of order.
+  const incomingItemId = payload.id;
+  if (incomingItemId && (order._deletedItemIds || []).includes(incomingItemId)) {
+    return clone(order); // no-op — item was already removed
+  }
+
   // Consolidate: if the same menu item already has an unsent, non-voided line, increment its
   // quantity rather than pushing a second line. This keeps backend state consistent with the
   // POS UI, which also consolidates by menuItemId for unsent items.
@@ -900,7 +909,16 @@ function removeOrderItem(tableId, itemId, actor = "System") {
   const order = findOrder(tableId);
   assertOrderOpen(order, "remove item");
   const idx = order.items.findIndex(i => i.id === itemId && (!i.sentToKot || i.isVoided));
-  if (idx === -1) return clone(order); // not found — no-op
+
+  // Tombstone this ID regardless of whether the item exists yet.
+  // If api.delete arrives before api.post (race condition), the tombstone ensures
+  // the subsequent add is rejected and the item never persists on the backend.
+  if (!order._deletedItemIds) order._deletedItemIds = [];
+  if (!order._deletedItemIds.includes(itemId)) {
+    order._deletedItemIds = [...order._deletedItemIds, itemId].slice(-100); // keep last 100
+  }
+
+  if (idx === -1) return clone(order); // item not found yet — tombstone recorded, no-op on items
   order.items.splice(idx, 1);
   appendAudit(order, buildAuditEntry("Item removed", actor, "Now"));
   return clone(order);

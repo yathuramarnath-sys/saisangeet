@@ -1002,6 +1002,19 @@ export default function App() {
             }
           };
         });
+
+        // Race-condition guard: if the user removed this item (×) while api.post was
+        // still in-flight, api.delete would have been a no-op (item not on server yet).
+        // Now the server has the item but local state doesn't. Re-issue the delete so
+        // the backend is clean and the item won't resurrect on the next table open.
+        setTimeout(() => {
+          const current = ordersRef.current[tableId];
+          const stillPresent = (current?.items || []).some(i => i.id === itemId);
+          if (!stillPresent) {
+            api.delete("/operations/order/item", { tableId, itemId })
+              .catch(() => {}); // best-effort; backend may already be clean
+          }
+        }, 0);
       }
     } catch (err) {
       // Offline or server unreachable — local optimistic state is intact, no data lost.
@@ -1012,11 +1025,23 @@ export default function App() {
 
   function handleChangeQty(idx, qty) {
     if (!selectedTableId) return;
-    mutateOrder(selectedTableId, (order) => {
-      if (qty <= 0) order.items.splice(idx, 1);
-      else          order.items[idx].quantity = qty;
+    const tableId = selectedTableId;
+    let removedItem = null;
+    mutateOrder(tableId, (order) => {
+      if (qty <= 0) {
+        removedItem = order.items[idx]; // capture before splice
+        order.items.splice(idx, 1);
+      } else {
+        order.items[idx].quantity = qty;
+      }
       return order;
     });
+    // When qty drops to 0 via the − button, delete from backend too (mirrors handleRemoveItem)
+    if (removedItem?.id && !removedItem.sentToKot &&
+        !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+      api.delete("/operations/order/item", { tableId, itemId: removedItem.id })
+        .catch(err => console.warn("[POS] item-remove from backend failed:", err.message));
+    }
   }
 
   function handleRemoveItem(idx) {
