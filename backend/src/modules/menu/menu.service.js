@@ -186,7 +186,18 @@ async function createMenuItem(payload) {
       takeaway: { type: "None", value: 0 },
       delivery: { type: "None", value: 0 }
     },
-    pricing: payload.pricing || []
+    pricing: payload.pricing || [],
+    // ── Optional fields (enabled per business type) ──────────────────────────
+    description:       payload.description       || "",
+    shortCode:         payload.shortCode         || "",
+    hsnCode:           payload.hsnCode           || "",
+    sku:               payload.sku               || "",
+    rank:              payload.rank !== undefined ? Number(payload.rank) : 999,
+    packingCharges:    Number(payload.packingCharges  || 0),
+    exposeInCaptain:   payload.exposeInCaptain   !== undefined ? Boolean(payload.exposeInCaptain)   : true,
+    allowDecimalQty:   payload.allowDecimalQty   !== undefined ? Boolean(payload.allowDecimalQty)   : false,
+    manufacturingDate: payload.manufacturingDate || "",
+    expiryDate:        payload.expiryDate        || "",
   };
 
   updateOwnerSetupData((current) => ({
@@ -226,14 +237,19 @@ async function updateMenuItem(id, payload) {
         ...existingItem.inventoryTracking,
         ...(payload.inventoryTracking || {})
       },
-      pricing: payload.pricing || existingItem.pricing,
-      takeawayPrice: payload.takeawayPrice || existingItem.takeawayPrice,
-      deliveryPrice: payload.deliveryPrice || existingItem.deliveryPrice,
-      taxMode: payload.taxMode || existingItem.taxMode,
-      taxRate: payload.taxRate !== undefined ? Number(payload.taxRate || 0) : existingItem.taxRate,
-      parcelCharges: payload.parcelCharges || existingItem.parcelCharges,
+      pricing:            payload.pricing            || existingItem.pricing,
+      takeawayPrice:      payload.takeawayPrice      || existingItem.takeawayPrice,
+      deliveryPrice:      payload.deliveryPrice      || existingItem.deliveryPrice,
+      taxMode:            payload.taxMode            || existingItem.taxMode,
+      taxRate:            payload.taxRate            !== undefined ? Number(payload.taxRate || 0)          : existingItem.taxRate,
+      parcelCharges:      payload.parcelCharges      || existingItem.parcelCharges,
       outletAvailability: payload.outletAvailability || existingItem.outletAvailability,
-      badges: payload.badges || existingItem.badges
+      badges:             payload.badges             || existingItem.badges,
+      // ── Optional fields — explicit type coercion ────────────────────────────
+      rank:             payload.rank             !== undefined ? Number(payload.rank)                    : (existingItem.rank             ?? 999),
+      packingCharges:   payload.packingCharges   !== undefined ? Number(payload.packingCharges)          : (existingItem.packingCharges    ?? 0),
+      exposeInCaptain:  payload.exposeInCaptain  !== undefined ? Boolean(payload.exposeInCaptain)        : (existingItem.exposeInCaptain   ?? true),
+      allowDecimalQty:  payload.allowDecimalQty  !== undefined ? Boolean(payload.allowDecimalQty)       : (existingItem.allowDecimalQty   ?? false),
     };
 
     return {
@@ -569,6 +585,17 @@ async function bulkImportMenuItems(payload) {
             takeaway: { type: "None", value: 0 },
             delivery: { type: "None", value: 0 },
           },
+          // ── Optional fields from CSV ────────────────────────────────────────
+          description:       String(row.description       || "").trim(),
+          shortCode:         String(row.shortCode         || "").trim().toUpperCase(),
+          hsnCode:           String(row.hsnCode           || "").trim(),
+          sku:               String(row.sku               || "").trim(),
+          rank:              row.rank               !== undefined ? Number(row.rank)        : 999,
+          packingCharges:    row.packingCharges      !== undefined ? Number(row.packingCharges) : 0,
+          exposeInCaptain:   row.exposeInCaptain     !== undefined ? Boolean(row.exposeInCaptain)  : true,
+          allowDecimalQty:   row.allowDecimalQty     !== undefined ? Boolean(row.allowDecimalQty)  : false,
+          manufacturingDate: String(row.manufacturingDate || "").trim(),
+          expiryDate:        String(row.expiryDate        || "").trim(),
         })
       );
     } catch (err) {
@@ -584,6 +611,14 @@ async function bulkImportMenuItems(payload) {
   };
 }
 
+// ── SKU lookup — for barcode scanner at POS ───────────────────────────────────
+async function lookupItemBySku(sku) {
+  const trimmed = String(sku || "").trim();
+  if (!trimmed) return null;
+  const items = await fetchMenuItems();
+  return items.find((item) => item.sku && item.sku.trim() === trimmed) || null;
+}
+
 function fetchMenuStationsSync() {
   return getOwnerSetupData().menu.stations || [];
 }
@@ -596,6 +631,7 @@ module.exports = {
   fetchMenuCategories,
   fetchMenuStations,
   fetchMenuItems,
+  lookupItemBySku,
   fetchMenuConfig,
   fetchMenuGroups,
   fetchMenuAssignments,

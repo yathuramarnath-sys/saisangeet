@@ -20,7 +20,8 @@ const {
   updateMenuAssignment,
   createPricingProfile,
   updatePricingProfile,
-  bulkImportMenuItems
+  bulkImportMenuItems,
+  lookupItemBySku,
 } = require("./menu.service");
 
 async function listMenuCategoriesHandler(_req, res) {
@@ -155,6 +156,19 @@ async function bulkImportMenuItemsHandler(req, res) {
   res.status(201).json(result);
 }
 
+// GET /menu/sku-lookup?sku=xxx  — used by POS barcode scanner
+async function skuLookupHandler(req, res) {
+  const sku = req.query.sku || "";
+  if (!sku.trim()) {
+    return res.status(400).json({ error: { message: "sku query param required" } });
+  }
+  const item = await lookupItemBySku(sku);
+  if (!item) {
+    return res.status(404).json({ error: { code: "SKU_NOT_FOUND", message: "No item found for this barcode." } });
+  }
+  res.json(item);
+}
+
 module.exports = {
   listMenuCategoriesHandler,
   listMenuItemsHandler,
@@ -177,5 +191,6 @@ module.exports = {
   updateMenuAssignmentHandler,
   createPricingProfileHandler,
   updatePricingProfileHandler,
-  bulkImportMenuItemsHandler
+  bulkImportMenuItemsHandler,
+  skuLookupHandler,
 };

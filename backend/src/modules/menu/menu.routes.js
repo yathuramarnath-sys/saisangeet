@@ -34,6 +34,7 @@ const {
   createPricingProfileHandler,
   updatePricingProfileHandler,
   bulkImportMenuItemsHandler,
+  skuLookupHandler,
 } = require("./menu.controller");
 
 const menuRouter = express.Router();
@@ -46,6 +47,7 @@ menuRouter.get("/config",          requireAuth, asyncHandler(listMenuConfigHandl
 menuRouter.get("/groups",          requireAuth, asyncHandler(listMenuGroupsHandler));
 menuRouter.get("/assignments",     requireAuth, asyncHandler(listMenuAssignmentsHandler));
 menuRouter.get("/pricing-profiles",requireAuth, asyncHandler(listPricingProfilesHandler));
+menuRouter.get("/sku-lookup",      requireAuth, asyncHandler(skuLookupHandler));
 
 // ── Write endpoints ───────────────────────────────────────────────────────────
 menuRouter.post(
