@@ -139,11 +139,16 @@ export function App() {
   const [kotPendingTableId, setKotPendingTableId] = useState(null);
   const [pickedWaiter,      setPickedWaiter]      = useState(null);
 
-  // Staff: from branch config or fallback — Captain app only shows Captain/Waiter roles
+  // Staff lists — filtered by role
+  const WAITER_ROLES  = ["waiter", "server", "steward"];
   const CAPTAIN_ROLES = ["captain", "waiter", "server", "steward"];
-  const allStaff  = branchConfig?.staff?.length ? branchConfig.staff : FALLBACK_STAFF;
+  const allStaff    = branchConfig?.staff?.length ? branchConfig.staff : FALLBACK_STAFF;
   const branchStaff = allStaff.filter(
     (s) => CAPTAIN_ROLES.includes((s.role || "").toLowerCase())
+  );
+  // Waiter picker shows only waiters/servers — not captains
+  const waiterStaff = allStaff.filter(
+    (s) => WAITER_ROLES.includes((s.role || "").toLowerCase())
   );
 
   // ── Refresh staff from backend on every boot ──────────────────────────────
@@ -1347,7 +1352,7 @@ export function App() {
               <span>Assign Waiter</span>
             </div>
             <div className="assign-staff-list">
-              {branchStaff.map((s) => (
+              {waiterStaff.map((s) => (
                 <label key={s.id} className="assign-staff-row" onClick={() => setPickedWaiter(s.name)}>
                   <span className="assign-staff-name">
                     {s.name}
