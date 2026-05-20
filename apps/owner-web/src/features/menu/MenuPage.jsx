@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BulkImportPanel } from "./BulkImportPanel";
+import { ItemForm } from "./ItemForm";
 
 import {
   subscribeRestaurantState,
@@ -77,9 +78,21 @@ function toggleOutlet(item, outletName) {
 
 function buildDefaultItemDraft(menuData) {
   return {
-    categoryName: menuData.categories[0]?.name || "",
-    // station is auto-resolved via Kitchen Stations → Category mapping; not set on items
-    selectedOutlets: [] // empty = all outlets
+    itemName: "", categoryName: menuData.categories[0]?.name || "",
+    foodType: "Veg", unit: "",
+    acDineIn: "0", nonAcDineIn: "0", selfDineIn: "0",
+    takeawayPrice: "0", deliveryPrice: "0",
+    taxMode: "Exclusive", taxRate: "5",
+    takeawayParcelChargeType: "None", takeawayParcelChargeValue: "0",
+    deliveryParcelChargeType: "None", deliveryParcelChargeValue: "0",
+    availableFrom: "", availableTo: "",
+    trackInventory: "Disabled", entryStyle: "Optional later",
+    selectedOutlets: [],
+    // optional fields
+    description: "", shortCode: "", hsnCode: "", sku: "",
+    rank: "999", packingCharges: "0",
+    exposeInCaptain: true, allowDecimalQty: false,
+    manufacturingDate: "", expiryDate: "",
   };
 }
 
@@ -358,39 +371,46 @@ export function MenuPage() {
 
   async function handleSaveItem(event) {
     event.preventDefault();
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-
     try {
       setSaveError("");
       setSaveMessage("");
       await createCustomMenuItem({
-        itemName: formData.get("itemName"),
-        categoryName: formData.get("categoryName"),
-        availableFrom: formData.get("availableFrom"),
-        availableTo: formData.get("availableTo"),
-        acDineIn: formData.get("acDineIn"),
-        nonAcDineIn: formData.get("nonAcDineIn"),
-        selfDineIn: formData.get("selfDineIn"),
-        takeawayPrice: formData.get("takeawayPrice"),
-        deliveryPrice: formData.get("deliveryPrice"),
-        taxMode: formData.get("taxMode"),
-        taxRate: formData.get("taxRate"),
-        takeawayParcelChargeType: formData.get("takeawayParcelChargeType"),
-        takeawayParcelChargeValue: formData.get("takeawayParcelChargeValue"),
-        deliveryParcelChargeType: formData.get("deliveryParcelChargeType"),
-        deliveryParcelChargeValue: formData.get("deliveryParcelChargeValue"),
-        station: "",  // Auto-resolved via Kitchen Stations → Category mapping; not set manually
-        trackInventory: formData.get("trackInventory"),
-        entryStyle: formData.get("entryStyle"),
-        foodType: formData.get("foodType"),
-        unit: formData.get("unit") || "",
-        outletAvailability: itemDraft.selectedOutlets?.length
+        itemName:                  itemDraft.itemName,
+        categoryName:              itemDraft.categoryName,
+        availableFrom:             itemDraft.availableFrom,
+        availableTo:               itemDraft.availableTo,
+        acDineIn:                  itemDraft.acDineIn,
+        nonAcDineIn:               itemDraft.nonAcDineIn,
+        selfDineIn:                itemDraft.selfDineIn,
+        takeawayPrice:             itemDraft.takeawayPrice,
+        deliveryPrice:             itemDraft.deliveryPrice,
+        taxMode:                   itemDraft.taxMode,
+        taxRate:                   itemDraft.taxRate,
+        takeawayParcelChargeType:  itemDraft.takeawayParcelChargeType,
+        takeawayParcelChargeValue: itemDraft.takeawayParcelChargeValue,
+        deliveryParcelChargeType:  itemDraft.deliveryParcelChargeType,
+        deliveryParcelChargeValue: itemDraft.deliveryParcelChargeValue,
+        station:                   "",
+        trackInventory:            itemDraft.trackInventory,
+        entryStyle:                itemDraft.entryStyle,
+        foodType:                  itemDraft.foodType,
+        unit:                      itemDraft.unit || "",
+        outletAvailability:        itemDraft.selectedOutlets?.length
           ? itemDraft.selectedOutlets.map((name) => ({ outlet: name, enabled: true }))
-          : availableOutlets.map((o) => ({ outlet: o.name, enabled: true }))
+          : availableOutlets.map((o) => ({ outlet: o.name, enabled: true })),
+        // optional fields
+        description:       itemDraft.description,
+        shortCode:         itemDraft.shortCode,
+        hsnCode:           itemDraft.hsnCode,
+        sku:               itemDraft.sku,
+        rank:              itemDraft.rank,
+        packingCharges:    itemDraft.packingCharges,
+        exposeInCaptain:   itemDraft.exposeInCaptain,
+        allowDecimalQty:   itemDraft.allowDecimalQty,
+        manufacturingDate: itemDraft.manufacturingDate,
+        expiryDate:        itemDraft.expiryDate,
       });
       const result = await reloadMenu();
-      form.reset();
       setItemDraft(buildDefaultItemDraft(result));
       setSaveMessage("New menu item saved.");
     } catch (error) {
@@ -728,26 +748,37 @@ export function MenuPage() {
   function startEditingItem(item) {
     setEditingItemId(item.id);
     setEditDraft({
-      itemName: item.name,
-      categoryName: item.categoryName || menuData.categories.find((category) => category.id === item.categoryId)?.name || "",
-      station: item.station || "",
+      itemName:     item.name,
+      categoryName: item.categoryName || menuData.categories.find((c) => c.id === item.categoryId)?.name || "",
+      station:      item.station      || "",
       availableFrom: item.availableFrom || "",
-      availableTo: item.availableTo || "",
-      foodType: item.foodType || "Veg",
+      availableTo:   item.availableTo   || "",
+      foodType:      item.foodType      || "Veg",
+      unit:          item.unit          || "",
       trackInventory: item.inventoryTracking.enabled ? "Enabled" : "Disabled",
-      entryStyle: item.inventoryTracking.mode || "Item wise",
-      acDineIn: priceValue(item.pricing, "AC", "dineIn"),
-      nonAcDineIn: priceValue(item.pricing, "Non-AC", "dineIn"),
-      selfDineIn: priceValue(item.pricing, "Self Service", "dineIn"),
+      entryStyle:     item.inventoryTracking.mode    || "Item wise",
+      acDineIn:     priceValue(item.pricing, "AC", "dineIn"),
+      nonAcDineIn:  priceValue(item.pricing, "Non-AC", "dineIn"),
+      selfDineIn:   priceValue(item.pricing, "Self Service", "dineIn"),
       takeawayPrice: moneyValue(item.takeawayPrice || item.pricing?.[0]?.takeaway),
       deliveryPrice: moneyValue(item.deliveryPrice || item.pricing?.[0]?.delivery),
       taxMode: item.taxMode || "Exclusive",
       taxRate: String(item.taxRate || 0),
-      takeawayParcelChargeType: item.parcelCharges?.takeaway?.type || "None",
+      takeawayParcelChargeType:  item.parcelCharges?.takeaway?.type  || "None",
       takeawayParcelChargeValue: String(item.parcelCharges?.takeaway?.value || 0),
-      deliveryParcelChargeType: item.parcelCharges?.delivery?.type || "None",
+      deliveryParcelChargeType:  item.parcelCharges?.delivery?.type  || "None",
       deliveryParcelChargeValue: String(item.parcelCharges?.delivery?.value || 0),
-      unit: item.unit || ""
+      // optional fields
+      description:       item.description       || "",
+      shortCode:         item.shortCode         || "",
+      hsnCode:           item.hsnCode           || "",
+      sku:               item.sku               || "",
+      rank:              String(item.rank       ?? 999),
+      packingCharges:    String(item.packingCharges ?? 0),
+      exposeInCaptain:   item.exposeInCaptain   !== false,
+      allowDecimalQty:   item.allowDecimalQty   === true,
+      manufacturingDate: item.manufacturingDate || "",
+      expiryDate:        item.expiryDate        || "",
     });
     setSaveError("");
     setSaveMessage("");
@@ -760,32 +791,41 @@ export function MenuPage() {
 
   async function handleUpdateItem(itemId, event) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-
     try {
       setSaveError("");
       setSaveMessage("");
       await updateCustomMenuItem(itemId, {
-        itemName: formData.get("itemName"),
-        categoryName: formData.get("categoryName"),
-        availableFrom: formData.get("availableFrom"),
-        availableTo: formData.get("availableTo"),
-        acDineIn: formData.get("acDineIn"),
-        nonAcDineIn: formData.get("nonAcDineIn"),
-        selfDineIn: formData.get("selfDineIn"),
-        takeawayPrice: formData.get("takeawayPrice"),
-        deliveryPrice: formData.get("deliveryPrice"),
-        taxMode: formData.get("taxMode"),
-        taxRate: formData.get("taxRate"),
-        takeawayParcelChargeType: formData.get("takeawayParcelChargeType"),
-        takeawayParcelChargeValue: formData.get("takeawayParcelChargeValue"),
-        deliveryParcelChargeType: formData.get("deliveryParcelChargeType"),
-        deliveryParcelChargeValue: formData.get("deliveryParcelChargeValue"),
-        station: formData.get("station"),
-        trackInventory: formData.get("trackInventory"),
-        entryStyle: formData.get("entryStyle"),
-        foodType: formData.get("foodType"),
-        unit: formData.get("unit") || ""
+        itemName:                  editDraft.itemName,
+        categoryName:              editDraft.categoryName,
+        availableFrom:             editDraft.availableFrom,
+        availableTo:               editDraft.availableTo,
+        acDineIn:                  editDraft.acDineIn,
+        nonAcDineIn:               editDraft.nonAcDineIn,
+        selfDineIn:                editDraft.selfDineIn,
+        takeawayPrice:             editDraft.takeawayPrice,
+        deliveryPrice:             editDraft.deliveryPrice,
+        taxMode:                   editDraft.taxMode,
+        taxRate:                   editDraft.taxRate,
+        takeawayParcelChargeType:  editDraft.takeawayParcelChargeType,
+        takeawayParcelChargeValue: editDraft.takeawayParcelChargeValue,
+        deliveryParcelChargeType:  editDraft.deliveryParcelChargeType,
+        deliveryParcelChargeValue: editDraft.deliveryParcelChargeValue,
+        station:                   editDraft.station,
+        trackInventory:            editDraft.trackInventory,
+        entryStyle:                editDraft.entryStyle,
+        foodType:                  editDraft.foodType,
+        unit:                      editDraft.unit || "",
+        // optional fields
+        description:       editDraft.description,
+        shortCode:         editDraft.shortCode,
+        hsnCode:           editDraft.hsnCode,
+        sku:               editDraft.sku,
+        rank:              editDraft.rank,
+        packingCharges:    editDraft.packingCharges,
+        exposeInCaptain:   editDraft.exposeInCaptain,
+        allowDecimalQty:   editDraft.allowDecimalQty,
+        manufacturingDate: editDraft.manufacturingDate,
+        expiryDate:        editDraft.expiryDate,
       });
       await reloadMenu();
       cancelEditingItem();
@@ -1271,250 +1311,18 @@ export function MenuPage() {
                   <h3>{editDraft.itemName || "Update Item"}</h3>
                 </div>
               </div>
-
-          <form className="simple-form" onSubmit={(event) => handleUpdateItem(editingItemId, event)}>
-                <label>
-                  Item name
-                  <input
-                    type="text"
-                    name="itemName"
-                    value={editDraft.itemName}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, itemName: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Category
-                  <select
-                    name="categoryName"
-                    value={editDraft.categoryName}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, categoryName: event.target.value }))}
-                  >
-                    {availableCategoryNames.map((categoryNameOption) => (
-                      <option key={`edit-select-${categoryNameOption}`} value={categoryNameOption}>
-                        {categoryNameOption}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Kitchen station
-                  <select
-                    name="station"
-                    value={editDraft.station}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, station: event.target.value }))}
-                  >
-                    {availableStationNames.map((stationNameOption) => (
-                      <option key={`edit-station-${stationNameOption}`} value={stationNameOption}>
-                        {stationNameOption}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Food type
-                  <select
-                    name="foodType"
-                    value={editDraft.foodType}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, foodType: event.target.value }))}
-                  >
-                    <option>Veg</option>
-                    <option>Non-Veg</option>
-                  </select>
-                </label>
-                <label>
-                  Sold by (Unit)
-                  <select
-                    name="unit"
-                    value={editDraft.unit || ""}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, unit: event.target.value }))}
-                  >
-                    <option value="">— Not set —</option>
-                    <option value="PCS">PCS — Per piece</option>
-                    <option value="KG">KG — Per kilogram</option>
-                    <option value="LTR">LTR — Per litre</option>
-                  </select>
-                </label>
-                <label>
-                  AC dine-in price
-                  <input
-                    type="number"
-                    name="acDineIn"
-                    min="0"
-                    value={editDraft.acDineIn}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, acDineIn: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Non-AC dine-in price
-                  <input
-                    type="number"
-                    name="nonAcDineIn"
-                    min="0"
-                    value={editDraft.nonAcDineIn}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, nonAcDineIn: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Self service dine-in price
-                  <input
-                    type="number"
-                    name="selfDineIn"
-                    min="0"
-                    value={editDraft.selfDineIn}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, selfDineIn: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Takeaway price
-                  <input
-                    type="number"
-                    name="takeawayPrice"
-                    min="0"
-                    value={editDraft.takeawayPrice}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, takeawayPrice: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Delivery price
-                  <input
-                    type="number"
-                    name="deliveryPrice"
-                    min="0"
-                    value={editDraft.deliveryPrice}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, deliveryPrice: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Tax mode
-                  <select
-                    name="taxMode"
-                    value={editDraft.taxMode}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, taxMode: event.target.value }))}
-                  >
-                    <option>Inclusive</option>
-                    <option>Exclusive</option>
-                  </select>
-                </label>
-                <label>
-                  Tax rate
-                  <input
-                    type="number"
-                    name="taxRate"
-                    min="0"
-                    step="0.01"
-                    value={editDraft.taxRate}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, taxRate: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Available from
-                  <input
-                    type="time"
-                    name="availableFrom"
-                    value={editDraft.availableFrom}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, availableFrom: event.target.value }))}
-                  />
-                </label>
-                <label>
-                  Available to
-                  <input
-                    type="time"
-                    name="availableTo"
-                    value={editDraft.availableTo}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, availableTo: event.target.value }))}
-                  />
-                </label>
-                <label>
-                  Track inventory
-                  <select
-                    name="trackInventory"
-                    value={editDraft.trackInventory}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, trackInventory: event.target.value }))}
-                  >
-                    <option>Enabled</option>
-                    <option>Disabled</option>
-                  </select>
-                </label>
-                <label>
-                  Entry style
-                  <select
-                    name="entryStyle"
-                    value={editDraft.entryStyle}
-                    onChange={(event) => setEditDraft((current) => ({ ...current, entryStyle: event.target.value }))}
-                  >
-                    <option>Item wise</option>
-                    <option>Category wise</option>
-                    <option>Optional later</option>
-                  </select>
-                </label>
-                <label>
-                  Takeaway parcel charge
-                  <select
-                    name="takeawayParcelChargeType"
-                    value={editDraft.takeawayParcelChargeType}
-                    onChange={(event) =>
-                      setEditDraft((current) => ({ ...current, takeawayParcelChargeType: event.target.value }))
-                    }
-                  >
-                    <option>None</option>
-                    <option>Fixed</option>
-                    <option>Percentage</option>
-                  </select>
-                </label>
-                <label>
-                  Takeaway parcel charge value
-                  <input
-                    type="number"
-                    name="takeawayParcelChargeValue"
-                    min="0"
-                    value={editDraft.takeawayParcelChargeValue}
-                    onChange={(event) =>
-                      setEditDraft((current) => ({ ...current, takeawayParcelChargeValue: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  Delivery parcel charge
-                  <select
-                    name="deliveryParcelChargeType"
-                    value={editDraft.deliveryParcelChargeType}
-                    onChange={(event) =>
-                      setEditDraft((current) => ({ ...current, deliveryParcelChargeType: event.target.value }))
-                    }
-                  >
-                    <option>None</option>
-                    <option>Fixed</option>
-                    <option>Percentage</option>
-                  </select>
-                </label>
-                <label>
-                  Delivery parcel charge value
-                  <input
-                    type="number"
-                    name="deliveryParcelChargeValue"
-                    min="0"
-                    value={editDraft.deliveryParcelChargeValue}
-                    onChange={(event) =>
-                      setEditDraft((current) => ({ ...current, deliveryParcelChargeValue: event.target.value }))
-                    }
-                  />
-                </label>
-                <div className="entity-actions">
-                  <button type="submit" className="primary-btn">
-                    Save Changes
-                  </button>
-                  <button type="button" className="secondary-btn" onClick={cancelEditingItem}>
-                    Cancel
-                  </button>
-                </div>
-              </form>
+              <ItemForm
+                mode="edit"
+                draft={editDraft}
+                onChange={(key, value) => setEditDraft((cur) => ({ ...cur, [key]: value }))}
+                onSubmit={(e) => handleUpdateItem(editingItemId, e)}
+                onCancel={cancelEditingItem}
+                menuFieldSettings={menuFieldSettings}
+                availableCategoryNames={availableCategoryNames}
+                availableStationNames={availableStationNames}
+                saveMessage={saveMessage}
+                saveError={saveError}
+              />
             </article>
           ) : null}
         </div>
@@ -1701,171 +1509,18 @@ export function MenuPage() {
               <h3>New Item</h3>
             </div>
           </div>
-
-          <form className="simple-form" onSubmit={handleSaveItem}>
-            <label>
-              Item name
-              <input type="text" name="itemName" placeholder="e.g. Paneer Butter Masala" required />
-            </label>
-            <label>
-              Category
-              <input
-                type="text"
-                name="categoryName"
-                list="menu-category-options"
-                value={itemDraft.categoryName}
-                onChange={(event) => updateItemDraft("categoryName", event.target.value)}
-                placeholder="Choose or type a category"
-                required
-              />
-            </label>
-            <datalist id="menu-category-options">
-              {availableCategoryNames.map((categoryNameOption) => (
-                <option key={categoryNameOption} value={categoryNameOption} />
-              ))}
-            </datalist>
-            <label>
-              Food type
-              <select name="foodType" defaultValue="Veg">
-                <option>Veg</option>
-                <option>Non-Veg</option>
-              </select>
-            </label>
-            <label>
-              Sold by (Unit)
-              <select name="unit" defaultValue="">
-                <option value="">— Not set —</option>
-                <option value="PCS">PCS — Per piece</option>
-                <option value="KG">KG — Per kilogram</option>
-                <option value="LTR">LTR — Per litre</option>
-              </select>
-            </label>
-            <label>
-              AC dine-in price
-              <input type="number" name="acDineIn" defaultValue="0" min="0" required />
-            </label>
-            <label>
-              Non-AC dine-in price
-              <input type="number" name="nonAcDineIn" defaultValue="0" min="0" required />
-            </label>
-            <label>
-              Self service dine-in price
-              <input type="number" name="selfDineIn" defaultValue="0" min="0" required />
-            </label>
-            <label>
-              Takeaway price
-              <input type="number" name="takeawayPrice" defaultValue="0" min="0" required />
-            </label>
-            <label>
-              Delivery price
-              <input type="number" name="deliveryPrice" defaultValue="0" min="0" required />
-            </label>
-            <label>
-              Tax mode
-              <select name="taxMode" defaultValue="Exclusive">
-                <option>Inclusive</option>
-                <option>Exclusive</option>
-              </select>
-            </label>
-            <label>
-              Tax rate (%)
-              <input type="number" name="taxRate" defaultValue="5" min="0" step="0.01" required />
-            </label>
-            <label>
-              Takeaway parcel charge
-              <select name="takeawayParcelChargeType" defaultValue="None">
-                <option>None</option>
-                <option>Fixed</option>
-                <option>Percentage</option>
-              </select>
-            </label>
-            <label>
-              Takeaway parcel charge value
-              <input type="number" name="takeawayParcelChargeValue" defaultValue="0" min="0" />
-            </label>
-            <label>
-              Delivery parcel charge
-              <select name="deliveryParcelChargeType" defaultValue="None">
-                <option>None</option>
-                <option>Fixed</option>
-                <option>Percentage</option>
-              </select>
-            </label>
-            <label>
-              Delivery parcel charge value
-              <input type="number" name="deliveryParcelChargeValue" defaultValue="0" min="0" />
-            </label>
-            <label>
-              Available from
-              <input type="time" name="availableFrom" />
-            </label>
-            <label>
-              Available to
-              <input type="time" name="availableTo" />
-            </label>
-            {/* Station is auto-routed via Kitchen Stations → Category mapping in Owner Console — no manual field needed */}
-            <label>
-              Track inventory
-              <select name="trackInventory" defaultValue="Disabled">
-                <option>Enabled</option>
-                <option>Disabled</option>
-              </select>
-            </label>
-            <label>
-              Entry style
-              <select name="entryStyle" defaultValue="Optional later">
-                <option>Item wise</option>
-                <option>Category wise</option>
-                <option>Optional later</option>
-              </select>
-            </label>
-            {/* Outlet availability */}
-            {availableOutlets.length > 0 && (
-              <div className="menu-outlet-avail">
-                <span className="menu-outlet-avail-label">Available at outlets</span>
-                <div className="menu-outlet-avail-options">
-                  <label className={`menu-outlet-chip${!itemDraft.selectedOutlets?.length ? " selected" : ""}`}>
-                    <input
-                      type="radio"
-                      name="outletScope"
-                      checked={!itemDraft.selectedOutlets?.length}
-                      onChange={() => updateItemDraft("selectedOutlets", [])}
-                    />
-                    <span>✓ All outlets</span>
-                  </label>
-                  {availableOutlets.map((outlet) => {
-                    const checked = (itemDraft.selectedOutlets || []).includes(outlet.name);
-                    return (
-                      <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            const current = itemDraft.selectedOutlets || [];
-                            const next = e.target.checked
-                              ? [...current, outlet.name]
-                              : current.filter((n) => n !== outlet.name);
-                            updateItemDraft("selectedOutlets", next);
-                          }}
-                        />
-                        <span>{outlet.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-                <p className="menu-outlet-avail-hint">
-                  {!itemDraft.selectedOutlets?.length
-                    ? "This item will be available at all outlets."
-                    : `Available at: ${(itemDraft.selectedOutlets || []).join(", ") || "none selected"}`}
-                </p>
-              </div>
-            )}
-            {saveMessage ? <p>{saveMessage}</p> : null}
-            {saveError ? <p>{saveError}</p> : null}
-            <button type="submit" className="primary-btn full-width">
-              Save Item
-            </button>
-          </form>
+          <ItemForm
+            mode="create"
+            draft={itemDraft}
+            onChange={updateItemDraft}
+            onSubmit={handleSaveItem}
+            menuFieldSettings={menuFieldSettings}
+            availableCategoryNames={availableCategoryNames}
+            availableStationNames={availableStationNames}
+            availableOutlets={availableOutlets}
+            saveMessage={saveMessage}
+            saveError={saveError}
+          />
         </article>
 
         <article className="panel">
