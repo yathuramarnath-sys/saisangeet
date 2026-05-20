@@ -1116,7 +1116,7 @@ export default function App() {
       tableNumber: order.tableNumber,
       areaName:    order.areaName,
       source:      "pos",
-      actorName:   cashierName || "POS",   // shown as operator name on KDS card
+      actorName:   "POS",   // always "POS" so backend never writes cashier name into captainName
       items:       unsent,  // ALL unsent items — server handles station split
     };
     try {
@@ -1521,7 +1521,7 @@ export default function App() {
     try {
       await api.post(`/operations/orders/${selectedTableId}/move-table`, {
         targetTableId: toTableId,
-        actorName: cashierName || "POS",
+        actorName: "POS",
         actorRole: "POS",
       });
     } catch (err) {

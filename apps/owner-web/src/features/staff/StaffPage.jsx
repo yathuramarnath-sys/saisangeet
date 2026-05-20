@@ -123,14 +123,22 @@ export function StaffPage() {
 
   async function load() {
     setLoading(true);
-    const result = await fetchStaffData();
-
-    // Merge with offline local overrides
-    const localRoles = loadLocal(LOCAL_ROLES_KEY);
-    const localStaff = loadLocal(LOCAL_STAFF_KEY);
-    const mergedRoles = localRoles || result.roles;
-    const mergedStaff = localStaff || result.staff;
-    const merged = { ...result, roles: mergedRoles, staff: mergedStaff };
+    let result;
+    try {
+      result = await fetchStaffData();
+      // Server responded — clear stale local cache so it never overrides fresh data
+      try { localStorage.removeItem(LOCAL_STAFF_KEY); } catch (_) {}
+      try { localStorage.removeItem(LOCAL_ROLES_KEY); } catch (_) {}
+    } catch (_) {
+      // Offline fallback — use localStorage if server is unreachable
+      const localRoles = loadLocal(LOCAL_ROLES_KEY);
+      const localStaff = loadLocal(LOCAL_STAFF_KEY);
+      result = { roles: localRoles || [], staff: localStaff || [],
+        permissions: [], accessMatrix: [], permissionEditor: [],
+        financialControls: [], tableAccess: [], alerts: [], outlets: [],
+        policyValues: { cashierDiscountLimitPercent: 5, cashierVoidLimitAmount: 200 } };
+    }
+    const merged = { ...result };
 
     setStaffData(merged);
     setFinancialDraft(merged.policyValues);

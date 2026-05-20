@@ -416,27 +416,48 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
             // ── Bill receipt ───────────────────────────────────────────────────
             const q2  = (s) => document.querySelector(s);
             const qa2 = (s) => Array.from(document.querySelectorAll(s));
-            // Read info-grid rows (date, table, cashier, bill no)
-            const infoRows = qa2('.info-grid tr');
+            // Read .info-row divs — each row has .info-lbl + .info-val spans
+            const infoRowEls = qa2('.info-row');
             function getInfoVal(label) {
-              for (const row of infoRows) {
-                const cells = row.querySelectorAll('td');
-                for (let i = 0; i < cells.length; i++) {
-                  if (cells[i].classList.contains('lbl') && cells[i].innerText.includes(label)) {
-                    const valCell = cells[i + 2];
-                    return valCell?.innerText?.trim() || '';
+              for (const row of infoRowEls) {
+                const lbls = Array.from(row.querySelectorAll('.info-lbl'));
+                for (const lbl of lbls) {
+                  if (lbl.innerText.trim() === label) {
+                    // .info-val is a sibling span in the same .left/.right div
+                    const parent = lbl.parentElement;
+                    return parent?.querySelector('.info-val')?.innerText?.trim() || '';
                   }
                 }
               }
               return '';
             }
+            // Parse phone and GSTIN from .outlet-meta divs (combined "Ph: xxx | GSTIN: yyy")
+            let phone = '', gstin = '';
+            for (const meta of qa2('.outlet-meta')) {
+              const txt = meta.innerText || '';
+              if (txt.includes('Ph:') && !phone) {
+                const m = txt.match(/Ph:\s*([^|]+)/);
+                if (m) phone = m[1].trim();
+              }
+              if (txt.includes('GSTIN:') && !gstin) {
+                const m = txt.match(/GSTIN:\s*([^|]+)/);
+                if (m) gstin = m[1].trim();
+              }
+            }
+            // Items: only rows that have a non-empty .col-item cell (excludes summary table rows)
+            const itemRows = qa2('.items-tbl tbody tr').filter(tr => {
+              const itemCell = tr.querySelector('.col-item');
+              return itemCell && itemCell.childNodes[0]?.textContent?.trim();
+            });
+            // Summary: rows with .sum-lbl + .sum-val (second .items-tbl)
+            const summaryRows = qa2('.sum-lbl');
             return {
               type:          'BILL',
               outlet:        q2('.outlet-name')?.innerText?.trim() || '',
               invoiceHeader: q2('.invoice-header')?.innerText?.trim() || '',
               addr:          q2('.outlet-addr')?.innerText?.trim() || '',
-              phone:         q2('.outlet-sub')?.innerText?.trim() || '',
-              gstin:         q2('.outlet-gstin')?.innerText?.trim() || '',
+              phone,
+              gstin,
               fssai:         q2('.outlet-fssai')?.innerText?.trim() || '',
               seatLabel:     q2('.seat-tag')?.innerText?.trim() || '',
               date:          getInfoVal('Date'),
@@ -445,17 +466,19 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
               orderType:     getInfoVal('Type'),
               cashier:       getInfoVal('Cashier'),
               billNo:        getInfoVal('Bill No'),
-              items: qa2('.items-tbl tbody tr').map(el => ({
+              captain:       getInfoVal('Captain'),
+              waiter:        getInfoVal('Waiter'),
+              items: itemRows.map(el => ({
                 name: el.querySelector('.col-item')?.childNodes[0]?.textContent?.trim() || '',
                 note: el.querySelector('.item-note')?.innerText?.trim() || '',
                 qty:  el.querySelector('.col-qty')?.innerText?.trim() || '',
                 rate: el.querySelector('.col-rate')?.innerText?.trim() || '',
                 amt:  el.querySelector('.col-amt')?.innerText?.trim() || '',
               })),
-              summary: qa2('.sum-row').map(el => {
-                const spans = el.querySelectorAll('span');
-                return { label: spans[0]?.innerText?.trim() || '', value: spans[1]?.innerText?.trim() || '' };
-              }),
+              summary: summaryRows.map(el => ({
+                label: el.innerText?.trim() || '',
+                value: el.closest('tr')?.querySelector('.sum-val')?.innerText?.trim() || '',
+              })),
               total:   q2('.total-row span:last-child')?.innerText?.trim() || '',
               footer:  q2('.footer p:last-child')?.innerText?.trim() || '',
             };
@@ -534,47 +557,60 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
           if (data.printer) cmd += data.printer + LF;
         } else if (data.type === 'BILL') {
           // ── Bill receipt ─────────────────────────────────────────────────────
+          // 80mm thermal = 40 chars wide. All columns sum to 40.
+          const DASH_BILL = '-'.repeat(40);
+          // Strip ₹/Rs prefix — latin1 printer renders ₹ as garbage
+          const stripRs = (s) => String(s || '').replace(/[₹Rs\s]/g, '').trim();
+          // Sanitise unicode → latin1-safe chars
+          const safeB = (s) => String(s || '')
+            .replace(/·/g, '-').replace(/•/g, '-').replace(/—/g, '-').replace(/–/g, '-')
+            .replace(/'/g, "'").replace(/'/g, "'").replace(/"/g, '"').replace(/"/g, '"')
+            .replace(/₹/g, 'Rs');
+
           // Header
-          if (data.invoiceHeader) cmd += CENTER + data.invoiceHeader + LF;
-          cmd += CENTER + BOLD1 + BIG + (data.outlet || 'RESTAURANT') + NORMAL + BOLD0 + LF;
-          if (data.addr)  cmd += CENTER + data.addr + LF;
-          if (data.phone) cmd += CENTER + data.phone + LF;
-          if (data.gstin) cmd += CENTER + data.gstin + LF;
-          if (data.fssai) cmd += CENTER + data.fssai + LF;
-          if (data.seatLabel) cmd += CENTER + BOLD1 + '[ ' + data.seatLabel + ' ]' + BOLD0 + LF;
-          cmd += DASH48 + LF;
-          // Info rows
-          if (data.date)      cmd += LEFT + 'Date    : ' + data.date + '   ' + (data.time || '') + LF;
-          if (data.table)     cmd += LEFT + 'Table   : ' + data.table + (data.orderType ? '   (' + data.orderType + ')' : '') + LF;
-          if (data.cashier)   cmd += LEFT + 'Cashier : ' + data.cashier + LF;
-          if (data.billNo)    cmd += LEFT + 'Bill No : ' + data.billNo + LF;
-          cmd += DASH48 + LF;
-          // Column header  (18 + 3 + 7 + 8 = 36 chars — fits 80mm)
-          cmd += BOLD1 + 'Item              Qty    Rate      Amt' + BOLD0 + LF;
-          cmd += DASH48 + LF;
-          // Items — strip ₹/Rs. from rate/amt (latin1 can't encode ₹, renders as garbage)
+          if (data.invoiceHeader) cmd += CENTER + safeB(data.invoiceHeader) + LF;
+          cmd += CENTER + BOLD1 + BIG + safeB(data.outlet || 'RESTAURANT') + NORMAL + BOLD0 + LF;
+          if (data.addr)  cmd += CENTER + safeB(data.addr)  + LF;
+          if (data.phone) cmd += CENTER + safeB(data.phone) + LF;
+          if (data.gstin) cmd += CENTER + 'GSTIN: ' + safeB(data.gstin) + LF;
+          if (data.fssai) cmd += CENTER + 'FSSAI: ' + safeB(data.fssai) + LF;
+          if (data.seatLabel) cmd += CENTER + BOLD1 + '[ ' + safeB(data.seatLabel) + ' ]' + BOLD0 + LF;
+          cmd += DASH_BILL + LF;
+          // Info rows — always printed (Date + Time on same line)
+          cmd += LEFT + 'Date    : ' + safeB(data.date || '') + '   ' + safeB(data.time || '') + LF;
+          const _tbl = safeB(data.table || '').substring(0, 20);
+          cmd += LEFT + 'Table   : ' + _tbl + (data.orderType ? ' (' + safeB(data.orderType) + ')' : '') + LF;
+          cmd += LEFT + 'Cashier : ' + safeB(data.cashier || '-') + LF;
+          cmd += LEFT + 'Bill No : ' + safeB(String(data.billNo || '-')) + LF;
+          if (data.captain) cmd += LEFT + 'Captain : ' + safeB(data.captain) + LF;
+          if (data.waiter)  cmd += LEFT + 'Waiter  : ' + safeB(data.waiter)  + LF;
+          cmd += DASH_BILL + LF;
+          // Column header: name(20) + qty(4) + rate(8) + amt(8) = 40 chars
+          cmd += BOLD1 + 'Item                 Qty    Rate     Amt' + BOLD0 + LF;
+          cmd += DASH_BILL + LF;
+          // Items
           for (const item of (data.items || [])) {
-            const name  = (item.name || '').substring(0, 18).padEnd(18);
-            const qty   = (item.qty  || '').padStart(3);
-            const rate  = (item.rate || '').replace(/[₹Rs\s]/g, '').trim().padStart(7);
-            const amt   = (item.amt  || '').replace(/[₹Rs\s]/g, '').trim().padStart(8);
+            const name = safeB(item.name || '').substring(0, 20).padEnd(20);
+            const qty  = String(item.qty  || '').padStart(4);
+            const rate = stripRs(item.rate).padStart(8);
+            const amt  = stripRs(item.amt).padStart(8);
             cmd += name + qty + rate + amt + LF;
-            if (item.note) cmd += '     >> ' + item.note + LF;
+            if (item.note) cmd += '     >> ' + safeB(item.note) + LF;
           }
-          cmd += DASH48 + LF;
-          // Summary rows (subtotal, discount, CGST, SGST etc.)
+          cmd += DASH_BILL + LF;
+          // Summary rows: label(32) + value(8) = 40 chars, aligned under Amt column
           for (const row of (data.summary || [])) {
             if (!row.label || !row.value) continue;
-            const lbl = row.label.padEnd(22);
-            const val = row.value.padStart(10);
+            const lbl = safeB(row.label).padEnd(32);
+            const val = stripRs(row.value).padStart(8);
             cmd += lbl + val + LF;
           }
-          cmd += DASH48 + LF;
-          // Grand total — big
-          cmd += CENTER + BOLD1 + BIG + 'TOTAL  ' + (data.total || '') + NORMAL + BOLD0 + LF;
-          cmd += DASH48 + LF;
+          cmd += DASH_BILL + LF;
+          // Grand total — big centred
+          cmd += CENTER + BOLD1 + BIG + 'TOTAL  ' + stripRs(data.total || '') + NORMAL + BOLD0 + LF;
+          cmd += DASH_BILL + LF;
           cmd += CENTER + 'Please pay at the counter' + LF;
-          cmd += CENTER + (data.footer || 'Thank you for dining with us!') + LF;
+          cmd += CENTER + safeB(data.footer || 'Thank you for dining with us!') + LF;
         }
 
         cmd += LF + LF + LF + LF + CUT;
