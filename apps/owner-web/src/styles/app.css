@@ -6576,3 +6576,46 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 @media (max-width: 600px) {
   .btype-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ── Menu Page Tabs ───────────────────────────────────────────────────────── */
+.menu-tab-nav {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 2px solid #e5e7eb;
+  margin-bottom: 0;
+  background: #fff;
+}
+.menu-tab-btn {
+  padding: 12px 20px;
+  border: none;
+  background: none;
+  font-family: Manrope, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.menu-tab-btn:hover { color: #059669; }
+.menu-tab-btn.active { color: #059669; border-bottom-color: #059669; }
+
+/* Detailed mfs row (with description) */
+.mfs-row--detailed {
+  align-items: flex-start;
+  padding: 14px;
+  gap: 12px;
+}
+.mfs-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.mfs-desc {
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.4;
+}

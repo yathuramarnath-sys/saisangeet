@@ -23,6 +23,40 @@ import {
   updateMenuGroup,
   updatePricingProfile
 } from "./menu.service";
+import { api } from "../../lib/api";
+
+// ── Menu field settings (mirrors BusinessProfilePage) ─────────────────────────
+const MENU_FIELD_LABELS = {
+  description:       "Item Description",
+  shortCode:         "Short Code (KOT print)",
+  hsnCode:           "HSN / SAC Code",
+  rank:              "Item Rank / Sort Order",
+  packingCharges:    "Packing Charges",
+  exposeInCaptain:   "Expose in Captain App",
+  allowDecimalQty:   "Allow Decimal Quantity",
+  manufacturingDate: "Manufacturing Date",
+  expiryDate:        "Expiry Date",
+  sku:               "SKU / Barcode",
+};
+
+const MENU_FIELD_DESCRIPTIONS = {
+  description:       "Show a description field on each item. Captains can read it before ordering.",
+  shortCode:         "Short 3–5 letter code printed on KOT tickets (e.g. PNT for Paneer Tikka).",
+  hsnCode:           "HSN / SAC code required on GST tax invoices.",
+  rank:              "Controls display order in POS grid and Captain App menu list.",
+  packingCharges:    "Per-item packing charge added to bill for takeaway and delivery orders.",
+  exposeInCaptain:   "Hide specific items from the Captain App waiter menu (e.g. staff meals).",
+  allowDecimalQty:   "Allow quantities like 0.5 or 1.5 kg for weight-based items.",
+  manufacturingDate: "Track manufacturing date per item — for bakeries, sweet shops, pre-cooked items.",
+  expiryDate:        "Track expiry date per item — for bakeries, sweet shops, pre-cooked items.",
+  sku:               "Barcode / SKU number for barcode scanner billing at POS.",
+};
+
+const DEFAULT_FIELD_SETTINGS = {
+  description: false, shortCode: false, hsnCode: false, rank: false,
+  packingCharges: false, exposeInCaptain: false, allowDecimalQty: false,
+  manufacturingDate: false, expiryDate: false, sku: false,
+};
 
 function statusClass(status) {
   return status === "Review" ? "warning" : "online";
@@ -159,6 +193,12 @@ export function MenuPage() {
   const [routingDrafts, setRoutingDrafts] = useState({});
   const formRef = useRef(null);
 
+  // ── Tabs + Field Settings ──────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState("items"); // "items" | "field-settings"
+  const [menuFieldSettings, setMenuFieldSettings] = useState(DEFAULT_FIELD_SETTINGS);
+  const [fieldSettingsSaving, setFieldSettingsSaving] = useState(false);
+  const [fieldSettingsMsg, setFieldSettingsMsg] = useState("");
+
   useEffect(() => {
     let cancelled = false;
 
@@ -184,6 +224,15 @@ export function MenuPage() {
         setAssignmentDraft(buildDefaultAssignmentDraft(result));
       }
     }
+
+    // Load field settings from business profile
+    api.get("/business-profile")
+      .then((bp) => {
+        if (!cancelled && bp?.menuFieldSettings) {
+          setMenuFieldSettings({ ...DEFAULT_FIELD_SETTINGS, ...bp.menuFieldSettings });
+        }
+      })
+      .catch(() => {});
 
     load();
 
@@ -914,6 +963,20 @@ export function MenuPage() {
     }
   }
 
+  // ── Save field settings back to business profile ───────────────────────────
+  async function handleSaveFieldSettings() {
+    setFieldSettingsSaving(true);
+    setFieldSettingsMsg("");
+    try {
+      await api.patch("/business-profile", { menuFieldSettings });
+      setFieldSettingsMsg("Field settings saved.");
+    } catch (_) {
+      setFieldSettingsMsg("Failed to save. Please try again.");
+    } finally {
+      setFieldSettingsSaving(false);
+    }
+  }
+
   return (
     <>
       <header className="topbar">
@@ -942,6 +1005,74 @@ export function MenuPage() {
           </button>
         </div>
       </header>
+
+      {/* ── Tab navigation ─────────────────────────────────────────────────── */}
+      <div className="menu-tab-nav">
+        <button
+          className={`menu-tab-btn${activeTab === "items" ? " active" : ""}`}
+          onClick={() => setActiveTab("items")}
+        >
+          Menu Items
+        </button>
+        <button
+          className={`menu-tab-btn${activeTab === "field-settings" ? " active" : ""}`}
+          onClick={() => setActiveTab("field-settings")}
+        >
+          ⚙️ Field Settings
+        </button>
+      </div>
+
+      {/* ── Field Settings tab ─────────────────────────────────────────────── */}
+      {activeTab === "field-settings" && (
+        <section className="dashboard-grid">
+          <article className="panel panel-wide">
+            <div className="panel-head">
+              <div>
+                <p className="eyebrow">Menu Configuration</p>
+                <h3>Optional Menu Fields</h3>
+              </div>
+            </div>
+            <p style={{ color: "#6b7280", fontSize: "13px", marginBottom: "20px" }}>
+              Enable only the fields your business needs. Enabled fields appear in the Add Item form, Edit Item form, and Bulk Import CSV template.
+              You can also set these from <strong>Business Profile → Business Type</strong>.
+            </p>
+            <div className="mfs-grid">
+              {Object.entries(MENU_FIELD_LABELS).map(([key, label]) => (
+                <div key={key} className="mfs-row mfs-row--detailed">
+                  <div className="mfs-row-text">
+                    <span className="mfs-label">{label}</span>
+                    <span className="mfs-desc">{MENU_FIELD_DESCRIPTIONS[key]}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={`mfs-toggle${menuFieldSettings[key] ? " mfs-toggle--on" : ""}`}
+                    onClick={() => setMenuFieldSettings((cur) => ({ ...cur, [key]: !cur[key] }))}
+                  >
+                    {menuFieldSettings[key] ? "ON" : "OFF"}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: "20px", display: "flex", alignItems: "center", gap: "12px" }}>
+              <button
+                className="primary-btn"
+                onClick={handleSaveFieldSettings}
+                disabled={fieldSettingsSaving}
+              >
+                {fieldSettingsSaving ? "Saving…" : "Save Field Settings"}
+              </button>
+              {fieldSettingsMsg && (
+                <span style={{ fontSize: "13px", color: fieldSettingsMsg.includes("Failed") ? "#dc2626" : "#059669" }}>
+                  {fieldSettingsMsg}
+                </span>
+              )}
+            </div>
+          </article>
+        </section>
+      )}
+
+      {/* ── All existing content — only show on items tab ──────────────────── */}
+      {activeTab === "items" && <>
 
       <section className="hero-panel menu-hero">
         <div>
@@ -1794,6 +1925,8 @@ export function MenuPage() {
           </div>
         </article>
       </section>
+
+      </> /* end activeTab === "items" */}
 
       {/* ── Bulk Import Panel ─────────────────────────────────────────────── */}
       {showImportPanel && (
