@@ -879,7 +879,7 @@ export function App() {
       printOrder.items,
       outlet || { name: branchConfig?.outletName || "Restaurant" },
       {
-        cashierName: loggedInStaff?.name || "Waiter",
+        cashierName: printOrder.cashierName    || null,   // POS shift cashier, not the captain
         captainName: printOrder.captainName    || null,
         waiterName:  printOrder.assignedWaiter || null,
       }
@@ -927,7 +927,7 @@ export function App() {
       items,
       outlet || { name: branchConfig?.outletName || "Restaurant" },
       {
-        cashierName: loggedInStaff?.name || "Waiter",
+        cashierName: printOrder.cashierName    || null,   // POS shift cashier, not the captain
         seatLabel,
         captainName: printOrder.captainName    || null,
         waiterName:  printOrder.assignedWaiter || null,

@@ -480,7 +480,7 @@ async function deviceSendKotHandler(req, res) {
   let updatedOrder;
   if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
     try {
-      updatedOrder = await sendOrderKot(tableId, { actorName: req.user?.name || "POS" });
+      updatedOrder = await sendOrderKot(tableId, { actorName: req.body.actorName || req.user?.name || "Captain" });
     } catch (err) {
       // ORDER_NOT_FOUND or TABLE_NOT_FOUND — log but do not fail the KOT send.
       // The KOT is already recorded and broadcast; the order state will reconcile on next open.
@@ -727,8 +727,9 @@ async function deviceAddOrderItemHandler(req, res) {
   if (tableId.startsWith("counter-")) {
     return res.json({ ok: true, skipped: true });
   }
-  // Merge actor name into payload so operations.service.resolveActor picks it up
-  const actor = req.user?.name || req.user?.type || "POS";
+  // Prefer actorName from request body (Captain App sends logged-in staff name).
+  // req.user?.type is "device" for Captain App tokens — never use it as a display name.
+  const actor = req.body.actorName || req.user?.name || "Captain";
   const result = await addItemToOrder(tableId, { ...item, actorName: actor });
 
   logAction({
