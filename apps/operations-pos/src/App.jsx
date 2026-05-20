@@ -879,6 +879,8 @@ export default function App() {
       const order = prev[tableId];
       if (!order) return prev;
       const next = updater(structuredClone(order));
+      // Stamp cashierName so Captain App bill always shows the correct POS cashier
+      if (cashierName) next.cashierName = cashierName;
       // Emit to cloud socket (for Owner Web + remote Captain/KDS)
       socketRef.current?.emit("order:update", { outletId: outlet?.id, order: next });
       // Emit to local socket (for tablets on same WiFi — works without internet)
