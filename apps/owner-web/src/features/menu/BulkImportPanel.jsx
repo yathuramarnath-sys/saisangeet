@@ -5,7 +5,7 @@
  * - Flexible column name matching (case-insensitive, multiple aliases)
  * - Preview step before committing
  * - Row-level validation and error reporting
- * - Downloadable sample template
+ * - Downloadable sample template (columns adjust based on enabled menuFieldSettings)
  */
 
 import { useRef, useState } from "react";
@@ -43,17 +43,29 @@ function parseCSVLine(line) {
 // Maps any reasonable header a restaurant owner might write to an internal field.
 
 const COLUMN_ALIASES = {
-  itemName:      ["item name", "name", "item", "product name", "dish name", "item_name", "itemname", "product"],
-  category:      ["category", "cat", "category name", "categoryname", "cat name", "section"],
-  foodType:      ["food type", "foodtype", "veg/non-veg", "type", "food", "veg non veg", "veg or non veg"],
-  station:       ["station", "kitchen station", "prep station", "station name", "cook station"],
-  gstRate:       ["gst rate", "gst%", "tax rate", "tax%", "gst", "gstrate", "tax", "gst %", "tax %"],
-  gstMode:       ["gst mode", "tax mode", "inclusive/exclusive", "mode", "gstmode", "tax type"],
-  acDineIn:      ["ac dine-in", "ac dine in", "ac", "acdinin", "ac price", "dine in ac", "ac hall", "ac dinin"],
-  nonAcDineIn:   ["non-ac dine-in", "non ac", "nonac", "non-ac", "non ac dine in", "non ac price", "non-ac hall"],
-  selfDineIn:    ["self service", "self", "selfdinin", "self dine-in", "self service price", "self dine in"],
-  takeawayPrice: ["takeaway", "takeaway price", "parcel price", "take away", "parcel", "takeaway/parcel"],
-  deliveryPrice: ["delivery", "delivery price", "home delivery", "deliver", "delivery/swiggy"],
+  // Core fields
+  itemName:           ["item name", "name", "item", "product name", "dish name", "item_name", "itemname", "product"],
+  category:           ["category", "cat", "category name", "categoryname", "cat name", "section"],
+  foodType:           ["food type", "foodtype", "veg/non-veg", "type", "food", "veg non veg", "veg or non veg"],
+  station:            ["station", "kitchen station", "prep station", "station name", "cook station"],
+  gstRate:            ["gst rate", "gst%", "tax rate", "tax%", "gst", "gstrate", "tax", "gst %", "tax %"],
+  gstMode:            ["gst mode", "tax mode", "inclusive/exclusive", "mode", "gstmode", "tax type"],
+  acDineIn:           ["ac dine-in", "ac dine in", "ac", "acdinin", "ac price", "dine in ac", "ac hall", "ac dinin"],
+  nonAcDineIn:        ["non-ac dine-in", "non ac", "nonac", "non-ac", "non ac dine in", "non ac price", "non-ac hall"],
+  selfDineIn:         ["self service", "self", "selfdinin", "self dine-in", "self service price", "self dine in"],
+  takeawayPrice:      ["takeaway", "takeaway price", "parcel price", "take away", "parcel", "takeaway/parcel"],
+  deliveryPrice:      ["delivery", "delivery price", "home delivery", "deliver", "delivery/swiggy"],
+  // Optional fields
+  description:        ["description", "desc", "item description", "details", "about"],
+  shortCode:          ["short code", "shortcode", "short_code", "code", "item code", "short"],
+  hsnCode:            ["hsn code", "hsn", "hsn/sac", "sac code", "sac", "hsn_code", "sap code"],
+  sku:                ["sku", "barcode", "sku/barcode", "bar code", "product code", "scan code", "ean"],
+  rank:               ["rank", "display order", "sort order", "order", "position", "display rank", "sort"],
+  packingCharges:     ["packing charges", "packing charge", "packing", "pack charge", "packing fee"],
+  exposeInCaptain:    ["expose in captain", "captain app", "captain", "show in captain", "visible in captain"],
+  allowDecimalQty:    ["allow decimal", "decimal qty", "decimal quantity", "fractional qty", "decimal"],
+  manufacturingDate:  ["manufacturing date", "mfg date", "manufacture date", "mfg", "manufactured date", "mfg/manufacturing date"],
+  expiryDate:         ["expiry date", "expiry", "exp date", "best before", "best by", "use by", "expiry/best before"],
 };
 
 function mapHeader(raw) {
@@ -121,30 +133,45 @@ function toNum(v) {
 
 function normalizeRow(row) {
   return {
-    itemName:      row.itemName?.trim() || "",
-    categoryName:  row.category?.trim()  || "",
-    foodType:      row.foodType?.trim()  || "Veg",
-    station:       row.station?.trim()   || "Main kitchen",
-    taxRate:       toNum(row.gstRate) || 5,
-    taxMode:       /incl/i.test(row.gstMode || "") ? "Inclusive" : "Exclusive",
-    acDineIn:      toNum(row.acDineIn),
-    nonAcDineIn:   toNum(row.nonAcDineIn),
-    selfDineIn:    toNum(row.selfDineIn),
-    takeawayPrice: toNum(row.takeawayPrice),
-    deliveryPrice: toNum(row.deliveryPrice),
+    // Core fields
+    itemName:          row.itemName?.trim() || "",
+    categoryName:      row.category?.trim()  || "",
+    foodType:          row.foodType?.trim()  || "Veg",
+    station:           row.station?.trim()   || "Main kitchen",
+    taxRate:           toNum(row.gstRate) || 5,
+    taxMode:           /incl/i.test(row.gstMode || "") ? "Inclusive" : "Exclusive",
+    acDineIn:          toNum(row.acDineIn),
+    nonAcDineIn:       toNum(row.nonAcDineIn),
+    selfDineIn:        toNum(row.selfDineIn),
+    takeawayPrice:     toNum(row.takeawayPrice),
+    deliveryPrice:     toNum(row.deliveryPrice),
+    // Optional fields
+    description:       row.description?.trim() || "",
+    shortCode:         (row.shortCode?.trim() || "").toUpperCase().slice(0, 8),
+    hsnCode:           row.hsnCode?.trim() || "",
+    sku:               row.sku?.trim() || "",
+    rank:              toNum(row.rank) || 999,
+    packingCharges:    toNum(row.packingCharges),
+    exposeInCaptain:   row.exposeInCaptain !== undefined
+                         ? !/^(false|no|0)$/i.test(String(row.exposeInCaptain).trim())
+                         : true,
+    allowDecimalQty:   /^(true|yes|1)$/i.test(String(row.allowDecimalQty || "").trim()),
+    manufacturingDate: row.manufacturingDate?.trim() || "",
+    expiryDate:        row.expiryDate?.trim() || "",
   };
 }
 
 // ── Sample CSV generator ──────────────────────────────────────────────────────
+// Base columns always present; optional columns appended based on menuFieldSettings.
 
-const SAMPLE_HEADERS = [
+const BASE_HEADERS = [
   "Item Name", "Category", "Food Type", "Station",
   "GST Rate", "GST Mode",
   "AC Dine-In", "Non-AC Dine-In", "Self Service",
-  "Takeaway Price", "Delivery Price"
+  "Takeaway Price", "Delivery Price",
 ];
 
-const SAMPLE_ROWS = [
+const BASE_SAMPLE_ROWS = [
   ["Paneer Tikka",   "Starters",    "Veg",     "Grill Station", "5", "Exclusive", "220", "210", "195", "210", "230"],
   ["Chicken 65",     "Starters",    "Non-Veg", "Fry Station",   "5", "Exclusive", "280", "270", "255", "270", "290"],
   ["Dal Makhani",    "Main Course", "Veg",     "Main Kitchen",  "5", "Exclusive", "260", "250", "235", "250", "270"],
@@ -153,12 +180,39 @@ const SAMPLE_ROWS = [
   ["Masala Chai",    "Beverages",   "Veg",     "Beverages",     "5", "Exclusive", "60",  "60",  "55",  "60",  "70" ],
 ];
 
-function downloadSample() {
-  const csvLines = [SAMPLE_HEADERS, ...SAMPLE_ROWS]
+// Maps field key → { header label, sample value, hint }
+const OPTIONAL_FIELD_META = {
+  description:       { header: "Description",          sample: "Freshly prepared, mildly spiced", hint: "Brief description of the item" },
+  shortCode:         { header: "Short Code",            sample: "PNT",          hint: "Short code for KOT (max 8 chars, e.g. PNT)" },
+  hsnCode:           { header: "HSN Code",              sample: "9963",         hint: "HSN / SAC code for GST billing" },
+  sku:               { header: "SKU / Barcode",         sample: "8901234567890",hint: "Barcode or SKU for scanner lookup" },
+  rank:              { header: "Rank",                  sample: "1",            hint: "Display order — 1 appears first" },
+  packingCharges:    { header: "Packing Charges",       sample: "10",           hint: "Per-item packing charge in ₹" },
+  exposeInCaptain:   { header: "Expose in Captain",     sample: "Yes",          hint: "Yes or No — show in Captain App?" },
+  allowDecimalQty:   { header: "Allow Decimal Qty",     sample: "No",           hint: "Yes to allow 0.5, 1.5 etc." },
+  manufacturingDate: { header: "Manufacturing Date",    sample: "01-01-2026",   hint: "DD-MM-YYYY format" },
+  expiryDate:        { header: "Expiry Date",           sample: "31-12-2026",   hint: "DD-MM-YYYY format" },
+};
+
+function buildSampleCSV(fs = {}) {
+  // Determine which optional columns to include
+  const optionalKeys = Object.keys(OPTIONAL_FIELD_META).filter((k) => fs[k]);
+
+  const headers = [...BASE_HEADERS, ...optionalKeys.map((k) => OPTIONAL_FIELD_META[k].header)];
+
+  const rows = BASE_SAMPLE_ROWS.map((baseRow) => [
+    ...baseRow,
+    ...optionalKeys.map((k) => OPTIONAL_FIELD_META[k].sample),
+  ]);
+
+  return [headers, ...rows]
     .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
     .join("\n");
+}
 
-  const blob = new Blob([csvLines], { type: "text/csv;charset=utf-8;" });
+function downloadSample(fs = {}) {
+  const csvContent = buildSampleCSV(fs);
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href     = url;
@@ -169,9 +223,26 @@ function downloadSample() {
   URL.revokeObjectURL(url);
 }
 
+// ── Column reference list (core + optional based on fs) ──────────────────────
+
+const CORE_COL_REFERENCE = [
+  { col: "Item Name",       req: true,  hint: "Name of the dish" },
+  { col: "Category",        req: true,  hint: "e.g. Starters, Main Course, Beverages" },
+  { col: "Food Type",       req: false, hint: "Veg or Non-Veg (default: Veg)" },
+  { col: "Station",         req: false, hint: "Kitchen station, e.g. Grill, Fry, Beverages" },
+  { col: "GST Rate",        req: false, hint: "Number only: 0, 5, 12, 18 (default: 5)" },
+  { col: "GST Mode",        req: false, hint: "Exclusive or Inclusive (default: Exclusive)" },
+  { col: "AC Dine-In",      req: false, hint: "AC hall dine-in price in ₹" },
+  { col: "Non-AC Dine-In",  req: false, hint: "Non-AC hall price in ₹" },
+  { col: "Self Service",    req: false, hint: "Self-service counter price in ₹" },
+  { col: "Takeaway Price",  req: false, hint: "Parcel / takeaway price in ₹" },
+  { col: "Delivery Price",  req: false, hint: "Home delivery price in ₹" },
+];
+
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function BulkImportPanel({ onClose, onImportDone }) {
+export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {} }) {
+  const fs = menuFieldSettings;
   const fileRef = useRef(null);
 
   // step: "upload" | "preview" | "importing" | "done"
@@ -240,9 +311,17 @@ export function BulkImportPanel({ onClose, onImportDone }) {
     setStep("upload");
   }
 
+  // Which optional columns to show in the preview table
+  const enabledOptionalCols = Object.keys(OPTIONAL_FIELD_META).filter((k) => fs[k]);
+
   // Partition rows into valid / invalid
   const validRows   = parsed ? parsed.rows.filter((r) => validateRow(normalizeRow(r)).length === 0) : [];
   const skippedRows = parsed ? parsed.rows.filter((r) => validateRow(normalizeRow(r)).length > 0)   : [];
+
+  // Build column reference for upload step
+  const optionalColReference = Object.entries(OPTIONAL_FIELD_META)
+    .filter(([k]) => fs[k])
+    .map(([, meta]) => ({ col: meta.header, req: false, hint: meta.hint }));
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -268,30 +347,26 @@ export function BulkImportPanel({ onClose, onImportDone }) {
               <span className="bip-sample-icon">📋</span>
               <div className="bip-sample-text">
                 <strong>Start with the sample template</strong>
-                <p>Download the ready-made CSV with the correct columns and 6 example items. Fill in your menu items in the same format, then upload it here.</p>
+                <p>Download the ready-made CSV with the correct columns and 6 example items.
+                  {enabledOptionalCols.length > 0 && (
+                    <> The template includes your enabled optional columns: <em>{enabledOptionalCols.map((k) => OPTIONAL_FIELD_META[k].header).join(", ")}</em>.</>
+                  )}
+                  {" "}Fill in your menu items in the same format, then upload it here.
+                </p>
               </div>
-              <button className="primary-btn" onClick={downloadSample}>
+              <button className="primary-btn" onClick={() => downloadSample(fs)}>
                 ↓ Download Sample CSV
               </button>
             </div>
 
             {/* Column reference */}
             <details className="bip-col-details">
-              <summary>Column reference — what each column means</summary>
+              <summary>
+                Column reference — {CORE_COL_REFERENCE.length + optionalColReference.length} columns
+                {optionalColReference.length > 0 && ` (${optionalColReference.length} optional enabled)`}
+              </summary>
               <div className="bip-col-grid">
-                {[
-                  { col: "Item Name",       req: true,  hint: "Name of the dish" },
-                  { col: "Category",        req: true,  hint: "e.g. Starters, Main Course, Beverages" },
-                  { col: "Food Type",       req: false, hint: "Veg or Non-Veg (default: Veg)" },
-                  { col: "Station",         req: false, hint: "Kitchen station, e.g. Grill, Fry, Beverages" },
-                  { col: "GST Rate",        req: false, hint: "Number only: 0, 5, 12, 18 (default: 5)" },
-                  { col: "GST Mode",        req: false, hint: "Exclusive or Inclusive (default: Exclusive)" },
-                  { col: "AC Dine-In",      req: false, hint: "AC hall dine-in price in ₹" },
-                  { col: "Non-AC Dine-In",  req: false, hint: "Non-AC hall price in ₹" },
-                  { col: "Self Service",    req: false, hint: "Self-service counter price in ₹" },
-                  { col: "Takeaway Price",  req: false, hint: "Parcel / takeaway price in ₹" },
-                  { col: "Delivery Price",  req: false, hint: "Home delivery price in ₹" },
-                ].map(({ col, req, hint }) => (
+                {[...CORE_COL_REFERENCE, ...optionalColReference].map(({ col, req, hint }) => (
                   <div key={col} className="bip-col-row">
                     <span className="bip-col-name">
                       {col}{req && <span className="bip-req"> *</span>}
@@ -302,6 +377,7 @@ export function BulkImportPanel({ onClose, onImportDone }) {
               </div>
               <p className="bip-col-note">
                 * Required columns. Column names are flexible — "item name", "Name", "ITEM NAME" all work.
+                {optionalColReference.length > 0 && " Optional columns are only shown in your template because they are enabled in Field Settings."}
               </p>
             </details>
 
@@ -316,7 +392,6 @@ export function BulkImportPanel({ onClose, onImportDone }) {
                 e.currentTarget.classList.remove("drag-over");
                 const file = e.dataTransfer.files?.[0];
                 if (file) {
-                  // simulate onChange
                   const dt = new DataTransfer();
                   dt.items.add(file);
                   fileRef.current.files = dt.files;
@@ -384,6 +459,17 @@ export function BulkImportPanel({ onClose, onImportDone }) {
                       <th>Non-AC ₹</th>
                       <th>Takeaway ₹</th>
                       <th>Delivery ₹</th>
+                      {/* Optional columns — only shown if enabled */}
+                      {fs.description      && <th>Description</th>}
+                      {fs.shortCode        && <th>Short Code</th>}
+                      {fs.hsnCode          && <th>HSN</th>}
+                      {fs.sku              && <th>SKU</th>}
+                      {fs.rank             && <th>Rank</th>}
+                      {fs.packingCharges   && <th>Packing ₹</th>}
+                      {fs.exposeInCaptain  && <th>Captain</th>}
+                      {fs.allowDecimalQty  && <th>Decimal Qty</th>}
+                      {fs.manufacturingDate && <th>Mfg Date</th>}
+                      {fs.expiryDate       && <th>Exp Date</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -405,6 +491,17 @@ export function BulkImportPanel({ onClose, onImportDone }) {
                           <td>{n.nonAcDineIn  || "—"}</td>
                           <td>{n.takeawayPrice || "—"}</td>
                           <td>{n.deliveryPrice || "—"}</td>
+                          {/* Optional columns */}
+                          {fs.description      && <td className="bip-td-desc">{n.description || "—"}</td>}
+                          {fs.shortCode        && <td><code>{n.shortCode || "—"}</code></td>}
+                          {fs.hsnCode          && <td>{n.hsnCode || "—"}</td>}
+                          {fs.sku              && <td><code>{n.sku || "—"}</code></td>}
+                          {fs.rank             && <td>{n.rank}</td>}
+                          {fs.packingCharges   && <td>{n.packingCharges || "—"}</td>}
+                          {fs.exposeInCaptain  && <td>{n.exposeInCaptain ? "Yes" : "No"}</td>}
+                          {fs.allowDecimalQty  && <td>{n.allowDecimalQty ? "Yes" : "No"}</td>}
+                          {fs.manufacturingDate && <td>{n.manufacturingDate || "—"}</td>}
+                          {fs.expiryDate       && <td>{n.expiryDate || "—"}</td>}
                         </tr>
                       );
                     })}

@@ -1588,6 +1588,7 @@ export function MenuPage() {
         <BulkImportPanel
           onClose={() => setShowImportPanel(false)}
           onImportDone={() => reloadMenu()}
+          menuFieldSettings={menuFieldSettings}
         />
       )}
     </>
