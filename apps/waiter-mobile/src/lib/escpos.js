@@ -69,7 +69,9 @@ export function buildBillEscPos(data) {
   // ── Info rows ──────────────────────────────────────────────────────────────
   // Date and time on same line (left: date, right: time)
   cmd += LEFT + "Date    : " + safe(data.date || "") + "   " + safe(data.time || "") + LF;
-  cmd += LEFT + "Table   : " + safe(data.table || "") + (data.orderType ? "   (" + safe(data.orderType) + ")" : "") + LF;
+  // Truncate table name to 20 chars so "(Type)" always fits on same line
+  const _tbl = safe(data.table || "").substring(0, 20);
+  cmd += LEFT + "Table   : " + _tbl + (data.orderType ? " (" + safe(data.orderType) + ")" : "") + LF;
   // Cashier always shown; Bill No always shown (falls back to order number)
   cmd += LEFT + "Cashier : " + safe(data.cashier || "-") + LF;
   cmd += LEFT + "Bill No : " + safe(String(data.billNo || "-")) + LF;
