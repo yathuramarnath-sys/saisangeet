@@ -59,7 +59,7 @@ const COLUMN_ALIASES = {
   description:        ["description", "desc", "item description", "details", "about"],
   shortCode:          ["short code", "shortcode", "short_code", "code", "item code", "short"],
   hsnCode:            ["hsn code", "hsn", "hsn/sac", "sac code", "sac", "hsn_code", "sap code"],
-  sku:                ["sku", "barcode", "sku/barcode", "bar code", "product code", "scan code", "ean"],
+  sku:                ["sku", "barcode", "sku/barcode", "sku / barcode", "bar code", "product code", "scan code", "ean"],
   rank:               ["rank", "display order", "sort order", "order", "position", "display rank", "sort"],
   packingCharges:     ["packing charges", "packing charge", "packing", "pack charge", "packing fee"],
   exposeInCaptain:    ["expose in captain", "captain app", "captain", "show in captain", "visible in captain"],

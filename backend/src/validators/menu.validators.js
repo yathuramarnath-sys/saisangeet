@@ -57,17 +57,13 @@ const updateCategoryRules = [
 
 // ── Bulk import ──────────────────────────────────────────────────────────────
 const bulkImportRules = [
-  body("items")
-    .isArray({ min: 1, max: 500 }).withMessage("items must be an array of 1–500 entries"),
+  body("rows")
+    .isArray({ min: 1, max: 5000 }).withMessage("rows must be an array of 1–5000 entries"),
 
-  body("items.*.name")
+  body("rows.*.itemName")
     .trim()
     .notEmpty().withMessage("Each item must have a name")
     .isLength({ max: 150 }).withMessage("Item name must be under 150 characters"),
-
-  body("items.*.price")
-    .optional({ checkFalsy: true })
-    .isFloat({ min: 0 }).withMessage("Item price must be a positive number"),
 ];
 
 module.exports = {
