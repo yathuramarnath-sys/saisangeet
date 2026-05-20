@@ -511,11 +511,11 @@ async function bulkImportMenuItems(payload) {
   const createdItems = [];
   const errors = [];
 
-  // Use the customer's actual outlets for outletAvailability
-  const outlets = getOwnerSetupData().outlets || [];
+  // ── Read current store state ONCE ───────────────────────────────────────────
+  const currentData    = getOwnerSetupData();
+  const outlets        = currentData.outlets || [];
   const outletAvailability = outlets.map((o) => ({ outlet: o.name, enabled: true }));
 
-  // Use customer's actual work areas from outlets (or default to standard 3)
   const allWorkAreas = [...new Set(
     outlets.flatMap((o) => o.workAreas || ["AC", "Non-AC", "Self Service"])
   )];
@@ -523,8 +523,17 @@ async function bulkImportMenuItems(payload) {
     ? allWorkAreas
     : ["AC", "Non-AC", "Self Service"];
 
+  // Work with in-memory copies — NO individual store writes per row
+  const categories = [...(currentData.menu?.categories || [])];
+  const stations   = [...(currentData.menu?.stations   || [])];
+  const newItems   = [];
+
+  // ── Category + station dedup maps ───────────────────────────────────────────
+  const catBySlug = Object.fromEntries(categories.map(c => [slugify(c.name), c]));
+  const staBySlug = Object.fromEntries(stations.map(s => [slugify(s.name), s]));
+
   for (const row of rows) {
-    const itemName    = String(row.itemName    || "").trim();
+    const itemName     = String(row.itemName     || "").trim();
     const categoryName = String(row.categoryName || row.category || "Imported").trim();
     const stationName  = String(row.station      || "Main kitchen").trim();
 
@@ -533,74 +542,101 @@ async function bulkImportMenuItems(payload) {
       continue;
     }
 
-    try {
-      let category = fetchMenuCategoriesSync().find(
-        (entry) => slugify(entry.name) === slugify(categoryName)
-      );
-      if (!category) {
-        category = await createMenuCategory({ name: categoryName });
-      }
-
-      let station = fetchMenuStationsSync().find(
-        (entry) => slugify(entry.name) === slugify(stationName)
-      );
-      if (!station) {
-        station = await createMenuStation({ name: stationName });
-      }
-
-      const taxRate   = Number(row.taxRate   || 5);
-      const taxMode   = row.taxMode === "Inclusive" ? "Inclusive" : "Exclusive";
-      const gstLabel  = `GST ${taxRate}%`;
-      const rwTakeaway = `Rs ${Number(row.takeawayPrice || 0)}`;
-      const rwDelivery = `Rs ${Number(row.deliveryPrice || 0)}`;
-
-      // Build area-wise pricing using customer's actual work areas
-      const areaRawPrices = {
-        "AC":           Number(row.acDineIn   || row.nonAcDineIn || row.selfDineIn || 0),
-        "Non-AC":       Number(row.nonAcDineIn || row.acDineIn   || row.selfDineIn || 0),
-        "Self Service": Number(row.selfDineIn  || row.acDineIn   || row.nonAcDineIn || 0),
+    // ── Ensure category exists (in-memory only) ──────────────────────────────
+    const catSlug = slugify(categoryName);
+    if (!catBySlug[catSlug]) {
+      const newCat = {
+        id:            `cat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name:          categoryName,
+        station:       "",
+        printerTarget: "Kitchen Printer 1",
+        displayTarget: "Hot Kitchen Display",
       };
-
-      const pricing = pricingAreas.map((area) => ({
-        area,
-        dineIn:   `Rs ${areaRawPrices[area] ?? areaRawPrices["AC"] ?? 0}`,
-        takeaway: rwTakeaway,
-        delivery: rwDelivery,
-      }));
-
-      createdItems.push(
-        await createMenuItem({
-          categoryId:        category.id,
-          name:              itemName,
-          station:           station.name,
-          foodType:          row.foodType || "Veg",
-          taxMode,
-          taxRate,
-          gstLabel,
-          takeawayPrice:     rwTakeaway,
-          deliveryPrice:     rwDelivery,
-          outletAvailability,
-          pricing,
-          parcelCharges: {
-            takeaway: { type: "None", value: 0 },
-            delivery: { type: "None", value: 0 },
-          },
-          // ── Optional fields from CSV ────────────────────────────────────────
-          description:       String(row.description       || "").trim(),
-          shortCode:         String(row.shortCode         || "").trim().toUpperCase(),
-          hsnCode:           String(row.hsnCode           || "").trim(),
-          sku:               String(row.sku               || "").trim(),
-          rank:              row.rank               !== undefined ? Number(row.rank)        : 999,
-          packingCharges:    row.packingCharges      !== undefined ? Number(row.packingCharges) : 0,
-          exposeInCaptain:   row.exposeInCaptain     !== undefined ? Boolean(row.exposeInCaptain)  : true,
-          allowDecimalQty:   row.allowDecimalQty     !== undefined ? Boolean(row.allowDecimalQty)  : false,
-          manufacturingDate: String(row.manufacturingDate || "").trim(),
-          expiryDate:        String(row.expiryDate        || "").trim(),
-        })
-      );
-    } catch (err) {
-      errors.push({ row, reason: err.message || "Failed to create item" });
+      categories.push(newCat);
+      catBySlug[catSlug] = newCat;
     }
+    const category = catBySlug[catSlug];
+
+    // ── Ensure station exists (in-memory only) ───────────────────────────────
+    const staSlug = slugify(stationName);
+    if (!staBySlug[staSlug]) {
+      const newSta = {
+        id:         `station-${staSlug}`,
+        name:       stationName,
+        outletId:   "all",
+        categories: [],
+      };
+      stations.push(newSta);
+      staBySlug[staSlug] = newSta;
+    }
+    const station = staBySlug[staSlug];
+
+    // ── Build item (in-memory only) ──────────────────────────────────────────
+    const taxRate    = Number(row.taxRate || 5);
+    const taxMode    = row.taxMode === "Inclusive" ? "Inclusive" : "Exclusive";
+    const gstLabel   = `GST ${taxRate}%`;
+    const rwTakeaway = `Rs ${Number(row.takeawayPrice || 0)}`;
+    const rwDelivery = `Rs ${Number(row.deliveryPrice || 0)}`;
+
+    const areaRawPrices = {
+      "AC":           Number(row.acDineIn   || row.nonAcDineIn || row.selfDineIn || 0),
+      "Non-AC":       Number(row.nonAcDineIn || row.acDineIn   || row.selfDineIn || 0),
+      "Self Service": Number(row.selfDineIn  || row.acDineIn   || row.nonAcDineIn || 0),
+    };
+    const pricing = pricingAreas.map((area) => ({
+      area,
+      dineIn:   `Rs ${areaRawPrices[area] ?? areaRawPrices["AC"] ?? 0}`,
+      takeaway: rwTakeaway,
+      delivery: rwDelivery,
+    }));
+
+    const newItem = {
+      id:                `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      categoryId:        category.id,
+      categoryName:      category.name,
+      name:              itemName,
+      station:           station.name,
+      foodType:          row.foodType || "Veg",
+      taxMode,
+      taxRate,
+      gstLabel,
+      status:            "Live",
+      salesAvailability: "Available",
+      takeawayPrice:     rwTakeaway,
+      deliveryPrice:     rwDelivery,
+      outletAvailability,
+      pricing,
+      parcelCharges: {
+        takeaway: { type: "None", value: 0 },
+        delivery: { type: "None", value: 0 },
+      },
+      description:       String(row.description       || "").trim(),
+      shortCode:         String(row.shortCode         || "").trim().toUpperCase(),
+      hsnCode:           String(row.hsnCode           || "").trim(),
+      sku:               String(row.sku               || "").trim(),
+      rank:              row.rank            !== undefined ? Number(row.rank)            : 999,
+      packingCharges:    row.packingCharges   !== undefined ? Number(row.packingCharges)  : 0,
+      exposeInCaptain:   row.exposeInCaptain  !== undefined ? Boolean(row.exposeInCaptain): true,
+      allowDecimalQty:   row.allowDecimalQty  !== undefined ? Boolean(row.allowDecimalQty): false,
+      manufacturingDate: String(row.manufacturingDate || "").trim(),
+      expiryDate:        String(row.expiryDate        || "").trim(),
+    };
+
+    newItems.push(newItem);
+    createdItems.push(newItem);
+  }
+
+  // ── ONE single store write for everything ────────────────────────────────────
+  if (newItems.length > 0) {
+    updateOwnerSetupData((current) => ({
+      ...current,
+      menu: {
+        ...current.menu,
+        categories: categories,
+        stations:   stations,
+        items:      [...(current.menu?.items || []), ...newItems],
+      },
+    }));
   }
 
   return {
