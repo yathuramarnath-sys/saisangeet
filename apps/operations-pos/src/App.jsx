@@ -246,6 +246,7 @@ function Clock() {
 export default function App() {
   const [branchConfig,    setBranchConfig]    = useState(() => loadBranchConfig());
   const [outlet,          setOutlet]          = useState(null);
+  const [activeStaff,     setActiveStaff]     = useState([]);
   const [tableAreas,      setTableAreas]      = useState(seedAreas);
   const [categories,      setCategories]      = useState(seedCategories);
   const [menuItems,       setMenuItems]       = useState(seedMenuItems);
@@ -312,11 +313,13 @@ export default function App() {
 
         setOutlet(target);
 
-        const [cats, items, kitchenStations] = await Promise.all([
+        const [cats, items, kitchenStations, staffRes] = await Promise.all([
           api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),
           api.get(`/menu/items?outletId=${target.id}`).catch(() => []),
-          api.get("/kitchen-stations").catch(() => [])
+          api.get("/kitchen-stations").catch(() => []),
+          api.get(`/devices/staff?outletId=${target.id}`).catch(() => null),
         ]);
+        if (staffRes?.staff?.length) setActiveStaff(staffRes.staff);
 
         // Store kitchen stations enriched with category NAMES as fallback for ID-type mismatches.
         // If category IDs in Owner Console were saved as a different type (string vs number),
@@ -1773,10 +1776,18 @@ export default function App() {
       return o;
     });
 
+    // Validate waiter against current active staff — reject stale/test names
+    const WAITER_ROLES = ["waiter", "server", "steward"];
+    const assignedWaiter = printOrder.assignedWaiter || null;
+    const validWaiter = activeStaff.length
+      ? (activeStaff.some(s => s.name === assignedWaiter && WAITER_ROLES.includes((s.role || "").toLowerCase()))
+          ? assignedWaiter : null)
+      : assignedWaiter; // no staff list loaded → show as-is (offline fallback)
+
     printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
       cashierName,
-      captainName: printOrder.captainName    || null,
-      waiterName:  printOrder.assignedWaiter || null,
+      captainName: printOrder.captainName || null,
+      waiterName:  validWaiter,
     });
 
     showToast("🖨️ Bill printed · Collect payment");

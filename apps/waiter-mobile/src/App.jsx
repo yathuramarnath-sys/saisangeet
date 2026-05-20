@@ -94,13 +94,7 @@ function buildBlankOrder(table, area) {
   };
 }
 
-const FALLBACK_STAFF = [
-  { id: "s1", name: "Karthik", role: "Captain", pin: "1234", avatar: "K" },
-  { id: "s2", name: "Priya",   role: "Waiter",  pin: "2345", avatar: "P" },
-  { id: "s3", name: "Rahul",   role: "Waiter",  pin: "3456", avatar: "R" },
-  { id: "s4", name: "Devi",    role: "Waiter",  pin: "4567", avatar: "D" },
-  { id: "s5", name: "Ravi",    role: "Waiter",  pin: "5678", avatar: "V" },
-];
+const FALLBACK_STAFF = [];
 
 // ─── App root ─────────────────────────────────────────────────────────────────
 
@@ -463,7 +457,7 @@ export function App() {
 
   // ── Check for Captain app updates (shown in drawer, not top banner) ──────
   useEffect(() => {
-    const APP_VERSION_CAPTAIN = "1.23";
+    const APP_VERSION_CAPTAIN = "1.24";
     const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1");
     function checkUpdate() {
       fetch(`${API_BASE}/app-versions`, { cache: "no-store" })
@@ -687,8 +681,11 @@ export function App() {
     if (!order) return;
     const unsent = (order.items || []).filter((i) => !i.sentToKot);
     if (!unsent.length) return;
-    // Pre-select the currently logged-in staff as default
-    setPickedWaiter(loggedInStaff?.name || null);
+    // Pre-select the order's current waiter if they're still in the waiter list,
+    // otherwise start with no selection (captain is NOT a default waiter)
+    const currentWaiter = order.assignedWaiter || null;
+    const stillValid = waiterStaff.some((s) => s.name === currentWaiter);
+    setPickedWaiter(stillValid ? currentWaiter : null);
     setKotPendingTableId(tid);
     setShowWaiterPick(true);
   }
@@ -713,11 +710,21 @@ export function App() {
     }
 
     const actorName    = loggedInStaff?.name || "Captain";
-    const waiterToShow = waiterName || actorName;  // who serves — shown on KOT slip
+    // waiterName is explicitly selected from the waiter picker (waiter role only).
+    // Never fall back to captain name — a captain is not a waiter.
+    const waiterToShow = waiterName || null;
 
     // Stamp assignedWaiter on the order so it persists until the next KOT
-    handleUpdateOrder({ ...order, assignedWaiter: waiterToShow,
+    handleUpdateOrder({ ...order, assignedWaiter: waiterToShow || "",
       items: order.items.map((i) => ({ ...i, sentToKot: true })) });
+
+    // Persist to backend so it survives POS reconnects (socket-only update is lost on reconnect)
+    try {
+      await api.post(`/operations/orders/${tid}/assign-waiter`, {
+        waiterName: waiterToShow || "",
+        actorName,
+      });
+    } catch (_) { /* non-critical — socket update already broadcast */ }
 
     // Send ALL items in ONE request — backend splits by station and assigns ONE KOT number
     // to all station-splits. This guarantees the printed slip and every KDS ticket share
@@ -1352,6 +1359,17 @@ export function App() {
               <span>Assign Waiter</span>
             </div>
             <div className="assign-staff-list">
+              {/* None option — clears any previously assigned waiter */}
+              <label className="assign-staff-row" onClick={() => setPickedWaiter(null)}>
+                <span className="assign-staff-name" style={{ color: "#9ca3af" }}>None</span>
+                <input
+                  type="radio"
+                  name="waiter-pick"
+                  readOnly
+                  checked={pickedWaiter === null}
+                  onChange={() => setPickedWaiter(null)}
+                />
+              </label>
               {waiterStaff.map((s) => (
                 <label key={s.id} className="assign-staff-row" onClick={() => setPickedWaiter(s.name)}>
                   <span className="assign-staff-name">

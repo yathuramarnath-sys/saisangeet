@@ -54,8 +54,9 @@ async function resolveLinkCodeHandler(req, res) {
 
 async function fetchStaffHandler(req, res) {
   try {
-    const outletId = req.user?.outletId;
-    if (!outletId) return res.status(400).json({ error: { message: "Device token missing outletId." } });
+    // Device tokens carry outletId directly; cashier/POS tokens pass it as query param
+    const outletId = req.user?.outletId || req.query?.outletId;
+    if (!outletId) return res.status(400).json({ error: { message: "outletId required." } });
     const result = await fetchStaffForDevice(outletId);
     res.json(result);
   } catch (err) {
