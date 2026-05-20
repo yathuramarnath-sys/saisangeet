@@ -139,6 +139,7 @@ export function StaffPage() {
         policyValues: { cashierDiscountLimitPercent: 5, cashierVoidLimitAmount: 200 } };
     }
     const merged = { ...result };
+    const mergedRoles = merged.roles || [];
 
     setStaffData(merged);
     setFinancialDraft(merged.policyValues);
