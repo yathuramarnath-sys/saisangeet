@@ -45,7 +45,7 @@ function buildDefaultDraft(data) {
   return {
     fullName: "",
     mobileNumber: "",
-    outletName: data.outlets?.[0]?.name || "Indiranagar",
+    outletName: data.outlets?.[0]?.name || "",
     role: defaultRole,
     pin: "",
     incentivePct: 0
@@ -401,10 +401,8 @@ export function StaffPage() {
     return acc;
   }, {});
 
-  // Outlet options (fallback if API down)
-  const outletOptions = staffData.outlets.length > 0
-    ? staffData.outlets.map((o) => o.name)
-    : ["Indiranagar", "Koramangala", "HSR Layout"];
+  // Outlet options — only real outlets from this account
+  const outletOptions = staffData.outlets.map((o) => o.name);
 
   if (loading) {
     return (

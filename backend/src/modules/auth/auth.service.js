@@ -185,8 +185,8 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
     outlets, message, submittedAt: new Date().toISOString()
   }];
 
-  // Inject demo outlet + menu + staff so the account is never empty on first login
-  applyDemoSeed(tenantData, tenantId);
+  // Demo seed disabled — new accounts start completely blank
+  // applyDemoSeed(tenantData, tenantId);
 
   createTenantFile(tenantId, tenantData);
   registerUserInIndex(cleanEmail, cleanPhone, tenantId);
