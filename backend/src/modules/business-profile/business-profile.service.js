@@ -12,13 +12,41 @@ async function fetchBusinessProfile() {
 }
 
 async function updateBusinessProfile(payload) {
-  const nextData = updateOwnerSetupData((current) => ({
-    ...current,
-    businessProfile: {
+  const nextData = updateOwnerSetupData((current) => {
+    const updatedProfile = {
       ...current.businessProfile,
-      ...payload
+      ...payload,
+    };
+
+    // Auto-create the first outlet from Business Profile data
+    // Only fires when the account has no outlets configured yet.
+    // Existing accounts with outlets are completely unaffected.
+    let outlets = current.outlets || [];
+    if (outlets.length === 0 && (updatedProfile.tradeName || updatedProfile.legalName)) {
+      const outletName = updatedProfile.tradeName || updatedProfile.legalName;
+      outlets = [{
+        id:          `outlet-${Date.now()}`,
+        name:        outletName,
+        city:        updatedProfile.city        || "",
+        state:       updatedProfile.state       || "",
+        gstin:       updatedProfile.gstin       || "",
+        phone:       updatedProfile.phone       || "",
+        reportEmail: updatedProfile.email       || "",
+        isActive:    true,
+        hours:       "9:00 AM - 11:00 PM",
+        services:    ["Dine-in", "Takeaway", "Delivery"],
+        workAreas:   ["AC", "Non-AC", "Self Service"],
+        tables:      [],
+        _autoCreatedFromProfile: true,
+      }];
     }
-  }));
+
+    return {
+      ...current,
+      businessProfile: updatedProfile,
+      outlets,
+    };
+  });
 
   return nextData.businessProfile;
 }
