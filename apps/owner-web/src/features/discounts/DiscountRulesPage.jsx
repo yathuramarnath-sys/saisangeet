@@ -3,8 +3,6 @@ import { api } from "../../lib/api";
 import { discountsSeedData } from "./discounts.seed";
 import {
   createDiscountRule,
-  deleteDiscountRule,
-  updateDiscountRule,
   updateDiscountApprovalPolicy
 } from "./discounts.service";
 
@@ -51,9 +49,6 @@ function normalizeRule(rule) {
   };
 }
 
-function statusClass(status) {
-  return ["Review", "Paused", "Escalated", "Sensitive"].includes(status) ? "warning" : "online";
-}
 
 const emptyForm = {
   name: "", discountType: "percentage", discountScope: "order",
@@ -66,13 +61,9 @@ export function DiscountRulesPage() {
   const [rules, setRules] = useState([]);
   const [policy, setPolicy] = useState([]);
   const [outlets, setOutlets] = useState(["All Outlets"]);
-  const [loading, setLoading] = useState(true);
 
   // Create form
   const [form, setForm] = useState(emptyForm);
-  // Inline edit
-  const [editingId, setEditingId] = useState(null);
-  const [editDraft, setEditDraft] = useState(emptyForm);
   // Approval policy drafts
   const [policyDrafts, setPolicyDrafts] = useState({});
   // Guardrail settings
@@ -96,7 +87,6 @@ export function DiscountRulesPage() {
         if (names.length) setOutlets(["All Outlets", ...names]);
       })
       .catch(() => { /* stay with default "All Outlets" */ });
-    setLoading(false);
   }, []);
 
   function initPolicyDrafts(pol) {
@@ -127,45 +117,6 @@ export function DiscountRulesPage() {
     flash(`"${newRule.name}" created.`);
   }
 
-  function startEdit(rule) {
-    setEditingId(rule.id);
-    setEditDraft({
-      name: rule.name, discountType: rule.discountType, discountScope: rule.discountScope,
-      value: String(rule.value), outletScope: rule.outletScope, appliesToRole: rule.appliesToRole,
-      requiresApproval: rule.requiresApproval, timeWindow: rule.timeWindow, notes: rule.notes
-    });
-  }
-
-  async function handleSaveEdit(ruleId) {
-    const payload = { ...editDraft, value: Number(editDraft.value || 0) };
-    try { await updateDiscountRule(ruleId, payload); } catch (_) { /* offline */ }
-    const updated = rules.map((r) => r.id === ruleId ? normalizeRule({ ...r, ...payload }) : r);
-    setRules(updated);
-    saveLocal(LOCAL_RULES_KEY, updated);
-    setEditingId(null);
-    flash("Rule updated.");
-  }
-
-  async function handleTogglePause(rule) {
-    const nextActive = !rule.isActive;
-    try { await updateDiscountRule(rule.id, { isActive: nextActive }); } catch (_) { /* offline */ }
-    const updated = rules.map((r) =>
-      r.id === rule.id ? normalizeRule({ ...r, isActive: nextActive }) : r
-    );
-    setRules(updated);
-    saveLocal(LOCAL_RULES_KEY, updated);
-    flash(nextActive ? `"${rule.name}" resumed.` : `"${rule.name}" paused.`);
-  }
-
-  async function handleDelete(rule) {
-    if (!window.confirm(`Delete "${rule.name}"? This cannot be undone.`)) return;
-    try { await deleteDiscountRule(rule.id); } catch (_) { /* offline */ }
-    const updated = rules.filter((r) => r.id !== rule.id);
-    setRules(updated);
-    saveLocal(LOCAL_RULES_KEY, updated);
-    if (editingId === rule.id) setEditingId(null);
-    flash(`"${rule.name}" deleted.`);
-  }
 
   // ── Approval Policy ───────────────────────────────────────
   async function savePolicy(rowId) {
@@ -312,65 +263,6 @@ export function DiscountRulesPage() {
           </form>
         </article>
 
-        {/* ── ACTIVE RULES LIST ── */}
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div><p className="eyebrow">Rule Library</p><h3>Active Discount Policies</h3></div>
-            <span style={{ fontSize: "0.85rem", color: "#888" }}>{rules.length} rules</span>
-          </div>
-
-          {loading ? <div className="panel-empty">Loading...</div> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {rules.length === 0 && <div className="panel-empty">No rules yet. Create one on the left.</div>}
-              {rules.map((rule) => (
-                <div key={rule.id} style={{
-                  border: `1.5px solid ${rule.isActive ? "var(--line)" : "#e5c87a"}`,
-                  borderRadius: "14px", padding: "14px 16px",
-                  background: rule.isActive ? "var(--surface)" : "#fffbf0"
-                }}>
-                  {editingId === rule.id ? (
-                    /* EDIT MODE */
-                    <div className="simple-form">
-                      <p className="eyebrow" style={{ marginBottom: "0.5rem" }}>Editing: {rule.name}</p>
-                      <RuleFields draft={editDraft} setDraft={setEditDraft} />
-                      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-                        <button type="button" className="primary-btn" style={{ flex: 1 }} onClick={() => handleSaveEdit(rule.id)}>
-                          Save Changes
-                        </button>
-                        <button type="button" className="ghost-btn" onClick={() => setEditingId(null)}>Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* VIEW MODE */
-                    <>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                        <strong style={{ fontSize: "1rem" }}>{rule.name}</strong>
-                        <span className={`status ${statusClass(rule.status)}`}>{rule.status}</span>
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
-                        {rule.meta.map((m) => (
-                          <span key={m} style={{
-                            fontSize: "0.78rem", padding: "3px 10px",
-                            background: "#f0f0ec", borderRadius: "999px", color: "#555"
-                          }}>{m}</span>
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <button type="button" className="ghost-chip" onClick={() => startEdit(rule)}>Edit</button>
-                        <button type="button" className="ghost-chip" onClick={() => handleTogglePause(rule)}>
-                          {rule.isActive ? "Pause" : "Resume"}
-                        </button>
-                        <button type="button" className="ghost-chip"
-                          style={{ color: "#c0392b", borderColor: "#f5c6c2" }}
-                          onClick={() => handleDelete(rule)}>Delete</button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
 
         {/* ── APPROVAL POLICY ── */}
         <article className="panel panel-wide">
