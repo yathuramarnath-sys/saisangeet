@@ -34,7 +34,7 @@ function save(key, val) {
 /* ─── Printer Tab ──────────────────────────────────────────────────────────── */
 // winName: the exact Windows printer device name used by webContents.print({ deviceName }).
 // Shown and editable only when running inside the Electron app.
-const BLANK_FORM = { name: "", type: "KOT Printer", conn: "Network (IP)", ip: "", paper: "80mm", model: "Epson TM-T82", station: "", winName: "" };
+const BLANK_FORM = { name: "", type: "KOT Printer", conn: "Network (IP)", ip: "", paper: "80mm", model: "Epson TM-T82", station: "", winName: "", marginAdjust: 0 };
 
 // Detect if running inside Electron
 const IS_ELECTRON = typeof window !== "undefined" && !!window.electronAPI;
@@ -89,7 +89,7 @@ function PrinterTab() {
 
   function openAdd() { setForm(BLANK_FORM); setEditId(null); setScanResults(null); setAdding(true); }
   function openEdit(p) {
-    setForm({ name: p.name, type: p.type, conn: p.conn, ip: p.ip || "", paper: p.paper, model: p.model || "Epson TM-T82", station: p.station || "", winName: p.winName || "" });
+    setForm({ name: p.name, type: p.type, conn: p.conn, ip: p.ip || "", paper: p.paper, model: p.model || "Epson TM-T82", station: p.station || "", winName: p.winName || "", marginAdjust: p.marginAdjust || 0 });
     setEditId(p.id); setScanResults(null); setAdding(true);
   }
 
@@ -224,6 +224,7 @@ function PrinterTab() {
                   <span style={{ marginLeft: 4 }}>· IP: {p.ip}</span>
                 )}
                 {' · '}{p.paper}
+                {p.marginAdjust > 0 && <span> · +{p.marginAdjust}px margin</span>}
               </div>
               {/* Warn if printer is labelled USB but has no IP — may need to be changed to Network */}
               {p.conn !== "Network (IP)" && !p.ip && (
@@ -392,6 +393,23 @@ function PrinterTab() {
               <select className="pset-select" value={form.paper} onChange={e => setForm(f => ({ ...f, paper: e.target.value }))}>
                 {PAPER_SIZES.map(s => <option key={s}>{s}</option>)}
               </select>
+            </div>
+          </div>
+
+          <div className="pset-form-row">
+            <div className="pset-form-field">
+              <label>Right margin adjust <span style={{ fontWeight: 400, color: "#999" }}>(px)</span></label>
+              <div className="pset-margin-stepper">
+                <button type="button" className="pset-margin-btn"
+                  onClick={() => setForm(f => ({ ...f, marginAdjust: Math.max(0, (f.marginAdjust || 0) - 2) }))}>−</button>
+                <span className="pset-margin-val">{form.marginAdjust || 0} px</span>
+                <button type="button" className="pset-margin-btn"
+                  onClick={() => setForm(f => ({ ...f, marginAdjust: Math.min(20, (f.marginAdjust || 0) + 2) }))}>+</button>
+              </div>
+              <span className="pset-field-hint">
+                If bill or KOT amounts are cut off on the right edge, increase this.
+                Default 0 works for Epson. Try +4 or +6 for generic/other models.
+              </span>
             </div>
           </div>
 

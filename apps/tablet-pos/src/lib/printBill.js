@@ -16,7 +16,9 @@ export function printBill(order, items, outletOrName, options = {}) {
   const { seatLabel = null, cashierName = null } = options;
   // Resolve paper width early so the @page CSS can use it
   const _printer      = getBillPrinter();
-  const _paperWidthMm = _printer?.paper || 80;
+  const _paperWidthMm = parseInt(_printer?.paper) || 80;
+  const _marginAdjust = parseInt(_printer?.marginAdjust) || 0;
+  const _rightPad     = 12 + _marginAdjust;
   const servedBy = cashierName || order.cashierName || null;
 
   // ── Outlet header fields ───────────────────────────────────────────────────
@@ -92,7 +94,7 @@ export function printBill(order, items, outletOrName, options = {}) {
       font-family: 'Manrope', 'Courier New', monospace;
       font-size: ${_paperWidthMm <= 58 ? 11 : 12}px;
       color: #111;
-      padding: 10px 12px 40px;
+      padding: 10px ${_rightPad}px 40px 10px;
       width: ${_paperWidthMm}mm;
     }
 

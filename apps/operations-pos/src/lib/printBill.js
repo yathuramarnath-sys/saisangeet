@@ -16,6 +16,8 @@ export function printBill(order, items, outletOrName, options = {}) {
   // Resolve paper width early so the @page CSS can use it
   const _printer      = getBillPrinter();
   const _paperWidthMm = parseInt(_printer?.paper) || 80;  // "80mm"→80, "58mm"→58
+  const _marginAdjust = parseInt(_printer?.marginAdjust) || 0;
+  const _rightPad     = 10 + _marginAdjust;
   const servedBy   = cashierName || order.cashierName || "-";
   // Captain and waiter — row hidden entirely if both are empty
   const captainStr = captainName || order.captainName    || "";
@@ -94,7 +96,7 @@ export function printBill(order, items, outletOrName, options = {}) {
       font-family: 'Manrope', 'Courier New', monospace;
       font-size: ${_paperWidthMm <= 58 ? 11 : 12}px;
       color: #111;
-      padding: 10px 10px 40px;
+      padding: 10px ${_rightPad}px 40px 10px;
       width: ${_paperWidthMm}mm;
     }
 

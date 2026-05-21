@@ -84,9 +84,11 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   if (!items || !items.length) return;
 
   const resolvedPrinter = printer || getKotPrinter();
-  const paper      = resolvedPrinter?.paper || "80mm";
-  const paperMm    = parseInt(paper) || 80;   // "80mm" → 80, "58mm" → 58, etc.
-  const width      = `${paperMm}mm`;          // always a clean "NNmm" string
+  const paper        = resolvedPrinter?.paper || "80mm";
+  const paperMm      = parseInt(paper) || 80;   // "80mm" → 80, "58mm" → 58, etc.
+  const width        = `${paperMm}mm`;          // always a clean "NNmm" string
+  const marginAdjust = parseInt(resolvedPrinter?.marginAdjust) || 0;
+  const rightPad     = 10 + marginAdjust;
   const outletName = order.outletName || "Restaurant";
   const tableLabel = order.isCounter
     ? `${order.areaName || "Counter"} #${String(order.ticketNumber || "").padStart(3, "0")}`
@@ -122,7 +124,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       font-size: 13px;
       width: ${width};
       margin: 0 auto;
-      padding: 12px 10px 16px;
+      padding: 12px ${rightPad}px 16px 10px;
       background: #fff;
       color: #000;
     }
@@ -254,7 +256,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
         size: ${width} auto;
         margin: 0;
       }
-      body { padding: 6px 8px 32px; }
+      body { padding: 6px ${rightPad}px 32px 8px; }
     }
   </style>
 </head>

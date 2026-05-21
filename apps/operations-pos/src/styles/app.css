@@ -4355,6 +4355,23 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .pset-select.sm { padding: 6px 9px; font-size: 12px; }
 .pset-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
+/* ── Print margin stepper ── */
+.pset-margin-stepper {
+  display: flex; align-items: center; gap: 10px; margin-top: 4px;
+}
+.pset-margin-btn {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1.5px solid #d1d5db; background: #f9fafb;
+  font-size: 18px; font-weight: 700; color: #374151;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+.pset-margin-btn:hover { background: #e5e7eb; border-color: #9ca3af; }
+.pset-margin-val {
+  font-size: 14px; font-weight: 700; color: #111827;
+  min-width: 44px; text-align: center;
+}
+
 /* ── Printer scan ── */
 .pset-scan-row {
   display: flex; align-items: center; gap: 12px;
