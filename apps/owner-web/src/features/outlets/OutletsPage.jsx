@@ -478,7 +478,7 @@ export function OutletsPage() {
                         )}
                       </strong>
                       <span>
-                        {outlet.city} • {outlet.code}
+                        {outlet.city}
                       </span>
                     </div>
                     <span className={`status ${statusClass(outlet.status)}`}>{outlet.status}</span>
@@ -493,32 +493,6 @@ export function OutletsPage() {
                     <span>Receipt: {outlet.receiptTemplateName}</span>
                     <span>Reports: {outlet.reportEmail || "Report email pending"}</span>
                   </div>
-
-                  {outlet.syncCode && (
-                    <div className="outlet-sync-code-row">
-                      <div className="outlet-sync-code-label">Sync Code</div>
-                      <div className="outlet-sync-code-box">
-                        <code className="outlet-sync-code-value">{outlet.syncCode}</code>
-                        <button
-                          type="button"
-                          className="outlet-sync-copy-btn"
-                          onClick={() => handleCopySyncCode(outlet)}
-                          title="Copy sync code"
-                        >
-                          {copiedSyncCodeId === outlet.id ? "Copied!" : "Copy"}
-                        </button>
-                        <button
-                          type="button"
-                          className="outlet-sync-regen-btn"
-                          onClick={() => handleRegenerateSyncCode(outlet)}
-                          title="Generate a new sync code (old code stops working)"
-                        >
-                          Regenerate
-                        </button>
-                      </div>
-                      <p className="outlet-sync-code-hint">Enter this code in POS or Captain App to connect to this branch</p>
-                    </div>
-                  )}
 
                   <div className="location-actions">
                     <button type="button" className="ghost-chip" onClick={() => startEditingOutlet(outlet)}>
