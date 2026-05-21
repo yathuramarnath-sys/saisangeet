@@ -2,7 +2,8 @@ const {
   fetchOutlets,
   createOutlet,
   updateOutletSettings,
-  deleteOutlet
+  deleteOutlet,
+  regenerateOutletSyncCode,
 } = require("./outlets.service");
 
 function pushSync(req, type = "outlets") {
@@ -46,10 +47,18 @@ async function deleteOutletHandler(req, res) {
   res.json(result);
 }
 
+async function regenerateSyncCodeHandler(req, res) {
+  const result = await regenerateOutletSyncCode(req.params.id);
+  if (!result) return res.status(404).json({ error: "Outlet not found" });
+  pushSync(req);
+  res.json(result);
+}
+
 module.exports = {
   listOutletsHandler,
   createOutletHandler,
   updateOutletSettingsHandler,
   updateOutletTablesHandler,
-  deleteOutletHandler
+  deleteOutletHandler,
+  regenerateSyncCodeHandler,
 };

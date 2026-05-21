@@ -6,6 +6,7 @@ import {
   deleteOutlet,
   fetchOutletPageData,
   linkOutletDevice,
+  regenerateOutletSyncCode,
   toggleOutletActive,
   updateOutlet
 } from "./outlets.service";
@@ -133,6 +134,7 @@ export function OutletsPage() {
   const [loading, setLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
   const [statusError, setStatusError] = useState("");
+  const [copiedSyncCodeId, setCopiedSyncCodeId] = useState("");
   const [editingOutletId, setEditingOutletId] = useState("");
   const [editDraft, setEditDraft] = useState(null);
   const [createDraft, setCreateDraft] = useState(buildCreateDraft({ taxProfiles: [], receiptTemplates: [] }));
@@ -332,6 +334,29 @@ export function OutletsPage() {
     }
   }
 
+  function handleCopySyncCode(outlet) {
+    if (!outlet.syncCode) return;
+    navigator.clipboard.writeText(outlet.syncCode).catch(() => {});
+    setCopiedSyncCodeId(outlet.id);
+    setTimeout(() => setCopiedSyncCodeId(""), 2000);
+  }
+
+  async function handleRegenerateSyncCode(outlet) {
+    const confirmed = window.confirm(
+      `Regenerate sync code for "${outlet.name}"?\n\nThe old code will stop working immediately. All devices must reconnect using the new code.`
+    );
+    if (!confirmed) return;
+    try {
+      setStatusError("");
+      setStatusMessage("");
+      await regenerateOutletSyncCode(outlet.id);
+      await reloadOutlets();
+      setStatusMessage(`New sync code generated for ${outlet.name}. Share it with your team.`);
+    } catch (error) {
+      setStatusError(error.message || "Could not regenerate sync code.");
+    }
+  }
+
   async function handleLinkDevice() {
     if (!activeOutlet || !editDraft?.deviceName || !editDraft?.linkCode) {
       setStatusError("Generate a link code and enter device name before linking.");
@@ -468,6 +493,32 @@ export function OutletsPage() {
                     <span>Receipt: {outlet.receiptTemplateName}</span>
                     <span>Reports: {outlet.reportEmail || "Report email pending"}</span>
                   </div>
+
+                  {outlet.syncCode && (
+                    <div className="outlet-sync-code-row">
+                      <div className="outlet-sync-code-label">Sync Code</div>
+                      <div className="outlet-sync-code-box">
+                        <code className="outlet-sync-code-value">{outlet.syncCode}</code>
+                        <button
+                          type="button"
+                          className="outlet-sync-copy-btn"
+                          onClick={() => handleCopySyncCode(outlet)}
+                          title="Copy sync code"
+                        >
+                          {copiedSyncCodeId === outlet.id ? "Copied!" : "Copy"}
+                        </button>
+                        <button
+                          type="button"
+                          className="outlet-sync-regen-btn"
+                          onClick={() => handleRegenerateSyncCode(outlet)}
+                          title="Generate a new sync code (old code stops working)"
+                        >
+                          Regenerate
+                        </button>
+                      </div>
+                      <p className="outlet-sync-code-hint">Enter this code in POS or Captain App to connect to this branch</p>
+                    </div>
+                  )}
 
                   <div className="location-actions">
                     <button type="button" className="ghost-chip" onClick={() => startEditingOutlet(outlet)}>

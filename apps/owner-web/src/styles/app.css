@@ -6673,3 +6673,69 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   color: #9ca3af;
   line-height: 1.4;
 }
+
+/* ── Outlet Sync Code ─────────────────────────────────────────────────────── */
+.outlet-sync-code-row {
+  margin: 10px 0 6px;
+  padding: 10px 12px;
+  background: #f0fdf4;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+}
+.outlet-sync-code-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #059669;
+  margin-bottom: 6px;
+}
+.outlet-sync-code-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.outlet-sync-code-value {
+  font-family: "Manrope", monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #065f46;
+  background: #fff;
+  border: 1.5px solid #6ee7b7;
+  border-radius: 6px;
+  padding: 4px 12px;
+  flex-shrink: 0;
+}
+.outlet-sync-copy-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #059669;
+  background: #fff;
+  border: 1px solid #6ee7b7;
+  border-radius: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.outlet-sync-copy-btn:hover { background: #059669; color: #fff; }
+.outlet-sync-regen-btn {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.outlet-sync-regen-btn:hover { border-color: #ef4444; color: #ef4444; }
+.outlet-sync-code-hint {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 5px 0 0;
+}

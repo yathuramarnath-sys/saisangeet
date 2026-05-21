@@ -806,6 +806,16 @@ function createDefaultData() {
   };
 }
 
+// ── Tiny utility: generate a permanent outlet sync code (no imports needed) ──
+// Format: "XXXX-XXXX" using unambiguous charset (no O/0, I/1 confusion).
+// Used by normalizeOwnerSetupData to auto-assign syncCode to existing outlets.
+function _randSyncCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const r = (n) =>
+    Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return `${r(4)}-${r(4)}`;
+}
+
 function normalizeOwnerSetupData(data) {
   const next = JSON.parse(JSON.stringify(data));
   const defaultPermissions = createDefaultPermissions();
@@ -819,6 +829,8 @@ function normalizeOwnerSetupData(data) {
     tables:       [],
     reportEmail:  "",
     ...outlet,
+    // Auto-assign permanent sync code if missing (migration for existing outlets)
+    syncCode:     outlet.syncCode || _randSyncCode(),
   }));
   next.permissions = defaultPermissions.map((permission) => {
     const existing = (next.permissions || []).find((item) => item.code === permission.code);

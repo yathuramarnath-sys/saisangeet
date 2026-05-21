@@ -98,6 +98,7 @@ async function resolveLinkCode(payload) {
 
   let data = getOwnerSetupData();
   let resolvedTenantId = getCurrentTenantId(); // updated when correct tenant is found
+  let resolvedViaSyncCode = false; // true when matched via permanent syncCode (no token to consume)
 
   // ── 1. Find device with this exact linkCode (case-insensitive) ──────────
   const device = (data.devices || []).find(
@@ -197,6 +198,35 @@ async function resolveLinkCode(payload) {
     }
   }
 
+  // ── 2c. Check permanent outlet syncCode across all cached tenants ────────────
+  // syncCodes never expire — no Postgres lookup needed; they live on outlet objects.
+  // Try current tenant first, then cross-tenant scan.
+  if (!outlet) {
+    // Current tenant
+    const syncMatch = (data.outlets || []).find(
+      (o) => o.syncCode && o.syncCode.toUpperCase() === raw.toUpperCase()
+    );
+    if (syncMatch) {
+      outlet = syncMatch;
+      resolvedViaSyncCode = true;
+    }
+  }
+  if (!outlet) {
+    const { getAllCachedTenants } = require("../../data/owner-setup-store");
+    for (const [tid, tdata] of getAllCachedTenants()) {
+      const found = (tdata.outlets || []).find(
+        (o) => o.syncCode && o.syncCode.toUpperCase() === raw.toUpperCase()
+      );
+      if (found) {
+        resolvedTenantId    = tid;
+        data                = tdata;
+        outlet              = found;
+        resolvedViaSyncCode = true;
+        break;
+      }
+    }
+  }
+
   // ── 3. Fallback: parse outlet code from prefix
   //    Handles "MUM-1001-5678" → prefix "MUM-1001"
   //    Also handles legacy stripped codes like "MUM1001-5678" → prefix "MUM1001"
@@ -272,18 +302,21 @@ async function resolveLinkCode(payload) {
     }));
 
   // ── 5. Consume the pending token so the same code can't be reused ─────────
-  // Delete from Postgres table
-  try {
-    const { query } = require("../../db/pool");
-    await query("DELETE FROM pending_link_tokens WHERE LOWER(link_code) = LOWER($1)", [raw]);
-  } catch (_) {}
-  // Also remove from in-memory cache fallback
-  updateOwnerSetupData((d) => ({
-    ...d,
-    pendingLinkTokens: (d.pendingLinkTokens || []).filter(
-      (t) => t.linkCode.toLowerCase() !== raw.toLowerCase()
-    )
-  }));
+  // syncCode resolutions are permanent — no token to delete.
+  if (!resolvedViaSyncCode) {
+    // Delete from Postgres table
+    try {
+      const { query } = require("../../db/pool");
+      await query("DELETE FROM pending_link_tokens WHERE LOWER(link_code) = LOWER($1)", [raw]);
+    } catch (_) {}
+    // Also remove from in-memory cache fallback
+    updateOwnerSetupData((d) => ({
+      ...d,
+      pendingLinkTokens: (d.pendingLinkTokens || []).filter(
+        (t) => t.linkCode.toLowerCase() !== raw.toLowerCase()
+      )
+    }));
+  }
 
   // Include kitchen stations so POS can populate the printer-setup dropdown immediately
   const kitchenStations = (data.menu?.stations || []).map((s) => ({

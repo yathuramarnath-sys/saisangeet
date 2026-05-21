@@ -11,6 +11,7 @@ const {
   updateOutletSettingsHandler,
   updateOutletTablesHandler,
   deleteOutletHandler,
+  regenerateSyncCodeHandler,
 } = require("./outlets.controller");
 
 const outletsRouter = express.Router();
@@ -40,6 +41,13 @@ outletsRouter.delete(
   "/:id",
   requireAuth, requirePermission("outlets.manage"),
   asyncHandler(deleteOutletHandler)
+);
+
+// ── Regenerate permanent sync code for POS / Captain App linking ─────────
+outletsRouter.post(
+  "/:id/sync-code/regenerate",
+  requireAuth, requirePermission("outlets.manage"),
+  asyncHandler(regenerateSyncCodeHandler)
 );
 
 module.exports = { outletsRouter };

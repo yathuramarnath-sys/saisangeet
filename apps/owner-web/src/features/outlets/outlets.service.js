@@ -14,6 +14,7 @@ function normalizeOutlet(outlet, appConfig) {
   return {
     id: outlet.id,
     code: outlet.code,
+    syncCode: outlet.syncCode || "",
     name: outlet.name,
     city: outlet.city || "Unknown",
     state: outlet.state || "Unknown",
@@ -77,4 +78,8 @@ export async function toggleOutletActive(id, isActive) {
 
 export async function deleteOutlet(id) {
   return api.delete(`/outlets/${id}`);
+}
+
+export async function regenerateOutletSyncCode(id) {
+  return api.post(`/outlets/${id}/sync-code/regenerate`, {});
 }

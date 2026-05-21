@@ -1,5 +1,17 @@
 const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
 
+/**
+ * Generate a permanent, human-readable sync code for an outlet.
+ * Format: 4 chars + "-" + 4 chars, e.g. "CAFE-X7K2"
+ * Uses an unambiguous character set (no O/0, I/1 confusion).
+ */
+function generateSyncCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const r = (n) =>
+    Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return `${r(4)}-${r(4)}`;
+}
+
 async function fetchOutlets() {
   const data = getOwnerSetupData();
   const bp   = data.businessProfile || {};
@@ -42,6 +54,7 @@ async function createOutlet(payload) {
   const outlet = {
     id: `outlet-${Date.now()}`,
     code,
+    syncCode: generateSyncCode(),
     name: payload.name,
     gstin: payload.gstin || "",
     city: payload.city || "",
@@ -93,9 +106,30 @@ async function deleteOutlet(id) {
   return { ok: true };
 }
 
+/**
+ * Generate and persist a fresh syncCode for an outlet.
+ * Called when owner clicks "Regenerate" on the Outlets page.
+ */
+async function regenerateOutletSyncCode(id) {
+  const newCode = generateSyncCode();
+  let updatedOutlet = null;
+
+  updateOwnerSetupData((current) => ({
+    ...current,
+    outlets: current.outlets.map((outlet) => {
+      if (outlet.id !== id) return outlet;
+      updatedOutlet = { ...outlet, syncCode: newCode };
+      return updatedOutlet;
+    })
+  }));
+
+  return updatedOutlet || null;
+}
+
 module.exports = {
   fetchOutlets,
   createOutlet,
   updateOutletSettings,
-  deleteOutlet
+  deleteOutlet,
+  regenerateOutletSyncCode,
 };
