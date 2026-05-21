@@ -51,20 +51,74 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
   const holdCount    = allTables.filter(t => tableStatus(t.id) === "hold").length;
 
   if (serviceMode !== "dine-in") {
+    const modeLabel   = serviceMode === "delivery" ? "Delivery" : "Takeaway";
+    const modeIcon    = serviceMode === "delivery" ? "🛵" : "🛍";
+
+    // Open counter tickets for this mode
+    const openTickets = Object.values(orders).filter(
+      o => o.isCounter && !o.isClosed &&
+           (serviceMode === "delivery"
+             ? (o.areaName === "Delivery" || o.onlinePlatform)
+             : o.areaName !== "Delivery")
+    );
+
+    function fmt(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
+    function ticketTotal(order) {
+      const billable  = (order.items || []).filter(i => !i.isVoided && !i.isComp);
+      const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
+      const disc      = Math.min(order.discountAmount || 0, sub);
+      const afterDisc = sub - disc;
+      const tax       = billable.reduce((s, i) => {
+        const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
+        const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+        return s + Math.round(lineAfter * rate / 100);
+      }, 0);
+      return afterDisc + tax;
+    }
+
     return (
       <div className="tpp">
         <div className="tpp-head">
-          <h3>{serviceMode === "delivery" ? "🛵 Delivery" : "🛍 Takeaway"}</h3>
-          <p>Create a numbered ticket for this order</p>
+          <h3>{modeIcon} {modeLabel}</h3>
+          <p>{openTickets.length} open order{openTickets.length !== 1 ? "s" : ""}</p>
         </div>
+
         <button type="button" className="tpp-new-order-btn" onClick={onNewCounterOrder}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          New {serviceMode === "delivery" ? "Delivery" : "Takeaway"} Order
+          New {modeLabel} Order
         </button>
-        <p className="tpp-hint">Each order gets a ticket number (#001, #002…)</p>
+
+        {/* Open tickets list */}
+        {openTickets.length === 0 ? (
+          <p className="tpp-hint">No open orders · tap above to start one</p>
+        ) : (
+          <div className="tpp-counter-list">
+            {openTickets
+              .sort((a, b) => (a.ticketNumber || 0) - (b.ticketNumber || 0))
+              .map(ticket => {
+                const total   = ticketTotal(ticket);
+                const itemCnt = (ticket.items || []).filter(i => !i.isVoided).reduce((s, i) => s + i.quantity, 0);
+                return (
+                  <button key={ticket.tableId} type="button"
+                    className={`tpp-counter-ticket${ticket.billRequested ? " bill-req" : ""}`}
+                    onClick={() => onSelectTable(ticket.tableId)}>
+                    <div className="tpp-ct-row">
+                      <span className="tpp-ct-num">#{String(ticket.ticketNumber || "").padStart(3, "0")}</span>
+                      {ticket.billRequested && <span className="tpp-ct-bill-tag">Bill</span>}
+                      {ticket.onlinePlatform && <span className="tpp-ct-platform">{ticket.onlinePlatform}</span>}
+                    </div>
+                    <div className="tpp-ct-meta">
+                      {itemCnt} item{itemCnt !== 1 ? "s" : ""}
+                      {total > 0 && <span className="tpp-ct-total">{fmt(total)}</span>}
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+        )}
       </div>
     );
   }

@@ -4085,6 +4085,41 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   margin: 0;
 }
 
+/* ── Counter ticket list (Takeaway / Delivery) ───────────────────────────── */
+.tpp-counter-list {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-top: 12px; overflow-y: auto; max-height: calc(100vh - 280px);
+}
+.tpp-counter-ticket {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; border-radius: 10px;
+  background: var(--sq-surface); border: 1.5px solid var(--sq-border);
+  cursor: pointer; text-align: left; transition: border-color 0.15s, background 0.15s;
+}
+.tpp-counter-ticket:hover { border-color: #059669; background: #f0fdf4; }
+.tpp-counter-ticket.bill-req { border-color: #3b82f6; background: #eff6ff; }
+.tpp-ct-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.tpp-ct-num {
+  font-size: 15px; font-weight: 800; color: var(--sq-text);
+}
+.tpp-ct-bill-tag {
+  font-size: 10px; font-weight: 800; padding: 1px 6px;
+  background: #3b82f6; color: #fff; border-radius: 20px;
+}
+.tpp-ct-platform {
+  font-size: 10px; font-weight: 700; padding: 1px 6px;
+  background: #f59e0b; color: #fff; border-radius: 20px;
+}
+.tpp-ct-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; color: var(--sq-muted);
+}
+.tpp-ct-total {
+  font-size: 13px; font-weight: 700; color: #059669;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    POS LAYOUT — 3 columns
    ══════════════════════════════════════════════════════════════════════════════ */
