@@ -108,8 +108,8 @@ async function createMenuCategory(payload) {
     itemCount: 0,
     availableFrom: payload.availableFrom || "",
     availableTo: payload.availableTo || "",
-    station: payload.station || "Main kitchen",
-    printerTarget: payload.printerTarget || "Kitchen Printer 1",
+    station: payload.station || "",
+    printerTarget: payload.printerTarget || "",
     displayTarget: payload.displayTarget || "Hot Kitchen Display"
   };
 
@@ -163,7 +163,7 @@ async function createMenuItem(payload) {
     id: `item-${Date.now()}`,
     categoryId: payload.categoryId,
     name: payload.name,
-    station: payload.station || "Main kitchen",
+    station: payload.station || "",
     gstLabel: payload.gstLabel || "GST 5%",
     availableFrom: payload.availableFrom || "",
     availableTo: payload.availableTo || "",
@@ -556,7 +556,7 @@ async function bulkImportMenuItems(payload) {
   for (const row of uniqueRows) {
     const itemName     = String(row.itemName     || "").trim();
     const categoryName = String(row.categoryName || row.category || "Imported").trim();
-    const stationName  = String(row.station      || "Main kitchen").trim();
+    const stationName  = String(row.station      || "").trim();
 
     if (!itemName || !categoryName) {
       errors.push({ row, reason: "Missing item name or category" });
@@ -570,17 +570,17 @@ async function bulkImportMenuItems(payload) {
         id:            `cat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         name:          categoryName,
         station:       "",
-        printerTarget: "Kitchen Printer 1",
-        displayTarget: "Hot Kitchen Display",
+        printerTarget: "",
+        displayTarget: "",
       };
       categories.push(newCat);
       catBySlug[catSlug] = newCat;
     }
     const category = catBySlug[catSlug];
 
-    // ── Ensure station exists (in-memory only) ───────────────────────────────
-    const staSlug = slugify(stationName);
-    if (!staBySlug[staSlug]) {
+    // ── Ensure station exists (in-memory only) — skip if no station name given ──
+    const staSlug = stationName ? slugify(stationName) : "";
+    if (staSlug && !staBySlug[staSlug]) {
       const newSta = {
         id:         `station-${staSlug}`,
         name:       stationName,
@@ -590,7 +590,7 @@ async function bulkImportMenuItems(payload) {
       stations.push(newSta);
       staBySlug[staSlug] = newSta;
     }
-    const station = staBySlug[staSlug];
+    const station = staSlug ? staBySlug[staSlug] : null;
 
     // ── Build item (in-memory only) ──────────────────────────────────────────
     const taxRate    = Number(row.taxRate || 5);
@@ -616,7 +616,7 @@ async function bulkImportMenuItems(payload) {
       categoryId:        category.id,
       categoryName:      category.name,
       name:              itemName,
-      station:           station.name,
+      station:           station?.name || "",
       foodType:          row.foodType || "Veg",
       taxMode,
       taxRate,
