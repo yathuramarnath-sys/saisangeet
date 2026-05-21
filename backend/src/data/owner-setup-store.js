@@ -20,12 +20,38 @@ function warmTenantCache(tenantId, rawData) {
   const normalized = normalizeOwnerSetupData(rawData);
   _cache.set(tenantId, normalized);
 
-  // If normalize restored any missing seed categories, write back to Postgres
-  // so the fix persists across restarts without needing a manual save.
+  // ── Detect any self-heal changes and persist them back to Postgres ───────────
+  // Without this, healed fields (syncCode, code, defaultTaxProfileId, etc.)
+  // live only in memory and get regenerated on every restart — which would
+  // rotate syncCodes unpredictably and keep outlets in Review status.
+  let needsPersist = false;
+
+  // 1. Categories restored
   const rawCatCount  = ((rawData || {}).menu?.categories || []).length;
   const normCatCount = (normalized.menu?.categories || []).length;
   if (normCatCount > rawCatCount) {
-    console.log(`[store] warmTenantCache: ${normCatCount - rawCatCount} category/ies restored — persisting to Postgres`);
+    console.log(`[store] warmTenantCache: ${normCatCount - rawCatCount} category/ies restored`);
+    needsPersist = true;
+  }
+
+  // 2. Outlet fields self-healed (syncCode, code, defaultTaxProfileId, receiptTemplateId)
+  const rawOutlets  = ((rawData || {}).outlets || []);
+  const normOutlets = normalized.outlets || [];
+  const outletHealed = normOutlets.some((no) => {
+    const ro = rawOutlets.find((r) => r.id === no.id) || {};
+    return (
+      (!ro.syncCode          && no.syncCode)          ||
+      (!ro.code              && no.code)              ||
+      (!ro.defaultTaxProfileId && no.defaultTaxProfileId) ||
+      (!ro.receiptTemplateId   && no.receiptTemplateId)
+    );
+  });
+  if (outletHealed) {
+    console.log(`[store] warmTenantCache: outlet fields healed (syncCode/code/tax/receipt) — persisting to Postgres`);
+    needsPersist = true;
+  }
+
+  if (needsPersist) {
     persistToPostgres(tenantId, normalized);
   }
 }
