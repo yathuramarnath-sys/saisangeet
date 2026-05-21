@@ -1,9 +1,6 @@
 {
-  "installCommand": "cd ../.. && npm install --include=optional",
-  "buildCommand": "npm run build",
+  "buildCommand": "",
+  "installCommand": "",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
-  "env": {
-    "VITE_API_BASE_URL": "https://api.dinexpos.in/api/v1"
-  }
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

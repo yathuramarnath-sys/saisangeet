@@ -1,0 +1,45 @@
+name: Deploy POS Web App
+
+# Runs automatically on every push to main that touches operations-pos source files
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/operations-pos/src/**"
+      - "apps/operations-pos/public/**"
+      - "apps/operations-pos/dist/**"
+      - "apps/operations-pos/package.json"
+      - "apps/operations-pos/vite.config.js"
+      - "packages/**"
+
+jobs:
+  deploy:
+    name: Deploy to pos.dinexpos.in
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install root workspace dependencies
+        run: npm install --include=optional
+
+      - name: Build POS web bundle
+        working-directory: apps/operations-pos
+        run: npm run build
+
+      - name: Deploy dist to Vercel (pos.dinexpos.in)
+        working-directory: apps/operations-pos
+        run: |
+          cp -r dist /tmp/pos-dist
+          cp vercel.json /tmp/pos-dist/vercel.json
+          cd /tmp/pos-dist
+          npx vercel link --project plato-pos --yes --token ${{ secrets.VERCEL_TOKEN }}
+          npx vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: team_kgxOuXctNQyYwnkPIIKVABFG
+          VERCEL_PROJECT_ID: prj_wUlYagovS6qVHehLeObYXZxweWcP

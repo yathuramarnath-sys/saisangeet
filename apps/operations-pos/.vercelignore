@@ -1,0 +1,7 @@
+node_modules
+electron-dist
+electron
+android
+*.exe
+*.apk
+*.blockmap
