@@ -160,7 +160,7 @@ export function InventoryPage() {
 
   function getT(id) {
     return tracking.find(t => t.id === id) || {
-      id, trackingEnabled: false, posVisible: false, online: true, unit: "Pcs",
+      id, trackingEnabled: false, posVisible: true, online: true, unit: "Pcs",
       sessions: {
         Breakfast: { opening: 0, current: 0 },
         Lunch:     { opening: 0, current: 0 },
