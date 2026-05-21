@@ -31,7 +31,7 @@ function toDateStr(iso) {
 }
 
 export function ShiftsCashPage() {
-  const [data,        setData]        = useState({ active: [], history: [], movements: [] });
+  const [data,        setData]        = useState({ active: [], history: [] });
   const [loading,     setLoading]     = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [filter,      setFilter]      = useState("all"); // all | open | mismatch | closed
@@ -43,7 +43,7 @@ export function ShiftsCashPage() {
   async function loadData() {
     try {
       const res = await api.get("/shifts/summary");
-      setData((res?.active ? res : res?.data) || { active: [], history: [], movements: [] });
+      setData((res?.active ? res : res?.data) || { active: [], history: [] });
       setLastUpdated(new Date());
     } catch {
       // silently keep existing data on network errors
@@ -67,18 +67,13 @@ export function ShiftsCashPage() {
     if (val < dateFrom) setDateFrom(val);
   }
 
-  const shifts    = data.active    || [];
-  const history   = data.history   || [];
-  const movements = data.movements || [];
+  const shifts    = data.active  || [];
+  const history   = data.history || [];
 
-  // Apply date range filter: use startedAt for shifts, time for movements
-  const allShiftsRaw = [...shifts, ...history];
+  // Apply date range filter
+  const allShiftsRaw     = [...shifts, ...history];
   const allShiftsInRange = allShiftsRaw.filter(s => {
     const d = toDateStr(s.startedAt || s.closedAt);
-    return !d || (d >= dateFrom && d <= dateTo);
-  });
-  const movementsInRange = movements.filter(m => {
-    const d = toDateStr(m.time);
     return !d || (d >= dateFrom && d <= dateTo);
   });
 
@@ -86,7 +81,6 @@ export function ShiftsCashPage() {
   const mismatches   = allShiftsInRange.filter(s => s.status === "mismatch");
   const totalShort   = mismatches.reduce((sum, s) => sum + Math.abs(Math.min(s.variance || 0, 0)), 0);
   const totalOpening = allShiftsInRange.filter(s => s.status === "open").reduce((s, x) => s + (x.openingCash || 0), 0);
-  const totalCashOut = movementsInRange.filter(m => m.type === "out").reduce((s, m) => s + m.amount, 0);
 
   const filtered = filter === "all" ? allShiftsInRange
     : allShiftsInRange.filter(s => s.status === filter);
@@ -136,10 +130,6 @@ export function ShiftsCashPage() {
             <div className="shift-stat">
               <strong>{fmt(totalOpening)}</strong>
               <span>Opening Cash Today</span>
-            </div>
-            <div className="shift-stat">
-              <strong>{fmt(totalCashOut)}</strong>
-              <span>Cash Out Today</span>
             </div>
             <div className={`shift-stat${mismatches.length > 0 ? " bad" : ""}`}>
               <strong>{mismatches.length}</strong>
@@ -232,31 +222,8 @@ export function ShiftsCashPage() {
               </div>
             </div>
 
-            {/* Bottom row: Cash Log + Mismatch detail */}
+            {/* Bottom row: Mismatch detail */}
             <div className="shift-bottom-grid">
-
-              {/* Cash Movement Log */}
-              <div className="panel shift-monitor-panel">
-                <div className="panel-head" style={{ marginBottom: 10 }}><h3>Cash Movement Log</h3></div>
-                {movementsInRange.length === 0 && (
-                  <div className="shift-empty">No cash movements in this date range</div>
-                )}
-                {movementsInRange.map(m => (
-                  <div key={m.id} className="shift-move-row">
-                    <div className={`shift-move-type ${m.type === "in" ? "type-in" : "type-out"}`}>
-                      {m.type === "in" ? "↑ IN" : "↓ OUT"}
-                    </div>
-                    <div className="shift-move-details">
-                      <strong>{m.cashier}</strong>
-                      <span>{m.outlet} · {m.reason}</span>
-                      <span className="muted">Auth: {m.authorizedBy} · {fmtTime(m.time)}</span>
-                    </div>
-                    <div className={`shift-move-amount ${m.type === "in" ? "col-green" : "col-red"}`}>
-                      {m.type === "in" ? "+" : "−"}{fmt(m.amount)}
-                    </div>
-                  </div>
-                ))}
-              </div>
 
               {/* Shortage Summary */}
               <div className="panel shift-monitor-panel">
