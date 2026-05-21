@@ -334,45 +334,35 @@ export function OrderPanel({
       {/* ── Actions ───────────────────────────────────────────────────────── */}
       {!order.isClosed && !order.isOnHold && (
         <div className="order-actions">
-          {/* Row 1: KOT + Split */}
-          {(unsentItems.length > 0 || hasItems) && (
+          {/* Row 1: KOT + Split + Print Bill — all in one row */}
+          {hasItems && (
             <div className="order-actions-row">
-              {unsentItems.length > 0 && (
+              {unsentItems.length > 0 ? (
                 <button type="button" className="pos-btn kot" onClick={onSendKOT}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" strokeWidth="2.5">
                     <path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5"/>
                     <polyline points="9 11 12 14 22 4"/>
                   </svg>
-                  Send KOT ({unsentItems.length})
+                  KOT ({unsentItems.length})
                 </button>
-              )}
-              {unsentItems.length === 0 && hasItems && onReprintKOT && (
-                <button type="button" className="pos-btn kot" onClick={onReprintKOT}
-                  title="Reprint last KOT to kitchen printer">
+              ) : onReprintKOT ? (
+                <button type="button" className="pos-btn kot" onClick={onReprintKOT}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" strokeWidth="2.5">
                     <polyline points="1 4 1 10 7 10"/>
                     <path d="M3.51 15a9 9 0 1 0 .49-3.36"/>
                   </svg>
-                  Reprint KOT
+                  Reprint
                 </button>
-              )}
-              {hasItems && (
-                <button type="button" className="pos-btn split" onClick={onOpenSplitBill}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2.5">
-                    <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l5.1 5.1M4 4l5 5"/>
-                  </svg>
-                  Split Bill
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Row 2: Print Bill */}
-          {hasItems && (
-            <div className="order-actions-row">
+              ) : null}
+              <button type="button" className="pos-btn split" onClick={onOpenSplitBill}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5">
+                  <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l5.1 5.1M4 4l5 5"/>
+                </svg>
+                Split
+              </button>
               {onPrintBill && (
                 <button type="button" className="pos-btn print-bill" onClick={onPrintBill}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -387,7 +377,7 @@ export function OrderPanel({
             </div>
           )}
 
-          {/* Row 3: Collect Payment */}
+          {/* Row 2: Collect Payment */}
           {hasItems && (
             <button type="button" className="pos-btn pay" onClick={onOpenPayment}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
