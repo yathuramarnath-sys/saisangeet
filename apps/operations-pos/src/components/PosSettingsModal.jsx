@@ -191,6 +191,35 @@ function PrinterTab() {
     setWinPrinterList(null);
   }
 
+  // ── Web / browser mode — thermal printing not supported ─────────────────
+  if (!IS_ELECTRON) {
+    return (
+      <div className="pset-section">
+        <div className="pset-section-head">
+          <div>
+            <h4>Printer Setup</h4>
+            <p>Thermal printer configuration</p>
+          </div>
+        </div>
+        <div style={{
+          margin: "12px 0", padding: "18px 20px",
+          background: "#fffbeb", border: "1.5px solid #f59e0b",
+          borderRadius: 12
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#92400e", marginBottom: 6 }}>
+            ⚠️ Thermal printer setup requires the Windows desktop app
+          </div>
+          <div style={{ fontSize: 13, color: "#78350f", lineHeight: 1.6 }}>
+            The web browser cannot print directly to thermal printers.<br />
+            KOTs and bills in web mode print via the <strong>browser print dialog</strong>.<br /><br />
+            To use a thermal printer (Epson, TVS, etc.) for silent KOT and bill printing,
+            install the <strong>Plato POS Windows app</strong> on your billing computer.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pset-section">
       <div className="pset-section-head">
