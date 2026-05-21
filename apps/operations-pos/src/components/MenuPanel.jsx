@@ -138,27 +138,7 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
         )}
       </div>
 
-      {/* ── Category heading strip ────────────────────────────────────────── */}
-      {!search && (
-        <div className="menu-cat-banner" style={{ background: activeColor.grad }}>
-          <span className="menu-cat-banner-emoji">{getCatEmoji(activeCategory)}</span>
-          <div>
-            <div className="menu-cat-banner-name">{activeCategory}</div>
-            <div className="menu-cat-banner-count">{filtered.length} items available</div>
-          </div>
-        </div>
-      )}
-      {search && (
-        <div className="menu-cat-banner search-banner">
-          <span className="menu-cat-banner-emoji">🔍</span>
-          <div>
-            <div className="menu-cat-banner-name">Search results</div>
-            <div className="menu-cat-banner-count">{filtered.length} item{filtered.length !== 1 ? "s" : ""} found</div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 2-column food card grid ───────────────────────────────────────── */}
+      {/* ── 3-column food card grid ───────────────────────────────────────── */}
       <div className="menu-cards-grid">
         {filtered.length === 0 && (
           <div className="menu-empty-state">

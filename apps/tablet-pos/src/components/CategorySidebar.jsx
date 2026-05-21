@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-
 const PALETTE = [
   { bg: "#FF5733", grad: "linear-gradient(135deg,#FF6B4A,#FF3300)" },
   { bg: "#27AE60", grad: "linear-gradient(135deg,#2ECC71,#1A8C4E)" },
@@ -36,16 +34,6 @@ function getCatEmoji(name = "") {
 }
 
 export function CategorySidebar({ categories, menuItems, activeCategory, onSelect, outletName }) {
-  const counts = useMemo(() => {
-    const m = {};
-    categories.forEach(cat => {
-      const id = cat.id || cat.name.toLowerCase();
-      m[cat.name] = menuItems.filter(
-        i => i.category === cat.name || i.categoryName === cat.name || i.categoryId === id
-      ).length;
-    });
-    return m;
-  }, [categories, menuItems]);
 
   return (
     <div className="cat-sidebar">
@@ -87,13 +75,6 @@ export function CategorySidebar({ categories, menuItems, activeCategory, onSelec
                 {emoji}
               </div>
               <span className="cat-sidebar-name">{cat.name}</span>
-              <span className="cat-sidebar-count"
-                style={{
-                  background: isActive ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.07)",
-                  color: isActive ? "#fff" : "rgba(255,255,255,0.45)"
-                }}>
-                {counts[cat.name] || 0}
-              </span>
             </button>
           );
         })}

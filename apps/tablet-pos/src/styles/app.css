@@ -5323,10 +5323,10 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .menu-cat-banner.search-banner .menu-cat-banner-name  { color: #2C3E50; }
 .menu-cat-banner.search-banner .menu-cat-banner-count { color: #7F8C8D; }
 
-/* 2-col food card grid */
+/* 3-col food card grid */
 .menu-cards-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   padding: 0 12px 12px;
   overflow-y: auto;
