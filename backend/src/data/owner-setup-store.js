@@ -822,16 +822,41 @@ function normalizeOwnerSetupData(data) {
   const defaultRoles       = createDefaultRoles();
 
   next.devices = next.devices || [];
-  next.outlets = (next.outlets || []).map((outlet) => ({
-    hours:        "9:00 AM - 11:00 PM",
-    services:     ["Dine-in","Takeaway"],
-    workAreas:    ["AC","Non-AC","Self Service"],
-    tables:       [],
-    reportEmail:  "",
-    ...outlet,
-    // Auto-assign permanent sync code if missing (migration for existing outlets)
-    syncCode:     outlet.syncCode || _randSyncCode(),
-  }));
+
+  // Pre-compute default tax + receipt for the outlet self-heal below
+  const _taxProfiles      = next.taxProfiles      || [];
+  const _receiptTemplates = next.receiptTemplates || [];
+  const _defaultTax       = _taxProfiles.find((t) => t.isDefault) || _taxProfiles[0];
+  const _defaultReceipt   = _receiptTemplates[0];
+
+  next.outlets = (next.outlets || []).map((outlet) => {
+    const healed = {
+      hours:        "9:00 AM - 11:00 PM",
+      services:     ["Dine-in","Takeaway"],
+      workAreas:    ["AC","Non-AC","Self Service"],
+      tables:       [],
+      reportEmail:  "",
+      ...outlet,
+      // Auto-assign permanent sync code if missing (migration for existing outlets)
+      syncCode: outlet.syncCode || _randSyncCode(),
+    };
+
+    // Self-heal: auto-created outlets that landed without a code / tax / receipt
+    // (created before this fix was deployed) — assign defaults on next startup.
+    if (!healed.code) {
+      // generateOutletCode not available here — build a simple fallback inline
+      const src    = ((healed.city || healed.name || "OUT").replace(/[^A-Za-z]/g, "").toUpperCase()).slice(0, 4);
+      healed.code  = `${src}-1001`;
+    }
+    if (!healed.defaultTaxProfileId && _defaultTax) {
+      healed.defaultTaxProfileId = _defaultTax.id;
+    }
+    if (!healed.receiptTemplateId && _defaultReceipt) {
+      healed.receiptTemplateId = _defaultReceipt.id;
+    }
+
+    return healed;
+  });
   next.permissions = defaultPermissions.map((permission) => {
     const existing = (next.permissions || []).find((item) => item.code === permission.code);
     return existing ? { ...permission, ...existing } : permission;

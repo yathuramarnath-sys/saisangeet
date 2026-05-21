@@ -132,4 +132,6 @@ module.exports = {
   updateOutletSettings,
   deleteOutlet,
   regenerateOutletSyncCode,
+  generateOutletCode,
+  generateSyncCode,
 };
