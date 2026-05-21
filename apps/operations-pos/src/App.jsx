@@ -74,7 +74,7 @@ function ensureOrders(currentOrders, tableAreas, outletName) {
 }
 
 function buildAreasFromOutlet(outlet) {
-  if (!outlet?.tables?.length) return seedAreas;
+  if (!outlet?.tables?.length) return [];
   const workAreaNames = [...new Set(outlet.tables.map((t) => t.workArea || t.area_name).filter(Boolean))];
   if (!workAreaNames.length) workAreaNames.push("Main");
   return workAreaNames.map((areaName) => {
@@ -247,7 +247,10 @@ export default function App() {
   const [branchConfig,    setBranchConfig]    = useState(() => loadBranchConfig());
   const [outlet,          setOutlet]          = useState(null);
   const [activeStaff,     setActiveStaff]     = useState([]);
-  const [tableAreas,      setTableAreas]      = useState(seedAreas);
+  const [tableAreas,      setTableAreas]      = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pos_table_config") || "null") || []; }
+    catch { return []; }
+  });
   const [categories,      setCategories]      = useState(seedCategories);
   const [menuItems,       setMenuItems]       = useState(seedMenuItems);
   const [kitchenStations, setKitchenStations] = useState(() => {
@@ -345,8 +348,9 @@ export default function App() {
           })));
         }
 
-        const builtAreas = target.tables?.length ? buildAreasFromOutlet(target) : null;
-        if (builtAreas) setTableAreas(builtAreas);
+        const builtAreas = buildAreasFromOutlet(target);
+        setTableAreas(builtAreas);
+        localStorage.setItem("pos_table_config", JSON.stringify(builtAreas));
 
         // ── Save everything to offline cache so the next cold start is instant ──
         saveConfigCache({
@@ -399,7 +403,7 @@ export default function App() {
           });
           return ensureOrders(
             merged,
-            builtAreas || (target.tables?.length ? buildAreasFromOutlet(target) : seedAreas),
+            builtAreas,
             target.name
           );
         });
@@ -753,18 +757,14 @@ export default function App() {
       if (stations?.length) {
         localStorage.setItem("pos_kitchen_stations", JSON.stringify(stations));
       }
-      // Re-sync tables/areas from the latest outlet data
-      if (Array.isArray(outletsList)) {
-        const freshOutlet = outletsList.find(o => o.id === id);
-        if (freshOutlet?.tables?.length) {
-          const builtAreas = buildAreasFromOutlet(freshOutlet);
-          setTableAreas(builtAreas);
-          localStorage.setItem("pos_table_config", JSON.stringify(builtAreas));
-        }
-      }
-      // Persist fresh config to offline cache
+      // Re-sync tables/areas from the latest outlet data — ALWAYS update,
+      // even if tables array is empty (clears stale demo data from localStorage)
       const freshOutlet = Array.isArray(outletsList) ? outletsList.find(o => o.id === id) : null;
-      const freshAreas  = freshOutlet?.tables?.length ? buildAreasFromOutlet(freshOutlet) : null;
+      const freshAreas  = freshOutlet ? buildAreasFromOutlet(freshOutlet) : null;
+      if (freshOutlet) {
+        setTableAreas(freshAreas || []);
+        localStorage.setItem("pos_table_config", JSON.stringify(freshAreas || []));
+      }
       saveConfigCache({
         outlet:     freshOutlet || null,
         categories: cats    || [],
@@ -2062,7 +2062,7 @@ export default function App() {
           </button>
           <button type="button" className={`pab-btn cyan${isSyncing ? " syncing" : ""}`}
             onClick={() => syncMenuData()}
-            title={lastSyncedAt ? `Last synced: ${lastSyncedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}` : "Sync menu from server"}
+            title={lastSyncedAt ? `Last synced: ${lastSyncedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })} — syncs menu, tables & outlet` : "Master Sync — pulls menu, tables & outlet from Owner Console"}
             disabled={isSyncing}>
             <span className="pab-label">{isSyncing ? "Syncing…" : "Sync"}</span>
           </button>
