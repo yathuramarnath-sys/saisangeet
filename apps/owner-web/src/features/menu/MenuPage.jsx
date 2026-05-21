@@ -201,6 +201,7 @@ export function MenuPage() {
   const [foodTypeFilter, setFoodTypeFilter] = useState("Any");
   const [taxFilter, setTaxFilter] = useState("Any"); // "Any" | "Missing"
   const [showImportPanel, setShowImportPanel] = useState(false);
+  const [outletFilter, setOutletFilter] = useState("all"); // "all" | outlet name
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [routingDrafts, setRoutingDrafts] = useState({});
@@ -308,6 +309,17 @@ export function MenuPage() {
   const availableTaxProfiles = menuData.taxProfiles || [];
   const availablePricingProfiles = menuData.pricingProfiles || [];
   const availableMenuGroups = menuData.menuGroups || [];
+  // Per-outlet item counts for the filter chips
+  const outletItemCounts = availableOutlets.reduce((acc, o) => {
+    acc[o.name] = menuData.items.filter((item) => {
+      const oa = item.outletAvailability || [];
+      // No availability data means available everywhere
+      if (oa.length === 0) return true;
+      return oa.some((entry) => entry.outlet === o.name && entry.enabled);
+    }).length;
+    return acc;
+  }, {});
+
   const filteredLibraryItems = menuData.items.filter((item) => {
     const matchesSearch =
       !librarySearch ||
@@ -325,8 +337,15 @@ export function MenuPage() {
       (inventoryFilter === "Not tracked" && !item.inventoryTracking.enabled);
     const matchesFoodType = foodTypeFilter === "Any" || item.foodType === foodTypeFilter;
     const matchesTax = taxFilter === "Any" || (taxFilter === "Missing" && Number(item.taxRate || 0) <= 0);
+    // Outlet filter: "all" shows everything; specific outlet shows only enabled items
+    const matchesOutlet =
+      outletFilter === "all" ||
+      (item.outletAvailability || []).length === 0 || // no data = available everywhere
+      (item.outletAvailability || []).some(
+        (entry) => entry.outlet === outletFilter && entry.enabled
+      );
 
-    return matchesSearch && matchesCategory && matchesStatus && matchesInventory && matchesFoodType && matchesTax;
+    return matchesSearch && matchesCategory && matchesStatus && matchesInventory && matchesFoodType && matchesTax && matchesOutlet;
   });
 
   function updateItem(itemId, updater) {
@@ -1186,6 +1205,39 @@ export function MenuPage() {
             </div>
           </div>
 
+          {/* ── Outlet filter chips (only when 2+ outlets exist) ────────── */}
+          {availableOutlets.length > 1 && (
+            <div className="outlet-filter-bar">
+              <span className="outlet-filter-label">Branch</span>
+              <div className="outlet-filter-chips">
+                <button
+                  type="button"
+                  className={`outlet-filter-chip${outletFilter === "all" ? " active" : ""}`}
+                  onClick={() => setOutletFilter("all")}
+                >
+                  All Outlets
+                  <span className="outlet-filter-count">{menuData.items.length}</span>
+                </button>
+                {availableOutlets.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={`outlet-filter-chip${outletFilter === o.name ? " active" : ""}`}
+                    onClick={() => setOutletFilter(o.name)}
+                  >
+                    {o.name}
+                    <span className="outlet-filter-count">{outletItemCounts[o.name] ?? 0}</span>
+                  </button>
+                ))}
+              </div>
+              {outletFilter !== "all" && (
+                <span className="outlet-filter-hint">
+                  Showing items available at <strong>{outletFilter}</strong>
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="menu-library-toolbar">
             <input
               type="search"
@@ -1343,6 +1395,7 @@ export function MenuPage() {
                     setStatusFilter("Active");
                     setInventoryFilter("Any");
                     setFoodTypeFilter("Any");
+                    setOutletFilter("all");
                   }}
                 >
                   Reset
@@ -1354,6 +1407,19 @@ export function MenuPage() {
             </div>
 
             <div className="simple-form">
+              {availableOutlets.length > 1 && (
+                <label>
+                  Branch / Outlet
+                  <select value={outletFilter} onChange={(event) => setOutletFilter(event.target.value)}>
+                    <option value="all">All Outlets</option>
+                    {availableOutlets.map((o) => (
+                      <option key={o.id} value={o.name}>
+                        {o.name} ({outletItemCounts[o.name] ?? 0} items)
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label>
                 Category
                 <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
