@@ -784,7 +784,19 @@ export default function App() {
       const now = new Date();
       setLastSyncedAt(now);
       localStorage.setItem("pos_last_synced", now.toISOString());
-      showToast("Synced ✓");
+
+      // Show detailed feedback so staff can confirm tables loaded
+      if (freshOutlet) {
+        const tableCount = freshOutlet.tables?.length || 0;
+        const areaCount  = freshAreas?.length || 0;
+        if (tableCount > 0) {
+          showToast(`Synced ✓ — ${tableCount} table${tableCount !== 1 ? "s" : ""} in ${areaCount} area${areaCount !== 1 ? "s" : ""}`);
+        } else {
+          showToast("Synced ✓ — No tables found (add tables in Owner Console)");
+        }
+      } else {
+        showToast("Synced ✓");
+      }
     } catch (err) {
       showToast("Sync failed — check connection");
       console.error("[sync]", err.message);
