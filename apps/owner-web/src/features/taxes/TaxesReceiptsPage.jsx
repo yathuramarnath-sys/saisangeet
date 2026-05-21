@@ -183,6 +183,32 @@ export function TaxesReceiptsPage() {
   const [bizDraft,  setBizDraft]  = useState(business);
   const [editProf,  setEditProf]  = useState(null); // profile id being edited
   const [profDraft, setProfDraft] = useState(null);
+  const [outletId,  setOutletId]  = useState(null); // outlet ID for saving receipt settings to backend
+
+  // ── Load receipt settings from backend outlet on mount ──────────────────────
+  useEffect(() => {
+    api.get("/outlets")
+      .then(list => {
+        if (!list?.length) return;
+        const o = list[0];
+        setOutletId(o.id);
+        // Populate receipt settings from outlet — backend is source of truth
+        const fromOutlet = {
+          showDiscountOnBill: o.showDiscountOnBill ?? defaultReceiptSettings.showDiscountOnBill,
+          showGstBreakdown:   o.showGstBreakdown   ?? defaultReceiptSettings.showGstBreakdown,
+          showItemDesc:       o.showItemDesc       ?? defaultReceiptSettings.showItemDesc,
+          showSavings:        o.showSavings        ?? defaultReceiptSettings.showSavings,
+          showQR:             o.showQR             ?? defaultReceiptSettings.showQR,
+          footerNote:         o.footerNote         || defaultReceiptSettings.footerNote,
+          gstBillingEnabled:  o.gstBillingEnabled  ?? defaultReceiptSettings.gstBillingEnabled,
+          gstBillDelivery:    o.gstBillDelivery    ?? defaultReceiptSettings.gstBillDelivery,
+        };
+        setReceipt(fromOutlet);
+        // Keep localStorage in sync so legacy POS reads still work during transition
+        localStorage.setItem(RECEIPT_SETTINGS_KEY, JSON.stringify(fromOutlet));
+      })
+      .catch(() => {}); // keep showing localStorage values if API fails
+  }, []);
 
   function flash(t) { setMsg(t); setTimeout(() => setMsg(""), 3000); }
 
@@ -225,6 +251,10 @@ export function TaxesReceiptsPage() {
     const next = { ...receipt, [key]: val };
     setReceipt(next);
     saveAll(business, profiles, next, outlets);
+    // Save to backend so POS reads it from outlet API on next sync
+    if (outletId) {
+      api.patch(`/outlets/${outletId}/settings`, { [key]: val }).catch(() => {});
+    }
   }
 
   function updateOutlet(outlet, profileId) {
@@ -425,10 +455,11 @@ export function TaxesReceiptsPage() {
           <Section title="Receipt Settings" eyebrow="What to Print">
             <div className="tax-toggle-list">
               {[
-                { key: "showGstBreakdown", label: "Show GST breakdown",       desc: "Print CGST and SGST separately under subtotal" },
-                { key: "showItemDesc",     label: "Show item descriptions",    desc: "Display detail lines under each ordered item" },
-                { key: "showSavings",      label: "Show total savings row",    desc: "Summary line when discounts are applied" },
-                { key: "showQR",           label: "Show QR payment block",     desc: "Payment QR on dine-in and takeaway receipts" }
+                { key: "showDiscountOnBill", label: "Show discount on printed bill", desc: "Print discount line on receipt when a discount is applied" },
+                { key: "showGstBreakdown",   label: "Show GST breakdown",            desc: "Print CGST and SGST separately under subtotal" },
+                { key: "showItemDesc",       label: "Show item descriptions",        desc: "Display detail lines under each ordered item" },
+                { key: "showSavings",        label: "Show total savings row",        desc: "Summary line when discounts are applied" },
+                { key: "showQR",             label: "Show QR payment block",         desc: "Payment QR on dine-in and takeaway receipts" }
               ].map(({ key, label, desc }) => (
                 <div key={key} className="tax-toggle-row">
                   <div>

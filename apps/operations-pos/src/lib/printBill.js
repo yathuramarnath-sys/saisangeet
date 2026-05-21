@@ -32,7 +32,13 @@ export function printBill(order, items, outletOrName, options = {}) {
   const outletGstin   = outlet?.gstin        || "";
   const outletFssai   = outlet?.fssaiNo      || "";
   const invoiceHeader = outlet?.invoiceHeader || "";
-  const invoiceFooter = outlet?.invoiceFooter || "Thank you for dining with us!";
+  const invoiceFooter = outlet?.footerNote || outlet?.invoiceFooter || "Thank you for dining with us!";
+
+  // ── Receipt print settings (owner sets in Owner Console → Receipts) ────────
+  // Default true = show (backward compatible — existing accounts see no change)
+  const showDiscountOnBill = outlet?.showDiscountOnBill !== false;
+  const showGstBreakdown   = outlet?.showGstBreakdown   !== false;
+  const showItemDesc       = outlet?.showItemDesc       === true;  // default hidden
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -76,7 +82,7 @@ export function printBill(order, items, outletOrName, options = {}) {
 
   const itemsHtml = billableItems.map((i) => `
     <tr>
-      <td class="col-item">${i.name}${i.note ? `<div class="item-note">${i.note}</div>` : ""}</td>
+      <td class="col-item">${i.name}${showItemDesc && i.note ? `<div class="item-note">${i.note}</div>` : ""}</td>
       <td class="col-qty">${i.quantity}</td>
       <td class="col-rate">${i.price.toFixed(2)}</td>
       <td class="col-amt">${(i.price * i.quantity).toFixed(2)}</td>
@@ -214,10 +220,14 @@ export function printBill(order, items, outletOrName, options = {}) {
   <table class="items-tbl">
     <tbody>
       <tr><td colspan="3" class="sum-lbl">Subtotal</td><td class="col-amt sum-val">&#8377;${subtotal.toFixed(2)}</td></tr>
-      ${discount > 0 ? `<tr><td colspan="3" class="sum-lbl disc-lbl">Discount</td><td class="col-amt sum-val disc-val">&#8722;&#8377;${discount.toFixed(2)}</td></tr>` : ""}
-      ${taxRows.map(t => `
+      ${showDiscountOnBill && discount > 0 ? `<tr><td colspan="3" class="sum-lbl disc-lbl">Discount</td><td class="col-amt sum-val disc-val">&#8722;&#8377;${discount.toFixed(2)}</td></tr>` : ""}
+      ${showGstBreakdown
+        ? taxRows.map(t => `
       <tr><td colspan="3" class="sum-lbl">CGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.cgst.toFixed(2)}</td></tr>
-      <tr><td colspan="3" class="sum-lbl">SGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.sgst.toFixed(2)}</td></tr>`).join("")}
+      <tr><td colspan="3" class="sum-lbl">SGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.sgst.toFixed(2)}</td></tr>`).join("")
+        : taxRows.map(t => `
+      <tr><td colspan="3" class="sum-lbl">GST (${t.rate}%)</td><td class="col-amt sum-val">&#8377;${(t.cgst + t.sgst).toFixed(2)}</td></tr>`).join("")
+      }
     </tbody>
   </table>
   <hr class="div-dash">

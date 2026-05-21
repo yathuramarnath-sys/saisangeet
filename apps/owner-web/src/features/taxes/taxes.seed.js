@@ -24,13 +24,14 @@ export const defaultBusinessGST = {
 };
 
 export const defaultReceiptSettings = {
-  showGstBreakdown:  true,
-  showItemDesc:      false,
-  showSavings:       true,
-  showQR:            true,
-  footerNote:        "Thank you for dining with us! Visit again.",
-  gstBillingEnabled: true,
-  gstBillDelivery:   "both"
+  showDiscountOnBill: true,
+  showGstBreakdown:   true,
+  showItemDesc:       false,
+  showSavings:        true,
+  showQR:             true,
+  footerNote:         "Thank you for dining with us! Visit again.",
+  gstBillingEnabled:  true,
+  gstBillDelivery:    "both"
 };
 
 // Outlet GST profiles loaded from API
