@@ -88,14 +88,14 @@ function parseCSV(text) {
     .filter(Boolean);
 
   if (lines.length < 2) {
-    return { headers: [], rows: [], unknownCols: [] };
+    return { headers: [], rows: [], unknownCols: [], dupCount: 0 };
   }
 
   const rawHeaders = parseCSVLine(lines[0]);
   const mappedHeaders = rawHeaders.map((h) => ({ raw: h, field: mapHeader(h) }));
   const unknownCols = mappedHeaders.filter((h) => !h.field).map((h) => h.raw);
 
-  const rows = lines.slice(1).map((line, lineIdx) => {
+  const allRows = lines.slice(1).map((line, lineIdx) => {
     const values = parseCSVLine(line);
     const row = { _line: lineIdx + 2 };
     mappedHeaders.forEach((h, i) => {
@@ -104,7 +104,30 @@ function parseCSV(text) {
     return row;
   });
 
-  return { headers: mappedHeaders, rows, unknownCols };
+  // ── Deduplicate by itemName + category (case-insensitive) ──────────────────
+  // Prevents accidental row repetition from Excel/Sheets copy-paste auto-fill.
+  // Only the FIRST occurrence of each (name + category) pair is kept.
+  const seenKeys = new Set();
+  let dupCount = 0;
+  const rows = [];
+  for (const row of allRows) {
+    const name = String(row.itemName || "").trim().toLowerCase();
+    const cat  = String(row.category  || "").trim().toLowerCase();
+    // Rows with no name or category are passed through as-is (validator will flag them)
+    if (!name && !cat) {
+      rows.push(row);
+      continue;
+    }
+    const key = `${name}|||${cat}`;
+    if (seenKeys.has(key)) {
+      dupCount++;
+    } else {
+      seenKeys.add(key);
+      rows.push(row);
+    }
+  }
+
+  return { headers: mappedHeaders, rows, unknownCols, dupCount };
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -471,6 +494,12 @@ export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {},
                 <strong>{validRows.length}</strong>
                 <span>Ready to import</span>
               </div>
+              {parsed.dupCount > 0 && (
+                <div className="bip-stat warn">
+                  <strong>{parsed.dupCount}</strong>
+                  <span>Duplicate rows removed — same item+category appeared more than once</span>
+                </div>
+              )}
               {skippedRows.length > 0 && (
                 <div className="bip-stat bad">
                   <strong>{skippedRows.length}</strong>

@@ -539,7 +539,21 @@ async function bulkImportMenuItems(payload) {
   const catBySlug = Object.fromEntries(categories.map(c => [slugify(c.name), c]));
   const staBySlug = Object.fromEntries(stations.map(s => [slugify(s.name), s]));
 
-  for (const row of rows) {
+  // ── Deduplicate within the submitted batch (itemName + categoryName) ─────────
+  // Safety net: frontend already deduplicates, but guard here too in case the
+  // API is called directly or the CSV had rows the frontend dedup couldn't catch.
+  const _seenKeys = new Set();
+  const uniqueRows = rows.filter((row) => {
+    const name = String(row.itemName     || "").trim().toLowerCase();
+    const cat  = String(row.categoryName || row.category || "").trim().toLowerCase();
+    if (!name) return true; // no name → let the error block below handle it
+    const key = `${name}|||${cat}`;
+    if (_seenKeys.has(key)) return false;
+    _seenKeys.add(key);
+    return true;
+  });
+
+  for (const row of uniqueRows) {
     const itemName     = String(row.itemName     || "").trim();
     const categoryName = String(row.categoryName || row.category || "Imported").trim();
     const stationName  = String(row.station      || "Main kitchen").trim();
