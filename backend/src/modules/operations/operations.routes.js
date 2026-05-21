@@ -190,6 +190,29 @@ operationsRouter.delete("/order/item", requireAuth, asyncHandler(deviceRemoveOrd
 operationsRouter.patch("/order/item",  requireAuth, asyncHandler(deviceVoidOrderItemHandler));
 operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
 
+// ── Credit sales ──────────────────────────────────────────────────────────────
+// GET  /operations/credits          — all credit orders (unpaid + paid) for this tenant
+// POST /operations/credits/:id/settle — mark a credit order as paid
+operationsRouter.get("/credits", requireAuth, asyncHandler(async (req, res) => {
+  const { getCreditOrders } = require("./closed-orders-store");
+  const tenantId = req.user?.tenantId || "default";
+  const outletId = req.query.outletId || null;
+  res.json(getCreditOrders(tenantId, outletId));
+}));
+
+operationsRouter.post("/credits/:id/settle", requireAuth, asyncHandler(async (req, res) => {
+  const { settleCreditOrder } = require("./closed-orders-store");
+  const tenantId = req.user?.tenantId || "default";
+  const orderId  = req.params.id;
+  const { method = "cash", reference = null, settledBy = null } = req.body;
+  const updated  = settleCreditOrder(tenantId, orderId, { method, reference, settledBy });
+  if (!updated) return res.status(404).json({ error: "Credit order not found" });
+  // Notify owner console
+  const io = req.app.locals.io;
+  if (io) io.to(`tenant:${tenantId}`).emit("credits:updated");
+  res.json({ ok: true, order: updated });
+}));
+
 // Action log — Owner Console audit trail
 operationsRouter.get("/action-logs",   requireAuth, asyncHandler(async (req, res) => {
   const { getActionLogs } = require("../action-log/actionLog.service");

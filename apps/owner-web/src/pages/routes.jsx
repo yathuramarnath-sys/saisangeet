@@ -9,7 +9,8 @@ import { IntegrationsPage } from "../features/integrations/IntegrationsPage";
 import { MenuPage } from "../features/menu/MenuPage";
 import { OutletsPage } from "../features/outlets/OutletsPage";
 import { ReportsPage } from "../features/reports/ReportsPage";
-import { ShiftsCashPage } from "../features/shifts/ShiftsCashPage";
+import { ShiftsCashPage }    from "../features/shifts/ShiftsCashPage";
+import { CreditLedgerPage } from "../features/credits/CreditLedgerPage";
 import { StaffPage } from "../features/staff/StaffPage";
 import { TaxesReceiptsPage } from "../features/taxes/TaxesReceiptsPage";
 import { AppStorePage } from "../features/appstore/AppStorePage";
@@ -63,6 +64,10 @@ export function AppRoutes() {
 
     if (item.mode === "react" && item.id === "shifts") {
       return <ShiftsCashPage />;
+    }
+
+    if (item.mode === "react" && item.id === "credits") {
+      return <CreditLedgerPage />;
     }
 
     if (item.mode === "react" && item.id === "reports") {

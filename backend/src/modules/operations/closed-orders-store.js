@@ -170,4 +170,50 @@ function getOrderById(tenantId, orderId, outletId = null) {
   return null;
 }
 
-module.exports = { addClosedOrder, getTodaySales, getTodaySalesByOutlet, getSalesForRange, hydrateClosedOrders, getOrderById };
+/**
+ * Return all unpaid credit orders for a tenant (across all outlets).
+ * These are orders where isCreditSale=true and creditStatus="unpaid".
+ */
+function getCreditOrders(tenantId, outletId = null) {
+  if (!store.has(tenantId)) return [];
+  const tenantMap = store.get(tenantId);
+  const keys      = outletId ? [outletId] : [...tenantMap.keys()];
+  const result    = [];
+  for (const oid of keys) {
+    const orders = tenantMap.get(oid) || [];
+    for (const order of orders) {
+      if (order.isCreditSale) result.push({ ...order, _outletId: oid });
+    }
+  }
+  // Most recent first
+  return result.sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt));
+}
+
+/**
+ * Settle a credit order — mark creditStatus "paid" and record settlement info.
+ * Returns the updated order or null if not found.
+ */
+function settleCreditOrder(tenantId, orderId, settlementInfo) {
+  if (!store.has(tenantId)) return null;
+  const tenantMap = store.get(tenantId);
+  for (const orders of tenantMap.values()) {
+    const order = orders.find(o => (o.id || o.orderNumber) === orderId && o.isCreditSale);
+    if (order) {
+      order.creditStatus        = "paid";
+      order.creditSettledAt     = new Date().toISOString();
+      order.creditSettledBy     = settlementInfo.settledBy  || null;
+      order.creditSettledMethod = settlementInfo.method     || "cash";
+      order.creditSettledRef    = settlementInfo.reference  || null;
+      _persist();
+      return order;
+    }
+  }
+  return null;
+}
+
+module.exports = {
+  addClosedOrder,
+  getTodaySales, getTodaySalesByOutlet, getSalesForRange,
+  hydrateClosedOrders, getOrderById,
+  getCreditOrders, settleCreditOrder,
+};

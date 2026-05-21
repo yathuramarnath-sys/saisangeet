@@ -1321,12 +1321,23 @@ export default function App() {
     }
 
     // ── Full settlement ───────────────────────────────────────────────────
+    // Detect credit sale — payment method "credit" carries creditCustomer details
+    const creditPayment    = newPayments.find(p => p.method === "credit");
+    const isCreditSale     = !!creditPayment;
+    const creditCustomer   = creditPayment?.creditCustomer || null;
+
     const closedOrder = {
       ...structuredClone(order),
-      payments:    allPayments,
-      isClosed:    true,
-      closedAt:    new Date().toISOString(),
-      cashierName: cashierName || "POS",
+      payments:       allPayments,
+      isClosed:       true,
+      closedAt:       new Date().toISOString(),
+      cashierName:    cashierName || "POS",
+      // Credit sale fields — present only for credit settlements
+      ...(isCreditSale && {
+        isCreditSale:   true,
+        creditStatus:   "unpaid",
+        creditCustomer,
+      }),
     };
 
     // 1. Save to pos_closed_orders in localStorage

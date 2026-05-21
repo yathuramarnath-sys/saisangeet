@@ -6859,3 +6859,67 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 .outlet-filter-hint strong {
   color: #059669;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CREDIT LEDGER
+   ═══════════════════════════════════════════════════════════════════════════ */
+.credit-customer-card {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
+  margin-bottom: 16px; overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+.credit-customer-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 14px 18px; background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+.credit-customer-name { font-size: 15px; font-weight: 800; color: #111; display: block; }
+.credit-customer-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; font-size: 12px; color: #666; }
+.credit-gstin-badge {
+  background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;
+  border-radius: 4px; padding: 1px 6px; font-weight: 700; font-size: 11px;
+}
+.credit-outstanding-chip {
+  text-align: right; flex-shrink: 0;
+}
+.credit-outstanding-chip span { display: block; font-size: 10px; color: #888; }
+.credit-outstanding-chip strong { font-size: 16px; font-weight: 800; color: #dc2626; }
+
+.credit-bills-list { padding: 0 18px 10px; }
+.credit-bill-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px dotted #e5e7eb;
+}
+.credit-bill-row:last-child { border-bottom: none; }
+.credit-bill-paid { opacity: 0.6; }
+
+.credit-bill-left { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.credit-bill-no   { font-weight: 700; font-size: 13px; color: #111; }
+.credit-po        { font-size: 11px; color: #666; background: #f3f4f6; padding: 1px 6px; border-radius: 4px; }
+.credit-bill-date { font-size: 11px; color: #999; }
+.credit-outlet    { font-size: 11px; color: #aaa; }
+.credit-tax-badge {
+  font-size: 10px; font-weight: 700; color: #059669;
+  background: #ecfdf5; border: 1px solid #6ee7b7;
+  border-radius: 4px; padding: 1px 6px; letter-spacing: 0.5px;
+}
+
+.credit-bill-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.credit-bill-amt   { font-size: 14px; font-weight: 800; color: #111; }
+.credit-settled-badge { font-size: 11px; color: #059669; font-weight: 600; }
+.credit-settle-btn {
+  padding: 5px 14px; background: #059669; color: #fff;
+  border: none; border-radius: 8px; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: background 0.15s;
+}
+.credit-settle-btn:hover { background: #047857; }
+
+/* Settle modal summary */
+.credit-settle-summary { display: flex; flex-direction: column; gap: 6px; }
+.credit-settle-summary > div {
+  display: flex; justify-content: space-between;
+  font-size: 13px; color: #555; padding: 3px 0;
+  border-bottom: 1px dotted #e5e7eb;
+}
+.credit-settle-summary > div strong { color: #111; font-weight: 700; }
+.credit-settle-total strong { font-size: 16px !important; color: #059669 !important; font-weight: 800 !important; }
