@@ -39,6 +39,9 @@ export function printBill(order, items, outletOrName, options = {}) {
   const showDiscountOnBill = outlet?.showDiscountOnBill !== false;
   const showGstBreakdown   = outlet?.showGstBreakdown   !== false;
   const showItemDesc       = outlet?.showItemDesc       === true;  // default hidden
+  const showPhone          = outlet?.showPhone          !== false;
+  const showAddress        = outlet?.showAddress        !== false;
+  const showGstin          = outlet?.showGstin          !== false;
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -173,8 +176,8 @@ export function printBill(order, items, outletOrName, options = {}) {
   <div class="hdr">
     ${invoiceHeader ? `<div class="invoice-header">${invoiceHeader}</div>` : ""}
     <div class="outlet-name">${outletName || "Restaurant"}</div>
-    ${(outletAddr1 || outletAddr2 || outletCity || outletState) ? `<div class="outlet-addr">${[outletAddr1, outletAddr2, outletCity, outletState].filter(Boolean).join(", ")}</div>` : ""}
-    ${(outletPhone || outletGstin) ? `<div class="outlet-meta">${outletPhone ? `Ph: ${outletPhone}` : ""}${outletPhone && outletGstin ? " &nbsp;|&nbsp; " : ""}${outletGstin ? `GSTIN: ${outletGstin}` : ""}</div>` : ""}
+    ${showAddress && (outletAddr1 || outletAddr2 || outletCity || outletState) ? `<div class="outlet-addr">${[outletAddr1, outletAddr2, outletCity, outletState].filter(Boolean).join(", ")}</div>` : ""}
+    ${(showPhone && outletPhone) || (showGstin && outletGstin) ? `<div class="outlet-meta">${showPhone && outletPhone ? `Ph: ${outletPhone}` : ""}${showPhone && outletPhone && showGstin && outletGstin ? " &nbsp;|&nbsp; " : ""}${showGstin && outletGstin ? `GSTIN: ${outletGstin}` : ""}</div>` : ""}
     ${outletFssai ? `<div class="outlet-meta">FSSAI: ${outletFssai}</div>` : ""}
     ${seatLabel ? `<div><span class="seat-tag">${seatLabel}</span></div>` : ""}
   </div>

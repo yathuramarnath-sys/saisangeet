@@ -1,17 +1,16 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   TAX_SETTINGS_KEY, RECEIPT_SETTINGS_KEY,
-  OUTLETS, defaultTaxProfiles, defaultBusinessGST,
-  defaultReceiptSettings, defaultOutletProfiles
+  defaultTaxProfiles, defaultReceiptSettings,
 } from "./taxes.seed";
 import { api } from "../../lib/api";
 
 // ── Bill Number Settings Panel ────────────────────────────────────────────────
 function BillNumberPanel() {
-  const [config, setConfig]   = useState(null);
-  const [saving, setSaving]   = useState(false);
+  const [config,    setConfig]    = useState(null);
+  const [saving,    setSaving]    = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [msg, setMsg]         = useState("");
+  const [msg,       setMsg]       = useState("");
   const [showReset, setShowReset] = useState(false);
 
   useEffect(() => {
@@ -28,9 +27,7 @@ function BillNumberPanel() {
       flash(`Bill numbering changed to ${mode === "fy" ? "Financial Year (Apr–Mar)" : "Daily Reset"}.`);
     } catch (err) {
       flash(`Error: ${err.message}`);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   async function handleReset() {
@@ -42,9 +39,7 @@ function BillNumberPanel() {
       flash("Bill counter reset to 0. Next bill will be #1.");
     } catch (err) {
       flash(`Error: ${err.message}`);
-    } finally {
-      setResetting(false);
-    }
+    } finally { setResetting(false); }
   }
 
   if (!config) return null;
@@ -58,20 +53,14 @@ function BillNumberPanel() {
         <div>
           <p className="eyebrow">Billing Setup</p>
           <h3>Bill Number Sequencing</h3>
-          <p className="bn-desc">
-            Choose how bill numbers are assigned. KOT numbers always reset daily.
-          </p>
+          <p className="bn-desc">Choose how bill numbers are assigned. KOT numbers always reset daily.</p>
         </div>
       </div>
 
       <div className="bn-options">
-        {/* Option 1 — Financial Year */}
         <label className={`bn-option ${isFY ? "bn-option-active" : ""}`}>
-          <input
-            type="radio" name="billMode" value="fy"
-            checked={isFY} disabled={saving}
-            onChange={() => handleModeChange("fy")}
-          />
+          <input type="radio" name="billMode" value="fy" checked={isFY} disabled={saving}
+            onChange={() => handleModeChange("fy")} />
           <div className="bn-option-body">
             <div className="bn-option-title">
               📅 Financial Year <span className="bn-badge bn-badge-default">Default</span>
@@ -89,13 +78,9 @@ function BillNumberPanel() {
           </div>
         </label>
 
-        {/* Option 2 — Daily Reset */}
         <label className={`bn-option ${isDaily ? "bn-option-active" : ""}`}>
-          <input
-            type="radio" name="billMode" value="daily"
-            checked={isDaily} disabled={saving}
-            onChange={() => handleModeChange("daily")}
-          />
+          <input type="radio" name="billMode" value="daily" checked={isDaily} disabled={saving}
+            onChange={() => handleModeChange("daily")} />
           <div className="bn-option-body">
             <div className="bn-option-title">🔄 Daily Reset</div>
             <p className="bn-option-desc">
@@ -112,18 +97,14 @@ function BillNumberPanel() {
         </label>
       </div>
 
-      {/* KOT info */}
       <div className="bn-kot-info">
         <span>🎫 KOT Numbers</span>
         <span>Daily reset · Today: <strong>{config.kotDate}</strong> · Last KOT: <strong>#{config.kotLast}</strong></span>
       </div>
 
-      {/* Reset counter */}
       <div className="bn-reset-row">
         {!showReset ? (
-          <button className="ghost-chip" onClick={() => setShowReset(true)}>
-            Reset bill counter to #1
-          </button>
+          <button className="ghost-chip" onClick={() => setShowReset(true)}>Reset bill counter to #1</button>
         ) : (
           <div className="bn-reset-confirm">
             <span>⚠️ This cannot be undone. Reset bill counter to 0?</span>
@@ -140,6 +121,7 @@ function BillNumberPanel() {
   );
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function load(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; }
   catch { return fallback; }
@@ -147,43 +129,47 @@ function load(key, fallback) {
 
 function Toggle({ on, onChange }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
+    <button type="button" role="switch" aria-checked={on}
       onClick={() => onChange(!on)}
-      className={`inv-toggle${on ? " inv-toggle-on" : ""}`}
-    >
+      className={`inv-toggle${on ? " inv-toggle-on" : ""}`}>
       <span className="inv-toggle-knob" />
     </button>
   );
 }
 
-function Section({ title, eyebrow, children }) {
+// ── Collapsible receipt builder section ───────────────────────────────────────
+function RbSection({ title, icon, open, onToggle, children }) {
   return (
-    <article className="panel tax-panel">
-      <div className="panel-head">
-        <div>
-          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-          <h3>{title}</h3>
-        </div>
-      </div>
-      {children}
-    </article>
+    <div className="rb-section">
+      <button type="button" className="rb-section-head" onClick={onToggle}>
+        <span className="rb-section-title">
+          {icon && <span className="rb-section-icon">{icon}</span>}
+          {title}
+        </span>
+        <svg className={`rb-chevron${open ? " open" : ""}`} width="16" height="16"
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && <div className="rb-section-body">{children}</div>}
+    </div>
   );
 }
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export function TaxesReceiptsPage() {
-  const [profiles,  setProfiles]  = useState(() => load(TAX_SETTINGS_KEY + "_profiles", defaultTaxProfiles));
-  const [business,  setBusiness]  = useState(() => load(TAX_SETTINGS_KEY + "_biz",      defaultBusinessGST));
-  const [receipt,   setReceipt]   = useState(() => load(RECEIPT_SETTINGS_KEY,            defaultReceiptSettings));
-  const [outlets,   setOutlets]   = useState(() => load(TAX_SETTINGS_KEY + "_outlets",   defaultOutletProfiles));
-  const [msg,       setMsg]       = useState("");
-  const [editBiz,   setEditBiz]   = useState(false);
-  const [bizDraft,  setBizDraft]  = useState(business);
-  const [editProf,  setEditProf]  = useState(null); // profile id being edited
-  const [profDraft, setProfDraft] = useState(null);
-  const [outletId,  setOutletId]  = useState(null); // outlet ID for saving receipt settings to backend
+  const [profiles,   setProfiles]   = useState(() => load(TAX_SETTINGS_KEY + "_profiles", defaultTaxProfiles));
+  const [receipt,    setReceipt]    = useState(() => load(RECEIPT_SETTINGS_KEY, defaultReceiptSettings));
+  const [msg,        setMsg]        = useState("");
+  const [editProf,   setEditProf]   = useState(null);
+  const [profDraft,  setProfDraft]  = useState(null);
+  const [outletId,   setOutletId]   = useState(null);
+  const [outletData, setOutletData] = useState(null);
+
+  // Which sections are open
+  const [open, setOpen] = useState({
+    branding: true, itemsTotal: true, discount: true, business: true, additionalText: false,
+  });
 
   // ── Load receipt settings from backend outlet on mount ──────────────────────
   useEffect(() => {
@@ -192,80 +178,56 @@ export function TaxesReceiptsPage() {
         if (!list?.length) return;
         const o = list[0];
         setOutletId(o.id);
-        // Populate receipt settings from outlet — backend is source of truth
+        setOutletData(o);
         const fromOutlet = {
           showDiscountOnBill: o.showDiscountOnBill ?? defaultReceiptSettings.showDiscountOnBill,
           showGstBreakdown:   o.showGstBreakdown   ?? defaultReceiptSettings.showGstBreakdown,
           showItemDesc:       o.showItemDesc       ?? defaultReceiptSettings.showItemDesc,
           showSavings:        o.showSavings        ?? defaultReceiptSettings.showSavings,
           showQR:             o.showQR             ?? defaultReceiptSettings.showQR,
+          showPhone:          o.showPhone          ?? defaultReceiptSettings.showPhone,
+          showAddress:        o.showAddress        ?? defaultReceiptSettings.showAddress,
+          showGstin:          o.showGstin          ?? defaultReceiptSettings.showGstin,
           footerNote:         o.footerNote         || defaultReceiptSettings.footerNote,
           gstBillingEnabled:  o.gstBillingEnabled  ?? defaultReceiptSettings.gstBillingEnabled,
           gstBillDelivery:    o.gstBillDelivery    ?? defaultReceiptSettings.gstBillDelivery,
         };
         setReceipt(fromOutlet);
-        // Keep localStorage in sync so legacy POS reads still work during transition
         localStorage.setItem(RECEIPT_SETTINGS_KEY, JSON.stringify(fromOutlet));
       })
-      .catch(() => {}); // keep showing localStorage values if API fails
+      .catch(() => {});
   }, []);
 
   function flash(t) { setMsg(t); setTimeout(() => setMsg(""), 3000); }
 
-  function saveAll(b, p, r, o) {
-    localStorage.setItem(TAX_SETTINGS_KEY + "_biz",      JSON.stringify(b));
-    localStorage.setItem(TAX_SETTINGS_KEY + "_profiles", JSON.stringify(p));
-    localStorage.setItem(RECEIPT_SETTINGS_KEY,            JSON.stringify(r));
-    localStorage.setItem(TAX_SETTINGS_KEY + "_outlets",  JSON.stringify(o));
-    // Write merged settings for POS to read
-    localStorage.setItem(TAX_SETTINGS_KEY, JSON.stringify({
-      gstBillingEnabled: r.gstBillingEnabled,
-      gstBillDelivery:   r.gstBillDelivery,
-      businessGST:       b,
-      outletProfiles:    o,
-      profiles:          p
-    }));
-  }
-
-  function saveBiz() {
-    setBusiness(bizDraft);
-    saveAll(bizDraft, profiles, receipt, outlets);
-    setEditBiz(false);
-    flash("Business GST details saved.");
-  }
-
-  function startEditProfile(p) {
-    setEditProf(p.id);
-    setProfDraft({ ...p });
-  }
-
-  function saveProfile() {
-    const next = profiles.map(p => p.id === profDraft.id ? profDraft : p);
-    setProfiles(next);
-    saveAll(business, next, receipt, outlets);
-    setEditProf(null);
-    flash("Tax profile updated.");
-  }
-
   function updateReceipt(key, val) {
     const next = { ...receipt, [key]: val };
     setReceipt(next);
-    saveAll(business, profiles, next, outlets);
-    // Save to backend so POS reads it from outlet API on next sync
+    localStorage.setItem(RECEIPT_SETTINGS_KEY, JSON.stringify(next));
     if (outletId) {
       api.patch(`/outlets/${outletId}/settings`, { [key]: val }).catch(() => {});
     }
   }
 
-  function updateOutlet(outlet, profileId) {
-    const next = { ...outlets, [outlet]: profileId };
-    setOutlets(next);
-    saveAll(business, profiles, receipt, next);
+  function toggleSection(key) {
+    setOpen(s => ({ ...s, [key]: !s[key] }));
   }
 
-  function profileName(id) {
-    return profiles.find(p => p.id === id)?.name || id;
+  function startEditProfile(p) { setEditProf(p.id); setProfDraft({ ...p }); }
+  function saveProfile() {
+    const next = profiles.map(p => p.id === profDraft.id ? profDraft : p);
+    setProfiles(next);
+    localStorage.setItem(TAX_SETTINGS_KEY + "_profiles", JSON.stringify(next));
+    setEditProf(null);
+    flash("Tax profile updated.");
   }
+
+  // ── Preview data (uses live outlet data) ────────────────────────────────────
+  const pvName   = outletData?.name || "Your Restaurant";
+  const pvPhone  = outletData?.phone || "9876543210";
+  const pvAddr   = [outletData?.addressLine1, outletData?.city].filter(Boolean).join(", ") || "123 Main Street, City";
+  const pvGstin  = outletData?.gstin || "29ABCDE1234F1Z5";
+  const pvFooter = receipt.footerNote || "Thank you for dining with us!";
 
   return (
     <>
@@ -278,331 +240,287 @@ export function TaxesReceiptsPage() {
 
       {msg && <div className="mobile-banner">{msg}</div>}
 
-      {/* Bill Number Sequencing Settings */}
+      {/* ── Bill Number Sequencing ────────────────────────────────────────── */}
       <BillNumberPanel />
 
-      <div className="tax-page-grid">
-
-        {/* LEFT COLUMN */}
-        <div className="tax-left-col">
-
-          {/* Business GST Details */}
-          <Section title="Business GST Details" eyebrow="Your GSTIN">
-            {editBiz ? (
-              <div className="tax-form-grid">
-                <label>GSTIN
-                  <input value={bizDraft.gstin} onChange={e => setBizDraft(d => ({ ...d, gstin: e.target.value }))} placeholder="29ABCDE1234F1Z5" />
-                </label>
-                <label>Legal Name
-                  <input value={bizDraft.legalName} onChange={e => setBizDraft(d => ({ ...d, legalName: e.target.value }))} />
-                </label>
-                <label>Trade / Brand Name
-                  <input value={bizDraft.tradeName} onChange={e => setBizDraft(d => ({ ...d, tradeName: e.target.value }))} />
-                </label>
-                <label>Registered Address
-                  <input value={bizDraft.address} onChange={e => setBizDraft(d => ({ ...d, address: e.target.value }))} />
-                </label>
-                <label>Billing Email (for GST bills)
-                  <input type="email" value={bizDraft.email} onChange={e => setBizDraft(d => ({ ...d, email: e.target.value }))} />
-                </label>
-                <label>Phone
-                  <input value={bizDraft.phone} onChange={e => setBizDraft(d => ({ ...d, phone: e.target.value }))} />
-                </label>
-                <div className="tax-form-actions">
-                  <button className="primary-btn" onClick={saveBiz}>Save</button>
-                  <button className="ghost-chip" onClick={() => { setBizDraft(business); setEditBiz(false); }}>Cancel</button>
+      {/* ── Tax Profiles ─────────────────────────────────────────────────── */}
+      <section className="bn-panel" style={{ marginTop: 20 }}>
+        <div className="bn-header">
+          <div>
+            <p className="eyebrow">GST Slabs</p>
+            <h3>Tax Profiles</h3>
+            <p className="bn-desc">Standard GST rates applied to menu items. Assign profiles to items in Menu setup.</p>
+          </div>
+        </div>
+        <div className="tax-profiles-list">
+          {profiles.map(p => (
+            <div key={p.id} className="tax-profile-card">
+              {editProf === p.id ? (
+                <div className="tax-form-grid">
+                  <label>Profile Name
+                    <input value={profDraft.name}
+                      onChange={e => setProfDraft(d => ({ ...d, name: e.target.value }))} />
+                  </label>
+                  <label>CGST %
+                    <input type="number" min="0" max="50" step="0.5" value={profDraft.cgst}
+                      onChange={e => setProfDraft(d => ({ ...d, cgst: parseFloat(e.target.value) || 0 }))} />
+                  </label>
+                  <label>SGST %
+                    <input type="number" min="0" max="50" step="0.5" value={profDraft.sgst}
+                      onChange={e => setProfDraft(d => ({ ...d, sgst: parseFloat(e.target.value) || 0 }))} />
+                  </label>
+                  <label>IGST %
+                    <input type="number" min="0" max="50" step="0.5" value={profDraft.igst}
+                      onChange={e => setProfDraft(d => ({ ...d, igst: parseFloat(e.target.value) || 0 }))} />
+                  </label>
+                  <label>Cess %
+                    <input type="number" min="0" max="50" step="0.5" value={profDraft.cess}
+                      onChange={e => setProfDraft(d => ({ ...d, cess: parseFloat(e.target.value) || 0 }))} />
+                  </label>
+                  <label className="tax-inline-toggle">
+                    <span>Tax-inclusive pricing</span>
+                    <Toggle on={profDraft.inclusive} onChange={v => setProfDraft(d => ({ ...d, inclusive: v }))} />
+                  </label>
+                  <div className="tax-form-actions">
+                    <button className="primary-btn" onClick={saveProfile}>Save</button>
+                    <button className="ghost-chip" onClick={() => setEditProf(null)}>Cancel</button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="tax-biz-card">
-                <div className="tax-biz-rows">
-                  <div className="tax-biz-row"><span>GSTIN</span><strong>{business.gstin}</strong></div>
-                  <div className="tax-biz-row"><span>Legal Name</span><strong>{business.legalName}</strong></div>
-                  <div className="tax-biz-row"><span>Trade Name</span><strong>{business.tradeName}</strong></div>
-                  <div className="tax-biz-row"><span>Address</span><strong>{business.address}</strong></div>
-                  <div className="tax-biz-row"><span>Billing Email</span><strong>{business.email}</strong></div>
-                  <div className="tax-biz-row"><span>Phone</span><strong>{business.phone}</strong></div>
-                </div>
-                <button className="ghost-chip" onClick={() => { setBizDraft(business); setEditBiz(true); }}>Edit</button>
-              </div>
-            )}
-          </Section>
+              ) : (
+                <>
+                  <div className="tax-profile-top">
+                    <strong>{p.name}</strong>
+                    <button className="ghost-chip" onClick={() => startEditProfile(p)}>Edit</button>
+                  </div>
+                  <div className="tax-profile-rates">
+                    <span>CGST {p.cgst}%</span>
+                    <span>SGST {p.sgst}%</span>
+                    <span>IGST {p.igst}%</span>
+                    {p.cess > 0 && <span>Cess {p.cess}%</span>}
+                    {p.inclusive && <span className="tax-badge">Inclusive</span>}
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
 
-          {/* Tax Profiles */}
-          <Section title="Tax Profiles" eyebrow="GST Slabs">
-            <div className="tax-profiles-list">
-              {profiles.map(p => (
-                <div key={p.id} className="tax-profile-card">
-                  {editProf === p.id ? (
-                    <div className="tax-form-grid">
-                      <label>Profile Name
-                        <input value={profDraft.name} onChange={e => setProfDraft(d => ({ ...d, name: e.target.value }))} />
-                      </label>
-                      <label>CGST %
-                        <input type="number" min="0" max="50" step="0.5" value={profDraft.cgst}
-                          onChange={e => setProfDraft(d => ({ ...d, cgst: parseFloat(e.target.value) || 0 }))} />
-                      </label>
-                      <label>SGST %
-                        <input type="number" min="0" max="50" step="0.5" value={profDraft.sgst}
-                          onChange={e => setProfDraft(d => ({ ...d, sgst: parseFloat(e.target.value) || 0 }))} />
-                      </label>
-                      <label>IGST %
-                        <input type="number" min="0" max="50" step="0.5" value={profDraft.igst}
-                          onChange={e => setProfDraft(d => ({ ...d, igst: parseFloat(e.target.value) || 0 }))} />
-                      </label>
-                      <label>Cess %
-                        <input type="number" min="0" max="50" step="0.5" value={profDraft.cess}
-                          onChange={e => setProfDraft(d => ({ ...d, cess: parseFloat(e.target.value) || 0 }))} />
-                      </label>
-                      <label className="tax-inline-toggle">
-                        <span>Tax-inclusive pricing</span>
-                        <Toggle on={profDraft.inclusive} onChange={v => setProfDraft(d => ({ ...d, inclusive: v }))} />
-                      </label>
-                      <div className="tax-form-actions">
-                        <button className="primary-btn" onClick={saveProfile}>Save</button>
-                        <button className="ghost-chip" onClick={() => setEditProf(null)}>Cancel</button>
+      {/* ── Receipt Builder — Square-style two column ─────────────────────── */}
+      <div className="rb-layout">
+
+        {/* LEFT: sticky live receipt preview */}
+        <div className="rb-preview-col">
+          <p className="rb-preview-label">Live Preview</p>
+          <div className="trp-shell">
+            <div className="trp-paper">
+
+              <div className="trp-logo-circle">{pvName[0] || "R"}</div>
+              <div className="trp-brand">{pvName}</div>
+              {receipt.showAddress && pvAddr  && <div className="trp-brand-sub">{pvAddr}</div>}
+              {receipt.showPhone   && pvPhone && <div className="trp-brand-sub">Ph: {pvPhone}</div>}
+              {receipt.showGstin   && pvGstin && <div className="trp-brand-sub">GSTIN: {pvGstin}</div>}
+
+              <div className="trp-dash" />
+
+              <div className="trp-meta-grid">
+                <div><span>Bill No</span><strong>#0042</strong></div>
+                <div><span>Date</span><strong>21 May 2026</strong></div>
+                <div><span>Time</span><strong>1:32 PM</strong></div>
+                <div><span>Table</span><strong>T-04</strong></div>
+                <div><span>Type</span><strong>Dine In</strong></div>
+                <div><span>Cashier</span><strong>Ravi</strong></div>
+              </div>
+
+              <div className="trp-dash" />
+
+              <div className="trp-items-head">
+                <span className="trp-col-item">Item</span>
+                <span className="trp-col-qty">Qty</span>
+                <span className="trp-col-rate">Rate</span>
+                <span className="trp-col-amt">Amt</span>
+              </div>
+              <div className="trp-thin" />
+
+              {[
+                { name: "Paneer Tikka", qty: 2, rate: 240, amt: 480 },
+                { name: "Veg Biryani",  qty: 1, rate: 240, amt: 240 },
+                { name: "Butter Naan",  qty: 3, rate:  40, amt: 120 },
+                { name: "Masala Chai",  qty: 2, rate:  30, amt:  60 },
+              ].map(item => (
+                <div key={item.name} className="trp-item-row">
+                  <span className="trp-col-item">
+                    {item.name}
+                    {receipt.showItemDesc && <span className="trp-item-desc">Chef's special recipe</span>}
+                  </span>
+                  <span className="trp-col-qty">{item.qty}</span>
+                  <span className="trp-col-rate">{item.rate}</span>
+                  <span className="trp-col-amt">{item.amt}</span>
+                </div>
+              ))}
+
+              <div className="trp-dash" />
+
+              <div className="trp-total-block">
+                <div className="trp-total-row"><span>Subtotal</span><span>₹900</span></div>
+                {receipt.showDiscountOnBill && (
+                  <div className="trp-total-row discount"><span>Discount (10%)</span><span>– ₹90</span></div>
+                )}
+                <div className="trp-total-row muted"><span>Taxable Amount</span><span>₹810</span></div>
+                {receipt.showGstBreakdown ? (
+                  <>
+                    <div className="trp-total-row muted"><span>CGST @ 2.5%</span><span>₹20.25</span></div>
+                    <div className="trp-total-row muted"><span>SGST @ 2.5%</span><span>₹20.25</span></div>
+                  </>
+                ) : (
+                  <div className="trp-total-row muted"><span>GST @ 5%</span><span>₹40.50</span></div>
+                )}
+                {receipt.showSavings && (
+                  <div className="trp-total-row saved"><span>★ You saved</span><span>₹90.00</span></div>
+                )}
+                <div className="trp-dash" />
+                <div className="trp-grand-total"><span>TOTAL</span><span>₹850.50</span></div>
+              </div>
+
+              <div className="trp-dash" />
+
+              <div className="trp-payment-row"><span>💳 UPI Payment</span><span>₹850.50</span></div>
+
+              {receipt.showQR && (
+                <div className="trp-qr-block">
+                  <div className="trp-qr-box">
+                    <div className="trp-qr-inner">
+                      <div className="trp-qr-grid">
+                        {Array.from({ length: 25 }).map((_, i) => (
+                          <div key={i} className={`trp-qr-cell${[0,1,2,3,4,6,12,18,20,21,22,23,24,7,14].includes(i) ? " filled" : ""}`} />
+                        ))}
                       </div>
                     </div>
-                  ) : (
-                    <>
-                      <div className="tax-profile-top">
-                        <strong>{p.name}</strong>
-                        <button className="ghost-chip" onClick={() => startEditProfile(p)}>Edit</button>
-                      </div>
-                      <div className="tax-profile-rates">
-                        <span>CGST {p.cgst}%</span>
-                        <span>SGST {p.sgst}%</span>
-                        <span>IGST {p.igst}%</span>
-                        {p.cess > 0 && <span>Cess {p.cess}%</span>}
-                        {p.inclusive && <span className="tax-badge">Inclusive</span>}
-                      </div>
-                    </>
-                  )}
+                  </div>
+                  <span>Scan to pay or reorder</span>
                 </div>
-              ))}
-            </div>
-          </Section>
+              )}
 
-          {/* Outlet Defaults */}
-          <Section title="Outlet Tax Defaults" eyebrow="Per Branch">
-            <div className="tax-outlet-list">
-              {OUTLETS.map(o => (
-                <div key={o} className="tax-outlet-row">
-                  <span>{o}</span>
-                  <select value={outlets[o] || "gst-5"}
-                    onChange={e => { updateOutlet(o, e.target.value); flash(`${o} updated.`); }}>
-                    {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-              ))}
-            </div>
-          </Section>
+              <div className="trp-dash" />
 
+              <div className="trp-footer-block">
+                <span className="trp-footer-msg">{pvFooter}</span>
+                <span className="trp-powered">Powered by Plato POS</span>
+              </div>
+
+            </div>
+            <div className="trp-tear" />
+          </div>
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div className="tax-right-col">
+        {/* RIGHT: collapsible settings sections */}
+        <div className="rb-settings-col">
 
-          {/* GST Billing on POS */}
-          <Section title="GST Billing on POS" eyebrow="Customer GST Bill">
+          {/* Branding */}
+          <RbSection title="Branding" icon="🎨" open={open.branding} onToggle={() => toggleSection("branding")}>
+            <div className="rb-field-row">
+              <span className="rb-field-label">Display name on receipt</span>
+              <span className="rb-field-value">{pvName}</span>
+            </div>
+            <p className="rb-hint">Set in Business Profile → Trade Name</p>
+          </RbSection>
+
+          {/* Items & Total */}
+          <RbSection title="Items &amp; Total" icon="🧾" open={open.itemsTotal} onToggle={() => toggleSection("itemsTotal")}>
+            <div className="tax-toggle-list">
+              {[
+                { key: "showGstBreakdown", label: "Show GST breakdown",    desc: "Print CGST and SGST as separate lines" },
+                { key: "showItemDesc",     label: "Show item notes",       desc: "Print item-level notes on the receipt" },
+                { key: "showSavings",      label: "Show savings row",      desc: "Print 'You saved ₹X' line when discount is applied" },
+                { key: "showQR",           label: "Show QR payment block", desc: "Print QR code at the bottom of the receipt" },
+              ].map(({ key, label, desc }) => (
+                <div key={key} className="tax-toggle-row">
+                  <div><strong>{label}</strong><span>{desc}</span></div>
+                  <Toggle on={receipt[key]}
+                    onChange={v => { updateReceipt(key, v); flash(`${label} ${v ? "enabled" : "disabled"}.`); }} />
+                </div>
+              ))}
+            </div>
+          </RbSection>
+
+          {/* Discount */}
+          <RbSection title="Discount" icon="🏷️" open={open.discount} onToggle={() => toggleSection("discount")}>
+            <div className="tax-toggle-list">
+              <div className="tax-toggle-row" style={{ borderBottom: "none" }}>
+                <div>
+                  <strong>Show discount on printed bill</strong>
+                  <span>Print the discount line on receipt when a discount is applied</span>
+                </div>
+                <Toggle on={receipt.showDiscountOnBill}
+                  onChange={v => { updateReceipt("showDiscountOnBill", v); flash(`Discount on bill ${v ? "enabled" : "disabled"}.`); }} />
+              </div>
+            </div>
+          </RbSection>
+
+          {/* Business Details */}
+          <RbSection title="Business Details" icon="🏢" open={open.business} onToggle={() => toggleSection("business")}>
+            <div className="tax-toggle-list">
+              {[
+                { key: "showPhone",   label: "Show phone number", desc: "Print outlet phone number on receipt header" },
+                { key: "showAddress", label: "Show address",       desc: "Print outlet address on receipt header" },
+                { key: "showGstin",   label: "Show GSTIN",         desc: "Print GSTIN number on receipt header" },
+              ].map(({ key, label, desc }) => (
+                <div key={key} className="tax-toggle-row">
+                  <div><strong>{label}</strong><span>{desc}</span></div>
+                  <Toggle on={receipt[key]}
+                    onChange={v => { updateReceipt(key, v); flash(`${label} ${v ? "shown" : "hidden"} on receipt.`); }} />
+                </div>
+              ))}
+            </div>
+            <p className="rb-hint" style={{ marginTop: 8 }}>Edit details in Business Profile</p>
+          </RbSection>
+
+          {/* Additional Text */}
+          <RbSection title="Additional Text" icon="📝" open={open.additionalText} onToggle={() => toggleSection("additionalText")}>
+            <label className="tax-footer-label">
+              Receipt footer message
+              <input className="tax-footer-input"
+                value={receipt.footerNote}
+                onChange={e => updateReceipt("footerNote", e.target.value)}
+                onBlur={() => flash("Footer note saved.")}
+                placeholder="Thank you for dining with us!" />
+            </label>
+
+            <div className="rb-divider" />
+
             <p className="tax-section-note">
               When enabled, cashier sees a <strong>"Request GST Bill"</strong> button at checkout.
-              Customer fills in Name, Phone, Email and GST number — bill is printed or emailed.
             </p>
-            <div className="tax-toggle-row">
+            <div className="tax-toggle-row" style={{ borderBottom: "none" }}>
               <div>
                 <strong>Enable GST billing at POS</strong>
                 <span>Cashier can collect customer details and issue GST invoice</span>
               </div>
-              <Toggle on={receipt.gstBillingEnabled} onChange={v => { updateReceipt("gstBillingEnabled", v); flash(v ? "GST billing enabled on POS." : "GST billing disabled."); }} />
+              <Toggle on={receipt.gstBillingEnabled}
+                onChange={v => { updateReceipt("gstBillingEnabled", v); flash(v ? "GST billing enabled." : "GST billing disabled."); }} />
             </div>
 
             {receipt.gstBillingEnabled && (
-              <>
-                <div className="tax-delivery-group">
-                  <p className="tax-sub-label">GST bill delivery method</p>
-                  <div className="tax-delivery-options">
-                    {[
-                      { value: "print", label: "🖨️ Print only" },
-                      { value: "email", label: "📧 Email only" },
-                      { value: "both",  label: "🖨️ + 📧 Print & Email" }
-                    ].map(opt => (
-                      <label key={opt.value} className={`tax-delivery-chip${receipt.gstBillDelivery === opt.value ? " selected" : ""}`}>
-                        <input type="radio" name="gstDelivery" value={opt.value}
-                          checked={receipt.gstBillDelivery === opt.value}
-                          onChange={() => { updateReceipt("gstBillDelivery", opt.value); flash("Delivery method saved."); }} />
-                        {opt.label}
-                      </label>
-                    ))}
-                  </div>
+              <div className="tax-delivery-group">
+                <p className="tax-sub-label">GST bill delivery</p>
+                <div className="tax-delivery-options">
+                  {[
+                    { value: "print", label: "🖨️ Print only" },
+                    { value: "email", label: "📧 Email only" },
+                    { value: "both",  label: "🖨️ + 📧 Both" },
+                  ].map(opt => (
+                    <label key={opt.value}
+                      className={`tax-delivery-chip${receipt.gstBillDelivery === opt.value ? " selected" : ""}`}>
+                      <input type="radio" name="gstDelivery" value={opt.value}
+                        checked={receipt.gstBillDelivery === opt.value}
+                        onChange={() => { updateReceipt("gstBillDelivery", opt.value); flash("Delivery method saved."); }} />
+                      {opt.label}
+                    </label>
+                  ))}
                 </div>
-
-                <div className="tax-customer-fields-preview">
-                  <p className="tax-sub-label">Customer form fields (shown on POS)</p>
-                  <div className="tax-field-chips">
-                    <span className="tax-field-chip required">Name *</span>
-                    <span className="tax-field-chip required">Phone *</span>
-                    <span className="tax-field-chip">Email</span>
-                    <span className="tax-field-chip">GST Number</span>
-                  </div>
-                  <p className="tax-hint">* Required fields. Email required when delivery = Email or Both.</p>
-                </div>
-              </>
-            )}
-          </Section>
-
-          {/* Receipt Settings */}
-          <Section title="Receipt Settings" eyebrow="What to Print">
-            <div className="tax-toggle-list">
-              {[
-                { key: "showDiscountOnBill", label: "Show discount on printed bill", desc: "Print discount line on receipt when a discount is applied" },
-                { key: "showGstBreakdown",   label: "Show GST breakdown",            desc: "Print CGST and SGST separately under subtotal" },
-                { key: "showItemDesc",       label: "Show item descriptions",        desc: "Display detail lines under each ordered item" },
-                { key: "showSavings",        label: "Show total savings row",        desc: "Summary line when discounts are applied" },
-                { key: "showQR",             label: "Show QR payment block",         desc: "Payment QR on dine-in and takeaway receipts" }
-              ].map(({ key, label, desc }) => (
-                <div key={key} className="tax-toggle-row">
-                  <div>
-                    <strong>{label}</strong>
-                    <span>{desc}</span>
-                  </div>
-                  <Toggle on={receipt[key]} onChange={v => { updateReceipt(key, v); flash(`${label} ${v ? "enabled" : "disabled"}.`); }} />
-                </div>
-              ))}
-            </div>
-
-            <label className="tax-footer-label">
-              Receipt footer message
-              <input
-                className="tax-footer-input"
-                value={receipt.footerNote}
-                onChange={e => updateReceipt("footerNote", e.target.value)}
-                onBlur={() => flash("Footer note saved.")}
-                placeholder="Thank you for dining with us!"
-              />
-            </label>
-          </Section>
-
-          {/* Receipt Preview */}
-          <Section title="Receipt Preview" eyebrow="Sample Bill — Live Preview">
-            <div className="trp-shell">
-              <div className="trp-paper">
-
-                {/* Restaurant Header */}
-                <div className="trp-logo-circle">{business.tradeName?.[0] || "A"}</div>
-                <div className="trp-brand">{business.tradeName}</div>
-                <div className="trp-brand-sub">{business.address}</div>
-                <div className="trp-brand-sub">Ph: {business.phone}</div>
-                <div className="trp-brand-sub">GSTIN: {business.gstin}</div>
-
-                <div className="trp-dash" />
-
-                {/* Bill Meta */}
-                <div className="trp-meta-grid">
-                  <div><span>Bill No</span><strong>#0042</strong></div>
-                  <div><span>Date</span><strong>17 Apr 2026</strong></div>
-                  <div><span>Time</span><strong>1:32 PM</strong></div>
-                  <div><span>Table</span><strong>T-04</strong></div>
-                  <div><span>Type</span><strong>Dine In</strong></div>
-                  <div><span>Cashier</span><strong>Ravi</strong></div>
-                </div>
-
-                <div className="trp-dash" />
-
-                {/* Items header */}
-                <div className="trp-items-head">
-                  <span className="trp-col-item">Item</span>
-                  <span className="trp-col-qty">Qty</span>
-                  <span className="trp-col-rate">Rate</span>
-                  <span className="trp-col-amt">Amt</span>
-                </div>
-                <div className="trp-thin" />
-
-                {/* Items */}
-                {[
-                  { name: "Paneer Tikka",    qty: 2, rate: 240, amt: 480 },
-                  { name: "Veg Biryani",     qty: 1, rate: 240, amt: 240 },
-                  { name: "Butter Naan",     qty: 3, rate:  40, amt: 120 },
-                  { name: "Masala Chai",     qty: 2, rate:  30, amt:  60 }
-                ].map(item => (
-                  <div key={item.name} className="trp-item-row">
-                    <span className="trp-col-item">
-                      {item.name}
-                      {receipt.showItemDesc && <span className="trp-item-desc">Chef's special recipe</span>}
-                    </span>
-                    <span className="trp-col-qty">{item.qty}</span>
-                    <span className="trp-col-rate">{item.rate}</span>
-                    <span className="trp-col-amt">{item.amt}</span>
-                  </div>
-                ))}
-
-                <div className="trp-dash" />
-
-                {/* Totals */}
-                <div className="trp-total-block">
-                  <div className="trp-total-row"><span>Subtotal</span><span>₹900</span></div>
-                  <div className="trp-total-row discount"><span>Discount (Member 10%)</span><span>– ₹90</span></div>
-                  <div className="trp-total-row muted"><span>Taxable Amount</span><span>₹810</span></div>
-
-                  {receipt.showGstBreakdown ? (
-                    <>
-                      <div className="trp-total-row muted"><span>CGST @ 2.5%</span><span>₹20.25</span></div>
-                      <div className="trp-total-row muted"><span>SGST @ 2.5%</span><span>₹20.25</span></div>
-                    </>
-                  ) : (
-                    <div className="trp-total-row muted"><span>GST @ 5%</span><span>₹40.50</span></div>
-                  )}
-
-                  {receipt.showSavings && (
-                    <div className="trp-total-row saved"><span>★ You saved</span><span>₹90.00</span></div>
-                  )}
-
-                  <div className="trp-dash" />
-                  <div className="trp-grand-total">
-                    <span>TOTAL</span>
-                    <span>₹850.50</span>
-                  </div>
-                </div>
-
-                <div className="trp-dash" />
-
-                {/* Payment */}
-                <div className="trp-payment-row">
-                  <span>💳 UPI Payment</span>
-                  <span>₹850.50</span>
-                </div>
-                <div className="trp-payment-row muted"><span>Txn: UPI2026041701234</span></div>
-
-                {/* QR block */}
-                {receipt.showQR && (
-                  <div className="trp-qr-block">
-                    <div className="trp-qr-box">
-                      <div className="trp-qr-inner">
-                        <div className="trp-qr-grid">
-                          {Array.from({ length: 25 }).map((_, i) => (
-                            <div key={i} className={`trp-qr-cell${[0,1,2,3,4,6,12,18,20,21,22,23,24,7,14].includes(i) ? " filled" : ""}`} />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <span>Scan to pay or reorder</span>
-                  </div>
-                )}
-
-                <div className="trp-dash" />
-
-                {/* Footer */}
-                <div className="trp-footer-block">
-                  <span className="trp-footer-msg">{receipt.footerNote}</span>
-                  <span className="trp-powered">Powered by RestaurantOS</span>
-                </div>
-
               </div>
-
-              {/* Paper tear edge */}
-              <div className="trp-tear" />
-            </div>
-          </Section>
+            )}
+          </RbSection>
 
         </div>
       </div>

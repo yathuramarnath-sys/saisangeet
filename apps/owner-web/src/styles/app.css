@@ -2398,6 +2398,45 @@ body {
 .tax-footer-input { padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; }
 .tax-footer-input:focus { border-color: #1a7a3a; }
 
+/* ── Receipt Builder — Square-style two-column layout ─────────────────────── */
+.rb-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 28px;
+  padding: 20px 24px 56px;
+  align-items: start;
+}
+@media (max-width: 960px) { .rb-layout { grid-template-columns: 1fr; } }
+
+.rb-preview-col { position: sticky; top: 68px; }
+.rb-preview-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .6px; color: #888; margin: 0 0 10px 2px;
+}
+
+.rb-settings-col { display: flex; flex-direction: column; gap: 8px; }
+
+/* Collapsible section card */
+.rb-section { background: #fff; border: 1px solid #e8e8e8; border-radius: 12px; overflow: hidden; }
+.rb-section-head {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; padding: 14px 16px;
+  background: none; border: none; cursor: pointer;
+  text-align: left; font-family: inherit;
+}
+.rb-section-head:hover { background: #fafafa; }
+.rb-section-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #1a2332; }
+.rb-section-icon { font-size: 15px; }
+.rb-chevron { color: #aaa; transition: transform .2s; flex-shrink: 0; }
+.rb-chevron.open { transform: rotate(180deg); }
+.rb-section-body { padding: 4px 16px 16px; border-top: 1px solid #f0f0f0; }
+
+.rb-field-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 13px; }
+.rb-field-label { color: #555; font-weight: 500; }
+.rb-field-value { font-weight: 700; color: #1a2332; font-size: 13px; }
+.rb-hint { font-size: 11.5px; color: #bbb; margin: 4px 0 0; }
+.rb-divider { height: 1px; background: #f0f0f0; margin: 14px 0; }
+
 /* ── Thermal Receipt Preview ─────────────────────────── */
 .trp-shell {
   display: flex;
