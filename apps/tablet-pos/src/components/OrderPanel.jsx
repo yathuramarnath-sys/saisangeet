@@ -270,20 +270,7 @@ export function OrderPanel({
         ))}
       </div>
 
-      {/* ── Discount ──────────────────────────────────────────────────────── */}
-      {hasItems && (
-        <div className="order-discount">
-          <label>
-            <span>Discount (₹)</span>
-            <input type="number" min="0"
-              value={order.discountAmount || ""}
-              placeholder="0"
-              onChange={e => onDiscountChange(Number(e.target.value))} />
-          </label>
-        </div>
-      )}
-
-      {/* ── Totals ────────────────────────────────────────────────────────── */}
+      {/* ── Totals + Discount inline ──────────────────────────────────────── */}
       {hasItems && fin && (
         <div className="order-totals">
           <div className="order-total-row">
@@ -296,12 +283,17 @@ export function OrderPanel({
               <span>−₹{fin.compTotal.toFixed(2)}</span>
             </div>
           )}
-          {fin.discountAmt > 0 && (
-            <div className="order-total-row discount">
-              <span>Discount</span>
-              <span>−₹{fin.discountAmt.toFixed(2)}</span>
-            </div>
-          )}
+          {/* Discount — always visible as inline input row */}
+          <div className="order-total-row discount-row">
+            <span>Discount (₹)</span>
+            <input
+              className="discount-inline-input"
+              type="number" min="0"
+              value={order.discountAmount || ""}
+              placeholder="0"
+              onChange={e => onDiscountChange(Number(e.target.value))}
+            />
+          </div>
           <div className="order-total-row">
             <span>GST</span>
             <span>₹{fin.tax.toFixed(2)}</span>
