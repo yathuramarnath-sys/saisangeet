@@ -7,12 +7,18 @@ const METHODS = [
   { id: "card", label: "Card",  icon: "💳" }
 ];
 
+const BLANK_CREDIT = { name: "", gstin: "", address: "", phone: "", poNumber: "" };
+
 export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR }) {
   const fin = getFinancials(order);
 
   // Local payments added during this modal session (not yet persisted)
   const [localPayments, setLocalPayments] = useState([]);
   const [currentMethod, setCurrentMethod] = useState("cash");
+  // Credit sale state
+  const [showCredit,   setShowCredit]   = useState(false);
+  const [creditForm,   setCreditForm]   = useState(BLANK_CREDIT);
+  const [creditError,  setCreditError]  = useState("");
   // Default to the remaining balance, or full total if already pre-paid (for change calc)
   const [currentAmount, setCurrentAmount] = useState(() => {
     const bal = fin?.balance ?? fin?.total ?? 0;
@@ -80,7 +86,28 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
     }
   }
 
-  const methodLabel = { cash: "Cash", upi: "UPI", card: "Card", phonepe: "PhonePe QR" };
+  async function handleCreditSettle() {
+    if (!creditForm.name.trim()) { setCreditError("Customer / Company name is required."); return; }
+    setCreditError("");
+    setLoading(true);
+    try {
+      await onSettle([{
+        method:        "credit",
+        amount:        fin.balance > 0 ? fin.balance : fin.total,
+        creditCustomer: {
+          name:     creditForm.name.trim(),
+          gstin:    creditForm.gstin.trim().toUpperCase() || null,
+          address:  creditForm.address.trim()  || null,
+          phone:    creditForm.phone.trim()    || null,
+          poNumber: creditForm.poNumber.trim() || null,
+        },
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const methodLabel = { cash: "Cash", upi: "UPI", card: "Card", phonepe: "PhonePe QR", credit: "Credit" };
 
   return (
     <div className="payment-overlay" role="dialog" aria-modal="true">
@@ -184,6 +211,92 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
             <span className="payment-phonepe-btn-icon">📱</span>
             Pay ₹{remaining} via PhonePe QR
           </button>
+        )}
+
+        {/* Credit Sale button */}
+        {!showCredit && remaining > 0 && (
+          <button
+            type="button"
+            className="payment-credit-btn"
+            onClick={() => { setShowCredit(true); setCreditError(""); }}
+          >
+            <span>📋</span> Settle as Credit / GST Bill
+          </button>
+        )}
+
+        {/* Credit customer form */}
+        {showCredit && (
+          <div className="payment-credit-form">
+            <div className="payment-credit-form-head">
+              <span>📋 Credit Sale Details</span>
+              <button type="button" className="payment-credit-close" onClick={() => setShowCredit(false)}>✕</button>
+            </div>
+            <div className="payment-credit-amount-row">
+              <span>Credit Amount</span>
+              <strong>₹{remaining > 0 ? remaining : fin.total}</strong>
+            </div>
+            <div className="payment-credit-fields">
+              <div className="pcf-field">
+                <label>Company / Customer Name <span className="pcf-req">*</span></label>
+                <input
+                  type="text"
+                  placeholder="e.g. ABC Enterprises / Rajan Kumar"
+                  value={creditForm.name}
+                  onChange={e => setCreditForm(p => ({ ...p, name: e.target.value }))}
+                  autoFocus
+                />
+              </div>
+              <div className="pcf-field">
+                <label>GSTIN <span className="pcf-optional">(optional — required for Tax Invoice)</span></label>
+                <input
+                  type="text"
+                  placeholder="e.g. 29ABCDE1234F1Z5"
+                  value={creditForm.gstin}
+                  onChange={e => setCreditForm(p => ({ ...p, gstin: e.target.value }))}
+                  maxLength={15}
+                  style={{ textTransform: "uppercase" }}
+                />
+              </div>
+              <div className="pcf-field">
+                <label>Address <span className="pcf-optional">(optional)</span></label>
+                <input
+                  type="text"
+                  placeholder="Billing address"
+                  value={creditForm.address}
+                  onChange={e => setCreditForm(p => ({ ...p, address: e.target.value }))}
+                />
+              </div>
+              <div className="pcf-row-2">
+                <div className="pcf-field">
+                  <label>Phone</label>
+                  <input
+                    type="tel"
+                    placeholder="Contact number"
+                    value={creditForm.phone}
+                    onChange={e => setCreditForm(p => ({ ...p, phone: e.target.value }))}
+                  />
+                </div>
+                <div className="pcf-field">
+                  <label>PO / Ref No.</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. PO-2024-01"
+                    value={creditForm.poNumber}
+                    onChange={e => setCreditForm(p => ({ ...p, poNumber: e.target.value }))}
+                  />
+                </div>
+              </div>
+              {creditError && <p className="pcf-error">{creditError}</p>}
+            </div>
+            <button
+              type="button"
+              className="payment-credit-settle-btn"
+              disabled={loading}
+              onClick={handleCreditSettle}
+            >
+              {loading ? <span className="pos-spinner" /> : `✓ Confirm Credit · ₹${remaining > 0 ? remaining : fin.total}`}
+            </button>
+          </div>
         )}
 
         {/* Amount input */}

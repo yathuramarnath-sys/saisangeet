@@ -13,6 +13,10 @@ export function printBill(order, items, outletOrName, options = {}) {
   const outlet = (outletOrName && typeof outletOrName === "object") ? outletOrName : null;
   const outletName = outlet?.name || (typeof outletOrName === "string" ? outletOrName : null) || "Restaurant";
 
+  // Credit / B2B GST bill — customer details printed on receipt
+  const creditCustomer = order?.creditCustomer || null;
+  const isTaxInvoice   = !!(creditCustomer?.gstin);
+
   const { seatLabel = null, cashierName = null } = options;
   // Resolve paper width early so the @page CSS can use it
   const _printer      = getBillPrinter();
@@ -157,6 +161,14 @@ export function printBill(order, items, outletOrName, options = {}) {
       font-size: 11px; font-weight: 800; margin: 4px 0;
     }
 
+    /* ── Bill To (Credit/GST) ── */
+    .bill-to { margin: 4px 0; padding: 4px 0; border-top: 1px dashed #aaa; border-bottom: 1px dashed #aaa; }
+    .bill-to-title { font-size: 9px; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+    .bill-to-name  { font-size: 12px; font-weight: 800; }
+    .bill-to-meta  { font-size: 10px; color: #444; margin-top: 1px; line-height: 1.5; }
+    .tax-invoice-badge { text-align: center; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; color: #059669; margin: 2px 0 4px; text-transform: uppercase; }
+    .credit-badge  { text-align: center; font-size: 9px; font-weight: 700; color: #b45309; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 2px 6px; display: inline-block; margin: 2px 0; }
+
     /* ── Footer ── */
     .footer { text-align: center; font-size: 10px; color: #999; margin-top: 8px; line-height: 1.7; }
     .footer .cashier { font-size: 11px; font-weight: 700; color: #444; }
@@ -175,6 +187,18 @@ export function printBill(order, items, outletOrName, options = {}) {
     ${outletFssai ? `<div class="outlet-fssai">FSSAI: ${outletFssai}</div>` : ""}
     ${seatLabel ? `<div><span class="seat-tag">${seatLabel}</span></div>` : ""}
   </div>
+  ${isTaxInvoice ? `<div class="tax-invoice-badge">★ TAX INVOICE ★</div>` : (creditCustomer ? `<div style="text-align:center"><span class="credit-badge">CREDIT BILL</span></div>` : "")}
+
+  ${creditCustomer ? `
+  <div class="bill-to">
+    <div class="bill-to-title">Bill To</div>
+    <div class="bill-to-name">${creditCustomer.name || ""}</div>
+    ${creditCustomer.gstin   ? `<div class="bill-to-meta">GSTIN: <strong>${creditCustomer.gstin}</strong></div>` : ""}
+    ${creditCustomer.address ? `<div class="bill-to-meta">${creditCustomer.address}</div>` : ""}
+    ${creditCustomer.phone   ? `<div class="bill-to-meta">Ph: ${creditCustomer.phone}</div>` : ""}
+    ${creditCustomer.poNumber ? `<div class="bill-to-meta">PO/Ref: ${creditCustomer.poNumber}</div>` : ""}
+  </div>` : ""}
+
   <hr class="div-dash">
 
   <!-- Bill info grid -->
