@@ -341,10 +341,10 @@ ipcMain.handle("auto-install-printer", async (_event, { ip, port = 9100, display
   }
 });
 
-// ── ESC/POS direct TCP printing (for Network IP thermal printers) ─────────────
-// Extracts receipt data from HTML and sends formatted ESC/POS text directly
-// to the printer via TCP port 9100 — no Windows printer driver needed.
-async function printViaEscPosTcp(html, ip, port = 9100) {
+// ── Shared: HTML → ESC/POS buffer ────────────────────────────────────────────
+// Loads the receipt HTML in a hidden window, extracts structured data via JS,
+// and builds the ESC/POS command string.  Returns { ok, buffer } or { ok:false, error }.
+async function buildEscPosFromHtml(html) {
   return new Promise((resolve) => {
     const win = new BrowserWindow({
       show: false, skipTaskbar: true,
@@ -615,27 +615,12 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
 
         cmd += LF + LF + LF + LF + CUT;
 
-        // ── Send via TCP ───────────────────────────────────────────────────
-        // Guard against double-resolve: timeout + write-callback could both fire
-        let tcpDone = false;
-        function tcpResolve(result) { if (!tcpDone) { tcpDone = true; resolve(result); } }
-
-        const sock = new net.Socket();
-        sock.setTimeout(12000);
-        sock.once('connect', () => {
-          // latin1 (= binary, 1:1 byte mapping) is correct for ESC/POS byte sequences
-          sock.write(Buffer.from(cmd, 'latin1'), () => {
-            sock.destroy();
-            tcpResolve({ ok: true });
-          });
-        });
-        sock.once('timeout', () => { sock.destroy(); tcpResolve({ ok: false, error: 'TCP timeout — check printer IP and network connection' }); });
-        sock.once('error',   (err) => { sock.destroy(); tcpResolve({ ok: false, error: err.message }); });
-        sock.connect(port, ip.trim());
+        try { win.destroy(); } catch {}
+        resolve({ ok: true, buffer: Buffer.from(cmd, 'latin1') });
 
       } catch (err) {
         try { win.destroy(); } catch {}
-        if (!tcpDone) { tcpDone = true; resolve({ ok: false, error: err.message }); }
+        resolve({ ok: false, error: err.message });
       }
     });
 
@@ -650,123 +635,203 @@ async function printViaEscPosTcp(html, ip, port = 9100) {
   });
 }
 
-// ── print-html IPC ────────────────────────────────────────────────────────────
-// Silent thermal printing path for the Windows Electron POS.
-//
-// Payload: { html, printerName, printerIp, paperWidthMm }
-//   printerIp set   → direct ESC/POS over TCP to port 9100 (no Windows driver needed)
-//   printerIp unset → webContents.print() via Windows printer spooler
-//
-// Returns: { ok: boolean, error?: string }
-ipcMain.handle("print-html", async (event, { html, printerName, printerIp, paperWidthMm = 80 }) => {
-  // ── Network IP printer → direct ESC/POS over TCP (no Windows driver needed) ─
-  if (printerIp && printerIp.trim()) {
-    console.log(`[print-html] Network printer at ${printerIp} — using direct TCP ESC/POS`);
-    return printViaEscPosTcp(html, printerIp.trim(), 9100);
-  }
+// ── ESC/POS over TCP (Network/IP printers) ────────────────────────────────────
+async function printViaEscPosTcp(html, ip, port = 9100) {
+  const built = await buildEscPosFromHtml(html);
+  if (!built.ok) return built;
 
-  // ── Resolve the exact Windows printer name ───────────────────────────────
-  // webContents.print() requires deviceName to match Windows exactly.
-  // We do a 3-step lookup: exact → case-insensitive → partial match.
-  // If nothing matches we omit deviceName so Windows uses the default printer.
-  let resolvedName = null;
-  if (printerName && typeof printerName === "string" && printerName.trim()) {
-    const wanted = printerName.trim();
-    try {
-      const installedPrinters = await mainWindow.webContents.getPrintersAsync();
-      const names = installedPrinters.map(p => p.name);
+  return new Promise((resolve) => {
+    let done = false;
+    function finish(result) { if (!done) { done = true; resolve(result); } }
 
-      // 1. Exact match
-      let match = names.find(n => n === wanted);
+    const sock = new net.Socket();
+    sock.setTimeout(12000);
+    sock.once('connect', () => {
+      sock.write(built.buffer, () => { sock.destroy(); finish({ ok: true }); });
+    });
+    sock.once('timeout', () => { sock.destroy(); finish({ ok: false, error: 'TCP timeout — check printer IP and network connection' }); });
+    sock.once('error',   (err) => { sock.destroy(); finish({ ok: false, error: err.message }); });
+    sock.connect(port, ip.trim());
+  });
+}
 
-      // 2. Case-insensitive match
-      if (!match) match = names.find(n => n.toLowerCase() === wanted.toLowerCase());
+// ── ESC/POS via Windows raw spooler (USB printers) ───────────────────────────
+// Uses winspool.drv P/Invoke to send raw ESC/POS bytes directly to a USB
+// thermal printer — bypasses Chromium HTML rendering and driver scaling entirely.
+// This gives the same clean output as the network TCP path.
+async function printViaEscPosUsb(html, printerName) {
+  if (process.platform !== 'win32') return { ok: false, error: 'Windows only' };
 
-      // 3. Partial match — either side contains the other
-      if (!match) match = names.find(n =>
-        n.toLowerCase().includes(wanted.toLowerCase()) ||
-        wanted.toLowerCase().includes(n.toLowerCase())
-      );
+  const built = await buildEscPosFromHtml(html);
+  if (!built.ok) return built;
 
-      if (match) {
-        resolvedName = match;
-        if (match !== wanted) {
-          console.log(`[print-html] Printer name resolved: "${wanted}" → "${match}"`);
-        }
-      } else {
-        console.warn(
-          `[print-html] Printer "${wanted}" not found. Available: ${names.join(", ")}. ` +
-          `Falling back to Windows default printer.`
-        );
-      }
-    } catch (err) {
-      console.warn("[print-html] Could not resolve printer name:", err.message);
-      resolvedName = wanted; // try as-is
+  const fs_mod  = require('fs');
+  const os_mod  = require('os');
+  const { exec } = require('child_process');
+  const ts       = Date.now();
+  const tmpBin   = path.join(os_mod.tmpdir(), `plato_${ts}.bin`);
+  const tmpPs1   = path.join(os_mod.tmpdir(), `plato_${ts}.ps1`);
+
+  try {
+    fs_mod.writeFileSync(tmpBin, built.buffer);
+
+    // Escape double-quotes and backslashes for embedding inside the PS1 string
+    const safeName = printerName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const safeBin  = tmpBin.replace(/\\/g, '\\\\');
+
+    const psScript = `
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class RawPrint {
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Ansi)]
+    public class DOCINFOA {
+        [MarshalAs(UnmanagedType.LPStr)] public string pDocName;
+        [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile;
+        [MarshalAs(UnmanagedType.LPStr)] public string pDataType;
     }
+    [DllImport("winspool.drv",EntryPoint="OpenPrinterA",SetLastError=true,CharSet=CharSet.Ansi,ExactSpelling=true,CallingConvention=CallingConvention.StdCall)]
+    public static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, IntPtr pd);
+    [DllImport("winspool.drv",EntryPoint="ClosePrinter",SetLastError=true,ExactSpelling=true,CallingConvention=CallingConvention.StdCall)]
+    public static extern bool ClosePrinter(IntPtr hPrinter);
+    [DllImport("winspool.drv",EntryPoint="StartDocPrinterA",SetLastError=true,CharSet=CharSet.Ansi,ExactSpelling=true,CallingConvention=CallingConvention.StdCall)]
+    public static extern Int32 StartDocPrinter(IntPtr hPrinter, Int32 level, [In,MarshalAs(UnmanagedType.LPStruct)] DOCINFOA di);
+    [DllImport("winspool.drv",EntryPoint="EndDocPrinter",SetLastError=true,ExactSpelling=true,CallingConvention=CallingConvention.StdCall)]
+    public static extern bool EndDocPrinter(IntPtr hPrinter);
+    [DllImport("winspool.drv",EntryPoint="StartPagePrinter",SetLastError=true,ExactSpelling=true,CallingConvention=CallingConvention.StdCall)]
+    public static extern bool StartPagePrinter(IntPtr hPrinter);
+    [DllImport("winspool.drv",EntryPoint="EndPagePrinter",SetLastError=true,ExactSpelling=true,CallingConvention=CallingConvention.StdCall)]
+    public static extern bool EndPagePrinter(IntPtr hPrinter);
+    [DllImport("winspool.drv",EntryPoint="WritePrinter",SetLastError=true,ExactSpelling=true,CallingConvention=CallingConvention.StdCall)]
+    public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
+}
+"@ -ErrorAction Stop
+$n = "${safeName}"
+$f = "${safeBin}"
+$bytes = [System.IO.File]::ReadAllBytes($f)
+$h = [IntPtr]::Zero
+if (-not [RawPrint]::OpenPrinter($n, [ref]$h, [IntPtr]::Zero)) { Write-Output "ERR:open:$([Runtime.InteropServices.Marshal]::GetLastWin32Error())"; exit 1 }
+$di = New-Object RawPrint+DOCINFOA; $di.pDocName = "PlatoReceipt"; $di.pDataType = "RAW"
+$docId = [RawPrint]::StartDocPrinter($h, 1, $di)
+if ($docId -le 0) { [RawPrint]::ClosePrinter($h); Write-Output "ERR:startdoc"; exit 1 }
+[RawPrint]::StartPagePrinter($h) | Out-Null
+$ptr = [Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
+[Runtime.InteropServices.Marshal]::Copy($bytes, 0, $ptr, $bytes.Length)
+$written = 0
+$ok = [RawPrint]::WritePrinter($h, $ptr, $bytes.Length, [ref]$written)
+[Runtime.InteropServices.Marshal]::FreeHGlobal($ptr)
+[RawPrint]::EndPagePrinter($h) | Out-Null
+[RawPrint]::EndDocPrinter($h) | Out-Null
+[RawPrint]::ClosePrinter($h) | Out-Null
+Remove-Item "$f" -ErrorAction SilentlyContinue
+if ($ok) { Write-Output "OK" } else { Write-Output "ERR:write:$([Runtime.InteropServices.Marshal]::GetLastWin32Error())" }
+`;
+
+    fs_mod.writeFileSync(tmpPs1, psScript, 'utf8');
+  } catch (err) {
+    return { ok: false, error: err.message };
   }
 
   return new Promise((resolve) => {
-    // Hidden window — never shown on screen
-    const win = new BrowserWindow({
-      show:            false,
-      skipTaskbar:     true,
-      webPreferences: {
-        nodeIntegration:  false,
-        contextIsolation: true,
-      },
-    });
+    exec(
+      `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmpPs1}"`,
+      { timeout: 15000 },
+      (err, stdout, stderr) => {
+        try { fs_mod.unlinkSync(tmpBin);  } catch {}
+        try { fs_mod.unlinkSync(tmpPs1); } catch {}
+        const out = (stdout || '').trim();
+        if (err && !out) {
+          resolve({ ok: false, error: err.message || stderr || 'USB print failed' });
+        } else if (out === 'OK') {
+          resolve({ ok: true });
+        } else {
+          resolve({ ok: false, error: out || err?.message || 'USB print failed' });
+        }
+      }
+    );
+  });
+}
 
-    // Safety net: destroy window if it never finishes loading (e.g. bad HTML)
+// ── print-html IPC ────────────────────────────────────────────────────────────
+// Silent thermal printing for the Windows Electron POS.
+//
+// Routing:
+//   printerIp set   → ESC/POS raw bytes over TCP port 9100 (Network/IP printer)
+//   printerName set → ESC/POS raw bytes via Windows winspool P/Invoke (USB printer)
+//   neither set     → webContents.print() to Windows default printer (fallback)
+//
+// Both IP and USB printers now use the same ESC/POS text path — this gives
+// consistent output regardless of the printer driver's DPI/scaling settings.
+//
+// Returns: { ok: boolean, error?: string }
+ipcMain.handle("print-html", async (event, { html, printerName, printerIp, paperWidthMm = 80 }) => {
+  // ── Network IP printer → ESC/POS over TCP ────────────────────────────────
+  if (printerIp && printerIp.trim()) {
+    console.log(`[print-html] Network printer at ${printerIp} — ESC/POS TCP`);
+    return printViaEscPosTcp(html, printerIp.trim(), 9100);
+  }
+
+  // ── USB printer → ESC/POS via Windows raw spooler ────────────────────────
+  if (printerName && typeof printerName === "string" && printerName.trim()) {
+    // Resolve exact Windows printer name (exact → case-insensitive → partial)
+    let resolvedName = printerName.trim();
+    try {
+      const installed = await mainWindow.webContents.getPrintersAsync();
+      const names     = installed.map(p => p.name);
+      const exact     = names.find(n => n === resolvedName);
+      const ci        = names.find(n => n.toLowerCase() === resolvedName.toLowerCase());
+      const partial   = names.find(n =>
+        n.toLowerCase().includes(resolvedName.toLowerCase()) ||
+        resolvedName.toLowerCase().includes(n.toLowerCase())
+      );
+      const matched   = exact || ci || partial;
+      if (matched) {
+        if (matched !== resolvedName) console.log(`[print-html] USB name resolved: "${resolvedName}" → "${matched}"`);
+        resolvedName = matched;
+      } else {
+        console.warn(`[print-html] Printer "${resolvedName}" not found in Windows. Available: ${names.join(", ")}`);
+      }
+    } catch (err) {
+      console.warn("[print-html] getPrintersAsync failed:", err.message);
+    }
+
+    console.log(`[print-html] USB printer "${resolvedName}" — ESC/POS raw`);
+    const usbResult = await printViaEscPosUsb(html, resolvedName);
+    if (usbResult.ok) return usbResult;
+
+    // If raw P/Invoke fails (e.g. printer offline), log and return the error.
+    // We do NOT silently fall back to webContents.print() because that would
+    // produce the same garbled output that prompted this fix.
+    console.error(`[print-html] USB ESC/POS failed for "${resolvedName}":`, usbResult.error);
+    return usbResult;
+  }
+
+  // ── No printer configured — fall back to Windows default printer ─────────
+  console.warn("[print-html] No printer configured — using Windows default via webContents.print()");
+  return new Promise((resolve) => {
+    const win = new BrowserWindow({
+      show: false, skipTaskbar: true,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
     const timeoutHandle = setTimeout(() => {
-      console.error("[print-html] Load timeout — destroying window");
       try { win.destroy(); } catch {}
       resolve({ ok: false, error: "load_timeout" });
     }, 8000);
-
     win.webContents.on("did-finish-load", () => {
       clearTimeout(timeoutHandle);
-
-      // Allow a short settle time for CSS / inline font fallback to render.
-      // Google Fonts may 404 in offline environments — Courier New fallback is fine.
       setTimeout(() => {
-        const printOptions = {
-          silent:          true,
-          printBackground: true,
-          margins:         { marginType: "none" },
-        };
-
-        // Only set deviceName when we have a resolved name.
-        // Omitting it makes Electron use the Windows default printer.
-        if (resolvedName) {
-          printOptions.deviceName = resolvedName;
-        }
-
-        win.webContents.print(printOptions, (success, failureReason) => {
+        win.webContents.print({ silent: true, printBackground: true, margins: { marginType: "none" } }, (success, reason) => {
           try { win.destroy(); } catch {}
-          if (success) {
-            resolve({ ok: true });
-          } else {
-            console.error(
-              `[print-html] webContents.print failed` +
-              `${resolvedName ? ` (printer: "${resolvedName}")` : " (default printer)"}` +
-              `: ${failureReason}`
-            );
-            resolve({ ok: false, error: failureReason });
-          }
+          resolve(success ? { ok: true } : { ok: false, error: reason });
         });
       }, 400);
     });
-
-    win.webContents.on("did-fail-load", (_e, errCode, errDesc) => {
+    win.webContents.on("did-fail-load", (_e, code, desc) => {
       clearTimeout(timeoutHandle);
       try { win.destroy(); } catch {}
-      console.error("[print-html] did-fail-load:", errCode, errDesc);
-      resolve({ ok: false, error: errDesc });
+      resolve({ ok: false, error: desc });
     });
-
-    // Load HTML as a base64 data URL — avoids temp-file I/O
-    const encoded = Buffer.from(html, "utf8").toString("base64");
-    win.loadURL(`data:text/html;base64,${encoded}`);
+    win.loadURL(`data:text/html;base64,${Buffer.from(html, "utf8").toString("base64")}`);
   });
 });
 

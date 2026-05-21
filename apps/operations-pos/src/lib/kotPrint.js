@@ -123,10 +123,11 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       font-family: 'Manrope', 'Courier New', monospace;
       font-size: 13px;
       width: ${width};
-      margin: 0 auto;
-      padding: 12px ${rightPad}px 16px 10px;
+      margin: 0;
+      padding: 12px ${rightPad}px 16px 8px;
       background: #fff;
       color: #000;
+      overflow: hidden;
     }
 
     .kot-header {
@@ -256,7 +257,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
         size: ${width} auto;
         margin: 0;
       }
-      body { padding: 6px ${rightPad}px 32px 8px; }
+      body { margin: 0; padding: 6px ${rightPad}px 32px 8px; overflow: hidden; }
     }
   </style>
 </head>

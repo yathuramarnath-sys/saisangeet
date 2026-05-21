@@ -17,7 +17,7 @@ export function printBill(order, items, outletOrName, options = {}) {
   const _printer      = getBillPrinter();
   const _paperWidthMm = parseInt(_printer?.paper) || 80;  // "80mm"→80, "58mm"→58
   const _marginAdjust = parseInt(_printer?.marginAdjust) || 0;
-  const _rightPad     = 10 + _marginAdjust;
+  const _rightPad     = 14 + _marginAdjust;
   const servedBy   = cashierName || order.cashierName || "-";
   // Captain and waiter — row hidden entirely if both are empty
   const captainStr = captainName || order.captainName    || "";
@@ -105,8 +105,10 @@ export function printBill(order, items, outletOrName, options = {}) {
       font-family: 'Manrope', 'Courier New', monospace;
       font-size: ${_paperWidthMm <= 58 ? 11 : 12}px;
       color: #111;
-      padding: 10px ${_rightPad}px 40px 10px;
+      margin: 0;
+      padding: 10px ${_rightPad}px 40px 8px;
       width: ${_paperWidthMm}mm;
+      overflow: hidden;
     }
 
     /* ── Header ── */
