@@ -4119,6 +4119,24 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .tpp-ct-total {
   font-size: 13px; font-weight: 700; color: #059669;
 }
+.tpp-counter-ticket {
+  position: relative; display: flex; align-items: stretch;
+}
+.tpp-ct-main {
+  flex: 1; display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; text-align: left; background: none; border: none; cursor: pointer;
+}
+.tpp-ct-empty-tag {
+  font-size: 10px; font-weight: 700; padding: 1px 6px;
+  background: #f1f5f9; color: #94a3b8; border-radius: 20px;
+}
+.tpp-ct-delete {
+  width: 32px; flex-shrink: 0; border: none; background: none;
+  color: #ef4444; font-size: 14px; font-weight: 700;
+  cursor: pointer; border-left: 1px solid #fee2e2;
+  border-radius: 0 10px 10px 0; transition: background 0.15s;
+}
+.tpp-ct-delete:hover { background: #fef2f2; }
 
 /* ══════════════════════════════════════════════════════════════════════════════
    POS LAYOUT — 3 columns

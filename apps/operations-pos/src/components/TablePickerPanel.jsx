@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder }) {
+export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder }) {
   const [activeArea, setActiveArea] = useState(null);
 
   function tableStatus(tableId) {
@@ -102,19 +102,29 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
                 const total   = ticketTotal(ticket);
                 const itemCnt = (ticket.items || []).filter(i => !i.isVoided).reduce((s, i) => s + i.quantity, 0);
                 return (
-                  <button key={ticket.tableId} type="button"
-                    className={`tpp-counter-ticket${ticket.billRequested ? " bill-req" : ""}`}
-                    onClick={() => onSelectTable(ticket.tableId)}>
-                    <div className="tpp-ct-row">
-                      <span className="tpp-ct-num">#{String(ticket.ticketNumber || "").padStart(3, "0")}</span>
-                      {ticket.billRequested && <span className="tpp-ct-bill-tag">Bill</span>}
-                      {ticket.onlinePlatform && <span className="tpp-ct-platform">{ticket.onlinePlatform}</span>}
-                    </div>
-                    <div className="tpp-ct-meta">
-                      {itemCnt} item{itemCnt !== 1 ? "s" : ""}
-                      {total > 0 && <span className="tpp-ct-total">{fmt(total)}</span>}
-                    </div>
-                  </button>
+                  <div key={ticket.tableId}
+                    className={`tpp-counter-ticket${ticket.billRequested ? " bill-req" : ""}`}>
+                    <button type="button" className="tpp-ct-main"
+                      onClick={() => onSelectTable(ticket.tableId)}>
+                      <div className="tpp-ct-row">
+                        <span className="tpp-ct-num">#{String(ticket.ticketNumber || "").padStart(3, "0")}</span>
+                        {ticket.billRequested && <span className="tpp-ct-bill-tag">Bill</span>}
+                        {ticket.onlinePlatform && <span className="tpp-ct-platform">{ticket.onlinePlatform}</span>}
+                        {itemCnt === 0 && <span className="tpp-ct-empty-tag">Empty</span>}
+                      </div>
+                      <div className="tpp-ct-meta">
+                        {itemCnt} item{itemCnt !== 1 ? "s" : ""}
+                        {total > 0 && <span className="tpp-ct-total">{fmt(total)}</span>}
+                      </div>
+                    </button>
+                    {itemCnt === 0 && onDeleteCounterOrder && (
+                      <button type="button" className="tpp-ct-delete"
+                        title="Remove empty order"
+                        onClick={e => { e.stopPropagation(); onDeleteCounterOrder(ticket.tableId); }}>
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 );
               })}
           </div>

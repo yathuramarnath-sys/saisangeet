@@ -177,7 +177,16 @@ const ORDERS_KEY = "pos_active_orders";
 
 function loadSavedOrders() {
   try {
-    return JSON.parse(localStorage.getItem(ORDERS_KEY) || "null") || {};
+    const raw = JSON.parse(localStorage.getItem(ORDERS_KEY) || "null") || {};
+    // Auto-clean ghost empty counter orders on startup
+    const cleaned = Object.fromEntries(
+      Object.entries(raw).filter(([, o]) => {
+        if (!o?.isCounter) return true; // keep all dine-in orders
+        const hasItems = (o.items || []).filter(i => !i.isVoided && !i.isComp).length > 0;
+        return hasItems; // drop empty counter orders
+      })
+    );
+    return cleaned;
   } catch { return {}; }
 }
 
@@ -1422,6 +1431,20 @@ export default function App() {
     showToast("Split recorded · Collect per seat");
   }
 
+  // ── Delete empty counter order (ghost cleanup) ────────────────────────────
+  function handleDeleteCounterOrder(tableId) {
+    setOrders(prev => {
+      const order = prev[tableId];
+      if (!order?.isCounter) return prev;
+      const hasItems = (order.items || []).filter(i => !i.isVoided && !i.isComp).length > 0;
+      if (hasItems) return prev; // only delete truly empty tickets
+      const next = { ...prev };
+      delete next[tableId];
+      return next;
+    });
+    setSelectedTableId(prev => prev === tableId ? null : prev);
+  }
+
   // ── Counter order ─────────────────────────────────────────────────────────
   function handleNewCounterOrder() {
     const ticketNum = counterTicketNum;
@@ -2115,6 +2138,7 @@ export default function App() {
             onSelectTable={handleSelectTable}
             serviceMode={serviceMode}
             onNewCounterOrder={handleNewCounterOrder}
+            onDeleteCounterOrder={handleDeleteCounterOrder}
           />
         ) : selectedOrder?.isSplitBill && selectedOrder?.splitBills?.length > 0 ? (
           <SplitSettlementPanel
