@@ -492,6 +492,6 @@ export async function updatePricingProfile(profileId, payload) {
   return api.patch(`/menu/pricing-profiles/${profileId}`, payload);
 }
 
-export async function bulkImportMenuItems(rows) {
-  return api.post("/menu/import", { rows });
+export async function bulkImportMenuItems(rows, targetOutletId = "all") {
+  return api.post("/menu/import", { rows, targetOutletId });
 }

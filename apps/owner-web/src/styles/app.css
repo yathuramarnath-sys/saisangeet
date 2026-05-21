@@ -4708,6 +4708,60 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   min-height: 220px;
 }
 
+/* ── BulkImportPanel — branch selector ─────────────────────────────────────── */
+.bip-branch-selector {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 4px;
+}
+.bip-branch-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  display: block;
+  margin-bottom: 10px;
+}
+.bip-branch-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.bip-branch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bip-branch-chip input[type="radio"] { display: none; }
+.bip-branch-chip:hover { border-color: #059669; color: #059669; }
+.bip-branch-chip.selected {
+  border-color: #059669;
+  background: #ecfdf5;
+  color: #065f46;
+  font-weight: 600;
+}
+.bip-branch-hint { font-size: 12px; color: #6b7280; margin: 0; }
+.bip-branch-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #065f46;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
 /* Sample download box */
 .bip-sample-box {
   display: flex;

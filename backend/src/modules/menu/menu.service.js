@@ -507,14 +507,21 @@ async function updatePricingProfile(id, payload) {
 }
 
 async function bulkImportMenuItems(payload) {
-  const rows = Array.isArray(payload.rows) ? payload.rows : [];
-  const createdItems = [];
-  const errors = [];
+  const rows           = Array.isArray(payload.rows) ? payload.rows : [];
+  const targetOutletId = payload.targetOutletId || "all";
+  const createdItems   = [];
+  const errors         = [];
 
   // ── Read current store state ONCE ───────────────────────────────────────────
-  const currentData    = getOwnerSetupData();
-  const outlets        = currentData.outlets || [];
-  const outletAvailability = outlets.map((o) => ({ outlet: o.name, enabled: true }));
+  const currentData = getOwnerSetupData();
+  const outlets     = currentData.outlets || [];
+
+  // Build outletAvailability — if a specific branch is targeted, only that
+  // outlet is enabled; all others are disabled.
+  const outletAvailability = outlets.map((o) => ({
+    outlet:  o.name,
+    enabled: targetOutletId === "all" ? true : o.id === targetOutletId,
+  }));
 
   const allWorkAreas = [...new Set(
     outlets.flatMap((o) => o.workAreas || ["AC", "Non-AC", "Self Service"])

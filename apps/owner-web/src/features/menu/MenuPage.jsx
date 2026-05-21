@@ -1589,6 +1589,7 @@ export function MenuPage() {
           onClose={() => setShowImportPanel(false)}
           onImportDone={() => reloadMenu()}
           menuFieldSettings={menuFieldSettings}
+          availableOutlets={availableOutlets}
         />
       )}
     </>

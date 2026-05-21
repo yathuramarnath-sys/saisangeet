@@ -241,16 +241,18 @@ const CORE_COL_REFERENCE = [
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {} }) {
+export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {}, availableOutlets = [] }) {
   const fs = menuFieldSettings;
   const fileRef = useRef(null);
 
   // step: "upload" | "preview" | "importing" | "done"
-  const [step,     setStep]     = useState("upload");
-  const [parsed,   setParsed]   = useState(null);
-  const [fileName, setFileName] = useState("");
-  const [results,  setResults]  = useState(null);
-  const [error,    setError]    = useState("");
+  const [step,           setStep]           = useState("upload");
+  const [parsed,         setParsed]         = useState(null);
+  const [fileName,       setFileName]       = useState("");
+  const [results,        setResults]        = useState(null);
+  const [error,          setError]          = useState("");
+  // "all" means all outlets; outlet.id means specific branch
+  const [targetOutletId, setTargetOutletId] = useState("all");
 
   // ── File selection ──────────────────────────────────────────────────────────
 
@@ -293,7 +295,7 @@ export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {} 
       .filter((r) => r.itemName && r.categoryName);
 
     try {
-      const result = await bulkImportMenuItems(toImport);
+      const result = await bulkImportMenuItems(toImport, targetOutletId);
       setResults(result);
       setStep("done");
       onImportDone?.();
@@ -309,6 +311,7 @@ export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {} 
     setResults(null);
     setError("");
     setStep("upload");
+    setTargetOutletId("all");
   }
 
   // Which optional columns to show in the preview table
@@ -341,6 +344,40 @@ export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {} 
         {/* ── Step 1: Upload ───────────────────────────────────────────────── */}
         {step === "upload" && (
           <div className="bip-body">
+
+            {/* ── Branch selector ─────────────────────────────────────────── */}
+            {availableOutlets.length > 0 && (
+              <div className="bip-branch-selector">
+                <span className="bip-branch-label">Import menu for</span>
+                <div className="bip-branch-options">
+                  <label className={`bip-branch-chip${targetOutletId === "all" ? " selected" : ""}`}>
+                    <input
+                      type="radio"
+                      name="bip-outlet"
+                      checked={targetOutletId === "all"}
+                      onChange={() => setTargetOutletId("all")}
+                    />
+                    ✓ All Branches
+                  </label>
+                  {availableOutlets.map((o) => (
+                    <label key={o.id} className={`bip-branch-chip${targetOutletId === o.id ? " selected" : ""}`}>
+                      <input
+                        type="radio"
+                        name="bip-outlet"
+                        checked={targetOutletId === o.id}
+                        onChange={() => setTargetOutletId(o.id)}
+                      />
+                      {o.name}
+                    </label>
+                  ))}
+                </div>
+                <p className="bip-branch-hint">
+                  {targetOutletId === "all"
+                    ? "Items will be available at all branches."
+                    : `Items will be available only at: ${availableOutlets.find(o => o.id === targetOutletId)?.name}`}
+                </p>
+              </div>
+            )}
 
             {/* Sample download */}
             <div className="bip-sample-box">
@@ -420,6 +457,11 @@ export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {} 
           <div className="bip-body">
             <div className="bip-file-bar">
               <span className="bip-file-name">📄 {fileName}</span>
+              <span className="bip-branch-badge">
+                {targetOutletId === "all"
+                  ? "🏪 All Branches"
+                  : `🏪 ${availableOutlets.find(o => o.id === targetOutletId)?.name || "Selected Branch"}`}
+              </span>
               <button className="ghost-chip" onClick={reset}>Change file</button>
             </div>
 
