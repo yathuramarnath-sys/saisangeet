@@ -138,11 +138,11 @@ function buildMenuItemPayload(formValues, category, stationName) {
     unit: formValues.unit || "",
     badges: ["Custom item", "Available"],
     salesAvailability: "Available",
-    outletAvailability: [
-      { outlet: "Indiranagar", enabled: true },
-      { outlet: "Koramangala", enabled: true },
-      { outlet: "HSR Layout", enabled: true }
-    ],
+    // Use the real outlet availability passed from the form (set by MenuPage from live outlets).
+    // Never fall back to hardcoded outlet names — they belong to a dev test account.
+    outletAvailability: Array.isArray(formValues.outletAvailability)
+      ? formValues.outletAvailability
+      : [],
     inventoryTracking: buildInventoryTracking(formValues),
     takeawayPrice: buildPriceLabel(formValues.takeawayPrice),
     deliveryPrice: buildPriceLabel(formValues.deliveryPrice),
@@ -366,11 +366,9 @@ export async function createCustomMenuItem(formValues) {
       taxRate: Number(formValues.taxRate || 0),
       gstLabel: `${formValues.taxMode === "Inclusive" ? "Tax Incl" : "Tax Excl"} ${Number(formValues.taxRate || 0)}%`,
       salesAvailability: "Available",
-      outletAvailability: [
-        { outlet: "Indiranagar", enabled: true },
-        { outlet: "Koramangala", enabled: true },
-        { outlet: "HSR Layout", enabled: true }
-      ],
+      outletAvailability: Array.isArray(formValues.outletAvailability)
+        ? formValues.outletAvailability
+        : [],
       takeawayPrice: buildPriceLabel(formValues.takeawayPrice),
       deliveryPrice: buildPriceLabel(formValues.deliveryPrice),
       parcelCharges: {
