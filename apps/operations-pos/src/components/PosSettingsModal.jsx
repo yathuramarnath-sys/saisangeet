@@ -476,20 +476,7 @@ function PrinterTab() {
 
 /* ─── Tables Tab ────────────────────────────────────────────────────────────── */
 function TablesTab() {
-  const [areas, setAreas] = useState(() =>
-    load("pos_table_config", [
-      { id: "a1", name: "Main Hall",  tables: [
-        { id: "t1", number: "T1", seats: 4 },
-        { id: "t2", number: "T2", seats: 4 },
-        { id: "t3", number: "T3", seats: 6 },
-        { id: "t4", number: "T4", seats: 2 },
-      ]},
-      { id: "a2", name: "Terrace", tables: [
-        { id: "t5", number: "T5", seats: 4 },
-        { id: "t6", number: "T6", seats: 4 },
-      ]}
-    ])
-  );
+  const [areas, setAreas] = useState(() => load("pos_table_config", []));
   const [activeArea,  setActiveArea]  = useState(areas[0]?.id || null);
   const [newAreaName, setNewAreaName] = useState("");
   const [newTable,    setNewTable]    = useState({ number: "", seats: "4" });

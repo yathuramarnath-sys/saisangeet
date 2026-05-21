@@ -859,7 +859,7 @@ function normalizeOwnerSetupData(data) {
     const healed = {
       hours:        "9:00 AM - 11:00 PM",
       services:     ["Dine-in","Takeaway"],
-      workAreas:    ["AC","Non-AC","Self Service"],
+      workAreas:    [],
       tables:       [],
       reportEmail:  "",
       ...outlet,

@@ -73,7 +73,7 @@ function buildOwnerTableCatalog() {
     }))
   );
 
-  return ownerTables.length ? ownerTables : defaultTableCatalog;
+  return ownerTables;
 }
 
 function getTableCatalog() {
