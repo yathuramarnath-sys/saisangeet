@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { api } from "../../lib/api";
 import { discountsSeedData } from "./discounts.seed";
 import {
   createDiscountRule,
@@ -19,7 +20,6 @@ function saveLocal(key, data) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────
-const OUTLETS = ["All Outlets", "Indiranagar", "Koramangala", "HSR Layout", "Whitefield"];
 const BILLING_ROLES = ["Cashier", "Manager", "All Billing Roles"];
 
 function buildMeta(rule) {
@@ -65,8 +65,7 @@ const emptyForm = {
 export function DiscountRulesPage() {
   const [rules, setRules] = useState([]);
   const [policy, setPolicy] = useState([]);
-  const [activity] = useState(discountsSeedData.activity);
-  const [alerts, setAlerts] = useState(discountsSeedData.alerts);
+  const [outlets, setOutlets] = useState(["All Outlets"]);
   const [loading, setLoading] = useState(true);
 
   // Create form
@@ -83,13 +82,20 @@ export function DiscountRulesPage() {
 
   // ── Load ──────────────────────────────────────────────────
   useEffect(() => {
-    const localRules = loadLocal(LOCAL_RULES_KEY, null);
+    const localRules  = loadLocal(LOCAL_RULES_KEY, null);
     const localPolicy = loadLocal(LOCAL_POLICY_KEY, null);
-    const seedRules = (localRules || discountsSeedData.rules).map(normalizeRule);
-    const seedPolicy = localPolicy || discountsSeedData.approvalPolicy;
+    const seedRules   = (localRules || discountsSeedData.rules).map(normalizeRule);
+    const seedPolicy  = localPolicy || discountsSeedData.approvalPolicy;
     setRules(seedRules);
     setPolicy(seedPolicy);
     initPolicyDrafts(seedPolicy);
+    // Load real outlets for the Outlet scope dropdown
+    api.get("/outlets")
+      .then((data) => {
+        const names = (data || []).map((o) => o.name).filter(Boolean);
+        if (names.length) setOutlets(["All Outlets", ...names]);
+      })
+      .catch(() => { /* stay with default "All Outlets" */ });
     setLoading(false);
   }, []);
 
@@ -159,10 +165,6 @@ export function DiscountRulesPage() {
     saveLocal(LOCAL_RULES_KEY, updated);
     if (editingId === rule.id) setEditingId(null);
     flash(`"${rule.name}" deleted.`);
-    // Rebuild alerts
-    const paused = updated.filter((r) => !r.isActive).length;
-    if (paused > 0) setAlerts([{ id: "paused", title: `${paused} rule(s) paused`, description: "Review whether to resume them." }]);
-    else setAlerts(discountsSeedData.alerts);
   }
 
   // ── Approval Policy ───────────────────────────────────────
@@ -231,7 +233,7 @@ export function DiscountRulesPage() {
           </label>
           <label>Outlet scope
             <select value={draft.outletScope} onChange={(e) => setDraft((p) => ({ ...p, outletScope: e.target.value }))}>
-              {OUTLETS.map((o) => <option key={o} value={o}>{o}</option>)}
+              {outlets.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </label>
           <label>Time window
@@ -453,44 +455,6 @@ export function DiscountRulesPage() {
             </label>
             <button type="submit" className="secondary-btn full-width">Save Guardrails</button>
           </form>
-        </article>
-
-        {/* ── ACTIVITY ── */}
-        <article className="panel panel-wide">
-          <div className="panel-head">
-            <div><p className="eyebrow">Discount Activity</p><h3>Recent Overrides</h3></div>
-          </div>
-          <div className="staff-table">
-            <div className="staff-row staff-head" style={{ gridTemplateColumns: "1fr 1fr 2fr 1fr 1fr" }}>
-              <span>Time</span><span>User</span><span>Action</span><span>Amount</span><span>Status</span>
-            </div>
-            {activity.length === 0 ? (
-              <div className="panel-empty">No activity yet.</div>
-            ) : activity.map((item) => (
-              <div key={item.id} className="staff-row" style={{ gridTemplateColumns: "1fr 1fr 2fr 1fr 1fr" }}>
-                <span>{item.time}</span>
-                <span>{item.user}</span>
-                <span>{item.action}</span>
-                <span>{item.amount}</span>
-                <span className={`status ${statusClass(item.status)}`}>{item.status}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        {/* ── ALERTS ── */}
-        <article className="panel">
-          <div className="panel-head">
-            <div><p className="eyebrow">Attention</p><h3>Discount Alerts</h3></div>
-          </div>
-          <div className="alert-list">
-            {alerts.map((a) => (
-              <div key={a.id} className="alert-item">
-                <strong>{a.title}</strong>
-                <span>{a.description}</span>
-              </div>
-            ))}
-          </div>
         </article>
 
       </section>
