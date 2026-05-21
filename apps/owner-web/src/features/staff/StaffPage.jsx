@@ -38,9 +38,11 @@ function saveLocal(key, data) {
 function buildDefaultDraft(data) {
   // Default to Cashier (never Owner) — Owner is the first role in the list but
   // it gets a passwordHash on signup and is excluded from the POS staff grid.
+  // Also never default to an inactive role.
+  const activeRolesList = (data.roles || []).filter((r) => r.isActive !== false);
   const defaultRole =
-    data.roles?.find((r) => r.name === "Cashier")?.name ||
-    data.roles?.find((r) => r.name !== "Owner")?.name ||
+    activeRolesList.find((r) => r.name === "Cashier")?.name ||
+    activeRolesList.find((r) => r.name !== "Owner")?.name ||
     "Cashier";
   return {
     fullName: "",
@@ -259,6 +261,24 @@ export function StaffPage() {
     showMsg("Role deleted.");
   }
 
+  async function handleToggleRoleActive(role) {
+    const isActive = !role.isActive;
+    try {
+      await updateStaffRole(role.id, {
+        name: role.name,
+        description: role.summary || role.description || "",
+        permissions: localPerms[role.id] ?? role.permissions ?? [],
+        isActive
+      });
+    } catch (_) { /* offline */ }
+    const updatedRoles = staffData.roles.map((r) =>
+      r.id === role.id ? { ...r, isActive } : r
+    );
+    setStaffData((p) => ({ ...p, roles: updatedRoles }));
+    saveLocal(LOCAL_ROLES_KEY, updatedRoles);
+    showMsg(isActive ? `${role.name} role activated.` : `${role.name} role deactivated — hidden from staff assignment.`);
+  }
+
   // ── Staff CRUD ────────────────────────────────────────────
   async function handleCreateStaff(e) {
     e.preventDefault();
@@ -403,6 +423,8 @@ export function StaffPage() {
 
   // Outlet options — only real outlets from this account
   const outletOptions = staffData.outlets.map((o) => o.name);
+  // Active roles only — for staff assignment dropdowns (inactive roles are hidden)
+  const activeRoles = staffData.roles.filter((r) => r.isActive !== false);
 
   if (loading) {
     return (
@@ -528,19 +550,35 @@ export function StaffPage() {
             {staffData.roles.map((role) => {
               const permCount = (localPerms[role.id] || role.permissions || []).length;
               const isSelected = selectedRole?.id === role.id;
+              const isActive   = role.isActive !== false;
               return (
                 <div
                   key={role.id}
-                  className={`role-card ${isSelected ? "active-role" : ""}`}
+                  className={`role-card ${isSelected ? "active-role" : ""} ${!isActive ? "role-card-inactive" : ""}`}
                   onClick={() => { setSelectedRoleId(role.id); setPermsDirty(false); setPermsSaveMsg(""); }}
                   style={{ cursor: "pointer" }}
                 >
                   <div className="role-card-header">
-                    <strong>{role.name}</strong>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <strong style={{ color: isActive ? undefined : "#aaa" }}>{role.name}</strong>
+                      {!isActive && (
+                        <span style={{ fontSize: "0.7rem", background: "#f0f0f0", color: "#aaa", borderRadius: "4px", padding: "1px 6px", fontWeight: 600 }}>
+                          INACTIVE
+                        </span>
+                      )}
+                    </div>
                     <div
                       className="entity-actions"
                       onClick={(e) => e.stopPropagation()}
+                      style={{ display: "flex", alignItems: "center", gap: "6px" }}
                     >
+                      {/* Active / Inactive toggle — Owner role cannot be deactivated */}
+                      {role.name !== "Owner" && (
+                        <Toggle
+                          enabled={isActive}
+                          onChange={() => handleToggleRoleActive(role)}
+                        />
+                      )}
                       <button type="button" className="ghost-chip" onClick={() => openEditRole(role)}>
                         Edit
                       </button>
@@ -549,11 +587,14 @@ export function StaffPage() {
                       </button>
                     </div>
                   </div>
-                  <span style={{ fontSize: "0.82rem", color: "#666", display: "block", margin: "0.2rem 0" }}>
+                  <span style={{ fontSize: "0.82rem", color: isActive ? "#666" : "#bbb", display: "block", margin: "0.2rem 0" }}>
                     {role.summary}
                   </span>
-                  <span style={{ fontSize: "0.75rem", color: isSelected ? "#1a7a3a" : "#999" }}>
-                    {permCount} permission{permCount !== 1 ? "s" : ""} enabled
+                  <span style={{ fontSize: "0.75rem", color: isActive ? (isSelected ? "#1a7a3a" : "#999") : "#ccc" }}>
+                    {isActive
+                      ? `${permCount} permission${permCount !== 1 ? "s" : ""} enabled`
+                      : "Hidden from staff assignment"
+                    }
                   </span>
                 </div>
               );
@@ -680,7 +721,7 @@ export function StaffPage() {
                   value={staffDraft.role}
                   onChange={(e) => setStaffDraft((p) => ({ ...p, role: e.target.value }))}
                 >
-                  {staffData.roles.map((r) => (
+                  {activeRoles.map((r) => (
                     <option key={r.id} value={r.name}>{r.name}</option>
                   ))}
                 </select>
@@ -799,7 +840,7 @@ export function StaffPage() {
                               value={editStaffDraft.role}
                               onChange={(e) => setEditStaffDraft((p) => ({ ...p, role: e.target.value }))}
                             >
-                              {staffData.roles.map((r) => (
+                              {activeRoles.map((r) => (
                                 <option key={r.id} value={r.name}>{r.name}</option>
                               ))}
                             </select>

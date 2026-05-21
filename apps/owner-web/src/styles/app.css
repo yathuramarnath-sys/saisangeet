@@ -1367,6 +1367,11 @@ body {
   box-shadow: 0 0 0 3px rgba(26,122,58,0.12);
 }
 
+.role-card.role-card-inactive {
+  opacity: 0.55;
+  background: #fafafa;
+}
+
 .role-card-header {
   display: flex;
   justify-content: space-between;

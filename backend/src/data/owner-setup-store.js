@@ -887,15 +887,20 @@ function normalizeOwnerSetupData(data) {
     const existing = (next.permissions || []).find((item) => item.code === permission.code);
     return existing ? { ...permission, ...existing } : permission;
   });
-  next.roles = [
-    ...defaultRoles.map((role) => {
-      const existing = (next.roles || []).find((item) => item.name === role.name);
-      return existing
-        ? { ...role, ...existing, permissions: Array.from(new Set([...(existing.permissions || []), ...(role.permissions || [])])) }
-        : role;
-    }),
-    ...(next.roles || []).filter((role) => !defaultRoles.some((dr) => dr.name === role.name)),
-  ];
+  // Merge new permissions into existing roles, but NEVER re-add roles the owner deleted.
+  // (Old code re-added Captain/Waiter/Manager on every restart even after owner removed them.)
+  next.roles = (next.roles || []).map((role) => {
+    const defaultRole = defaultRoles.find((dr) => dr.name === role.name);
+    if (!defaultRole) return role; // custom role — keep as is
+    // Merge: existing role wins for all fields, but picks up any new permissions from default.
+    // isActive defaults to true for roles that pre-date this field (backward compat).
+    return {
+      ...defaultRole,
+      ...role,
+      isActive:    role.isActive ?? true,
+      permissions: Array.from(new Set([...(role.permissions || []), ...(defaultRole.permissions || [])])),
+    };
+  });
   next.menu = next.menu || { categories: [], items: [] };
   next.menu.config          = next.menu.config          || createDefaultMenuConfig(next.taxProfiles || []);
   next.menu.pricingProfiles = next.menu.pricingProfiles || createDefaultPricingProfiles();

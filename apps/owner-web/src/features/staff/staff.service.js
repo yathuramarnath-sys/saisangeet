@@ -113,7 +113,7 @@ function normalizeRoles(roles) {
     summary: role.description || "Role summary pending",
     description: role.description || "",
     permissions: role.permissions || [],
-    active: true
+    isActive: role.isActive ?? true
   }));
 }
 

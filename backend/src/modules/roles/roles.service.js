@@ -14,7 +14,8 @@ async function createRole(payload) {
     id: `role-${Date.now()}`,
     name: payload.name,
     description: payload.description || "",
-    permissions: payload.permissions || []
+    permissions: payload.permissions || [],
+    isActive: payload.isActive ?? true
   };
 
   updateOwnerSetupData((current) => ({
@@ -37,9 +38,10 @@ async function updateRole(roleId, payload) {
 
       updatedRole = {
         ...role,
-        name: payload.name ?? role.name,
+        name:        payload.name        ?? role.name,
         description: payload.description ?? role.description,
-        permissions: payload.permissions ?? role.permissions ?? []
+        permissions: payload.permissions ?? role.permissions ?? [],
+        isActive:    payload.isActive    ?? role.isActive ?? true
       };
 
       return updatedRole;

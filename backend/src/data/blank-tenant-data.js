@@ -33,6 +33,7 @@ function createDefaultRoles() {
     {
       id: "role-owner", name: "Owner",
       description: "Full business access across all outlets",
+      isActive: true,
       permissions: [
         "business.manage","outlets.manage","menu.manage","roles.manage","users.manage",
         "tax.manage","receipt_templates.manage","devices.manage","reports.view",
@@ -45,26 +46,31 @@ function createDefaultRoles() {
     {
       id: "role-manager", name: "Manager",
       description: "Outlet operations and approval access",
+      isActive: true,
       permissions: ["menu.manage","users.manage","reports.view","operations.discount.approve","operations.bill.cancel","floor.area.manage"]
     },
     {
       id: "role-cashier", name: "Cashier",
       description: "Billing and table setup",
+      isActive: true,
       permissions: ["operations.table.create","operations.bill.edit","floor.table.seats.manage"]
     },
     {
       id: "role-captain", name: "Captain",
       description: "Floor service, KOT and split bill",
+      isActive: true,
       permissions: ["operations.kot.send","operations.bill.split","operations.table.move"]
     },
     {
       id: "role-waiter", name: "Waiter",
       description: "Service and billing request",
+      isActive: true,
       permissions: ["operations.bill.request"]
     },
     {
       id: "role-kitchen", name: "Kitchen",
       description: "Kitchen ticket status updates",
+      isActive: true,
       permissions: ["operations.kot.status.update"]
     }
   ];
