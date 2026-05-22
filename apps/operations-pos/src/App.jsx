@@ -886,6 +886,12 @@ export default function App() {
     return "";
   }, [selectedTableId, selectedTable, selectedOrder, serviceMode]);
 
+  // Active (non-voided) item count in the current order — used by the order tab badge.
+  const activeOrderItemCount = useMemo(() => {
+    if (!selectedOrder) return 0;
+    return (selectedOrder.items || []).filter(i => !i.isVoided).length;
+  }, [selectedOrder]);
+
   // Quantities of unsent items in current order — used by MenuPanel +/− buttons.
   // MUST be here (before any conditional returns) to obey React Rules of Hooks.
   const menuQuantities = useMemo(() => {
@@ -2156,6 +2162,29 @@ export default function App() {
 
       {/* ── Right: Table Picker or Order Panel ───────────────────────────── */}
       <div className="pos-right">
+
+        {/* Tab bar — shown whenever a table / counter order is active */}
+        {selectedTableId && (
+          <div className="pos-order-tabs">
+            <div className="pos-order-tab active">
+              <span className="pot-label">{tableLabel}</span>
+              {activeOrderItemCount > 0 && (
+                <span className="pot-badge">{activeOrderItemCount}</span>
+              )}
+            </div>
+            <button
+              type="button"
+              className="pos-order-tab new-order"
+              onClick={() => setSelectedTableId(null)}
+            >
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              New Order
+            </button>
+          </div>
+        )}
+
         {!selectedTableId ? (
           <TablePickerPanel
             tableAreas={tableAreas}

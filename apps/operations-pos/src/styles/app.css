@@ -640,8 +640,78 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .order-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
+}
+
+/* ── Order Tabs — "park & take new order" ────────────────────────────────── */
+.pos-order-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 8px 10px 0;
+  flex-shrink: 0;
+  background: var(--sq-surface);
+  border-bottom: 1px solid var(--sq-border);
+}
+
+.pos-order-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px 7px;
+  border-radius: 8px 8px 0 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  color: var(--sq-muted);
+  position: relative;
+  bottom: -1px;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+
+.pos-order-tab.active {
+  background: #fff;
+  color: var(--sq-text);
+  border-color: var(--sq-border);
+  border-bottom-color: #fff;
+}
+
+.pos-order-tab.new-order {
+  color: var(--sq-primary, #059669);
+}
+
+.pos-order-tab.new-order:hover {
+  background: #f0fdf4;
+  color: #047857;
+}
+
+.pot-label {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pot-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #059669;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .order-panel-empty {
