@@ -188,6 +188,7 @@ export function TaxesReceiptsPage() {
           showPhone:          o.showPhone          ?? defaultReceiptSettings.showPhone,
           showAddress:        o.showAddress        ?? defaultReceiptSettings.showAddress,
           showGstin:          o.showGstin          ?? defaultReceiptSettings.showGstin,
+          showFssai:          o.showFssai          ?? defaultReceiptSettings.showFssai,
           footerNote:         o.footerNote         || defaultReceiptSettings.footerNote,
           gstBillingEnabled:  o.gstBillingEnabled  ?? defaultReceiptSettings.gstBillingEnabled,
           gstBillDelivery:    o.gstBillDelivery    ?? defaultReceiptSettings.gstBillDelivery,
@@ -464,6 +465,7 @@ export function TaxesReceiptsPage() {
                 { key: "showPhone",   label: "Show phone number", desc: "Print outlet phone number on receipt header" },
                 { key: "showAddress", label: "Show address",       desc: "Print outlet address on receipt header" },
                 { key: "showGstin",   label: "Show GSTIN",         desc: "Print GSTIN number on receipt header" },
+                { key: "showFssai",   label: "Show FSSAI",         desc: "Print FSSAI licence number on receipt header" },
               ].map(({ key, label, desc }) => (
                 <div key={key} className="tax-toggle-row">
                   <div><strong>{label}</strong><span>{desc}</span></div>

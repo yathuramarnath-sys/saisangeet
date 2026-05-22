@@ -60,6 +60,7 @@ const emptyProfile = {
   legalName:    "",
   tradeName:    "",
   gstin:        "",
+  fssaiNo:      "",
   phone:        "",
   email:        "",
   addressLine1: "",
@@ -261,6 +262,10 @@ export function BusinessProfilePage() {
             <label>
               GSTIN
               <input type="text" name="gstin" value={profile.gstin} onChange={updateField} />
+            </label>
+            <label>
+              FSSAI Licence Number
+              <input type="text" name="fssaiNo" value={profile.fssaiNo || ""} onChange={updateField} placeholder="e.g. 10012345678901" />
             </label>
             <label>
               Phone

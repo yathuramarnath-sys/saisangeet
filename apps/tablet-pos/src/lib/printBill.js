@@ -32,7 +32,7 @@ export function printBill(order, items, outletOrName, options = {}) {
   const outletCity    = outlet?.city         || "";
   const outletState   = outlet?.state        || "";
   const outletGstin   = outlet?.gstin        || "";
-  const outletFssai   = outlet?.fssaiNo      || "";
+  const outletFssai   = (outlet?.showFssai !== false) ? (outlet?.fssaiNo || "") : "";
   const invoiceHeader = outlet?.invoiceHeader || "";
   const invoiceFooter = outlet?.invoiceFooter || "Thank you for dining with us!";
 

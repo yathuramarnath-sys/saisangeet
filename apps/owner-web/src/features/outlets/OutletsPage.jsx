@@ -52,6 +52,7 @@ function buildEditDraft(outlet) {
     city: outlet.city,
     state: outlet.state,
     gstin: outlet.gstin,
+    fssaiNo: outlet.fssaiNo || "",
     defaultTaxProfileId: outlet.defaultTaxProfileId || "",
     receiptTemplateId: outlet.receiptTemplateId || "",
     reportEmail: outlet.reportEmail || "",
@@ -69,6 +70,7 @@ function buildCreateDraft(pageData) {
     city: "",
     state: "",
     gstin: "",
+    fssaiNo: "",
     openingTime: "09:00",
     closingTime: "23:00",
     reportEmail: "",
@@ -230,6 +232,7 @@ export function OutletsPage() {
         city: createDraft.city,
         state: createDraft.state,
         gstin: createDraft.gstin,
+        fssaiNo: createDraft.fssaiNo,
         defaultTaxProfileId: createDraft.defaultTaxProfileId,
         receiptTemplateId: createDraft.receiptTemplateId,
         reportEmail: createDraft.reportEmail,
@@ -262,6 +265,7 @@ export function OutletsPage() {
         city: editDraft.city,
         state: editDraft.state,
         gstin: editDraft.gstin,
+        fssaiNo: editDraft.fssaiNo,
         defaultTaxProfileId: editDraft.defaultTaxProfileId,
         receiptTemplateId: editDraft.receiptTemplateId,
         reportEmail: editDraft.reportEmail,
@@ -573,6 +577,16 @@ export function OutletsPage() {
               />
             </label>
             <label>
+              FSSAI Licence Number
+              <input
+                type="text"
+                name="fssaiNo"
+                value={createDraft.fssaiNo || ""}
+                placeholder="e.g. 10012345678901"
+                onChange={(event) => setCreateDraft((current) => ({ ...current, fssaiNo: event.target.value }))}
+              />
+            </label>
+            <label>
               Opening time
               <input
                 type="time"
@@ -714,6 +728,15 @@ export function OutletsPage() {
                   type="text"
                   value={editDraft.gstin}
                   onChange={(event) => setEditDraft((current) => ({ ...current, gstin: event.target.value }))}
+                />
+              </label>
+              <label>
+                FSSAI Licence Number
+                <input
+                  type="text"
+                  value={editDraft.fssaiNo || ""}
+                  placeholder="e.g. 10012345678901"
+                  onChange={(event) => setEditDraft((current) => ({ ...current, fssaiNo: event.target.value }))}
                 />
               </label>
               <label>

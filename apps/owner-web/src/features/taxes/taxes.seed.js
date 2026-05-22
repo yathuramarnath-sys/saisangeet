@@ -32,6 +32,7 @@ export const defaultReceiptSettings = {
   showPhone:          true,
   showAddress:        true,
   showGstin:          true,
+  showFssai:          true,
   footerNote:         "Thank you for dining with us! Visit again.",
   gstBillingEnabled:  true,
   gstBillDelivery:    "both"

@@ -26,6 +26,7 @@ async function fetchOutlets() {
     state:         o.state         || bp.state         || "",
     gstin:         o.gstin         || bp.gstin         || "",
     fssaiNo:       o.fssaiNo       || bp.fssaiNo       || "",
+    showFssai:     o.showFssai     ?? true,
     invoiceHeader: o.invoiceHeader || bp.invoiceHeader || "",
     invoiceFooter: o.invoiceFooter || bp.invoiceFooter || "",
   }));
