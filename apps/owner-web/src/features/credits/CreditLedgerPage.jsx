@@ -22,6 +22,7 @@ export function CreditLedgerPage() {
   const [loading,     setLoading]     = useState(true);
   const [statusTab,   setStatusTab]   = useState(STATUS_UNPAID);
   const [search,      setSearch]      = useState("");
+  const [expandedId,  setExpandedId]  = useState(null); // bill detail expand
 
   // Settle modal state
   const [settling,    setSettling]    = useState(null);  // order being settled
@@ -199,11 +200,16 @@ export function CreditLedgerPage() {
 
                 <div className="credit-bills-list">
                   {custOrders.map(o => {
-                    const amt     = creditAmount(o);
-                    const isPaid  = o.creditStatus === "paid";
+                    const amt       = creditAmount(o);
+                    const isPaid    = o.creditStatus === "paid";
+                    const billKey   = o.id || o.orderNumber;
+                    const isExpanded = expandedId === billKey;
+                    const billItems = o.items?.filter(i => !i.isVoided) || [];
                     return (
-                      <div key={o.id || o.orderNumber} className={`credit-bill-row${isPaid ? " credit-bill-paid" : ""}`}>
-                        <div className="credit-bill-left">
+                      <div key={billKey} className={`credit-bill-row${isPaid ? " credit-bill-paid" : ""}${isExpanded ? " expanded" : ""}`}>
+                        {/* ── Main bill row ── */}
+                        <div className="credit-bill-left" style={{ cursor: "pointer" }} onClick={() => setExpandedId(isExpanded ? null : billKey)}>
+                          <span className="credit-bill-toggle">{isExpanded ? "▼" : "▶"}</span>
                           <span className="credit-bill-no">Bill #{o.billNo || o.orderNumber}</span>
                           {o.creditCustomer?.poNumber && (
                             <span className="credit-po">PO: {o.creditCustomer.poNumber}</span>
@@ -221,14 +227,76 @@ export function CreditLedgerPage() {
                               ✓ Settled · {o.creditSettledMethod} · {fmtDate(o.creditSettledAt)}
                             </span>
                           ) : (
-                            <button
-                              className="credit-settle-btn"
-                              onClick={() => openSettle(o)}
-                            >
+                            <button className="credit-settle-btn" onClick={() => openSettle(o)}>
                               Settle
                             </button>
                           )}
                         </div>
+
+                        {/* ── Expanded item detail ── */}
+                        {isExpanded && (
+                          <div className="credit-bill-detail">
+                            {/* Item table */}
+                            {billItems.length > 0 ? (
+                              <table className="credit-items-table">
+                                <thead>
+                                  <tr>
+                                    <th>Item</th>
+                                    <th>Qty</th>
+                                    <th style={{ textAlign: "right" }}>Rate</th>
+                                    <th style={{ textAlign: "right" }}>Amount</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {billItems.map((item, idx) => (
+                                    <tr key={idx}>
+                                      <td>{item.name}{item.note ? <span className="credit-item-note"> · {item.note}</span> : ""}</td>
+                                      <td>{item.quantity}</td>
+                                      <td style={{ textAlign: "right" }}>₹{Number(item.price || 0).toFixed(2)}</td>
+                                      <td style={{ textAlign: "right" }}>₹{(Number(item.price || 0) * item.quantity).toFixed(2)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <p className="credit-no-items">Item details not available for this bill</p>
+                            )}
+
+                            {/* Bill totals */}
+                            <div className="credit-bill-totals">
+                              {o.discountAmount > 0 && (
+                                <div className="credit-total-row">
+                                  <span>Discount</span>
+                                  <span>− {fmt(o.discountAmount)}</span>
+                                </div>
+                              )}
+                              {o.taxAmount > 0 && (
+                                <div className="credit-total-row">
+                                  <span>GST</span>
+                                  <span>{fmt(o.taxAmount)}</span>
+                                </div>
+                              )}
+                              <div className="credit-total-row total">
+                                <span>Bill Total</span>
+                                <span>{fmt(amt)}</span>
+                              </div>
+                              {isPaid && (
+                                <div className="credit-total-row settled">
+                                  <span>Settled via {o.creditSettledMethod}</span>
+                                  <span>{fmtDate(o.creditSettledAt)}{o.creditSettledRef ? ` · Ref: ${o.creditSettledRef}` : ""}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Notes / PO */}
+                            {(o.notes || o.creditCustomer?.poNumber) && (
+                              <div className="credit-bill-notes">
+                                {o.creditCustomer?.poNumber && <span>PO: {o.creditCustomer.poNumber}</span>}
+                                {o.notes && <span>Note: {o.notes}</span>}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

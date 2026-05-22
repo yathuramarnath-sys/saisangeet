@@ -264,7 +264,8 @@ export function MenuPage() {
   const itemCount = menuData.items.length;
   const reviewCount = menuData.items.filter((item) => item.status === "Review").length;
   const vegItemCount = menuData.items.filter((item) => item.foodType === "Veg").length;
-  const missingTaxCount = menuData.items.filter((item) => Number(item.taxRate || 0) <= 0).length;
+  // Only flag items where taxRate is genuinely missing (null/undefined/"") — 0% is valid for exempt items
+  const missingTaxCount = menuData.items.filter((item) => item.taxRate === null || item.taxRate === undefined || item.taxRate === "").length;
   const kitchenMappedCount = menuData.items.filter(
     (item) => item.station && item.station !== "Station pending"
   ).length;
@@ -338,7 +339,7 @@ export function MenuPage() {
       (inventoryFilter === "Tracked" && item.inventoryTracking.enabled) ||
       (inventoryFilter === "Not tracked" && !item.inventoryTracking.enabled);
     const matchesFoodType = foodTypeFilter === "Any" || item.foodType === foodTypeFilter;
-    const matchesTax = taxFilter === "Any" || (taxFilter === "Missing" && Number(item.taxRate || 0) <= 0);
+    const matchesTax = taxFilter === "Any" || (taxFilter === "Missing" && (item.taxRate === null || item.taxRate === undefined || item.taxRate === ""));
     // Outlet filter: "all" shows everything; specific outlet shows only enabled items
     const matchesOutlet =
       outletFilter === "all" ||
@@ -1330,7 +1331,7 @@ export function MenuPage() {
                   {item.unit && (
                     <span className="unit-badge">{item.unit}</span>
                   )}
-                  {Number(item.taxRate || 0) <= 0 && (
+                  {(item.taxRate === null || item.taxRate === undefined || item.taxRate === "") && (
                     <span className="tax-missing-badge" title="No GST rate set — will default to 5%">⚠️ GST</span>
                   )}
                 </span>

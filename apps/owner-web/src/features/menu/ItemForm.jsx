@@ -116,31 +116,31 @@ export function ItemForm({
 
       <label>
         AC dine-in price
-        <input type="number" name="acDineIn" min="0"
+        <input type="number" name="acDineIn" min="0" step="0.01"
           value={draft.acDineIn ?? "0"}
           onChange={(e) => field("acDineIn", e.target.value)} required />
       </label>
       <label>
         Non-AC dine-in price
-        <input type="number" name="nonAcDineIn" min="0"
+        <input type="number" name="nonAcDineIn" min="0" step="0.01"
           value={draft.nonAcDineIn ?? "0"}
           onChange={(e) => field("nonAcDineIn", e.target.value)} required />
       </label>
       <label>
         Self service dine-in price
-        <input type="number" name="selfDineIn" min="0"
+        <input type="number" name="selfDineIn" min="0" step="0.01"
           value={draft.selfDineIn ?? "0"}
           onChange={(e) => field("selfDineIn", e.target.value)} required />
       </label>
       <label>
         Takeaway price
-        <input type="number" name="takeawayPrice" min="0"
+        <input type="number" name="takeawayPrice" min="0" step="0.01"
           value={draft.takeawayPrice ?? "0"}
           onChange={(e) => field("takeawayPrice", e.target.value)} required />
       </label>
       <label>
         Delivery price
-        <input type="number" name="deliveryPrice" min="0"
+        <input type="number" name="deliveryPrice" min="0" step="0.01"
           value={draft.deliveryPrice ?? "0"}
           onChange={(e) => field("deliveryPrice", e.target.value)} required />
       </label>

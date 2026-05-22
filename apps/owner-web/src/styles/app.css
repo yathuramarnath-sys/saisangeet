@@ -6914,6 +6914,75 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 }
 .credit-settle-btn:hover { background: #047857; }
 
+/* Bill detail expand */
+.credit-bill-toggle { font-size: 10px; color: #9ca3af; margin-right: 4px; user-select: none; }
+.credit-bill-row.expanded { background: #f8fafc; border-radius: 8px; }
+.credit-bill-detail {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 10px 12px 14px 28px;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 6px;
+}
+.credit-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.credit-items-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 6px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.credit-items-table td {
+  padding: 5px 6px;
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 12px;
+}
+.credit-items-table tr:last-child td { border-bottom: none; }
+.credit-item-note { color: #9ca3af; font-size: 11px; }
+.credit-no-items  { font-size: 12px; color: #9ca3af; padding: 8px 0; }
+.credit-bill-totals {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 280px;
+  margin-left: auto;
+}
+.credit-total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #374151;
+  padding: 2px 0;
+}
+.credit-total-row.total {
+  font-size: 14px;
+  font-weight: 800;
+  color: #111;
+  border-top: 1.5px solid #e5e7eb;
+  margin-top: 4px;
+  padding-top: 6px;
+}
+.credit-total-row.settled { font-size: 11px; color: #059669; }
+.credit-bill-notes {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 8px;
+}
+
 /* Settle modal summary */
 .credit-settle-summary { display: flex; flex-direction: column; gap: 6px; }
 .credit-settle-summary > div {
