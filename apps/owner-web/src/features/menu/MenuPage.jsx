@@ -307,6 +307,25 @@ export function MenuPage() {
     items: menuData.items.filter((item) => item.categoryId === category.id)
   }));
   const availableCategoryNames = menuData.categories.map((category) => category.name);
+
+  // Categories that actually have items in the selected outlet.
+  // When outlet = "all" → show every category.
+  // When a specific outlet is selected → only show categories that have
+  // at least one enabled item at that outlet (so the dropdown matches
+  // what you actually see in the item list).
+  const filteredCategoryNames = outletFilter === "all"
+    ? availableCategoryNames
+    : [...new Set(
+        menuData.items
+          .filter(item => {
+            const oa = item.outletAvailability || [];
+            if (oa.length === 0) return true; // no restriction = available everywhere
+            return oa.some(e => e.outlet === outletFilter && e.enabled);
+          })
+          .map(item => item.categoryName)
+          .filter(Boolean)
+      )];
+
   const availableStationNames = menuData.stations.map((station) => station.name);
   const availableOutlets = menuData.outlets || [];
   const availableTaxProfiles = menuData.taxProfiles || [];
@@ -1216,7 +1235,7 @@ export function MenuPage() {
                 <button
                   type="button"
                   className={`outlet-filter-chip${outletFilter === "all" ? " active" : ""}`}
-                  onClick={() => setOutletFilter("all")}
+                  onClick={() => { setOutletFilter("all"); setCategoryFilter("All"); }}
                 >
                   All Outlets
                   <span className="outlet-filter-count">{menuData.items.length}</span>
@@ -1226,7 +1245,7 @@ export function MenuPage() {
                     key={o.id}
                     type="button"
                     className={`outlet-filter-chip${outletFilter === o.name ? " active" : ""}`}
-                    onClick={() => setOutletFilter(o.name)}
+                    onClick={() => { setOutletFilter(o.name); setCategoryFilter("All"); }}
                   >
                     {o.name}
                     <span className="outlet-filter-count">{outletItemCounts[o.name] ?? 0}</span>
@@ -1416,7 +1435,7 @@ export function MenuPage() {
               {availableOutlets.length > 1 && (
                 <label>
                   Branch / Outlet
-                  <select value={outletFilter} onChange={(event) => setOutletFilter(event.target.value)}>
+                  <select value={outletFilter} onChange={(event) => { setOutletFilter(event.target.value); setCategoryFilter("All"); }}>
                     <option value="all">All Outlets</option>
                     {availableOutlets.map((o) => (
                       <option key={o.id} value={o.name}>
@@ -1428,9 +1447,14 @@ export function MenuPage() {
               )}
               <label>
                 Category
+                {outletFilter !== "all" && (
+                  <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 400, marginLeft: 6 }}>
+                    ({filteredCategoryNames.length} in this branch)
+                  </span>
+                )}
                 <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
                   <option value="All">All</option>
-                  {availableCategoryNames.map((categoryNameOption) => (
+                  {filteredCategoryNames.map((categoryNameOption) => (
                     <option key={`filter-${categoryNameOption}`} value={categoryNameOption}>
                       {categoryNameOption}
                     </option>
