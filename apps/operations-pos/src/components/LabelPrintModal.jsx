@@ -1,0 +1,305 @@
+/**
+ * LabelPrintModal — Print barcode stickers for bakery / cafe products
+ *
+ * Features:
+ *  - Search and select any menu item
+ *  - MFD (Manufacturing Date) — defaults to today
+ *  - EXP (Expiry Date) — user enters
+ *  - Qty  (1–200 stickers)
+ *  - Label size: 35×30mm (3/row) or 50×30mm (2/row)
+ *  - Live mini-preview
+ *  - Label printer IP / Windows printer name (stored in localStorage)
+ */
+
+import { useState, useMemo, useEffect } from "react";
+import {
+  printLabels,
+  generateBarcodeDataUrl,
+  getLabelPrinter,
+  saveLabelPrinter,
+} from "../lib/printLabel";
+
+// Today in DD/MM/YYYY
+function todayStr() {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = d.getFullYear();
+  return `${dd}/${mm}/${yy}`;
+}
+
+// Format a date string to DD/MM/YYYY if entered as YYYY-MM-DD (HTML date input)
+function normaliseDate(val) {
+  if (!val) return "";
+  if (val.includes("-")) {
+    const [y, m, d] = val.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  return val;
+}
+
+// Convert DD/MM/YYYY → YYYY-MM-DD for <input type="date">
+function toInputDate(val) {
+  if (!val) return "";
+  const parts = val.split("/");
+  if (parts.length !== 3) return "";
+  return `${parts[2]}-${parts[1]}-${parts[0]}`;
+}
+
+export function LabelPrintModal({ menuItems = [], onClose }) {
+  const stored = getLabelPrinter();
+
+  const [search,      setSearch]      = useState("");
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [mfdDate,     setMfdDate]     = useState(todayStr());
+  const [expDate,     setExpDate]     = useState("");
+  const [qty,         setQty]         = useState(1);
+  const [labelSize,   setLabelSize]   = useState(stored.paper || "35x30");
+  const [printerIp,   setPrinterIp]   = useState(stored.ip || "");
+  const [printerName, setPrinterName] = useState(stored.winName || "");
+  const [showPrinter, setShowPrinter] = useState(false);
+  const [printing,    setPrinting]    = useState(false);
+  const [barcodeUrl,  setBarcodeUrl]  = useState(null);
+
+  // Filtered item list
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return menuItems.slice(0, 40);
+    return menuItems.filter(i => i.name?.toLowerCase().includes(q)).slice(0, 40);
+  }, [menuItems, search]);
+
+  // Generate barcode preview whenever item changes
+  useEffect(() => {
+    if (!selectedItem) { setBarcodeUrl(null); return; }
+    const val = (selectedItem.sku || selectedItem.id || selectedItem.name || "ITEM")
+      .replace(/[^\x20-\x7E]/g, "").slice(0, 48) || "ITEM";
+    try {
+      setBarcodeUrl(generateBarcodeDataUrl(val));
+    } catch { setBarcodeUrl(null); }
+  }, [selectedItem]);
+
+  function savePrinterConfig() {
+    saveLabelPrinter({ ip: printerIp.trim(), winName: printerName.trim(), paper: labelSize });
+  }
+
+  async function handlePrint() {
+    if (!selectedItem) return;
+    savePrinterConfig();
+    setPrinting(true);
+    try {
+      await printLabels(selectedItem, {
+        mfdDate,
+        expDate,
+        qty,
+        labelSize,
+        printerName: printerName.trim() || null,
+        printerIp:   printerIp.trim()   || null,
+      });
+    } finally {
+      setPrinting(false);
+    }
+  }
+
+  const itemPrice = selectedItem
+    ? (selectedItem.pricing?.[0]?.dineIn ?? selectedItem.takeawayPrice ?? selectedItem.price ?? "")
+    : "";
+  const priceStr = itemPrice !== "" ? `Rs.${Number(itemPrice).toFixed(2)}` : "";
+  const is35 = labelSize === "35x30";
+  const previewPx = is35 ? 96 : 130;   // approximate px width for preview div
+
+  return (
+    <div className="lpm-overlay" role="dialog" aria-modal="true">
+      <div className="lpm-modal">
+
+        {/* ── Header ──────────────────────────────────────────────────── */}
+        <div className="lpm-head">
+          <div>
+            <h3>Print Labels</h3>
+            <p className="lpm-sub">Barcode stickers for bakery &amp; packaged items</p>
+          </div>
+          <button type="button" className="lpm-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        <div className="lpm-body">
+
+          {/* ── Left: configuration ─────────────────────────────────── */}
+          <div className="lpm-left">
+
+            {/* Item search */}
+            <div className="lpm-section">
+              <label className="lpm-label">Item</label>
+              <input
+                type="search"
+                className="lpm-search"
+                placeholder="Search menu item…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                autoFocus
+              />
+              <div className="lpm-item-list">
+                {filtered.length === 0 && (
+                  <p className="lpm-empty">No items found</p>
+                )}
+                {filtered.map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`lpm-item-row${selectedItem?.id === item.id ? " selected" : ""}`}
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    <span className="lpm-item-name">{item.name}</span>
+                    {(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price) &&
+                      <span className="lpm-item-price">
+                        Rs.{Number(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price).toFixed(0)}
+                      </span>
+                    }
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div className="lpm-row-2">
+              <div className="lpm-field">
+                <label className="lpm-label">MFD Date</label>
+                <input
+                  type="date"
+                  className="lpm-input"
+                  value={toInputDate(mfdDate)}
+                  onChange={e => setMfdDate(normaliseDate(e.target.value))}
+                />
+              </div>
+              <div className="lpm-field">
+                <label className="lpm-label">EXP Date <span className="lpm-req">*</span></label>
+                <input
+                  type="date"
+                  className="lpm-input"
+                  value={toInputDate(expDate)}
+                  onChange={e => setExpDate(normaliseDate(e.target.value))}
+                />
+              </div>
+            </div>
+
+            {/* Qty + Size */}
+            <div className="lpm-row-2">
+              <div className="lpm-field">
+                <label className="lpm-label">Quantity</label>
+                <input
+                  type="number"
+                  className="lpm-input"
+                  min="1"
+                  max="200"
+                  value={qty}
+                  onChange={e => setQty(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
+                />
+              </div>
+              <div className="lpm-field">
+                <label className="lpm-label">Label Size</label>
+                <select
+                  className="lpm-input"
+                  value={labelSize}
+                  onChange={e => { setLabelSize(e.target.value); saveLabelPrinter({ ip: printerIp, winName: printerName, paper: e.target.value }); }}
+                >
+                  <option value="35x30">35 × 30 mm (3 per row)</option>
+                  <option value="50x30">50 × 30 mm (2 per row)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Printer config (collapsible) */}
+            <div className="lpm-printer-section">
+              <button
+                type="button"
+                className="lpm-printer-toggle"
+                onClick={() => setShowPrinter(p => !p)}
+              >
+                🖨 Label Printer Settings {showPrinter ? "▲" : "▼"}
+              </button>
+              {showPrinter && (
+                <div className="lpm-printer-fields">
+                  <div className="lpm-field">
+                    <label className="lpm-label">Network IP (for Ethernet label printer)</label>
+                    <input
+                      type="text"
+                      className="lpm-input"
+                      placeholder="e.g. 192.168.1.105"
+                      value={printerIp}
+                      onChange={e => setPrinterIp(e.target.value)}
+                      onBlur={savePrinterConfig}
+                    />
+                  </div>
+                  <div className="lpm-field">
+                    <label className="lpm-label">Windows Printer Name (for USB)</label>
+                    <input
+                      type="text"
+                      className="lpm-input"
+                      placeholder="e.g. TSC TTP-244 Pro"
+                      value={printerName}
+                      onChange={e => setPrinterName(e.target.value)}
+                      onBlur={savePrinterConfig}
+                    />
+                  </div>
+                  <p className="lpm-printer-hint">
+                    Recommended: TSC TTP-244 Pro (USB/Ethernet) or Xprinter XP-365B (USB/Bluetooth).
+                    Leave blank to use browser print dialog.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Right: preview ──────────────────────────────────────── */}
+          <div className="lpm-right">
+            <p className="lpm-label" style={{ marginBottom: 10 }}>Preview</p>
+
+            {!selectedItem ? (
+              <div className="lpm-preview-empty">
+                <div className="lpm-preview-icon">🏷️</div>
+                <p>Select an item to preview</p>
+              </div>
+            ) : (
+              <>
+                {/* Single label preview */}
+                <div
+                  className="lpm-preview-label"
+                  style={{ width: previewPx }}
+                >
+                  <div className="lpm-prev-name">{selectedItem.name}</div>
+                  {priceStr && <div className="lpm-prev-price">{priceStr}</div>}
+                  <div className="lpm-prev-dates">
+                    {mfdDate && `MFD: ${mfdDate}`}{mfdDate && expDate && "   "}{expDate && `EXP: ${expDate}`}
+                  </div>
+                  {barcodeUrl && (
+                    <img
+                      src={barcodeUrl}
+                      alt="barcode"
+                      className="lpm-prev-barcode"
+                      style={{ width: previewPx - 12 }}
+                    />
+                  )}
+                </div>
+
+                <p className="lpm-preview-info">
+                  {qty} sticker{qty > 1 ? "s" : ""} ·{" "}
+                  {is35 ? "35×30mm · 3 per row" : "50×30mm · 2 per row"} ·{" "}
+                  {Math.ceil(qty / (is35 ? 3 : 2))} row{Math.ceil(qty / (is35 ? 3 : 2)) > 1 ? "s" : ""}
+                </p>
+
+                <button
+                  type="button"
+                  className="lpm-print-btn"
+                  disabled={printing || !selectedItem}
+                  onClick={handlePrint}
+                >
+                  {printing
+                    ? <span className="pos-spinner" />
+                    : `🖨 Print ${qty} Label${qty > 1 ? "s" : ""}`}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

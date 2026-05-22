@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BulkImportPanel } from "./BulkImportPanel";
 import { ItemForm } from "./ItemForm";
+import { LabelPrintModal } from "./LabelPrintModal";
 
 import {
   subscribeRestaurantState,
@@ -205,6 +206,7 @@ export function MenuPage() {
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [routingDrafts, setRoutingDrafts] = useState({});
+  const [labelItem, setLabelItem] = useState(null); // item to print labels for
   const formRef = useRef(null);
 
   // ── Tabs + Field Settings ──────────────────────────────────────────────────
@@ -1347,6 +1349,9 @@ export function MenuPage() {
                   <button type="button" className="ghost-chip" onClick={() => startEditingItem(item)}>
                     Edit
                   </button>
+                  <button type="button" className="ghost-chip label-chip" onClick={() => setLabelItem(item)} title="Print barcode stickers">
+                    🏷️ Labels
+                  </button>
                   <button type="button" className="ghost-chip" onClick={() => handleDeleteItem(item)}>
                     Delete
                   </button>
@@ -1656,6 +1661,14 @@ export function MenuPage() {
           onImportDone={() => reloadMenu()}
           menuFieldSettings={menuFieldSettings}
           availableOutlets={availableOutlets}
+        />
+      )}
+
+      {/* ── Label Print Modal ─────────────────────────────────────────────── */}
+      {labelItem && (
+        <LabelPrintModal
+          item={labelItem}
+          onClose={() => setLabelItem(null)}
         />
       )}
     </>

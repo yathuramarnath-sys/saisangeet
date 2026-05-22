@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@sentry/react": "^10.51.0",
+    "bwip-js": "^4.10.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.14.0",

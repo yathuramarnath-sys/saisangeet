@@ -22,6 +22,7 @@ import { TablePickerPanel }   from "./components/TablePickerPanel";
 import { CustomerFormModal }  from "./components/CustomerFormModal";
 import { PosSettingsModal }   from "./components/PosSettingsModal";
 import { PastOrdersModal }    from "./components/PastOrdersModal";
+import { LabelPrintModal }    from "./components/LabelPrintModal";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { PhonePeQRModal }     from "./components/PhonePeQRModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
@@ -300,6 +301,7 @@ export default function App() {
   const [showCustomerForm,   setShowCustomerForm]   = useState(false);
   const [showSettings,       setShowSettings]       = useState(false);
   const [showPastOrders,     setShowPastOrders]     = useState(false);
+  const [showLabelPrint,     setShowLabelPrint]     = useState(false);
   const [showOnlineOrders,    setShowOnlineOrders]    = useState(false);
   const [pendingOnlineCount,  setPendingOnlineCount]  = useState(0);
   const [onlineOrdersEnabled, setOnlineOrdersEnabled] = useState(() =>
@@ -2120,6 +2122,11 @@ export default function App() {
             disabled={isSyncing}>
             <span className="pab-label">{isSyncing ? "Syncing…" : "Sync"}</span>
           </button>
+          <button type="button" className="pab-btn amber"
+            onClick={() => setShowLabelPrint(true)}
+            title="Print barcode stickers for bakery / packaged items">
+            <span className="pab-label">🏷️ Labels</span>
+          </button>
           <button type="button" className="pab-btn gray"
             onClick={() => setShowSettings(true)}>
             <span className="pab-label">Settings</span>
@@ -2459,6 +2466,14 @@ export default function App() {
           outlet={outlet}
           outletName={outlet?.name || branchConfig?.outletName}
           cashierName={cashierName}
+        />
+      )}
+
+      {/* ── Label Print modal ────────────────────────────────────────────── */}
+      {showLabelPrint && (
+        <LabelPrintModal
+          menuItems={menuItems}
+          onClose={() => setShowLabelPrint(false)}
         />
       )}
 
