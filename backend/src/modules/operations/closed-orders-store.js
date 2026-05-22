@@ -8,7 +8,7 @@
 
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { loadRuntimeState, saveRuntimeState } = require("../../db/runtime-state.repository");
-const { insertClosedOrder } = require("../../db/closed-orders.repository");
+const { insertClosedOrder, updateClosedOrderData } = require("../../db/closed-orders.repository");
 
 const SCOPE = "closed-orders";
 
@@ -196,7 +196,7 @@ function getCreditOrders(tenantId, outletId = null) {
 function settleCreditOrder(tenantId, orderId, settlementInfo) {
   if (!store.has(tenantId)) return null;
   const tenantMap = store.get(tenantId);
-  for (const orders of tenantMap.values()) {
+  for (const [outletId, orders] of tenantMap.entries()) {
     const order = orders.find(o => String(o.id || o.orderNumber) === String(orderId) && o.isCreditSale);
     if (order) {
       order.creditStatus        = "paid";
@@ -204,7 +204,18 @@ function settleCreditOrder(tenantId, orderId, settlementInfo) {
       order.creditSettledBy     = settlementInfo.settledBy  || null;
       order.creditSettledMethod = settlementInfo.method     || "cash";
       order.creditSettledRef    = settlementInfo.reference  || null;
+
+      // ── Persist to both stores ─────────────────────────────────────────────
+      // 1. app_runtime_state (fast JSONB blob — keeps in-memory state alive)
       _persist();
+      // 2. closed_orders table row (permanent record — sync settlement status)
+      const closedAt = order.closedAt || order._receivedAt;
+      if (closedAt) {
+        updateClosedOrderData(tenantId, outletId, closedAt, order).catch(err =>
+          console.error("[closed-orders-store] credit settle Postgres sync error:", err.message)
+        );
+      }
+
       return order;
     }
   }

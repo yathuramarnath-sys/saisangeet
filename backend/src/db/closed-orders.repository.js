@@ -213,4 +213,30 @@ async function listClosedOrders(tenantId, { dateFrom, dateTo, outletId, page = 1
   }
 }
 
-module.exports = { ensureClosedOrdersTable, insertClosedOrder, queryClosedOrders, listClosedOrders };
+/**
+ * Update the order_data JSONB for an existing closed order.
+ * Used when credit sale status changes (unpaid → paid settlement).
+ * Matched by (tenant_id, outlet_id, closed_at) — the unique key.
+ *
+ * @param {string} tenantId
+ * @param {string} outletId
+ * @param {string} closedAt   — ISO timestamp of the original bill closure
+ * @param {object} updatedOrder — full updated order object
+ */
+async function updateClosedOrderData(tenantId, outletId, closedAt, updatedOrder) {
+  if (!isDatabaseEnabled()) return;
+  try {
+    await query(
+      `UPDATE closed_orders
+          SET order_data = $4
+        WHERE tenant_id = $1
+          AND outlet_id = $2
+          AND closed_at = $3`,
+      [tenantId, outletId, closedAt, JSON.stringify(updatedOrder)]
+    );
+  } catch (err) {
+    console.error("[closed-orders.repo] UPDATE error:", err.message);
+  }
+}
+
+module.exports = { ensureClosedOrdersTable, insertClosedOrder, queryClosedOrders, listClosedOrders, updateClosedOrderData };
