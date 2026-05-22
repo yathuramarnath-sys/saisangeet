@@ -6984,6 +6984,53 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 }
 .lpm-print-btn:hover:not(:disabled) { background: #047857; }
 .lpm-print-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Barcode type toggle */
+.lpm-toggle-group {
+  display: flex;
+  gap: 6px;
+}
+.lpm-toggle-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 6px;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.lpm-toggle-btn.active {
+  background: #ecfdf5;
+  border-color: #059669;
+  color: #047857;
+}
+.lpm-toggle-btn:hover:not(.active) { background: #f3f4f6; }
+
+/* QR Code preview layout */
+.lpm-preview-qr {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px;
+  padding: 6px !important;
+}
+.lpm-prev-qr-img {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: block;
+}
+.lpm-prev-qr-text {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.lpm-prev-date { font-size: 8px; color: #555; }
+
 .label-chip { color: #B45309 !important; }
 .spinner-sm {
   width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4);

@@ -15,6 +15,7 @@ import { useState, useMemo, useEffect } from "react";
 import {
   printLabels,
   generateBarcodeDataUrl,
+  generateQRDataUrl,
   getLabelPrinter,
   saveLabelPrinter,
 } from "../lib/printLabel";
@@ -55,6 +56,7 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
   const [expDate,     setExpDate]     = useState("");
   const [qty,         setQty]         = useState(1);
   const [labelSize,   setLabelSize]   = useState(stored.paper || "35x30");
+  const [barcodeType, setBarcodeType] = useState(stored.barcodeType || "code128");
   const [printerIp,   setPrinterIp]   = useState(stored.ip || "");
   const [printerName, setPrinterName] = useState(stored.winName || "");
   const [showPrinter, setShowPrinter] = useState(false);
@@ -68,18 +70,22 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
     return menuItems.filter(i => i.name?.toLowerCase().includes(q)).slice(0, 40);
   }, [menuItems, search]);
 
-  // Generate barcode preview whenever item changes
+  // Generate barcode/QR preview whenever item or type changes
   useEffect(() => {
     if (!selectedItem) { setBarcodeUrl(null); return; }
-    const val = (selectedItem.sku || selectedItem.id || selectedItem.name || "ITEM")
-      .replace(/[^\x20-\x7E]/g, "").slice(0, 48) || "ITEM";
+    const raw = (selectedItem.sku || selectedItem.id || selectedItem.name || "ITEM")
+      .replace(/[^\x20-\x7E]/g, "") || "ITEM";
     try {
-      setBarcodeUrl(generateBarcodeDataUrl(val));
+      if (barcodeType === "qrcode") {
+        setBarcodeUrl(generateQRDataUrl(raw.slice(0, 200)));
+      } else {
+        setBarcodeUrl(generateBarcodeDataUrl(raw.slice(0, 48)));
+      }
     } catch { setBarcodeUrl(null); }
-  }, [selectedItem]);
+  }, [selectedItem, barcodeType]);
 
   function savePrinterConfig() {
-    saveLabelPrinter({ ip: printerIp.trim(), winName: printerName.trim(), paper: labelSize });
+    saveLabelPrinter({ ip: printerIp.trim(), winName: printerName.trim(), paper: labelSize, barcodeType });
   }
 
   async function handlePrint() {
@@ -92,6 +98,7 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
         expDate,
         qty,
         labelSize,
+        barcodeType,
         printerName: printerName.trim() || null,
         printerIp:   printerIp.trim()   || null,
       });
@@ -104,7 +111,8 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
     ? (selectedItem.pricing?.[0]?.dineIn ?? selectedItem.takeawayPrice ?? selectedItem.price ?? "")
     : "";
   const priceStr = itemPrice !== "" ? `Rs.${Number(itemPrice).toFixed(2)}` : "";
-  const is35 = labelSize === "35x30";
+  const is35   = labelSize === "35x30";
+  const isQR   = barcodeType === "qrcode";
   const previewPx = is35 ? 96 : 130;   // approximate px width for preview div
 
   return (
@@ -198,11 +206,32 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
                 <select
                   className="lpm-input"
                   value={labelSize}
-                  onChange={e => { setLabelSize(e.target.value); saveLabelPrinter({ ip: printerIp, winName: printerName, paper: e.target.value }); }}
+                  onChange={e => { setLabelSize(e.target.value); saveLabelPrinter({ ip: printerIp, winName: printerName, paper: e.target.value, barcodeType }); }}
                 >
                   <option value="35x30">35 × 30 mm (3 per row)</option>
                   <option value="50x30">50 × 30 mm (2 per row)</option>
                 </select>
+              </div>
+            </div>
+
+            {/* Barcode Type */}
+            <div className="lpm-field">
+              <label className="lpm-label">Barcode Type</label>
+              <div className="lpm-toggle-group">
+                <button
+                  type="button"
+                  className={`lpm-toggle-btn${!isQR ? " active" : ""}`}
+                  onClick={() => { setBarcodeType("code128"); saveLabelPrinter({ ip: printerIp, winName: printerName, paper: labelSize, barcodeType: "code128" }); }}
+                >
+                  ▐▌▐▌ Code 128
+                </button>
+                <button
+                  type="button"
+                  className={`lpm-toggle-btn${isQR ? " active" : ""}`}
+                  onClick={() => { setBarcodeType("qrcode"); saveLabelPrinter({ ip: printerIp, winName: printerName, paper: labelSize, barcodeType: "qrcode" }); }}
+                >
+                  ⬛ QR Code
+                </button>
               </div>
             </div>
 
@@ -260,24 +289,37 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
             ) : (
               <>
                 {/* Single label preview */}
-                <div
-                  className="lpm-preview-label"
-                  style={{ width: previewPx }}
-                >
-                  <div className="lpm-prev-name">{selectedItem.name}</div>
-                  {priceStr && <div className="lpm-prev-price">{priceStr}</div>}
-                  <div className="lpm-prev-dates">
-                    {mfdDate && `MFD: ${mfdDate}`}{mfdDate && expDate && "   "}{expDate && `EXP: ${expDate}`}
+                {isQR ? (
+                  /* QR layout: side-by-side */
+                  <div className="lpm-preview-label lpm-preview-qr" style={{ width: previewPx }}>
+                    {barcodeUrl && (
+                      <img src={barcodeUrl} alt="qr" className="lpm-prev-qr-img" />
+                    )}
+                    <div className="lpm-prev-qr-text">
+                      <div className="lpm-prev-name">{selectedItem.name}</div>
+                      {priceStr && <div className="lpm-prev-price">MRP: {priceStr}</div>}
+                      {mfdDate && <div className="lpm-prev-date">Pkd: {mfdDate}</div>}
+                      {expDate  && <div className="lpm-prev-date">Exp: {expDate}</div>}
+                    </div>
                   </div>
-                  {barcodeUrl && (
-                    <img
-                      src={barcodeUrl}
-                      alt="barcode"
-                      className="lpm-prev-barcode"
-                      style={{ width: previewPx - 12 }}
-                    />
-                  )}
-                </div>
+                ) : (
+                  /* Code 128 layout: column */
+                  <div className="lpm-preview-label" style={{ width: previewPx }}>
+                    <div className="lpm-prev-name">{selectedItem.name}</div>
+                    {priceStr && <div className="lpm-prev-price">{priceStr}</div>}
+                    <div className="lpm-prev-dates">
+                      {mfdDate && `MFD: ${mfdDate}`}{mfdDate && expDate && "   "}{expDate && `EXP: ${expDate}`}
+                    </div>
+                    {barcodeUrl && (
+                      <img
+                        src={barcodeUrl}
+                        alt="barcode"
+                        className="lpm-prev-barcode"
+                        style={{ width: previewPx - 12 }}
+                      />
+                    )}
+                  </div>
+                )}
 
                 <p className="lpm-preview-info">
                   {qty} sticker{qty > 1 ? "s" : ""} ·{" "}

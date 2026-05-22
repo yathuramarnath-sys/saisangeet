@@ -46,8 +46,22 @@ export function generateBarcodeDataUrl(text) {
 }
 
 /**
- * Build a single label HTML block (inline-block div).
- * Width is set from labelWidthMm. Height is fixed 30mm via CSS page.
+ * Generate a QR Code as a base64 PNG data URL.
+ * Returns a data: URL string ready to embed in <img src>.
+ */
+export function generateQRDataUrl(text) {
+  const canvas = document.createElement("canvas");
+  bwipjs.toCanvas(canvas, {
+    bcid:  "qrcode",
+    text:  String(text || "ITEM").slice(0, 200),
+    scale: 3,
+  });
+  return canvas.toDataURL("image/png");
+}
+
+/**
+ * Build a single Code-128 label HTML block (column layout).
+ * Width is set from labelWidthMm. Height is fixed 30mm.
  */
 function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
   const name = (item.name || "Item").slice(0, 40);
@@ -77,6 +91,42 @@ function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
     ${mfdDate ? `MFD: ${mfdDate}` : ""}${mfdDate && expDate ? "&nbsp;&nbsp;" : ""}${expDate ? `EXP: ${expDate}` : ""}
   </div>
   <img src="${barcodeDataUrl}" style="width:${inner}mm;height:auto;margin-top:1mm;display:block;" />
+</div>`;
+}
+
+/**
+ * Build a single QR Code label HTML block (side-by-side layout: QR left, text right).
+ * Mirrors Zoho's "QR Code food" template: ~13mm QR, remaining width for text.
+ */
+function buildQRLabelDiv(item, mfdDate, expDate, qrDataUrl, labelWidthMm) {
+  const name = (item.name || "Item").slice(0, 40);
+  const raw  = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price ?? "";
+  const mrpStr = raw !== "" && raw !== null ? `Rs.${Number(raw).toFixed(2)}` : "";
+
+  const pad   = 1.5;
+  const qrMm  = 13;   // QR code square size
+  const gap   = 1.5;  // gap between QR and text
+
+  return `
+<div style="
+  width:${labelWidthMm}mm;
+  height:30mm;
+  display:inline-flex;
+  flex-direction:row;
+  align-items:center;
+  padding:${pad}mm;
+  box-sizing:border-box;
+  overflow:hidden;
+  vertical-align:top;
+  border-right:1px dashed #ccc;
+">
+  <img src="${qrDataUrl}" style="width:${qrMm}mm;height:${qrMm}mm;flex-shrink:0;display:block;" />
+  <div style="margin-left:${gap}mm;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:1mm;">
+    <div style="font-size:6.5pt;font-weight:800;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
+    ${mrpStr ? `<div style="font-size:7pt;font-weight:800;color:#000;">MRP: ${mrpStr}</div>` : ""}
+    ${mfdDate ? `<div style="font-size:5.5pt;color:#444;">Pkd Dt: ${mfdDate}</div>` : ""}
+    ${expDate ? `<div style="font-size:5.5pt;color:#444;">Exp Dt: ${expDate}</div>` : ""}
+  </div>
 </div>`;
 }
 
@@ -118,27 +168,33 @@ ${rows.map(row => `<div class="lbl-row">${row.join("")}</div>`).join("\n")}
  * @param {string}  opts.expDate   "DD/MM/YYYY" or ""
  * @param {number}  opts.qty       Number of stickers to print (1–200)
  * @param {string}  opts.labelSize "35x30" | "50x30"
+ * @param {string}  [opts.barcodeType]  "code128" (default) | "qrcode"
  * @param {string}  [opts.printerName]  Windows printer name override
  * @param {string}  [opts.printerIp]    Network IP override
  */
 export async function printLabels(item, opts = {}) {
-  const { mfdDate = "", expDate = "", qty = 1, labelSize = "35x30" } = opts;
+  const { mfdDate = "", expDate = "", qty = 1, labelSize = "35x30", barcodeType = "code128" } = opts;
 
   const is35     = labelSize === "35x30";
   const labelW   = is35 ? 35 : 50;
   const colCount = is35 ? 3 : 2;
   const pageW    = labelW * colCount;
 
-  // Barcode value: prefer sku, then id, then sanitised name
+  // Barcode/QR value: prefer sku, then id, then sanitised name
   const barcodeVal = (item.sku || item.id || item.name || "ITEM")
     .replace(/[^\x20-\x7E]/g, "")
-    .slice(0, 48) || "ITEM";
+    .slice(0, 200) || "ITEM";
 
-  const barcodeDataUrl = generateBarcodeDataUrl(barcodeVal);
+  const isQR = barcodeType === "qrcode";
+  const imgDataUrl = isQR
+    ? generateQRDataUrl(barcodeVal)
+    : generateBarcodeDataUrl(barcodeVal.slice(0, 48));
 
   // Build all label divs
   const divs = Array.from({ length: Math.max(1, qty) }, () =>
-    buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelW)
+    isQR
+      ? buildQRLabelDiv(item, mfdDate, expDate, imgDataUrl, labelW)
+      : buildLabelDiv(item, mfdDate, expDate, imgDataUrl, labelW)
   );
 
   // Group into rows of colCount
