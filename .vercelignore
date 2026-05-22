@@ -1,0 +1,17 @@
+node_modules/
+apps/operations-pos/node_modules/
+apps/owner-web/node_modules/
+apps/waiter-mobile/node_modules/
+apps/kitchen-display/node_modules/
+apps/tablet-pos/node_modules/
+apps/landing/node_modules/
+backend/node_modules/
+.git/
+electron-dist/
+apps/operations-pos/electron-dist/
+*.exe
+*.apk
+*.dmg
+Plato-*.exe
+Plato-*.apk
+plato-*.apk

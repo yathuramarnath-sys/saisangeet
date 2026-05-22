@@ -1,6 +1,5 @@
 {
-  "installCommand": "cd ../.. && npm install --include=optional",
-  "buildCommand": "npm run build",
+  "buildCommand": "",
   "outputDirectory": "dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "env": {
