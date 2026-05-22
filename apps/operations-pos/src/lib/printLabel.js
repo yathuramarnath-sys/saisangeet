@@ -160,6 +160,89 @@ ${rows.map(row => `<div class="lbl-row">${row.join("")}</div>`).join("\n")}
 }
 
 /**
+ * Batch entry point — print labels for multiple items in one print job.
+ *
+ * @param {Array}   batch     [{ item, qty }, ...] — each item with its own qty
+ * @param {object}  opts
+ * @param {string}  opts.mfdDate      "DD/MM/YYYY" (common MFD for all)
+ * @param {string}  opts.expDate      "DD/MM/YYYY" (common EXP for all)
+ * @param {string}  opts.labelSize    "35x30" | "50x30"
+ * @param {string}  opts.barcodeType  "code128" | "qrcode"
+ * @param {string}  [opts.printerName]
+ * @param {string}  [opts.printerIp]
+ */
+export async function printBatchLabels(batch, opts = {}) {
+  const { mfdDate = "", expDate = "", labelSize = "35x30", barcodeType = "code128" } = opts;
+
+  const is35     = labelSize === "35x30";
+  const labelW   = is35 ? 35 : 50;
+  const colCount = is35 ? 3 : 2;
+  const pageW    = labelW * colCount;
+  const isQR     = barcodeType === "qrcode";
+
+  // Build all label divs across all items
+  const allDivs = [];
+  for (const { item, qty } of batch) {
+    if (!item || !qty || qty < 1) continue;
+    const barcodeVal = (item.sku || item.id || item.name || "ITEM")
+      .replace(/[^\x20-\x7E]/g, "")
+      .slice(0, 200) || "ITEM";
+    const imgDataUrl = isQR
+      ? generateQRDataUrl(barcodeVal)
+      : generateBarcodeDataUrl(barcodeVal.slice(0, 48));
+
+    for (let i = 0; i < qty; i++) {
+      allDivs.push(
+        isQR
+          ? buildQRLabelDiv(item, mfdDate, expDate, imgDataUrl, labelW)
+          : buildLabelDiv(item, mfdDate, expDate, imgDataUrl, labelW)
+      );
+    }
+  }
+
+  if (allDivs.length === 0) return;
+
+  // Group into rows
+  const rows = [];
+  for (let i = 0; i < allDivs.length; i += colCount) {
+    rows.push(allDivs.slice(i, i + colCount));
+  }
+
+  const html = buildLabelPageHtml(rows, pageW);
+
+  const stored      = getLabelPrinter();
+  const printerName = opts.printerName ?? stored.winName ?? null;
+  const printerIp   = opts.printerIp   ?? stored.ip?.trim() ?? null;
+
+  if (window.electronAPI?.printHTML) {
+    const result = await window.electronAPI.printHTML({
+      html,
+      printerName: printerName || null,
+      printerIp:   printerIp   || null,
+      paperWidthMm: pageW,
+    });
+    if (!result?.ok) {
+      window.dispatchEvent(new CustomEvent("dinex:print-error", {
+        detail: { source: "Batch Labels", printerName, error: result?.error },
+      }));
+    }
+    return result;
+  }
+
+  // Browser popup fallback
+  const w = window.open("", "_blank", "width=700,height=500");
+  if (!w) { alert("Please allow pop-ups to print labels."); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => {
+    w.print();
+    w.onafterprint = () => w.close();
+    setTimeout(() => w.close(), 3500);
+  }, 400);
+}
+
+/**
  * Main entry point — call from React component.
  *
  * @param {object}  item      Menu item: { name, pricing, price, sku, id }

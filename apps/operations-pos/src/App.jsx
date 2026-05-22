@@ -23,6 +23,7 @@ import { CustomerFormModal }  from "./components/CustomerFormModal";
 import { PosSettingsModal }   from "./components/PosSettingsModal";
 import { PastOrdersModal }    from "./components/PastOrdersModal";
 import { LabelPrintModal }    from "./components/LabelPrintModal";
+import { BatchLabelModal }    from "./components/BatchLabelModal";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { PhonePeQRModal }     from "./components/PhonePeQRModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
@@ -302,6 +303,7 @@ export default function App() {
   const [showSettings,       setShowSettings]       = useState(false);
   const [showPastOrders,     setShowPastOrders]     = useState(false);
   const [showLabelPrint,     setShowLabelPrint]     = useState(false);
+  const [showBatchLabel,     setShowBatchLabel]     = useState(false);
   const [showOnlineOrders,    setShowOnlineOrders]    = useState(false);
   const [pendingOnlineCount,  setPendingOnlineCount]  = useState(0);
   const [onlineOrdersEnabled, setOnlineOrdersEnabled] = useState(() =>
@@ -2123,8 +2125,8 @@ export default function App() {
             <span className="pab-label">{isSyncing ? "Syncing…" : "Sync"}</span>
           </button>
           <button type="button" className="pab-btn amber"
-            onClick={() => setShowLabelPrint(true)}
-            title="Print barcode stickers for bakery / packaged items">
+            onClick={() => setShowBatchLabel(true)}
+            title="Batch print barcode stickers for bakery / packaged items">
             <span className="pab-label">🏷️ Labels</span>
           </button>
           <button type="button" className="pab-btn gray"
@@ -2469,7 +2471,16 @@ export default function App() {
         />
       )}
 
-      {/* ── Label Print modal ────────────────────────────────────────────── */}
+      {/* ── Batch Label Print modal ──────────────────────────────────────── */}
+      {showBatchLabel && (
+        <BatchLabelModal
+          menuItems={menuItems}
+          onClose={() => setShowBatchLabel(false)}
+          onOpenSettings={() => setShowSettings(true)}
+        />
+      )}
+
+      {/* ── Single Label Print modal (kept for direct item access) ────────── */}
       {showLabelPrint && (
         <LabelPrintModal
           menuItems={menuItems}

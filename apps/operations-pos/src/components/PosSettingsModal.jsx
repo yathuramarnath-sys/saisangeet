@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { printKOT, loadPrinters } from "../lib/kotPrint";
+import { getLabelPrinter, saveLabelPrinter, printLabels } from "../lib/printLabel";
 
 // Convert POS local table format → flat API table array
 function areasToApiTables(areas) {
@@ -282,6 +283,9 @@ function PrinterTab() {
         )}
       </div>
 
+      {/* Label printer section — always visible below thermal printers */}
+      {!adding && <LabelPrinterSection />}
+
       {/* Add / Edit form */}
       {adding && (
         <div className="pset-add-form">
@@ -499,6 +503,125 @@ function PrinterTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─── Label Printer Section (inside PrinterTab) ─────────────────────────────── */
+function LabelPrinterSection() {
+  const [cfg,     setCfg]     = useState(() => getLabelPrinter());
+  const [testMsg, setTestMsg] = useState(null);
+  const [printing, setPrinting] = useState(false);
+
+  function update(key, val) {
+    const next = { ...cfg, [key]: val };
+    setCfg(next);
+    saveLabelPrinter(next);
+  }
+
+  async function handleTestLabel() {
+    setPrinting(true);
+    setTestMsg(null);
+    try {
+      await printLabels(
+        { name: "TEST PRODUCT", price: 99 },
+        {
+          mfdDate: (() => { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`; })(),
+          expDate: "",
+          qty: 1,
+          labelSize:   cfg.paper       || "35x30",
+          barcodeType: cfg.barcodeType || "code128",
+          printerName: cfg.winName     || null,
+          printerIp:   cfg.ip          || null,
+        }
+      );
+      setTestMsg({ ok: true, msg: "✓ Test label sent" });
+    } catch (e) {
+      setTestMsg({ ok: false, msg: `Error: ${e.message}` });
+    } finally {
+      setPrinting(false);
+      setTimeout(() => setTestMsg(null), 4000);
+    }
+  }
+
+  return (
+    <div className="pset-label-printer-section">
+      <div className="pset-label-divider">
+        <span>🏷️ Label / Sticker Printer</span>
+      </div>
+      <p className="pset-label-hint">
+        Separate printer for barcode / QR stickers (bakery labels, packaged items).
+        Recommended: <strong>TSC TTP-244 Pro</strong> or <strong>Xprinter XP-365B</strong>.
+        Leave both fields blank to use the browser print dialog.
+      </p>
+
+      <div className="pset-form-row">
+        <div className="pset-form-field">
+          <label>Windows Printer Name <span style={{ fontWeight: 400, color: "#999" }}>(USB)</span></label>
+          <input
+            className="pset-input"
+            placeholder="e.g. TSC TTP-244 Pro"
+            value={cfg.winName || ""}
+            onChange={e => update("winName", e.target.value)}
+          />
+          <span className="pset-field-hint">
+            Must match Windows → Devices and Printers exactly. Use USB only.
+          </span>
+        </div>
+        <div className="pset-form-field">
+          <label>Network IP <span style={{ fontWeight: 400, color: "#999" }}>(Ethernet)</span></label>
+          <input
+            className="pset-input"
+            placeholder="e.g. 192.168.1.105"
+            value={cfg.ip || ""}
+            onChange={e => update("ip", e.target.value)}
+          />
+          <span className="pset-field-hint">
+            For Ethernet label printers. Leave blank if using USB.
+          </span>
+        </div>
+      </div>
+
+      <div className="pset-form-row">
+        <div className="pset-form-field">
+          <label>Default Label Size</label>
+          <select
+            className="pset-select"
+            value={cfg.paper || "35x30"}
+            onChange={e => update("paper", e.target.value)}
+          >
+            <option value="35x30">35 × 30 mm — 3 per row (105mm roll)</option>
+            <option value="50x30">50 × 30 mm — 2 per row (100mm roll)</option>
+          </select>
+        </div>
+        <div className="pset-form-field">
+          <label>Default Barcode Type</label>
+          <select
+            className="pset-select"
+            value={cfg.barcodeType || "code128"}
+            onChange={e => update("barcodeType", e.target.value)}
+          >
+            <option value="code128">Code 128 (barcode)</option>
+            <option value="qrcode">QR Code</option>
+          </select>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
+        <button
+          type="button"
+          className="pset-save-btn"
+          onClick={handleTestLabel}
+          disabled={printing}
+        >
+          {printing ? "Printing…" : "🖨 Print Test Label"}
+        </button>
+        {testMsg && (
+          <span style={{ fontSize: 13, fontWeight: 700, color: testMsg.ok ? "#16a34a" : "#dc2626" }}>
+            {testMsg.msg}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

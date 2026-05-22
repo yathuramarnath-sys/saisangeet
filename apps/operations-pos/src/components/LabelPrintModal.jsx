@@ -17,7 +17,6 @@ import {
   generateBarcodeDataUrl,
   generateQRDataUrl,
   getLabelPrinter,
-  saveLabelPrinter,
 } from "../lib/printLabel";
 
 // Today in DD/MM/YYYY
@@ -57,9 +56,6 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
   const [qty,         setQty]         = useState(1);
   const [labelSize,   setLabelSize]   = useState(stored.paper || "35x30");
   const [barcodeType, setBarcodeType] = useState(stored.barcodeType || "code128");
-  const [printerIp,   setPrinterIp]   = useState(stored.ip || "");
-  const [printerName, setPrinterName] = useState(stored.winName || "");
-  const [showPrinter, setShowPrinter] = useState(false);
   const [printing,    setPrinting]    = useState(false);
   const [barcodeUrl,  setBarcodeUrl]  = useState(null);
 
@@ -84,24 +80,11 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
     } catch { setBarcodeUrl(null); }
   }, [selectedItem, barcodeType]);
 
-  function savePrinterConfig() {
-    saveLabelPrinter({ ip: printerIp.trim(), winName: printerName.trim(), paper: labelSize, barcodeType });
-  }
-
   async function handlePrint() {
     if (!selectedItem) return;
-    savePrinterConfig();
     setPrinting(true);
     try {
-      await printLabels(selectedItem, {
-        mfdDate,
-        expDate,
-        qty,
-        labelSize,
-        barcodeType,
-        printerName: printerName.trim() || null,
-        printerIp:   printerIp.trim()   || null,
-      });
+      await printLabels(selectedItem, { mfdDate, expDate, qty, labelSize, barcodeType });
     } finally {
       setPrinting(false);
     }
@@ -206,7 +189,7 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
                 <select
                   className="lpm-input"
                   value={labelSize}
-                  onChange={e => { setLabelSize(e.target.value); saveLabelPrinter({ ip: printerIp, winName: printerName, paper: e.target.value, barcodeType }); }}
+                  onChange={e => setLabelSize(e.target.value)}
                 >
                   <option value="35x30">35 × 30 mm (3 per row)</option>
                   <option value="50x30">50 × 30 mm (2 per row)</option>
@@ -221,60 +204,23 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
                 <button
                   type="button"
                   className={`lpm-toggle-btn${!isQR ? " active" : ""}`}
-                  onClick={() => { setBarcodeType("code128"); saveLabelPrinter({ ip: printerIp, winName: printerName, paper: labelSize, barcodeType: "code128" }); }}
+                  onClick={() => setBarcodeType("code128")}
                 >
                   ▐▌▐▌ Code 128
                 </button>
                 <button
                   type="button"
                   className={`lpm-toggle-btn${isQR ? " active" : ""}`}
-                  onClick={() => { setBarcodeType("qrcode"); saveLabelPrinter({ ip: printerIp, winName: printerName, paper: labelSize, barcodeType: "qrcode" }); }}
+                  onClick={() => setBarcodeType("qrcode")}
                 >
                   ⬛ QR Code
                 </button>
               </div>
             </div>
 
-            {/* Printer config (collapsible) */}
-            <div className="lpm-printer-section">
-              <button
-                type="button"
-                className="lpm-printer-toggle"
-                onClick={() => setShowPrinter(p => !p)}
-              >
-                🖨 Label Printer Settings {showPrinter ? "▲" : "▼"}
-              </button>
-              {showPrinter && (
-                <div className="lpm-printer-fields">
-                  <div className="lpm-field">
-                    <label className="lpm-label">Network IP (for Ethernet label printer)</label>
-                    <input
-                      type="text"
-                      className="lpm-input"
-                      placeholder="e.g. 192.168.1.105"
-                      value={printerIp}
-                      onChange={e => setPrinterIp(e.target.value)}
-                      onBlur={savePrinterConfig}
-                    />
-                  </div>
-                  <div className="lpm-field">
-                    <label className="lpm-label">Windows Printer Name (for USB)</label>
-                    <input
-                      type="text"
-                      className="lpm-input"
-                      placeholder="e.g. TSC TTP-244 Pro"
-                      value={printerName}
-                      onChange={e => setPrinterName(e.target.value)}
-                      onBlur={savePrinterConfig}
-                    />
-                  </div>
-                  <p className="lpm-printer-hint">
-                    Recommended: TSC TTP-244 Pro (USB/Ethernet) or Xprinter XP-365B (USB/Bluetooth).
-                    Leave blank to use browser print dialog.
-                  </p>
-                </div>
-              )}
-            </div>
+            <p className="lpm-printer-hint" style={{ marginTop: 4 }}>
+              ⚙️ Label printer configured in <strong>Settings → Printers</strong>
+            </p>
           </div>
 
           {/* ── Right: preview ──────────────────────────────────────── */}
