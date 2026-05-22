@@ -148,4 +148,19 @@ function getShifts(tenantId) {
   };
 }
 
-module.exports = { openShift, recordMovement, closeShift, getShifts, hydrateShifts };
+/**
+ * Delete a single shift from history by ID.
+ * Used by owner to remove test/seed entries from the ledger.
+ */
+function deleteShiftFromHistory(tenantId, shiftId) {
+  const t = _getTenant(tenantId);
+  const before = t.history.length;
+  t.history = t.history.filter(s => s.id !== shiftId);
+  if (t.history.length !== before) {
+    _persist();
+    return true;   // deleted
+  }
+  return false;    // not found
+}
+
+module.exports = { openShift, recordMovement, closeShift, getShifts, hydrateShifts, deleteShiftFromHistory };

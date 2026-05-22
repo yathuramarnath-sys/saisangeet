@@ -451,6 +451,16 @@ async function buildEscPosFromHtml(html) {
             });
             // Summary: rows with .sum-lbl + .sum-val (second .items-tbl)
             const summaryRows = qa2('.sum-lbl');
+            // ── Credit / Bill To section ──────────────────────────────────
+            const billToEl   = q2('.bill-to');
+            const billToName = q2('.bill-to-name')?.innerText?.trim() || '';
+            const billToMeta = billToEl
+              ? Array.from(billToEl.querySelectorAll('.bill-to-meta'))
+                  .map(el => el.innerText?.trim()).filter(Boolean)
+              : [];
+            const isTaxInvoice  = !!q2('.tax-invoice-badge');
+            const isCreditBill  = !!q2('.credit-badge');
+
             return {
               type:          'BILL',
               outlet:        q2('.outlet-name')?.innerText?.trim() || '',
@@ -460,6 +470,10 @@ async function buildEscPosFromHtml(html) {
               gstin,
               fssai:         q2('.outlet-fssai')?.innerText?.trim() || '',
               seatLabel:     q2('.seat-tag')?.innerText?.trim() || '',
+              isTaxInvoice,
+              isCreditBill,
+              billToName,
+              billToMeta,
               date:          getInfoVal('Date'),
               time:          getInfoVal('Time'),
               table:         getInfoVal('Table'),
@@ -575,6 +589,21 @@ async function buildEscPosFromHtml(html) {
           if (data.gstin) cmd += CENTER + 'GSTIN: ' + safeB(data.gstin) + LF;
           if (data.fssai) cmd += CENTER + 'FSSAI: ' + safeB(data.fssai) + LF;
           if (data.seatLabel) cmd += CENTER + BOLD1 + '[ ' + safeB(data.seatLabel) + ' ]' + BOLD0 + LF;
+          // Tax Invoice / Credit Bill badge
+          if (data.isTaxInvoice) {
+            cmd += CENTER + BOLD1 + '** TAX INVOICE **' + BOLD0 + LF;
+          } else if (data.isCreditBill) {
+            cmd += CENTER + '-- CREDIT BILL --' + LF;
+          }
+          // Bill To section (credit / GST customer)
+          if (data.billToName) {
+            cmd += DASH_BILL + LF;
+            cmd += LEFT + BOLD1 + 'BILL TO:' + BOLD0 + LF;
+            cmd += LEFT + safeB(data.billToName) + LF;
+            for (const meta of (data.billToMeta || [])) {
+              cmd += LEFT + safeB(meta) + LF;
+            }
+          }
           cmd += DASH_BILL + LF;
           // Info rows — always printed (Date + Time on same line)
           cmd += LEFT + 'Date    : ' + safeB(data.date || '') + '   ' + safeB(data.time || '') + LF;

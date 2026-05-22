@@ -3,7 +3,8 @@ const {
   startShift,
   addMovement,
   endShift,
-  reviewCashMismatch
+  reviewCashMismatch,
+  removeShiftFromHistory
 } = require("./shifts.service");
 
 async function shiftSummaryHandler(req, res) {
@@ -48,10 +49,22 @@ async function reviewCashMismatchHandler(_req, res) {
   res.json(result);
 }
 
+async function deleteShiftHistoryHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const { shiftId } = req.params;
+  if (!shiftId) return res.status(400).json({ error: "shiftId is required" });
+  const result = await removeShiftFromHistory(tenantId, shiftId);
+  if (!result.ok) return res.status(404).json({ error: "Shift not found" });
+  const io = req.app.locals.io;
+  if (io) io.to(`tenant:${tenantId}`).emit("shift:updated", { type: "deleted", shiftId });
+  res.json(result);
+}
+
 module.exports = {
   shiftSummaryHandler,
   openShiftHandler,
   recordMovementHandler,
   closeShiftHandler,
-  reviewCashMismatchHandler
+  reviewCashMismatchHandler,
+  deleteShiftHistoryHandler
 };

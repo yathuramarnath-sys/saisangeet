@@ -8,7 +8,8 @@ const {
   openShiftHandler,
   recordMovementHandler,
   closeShiftHandler,
-  reviewCashMismatchHandler
+  reviewCashMismatchHandler,
+  deleteShiftHistoryHandler
 } = require("./shifts.controller");
 
 const shiftsRouter = express.Router();
@@ -31,6 +32,14 @@ shiftsRouter.post(
   requireAuth,
   requirePermission("reports.view"),
   asyncHandler(reviewCashMismatchHandler)
+);
+
+// Owner deletes a specific shift history entry (remove test/seed data)
+shiftsRouter.delete(
+  "/history/:shiftId",
+  requireAuth,
+  requirePermission("reports.view"),
+  asyncHandler(deleteShiftHistoryHandler)
 );
 
 module.exports = {

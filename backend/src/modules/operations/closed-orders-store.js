@@ -197,7 +197,7 @@ function settleCreditOrder(tenantId, orderId, settlementInfo) {
   if (!store.has(tenantId)) return null;
   const tenantMap = store.get(tenantId);
   for (const orders of tenantMap.values()) {
-    const order = orders.find(o => (o.id || o.orderNumber) === orderId && o.isCreditSale);
+    const order = orders.find(o => String(o.id || o.orderNumber) === String(orderId) && o.isCreditSale);
     if (order) {
       order.creditStatus        = "paid";
       order.creditSettledAt     = new Date().toISOString();

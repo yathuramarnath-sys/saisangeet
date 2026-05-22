@@ -1,4 +1,3 @@
-import { shiftsSeedData } from "./shifts.seed";
 import { loadRestaurantState, subscribeRestaurantState, updateCashShifts } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
 import { api } from "../../lib/api";
 
@@ -6,7 +5,7 @@ export async function fetchShiftData() {
   try {
     return await api.get("/shifts/summary");
   } catch {
-    return loadRestaurantState().cashShifts || shiftsSeedData;
+    return loadRestaurantState().cashShifts || { active: [], history: [], movements: [] };
   }
 }
 
@@ -14,6 +13,10 @@ export function subscribeShiftData(callback) {
   return subscribeRestaurantState((nextState) => {
     callback(nextState.cashShifts || shiftsSeedData);
   });
+}
+
+export async function deleteShiftHistory(shiftId) {
+  return api.delete(`/shifts/history/${shiftId}`);
 }
 
 export function recordCashMismatchResolution() {

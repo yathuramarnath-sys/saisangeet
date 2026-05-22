@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../../lib/api";
+import { deleteShiftHistory } from "./shifts.service";
 
 function fmt(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
 function timeAgo(iso) {
@@ -35,6 +36,7 @@ export function ShiftsCashPage() {
   const [loading,     setLoading]     = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [filter,      setFilter]      = useState("all"); // all | open | mismatch | closed
+  const [deleting,    setDeleting]    = useState(null);  // shiftId being deleted
 
   // Date range filter — default to today
   const [dateFrom, setDateFrom] = useState(todayStr);
@@ -57,6 +59,24 @@ export function ShiftsCashPage() {
     const interval = setInterval(loadData, 30_000);
     return () => clearInterval(interval);
   }, []);
+
+  async function handleDeleteShift(shiftId, cashierName, outletName) {
+    if (!window.confirm(`Remove shift for "${cashierName} · ${outletName}" from the ledger?\n\nThis cannot be undone.`)) return;
+    setDeleting(shiftId);
+    try {
+      await deleteShiftHistory(shiftId);
+      // Remove from local state immediately
+      setData(prev => ({
+        ...prev,
+        history: (prev.history || []).filter(s => s.id !== shiftId),
+        active:  (prev.active  || []).filter(s => s.id !== shiftId),
+      }));
+    } catch (err) {
+      alert("Could not remove shift: " + (err?.message || "Server error"));
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   function handleDateFrom(val) {
     setDateFrom(val);
@@ -215,7 +235,25 @@ export function ShiftsCashPage() {
                         }
                       </span>
                       <span className="muted">{timeAgo(s.startedAt)}</span>
-                      <span><StatusBadge status={s.status} /></span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <StatusBadge status={s.status} />
+                        {s.status !== "open" && (
+                          <button
+                            title="Remove this shift record"
+                            disabled={deleting === s.id}
+                            onClick={() => handleDeleteShift(s.id, s.cashier, s.outlet)}
+                            style={{
+                              background: "none", border: "none", cursor: "pointer",
+                              color: "#d1d5db", fontSize: 14, padding: "2px 4px",
+                              borderRadius: 4, lineHeight: 1,
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.color = "#ef4444"}
+                            onMouseLeave={e => e.currentTarget.style.color = "#d1d5db"}
+                          >
+                            {deleting === s.id ? "…" : "✕"}
+                          </button>
+                        )}
+                      </span>
                     </div>
                   );
                 })}
