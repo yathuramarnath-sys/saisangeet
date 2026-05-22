@@ -24,6 +24,7 @@ import { PosSettingsModal }   from "./components/PosSettingsModal";
 import { PastOrdersModal }    from "./components/PastOrdersModal";
 import { LabelPrintModal }    from "./components/LabelPrintModal";
 import { BatchLabelModal }    from "./components/BatchLabelModal";
+import { CreditSettlePanel }  from "./components/CreditSettlePanel";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { PhonePeQRModal }     from "./components/PhonePeQRModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
@@ -304,6 +305,7 @@ export default function App() {
   const [showPastOrders,     setShowPastOrders]     = useState(false);
   const [showLabelPrint,     setShowLabelPrint]     = useState(false);
   const [showBatchLabel,     setShowBatchLabel]     = useState(false);
+  const [showCreditPanel,    setShowCreditPanel]    = useState(false);
   const [showOnlineOrders,    setShowOnlineOrders]    = useState(false);
   const [pendingOnlineCount,  setPendingOnlineCount]  = useState(0);
   const [onlineOrdersEnabled, setOnlineOrdersEnabled] = useState(() =>
@@ -2079,6 +2081,11 @@ export default function App() {
             onClick={() => setShowPastOrders(true)}>
             <span className="pab-label">Past Orders</span>
           </button>
+          <button type="button" className="pab-btn indigo"
+            onClick={() => setShowCreditPanel(true)}
+            title="Settle outstanding credit bills — collect payment from credit customers">
+            <span className="pab-label">💳 Credits</span>
+          </button>
           <button type="button" className="pab-btn purple"
             onClick={() => setShowAdvancePanel(true)}>
             <span className="pab-label">Advance</span>
@@ -2477,6 +2484,14 @@ export default function App() {
           menuItems={menuItems}
           onClose={() => setShowBatchLabel(false)}
           onOpenSettings={() => setShowSettings(true)}
+        />
+      )}
+
+      {/* ── Credit Settlement panel ───────────────────────────────────────── */}
+      {showCreditPanel && (
+        <CreditSettlePanel
+          activeShift={activeShift}
+          onClose={() => setShowCreditPanel(false)}
         />
       )}
 

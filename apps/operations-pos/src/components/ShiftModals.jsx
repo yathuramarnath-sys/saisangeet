@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getBillPrinter } from "../lib/kotPrint";
+import { getCreditCollectionsForShift } from "./CreditSettlePanel";
 
 const CASH_OUT_REASONS = ["Petty expense","Vendor payment","Courier payout","Staff advance","Utility bill","Other"];
 const CASH_IN_REASONS  = ["Change refill","Float top-up","Manager deposit","Other"];
@@ -147,7 +148,7 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
 }
 
 /* ── Shift Closing Receipt (printable) ────────────────────────────────────── */
-function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, shiftOrders, denomBreakdown }) {
+function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, shiftOrders, denomBreakdown, creditCollections }) {
   // shiftOrders is an array of closed orders for this shift
   const totalOrders = (shiftOrders || []).length;
   const totalSales  = (shiftOrders || []).reduce((s, o) => {
@@ -195,6 +196,15 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
       <div className="sr-row green"><span>+ Cash In</span><span>{fmt(shift.cashIn||0)}</span></div>
       <div className="sr-row red"><span>− Cash Out</span><span>{fmt(shift.cashOut||0)}</span></div>
       <div className="sr-row"><span>Cash Sales</span><span>{fmt(cashSales)}</span></div>
+      {(creditCollections || []).length > 0 && (() => {
+        const byMethod = {};
+        (creditCollections || []).forEach(c => { byMethod[c.method] = (byMethod[c.method] || 0) + c.amount; });
+        return <>
+          {Object.entries(byMethod).map(([m, amt]) => (
+            <div key={m} className="sr-row green"><span>+ Credit Collected ({m})</span><span>{fmt(amt)}</span></div>
+          ))}
+        </>;
+      })()}
       <div className="sr-row bold"><span>Expected in Drawer</span><span>{fmt(expectedCash)}</span></div>
       <div className="sr-row bold"><span>Counted</span><span>{fmt(closingNum)}</span></div>
       {(denomBreakdown || []).length > 0 && <>
@@ -273,10 +283,17 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
     return sum + cashPaid;
   }, 0);
 
+  // Credit collections recorded by cashier during this shift
+  const creditCollections = getCreditCollectionsForShift(shift.id);
+  const creditCashCollected = creditCollections
+    .filter(c => c.method === "Cash")
+    .reduce((s, c) => s + (c.amount || 0), 0);
+
   const expectedCash = (shift.openingCash || 0)
     + (shift.cashIn  || 0)
     - (shift.cashOut || 0)
-    + cashSales;
+    + cashSales
+    + creditCashCollected;
 
   const variance   = closingNum - expectedCash;
   const counted    = closingNum > 0;
@@ -387,6 +404,7 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
               variance={variance}
               shiftOrders={shiftOrders}
               denomBreakdown={closedRecord?.denomBreakdown}
+              creditCollections={creditCollections}
             />
           </div>
           <div className="sm-footer">
@@ -432,6 +450,12 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
               <span>Cash Sales</span>
               <strong>{fmt(cashSales)}</strong>
             </div>
+            {creditCashCollected > 0 && (
+              <div className="sm-sum-row green">
+                <span>Credit Collected (Cash)</span>
+                <strong>+{fmt(creditCashCollected)}</strong>
+              </div>
+            )}
             <div className="sm-sum-row expected">
               <span>Expected in Drawer</span>
               <strong>{fmt(expectedCash)}</strong>
