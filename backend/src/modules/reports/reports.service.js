@@ -597,11 +597,11 @@ async function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) 
   const pendingOverrides = Object.values(orders).filter((order) => order.discountOverrideRequested).length;
 
   // Sales data — smart fetcher: memory for today, Postgres for history
-  const closedToday     = await _getOrdersForRange(tenantId || "default", { dateFrom, dateTo, outletId });
+  const closedToday     = await _getOrdersForRange(tenantId, { dateFrom, dateTo, outletId });
   const todayOrderCount = closedToday.length;
   const salesData       = {
     ...buildSalesData(closedToday),
-    captainIncentives: buildCaptainIncentives(closedToday, tenantId || "default"),
+    captainIncentives: buildCaptainIncentives(closedToday, tenantId),
   };
 
   return {

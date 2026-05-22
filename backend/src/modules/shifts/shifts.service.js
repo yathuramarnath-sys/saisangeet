@@ -6,30 +6,30 @@ const { openShift, recordMovement, closeShift, getShifts, deleteShiftFromHistory
 
 /** GET /shifts/summary — returns live shift data for Owner Web. */
 async function fetchShiftSummary(tenantId) {
-  return getShifts(tenantId || "default");
+  return getShifts(tenantId);
 }
 
 /** POST /shifts/open — POS cashier opens a shift. */
 async function startShift(tenantId, shift) {
-  openShift(tenantId || "default", shift);
+  openShift(tenantId, shift);
   return { ok: true };
 }
 
 /** POST /shifts/movement — cash in / cash out recorded by cashier. */
 async function addMovement(tenantId, movement) {
-  recordMovement(tenantId || "default", movement);
+  recordMovement(tenantId, movement);
   return { ok: true };
 }
 
 /** POST /shifts/close — cashier closes a shift with reconciliation data. */
 async function endShift(tenantId, closedShift) {
-  closeShift(tenantId || "default", closedShift);
+  closeShift(tenantId, closedShift);
   return { ok: true };
 }
 
 /** DELETE /shifts/history/:shiftId — owner removes a specific shift entry. */
 async function removeShiftFromHistory(tenantId, shiftId) {
-  const deleted = deleteShiftFromHistory(tenantId || "default", shiftId);
+  const deleted = deleteShiftFromHistory(tenantId, shiftId);
   return { ok: deleted, shiftId };
 }
 
