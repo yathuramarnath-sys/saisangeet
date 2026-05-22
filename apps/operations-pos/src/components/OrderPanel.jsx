@@ -1,8 +1,11 @@
 import { useState } from "react";
 
 // ── Financials ─────────────────────────────────────────────────────────────────
-export function getFinancials(order) {
+// gstTreatment: "exclusive" (default) — GST added on top of price
+//               "inclusive"           — GST extracted from price (customer pays same)
+export function getFinancials(order, { gstTreatment = "exclusive" } = {}) {
   if (!order) return null;
+  const inclusive     = gstTreatment === "inclusive";
   const items         = order.items || [];
   const billable      = items.filter(i => !i.isVoided && !i.isComp);
   const compTotal     = items.filter(i => i.isComp && !i.isVoided)
@@ -10,19 +13,23 @@ export function getFinancials(order) {
   const subtotal      = billable.reduce((s, i) => s + i.price * i.quantity, 0);
   const discountAmt   = Math.min(order.discountAmount || 0, subtotal);
   const afterDiscount = subtotal - discountAmt;
-  // Per-item tax — mirrors printBill.js and handleSettle logic exactly.
-  // Defaults to 5 % if item.taxRate is blank/null (will be fixed by Blocker 4 audit).
+
   const tax = billable.reduce((s, i) => {
     const lineAfter = subtotal > 0
       ? (i.price * i.quantity) * (afterDiscount / subtotal)
       : 0;
     const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-    return s + Math.round(lineAfter * rate / 100);
+    // Exclusive: tax added on top  → tax = base × rate/100
+    // Inclusive: tax extracted      → tax = price × rate/(100+rate)
+    return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
   }, 0);
-  const total   = afterDiscount + tax;
+
+  // Exclusive: customer pays subtotal - disc + tax
+  // Inclusive: customer pays subtotal - disc  (tax already inside)
+  const total   = inclusive ? afterDiscount : afterDiscount + tax;
   const paid    = (order.payments || []).reduce((s, p) => s + p.amount, 0);
   const balance = Math.max(total - paid, 0);
-  return { subtotal, compTotal, discountAmt, tax, total, paid, balance };
+  return { subtotal, compTotal, discountAmt, tax, total, paid, balance, inclusive };
 }
 
 // ── Transfer Table mini-modal ─────────────────────────────────────────────────
@@ -113,6 +120,7 @@ export function OrderPanel({
   onVoidItem,
   onReprintKOT,
   onPrintBill,
+  gstTreatment = "exclusive",
 }) {
   const [showTransfer, setShowTransfer] = useState(false);
   const [showNote,     setShowNote]     = useState(false);
@@ -132,7 +140,7 @@ export function OrderPanel({
     );
   }
 
-  const fin         = getFinancials(order);
+  const fin         = getFinancials(order, { gstTreatment });
   const activeItems = (order.items || []).filter(i => !i.isVoided);
   const hasItems    = activeItems.length > 0;
   const unsentItems = activeItems.filter(i => !i.sentToKot && !i.isComp);

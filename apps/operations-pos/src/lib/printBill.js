@@ -52,6 +52,9 @@ export function printBill(order, items, outletOrName, options = {}) {
   const discount  = Math.min(order.discountAmount || 0, subtotal);
   const afterDisc = subtotal - discount;
 
+  // ── GST Treatment: "exclusive" (add on top) or "inclusive" (extract from price) ──
+  const inclusive = (outlet?.gstTreatment === "inclusive");
+
   // ── Per-item tax calculation (reads item.taxRate; defaults to 5% if not set) ──
   // Discount is spread proportionally across items before applying tax.
   const taxBreakdown = {}; // { rateInt: totalTaxAmt }
@@ -60,7 +63,7 @@ export function printBill(order, items, outletOrName, options = {}) {
     // Proportional share of discount for this line
     const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
     const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-    const lineTax   = Math.round(lineAfter * rate / 100);
+    const lineTax   = Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     taxBreakdown[rate] = (taxBreakdown[rate] || 0) + lineTax;
   });
   // Build rows: each rate split 50/50 into CGST + SGST
@@ -71,7 +74,8 @@ export function printBill(order, items, outletOrName, options = {}) {
     sgst:    amt - Math.round(amt / 2),
   }));
   const taxTotal = taxRows.reduce((s, r) => s + r.cgst + r.sgst, 0);
-  const total    = afterDisc + taxTotal;
+  // Inclusive: tax already inside prices — total = afterDisc; Exclusive: add tax on top
+  const total    = inclusive ? afterDisc : afterDisc + taxTotal;
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });

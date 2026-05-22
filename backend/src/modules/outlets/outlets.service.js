@@ -27,6 +27,7 @@ async function fetchOutlets() {
     gstin:         o.gstin         || bp.gstin         || "",
     fssaiNo:       o.fssaiNo       || bp.fssaiNo       || "",
     showFssai:     o.showFssai     ?? true,
+    gstTreatment:  o.gstTreatment  || "exclusive",
     invoiceHeader: o.invoiceHeader || bp.invoiceHeader || "",
     invoiceFooter: o.invoiceFooter || bp.invoiceFooter || "",
   }));

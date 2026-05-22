@@ -1204,12 +1204,14 @@ export default function App() {
     const subtotal     = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
     const disc         = Math.min(order.discountAmount || 0, subtotal);
     const afterDisc    = subtotal - disc;
+    const inclusive    = outlet?.gstTreatment === "inclusive";
     // Per-item tax (mirrors printBill.js logic — defaults to 5% if item.taxRate unset)
     const taxAmt       = billableItems.reduce((s, i) => {
       const lineAfter = subtotal > 0 ? (i.price * i.quantity) * (afterDisc / subtotal) : 0;
-      return s + Math.round(lineAfter * ((i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 5) / 100));
+      const rate = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 5;
+      return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     }, 0);
-    const total        = afterDisc + taxAmt;
+    const total        = inclusive ? afterDisc : afterDisc + taxAmt;
     const paid         = allPayments.reduce((s, p) => s + p.amount, 0);
 
     if (paid < total) {
@@ -2062,6 +2064,7 @@ export default function App() {
           onVoidItem={handleVoidItem}
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
+          gstTreatment={outlet?.gstTreatment || "exclusive"}
         />
         )}
       </div>
@@ -2074,6 +2077,7 @@ export default function App() {
           onClose={() => setShowPayment(false)}
           onSettle={handleSettle}
           onPhonePeQR={() => { setShowPayment(false); setShowPhonePeQR(true); }}
+          gstTreatment={outlet?.gstTreatment || "exclusive"}
         />
       )}
 

@@ -24,6 +24,7 @@ export const defaultBusinessGST = {
 };
 
 export const defaultReceiptSettings = {
+  gstTreatment:       "exclusive",
   showDiscountOnBill: true,
   showGstBreakdown:   true,
   showItemDesc:       false,

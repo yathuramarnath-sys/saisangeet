@@ -180,6 +180,7 @@ export function TaxesReceiptsPage() {
         setOutletId(o.id);
         setOutletData(o);
         const fromOutlet = {
+          gstTreatment:       o.gstTreatment       || defaultReceiptSettings.gstTreatment,
           showDiscountOnBill: o.showDiscountOnBill ?? defaultReceiptSettings.showDiscountOnBill,
           showGstBreakdown:   o.showGstBreakdown   ?? defaultReceiptSettings.showGstBreakdown,
           showItemDesc:       o.showItemDesc       ?? defaultReceiptSettings.showItemDesc,
@@ -243,6 +244,48 @@ export function TaxesReceiptsPage() {
 
       {/* ── Bill Number Sequencing ────────────────────────────────────────── */}
       <BillNumberPanel />
+
+      {/* ── GST Treatment ────────────────────────────────────────────────── */}
+      <section className="bn-panel" style={{ marginTop: 20 }}>
+        <div className="bn-header">
+          <div>
+            <p className="eyebrow">Pricing Setup</p>
+            <h3>GST Treatment</h3>
+            <p className="bn-desc">Choose how item prices are defined in your menu — this affects totals on every bill.</p>
+          </div>
+        </div>
+        <div className="bn-options">
+          <label className={`bn-option ${receipt.gstTreatment === "exclusive" ? "bn-option-active" : ""}`}>
+            <input type="radio" name="gstTreatment" value="exclusive"
+              checked={receipt.gstTreatment === "exclusive"}
+              onChange={() => { updateReceipt("gstTreatment", "exclusive"); flash("GST Treatment set to Exclusive — GST added on top of item price."); }} />
+            <div className="bn-option-body">
+              <div className="bn-option-title">
+                ➕ GST Exclusive <span className="bn-badge bn-badge-default">Default</span>
+              </div>
+              <p className="bn-option-desc">
+                Menu price is the <strong>base price</strong>. GST is calculated and added on top.<br />
+                Example: Item ₹100 + 5% GST = <strong>Customer pays ₹105</strong>
+              </p>
+            </div>
+          </label>
+          <label className={`bn-option ${receipt.gstTreatment === "inclusive" ? "bn-option-active" : ""}`}>
+            <input type="radio" name="gstTreatment" value="inclusive"
+              checked={receipt.gstTreatment === "inclusive"}
+              onChange={() => { updateReceipt("gstTreatment", "inclusive"); flash("GST Treatment set to Inclusive — GST extracted from item price."); }} />
+            <div className="bn-option-body">
+              <div className="bn-option-title">
+                ✅ GST Inclusive
+              </div>
+              <p className="bn-option-desc">
+                Menu price <strong>already includes GST</strong>. GST is extracted and shown separately for compliance.<br />
+                Example: Item ₹100 (incl. 5% GST) = GST ₹4.76, <strong>Customer pays ₹100</strong>
+              </p>
+            </div>
+          </label>
+        </div>
+        {msg && <p className="bn-msg">{msg}</p>}
+      </section>
 
       {/* ── Tax Profiles ─────────────────────────────────────────────────── */}
       <section className="bn-panel" style={{ marginTop: 20 }}>

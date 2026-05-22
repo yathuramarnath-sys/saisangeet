@@ -9,8 +9,8 @@ const METHODS = [
 
 const BLANK_CREDIT = { name: "", gstin: "", address: "", phone: "", poNumber: "" };
 
-export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR }) {
-  const fin = getFinancials(order);
+export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR, gstTreatment = "exclusive" }) {
+  const fin = getFinancials(order, { gstTreatment });
 
   // Local payments added during this modal session (not yet persisted)
   const [localPayments, setLocalPayments] = useState([]);
