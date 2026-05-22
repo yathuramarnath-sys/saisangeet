@@ -8,6 +8,7 @@
  *   - Active / Paused toggle
  *   - Delete
  *   - NO cashier/manager level — owner activates, cashier applies
+ * v2
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -220,10 +221,10 @@ export function DiscountRulesPage() {
             lineHeight: 1.6,
           }}>
             <strong>💡 How it works</strong><br />
-            Active rules appear as tap buttons in the POS cashier screen.
+            Active rules appear as buttons in the POS cashier screen.
             The cashier manually picks which rule to apply per customer —
             rules are <strong>never auto-applied</strong>.
-            Pause a rule to hide it from POS without deleting it.
+            Pause a rule to temporarily hide it from POS without deleting it.
           </div>
         </div>
 
