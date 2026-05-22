@@ -2,9 +2,8 @@
   "pos": {
     "version": "1.4.19",
     "label": "POS Terminal",
-    "changelog": "New Order tab, GST Treatment toggle (inclusive/exclusive), FSSAI field, ghost void fixes, split bill auto-close",
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
-    "apkUrl": null,
+    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-pos.apk",
     "releaseDate": "2026-05-22"
   },
   "captain": {
