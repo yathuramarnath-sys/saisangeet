@@ -75,6 +75,99 @@ function TransferModal({ tableAreas, orders, currentId, onTransfer, onClose }) {
   );
 }
 
+// ── DiscountPicker ───────────────────────────────────────────────────────────
+// Shows owner-configured discount rules as tap buttons.
+// Cashier picks one per order; nothing is auto-applied.
+// Falls back to a plain ₹ input when no rules are configured.
+function DiscountPicker({ discountRules, subtotal, currentAmount, onSelect }) {
+  const [showCustom, setShowCustom] = useState(false);
+
+  // Compute what each rule would give on this subtotal
+  function ruleAmount(rule) {
+    if (rule.discountType === "flat") return Number(rule.value) || 0;
+    return Math.round((subtotal || 0) * (rule.value || 0) / 100);
+  }
+
+  // Detect if the current discount matches a known rule
+  const activeRule = discountRules.find(r => {
+    const amt = ruleAmount(r);
+    return amt > 0 && amt === currentAmount;
+  });
+
+  const isCustomActive = currentAmount > 0 && !activeRule;
+
+  function applyRule(rule) {
+    const amt = ruleAmount(rule);
+    if (activeRule?.id === rule.id) {
+      // Same rule tapped again → clear discount
+      onSelect(0);
+    } else {
+      onSelect(amt);
+      setShowCustom(false);
+    }
+  }
+
+  function toggleCustom() {
+    if (activeRule) { onSelect(0); }
+    setShowCustom(v => !v);
+  }
+
+  // No rules configured → simple ₹ input (original behaviour)
+  if (!discountRules || discountRules.length === 0) {
+    return (
+      <input
+        className="discount-inline-input"
+        type="number" min="0" step="0.01"
+        value={currentAmount || ""}
+        placeholder="0"
+        onChange={e => onSelect(Number(e.target.value))}
+      />
+    );
+  }
+
+  return (
+    <div className="discount-picker">
+      <div className="discount-chips">
+        {discountRules.map(rule => {
+          const amt      = ruleAmount(rule);
+          const isActive = activeRule?.id === rule.id;
+          return (
+            <button key={rule.id} type="button"
+              className={`discount-chip${isActive ? " active" : ""}`}
+              onClick={() => applyRule(rule)}
+              title={rule.notes || rule.name}>
+              {rule.name}
+              {isActive && <span className="discount-chip-amt"> −₹{amt}</span>}
+            </button>
+          );
+        })}
+        <button type="button"
+          className={`discount-chip${isCustomActive || showCustom ? " active" : ""}`}
+          onClick={toggleCustom}>
+          Custom
+        </button>
+        {currentAmount > 0 && (
+          <button type="button"
+            className="discount-chip clear"
+            onClick={() => { onSelect(0); setShowCustom(false); }}>
+            ✕
+          </button>
+        )}
+      </div>
+      {(showCustom || isCustomActive) && (
+        <input
+          className="discount-inline-input"
+          type="number" min="0" step="0.01"
+          value={currentAmount || ""}
+          placeholder="Enter ₹ amount"
+          onChange={e => onSelect(Number(e.target.value))}
+          autoFocus={showCustom}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── VoidReasonPicker ─────────────────────────────────────────────────────────
 const VOID_REASONS = ["Wrong order","Customer changed mind","Item unavailable","Duplicate entry","Other"];
 
@@ -121,6 +214,7 @@ export function OrderPanel({
   onReprintKOT,
   onPrintBill,
   gstTreatment = "exclusive",
+  discountRules = [],
 }) {
   const [showTransfer, setShowTransfer] = useState(false);
   const [showNote,     setShowNote]     = useState(false);
@@ -292,15 +386,14 @@ export function OrderPanel({
               <span>−₹{fin.compTotal.toFixed(2)}</span>
             </div>
           )}
-          {/* Discount — always visible as inline input row */}
-          <div className="order-total-row discount-row">
-            <span>Discount (₹)</span>
-            <input
-              className="discount-inline-input"
-              type="number" min="0"
-              value={order.discountAmount || ""}
-              placeholder="0"
-              onChange={e => onDiscountChange(Number(e.target.value))}
+          {/* Discount — rule chips or plain input if no rules configured */}
+          <div className={`order-total-row discount-row${discountRules.length > 0 ? " discount-row-chips" : ""}`}>
+            <span>Discount</span>
+            <DiscountPicker
+              discountRules={discountRules}
+              subtotal={fin.subtotal}
+              currentAmount={order.discountAmount || 0}
+              onSelect={onDiscountChange}
             />
           </div>
           <div className="order-total-row">

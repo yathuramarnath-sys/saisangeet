@@ -306,6 +306,9 @@ export default function App() {
   const [showLabelPrint,     setShowLabelPrint]     = useState(false);
   const [showBatchLabel,     setShowBatchLabel]     = useState(false);
   const [showCreditPanel,    setShowCreditPanel]    = useState(false);
+  const [discountRules,      setDiscountRules]      = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pos_discount_rules") || "[]"); } catch { return []; }
+  });
   const [showOnlineOrders,    setShowOnlineOrders]    = useState(false);
   const [pendingOnlineCount,  setPendingOnlineCount]  = useState(0);
   const [onlineOrdersEnabled, setOnlineOrdersEnabled] = useState(() =>
@@ -331,12 +334,19 @@ export default function App() {
 
         setOutlet(target);
 
-        const [cats, items, kitchenStations, staffRes] = await Promise.all([
+        const [cats, items, kitchenStations, staffRes, discountRes] = await Promise.all([
           api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),
           api.get(`/menu/items?outletId=${target.id}`).catch(() => []),
           api.get("/kitchen-stations").catch(() => []),
           api.get(`/devices/staff?outletId=${target.id}`).catch(() => null),
+          api.get("/settings/discounts").catch(() => null),
         ]);
+        // Sync active discount rules for POS cashier picker
+        if (discountRes?.rules) {
+          const active = discountRes.rules.filter(r => r.isActive !== false);
+          setDiscountRules(active);
+          try { localStorage.setItem("pos_discount_rules", JSON.stringify(active)); } catch (_) {}
+        }
         if (staffRes?.staff?.length) setActiveStaff(staffRes.staff);
 
         // Store kitchen stations enriched with category NAMES as fallback for ID-type mismatches.
@@ -761,12 +771,18 @@ export default function App() {
     const id = outletId || outlet.id;
     setIsSyncing(true);
     try {
-      const [cats, items, stations, outletsList] = await Promise.all([
+      const [cats, items, stations, outletsList, discRes] = await Promise.all([
         api.get(`/menu/categories?outletId=${id}`).catch(() => null),
         api.get(`/menu/items?outletId=${id}`).catch(() => null),
         api.get("/kitchen-stations").catch(() => null),
         api.get("/outlets").catch(() => null),
+        api.get("/settings/discounts").catch(() => null),
       ]);
+      if (discRes?.rules) {
+        const active = discRes.rules.filter(r => r.isActive !== false);
+        setDiscountRules(active);
+        try { localStorage.setItem("pos_discount_rules", JSON.stringify(active)); } catch (_) {}
+      }
       if (cats)    setCategories(cats);
       if (items)   setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
       if (stations?.length) {
@@ -2223,6 +2239,7 @@ export default function App() {
           tableAreas={tableAreas}
           orders={orders}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
+          discountRules={discountRules}
           onChangeQty={handleChangeQty}
           onRemoveItem={handleRemoveItem}
           onNoteChange={handleNoteChange}

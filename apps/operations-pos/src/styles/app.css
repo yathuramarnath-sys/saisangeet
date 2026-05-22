@@ -958,6 +958,45 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
 /* Inline discount input row inside totals block */
 .order-total-row.discount-row { align-items: center; }
+.order-total-row.discount-row-chips { align-items: flex-start; flex-direction: column; gap: 6px; }
+.order-total-row.discount-row-chips > span { font-size: 11px; color: var(--sq-muted); font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
+
+/* Discount rule chips */
+.discount-picker { width: 100%; }
+.discount-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  width: 100%;
+}
+.discount-chip {
+  padding: 4px 11px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 20px;
+  background: #f9fafb;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all 0.12s;
+  line-height: 1.4;
+}
+.discount-chip:hover { background: #ede9fe; border-color: #a5b4fc; color: #4338ca; }
+.discount-chip.active {
+  background: #4338ca;
+  border-color: #4338ca;
+  color: #fff;
+}
+.discount-chip.clear {
+  border-color: #fca5a5;
+  background: #fff5f5;
+  color: #dc2626;
+  padding: 4px 9px;
+}
+.discount-chip.clear:hover { background: #fee2e2; }
+.discount-chip-amt { font-weight: 800; }
 .discount-inline-input {
   width: 72px;
   padding: 2px 6px;
