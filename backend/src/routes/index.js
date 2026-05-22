@@ -80,22 +80,6 @@ apiRouter.use("/settlements",        settlementsRouter);
 apiRouter.use("/inventory",          inventoryRouter);
 apiRouter.use("/advance-orders",     advanceOrdersRouter);
 
-// ── DELETE /demo-data  ────────────────────────────────────────────────────────
-// Removes all records flagged with _demo:true from this tenant's data.
-// Called from Owner Web "Remove demo data" banner one-click action.
-apiRouter.delete("/demo-data", requireAuth, asyncHandler(async (req, res) => {
-  await updateOwnerSetupDataNow((data) => {
-    data.outlets              = (data.outlets || []).filter(o => !o._demo);
-    data.users                = (data.users   || []).filter(u => !u._demo);
-    if (data.menu) {
-      data.menu.categories    = (data.menu.categories || []).filter(c => !c._demo);
-      data.menu.items         = (data.menu.items       || []).filter(i => !i._demo);
-    }
-    return data;
-  });
-  res.json({ ok: true, message: "Demo data removed." });
-}));
-
 // ── GET /settings/security — fetch current security settings (PIN masked) ────
 apiRouter.get("/settings/security", requireAuth, asyncHandler(async (_req, res) => {
   const data = getOwnerSetupData();

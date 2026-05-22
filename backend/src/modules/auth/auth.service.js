@@ -13,7 +13,6 @@ const {
   findUserByResetToken,
 } = require("../../data/owner-setup-store");
 const { createBlankTenantData } = require("../../data/blank-tenant-data");
-const { applyDemoSeed }        = require("../../data/demo-seed");
 const { registerUserInIndex }  = require("../../data/users-index");
 const { sendWelcomeEmail, sendPasswordResetEmail } = require("../../utils/email");
 const { runWithTenant } = require("../../data/tenant-context");
@@ -185,8 +184,6 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
     outlets, message, submittedAt: new Date().toISOString()
   }];
 
-  // Demo seed disabled — new accounts start completely blank
-  // applyDemoSeed(tenantData, tenantId);
 
   createTenantFile(tenantId, tenantData);
   registerUserInIndex(cleanEmail, cleanPhone, tenantId);

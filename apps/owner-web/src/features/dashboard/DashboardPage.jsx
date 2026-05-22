@@ -16,56 +16,6 @@ const SOCKET_URL = import.meta.env.VITE_API_BASE_URL
   ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/v1$/, "")
   : "http://localhost:4000";
 
-// ─── Demo Data Banner ─────────────────────────────────────────────────────────
-
-function DemoBanner() {
-  const [visible,  setVisible]  = useState(false);
-  const [removing, setRemoving] = useState(false);
-  const [done,     setDone]     = useState(false);
-
-  useEffect(() => {
-    api.get("/outlets")
-      .then(list => {
-        if (Array.isArray(list) && list.some(o => o._demo)) setVisible(true);
-      })
-      .catch(() => {});
-  }, []);
-
-  async function removeDemo() {
-    setRemoving(true);
-    try {
-      await api.delete("/demo-data");
-      setDone(true);
-      setTimeout(() => setVisible(false), 2000);
-    } catch (e) {
-      setRemoving(false);
-    }
-  }
-
-  if (!visible) return null;
-
-  return (
-    <div className="dash-demo-banner">
-      <span className="dash-demo-icon">🧪</span>
-      <div className="dash-demo-body">
-        <strong>Demo data active</strong>
-        <p>
-          Your account has a sample outlet, menu and staff pre-loaded so you can
-          explore the system. Remove it when you're ready to use your real data.
-        </p>
-      </div>
-      {done ? (
-        <span className="dash-demo-done">✓ Removed</span>
-      ) : (
-        <button className="dash-demo-remove-btn" onClick={removeDemo} disabled={removing}>
-          {removing ? "Removing…" : "Remove Demo Data"}
-        </button>
-      )}
-      <button className="dash-demo-dismiss" onClick={() => setVisible(false)} title="Dismiss">✕</button>
-    </div>
-  );
-}
-
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function todayISO() {
@@ -401,7 +351,6 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <DemoBanner />
 
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div className="dash-toolbar">
