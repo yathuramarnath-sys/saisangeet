@@ -111,10 +111,6 @@ export function StaffPage() {
   const [editingStaffId, setEditingStaffId] = useState("");
   const [editStaffDraft, setEditStaffDraft] = useState(null);
 
-  const [financialDraft, setFinancialDraft] = useState({
-    cashierDiscountLimitPercent: 5,
-    cashierVoidLimitAmount: 200
-  });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -144,7 +140,6 @@ export function StaffPage() {
     const mergedRoles = merged.roles || [];
 
     setStaffData(merged);
-    setFinancialDraft(merged.policyValues);
     setStaffDraft(buildDefaultDraft(merged));
     setSelectedRoleId((cur) => cur || mergedRoles[0]?.id || "");
 
@@ -380,20 +375,6 @@ export function StaffPage() {
     setStaffData((p) => ({ ...p, staff: updatedStaff }));
     saveLocal(LOCAL_STAFF_KEY, updatedStaff);
     showMsg(isActive ? `${member.name} activated.` : `${member.name} deactivated.`);
-  }
-
-  // ── Financial controls ───────────────────────────────────
-  async function handleSaveFinancials(e) {
-    e.preventDefault();
-    try {
-      await api.patch("/settings/discounts/defaults/config", {
-        cashierLimitPercent:    financialDraft.cashierDiscountLimitPercent,
-        cashierVoidLimitAmount: financialDraft.cashierVoidLimitAmount
-      });
-      showMsg("Approval limits saved.");
-    } catch (_) {
-      showMsg("Approval limits saved (offline).");
-    }
   }
 
   // ── Export ───────────────────────────────────────────────
@@ -900,45 +881,6 @@ export function StaffPage() {
           )}
         </article>
 
-        {/* ── FINANCIAL CONTROLS ── */}
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Financial Control</p>
-              <h3>Approval Limits</h3>
-            </div>
-          </div>
-          <form className="simple-form" onSubmit={handleSaveFinancials}>
-            <label>
-              Cashier discount limit (%)
-              <input
-                type="number" min="0" max="100" step="0.5"
-                value={financialDraft.cashierDiscountLimitPercent}
-                onChange={(e) => setFinancialDraft((p) => ({ ...p, cashierDiscountLimitPercent: e.target.value }))}
-              />
-            </label>
-            <label>
-              Cashier void limit (₹)
-              <input
-                type="number" min="0" step="1"
-                value={financialDraft.cashierVoidLimitAmount}
-                onChange={(e) => setFinancialDraft((p) => ({ ...p, cashierVoidLimitAmount: e.target.value }))}
-              />
-            </label>
-            <button type="submit" className="secondary-btn full-width">Save Limits</button>
-          </form>
-          <div className="mini-stack" style={{ marginTop: "1rem" }}>
-            <div className="mini-card">
-              <span>Discount above {financialDraft.cashierDiscountLimitPercent}%</span>
-              <strong>→ Manager / Owner approval</strong>
-            </div>
-            <div className="mini-card">
-              <span>Void above ₹{financialDraft.cashierVoidLimitAmount}</span>
-              <strong>→ OTP approval required</strong>
-            </div>
-          </div>
-        </article>
-
         {/* ── LOGIN POLICY ── */}
         <article className="panel">
           <div className="panel-head">
@@ -953,12 +895,8 @@ export function StaffPage() {
               <strong>{pinPercent}% PIN enabled</strong>
             </div>
             <div className="mini-card">
-              <span>Discount approval</span>
-              <strong>Above {financialDraft.cashierDiscountLimitPercent}% → Manager</strong>
-            </div>
-            <div className="mini-card">
-              <span>Void approval</span>
-              <strong>Above ₹{financialDraft.cashierVoidLimitAmount} → OTP</strong>
+              <span>Discounts on POS</span>
+              <strong>Only cashiers with permission</strong>
             </div>
             <div className="mini-card">
               <span>Inactive staff login</span>
@@ -967,27 +905,6 @@ export function StaffPage() {
           </div>
         </article>
 
-        {/* ── ACCESS ALERTS ── */}
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Attention Needed</p>
-              <h3>Access Alerts</h3>
-            </div>
-          </div>
-          <div className="alert-list">
-            {staffData.alerts.length === 0 ? (
-              <div className="panel-empty">No access issues right now.</div>
-            ) : (
-              staffData.alerts.map((a) => (
-                <div key={a.id} className="alert-item">
-                  <strong>{a.title}</strong>
-                  <span>{a.description}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </article>
 
       </section>
     </>

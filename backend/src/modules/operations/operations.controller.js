@@ -352,7 +352,7 @@ async function deviceSendKotHandler(req, res) {
       //     (category deleted & re-created → station still has old ID →
       //     catIdToName returns undefined → catNameToStation entry missing).
       //
-      //  Fallback: "Main Kitchen" (unassigned; visible on an unfiltered KDS)
+      //  Fallback: "Unassigned" (visible on an unfiltered KDS — never creates a ghost station)
 
       for (const item of items) {
         let station  = "";
@@ -410,14 +410,14 @@ async function deviceSendKotHandler(req, res) {
           }
         }
 
-        console.log(`[KOT] item="${item.name}" id="${item.id}" menuItemId="${item.menuItemId||""}" catId="${item.categoryId||""}" catName="${item.categoryName||item.category||""}" clientSt="${clientSt}" → ${routeStep} → station="${station||"Main Kitchen"}"`);
-        const key = station || "Main Kitchen";
+        console.log(`[KOT] item="${item.name}" id="${item.id}" menuItemId="${item.menuItemId||""}" catId="${item.categoryId||""}" catName="${item.categoryName||item.category||""}" clientSt="${clientSt}" → ${routeStep} → station="${station||"Unassigned"}"`);
+        const key = station || "Unassigned";
         if (!stationGroups[key]) stationGroups[key] = [];
         stationGroups[key].push(item);
       }
     } catch (err) {
-      console.error("[KOT] routing error — falling back to Main Kitchen:", err.message);
-      stationGroups = { "Main Kitchen": items };
+      console.error("[KOT] routing error — falling back to Unassigned:", err.message);
+      stationGroups = { "Unassigned": items };
     }
   }
 

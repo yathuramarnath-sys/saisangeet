@@ -636,8 +636,8 @@ export function App() {
         (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
         (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCatName))
       )?.name || "";
-    // Don't persist "Main Kitchen" — it's a generic fallback that breaks KDS routing
-    const resolvedStation = (rawStation === "Main Kitchen" || rawStation === "Main kitchen") ? "" : rawStation;
+    // Don't persist fallback station names — they break KDS routing
+    const resolvedStation = (rawStation === "Main Kitchen" || rawStation === "Main kitchen" || rawStation === "Unassigned") ? "" : rawStation;
     try {
       const serverOrder = await api.post("/operations/order/item", {
         tableId,
@@ -685,7 +685,7 @@ export function App() {
                 (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
                 (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === (item.category || item.categoryName || "").trim().toLowerCase()))
               )?.name || "";
-            return (raw === "Main Kitchen" || raw === "Main kitchen") ? "" : raw;
+            return (raw === "Main Kitchen" || raw === "Main kitchen" || raw === "Unassigned") ? "" : raw;
           })(),
           categoryId:   item.categoryId || "",
           categoryName: item.categoryName || item.category || "",

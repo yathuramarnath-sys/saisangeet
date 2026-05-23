@@ -210,6 +210,8 @@ export function MenuPage() {
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [outletFilter, setOutletFilter] = useState("all"); // "all" | outlet name
   const [selectedItems, setSelectedItems] = useState(new Set());
+  const [itemPage, setItemPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [routingDrafts, setRoutingDrafts] = useState({});
   const [labelItem, setLabelItem] = useState(null); // item to print labels for
@@ -377,6 +379,12 @@ export function MenuPage() {
 
     return matchesSearch && matchesCategory && matchesStatus && matchesInventory && matchesFoodType && matchesTax && matchesOutlet;
   });
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setItemPage(1); }, [librarySearch, categoryFilter, statusFilter, inventoryFilter, foodTypeFilter, taxFilter, outletFilter]);
+
+  const totalPages   = Math.max(1, Math.ceil(filteredLibraryItems.length / ITEMS_PER_PAGE));
+  const pagedItems   = filteredLibraryItems.slice((itemPage - 1) * ITEMS_PER_PAGE, itemPage * ITEMS_PER_PAGE);
 
   function updateItem(itemId, updater) {
     setMenuData((current) => ({
@@ -1290,9 +1298,9 @@ export function MenuPage() {
               <span className="col-check">
                 <input
                   type="checkbox"
-                  title="Select all"
-                  checked={filteredLibraryItems.length > 0 && filteredLibraryItems.every((item) => selectedItems.has(item.id))}
-                  onChange={() => toggleSelectAll(filteredLibraryItems.map((item) => item.id))}
+                  title="Select all on this page"
+                  checked={pagedItems.length > 0 && pagedItems.every((item) => selectedItems.has(item.id))}
+                  onChange={() => toggleSelectAll(pagedItems.map((item) => item.id))}
                 />
               </span>
               <span>Item</span>
@@ -1305,7 +1313,7 @@ export function MenuPage() {
             </div>
 
             {/* ── Rows + inline accordion ────────────────────────────────── */}
-            {filteredLibraryItems.map((item) => {
+            {pagedItems.map((item) => {
               const isEditing     = editingItemId === item.id;
               const hasAreaPricing = item.areaOverrides && Object.values(item.areaOverrides).some(v => Number(v) > 0);
               const baseDisplay   = item.price || item.basePrice || 0;
@@ -1448,6 +1456,62 @@ export function MenuPage() {
               );
             })}
           </div>
+
+          {/* ── Pagination bar ── */}
+          {filteredLibraryItems.length > ITEMS_PER_PAGE && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 4px 4px", borderTop: "1px solid #f0ede6", marginTop: 8 }}>
+              <span style={{ fontSize: 13, color: "#6b7280" }}>
+                Showing {(itemPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(itemPage * ITEMS_PER_PAGE, filteredLibraryItems.length)} of {filteredLibraryItems.length} items
+              </span>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  style={{ padding: "5px 14px", fontSize: 13 }}
+                  disabled={itemPage === 1}
+                  onClick={() => setItemPage((p) => p - 1)}
+                >
+                  ← Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - itemPage) <= 1)
+                  .reduce((acc, p, idx, arr) => {
+                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push("…");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, idx) =>
+                    p === "…" ? (
+                      <span key={`ellipsis-${idx}`} style={{ fontSize: 13, color: "#9ca3af", padding: "0 4px" }}>…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setItemPage(p)}
+                        style={{
+                          padding: "5px 11px", fontSize: 13, borderRadius: 6, cursor: "pointer",
+                          border: p === itemPage ? "1.5px solid #059669" : "1.5px solid #e5e7eb",
+                          background: p === itemPage ? "#059669" : "#fff",
+                          color: p === itemPage ? "#fff" : "#374151",
+                          fontWeight: p === itemPage ? 700 : 400,
+                        }}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  style={{ padding: "5px 14px", fontSize: 13 }}
+                  disabled={itemPage === totalPages}
+                  onClick={() => setItemPage((p) => p + 1)}
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {showFilterPanel ? (
@@ -1543,102 +1607,87 @@ export function MenuPage() {
               <p className="eyebrow">Categories</p>
               <h3>Category List</h3>
             </div>
-            <div className="entity-actions">
-              <button
-                type="button"
-                className="ghost-btn"
-                onClick={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              >
-                Add category
+            {editingCategoryId && (
+              <button type="button" className="ghost-btn" onClick={cancelEditingCategory}>
+                Cancel Edit
               </button>
-              {editingCategoryId ? (
-                <button type="button" className="ghost-btn" onClick={cancelEditingCategory}>
-                  Cancel Edit
-                </button>
-              ) : null}
-            </div>
+            )}
           </div>
 
-          <form className="simple-form" onSubmit={handleCreateCategory}>
-            <label>
-              Category name
+          {/* ── Add category (single compact row) ── */}
+          <form onSubmit={handleCreateCategory} style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 160px", minWidth: 120 }}>
               <input
                 type="text"
                 value={categoryName}
-                onChange={(event) => setCategoryName(event.target.value)}
-                placeholder="Soups"
+                onChange={(e) => setCategoryName(e.target.value)}
+                placeholder="New category name…"
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #d1d5db", fontSize: 13 }}
               />
-            </label>
-            <label>
-              Available from
-              <input
-                type="time"
-                value={categoryAvailableFrom}
-                onChange={(event) => setCategoryAvailableFrom(event.target.value)}
-              />
-            </label>
-            <label>
-              Available to
-              <input
-                type="time"
-                value={categoryAvailableTo}
-                onChange={(event) => setCategoryAvailableTo(event.target.value)}
-              />
-            </label>
-            <button type="submit" className="secondary-btn full-width">
-              Save Category
+            </div>
+            <button type="submit" className="primary-btn" style={{ whiteSpace: "nowrap", padding: "7px 16px" }}>
+              + Add
             </button>
           </form>
 
-          <div className="category-stack">
+          {/* ── Scrollable category list ── */}
+          <div style={{ maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+            {categoryGroups.length === 0 && (
+              <p style={{ color: "#9ca3af", fontSize: 13, padding: "8px 0" }}>No categories yet — add one above.</p>
+            )}
             {categoryGroups.map((category) => (
-              <div key={category.id} className="mini-card">
+              <div key={category.id} style={{
+                background: editingCategoryId === category.id ? "#fffbeb" : "#f9f9f7",
+                border: editingCategoryId === category.id ? "1.5px solid #fde68a" : "1.5px solid #e5e7eb",
+                borderRadius: 8, padding: "8px 12px"
+              }}>
                 {editingCategoryId === category.id ? (
-                  <>
-                    <label>
-                      Category name
-                      <input
-                        type="text"
-                        value={editingCategoryName}
-                        onChange={(event) => setEditingCategoryName(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Available from
-                      <input
-                        type="time"
-                        value={editingCategoryAvailableFrom}
-                        onChange={(event) => setEditingCategoryAvailableFrom(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Available to
-                      <input
-                        type="time"
-                        value={editingCategoryAvailableTo}
-                        onChange={(event) => setEditingCategoryAvailableTo(event.target.value)}
-                      />
-                    </label>
-                  </>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <input
+                      type="text"
+                      value={editingCategoryName}
+                      onChange={(e) => setEditingCategoryName(e.target.value)}
+                      style={{ padding: "5px 8px", borderRadius: 6, border: "1.5px solid #d1d5db", fontSize: 13 }}
+                      autoFocus
+                    />
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>Available</span>
+                      <input type="time" value={editingCategoryAvailableFrom}
+                        onChange={(e) => setEditingCategoryAvailableFrom(e.target.value)}
+                        style={{ fontSize: 12, padding: "3px 6px", borderRadius: 5, border: "1px solid #d1d5db" }} />
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>–</span>
+                      <input type="time" value={editingCategoryAvailableTo}
+                        onChange={(e) => setEditingCategoryAvailableTo(e.target.value)}
+                        style={{ fontSize: 12, padding: "3px 6px", borderRadius: 5, border: "1px solid #d1d5db" }} />
+                      <button type="button" className="primary-btn" style={{ padding: "4px 12px", fontSize: 12 }}
+                        onClick={() => handleSaveCategoryEdit(category)}>
+                        Save
+                      </button>
+                      <button type="button" className="ghost-btn" style={{ padding: "4px 10px", fontSize: 12 }}
+                        onClick={cancelEditingCategory}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <strong>{category.name}</strong>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <div>
+                      <strong style={{ fontSize: 13 }}>{category.name}</strong>
+                      {(category.availableFrom || category.availableTo) && (
+                        <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>
+                          {category.availableFrom}–{category.availableTo}
+                        </span>
+                      )}
+                      <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>
+                        {category.items?.length || 0} items
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button type="button" className="ghost-chip" onClick={() => startEditingCategory(category)}>Edit</button>
+                      <button type="button" className="ghost-chip" onClick={() => handleDeleteCategory(category)}>Delete</button>
+                    </div>
+                  </div>
                 )}
-                <div className="entity-actions">
-                  {editingCategoryId === category.id ? (
-                    <button type="button" className="primary-btn" onClick={() => handleSaveCategoryEdit(category)}>
-                      Save Category
-                    </button>
-                  ) : (
-                    <>
-                      <button type="button" className="ghost-chip" onClick={() => startEditingCategory(category)}>
-                        Edit
-                      </button>
-                      <button type="button" className="ghost-chip" onClick={() => handleDeleteCategory(category)}>
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </div>
               </div>
             ))}
           </div>
