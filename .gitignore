@@ -21,3 +21,6 @@ backend/keystores/*.keystore
 # Built release artifacts — too large for git, distribute via GitHub Releases
 backend/keystores/releases/*.apk
 backend/keystores/releases/*.exe
+.vercel
+.env*
+apps/owner-web/dist/
