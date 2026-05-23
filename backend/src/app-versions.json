@@ -1,14 +1,14 @@
 {
   "pos": {
-    "version": "1.4.25",
+    "version": "1.4.29",
     "label": "POS Terminal",
-    "changelog": "Production wastage logging, menu pagination (20/page), compact category form, staff page cleanup, KOT fallback fix",
+    "changelog": "Compact order panel — 5-6 items now visible on 15\" touch screens",
     "whatsNew": [
-      "🗑 Wastage button — log spoilage, overcooked, dropped items during shift",
+      "📋 Order panel is now compact — 5-6 items visible at once on 15\" touch screens",
+      "🔒 Data isolation — changing outlet code completely wipes previous outlet data from this machine before loading the new outlet",
+      "🗑 Wastage button — log spoilage, overcooked or dropped items during shift",
       "📄 Menu now shows 20 items per page with page navigation",
-      "✏️ Category list is now compact and scrollable — no more long scroll",
-      "👥 Staff page cleaned up — removed unused Approval Limits section",
-      "🍳 Kitchen station routing no longer creates ghost 'Main Kitchen' after deploy"
+      "✏️ Category list is compact and scrollable — no more long scroll"
     ],
     "installGuide": [
       "1. Close Plato POS completely (if open, right-click Taskbar → Close Window)",
@@ -17,7 +17,7 @@
       "4. Click 'Yes' on the security prompt",
       "5. Follow the installer steps — click Next, Next, Install",
       "6. POS will open automatically after install",
-      "7. Log in with your cashier PIN — you are on v1.4.25"
+      "7. Log in with your cashier PIN — you are on v1.4.29"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
