@@ -37,11 +37,17 @@ jobs:
         env:
           VITE_API_BASE_URL: https://api.dinexpos.in/api/v1
 
+      - name: Clear Vercel rootDirectory (one-time fix)
+        run: |
+          curl -s -X PATCH \
+            "https://api.vercel.com/v9/projects/saisangeet-owner-web?teamId=team_kgxOuXctNQyYwnkPIIKVABFG" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"rootDirectory":null}' | jq '.rootDirectory // "cleared"'
+
       - name: Deploy dist to Vercel (app.dinexpos.in)
         working-directory: apps/owner-web
         run: |
-          # Write project.json manually — skips vercel link which reads stored
-          # rootDirectory and doubles the path (apps/owner-web/apps/owner-web)
           mkdir -p .vercel/output/static
           echo "{\"projectId\":\"${VERCEL_PROJECT_ID}\",\"orgId\":\"${VERCEL_ORG_ID}\"}" > .vercel/project.json
           echo '{"version":3}' > .vercel/output/config.json
