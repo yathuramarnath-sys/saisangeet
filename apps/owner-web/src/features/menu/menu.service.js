@@ -58,11 +58,10 @@ function buildPriceLabel(value) {
 function buildInventoryTracking(formValues) {
   return {
     enabled: formValues.trackInventory === "Enabled",
-    mode: formValues.entryStyle || "Optional later",
-    note:
-      formValues.trackInventory === "Enabled"
-        ? "Track sellable stock for POS and waiter ordering"
-        : "Inventory tracking is disabled for this item. Enable only if this product should use sales stock control."
+    mode: "Item wise",
+    note: formValues.trackInventory === "Enabled"
+      ? "Track sellable stock for POS and waiter ordering"
+      : "Inventory tracking is disabled for this item.",
   };
 }
 
@@ -73,30 +72,24 @@ function buildParcelCharge(type, value) {
   };
 }
 
-function buildPricingRows(formValues) {
-  const takeawayPrice = buildPriceLabel(formValues.takeawayPrice);
-  const deliveryPrice = buildPriceLabel(formValues.deliveryPrice);
-
-  return [
-    {
-      area: "AC",
-      dineIn: buildPriceLabel(formValues.acDineIn),
-      takeaway: takeawayPrice,
-      delivery: deliveryPrice
-    },
-    {
-      area: "Non-AC",
-      dineIn: buildPriceLabel(formValues.nonAcDineIn),
-      takeaway: takeawayPrice,
-      delivery: deliveryPrice
-    },
-    {
-      area: "Self Service",
-      dineIn: buildPriceLabel(formValues.selfDineIn),
-      takeaway: takeawayPrice,
-      delivery: deliveryPrice
-    }
-  ];
+/**
+ * Build pricing array from basePrice + areaOverrides.
+ * availableAreas comes from the outlet's workAreas (dynamic, not hardcoded).
+ * If an area has an override > 0, that price is used; otherwise basePrice.
+ */
+function buildPricingRows(formValues, availableAreas) {
+  const base   = Number(formValues.basePrice || 0);
+  const areas  = availableAreas?.length ? availableAreas : ["Main"];
+  return areas.map(area => {
+    const ov    = formValues.areaOverrides?.[area];
+    const price = (ov && Number(ov) > 0) ? Number(ov) : base;
+    return {
+      area,
+      dineIn:   buildPriceLabel(price),
+      takeaway: buildPriceLabel(base),
+      delivery: buildPriceLabel(base),
+    };
+  });
 }
 
 async function ensureCategoryAndStation(categoryName, stationName) {
@@ -123,36 +116,55 @@ async function ensureCategoryAndStation(categoryName, stationName) {
 }
 
 function buildMenuItemPayload(formValues, category, stationName) {
-  const taxMode = formValues.taxMode || "Exclusive";
-  const taxRate = Number(formValues.taxRate || 0);
+  const taxRate  = Number(formValues.taxRate || 0);
+  const base     = Number(formValues.basePrice || 0);
+  const online   = Number(formValues.onlinePrice || 0);
+  const taPack   = Number(formValues.takeawayPackingCharge || 0);
+  const dlPack   = Number(formValues.deliveryPackingCharge || 0);
+  const areas    = formValues.availableAreas || [];
 
   return {
     categoryId: category.id,
-    name: String(formValues.itemName || "").trim(),
-    station: stationName,
+    name:       String(formValues.itemName || "").trim(),
+    station:    stationName,
     availableFrom: formValues.availableFrom || "",
-    availableTo: formValues.availableTo || "",
-    gstLabel: `${taxMode === "Inclusive" ? "Tax Incl" : "Tax Excl"} ${taxRate}%`,
-    status: "Live",
-    foodType: formValues.foodType || "Veg",
-    unit: formValues.unit || "",
-    badges: ["Custom item", "Available"],
+    availableTo:   formValues.availableTo   || "",
+    gstLabel:   `GST ${taxRate}%`,
+    status:     "Live",
+    foodType:   formValues.foodType || "Veg",
+    unit:       formValues.unit     || "",
+    badges:     ["Custom item", "Available"],
     salesAvailability: "Available",
-    // Use the real outlet availability passed from the form (set by MenuPage from live outlets).
-    // Never fall back to hardcoded outlet names — they belong to a dev test account.
     outletAvailability: Array.isArray(formValues.outletAvailability)
-      ? formValues.outletAvailability
-      : [],
+      ? formValues.outletAvailability : [],
     inventoryTracking: buildInventoryTracking(formValues),
-    takeawayPrice: buildPriceLabel(formValues.takeawayPrice),
-    deliveryPrice: buildPriceLabel(formValues.deliveryPrice),
-    taxMode,
+    // ── New pricing model ─────────────────────────────────────────────────
+    price:       base,          // primary price for POS / Captain App
+    basePrice:   base,          // alias used by some app versions
+    onlinePrice: online,
+    areaOverrides: formValues.areaOverrides || {},
+    takeawayPackingCharge: taPack,
+    deliveryPackingCharge: dlPack,
+    // ── Legacy compat fields (kept so old POS versions don't break) ───────
+    taxMode:       "Exclusive",
     taxRate,
+    takeawayPrice: buildPriceLabel(base),
+    deliveryPrice: buildPriceLabel(base),
     parcelCharges: {
-      takeaway: buildParcelCharge(formValues.takeawayParcelChargeType, formValues.takeawayParcelChargeValue),
-      delivery: buildParcelCharge(formValues.deliveryParcelChargeType, formValues.deliveryParcelChargeValue)
+      takeaway: { type: "Fixed", value: taPack },
+      delivery: { type: "Fixed", value: dlPack },
     },
-    pricing: buildPricingRows(formValues)
+    pricing: buildPricingRows(formValues, areas),
+    // ── Optional fields ───────────────────────────────────────────────────
+    description:       formValues.description       || "",
+    shortCode:         formValues.shortCode         || "",
+    hsnCode:           formValues.hsnCode           || "",
+    sku:               formValues.sku               || "",
+    rank:              formValues.rank !== undefined ? Number(formValues.rank) : 999,
+    exposeInCaptain:   formValues.exposeInCaptain   !== undefined ? Boolean(formValues.exposeInCaptain)  : true,
+    allowDecimalQty:   formValues.allowDecimalQty   !== undefined ? Boolean(formValues.allowDecimalQty)  : false,
+    manufacturingDate: formValues.manufacturingDate || "",
+    expiryDate:        formValues.expiryDate        || "",
   };
 }
 
@@ -210,6 +222,7 @@ function normalizeMenuItems(items) {
     gstLabel: item.gstLabel || "GST pending",
     status: item.status || "Live",
     foodType: item.foodType || "Veg",
+    unit: item.unit || "",
     badges: item.badges || ["Standard pricing"],
     salesAvailability: menuControls[item.id]?.salesAvailability || item.salesAvailability || "Available",
     outletAvailability:
@@ -221,24 +234,42 @@ function normalizeMenuItems(items) {
       ...(item.inventoryTracking || {
         enabled: false,
         mode: "Optional",
-        note: "Inventory tracking is disabled for this item. Enable only if this product should use sales stock control."
+        note: "Inventory tracking is disabled for this item."
       }),
       enabled: diningInventoryById[item.id]?.trackingEnabled ?? item.inventoryTracking?.enabled ?? false
     },
-    takeawayPrice: item.takeawayPrice || item.pricing?.[0]?.takeaway || "Rs 0",
-    deliveryPrice: item.deliveryPrice || item.pricing?.[0]?.delivery || "Rs 0",
     availableFrom: item.availableFrom || "",
-    availableTo: item.availableTo || "",
+    availableTo:   item.availableTo   || "",
     taxMode: item.taxMode || "Exclusive",
     taxRate: Number(item.taxRate || 0),
+    // ── New pricing fields ──────────────────────────────────────────────
+    price:       item.price      || item.basePrice || 0,
+    basePrice:   item.basePrice  || item.price     || 0,
+    onlinePrice: item.onlinePrice || 0,
+    areaOverrides:         item.areaOverrides         || {},
+    takeawayPackingCharge: item.takeawayPackingCharge  ?? item.parcelCharges?.takeaway?.value ?? 0,
+    deliveryPackingCharge: item.deliveryPackingCharge  ?? item.parcelCharges?.delivery?.value ?? 0,
+    // ── Legacy compat ───────────────────────────────────────────────────
+    takeawayPrice: item.takeawayPrice || item.pricing?.[0]?.takeaway || "Rs 0",
+    deliveryPrice: item.deliveryPrice || item.pricing?.[0]?.delivery || "Rs 0",
     parcelCharges: {
       takeaway: item.parcelCharges?.takeaway || buildParcelCharge("None", 0),
-      delivery: item.parcelCharges?.delivery || buildParcelCharge("None", 0)
+      delivery: item.parcelCharges?.delivery || buildParcelCharge("None", 0),
     },
     pricing: item.pricing || [],
+    // ── Optional fields ─────────────────────────────────────────────────
+    description:       item.description       || "",
+    shortCode:         item.shortCode         || "",
+    hsnCode:           item.hsnCode           || "",
+    sku:               item.sku               || "",
+    rank:              item.rank              ?? 999,
+    exposeInCaptain:   item.exposeInCaptain   !== false,
+    allowDecimalQty:   item.allowDecimalQty   === true,
+    manufacturingDate: item.manufacturingDate || "",
+    expiryDate:        item.expiryDate        || "",
     actions: item.actions || ["Edit"],
-    review: item.status === "Review",
-    compact: item.status === "Review"
+    review:  item.status === "Review",
+    compact: item.status === "Review",
   }));
 }
 
@@ -348,6 +379,10 @@ export async function createCustomMenuItem(formValues) {
   } catch {
     const customState = loadCustomMenuState();
     const itemId = `${slugify(itemName)}-${Date.now()}`;
+    const base   = Number(formValues.basePrice || 0);
+    const taPack = Number(formValues.takeawayPackingCharge || 0);
+    const dlPack = Number(formValues.deliveryPackingCharge || 0);
+    const areas  = formValues.availableAreas || [];
     const newItem = {
       id: itemId,
       name: itemName,
@@ -355,28 +390,32 @@ export async function createCustomMenuItem(formValues) {
       categoryName,
       station: stationName,
       availableFrom: formValues.availableFrom || "",
-      availableTo: formValues.availableTo || "",
-      gstLabel: "GST 5%",
+      availableTo:   formValues.availableTo   || "",
+      gstLabel: `GST ${Number(formValues.taxRate || 0)}%`,
       status: "Live",
       foodType: formValues.foodType || "Veg",
       unit: formValues.unit || "",
       badges: ["Custom item", "Available"],
       inventoryTracking: buildInventoryTracking(formValues),
-      taxMode: formValues.taxMode || "Exclusive",
+      taxMode: "Exclusive",
       taxRate: Number(formValues.taxRate || 0),
-      gstLabel: `${formValues.taxMode === "Inclusive" ? "Tax Incl" : "Tax Excl"} ${Number(formValues.taxRate || 0)}%`,
       salesAvailability: "Available",
       outletAvailability: Array.isArray(formValues.outletAvailability)
-        ? formValues.outletAvailability
-        : [],
-      takeawayPrice: buildPriceLabel(formValues.takeawayPrice),
-      deliveryPrice: buildPriceLabel(formValues.deliveryPrice),
+        ? formValues.outletAvailability : [],
+      price:       base,
+      basePrice:   base,
+      onlinePrice: Number(formValues.onlinePrice || 0),
+      areaOverrides:         formValues.areaOverrides || {},
+      takeawayPackingCharge: taPack,
+      deliveryPackingCharge: dlPack,
+      takeawayPrice: buildPriceLabel(base),
+      deliveryPrice: buildPriceLabel(base),
       parcelCharges: {
-        takeaway: buildParcelCharge(formValues.takeawayParcelChargeType, formValues.takeawayParcelChargeValue),
-        delivery: buildParcelCharge(formValues.deliveryParcelChargeType, formValues.deliveryParcelChargeValue)
+        takeaway: { type: "Fixed", value: taPack },
+        delivery: { type: "Fixed", value: dlPack },
       },
-      pricing: buildPricingRows(formValues),
-      actions: ["Edit", "Pricing", "Disable"]
+      pricing: buildPricingRows(formValues, areas),
+      actions: ["Edit", "Pricing", "Disable"],
     };
 
     const nextState = {
@@ -407,6 +446,10 @@ export async function updateCustomMenuItem(itemId, formValues) {
     return api.patch(`/menu/items/${itemId}`, buildMenuItemPayload(formValues, category, station.name));
   } catch {
     const customState = loadCustomMenuState();
+    const base2   = Number(formValues.basePrice || 0);
+    const taPack2 = Number(formValues.takeawayPackingCharge || 0);
+    const dlPack2 = Number(formValues.deliveryPackingCharge || 0);
+    const areas2  = formValues.availableAreas || [];
     const nextItems = customState.items.map((item) =>
       item.id === itemId
         ? {
@@ -416,19 +459,26 @@ export async function updateCustomMenuItem(itemId, formValues) {
             name: itemName,
             station: stationName,
             availableFrom: formValues.availableFrom || "",
-            availableTo: formValues.availableTo || "",
+            availableTo:   formValues.availableTo   || "",
             foodType: formValues.foodType || "Veg",
+            unit: formValues.unit || "",
             inventoryTracking: buildInventoryTracking(formValues),
-            taxMode: formValues.taxMode || "Exclusive",
+            taxMode: "Exclusive",
             taxRate: Number(formValues.taxRate || 0),
-            gstLabel: `${formValues.taxMode === "Inclusive" ? "Tax Incl" : "Tax Excl"} ${Number(formValues.taxRate || 0)}%`,
-            takeawayPrice: buildPriceLabel(formValues.takeawayPrice),
-            deliveryPrice: buildPriceLabel(formValues.deliveryPrice),
+            gstLabel: `GST ${Number(formValues.taxRate || 0)}%`,
+            price:       base2,
+            basePrice:   base2,
+            onlinePrice: Number(formValues.onlinePrice || 0),
+            areaOverrides:         formValues.areaOverrides || {},
+            takeawayPackingCharge: taPack2,
+            deliveryPackingCharge: dlPack2,
+            takeawayPrice: buildPriceLabel(base2),
+            deliveryPrice: buildPriceLabel(base2),
             parcelCharges: {
-              takeaway: buildParcelCharge(formValues.takeawayParcelChargeType, formValues.takeawayParcelChargeValue),
-              delivery: buildParcelCharge(formValues.deliveryParcelChargeType, formValues.deliveryParcelChargeValue)
+              takeaway: { type: "Fixed", value: taPack2 },
+              delivery: { type: "Fixed", value: dlPack2 },
             },
-            pricing: buildPricingRows(formValues)
+            pricing: buildPricingRows(formValues, areas2),
           }
         : item
     );

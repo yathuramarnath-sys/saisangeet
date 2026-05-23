@@ -79,19 +79,25 @@ function toggleOutlet(item, outletName) {
 
 function buildDefaultItemDraft(menuData) {
   return {
-    itemName: "", categoryName: menuData.categories[0]?.name || "",
-    foodType: "Veg", unit: "",
-    acDineIn: "0", nonAcDineIn: "0", selfDineIn: "0",
-    takeawayPrice: "0", deliveryPrice: "0",
-    taxMode: "Exclusive", taxRate: "5",
-    takeawayParcelChargeType: "None", takeawayParcelChargeValue: "0",
-    deliveryParcelChargeType: "None", deliveryParcelChargeValue: "0",
-    availableFrom: "", availableTo: "",
-    trackInventory: "Disabled", entryStyle: "Optional later",
+    itemName: "",
+    categoryName: menuData.categories[0]?.name || "",
+    foodType: "Veg",
+    unit: "",
+    station: "",
+    // New pricing model
+    basePrice: "0",
+    onlinePrice: "0",
+    areaOverrides: {},
+    takeawayPackingCharge: "0",
+    deliveryPackingCharge: "0",
+    taxRate: "5",
+    availableFrom: "",
+    availableTo: "",
+    trackInventory: "Disabled",
     selectedOutlets: [],
     // optional fields
     description: "", shortCode: "", hsnCode: "", sku: "",
-    rank: "999", packingCharges: "0",
+    rank: "999",
     exposeInCaptain: true, allowDecimalQty: false,
     manufacturingDate: "", expiryDate: "",
   };
@@ -271,10 +277,7 @@ export function MenuPage() {
   ).length;
   const inventoryTrackedCount = menuData.items.filter((item) => item.inventoryTracking.enabled).length;
   const missingPriceCount = menuData.items.filter(
-    (item) =>
-      Number(priceValue(item.pricing, "AC", "dineIn")) <= 0 ||
-      Number(priceValue(item.pricing, "Non-AC", "dineIn")) <= 0 ||
-      Number(priceValue(item.pricing, "Self Service", "dineIn")) <= 0
+    (item) => !item.price && !item.basePrice && !(item.pricing?.length)
   ).length;
   const missingStationCount = menuData.items.filter(
     (item) => !item.station || item.station === "Station pending"
@@ -328,6 +331,11 @@ export function MenuPage() {
 
   const availableStationNames = menuData.stations.map((station) => station.name);
   const availableOutlets = menuData.outlets || [];
+
+  // Unique work areas across all outlets — used for dynamic area price overrides
+  const availableAreas = [...new Set(
+    (menuData.outlets || []).flatMap(o => o.workAreas || []).filter(Boolean)
+  )];
   const availableTaxProfiles = menuData.taxProfiles || [];
   const availablePricingProfiles = menuData.pricingProfiles || [];
   const availableMenuGroups = menuData.menuGroups || [];
@@ -416,40 +424,11 @@ export function MenuPage() {
       setSaveError("");
       setSaveMessage("");
       await createCustomMenuItem({
-        itemName:                  itemDraft.itemName,
-        categoryName:              itemDraft.categoryName,
-        availableFrom:             itemDraft.availableFrom,
-        availableTo:               itemDraft.availableTo,
-        acDineIn:                  itemDraft.acDineIn,
-        nonAcDineIn:               itemDraft.nonAcDineIn,
-        selfDineIn:                itemDraft.selfDineIn,
-        takeawayPrice:             itemDraft.takeawayPrice,
-        deliveryPrice:             itemDraft.deliveryPrice,
-        taxMode:                   itemDraft.taxMode,
-        taxRate:                   itemDraft.taxRate,
-        takeawayParcelChargeType:  itemDraft.takeawayParcelChargeType,
-        takeawayParcelChargeValue: itemDraft.takeawayParcelChargeValue,
-        deliveryParcelChargeType:  itemDraft.deliveryParcelChargeType,
-        deliveryParcelChargeValue: itemDraft.deliveryParcelChargeValue,
-        station:                   "",
-        trackInventory:            itemDraft.trackInventory,
-        entryStyle:                itemDraft.entryStyle,
-        foodType:                  itemDraft.foodType,
-        unit:                      itemDraft.unit || "",
-        outletAvailability:        itemDraft.selectedOutlets?.length
+        ...itemDraft,
+        availableAreas,
+        outletAvailability: itemDraft.selectedOutlets?.length
           ? itemDraft.selectedOutlets.map((name) => ({ outlet: name, enabled: true }))
           : availableOutlets.map((o) => ({ outlet: o.name, enabled: true })),
-        // optional fields
-        description:       itemDraft.description,
-        shortCode:         itemDraft.shortCode,
-        hsnCode:           itemDraft.hsnCode,
-        sku:               itemDraft.sku,
-        rank:              itemDraft.rank,
-        packingCharges:    itemDraft.packingCharges,
-        exposeInCaptain:   itemDraft.exposeInCaptain,
-        allowDecimalQty:   itemDraft.allowDecimalQty,
-        manufacturingDate: itemDraft.manufacturingDate,
-        expiryDate:        itemDraft.expiryDate,
       });
       const result = await reloadMenu();
       setItemDraft(buildDefaultItemDraft(result));
@@ -787,35 +766,47 @@ export function MenuPage() {
   }
 
   function startEditingItem(item) {
+    // Resolve base price — prefer explicit price/basePrice, then first pricing entry
+    let base = item.price || item.basePrice || 0;
+    if (!base && item.pricing?.length) {
+      base = Number(String(item.pricing[0]?.dineIn || "0").replace(/[^\d.]/g, "")) || 0;
+    }
+
+    // Build areaOverrides from existing data — prefer stored areaOverrides,
+    // otherwise derive from old pricing array entries that differ from base
+    let areaOverrides = {};
+    if (item.areaOverrides && Object.keys(item.areaOverrides).length) {
+      areaOverrides = { ...item.areaOverrides };
+    } else if (item.pricing?.length) {
+      for (const entry of item.pricing) {
+        const ep = Number(String(entry.dineIn || "0").replace(/[^\d.]/g, "")) || 0;
+        if (ep !== Number(base)) areaOverrides[entry.area] = String(ep);
+      }
+    }
+
     setEditingItemId(item.id);
     setEditDraft({
       itemName:     item.name,
       categoryName: item.categoryName || menuData.categories.find((c) => c.id === item.categoryId)?.name || "",
-      station:      item.station      || "",
+      station:      item.station !== "Station pending" ? (item.station || "") : "",
       availableFrom: item.availableFrom || "",
       availableTo:   item.availableTo   || "",
       foodType:      item.foodType      || "Veg",
       unit:          item.unit          || "",
-      trackInventory: item.inventoryTracking.enabled ? "Enabled" : "Disabled",
-      entryStyle:     item.inventoryTracking.mode    || "Item wise",
-      acDineIn:     priceValue(item.pricing, "AC", "dineIn"),
-      nonAcDineIn:  priceValue(item.pricing, "Non-AC", "dineIn"),
-      selfDineIn:   priceValue(item.pricing, "Self Service", "dineIn"),
-      takeawayPrice: moneyValue(item.takeawayPrice || item.pricing?.[0]?.takeaway),
-      deliveryPrice: moneyValue(item.deliveryPrice || item.pricing?.[0]?.delivery),
-      taxMode: item.taxMode || "Exclusive",
-      taxRate: String(item.taxRate || 0),
-      takeawayParcelChargeType:  item.parcelCharges?.takeaway?.type  || "None",
-      takeawayParcelChargeValue: String(item.parcelCharges?.takeaway?.value || 0),
-      deliveryParcelChargeType:  item.parcelCharges?.delivery?.type  || "None",
-      deliveryParcelChargeValue: String(item.parcelCharges?.delivery?.value || 0),
+      trackInventory: item.inventoryTracking?.enabled ? "Enabled" : "Disabled",
+      // New pricing model
+      basePrice:    String(base),
+      onlinePrice:  String(item.onlinePrice || 0),
+      areaOverrides,
+      takeawayPackingCharge: String(item.takeawayPackingCharge ?? item.parcelCharges?.takeaway?.value ?? 0),
+      deliveryPackingCharge: String(item.deliveryPackingCharge ?? item.parcelCharges?.delivery?.value ?? 0),
+      taxRate: String(item.taxRate ?? 5),
       // optional fields
       description:       item.description       || "",
       shortCode:         item.shortCode         || "",
       hsnCode:           item.hsnCode           || "",
       sku:               item.sku               || "",
       rank:              String(item.rank       ?? 999),
-      packingCharges:    String(item.packingCharges ?? 0),
       exposeInCaptain:   item.exposeInCaptain   !== false,
       allowDecimalQty:   item.allowDecimalQty   === true,
       manufacturingDate: item.manufacturingDate || "",
@@ -836,37 +827,8 @@ export function MenuPage() {
       setSaveError("");
       setSaveMessage("");
       await updateCustomMenuItem(itemId, {
-        itemName:                  editDraft.itemName,
-        categoryName:              editDraft.categoryName,
-        availableFrom:             editDraft.availableFrom,
-        availableTo:               editDraft.availableTo,
-        acDineIn:                  editDraft.acDineIn,
-        nonAcDineIn:               editDraft.nonAcDineIn,
-        selfDineIn:                editDraft.selfDineIn,
-        takeawayPrice:             editDraft.takeawayPrice,
-        deliveryPrice:             editDraft.deliveryPrice,
-        taxMode:                   editDraft.taxMode,
-        taxRate:                   editDraft.taxRate,
-        takeawayParcelChargeType:  editDraft.takeawayParcelChargeType,
-        takeawayParcelChargeValue: editDraft.takeawayParcelChargeValue,
-        deliveryParcelChargeType:  editDraft.deliveryParcelChargeType,
-        deliveryParcelChargeValue: editDraft.deliveryParcelChargeValue,
-        station:                   editDraft.station,
-        trackInventory:            editDraft.trackInventory,
-        entryStyle:                editDraft.entryStyle,
-        foodType:                  editDraft.foodType,
-        unit:                      editDraft.unit || "",
-        // optional fields
-        description:       editDraft.description,
-        shortCode:         editDraft.shortCode,
-        hsnCode:           editDraft.hsnCode,
-        sku:               editDraft.sku,
-        rank:              editDraft.rank,
-        packingCharges:    editDraft.packingCharges,
-        exposeInCaptain:   editDraft.exposeInCaptain,
-        allowDecimalQty:   editDraft.allowDecimalQty,
-        manufacturingDate: editDraft.manufacturingDate,
-        expiryDate:        editDraft.expiryDate,
+        ...editDraft,
+        availableAreas,
       });
       await reloadMenu();
       cancelEditingItem();
@@ -1321,7 +1283,10 @@ export function MenuPage() {
           )}
 
           <div className="menu-library-table">
-            <div className="menu-library-row head">
+            {/* ── Table header ───────────────────────────────────────────── */}
+            <div className="menu-library-row head" style={{
+              gridTemplateColumns: "32px 1fr 160px 90px 80px 100px 120px 180px",
+            }}>
               <span className="col-check">
                 <input
                   type="checkbox"
@@ -1331,77 +1296,158 @@ export function MenuPage() {
                 />
               </span>
               <span>Item</span>
-              <span>Reporting category</span>
+              <span>Category</span>
+              <span>Base ₹</span>
+              <span>Online ₹</span>
+              <span>GST %</span>
               <span>Status</span>
-              <span>Price</span>
               <span>Actions</span>
             </div>
-            {filteredLibraryItems.map((item) => (
-              <div key={`library-${item.id}`} className={`menu-library-row${selectedItems.has(item.id) ? " row-selected" : ""}`}>
-                <span className="col-check">
-                  <input
-                    type="checkbox"
-                    checked={selectedItems.has(item.id)}
-                    onChange={() => toggleItemSelection(item.id)}
-                  />
-                </span>
-                <span>
-                  <strong>{item.name}</strong>
-                  {item.unit && (
-                    <span className="unit-badge">{item.unit}</span>
-                  )}
-                  {(item.taxRate === null || item.taxRate === undefined || item.taxRate === "") && (
-                    <span className="tax-missing-badge" title="No GST rate set — will default to 5%">⚠️ GST</span>
-                  )}
-                </span>
-                <span>{item.categoryName || "Unassigned"}</span>
-                <span>
-                  <button
-                    type="button"
-                    className={`status status-pill ${item.salesAvailability === "Sold Out" ? "warning" : "online"}`}
-                    onClick={() => toggleSalesAvailability(item.id)}
-                  >
-                    {item.salesAvailability === "Sold Out" ? "Sold out" : "Available"}
-                  </button>
-                </span>
-                <span>{item.pricing?.[0]?.dineIn || item.takeawayPrice}</span>
-                <span className="entity-actions">
-                  <button type="button" className="ghost-chip" onClick={() => startEditingItem(item)}>
-                    Edit
-                  </button>
-                  <button type="button" className="ghost-chip label-chip" onClick={() => setLabelItem(item)} title="Print barcode stickers">
-                    🏷️ Labels
-                  </button>
-                  <button type="button" className="ghost-chip" onClick={() => handleDeleteItem(item)}>
-                    Delete
-                  </button>
-                </span>
-              </div>
-            ))}
-          </div>
 
-          {editingItemId && editDraft ? (
-            <article className="panel">
-              <div className="panel-head">
-                <div>
-                  <p className="eyebrow">Edit Item</p>
-                  <h3>{editDraft.itemName || "Update Item"}</h3>
+            {/* ── Rows + inline accordion ────────────────────────────────── */}
+            {filteredLibraryItems.map((item) => {
+              const isEditing     = editingItemId === item.id;
+              const hasAreaPricing = item.areaOverrides && Object.values(item.areaOverrides).some(v => Number(v) > 0);
+              const baseDisplay   = item.price || item.basePrice || 0;
+              const onlineDisplay = item.onlinePrice || 0;
+
+              return (
+                <div key={`library-${item.id}`}>
+                  {/* ── Item row ─────────────────────────────────────────── */}
+                  <div
+                    className={`menu-library-row${selectedItems.has(item.id) ? " row-selected" : ""}${isEditing ? " row-editing" : ""}`}
+                    style={{
+                      gridTemplateColumns: "32px 1fr 160px 90px 80px 100px 120px 180px",
+                      borderBottom: isEditing ? "none" : undefined,
+                      background: isEditing ? "#fffdf5" : undefined,
+                    }}
+                  >
+                    <span className="col-check">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.has(item.id)}
+                        onChange={() => toggleItemSelection(item.id)}
+                      />
+                    </span>
+
+                    {/* Name */}
+                    <span style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 5 }}>
+                      <strong style={{ fontSize: 14 }}>{item.name}</strong>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10,
+                        background: item.foodType === "Non-Veg" ? "#fee2e2" : item.foodType === "Egg" ? "#fef3c7" : "#dcfce7",
+                        color:      item.foodType === "Non-Veg" ? "#991b1b" : item.foodType === "Egg" ? "#92400e" : "#166534",
+                      }}>
+                        {item.foodType === "Non-Veg" ? "NON-VEG" : item.foodType === "Egg" ? "EGG" : "VEG"}
+                      </span>
+                      {item.unit && <span className="unit-badge">{item.unit}</span>}
+                      {(item.taxRate === null || item.taxRate === undefined || item.taxRate === "") && (
+                        <span className="tax-missing-badge" title="No GST rate set">⚠️ GST</span>
+                      )}
+                      {hasAreaPricing && (
+                        <span style={{
+                          fontSize: 10, padding: "1px 6px", borderRadius: 10,
+                          background: "#ede9fe", color: "#6d28d9", fontWeight: 600,
+                        }} title="Has area-specific pricing">
+                          🏷 Area pricing
+                        </span>
+                      )}
+                    </span>
+
+                    {/* Category */}
+                    <span style={{ color: "#6b7280", fontSize: 13 }}>
+                      {item.categoryName || "Unassigned"}
+                    </span>
+
+                    {/* Base price */}
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>
+                      {baseDisplay > 0 ? `₹${baseDisplay}` : <span style={{ color: "#f59e0b" }}>—</span>}
+                    </span>
+
+                    {/* Online price */}
+                    <span style={{ fontSize: 13, color: "#6b7280" }}>
+                      {onlineDisplay > 0 ? `₹${onlineDisplay}` : "—"}
+                    </span>
+
+                    {/* GST % */}
+                    <span style={{ fontSize: 13, color: "#6b7280" }}>
+                      {item.taxRate != null && item.taxRate !== "" ? `${item.taxRate}%` : "—"}
+                    </span>
+
+                    {/* Status */}
+                    <span>
+                      <button
+                        type="button"
+                        className={`status status-pill ${item.salesAvailability === "Sold Out" ? "warning" : "online"}`}
+                        onClick={() => toggleSalesAvailability(item.id)}
+                      >
+                        {item.salesAvailability === "Sold Out" ? "Sold out" : "Available"}
+                      </button>
+                    </span>
+
+                    {/* Actions */}
+                    <span className="entity-actions">
+                      <button
+                        type="button"
+                        className="ghost-chip"
+                        style={isEditing ? { background: "#fef3c7", color: "#92400e", borderColor: "#fde68a" } : {}}
+                        onClick={() => isEditing ? cancelEditingItem() : startEditingItem(item)}
+                      >
+                        {isEditing ? "✕ Close" : "Edit"}
+                      </button>
+                      <button type="button" className="ghost-chip label-chip"
+                        onClick={() => setLabelItem(item)} title="Print barcode stickers">
+                        🏷️
+                      </button>
+                      <button type="button" className="ghost-chip"
+                        onClick={() => handleDeleteItem(item)}>
+                        Delete
+                      </button>
+                    </span>
+                  </div>
+
+                  {/* ── Inline accordion edit form ────────────────────────── */}
+                  {isEditing && editDraft && (
+                    <div style={{
+                      background: "#fffdf5",
+                      border: "1.5px solid #fde68a",
+                      borderTop: "none",
+                      borderRadius: "0 0 10px 10px",
+                      padding: "20px 24px 24px",
+                      marginBottom: 4,
+                    }}>
+                      <div style={{
+                        display: "flex", alignItems: "center",
+                        justifyContent: "space-between", marginBottom: 16,
+                      }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#92400e", margin: 0 }}>
+                          ✏️ Editing: <span style={{ color: "#111827" }}>{editDraft.itemName}</span>
+                        </p>
+                        <button type="button" className="ghost-chip"
+                          onClick={cancelEditingItem}
+                          style={{ color: "#6b7280", fontSize: 12 }}>
+                          ✕ Cancel edit
+                        </button>
+                      </div>
+                      <ItemForm
+                        mode="edit"
+                        draft={editDraft}
+                        onChange={(key, value) => setEditDraft((cur) => ({ ...cur, [key]: value }))}
+                        onSubmit={(e) => handleUpdateItem(editingItemId, e)}
+                        onCancel={cancelEditingItem}
+                        menuFieldSettings={menuFieldSettings}
+                        availableCategoryNames={availableCategoryNames}
+                        availableStationNames={availableStationNames}
+                        availableAreas={availableAreas}
+                        saveMessage={saveMessage}
+                        saveError={saveError}
+                      />
+                    </div>
+                  )}
                 </div>
-              </div>
-              <ItemForm
-                mode="edit"
-                draft={editDraft}
-                onChange={(key, value) => setEditDraft((cur) => ({ ...cur, [key]: value }))}
-                onSubmit={(e) => handleUpdateItem(editingItemId, e)}
-                onCancel={cancelEditingItem}
-                menuFieldSettings={menuFieldSettings}
-                availableCategoryNames={availableCategoryNames}
-                availableStationNames={availableStationNames}
-                saveMessage={saveMessage}
-                saveError={saveError}
-              />
-            </article>
-          ) : null}
+              );
+            })}
+          </div>
         </div>
 
         {showFilterPanel ? (
@@ -1614,6 +1660,7 @@ export function MenuPage() {
             availableCategoryNames={availableCategoryNames}
             availableStationNames={availableStationNames}
             availableOutlets={availableOutlets}
+            availableAreas={availableAreas}
             saveMessage={saveMessage}
             saveError={saveError}
           />

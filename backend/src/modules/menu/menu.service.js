@@ -205,12 +205,13 @@ async function updateMenuCategory(id, payload) {
 }
 
 async function createMenuItem(payload) {
+  const base = Number(payload.basePrice || payload.price || 0);
   const item = {
     id: `item-${Date.now()}`,
     categoryId: payload.categoryId,
     name: payload.name,
     station: payload.station || "",
-    gstLabel: payload.gstLabel || "GST 5%",
+    gstLabel: payload.gstLabel || `GST ${Number(payload.taxRate || 0)}%`,
     availableFrom: payload.availableFrom || "",
     availableTo: payload.availableTo || "",
     taxMode: payload.taxMode || "Exclusive",
@@ -222,24 +223,30 @@ async function createMenuItem(payload) {
     salesAvailability: payload.salesAvailability || "Available",
     outletAvailability: payload.outletAvailability || [],
     inventoryTracking: payload.inventoryTracking || {
-      enabled: false,
-      mode: "Optional later",
-      note: "Inventory tracking is disabled for this item"
+      enabled: false, mode: "Item wise",
+      note: "Inventory tracking is disabled for this item",
     },
-    takeawayPrice: payload.takeawayPrice || payload.pricing?.[0]?.takeaway || "Rs 0",
-    deliveryPrice: payload.deliveryPrice || payload.pricing?.[0]?.delivery || "Rs 0",
+    // ── New pricing model ────────────────────────────────────────────────────
+    price:       base,
+    basePrice:   base,
+    onlinePrice: Number(payload.onlinePrice || 0),
+    areaOverrides:         payload.areaOverrides         || {},
+    takeawayPackingCharge: Number(payload.takeawayPackingCharge || 0),
+    deliveryPackingCharge: Number(payload.deliveryPackingCharge || 0),
+    // ── Legacy compat ────────────────────────────────────────────────────────
+    takeawayPrice: payload.takeawayPrice || `Rs ${base}`,
+    deliveryPrice: payload.deliveryPrice || `Rs ${base}`,
     parcelCharges: payload.parcelCharges || {
       takeaway: { type: "None", value: 0 },
-      delivery: { type: "None", value: 0 }
+      delivery: { type: "None", value: 0 },
     },
     pricing: payload.pricing || [],
-    // ── Optional fields (enabled per business type) ──────────────────────────
+    // ── Optional fields ──────────────────────────────────────────────────────
     description:       payload.description       || "",
     shortCode:         payload.shortCode         || "",
     hsnCode:           payload.hsnCode           || "",
     sku:               payload.sku               || "",
     rank:              payload.rank !== undefined ? Number(payload.rank) : 999,
-    packingCharges:    Number(payload.packingCharges  || 0),
     exposeInCaptain:   payload.exposeInCaptain   !== undefined ? Boolean(payload.exposeInCaptain)   : true,
     allowDecimalQty:   payload.allowDecimalQty   !== undefined ? Boolean(payload.allowDecimalQty)   : false,
     manufacturingDate: payload.manufacturingDate || "",
@@ -275,27 +282,38 @@ async function updateMenuItem(id, payload) {
     const previousCategoryId = existingItem.categoryId;
     const nextCategoryId = payload.categoryId || previousCategoryId;
 
+    const base = payload.basePrice !== undefined ? Number(payload.basePrice || 0)
+               : payload.price    !== undefined ? Number(payload.price    || 0)
+               : existingItem.basePrice || existingItem.price || 0;
+
     updatedItem = {
       ...existingItem,
       ...payload,
       categoryId: nextCategoryId,
       inventoryTracking: {
         ...existingItem.inventoryTracking,
-        ...(payload.inventoryTracking || {})
+        ...(payload.inventoryTracking || {}),
       },
+      // New pricing model
+      price:       base,
+      basePrice:   base,
+      onlinePrice: payload.onlinePrice !== undefined ? Number(payload.onlinePrice || 0) : (existingItem.onlinePrice || 0),
+      areaOverrides:         payload.areaOverrides         !== undefined ? (payload.areaOverrides || {})          : (existingItem.areaOverrides         || {}),
+      takeawayPackingCharge: payload.takeawayPackingCharge !== undefined ? Number(payload.takeawayPackingCharge)  : (existingItem.takeawayPackingCharge  ?? 0),
+      deliveryPackingCharge: payload.deliveryPackingCharge !== undefined ? Number(payload.deliveryPackingCharge)  : (existingItem.deliveryPackingCharge  ?? 0),
+      // Legacy compat
       pricing:            payload.pricing            || existingItem.pricing,
       takeawayPrice:      payload.takeawayPrice      || existingItem.takeawayPrice,
       deliveryPrice:      payload.deliveryPrice      || existingItem.deliveryPrice,
       taxMode:            payload.taxMode            || existingItem.taxMode,
-      taxRate:            payload.taxRate            !== undefined ? Number(payload.taxRate || 0)          : existingItem.taxRate,
+      taxRate:            payload.taxRate            !== undefined ? Number(payload.taxRate || 0) : existingItem.taxRate,
       parcelCharges:      payload.parcelCharges      || existingItem.parcelCharges,
       outletAvailability: payload.outletAvailability || existingItem.outletAvailability,
       badges:             payload.badges             || existingItem.badges,
-      // ── Optional fields — explicit type coercion ────────────────────────────
-      rank:             payload.rank             !== undefined ? Number(payload.rank)                    : (existingItem.rank             ?? 999),
-      packingCharges:   payload.packingCharges   !== undefined ? Number(payload.packingCharges)          : (existingItem.packingCharges    ?? 0),
-      exposeInCaptain:  payload.exposeInCaptain  !== undefined ? Boolean(payload.exposeInCaptain)        : (existingItem.exposeInCaptain   ?? true),
-      allowDecimalQty:  payload.allowDecimalQty  !== undefined ? Boolean(payload.allowDecimalQty)       : (existingItem.allowDecimalQty   ?? false),
+      // Optional fields
+      rank:            payload.rank            !== undefined ? Number(payload.rank)           : (existingItem.rank            ?? 999),
+      exposeInCaptain: payload.exposeInCaptain !== undefined ? Boolean(payload.exposeInCaptain) : (existingItem.exposeInCaptain ?? true),
+      allowDecimalQty: payload.allowDecimalQty !== undefined ? Boolean(payload.allowDecimalQty) : (existingItem.allowDecimalQty ?? false),
     };
 
     return {
