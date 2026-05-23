@@ -27,6 +27,7 @@ import { BatchLabelModal }    from "./components/BatchLabelModal";
 import { CreditSettlePanel }  from "./components/CreditSettlePanel";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { PhonePeQRModal }     from "./components/PhonePeQRModal";
+import { WastageModal }       from "./components/WastageModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
 import { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } from "./lib/kotPrint";
@@ -315,6 +316,7 @@ export default function App() {
     localStorage.getItem("pos_online_orders_enabled") !== "false"
   );
   const [showPhonePeQR,      setShowPhonePeQR]      = useState(false);
+  const [showWastage,        setShowWastage]        = useState(false);
   const [isSyncing,          setIsSyncing]          = useState(false);
   const [lastSyncedAt,       setLastSyncedAt]       = useState(() => {
     const s = localStorage.getItem("pos_last_synced");
@@ -2172,6 +2174,11 @@ export default function App() {
             onClick={() => setShowCashOut(true)}>
             <span className="pab-label">Cash Out</span>
           </button>
+          <button type="button" className="pab-btn rose"
+            onClick={() => setShowWastage(true)}
+            title="Log production wastage — spoilage, overcooked, dropped items">
+            <span className="pab-label">🗑 Wastage</span>
+          </button>
           <button type="button" className={`pab-btn cyan${isSyncing ? " syncing" : ""}`}
             onClick={() => syncMenuData()}
             title={lastSyncedAt ? `Last synced: ${lastSyncedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })} — syncs menu, tables & outlet` : "Master Sync — pulls menu, tables & outlet from Owner Console"}
@@ -2578,6 +2585,16 @@ export default function App() {
       )}
 
       {/* ── POS Settings modal ────────────────────────────────────────────── */}
+      {showWastage && (
+        <WastageModal
+          shift={activeShift}
+          cashierName={cashierName}
+          outletId={branchConfig?.outletId}
+          menuItems={menuItems}
+          onClose={() => setShowWastage(false)}
+        />
+      )}
+
       {showSettings && (
         <PosSettingsModal
           cashierName={cashierName}

@@ -906,6 +906,116 @@ function CategoryReport({ date, data }) {
   );
 }
 
+// ── Wastage Report Tab ────────────────────────────────────────────────────────
+function WastageReport({ dateFrom, dateTo, outletId }) {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const p = new URLSearchParams({ dateFrom, dateTo });
+    if (outletId) p.set("outletId", outletId);
+    api.get(`/operations/wastage?${p}`)
+      .then(res => setEntries(Array.isArray(res) ? res : []))
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false));
+  }, [dateFrom, dateTo, outletId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Aggregated totals by item name
+  const itemTotals = entries.reduce((acc, e) => {
+    const key = e.itemName;
+    if (!acc[key]) acc[key] = { itemName: key, unit: e.unit || "", total: 0, count: 0 };
+    acc[key].total += Number(e.quantity) || 0;
+    acc[key].count += 1;
+    return acc;
+  }, {});
+  const topItems = Object.values(itemTotals).sort((a, b) => b.total - a.total);
+
+  // Totals by reason
+  const reasonTotals = entries.reduce((acc, e) => {
+    acc[e.reason] = (acc[e.reason] || 0) + 1;
+    return acc;
+  }, {});
+
+  function handleCSV() {
+    if (!entries.length) return;
+    downloadCSV(
+      `wastage_${dateFrom}_${dateTo}`,
+      ["Timestamp", "Item", "Qty", "Unit", "Reason", "Note", "Cashier"],
+      entries.map(e => [
+        new Date(e.timestamp).toLocaleString("en-IN"),
+        e.itemName, e.quantity, e.unit || "", e.reason, e.note || "", e.cashierName || ""
+      ])
+    );
+  }
+
+  return (
+    <div className="rpt-body">
+      <SectionHead eyebrow="Production Wastage" title="Wastage Log" />
+
+      {loading && <p style={{ color: "#6b7280", padding: "1rem 0" }}>Loading…</p>}
+
+      {!loading && entries.length === 0 && (
+        <div className="rpt-empty">
+          <span>🗑</span>
+          <p>No wastage logged for this period.</p>
+          <p style={{ fontSize: 13, color: "#9ca3af" }}>Use the Wastage button on the POS action bar to log production wastage.</p>
+        </div>
+      )}
+
+      {!loading && entries.length > 0 && (
+        <>
+          {/* Summary row */}
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
+            <div className="metric-card" style={{ minWidth: 120 }}>
+              <span className="metric-label">Total entries</span>
+              <strong>{entries.length}</strong>
+            </div>
+            <div className="metric-card" style={{ minWidth: 120 }}>
+              <span className="metric-label">Unique items</span>
+              <strong>{topItems.length}</strong>
+            </div>
+            {Object.entries(reasonTotals).map(([r, c]) => (
+              <div key={r} className="metric-card" style={{ minWidth: 120 }}>
+                <span className="metric-label">{r}</span>
+                <strong>{c}</strong>
+              </div>
+            ))}
+          </div>
+
+          {/* Top wasted items */}
+          <div style={{ marginBottom: 24 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 8 }}>By Item</p>
+            <RptTable
+              cols={["Item", "Unit", "Total Qty", "Entries"]}
+              rows={topItems.map(i => [i.itemName, i.unit || "—", i.total, i.count])}
+            />
+          </div>
+
+          {/* Full log */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>Full Log</p>
+            <button className="rpt-export-btn" onClick={handleCSV}>⬇ CSV</button>
+          </div>
+          <RptTable
+            cols={["Date & Time", "Item", "Qty", "Reason", "Note", "Cashier"]}
+            rows={entries.map(e => [
+              new Date(e.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true }),
+              e.itemName,
+              `${e.quantity}${e.unit ? " " + e.unit : ""}`,
+              e.reason,
+              e.note || "—",
+              e.cashierName || "—"
+            ])}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Order History Tab ─────────────────────────────────────────────────────────
 // Paginated bill list backed by GET /reports/orders (Postgres for history,
 // in-memory for today).  One row per closed bill.
@@ -1057,6 +1167,7 @@ const REPORTS = [
   { key: "staff",      label: "Staff Sales"       },
   { key: "incentives", label: "🏆 Incentives"     },
   { key: "orders",     label: "🗄 Order History"  },
+  { key: "wastage",    label: "🗑 Wastage"        },
   { key: "email",      label: "📧 Email Settings" }
 ];
 
@@ -1192,6 +1303,7 @@ export function ReportsPage() {
       {active === "staff"      && <StaffSalesReport        date={`${dateFrom}_${dateTo}`}                            data={salesData} />}
       {active === "incentives" && <CaptainIncentivesReport date={`${dateFrom}_${dateTo}`}                            data={salesData} />}
       {active === "orders"     && <OrderHistoryTab         dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
+      {active === "wastage"    && <WastageReport           dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "email"      && (
         <div className="rpt-body">
           <EmailTrigger />
