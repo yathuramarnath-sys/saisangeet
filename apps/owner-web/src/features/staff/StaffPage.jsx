@@ -318,7 +318,8 @@ export function StaffPage() {
       fullName: member.name, mobileNumber: member.mobileNumber || "",
       outletName: member.outlet, role: member.role,
       pin: member.pin || "", isActive: member.status === "Active",
-      incentivePct: member.incentivePct ?? 0
+      incentivePct: member.incentivePct ?? 0,
+      canApplyDiscount: !!member.canApplyDiscount
     });
     setError("");
   }
@@ -344,7 +345,8 @@ export function StaffPage() {
         fullName: updated.name, mobileNumber: updated.mobileNumber,
         outletName: updated.outlet, roles: [updated.role],
         pin: updated.pin, isActive: updated.status === "Active",
-        incentivePct: updated.incentivePct
+        incentivePct: updated.incentivePct,
+        canApplyDiscount: !!updated.canApplyDiscount
       });
     } catch (_) { /* offline */ }
     const updatedStaff = staffData.staff.map((m) => m.id === editingStaffId ? updated : m);
