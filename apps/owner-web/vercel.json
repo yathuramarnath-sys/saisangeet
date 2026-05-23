@@ -1,6 +1,7 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "ignoreCommand": "exit 1",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "env": {
     "VITE_API_BASE_URL": "https://api.dinexpos.in/api/v1"
