@@ -81,6 +81,7 @@ export function InventoryPage() {
   // UI state
   const [activeSession, setActiveSession] = useState("Lunch");
   const [activeCat,     setActiveCat]     = useState("All");
+  const [activeBranch,  setActiveBranch]  = useState(null); // null = "All" until outlets load
   const [searchQ,       setSearchQ]       = useState("");
   const [msg,           setMsg]           = useState("");
   const [newSide,       setNewSide]       = useState("");
@@ -91,33 +92,23 @@ export function InventoryPage() {
     session: "Lunch", branch: ""
   });
 
-  // ── Load outlets + menu items + server visibility state from API ─────────────
+  // ── Load outlets + server visibility on mount ────────────────────────────────
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
       api.get("/outlets").catch(() => []),
-      api.get("/menu/items").catch(() => []),
       api.get("/inventory/item-visibility").catch(() => ({})),
-    ]).then(([outletList, itemList, serverVisibility]) => {
+    ]).then(([outletList, serverVisibility]) => {
       const activeOutlets = (outletList || []).filter(o => o.isActive !== false);
       setOutlets(activeOutlets);
 
-      // Normalise menu items: keep id, name, category
-      const catalog = (itemList || []).map(item => ({
-        id:       item.id,
-        name:     item.name,
-        category: item.categoryName || item.category || "General"
-      }));
-      setMenuCatalog(catalog);
-
-      // Pre-select first outlet in wastage form
       if (activeOutlets.length > 0) {
         setForm(f => ({ ...f, branch: f.branch || activeOutlets[0].name }));
+        // Default to first outlet so items are branch-scoped from the start
+        setActiveBranch(prev => prev ?? activeOutlets[0].id);
       }
 
-      // Merge server visibility state into local tracking config.
-      // Server is the source of truth for posVisible — overrides stale localStorage.
       if (serverVisibility && Object.keys(serverVisibility).length > 0) {
         setTracking(prev => {
           const next = [...prev];
@@ -142,6 +133,25 @@ export function InventoryPage() {
       setLoading(false);
     });
   }, []);
+
+  // ── Reload menu items whenever active branch changes ─────────────────────────
+
+  useEffect(() => {
+    if (loading) return; // wait for outlets to load first
+    const url = activeBranch && activeBranch !== "all"
+      ? `/menu/items?outletId=${activeBranch}`
+      : "/menu/items";
+    api.get(url).catch(() => []).then(itemList => {
+      const catalog = (itemList || []).map(item => ({
+        id:       item.id,
+        name:     item.name,
+        category: item.categoryName || item.category || "General",
+      }));
+      setMenuCatalog(catalog);
+      setActiveCat("All"); // reset category when branch changes
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBranch]);
 
   function flash(t) { setMsg(t); setTimeout(() => setMsg(""), 3000); }
 
@@ -283,8 +293,48 @@ export function InventoryPage() {
             <p className="eyebrow">Menu Items</p>
             <h3>Enable Inventory Tracking</h3>
           </div>
-          <span className="inv-count-badge">{filteredCatalog.length} of {menuCatalog.length} items</span>
+          <span className="inv-count-badge">
+            {filteredCatalog.length} of {menuCatalog.length} items
+            {activeBranch && activeBranch !== "all" && outlets.length > 1 && (
+              <span style={{ marginLeft: 6, color: "#059669", fontWeight: 700 }}>
+                · {outlets.find(o => o.id === activeBranch)?.name}
+              </span>
+            )}
+          </span>
         </div>
+
+        {/* ── Branch tabs ─── */}
+        {outlets.length > 1 && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            <button
+              className={`shift-filter-tab${activeBranch === "all" ? "" : ""}`}
+              onClick={() => setActiveBranch("all")}
+              style={{
+                fontWeight: (activeBranch === "all" || !activeBranch) ? 700 : 500,
+                background: (activeBranch === "all" || !activeBranch) ? "#059669" : undefined,
+                color:      (activeBranch === "all" || !activeBranch) ? "#fff" : undefined,
+                borderColor:(activeBranch === "all" || !activeBranch) ? "#059669" : undefined,
+              }}
+            >
+              All Branches
+            </button>
+            {outlets.map(o => (
+              <button
+                key={o.id}
+                className="shift-filter-tab"
+                onClick={() => setActiveBranch(o.id)}
+                style={{
+                  fontWeight:  activeBranch === o.id ? 700 : 500,
+                  background:  activeBranch === o.id ? "#059669" : undefined,
+                  color:       activeBranch === o.id ? "#fff" : undefined,
+                  borderColor: activeBranch === o.id ? "#059669" : undefined,
+                }}
+              >
+                🏪 {o.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ── Search + Category filter bar ─── */}
         <div className="inv-filter-bar">
@@ -296,7 +346,7 @@ export function InventoryPage() {
             <input
               className="inv-search-input"
               type="text"
-              placeholder="Search items by name or category…"
+              placeholder="Search items…"
               value={searchQ}
               onChange={e => setSearchQ(e.target.value)}
             />
@@ -304,12 +354,15 @@ export function InventoryPage() {
               <button type="button" className="inv-search-clear" onClick={() => setSearchQ("")}>✕</button>
             )}
           </div>
-          <div className="inv-cat-pills">
+
+          {/* Category pills — now only shows categories for selected branch */}
+          <div className="inv-cat-pills" style={{ overflowX: "auto", flexWrap: "nowrap", paddingBottom: 4 }}>
             {categories.map(c => (
               <button
                 key={c}
                 className={`inv-cat-pill${activeCat === c ? " active" : ""}`}
                 onClick={() => setActiveCat(c)}
+                style={{ flexShrink: 0 }}
               >
                 {c}
                 {c !== "All" && (
