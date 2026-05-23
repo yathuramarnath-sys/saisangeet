@@ -9084,3 +9084,27 @@ input, select, textarea {
 }
 .csp-confirm-btn:hover:not(:disabled) { background: #047857; }
 .csp-confirm-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Compact order panel — fit 5-6 items on 15" touch screens ─────────────
+   All !important to override v2 theme overrides above.                      */
+.order-panel-head    { padding: 8px 14px 8px !important; }
+.order-table-label   { font-size: 14px !important; }
+
+.order-quick-bar     { padding: 5px 10px !important; gap: 5px !important; }
+.oq-btn              { padding: 5px 6px !important; font-size: 11px !important; }
+
+.order-items         { padding: 2px 10px !important; }
+.order-item          { padding: 6px 0 !important; }
+
+.order-discount      { padding: 5px 12px !important; }
+.order-totals        { padding: 5px 12px !important; }
+.order-total-row     { padding: 2px 0 !important; font-size: 12px !important; }
+.order-total-row.total {
+  font-size: 14px !important;
+  margin-top: 4px !important;
+  padding-top: 6px !important;
+}
+
+.order-actions       { padding: 6px 12px 10px !important; gap: 5px !important; }
+.pos-btn             { padding: 9px 12px !important; font-size: 12.5px !important; }
+.pos-btn.pay         { padding: 11px 12px !important; font-size: 13.5px !important; }
