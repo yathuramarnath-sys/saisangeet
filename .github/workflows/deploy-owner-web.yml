@@ -40,8 +40,11 @@ jobs:
       - name: Deploy dist to Vercel (app.dinexpos.in)
         working-directory: apps/owner-web
         run: |
-          npx vercel link --project saisangeet-owner-web --yes --token ${{ secrets.VERCEL_TOKEN }}
+          # Write project.json manually — skips vercel link which reads stored
+          # rootDirectory and doubles the path (apps/owner-web/apps/owner-web)
           mkdir -p .vercel/output/static
+          echo "{\"projectId\":\"${VERCEL_PROJECT_ID}\",\"orgId\":\"${VERCEL_ORG_ID}\"}" > .vercel/project.json
+          echo '{"version":3}' > .vercel/output/config.json
           cp -r dist/. .vercel/output/static/
           npx vercel deploy --prebuilt --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
         env:
