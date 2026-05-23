@@ -38,11 +38,10 @@ jobs:
       - name: Deploy dist to Vercel (app.dinexpos.in)
         working-directory: apps/owner-web
         run: |
-          cp -r dist /tmp/owner-dist
-          cp vercel.json /tmp/owner-dist/vercel.json
-          cd /tmp/owner-dist
           npx vercel link --project saisangeet-owner-web --yes --token ${{ secrets.VERCEL_TOKEN }}
-          npx vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+          mkdir -p .vercel/output/static
+          cp -r dist/. .vercel/output/static/
+          npx vercel deploy --prebuilt --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: team_kgxOuXctNQyYwnkPIIKVABFG
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_OWNER_WEB_PROJECT_ID }}
