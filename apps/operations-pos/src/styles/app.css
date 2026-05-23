@@ -9096,16 +9096,21 @@ input, select, textarea {
 /* 2 — Menu grid: 4 columns, compact cards */
 .menu-items-grid {
   grid-template-columns: repeat(4, 1fr) !important;
-  gap: 7px !important;
+  gap: 6px !important;
 }
-.menu-item-btn   { min-height: 62px !important; padding: 9px 8px 8px 10px !important; }
-.menu-item-name  { font-size: 11.5px !important; }
-.menu-item-price { font-size: 12.5px !important; }
+.menu-item-btn   { min-height: 52px !important; padding: 7px 7px 6px 9px !important; }
+.menu-item-name  { font-size: 11px !important; }
+.menu-item-price { font-size: 12px !important; }
 
-/* 3 — Order header: compact */
-.order-panel-head  { padding: 8px 12px !important; }
-.order-table-label { font-size: 13px !important; }
-.order-meta        { font-size: 11px !important; margin-top: 1px !important; }
+/* 3 — Order header: single compact row (no title, just area+guests+icons) */
+.order-panel-head  { padding: 5px 12px !important; min-height: 0 !important; }
+.order-table-label { display: none !important; }
+.order-meta        { font-size: 11px !important; margin: 0 !important; }
+
+/* Hide brand/outlet bar left section */
+.pbb-brand { display: none !important; }
+/* Center Dine-In/Takeaway/Delivery */
+.pbb-modes { flex: 1 !important; justify-content: center !important; }
 
 /* 4 — Hold/Transfer/Note: icon-only buttons */
 .oq-icon-btn {

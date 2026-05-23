@@ -229,20 +229,16 @@ export function OrderPanel({
 
   return (
     <div className="order-panel">
-      {/* ── Header ────────────────────────────────────────────────────────── */}
+      {/* ── Header — compact single row: area/guests + icons ─────────────── */}
       <div className="order-panel-head">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 className="order-table-label">{tableLabel}</h3>
-          <p className="order-meta">
-            {order.areaName} ·{" "}
-            <input className="guests-input" type="number" min="0" max="99"
-              value={order.guests || ""} placeholder="0"
-              onChange={e => onGuestsChange(Number(e.target.value))} />
-            {" "}guests
-          </p>
-        </div>
+        <p className="order-meta" style={{ flex: 1, minWidth: 0 }}>
+          {order.areaName} ·{" "}
+          <input className="guests-input" type="number" min="0" max="99"
+            value={order.guests || ""} placeholder="0"
+            onChange={e => onGuestsChange(Number(e.target.value))} />
+          {" "}guests
+        </p>
         <div className="order-head-right">
-          {/* Quick action icons — hold, transfer, note */}
           {!order.isClosed && (
             <>
               <button type="button"
@@ -258,11 +254,15 @@ export function OrderPanel({
                 className={`oq-icon-btn${showNote || order.orderNote ? " active-note" : ""}`}
                 title="Order Note"
                 onClick={() => setShowNote(v => !v)}>✏️</button>
+              {hasItems && (
+                <button type="button" className="oq-icon-btn"
+                  title="Split Bill"
+                  onClick={onOpenSplitBill}>✂️</button>
+              )}
             </>
           )}
           {order.isOnHold      && <span className="order-badge hold">On Hold</span>}
           {order.billRequested && <span className="order-badge bill">Bill Req.</span>}
-          {order.billRequested && order.isSplitBill && <span className="order-badge split">Split Bill</span>}
           {order.voidRequested && <span className="order-badge void">Void</span>}
           {order.isClosed      && <span className="order-badge closed">Closed</span>}
         </div>
@@ -441,13 +441,6 @@ export function OrderPanel({
                   Reprint
                 </button>
               ) : null}
-              <button type="button" className="pos-btn split" onClick={onOpenSplitBill}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.5">
-                  <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l5.1 5.1M4 4l5 5"/>
-                </svg>
-                Split
-              </button>
               {onPrintBill && (
                 <button
                   type="button"

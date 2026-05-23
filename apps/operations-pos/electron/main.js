@@ -21,6 +21,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 640,
     title: "Plato POS",
+    autoHideMenuBar: true,
     webPreferences: {
       preload:          path.join(__dirname, "preload.js"),
       contextIsolation: true,

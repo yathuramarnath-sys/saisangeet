@@ -1,6 +1,6 @@
 {
   "pos": {
-    "version": "1.4.30",
+    "version": "1.4.31",
     "label": "POS Terminal",
     "changelog": "Redesigned order panel — 4-col menu, inline item rows, icon action buttons, cleaner table picker",
     "whatsNew": [
@@ -18,7 +18,7 @@
       "4. Click 'Yes' on the security prompt",
       "5. Follow the installer steps — click Next, Next, Install",
       "6. POS will open automatically after install",
-      "7. Log in with your cashier PIN — you are on v1.4.30"
+      "7. Log in with your cashier PIN — you are on v1.4.31"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,

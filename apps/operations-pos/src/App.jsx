@@ -2092,20 +2092,6 @@ export default function App() {
 
       {/* ── Row 1: Brand bar ─────────────────────────────────────────────── */}
       <div className="pos-brand-bar">
-        {/* Brand */}
-        <div className="pbb-brand">
-          <span className="pbb-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <circle cx="12" cy="12" r="9"/>
-              <path d="M8 12h8" strokeLinecap="round"/>
-            </svg>
-          </span>
-          <div>
-            <div className="pbb-name">{outlet?.name || "Plato POS"}</div>
-            <div className="pbb-sub">POS Terminal</div>
-          </div>
-        </div>
-
         {/* Service mode pills */}
         <div className="pbb-modes">
           {SERVICE_MODES.map((m) => (
