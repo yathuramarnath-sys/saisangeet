@@ -341,9 +341,13 @@ export default function App() {
           api.get(`/devices/staff?outletId=${target.id}`).catch(() => null),
           api.get("/settings/discounts").catch(() => null),
         ]);
-        // Sync active discount rules for POS cashier picker
+        // Sync active discount rules for POS cashier picker — filter by this outlet
         if (discountRes?.rules) {
-          const active = discountRes.rules.filter(r => r.isActive !== false);
+          const outletName = target?.name || "";
+          const active = discountRes.rules.filter(r =>
+            r.isActive !== false &&
+            (r.outletScope === "All Outlets" || !r.outletScope || r.outletScope === outletName)
+          );
           setDiscountRules(active);
           try { localStorage.setItem("pos_discount_rules", JSON.stringify(active)); } catch (_) {}
         }
@@ -779,7 +783,11 @@ export default function App() {
         api.get("/settings/discounts").catch(() => null),
       ]);
       if (discRes?.rules) {
-        const active = discRes.rules.filter(r => r.isActive !== false);
+        const outletName = outlet?.name || "";
+        const active = discRes.rules.filter(r =>
+          r.isActive !== false &&
+          (r.outletScope === "All Outlets" || !r.outletScope || r.outletScope === outletName)
+        );
         setDiscountRules(active);
         try { localStorage.setItem("pos_discount_rules", JSON.stringify(active)); } catch (_) {}
       }

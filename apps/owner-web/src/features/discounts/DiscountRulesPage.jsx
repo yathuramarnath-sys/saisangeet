@@ -3,12 +3,9 @@
  * as tappable buttons in the POS. Cashier selects which rule to apply
  * per order — rules are NEVER auto-applied.
  *
- * Simple model:
- *   - Name + type (% or flat ₹) + value + optional notes
- *   - Active / Paused toggle
- *   - Delete
- *   - NO cashier/manager level — owner activates, cashier applies
- * v2
+ * Supports branch-level filtering: each rule can be scoped to
+ * "All Outlets" or a specific outlet. POS only loads rules matching
+ * its own outlet.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -20,13 +17,15 @@ function fmtRule(rule) {
     : `${rule.value}% off`;
 }
 
-const EMPTY_FORM = { name: "", discountType: "percentage", value: "", notes: "" };
+const EMPTY_FORM = { name: "", discountType: "percentage", value: "", notes: "", outletScope: "All Outlets" };
 
 export function DiscountRulesPage() {
   const [rules,   setRules]   = useState([]);
+  const [outlets, setOutlets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [form,    setForm]    = useState(EMPTY_FORM);
+  const [filter,  setFilter]  = useState("All Outlets");
   const [msg,     setMsg]     = useState({ text: "", ok: true });
 
   const flash = (text, ok = true) => {
@@ -37,8 +36,16 @@ export function DiscountRulesPage() {
   const loadRules = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/settings/discounts");
-      setRules(res?.rules || []);
+      const [rulesRes, outletsRes] = await Promise.all([
+        api.get("/settings/discounts"),
+        api.get("/outlets").catch(() => ({ outlets: [] })),
+      ]);
+      setRules(rulesRes?.rules || []);
+      setOutlets(
+        (outletsRes?.outlets || outletsRes || [])
+          .filter(o => o.isActive !== false)
+          .map(o => o.name)
+      );
     } catch {
       // backend unreachable — show empty
     } finally {
@@ -61,7 +68,7 @@ export function DiscountRulesPage() {
         discountScope:    "order",
         notes:            form.notes.trim(),
         isActive:         true,
-        outletScope:      "All Outlets",
+        outletScope:      form.outletScope,
         appliesToRole:    "All Billing Roles",
         requiresApproval: false,
         timeWindow:       "Always on",
@@ -79,7 +86,7 @@ export function DiscountRulesPage() {
 
   /* ── Toggle active ──────────────────────────────────────── */
   async function toggleActive(rule) {
-    const next = rule.isActive === false ? true : false; // toggle
+    const next = rule.isActive === false ? true : false;
     try {
       await api.patch(`/settings/discounts/${rule.id}`, { isActive: next });
       setRules(prev => prev.map(r => r.id === rule.id ? { ...r, isActive: next } : r));
@@ -100,6 +107,11 @@ export function DiscountRulesPage() {
       flash("Delete failed. Try again.", false);
     }
   }
+
+  // Filtered rules list
+  const visibleRules = filter === "All Outlets"
+    ? rules
+    : rules.filter(r => r.outletScope === filter || r.outletScope === "All Outlets");
 
   const activeCount = rules.filter(r => r.isActive !== false).length;
   const pausedCount = rules.length - activeCount;
@@ -130,6 +142,10 @@ export function DiscountRulesPage() {
           <strong>{pausedCount}</strong>
           <span>Paused</span>
         </div>
+        <div className="shift-stat">
+          <strong>{outlets.length}</strong>
+          <span>Branches</span>
+        </div>
       </div>
 
       {/* Flash message */}
@@ -145,6 +161,27 @@ export function DiscountRulesPage() {
           fontSize: 13,
         }}>
           {msg.ok ? "✓" : "⚠"} {msg.text}
+        </div>
+      )}
+
+      {/* Branch filter tabs */}
+      {outlets.length > 1 && (
+        <div style={{ display: "flex", gap: 8, padding: "0 24px 16px", flexWrap: "wrap" }}>
+          {["All Outlets", ...outlets].map(o => (
+            <button
+              key={o}
+              className="shift-filter-tab"
+              onClick={() => setFilter(o)}
+              style={{
+                fontWeight: filter === o ? 700 : 500,
+                background: filter === o ? "#059669" : undefined,
+                color: filter === o ? "#fff" : undefined,
+                borderColor: filter === o ? "#059669" : undefined,
+              }}
+            >
+              {o}
+            </button>
+          ))}
         </div>
       )}
 
@@ -193,6 +230,20 @@ export function DiscountRulesPage() {
                 </label>
               </div>
 
+              {/* Branch selector */}
+              <label>
+                Branch
+                <select
+                  value={form.outletScope}
+                  onChange={e => setForm(p => ({ ...p, outletScope: e.target.value }))}
+                >
+                  <option value="All Outlets">All Branches</option>
+                  {outlets.map(o => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
+              </label>
+
               <label>
                 Notes <span style={{ color: "#9ca3af", fontWeight: 400 }}>(optional)</span>
                 <input
@@ -222,9 +273,9 @@ export function DiscountRulesPage() {
           }}>
             <strong>💡 How it works</strong><br />
             Active rules appear as buttons in the POS cashier screen.
+            Branch-specific rules only appear in that branch's POS.
             The cashier manually picks which rule to apply per customer —
             rules are <strong>never auto-applied</strong>.
-            Pause a rule to temporarily hide it from POS without deleting it.
           </div>
         </div>
 
@@ -232,7 +283,7 @@ export function DiscountRulesPage() {
         <div>
           {loading ? (
             <div className="shift-empty" style={{ padding: "48px 16px" }}>Loading rules…</div>
-          ) : rules.length === 0 ? (
+          ) : visibleRules.length === 0 ? (
             <div className="shift-empty" style={{ padding: "48px 16px", textAlign: "center" }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>🏷️</div>
               No discount rules yet.<br />
@@ -240,8 +291,9 @@ export function DiscountRulesPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {rules.map(rule => {
+              {visibleRules.map(rule => {
                 const isActive = rule.isActive !== false;
+                const isAllOutlets = !rule.outletScope || rule.outletScope === "All Outlets";
                 return (
                   <div key={rule.id} style={{
                     border: `1.5px solid ${isActive ? "#e5e7eb" : "#f3f4f6"}`,
@@ -276,6 +328,16 @@ export function DiscountRulesPage() {
                           color: "#6d28d9",
                         }}>
                           {fmtRule(rule)}
+                        </span>
+                        <span style={{
+                          padding: "2px 10px",
+                          borderRadius: 20,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: isAllOutlets ? "#f0fdf4" : "#fef3c7",
+                          color: isAllOutlets ? "#166534" : "#92400e",
+                        }}>
+                          🏪 {isAllOutlets ? "All Branches" : rule.outletScope}
                         </span>
                       </div>
                       {rule.notes && (
