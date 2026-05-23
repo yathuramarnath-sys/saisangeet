@@ -1,8 +1,24 @@
 {
   "pos": {
-    "version": "1.4.23",
+    "version": "1.4.25",
     "label": "POS Terminal",
-    "changelog": "Area override price pickup, concurrent edit merge fix, void report in Owner Dashboard",
+    "changelog": "Production wastage logging, menu pagination (20/page), compact category form, staff page cleanup, KOT fallback fix",
+    "whatsNew": [
+      "🗑 Wastage button — log spoilage, overcooked, dropped items during shift",
+      "📄 Menu now shows 20 items per page with page navigation",
+      "✏️ Category list is now compact and scrollable — no more long scroll",
+      "👥 Staff page cleaned up — removed unused Approval Limits section",
+      "🍳 Kitchen station routing no longer creates ghost 'Main Kitchen' after deploy"
+    ],
+    "installGuide": [
+      "1. Close Plato POS completely (if open, right-click Taskbar → Close Window)",
+      "2. If POS does not close, open Task Manager → find 'Plato POS' → End Task",
+      "3. Run 'Plato-POS-Setup.exe' as Administrator (right-click → Run as administrator)",
+      "4. Click 'Yes' on the security prompt",
+      "5. Follow the installer steps — click Next, Next, Install",
+      "6. POS will open automatically after install",
+      "7. Log in with your cashier PIN — you are on v1.4.25"
+    ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
     "releaseDate": "2026-05-23"
@@ -11,6 +27,16 @@
     "version": "1.25",
     "label": "Captain App",
     "changelog": "Concurrent edit merge fix — local unsent items no longer lost on socket sync",
+    "whatsNew": [
+      "🔄 Orders no longer lose unsent items when another device updates the table"
+    ],
+    "installGuide": [
+      "1. On Android, go to Settings → Security → Allow Install from Unknown Sources",
+      "2. Transfer 'plato-captain.apk' to your phone (WhatsApp, USB, or Google Drive)",
+      "3. Open the APK file on your phone and tap Install",
+      "4. If asked to uninstall old version first — tap Uninstall, then Install again",
+      "5. Open Captain App and enter your outlet code"
+    ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
     "releaseDate": "2026-05-23"
@@ -19,6 +45,19 @@
     "version": "1.7",
     "label": "Kitchen Display",
     "changelog": "Coloured source stripe, table-first card header, highlighted item notes, large-screen support",
+    "whatsNew": [
+      "🎨 Order source colour stripe (green = POS, blue = Captain, orange = Online)",
+      "📋 Table number shown first on each KOT card",
+      "📝 Item notes highlighted in yellow for easy reading",
+      "🖥️ Better layout on large screens"
+    ],
+    "installGuide": [
+      "1. On Android tablet, go to Settings → Security → Allow Install from Unknown Sources",
+      "2. Transfer 'plato-kds.apk' to the tablet",
+      "3. Open the APK and tap Install",
+      "4. Open Kitchen Display and enter your outlet code",
+      "5. Select your kitchen station from the Settings tab"
+    ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-kds.apk",
     "releaseDate": "2026-05-23"
@@ -26,7 +65,17 @@
   "ownerWeb": {
     "version": "0.2.0",
     "label": "Owner Dashboard",
-    "changelog": "Credit collections in Payments tab, void report live, area override pricing",
+    "changelog": "Wastage report tab, menu pagination, staff page cleanup, credit collections in Payments tab",
+    "whatsNew": [
+      "🗑 New Wastage tab in Reports — see what was wasted, by item and reason",
+      "📄 Menu now paginates at 20 items — faster to load",
+      "👥 Staff page cleaner — removed unused sections",
+      "💳 Credit collections now show correctly in Payment Report"
+    ],
+    "installGuide": [
+      "No installation needed — Owner Dashboard updates automatically.",
+      "Just refresh your browser (Ctrl+R or Cmd+R) to get the latest version."
+    ],
     "downloadUrl": null,
     "apkUrl": null,
     "releaseDate": "2026-05-23"
@@ -35,6 +84,17 @@
     "version": "1.1.4",
     "label": "Tablet POS",
     "changelog": "Area override price pickup, concurrent edit merge fix",
+    "whatsNew": [
+      "💰 Area-specific prices now apply correctly (Rooftop, AC Hall, etc.)",
+      "🔄 Orders no longer lose unsent items on socket sync"
+    ],
+    "installGuide": [
+      "1. On Android tablet, go to Settings → Security → Allow Install from Unknown Sources",
+      "2. Transfer the APK to the tablet",
+      "3. Uninstall the old Tablet POS first if prompted",
+      "4. Open the APK and tap Install",
+      "5. Open Tablet POS and enter your outlet code"
+    ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-Tablet-POS-v1.1.4.apk",
     "releaseDate": "2026-05-23"

@@ -28,6 +28,7 @@ import { CreditSettlePanel }  from "./components/CreditSettlePanel";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { PhonePeQRModal }     from "./components/PhonePeQRModal";
 import { WastageModal }       from "./components/WastageModal";
+import { WhatsNewModal, useWhatsNew } from "./components/WhatsNewModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
 import { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } from "./lib/kotPrint";
@@ -317,6 +318,7 @@ export default function App() {
   );
   const [showPhonePeQR,      setShowPhonePeQR]      = useState(false);
   const [showWastage,        setShowWastage]        = useState(false);
+  const { show: showWhatsNew, dismiss: dismissWhatsNew } = useWhatsNew();
   const [isSyncing,          setIsSyncing]          = useState(false);
   const [lastSyncedAt,       setLastSyncedAt]       = useState(() => {
     const s = localStorage.getItem("pos_last_synced");
@@ -2593,6 +2595,11 @@ export default function App() {
           menuItems={menuItems}
           onClose={() => setShowWastage(false)}
         />
+      )}
+
+      {/* What's New — shown once per version after login */}
+      {cashierName && showWhatsNew && (
+        <WhatsNewModal onClose={dismissWhatsNew} />
       )}
 
       {showSettings && (
