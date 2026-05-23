@@ -196,8 +196,8 @@ operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, a
 operationsRouter.get("/credits", requireAuth, asyncHandler(async (req, res) => {
   const { getCreditOrders } = require("./closed-orders-store");
   const tenantId = req.user?.tenantId || "default";
-  const outletId = req.query.outletId || null;
-  res.json(getCreditOrders(tenantId, outletId));
+  const { outletId = null, dateFrom = null, dateTo = null } = req.query;
+  res.json(getCreditOrders(tenantId, outletId || null, dateFrom || null, dateTo || null));
 }));
 
 operationsRouter.post("/credits/:id/settle", requireAuth, asyncHandler(async (req, res) => {

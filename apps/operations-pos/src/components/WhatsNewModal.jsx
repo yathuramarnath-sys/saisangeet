@@ -14,10 +14,10 @@ import { APP_VERSION } from "./UpdateBanner";
 const SEEN_KEY = `pos_whats_new_seen_v${APP_VERSION}`;
 
 const WHATS_NEW = [
+  { icon: "🔒", text: "Data isolation — changing outlet code completely wipes previous outlet's data from this machine before loading the new outlet" },
   { icon: "🗑", text: "Wastage button — log spoilage, overcooked or dropped items during shift" },
   { icon: "📄", text: "Menu now shows 20 items per page with page navigation" },
   { icon: "✏️", text: "Category list is compact and scrollable — no more long scroll" },
-  { icon: "👥", text: "Staff page cleaned up — removed unused sections" },
   { icon: "🍳", text: "Kitchen routing fixed — no more ghost 'Main Kitchen' after updates" },
 ];
 

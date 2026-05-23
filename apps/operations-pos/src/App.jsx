@@ -178,10 +178,27 @@ async function flushClosedOrderQueue(outletId) {
 }
 
 // ── Active orders persistence ─────────────────────────────────────────────
-const ORDERS_KEY = "pos_active_orders";
+const ORDERS_KEY        = "pos_active_orders";
+const ORDERS_OUTLET_KEY = "pos_active_orders_outlet"; // guards against cross-outlet data bleed
 
-function loadSavedOrders() {
+/**
+ * Load saved orders from localStorage.
+ * Pass currentOutletId so we can detect and reject stale orders from a
+ * different outlet (e.g. after switching outlet code to a new client).
+ */
+function loadSavedOrders(currentOutletId = null) {
   try {
+    // ── Cross-outlet guard ───────────────────────────────────────────────────
+    const storedOutletId = localStorage.getItem(ORDERS_OUTLET_KEY);
+    if (currentOutletId && storedOutletId && String(storedOutletId) !== String(currentOutletId)) {
+      // Orders belong to a different outlet — wipe them so they don't bleed in
+      console.warn(
+        `[POS] Clearing stale orders: stored outlet=${storedOutletId}, current outlet=${currentOutletId}`
+      );
+      localStorage.removeItem(ORDERS_KEY);
+      localStorage.removeItem(ORDERS_OUTLET_KEY);
+      return {};
+    }
     const raw = JSON.parse(localStorage.getItem(ORDERS_KEY) || "null") || {};
     // Auto-clean ghost empty counter orders on startup
     const cleaned = Object.fromEntries(
@@ -198,6 +215,9 @@ function loadSavedOrders() {
 function saveOrdersToStorage(ordersMap) {
   try {
     localStorage.setItem(ORDERS_KEY, JSON.stringify(ordersMap));
+    // Stamp which outlet these orders belong to — used by loadSavedOrders guard
+    const cfg = loadBranchConfig();
+    if (cfg?.outletId) localStorage.setItem(ORDERS_OUTLET_KEY, String(cfg.outletId));
   } catch (e) {
     console.warn("Could not persist orders:", e.message);
   }
@@ -270,7 +290,11 @@ export default function App() {
   const [kitchenStations, setKitchenStations] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pos_kitchen_stations") || "[]"); } catch { return []; }
   });
-  const [orders,          setOrders]          = useState(() => loadSavedOrders());
+  const [orders,          setOrders]          = useState(() => {
+    // Pass current outletId so stale orders from a different outlet are wiped
+    const cfg = loadBranchConfig();
+    return loadSavedOrders(cfg?.outletId || null);
+  });
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [isOnline,        setIsOnline]        = useState(() => navigator.onLine);
   const [showPayment,     setShowPayment]     = useState(false);
@@ -744,7 +768,8 @@ export default function App() {
         }
 
         // Restore orders from localStorage — merge with cached table layout
-        const savedOrders = loadSavedOrders();
+        // Pass outletId so cross-outlet stale orders are rejected
+        const savedOrders = loadSavedOrders(branchConfig?.outletId || null);
         setOrders((prev) =>
           ensureOrders(
             Object.keys(prev).length ? prev : savedOrders,
@@ -1408,7 +1433,8 @@ export default function App() {
     // 1. Save to pos_closed_orders in localStorage
     try {
       const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-      prev.unshift(closedOrder);
+      // Stamp outlet so PastOrdersModal can filter cross-outlet contamination
+      prev.unshift({ ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId });
       // Keep last 500 orders
       localStorage.setItem("pos_closed_orders", JSON.stringify(prev.slice(0, 500)));
     } catch {}
@@ -1452,7 +1478,7 @@ export default function App() {
           const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
           // Replace the first entry (we just unshifted it above) with the stamped copy
           if (prev.length && prev[0].orderNumber === closedOrder.orderNumber) {
-            prev[0] = closedOrder;
+            prev[0] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
           }
           localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
         } catch {}
@@ -1783,7 +1809,8 @@ export default function App() {
     // 1. Save to pos_closed_orders
     try {
       const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-      prev.unshift(closedOrder);
+      // Stamp outlet so PastOrdersModal can filter cross-outlet contamination
+      prev.unshift({ ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId });
       localStorage.setItem("pos_closed_orders", JSON.stringify(prev.slice(0, 500)));
     } catch {}
 
@@ -1809,7 +1836,9 @@ export default function App() {
         closedOrder.closedAt   = closeResult.closedAt    || closedOrder.closedAt;
         try {
           const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-          if (prev.length && prev[0].orderNumber === closedOrder.orderNumber) prev[0] = closedOrder;
+          if (prev.length && prev[0].orderNumber === closedOrder.orderNumber) {
+            prev[0] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
+          }
           localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
         } catch {}
       }
@@ -2536,6 +2565,7 @@ export default function App() {
           outlet={outlet}
           outletName={outlet?.name || branchConfig?.outletName}
           cashierName={cashierName}
+          outletId={outlet?.id || branchConfig?.outletId}
         />
       )}
 

@@ -17,6 +17,16 @@ const STATUS_PAID    = "paid";
 
 const SETTLE_METHODS = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"];
 
+// Default date range: last 30 days
+function defaultDateFrom() {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  return d.toISOString().slice(0, 10);
+}
+function defaultDateTo() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function CreditLedgerPage() {
   const [orders,      setOrders]      = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -24,22 +34,40 @@ export function CreditLedgerPage() {
   const [search,      setSearch]      = useState("");
   const [expandedId,  setExpandedId]  = useState(null); // bill detail expand
 
+  // Date + branch filters
+  const [dateFrom,    setDateFrom]    = useState(defaultDateFrom());
+  const [dateTo,      setDateTo]      = useState(defaultDateTo());
+  const [outlets,     setOutlets]     = useState([]);
+  const [outletId,    setOutletId]    = useState("");  // "" = all
+
   // Settle modal state
   const [settling,    setSettling]    = useState(null);  // order being settled
   const [settleForm,  setSettleForm]  = useState({ method: "Cash", reference: "" });
   const [settleLoad,  setSettleLoad]  = useState(false);
   const [settleErr,   setSettleErr]   = useState("");
 
+  // Load outlets once
+  useEffect(() => {
+    api.get("/outlets").catch(() => []).then(list => {
+      setOutlets((list || []).filter(o => o.isActive !== false));
+    });
+  }, []);
+
   const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await api.get("/operations/credits");
+      const params = new URLSearchParams();
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo)   params.set("dateTo",   dateTo);
+      if (outletId) params.set("outletId", outletId);
+      const res = await api.get(`/operations/credits?${params.toString()}`);
       setOrders(Array.isArray(res) ? res : (res?.data || []));
     } catch {
       // keep existing
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateFrom, dateTo, outletId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -112,14 +140,42 @@ export function CreditLedgerPage() {
           <p className="eyebrow">Accounts</p>
           <h2>Credit Ledger</h2>
         </div>
-        <div className="topbar-actions">
+        <div className="topbar-actions" style={{ flexWrap: "wrap", gap: 8 }}>
+          <input
+            className="rpt-date-input"
+            type="date"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            title="From date"
+          />
+          <span style={{ alignSelf: "center", color: "#6b7280", fontSize: 13 }}>–</span>
+          <input
+            className="rpt-date-input"
+            type="date"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+            title="To date"
+          />
+          {outlets.length > 1 && (
+            <select
+              className="rpt-date-input"
+              value={outletId}
+              onChange={e => setOutletId(e.target.value)}
+              style={{ minWidth: 130 }}
+            >
+              <option value="">All Branches</option>
+              {outlets.map(o => (
+                <option key={o.id} value={o.id}>{o.name}</option>
+              ))}
+            </select>
+          )}
           <input
             className="rpt-date-input"
             type="text"
             placeholder="Search customer, GSTIN, bill…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ width: 220, padding: "6px 10px", borderRadius: 8 }}
+            style={{ width: 200 }}
           />
           <button className="topbar-btn" onClick={loadData}>↺ Refresh</button>
         </div>
@@ -183,11 +239,26 @@ export function CreditLedgerPage() {
               <div key={customerName} className="credit-customer-card">
                 <div className="credit-customer-head">
                   <div className="credit-customer-info">
-                    <strong className="credit-customer-name">{customerName}</strong>
+                    <strong className="credit-customer-name">👤 {customerName}</strong>
                     <div className="credit-customer-meta">
-                      {customer?.gstin    && <span className="credit-gstin-badge">GST: {customer.gstin}</span>}
-                      {customer?.phone    && <span>📞 {customer.phone}</span>}
-                      {customer?.address  && <span>📍 {customer.address}</span>}
+                      {customer?.phone   ? <span>📞 {customer.phone}</span>   : null}
+                      {customer?.gstin   ? <span className="credit-gstin-badge">GSTIN: {customer.gstin}</span> : null}
+                      {customer?.address ? <span>📍 {customer.address}</span> : null}
+                      {/* outlet name from first bill */}
+                      {custOrders[0]?.outletName && (
+                        <span style={{ color: "#059669", fontWeight: 600 }}>🏪 {custOrders[0].outletName}</span>
+                      )}
+                      {!customer?.phone && !customer?.gstin && !customer?.address && (
+                        <span style={{ color: "#9ca3af", fontSize: 12 }}>No contact details on record</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                      {custOrders.length} bill{custOrders.length !== 1 ? "s" : ""}
+                      {custOrders.filter(o => o.creditStatus !== "paid").length > 0 && (
+                        <span style={{ color: "#dc2626", marginLeft: 6 }}>
+                          · {custOrders.filter(o => o.creditStatus !== "paid").length} unpaid
+                        </span>
+                      )}
                     </div>
                   </div>
                   {custOutstanding > 0 && (

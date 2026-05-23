@@ -93,7 +93,7 @@ function EditPaymentModal({ order, fin, onSave, onClose }) {
 }
 
 /* ── Past Orders Modal ────────────────────────────────────────────────────── */
-export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outletName, cashierName }) {
+export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outletName, cashierName, outletId }) {
   const [filter,    setFilter]    = useState("all");   // all | cash | card | upi | online
   const [search,    setSearch]    = useState("");
   const [editOrder, setEditOrder] = useState(null);
@@ -106,11 +106,13 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
   const closedOrders = useMemo(() => {
     try {
       const stored = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-      // Filter to today's orders only (IST date match)
       const todayOrders = stored.filter(o => {
         if (!o.closedAt) return false;
         const d = new Date(o.closedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-        return d === todayIST;
+        if (d !== todayIST) return false;
+        // Outlet isolation guard — reject orders stamped with a different outlet's ID
+        if (outletId && o._outletId && String(o._outletId) !== String(outletId)) return false;
+        return true;
       });
       if (todayOrders.length > 0) return todayOrders;
     } catch {}
@@ -118,7 +120,7 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
     return Object.values(orders || {})
       .filter(o => o.isClosed && o.items?.length)
       .sort((a, b) => new Date(b.closedAt || 0) - new Date(a.closedAt || 0));
-  }, [orders, todayIST]);
+  }, [orders, todayIST, outletId]);
 
   const filtered = useMemo(() => {
     let list = closedOrders;

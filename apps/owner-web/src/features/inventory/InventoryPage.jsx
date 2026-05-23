@@ -85,6 +85,8 @@ export function InventoryPage() {
   const [searchQ,       setSearchQ]       = useState("");
   const [msg,           setMsg]           = useState("");
   const [newSide,       setNewSide]       = useState("");
+  const [invPage,       setInvPage]       = useState(1);
+  const INV_PER_PAGE = 20;
 
   // Wastage form — branch filled from first outlet once loaded
   const [form, setForm] = useState({
@@ -155,6 +157,9 @@ export function InventoryPage() {
 
   function flash(t) { setMsg(t); setTimeout(() => setMsg(""), 3000); }
 
+  // Reset page when filters change
+  useEffect(() => { setInvPage(1); }, [searchQ, activeCat, activeBranch]);
+
   // ── Search + Category filter ─────────────────────────────────────────────────
 
   const categories = ["All", ...new Set(menuCatalog.map(m => m.category))];
@@ -165,6 +170,9 @@ export function InventoryPage() {
     const matchesSearch = !q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q);
     return matchesCat && matchesSearch;
   });
+
+  const totalInvPages = Math.max(1, Math.ceil(filteredCatalog.length / INV_PER_PAGE));
+  const pagedCatalog  = filteredCatalog.slice((invPage - 1) * INV_PER_PAGE, invPage * INV_PER_PAGE);
 
   // ── Tracking toggle helpers ──────────────────────────────────────────────────
 
@@ -295,6 +303,9 @@ export function InventoryPage() {
           </div>
           <span className="inv-count-badge">
             {filteredCatalog.length} of {menuCatalog.length} items
+            {filteredCatalog.length > INV_PER_PAGE && (
+              <span style={{ marginLeft: 6, color: "#6b7280" }}>· page {invPage}/{totalInvPages}</span>
+            )}
             {activeBranch && activeBranch !== "all" && outlets.length > 1 && (
               <span style={{ marginLeft: 6, color: "#059669", fontWeight: 700 }}>
                 · {outlets.find(o => o.id === activeBranch)?.name}
@@ -397,7 +408,7 @@ export function InventoryPage() {
               <span>Online</span>
             </div>
             <div className="inv-catalog">
-              {filteredCatalog.map(item => {
+              {pagedCatalog.map(item => {
                 const t = getT(item.id);
                 return (
                   <div key={item.id} className={`inv-catalog-row${t.trackingEnabled ? " enabled" : ""}`}>
@@ -423,6 +434,31 @@ export function InventoryPage() {
                 );
               })}
             </div>
+
+            {/* Pagination bar */}
+            {totalInvPages > 1 && (
+              <div className="pg-bar" style={{ marginTop: 16 }}>
+                <button className="pg-btn" disabled={invPage === 1}
+                  onClick={() => setInvPage(p => p - 1)}>‹ Prev</button>
+                {Array.from({ length: totalInvPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalInvPages || Math.abs(p - invPage) <= 1)
+                  .reduce((acc, p, idx, arr) => {
+                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push("…");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) => p === "…"
+                    ? <span key={`e${i}`} className="pg-ellipsis">…</span>
+                    : <button key={p} className={`pg-btn${invPage === p ? " active" : ""}`}
+                        onClick={() => setInvPage(p)}>{p}</button>
+                  )}
+                <button className="pg-btn" disabled={invPage === totalInvPages}
+                  onClick={() => setInvPage(p => p + 1)}>Next ›</button>
+                <span className="pg-info">
+                  {(invPage - 1) * INV_PER_PAGE + 1}–{Math.min(invPage * INV_PER_PAGE, filteredCatalog.length)} of {filteredCatalog.length}
+                </span>
+              </div>
+            )}
           </>
         )}
       </section>

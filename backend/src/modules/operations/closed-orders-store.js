@@ -171,18 +171,31 @@ function getOrderById(tenantId, orderId, outletId = null) {
 }
 
 /**
- * Return all unpaid credit orders for a tenant (across all outlets).
- * These are orders where isCreditSale=true and creditStatus="unpaid".
+ * Return credit orders for a tenant. Supports optional filters:
+ *   outletId  — restrict to a specific outlet
+ *   dateFrom  — ISO date string or YYYY-MM-DD (inclusive, IST)
+ *   dateTo    — ISO date string or YYYY-MM-DD (inclusive, IST)
  */
-function getCreditOrders(tenantId, outletId = null) {
+function getCreditOrders(tenantId, outletId = null, dateFrom = null, dateTo = null) {
   if (!store.has(tenantId)) return [];
   const tenantMap = store.get(tenantId);
   const keys      = outletId ? [outletId] : [...tenantMap.keys()];
   const result    = [];
+
+  const fromDate = dateFrom ? new Date(dateFrom + (dateFrom.length === 10 ? "T00:00:00+05:30" : "")) : null;
+  const toDate   = dateTo   ? new Date(dateTo   + (dateTo.length   === 10 ? "T23:59:59+05:30" : "")) : null;
+
   for (const oid of keys) {
     const orders = tenantMap.get(oid) || [];
     for (const order of orders) {
-      if (order.isCreditSale) result.push({ ...order, _outletId: oid });
+      if (!order.isCreditSale) continue;
+      if (fromDate || toDate) {
+        const closedAt = order.closedAt ? new Date(order.closedAt) : null;
+        if (!closedAt) continue;
+        if (fromDate && closedAt < fromDate) continue;
+        if (toDate   && closedAt > toDate)   continue;
+      }
+      result.push({ ...order, _outletId: oid });
     }
   }
   // Most recent first
