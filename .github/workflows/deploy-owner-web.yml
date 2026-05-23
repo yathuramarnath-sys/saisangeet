@@ -1,0 +1,48 @@
+name: Deploy Owner Web Console
+
+# Runs automatically on every push to main that touches owner-web source files
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/owner-web/src/**"
+      - "apps/owner-web/public/**"
+      - "apps/owner-web/dist/**"
+      - "apps/owner-web/index.html"
+      - "apps/owner-web/package.json"
+      - "apps/owner-web/vite.config.js"
+      - "packages/**"
+
+jobs:
+  deploy:
+    name: Deploy to app.dinexpos.in
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install root workspace dependencies
+        run: npm install --include=optional
+
+      - name: Build owner-web bundle
+        working-directory: apps/owner-web
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: https://api.dinexpos.in/api/v1
+
+      - name: Deploy dist to Vercel (app.dinexpos.in)
+        working-directory: apps/owner-web
+        run: |
+          cp -r dist /tmp/owner-dist
+          cp vercel.json /tmp/owner-dist/vercel.json
+          cd /tmp/owner-dist
+          npx vercel link --project saisangeet-owner-web --yes --token ${{ secrets.VERCEL_TOKEN }}
+          npx vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: team_kgxOuXctNQyYwnkPIIKVABFG
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_OWNER_WEB_PROJECT_ID }}
