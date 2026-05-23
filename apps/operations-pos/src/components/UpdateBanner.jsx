@@ -52,33 +52,11 @@ export function UpdateBanner() {
       };
     }
 
-    // ── Web / PWA path ────────────────────────────────────────────────────────
-    function checkVersion() {
-      fetch(`${API_BASE}/app-versions`, { cache: "no-store" })
-        .then(r => r.json())
-        .then(data => {
-          const latest = data?.[APP_KEY]?.version;
-          if (!latest) return;
-
-          // Already on latest — ensure no stale banner lingers
-          if (compareVersions(latest, APP_VERSION) <= 0) {
-            setState(null);
-            return;
-          }
-
-          // User already dismissed this exact version in this session
-          const dismissedFor = localStorage.getItem(DISMISS_KEY);
-          if (dismissedFor === latest) return;
-
-          setNewVer(latest);
-          setState("available");
-        })
-        .catch(() => {});
-    }
-
-    checkVersion();
-    const timer = setInterval(checkVersion, 30 * 60 * 1000);
-    return () => clearInterval(timer);
+    // ── Web / PWA polling disabled ────────────────────────────────────────────
+    // Auto-update polling is turned off. Updates are distributed manually as
+    // a new EXE/APK. The Electron path above handles in-app update notifications
+    // for the Windows installer via electron-updater.
+    return;
   }, []);
 
   // ── Show brief "you're up to date" toast on first load if just updated ──────

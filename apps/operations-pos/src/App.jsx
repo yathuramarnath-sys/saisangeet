@@ -2271,6 +2271,10 @@ export default function App() {
           orders={orders}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
           discountRules={discountRules}
+          canApplyDiscount={
+            activeStaff.find(s => s.name === cashierName || s.fullName === cashierName)
+              ?.canApplyDiscount === true
+          }
           onChangeQty={handleChangeQty}
           onRemoveItem={handleRemoveItem}
           onNoteChange={handleNoteChange}

@@ -301,7 +301,8 @@ export function StaffPage() {
         outletName: staffDraft.outletName,
         roles: [staffDraft.role],
         pin: staffDraft.pin,
-        incentivePct: Number(staffDraft.incentivePct || 0)
+        incentivePct: Number(staffDraft.incentivePct || 0),
+        canApplyDiscount: !!staffDraft.canApplyDiscount
       });
     } catch (_) { /* offline — add to local state */ }
     const updatedStaff = [...staffData.staff, newMember];
@@ -335,7 +336,8 @@ export function StaffPage() {
       pin: editStaffDraft.pin,
       login: editStaffDraft.pin ? "PIN" : "Password",
       status: editStaffDraft.isActive ? "Active" : "Inactive",
-      incentivePct: Number(editStaffDraft.incentivePct || 0)
+      incentivePct: Number(editStaffDraft.incentivePct || 0),
+      canApplyDiscount: !!editStaffDraft.canApplyDiscount
     };
     try {
       await updateStaffMember(editingStaffId, {
@@ -735,6 +737,15 @@ export function StaffPage() {
                   placeholder="0"
                 />
               </label>
+              <label style={{ flexDirection: "row", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={!!staffDraft.canApplyDiscount}
+                  onChange={(e) => setStaffDraft((p) => ({ ...p, canApplyDiscount: e.target.checked }))}
+                  style={{ width: 16, height: 16, accentColor: "#059669" }}
+                />
+                <span>Can apply discounts on POS <span style={{ color: "#6b7280", fontSize: 12 }}>(Bulk orders)</span></span>
+              </label>
             </div>
             <button type="submit" className="primary-btn" style={{ marginTop: "1rem" }}>
               Add Staff Member
@@ -863,6 +874,15 @@ export function StaffPage() {
                               onChange={(e) => setEditStaffDraft((p) => ({ ...p, incentivePct: e.target.value }))}
                               placeholder="0"
                             />
+                          </label>
+                          <label style={{ flexDirection: "row", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={!!editStaffDraft.canApplyDiscount}
+                              onChange={(e) => setEditStaffDraft((p) => ({ ...p, canApplyDiscount: e.target.checked }))}
+                              style={{ width: 16, height: 16, accentColor: "#059669" }}
+                            />
+                            <span>Can apply discounts <span style={{ color: "#6b7280", fontSize: 12 }}>(Bulk orders)</span></span>
                           </label>
                         </div>
                         <div className="entity-actions" style={{ marginTop: "0.75rem" }}>

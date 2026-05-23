@@ -76,93 +76,78 @@ function TransferModal({ tableAreas, orders, currentId, onTransfer, onClose }) {
 }
 
 // ── DiscountPicker ───────────────────────────────────────────────────────────
-// Shows owner-configured discount rules as tap buttons.
-// Cashier picks one per order; nothing is auto-applied.
-// Falls back to a plain ₹ input when no rules are configured.
+// Single dropdown — cashier picks one rule or enters a custom ₹ amount.
+// Only rendered when the logged-in cashier has canApplyDiscount=true.
 function DiscountPicker({ discountRules, subtotal, currentAmount, onSelect }) {
-  const [showCustom, setShowCustom] = useState(false);
+  const [customAmt, setCustomAmt] = useState(currentAmount > 0 ? String(currentAmount) : "");
 
-  // Compute what each rule would give on this subtotal
   function ruleAmount(rule) {
     if (rule.discountType === "flat") return Number(rule.value) || 0;
     return Math.round((subtotal || 0) * (rule.value || 0) / 100);
   }
 
-  // Detect if the current discount matches a known rule
-  const activeRule = discountRules.find(r => {
+  // Find which rule matches the current discount amount (if any)
+  const activeRuleId = discountRules.find(r => {
     const amt = ruleAmount(r);
     return amt > 0 && amt === currentAmount;
-  });
+  })?.id || (currentAmount > 0 ? "__custom__" : "");
 
-  const isCustomActive = currentAmount > 0 && !activeRule;
-
-  function applyRule(rule) {
-    const amt = ruleAmount(rule);
-    if (activeRule?.id === rule.id) {
-      // Same rule tapped again → clear discount
+  function handleChange(e) {
+    const val = e.target.value;
+    if (val === "") {
       onSelect(0);
-    } else {
-      onSelect(amt);
-      setShowCustom(false);
+      setCustomAmt("");
+      return;
+    }
+    if (val === "__custom__") {
+      setCustomAmt("");
+      return;
+    }
+    const rule = discountRules.find(r => r.id === val);
+    if (rule) {
+      onSelect(ruleAmount(rule));
+      setCustomAmt("");
     }
   }
 
-  function toggleCustom() {
-    if (activeRule) { onSelect(0); }
-    setShowCustom(v => !v);
-  }
-
-  // No rules configured → simple ₹ input (original behaviour)
-  if (!discountRules || discountRules.length === 0) {
-    return (
-      <input
-        className="discount-inline-input"
-        type="number" min="0" step="0.01"
-        value={currentAmount || ""}
-        placeholder="0"
-        onChange={e => onSelect(Number(e.target.value))}
-      />
-    );
-  }
+  const showCustomInput = activeRuleId === "__custom__" ||
+    (discountRules.length === 0);
 
   return (
-    <div className="discount-picker">
-      <div className="discount-chips">
-        {discountRules.map(rule => {
-          const amt      = ruleAmount(rule);
-          const isActive = activeRule?.id === rule.id;
-          return (
-            <button key={rule.id} type="button"
-              className={`discount-chip${isActive ? " active" : ""}`}
-              onClick={() => applyRule(rule)}
-              title={rule.notes || rule.name}>
-              {rule.name}
-              {isActive && <span className="discount-chip-amt"> −₹{amt}</span>}
-            </button>
-          );
-        })}
-        <button type="button"
-          className={`discount-chip${isCustomActive || showCustom ? " active" : ""}`}
-          onClick={toggleCustom}>
-          Custom
-        </button>
-        {currentAmount > 0 && (
-          <button type="button"
-            className="discount-chip clear"
-            onClick={() => { onSelect(0); setShowCustom(false); }}>
-            ✕
-          </button>
-        )}
-      </div>
-      {(showCustom || isCustomActive) && (
+    <div className="discount-picker-dropdown">
+      {discountRules.length > 0 && (
+        <select
+          className="discount-select"
+          value={activeRuleId}
+          onChange={handleChange}
+          style={{ fontSize: 13, padding: "3px 6px", borderRadius: 6, border: "1.5px solid #d1d5db", background: "#fff", cursor: "pointer", maxWidth: 160 }}
+        >
+          <option value="">— No Discount —</option>
+          {discountRules.map(rule => (
+            <option key={rule.id} value={rule.id}>
+              {rule.name} {rule.discountType === "flat" ? `(₹${rule.value})` : `(${rule.value}%)`}
+            </option>
+          ))}
+          <option value="__custom__">Custom ₹</option>
+        </select>
+      )}
+      {showCustomInput && (
         <input
           className="discount-inline-input"
           type="number" min="0" step="0.01"
-          value={currentAmount || ""}
-          placeholder="Enter ₹ amount"
-          onChange={e => onSelect(Number(e.target.value))}
-          autoFocus={showCustom}
+          value={customAmt}
+          placeholder="₹ amount"
+          style={{ width: 80, marginLeft: discountRules.length > 0 ? 6 : 0 }}
+          onChange={e => {
+            setCustomAmt(e.target.value);
+            onSelect(Number(e.target.value) || 0);
+          }}
         />
+      )}
+      {currentAmount > 0 && (
+        <span style={{ marginLeft: 6, color: "#059669", fontWeight: 600, fontSize: 13 }}>
+          −₹{currentAmount}
+        </span>
       )}
     </div>
   );
@@ -215,6 +200,7 @@ export function OrderPanel({
   onPrintBill,
   gstTreatment = "exclusive",
   discountRules = [],
+  canApplyDiscount = false,
 }) {
   const [showTransfer, setShowTransfer] = useState(false);
   const [showNote,     setShowNote]     = useState(false);
@@ -386,16 +372,18 @@ export function OrderPanel({
               <span>−₹{fin.compTotal.toFixed(2)}</span>
             </div>
           )}
-          {/* Discount — rule chips or plain input if no rules configured */}
-          <div className={`order-total-row discount-row${discountRules.length > 0 ? " discount-row-chips" : ""}`}>
-            <span>Discount</span>
-            <DiscountPicker
-              discountRules={discountRules}
-              subtotal={fin.subtotal}
-              currentAmount={order.discountAmount || 0}
-              onSelect={onDiscountChange}
-            />
-          </div>
+          {/* Discount — only visible for cashiers with canApplyDiscount=true */}
+          {canApplyDiscount && (
+            <div className="order-total-row discount-row">
+              <span>Discount</span>
+              <DiscountPicker
+                discountRules={discountRules}
+                subtotal={fin.subtotal}
+                currentAmount={order.discountAmount || 0}
+                onSelect={onDiscountChange}
+              />
+            </div>
+          )}
           <div className="order-total-row">
             <span>GST</span>
             <span>₹{fin.tax.toFixed(2)}</span>
