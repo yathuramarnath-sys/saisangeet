@@ -76,7 +76,19 @@ function setupAutoUpdater() {
 // ── Updater IPC ───────────────────────────────────────────────────────────────
 // Called by renderer when cashier clicks "Restart & Install"
 ipcMain.on("update:install-now", () => {
-  autoUpdater?.quitAndInstall();
+  if (!autoUpdater) return;
+  try {
+    autoUpdater.quitAndInstall(false, true); // isSilent=false, isForceRunAfter=true
+  } catch (err) {
+    console.error("[updater] quitAndInstall failed:", err.message);
+    // Fallback: show a dialog so the user knows what happened
+    dialog.showMessageBox(mainWindow, {
+      type: "info",
+      title: "Update Ready",
+      message: "Close the POS and run Plato-POS-Setup.exe from your Desktop to install the update.",
+      buttons: ["OK"],
+    });
+  }
 });
 
 // ── Local Network Server ──────────────────────────────────────────────────────

@@ -1,15 +1,11 @@
 {
   "pos": {
-    "version": "1.4.31",
+    "version": "1.4.32",
     "label": "POS Terminal",
-    "changelog": "Redesigned order panel — 4-col menu, inline item rows, icon action buttons, cleaner table picker",
+    "changelog": "Fix: Restart & Install button now works correctly on Windows",
     "whatsNew": [
-      "🔲 Menu grid now shows 4 columns — more items visible at once",
-      "➡️ Order items compact — name and qty/price on same line",
-      "🎯 Hold / Transfer / Note are now icon buttons in the header — no wasted row",
-      "🗑 KOT, Split, Print Bill and Collect Payment buttons are more compact",
-      "🧹 Table picker cleaned up — removed clutter, just the tables",
-      "📶 WiFi status bar removed from bottom"
+      "🔧 Restart & Install now correctly installs the update on Windows",
+      "💬 If install fails, a clear message tells you what to do"
     ],
     "installGuide": [
       "1. Close Plato POS completely (if open, right-click Taskbar → Close Window)",
@@ -18,11 +14,11 @@
       "4. Click 'Yes' on the security prompt",
       "5. Follow the installer steps — click Next, Next, Install",
       "6. POS will open automatically after install",
-      "7. Log in with your cashier PIN — you are on v1.4.31"
+      "7. Log in with your cashier PIN — you are on v1.4.32"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-05-23"
+    "releaseDate": "2026-05-24"
   },
   "captain": {
     "version": "1.25",
