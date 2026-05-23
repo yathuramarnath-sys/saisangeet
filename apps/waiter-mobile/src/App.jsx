@@ -275,7 +275,18 @@ export function App() {
           if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) {
             return p; // our version is newer — discard
           }
-          return { ...p, [o.tableId]: o };
+          // Concurrent-edit merge: preserve local unsent items not in the incoming order
+          let merged = o;
+          if (current) {
+            const incomingIds = new Set((o.items || []).map(i => i.id));
+            const localOnly   = (current.items || []).filter(
+              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+            );
+            if (localOnly.length > 0) {
+              merged = { ...o, items: [...(o.items || []), ...localOnly] };
+            }
+          }
+          return { ...p, [o.tableId]: merged };
         }));
 
         socket.on("kot:sent", ({ tableId }) =>
@@ -363,7 +374,18 @@ export function App() {
             }
             const current = p[o.tableId];
             if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) return p;
-            return { ...p, [o.tableId]: o };
+            // Concurrent-edit merge: preserve local unsent items not in the incoming order
+            let merged = o;
+            if (current) {
+              const incomingIds = new Set((o.items || []).map(i => i.id));
+              const localOnly   = (current.items || []).filter(
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+              );
+              if (localOnly.length > 0) {
+                merged = { ...o, items: [...(o.items || []), ...localOnly] };
+              }
+            }
+            return { ...p, [o.tableId]: merged };
           }));
         }
 

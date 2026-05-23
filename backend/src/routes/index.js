@@ -37,12 +37,18 @@ const apiRouter = express.Router();
 
 // ── Public: app version manifest — no auth needed ─────────────────────────────
 // Returns current versions for all Plato apps so clients can show update banners.
-// Uses fs.readFileSync + JSON.parse (not require cache) so each request always
-// reads the file on disk — safe to update without restarting the server.
+// Serves app version manifest for update banners on all POS/Captain/KDS apps.
+// Priority:
+//   1. .data/app-versions.json  — runtime override (Railway persistent volume, or local dev)
+//   2. src/app-versions.json    — committed fallback (always present after any deploy)
+// To release a new version: update src/app-versions.json and deploy — no volume needed.
 apiRouter.get("/app-versions", (_req, res) => {
+  const fs   = require("fs");
+  const path = require("path");
+  const runtimePath   = path.resolve(__dirname, "../../.data/app-versions.json");
+  const committedPath = path.resolve(__dirname, "../app-versions.json");
   try {
-    const fs       = require("fs");
-    const filePath = require("path").resolve(__dirname, "../../.data/app-versions.json");
+    const filePath = fs.existsSync(runtimePath) ? runtimePath : committedPath;
     const raw      = fs.readFileSync(filePath, "utf8");
     res.json(JSON.parse(raw));
   } catch {

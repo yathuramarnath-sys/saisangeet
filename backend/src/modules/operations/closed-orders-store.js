@@ -222,9 +222,39 @@ function settleCreditOrder(tenantId, orderId, settlementInfo) {
   return null;
 }
 
+/**
+ * Return closed orders whose credit was SETTLED (creditSettledAt) within a date
+ * range (IST). Used by the Reports → Payments tab to surface credit collections
+ * on the date they were actually received — independent of when the bill was closed.
+ *
+ * @param {string}      tenantId
+ * @param {string}      dateFrom  — "YYYY-MM-DD" (inclusive)
+ * @param {string}      dateTo    — "YYYY-MM-DD" (inclusive)
+ * @param {string|null} outletId  — optional outlet filter
+ */
+function getCreditSettlementsForRange(tenantId, dateFrom, dateTo, outletId = null) {
+  if (!store.has(tenantId)) return [];
+  const tenantMap = store.get(tenantId);
+  const keys      = outletId ? [outletId] : [...tenantMap.keys()];
+  const result    = [];
+
+  for (const oid of keys) {
+    const orders = tenantMap.get(oid) || [];
+    for (const order of orders) {
+      if (!order.creditSettledAt) continue;
+      const settledStr = new Date(order.creditSettledAt)
+        .toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      if (settledStr >= dateFrom && settledStr <= dateTo) {
+        result.push({ ...order, _outletId: oid });
+      }
+    }
+  }
+  return result;
+}
+
 module.exports = {
   addClosedOrder,
   getTodaySales, getTodaySalesByOutlet, getSalesForRange,
   hydrateClosedOrders, getOrderById,
-  getCreditOrders, settleCreditOrder,
+  getCreditOrders, settleCreditOrder, getCreditSettlementsForRange,
 };

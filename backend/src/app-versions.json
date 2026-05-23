@@ -1,0 +1,42 @@
+{
+  "pos": {
+    "version": "1.4.23",
+    "label": "POS Terminal",
+    "changelog": "Area override price pickup, concurrent edit merge fix, void report in Owner Dashboard",
+    "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
+    "apkUrl": null,
+    "releaseDate": "2026-05-23"
+  },
+  "captain": {
+    "version": "1.25",
+    "label": "Captain App",
+    "changelog": "Concurrent edit merge fix — local unsent items no longer lost on socket sync",
+    "downloadUrl": null,
+    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
+    "releaseDate": "2026-05-23"
+  },
+  "kds": {
+    "version": "1.7",
+    "label": "Kitchen Display",
+    "changelog": "Coloured source stripe, table-first card header, highlighted item notes, large-screen support",
+    "downloadUrl": null,
+    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-kds.apk",
+    "releaseDate": "2026-05-23"
+  },
+  "ownerWeb": {
+    "version": "0.2.0",
+    "label": "Owner Dashboard",
+    "changelog": "Credit collections in Payments tab, void report live, area override pricing",
+    "downloadUrl": null,
+    "apkUrl": null,
+    "releaseDate": "2026-05-23"
+  },
+  "tabletPos": {
+    "version": "1.1.4",
+    "label": "Tablet POS",
+    "changelog": "Area override price pickup, concurrent edit merge fix",
+    "downloadUrl": null,
+    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-Tablet-POS-v1.1.4.apk",
+    "releaseDate": "2026-05-23"
+  }
+}

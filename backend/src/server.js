@@ -72,8 +72,12 @@ io.on("connection", (socket) => {
         socket.join(`tenant:${decoded.tenantId}`);
         console.log(`[socket] dashboard | id=${socket.id} | tenant=${decoded.tenantId}`);
       }
-    } catch (_) {
-      // Invalid/expired token — silently ignore; dashboard will still poll
+    } catch (err) {
+      // Invalid or expired token — notify the dashboard so it can prompt re-login
+      const reason = err?.name === "TokenExpiredError" ? "expired" : "invalid";
+      socket.emit("auth:expired", { reason });
+      console.log(`[socket] dashboard auth rejected | id=${socket.id} | reason=${reason}`);
+      socket.disconnect(true);
     }
     return; // Dashboard clients don't need any other room logic
   }

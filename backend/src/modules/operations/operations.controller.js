@@ -194,7 +194,8 @@ async function closeOrderHandler(req, res) {
 }
 
 async function approveDiscountHandler(req, res) {
-  assertManagerPin(req.body);
+  // Manager PIN not required for discounts — cashiers can apply any discount freely.
+  // PIN is only enforced for void operations (approveVoidHandler, updateOrderItemVoidHandler).
   const result = await approveDiscountOverride(req.params.tableId, req.body);
   res.json(result);
 }

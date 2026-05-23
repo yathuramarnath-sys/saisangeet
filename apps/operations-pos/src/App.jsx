@@ -509,7 +509,25 @@ export default function App() {
             ) {
               return prev; // our version is newer — discard incoming
             }
-            const next = { ...prev, [updatedOrder.tableId]: updatedOrder };
+
+            // ── Concurrent-edit merge ─────────────────────────────────────────
+            // The incoming order is the server's authoritative state but it may
+            // not include items the POS just added locally (e.g. cashier tapped
+            // an item a split-second before the Captain's socket event arrived).
+            // Preserve any local unsent items that are absent from the incoming
+            // order so they aren't silently dropped.
+            let merged = updatedOrder;
+            if (current && !updatedOrder.isClosed) {
+              const incomingIds  = new Set((updatedOrder.items || []).map(i => i.id));
+              const localOnly    = (current.items || []).filter(
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+              );
+              if (localOnly.length > 0) {
+                merged = { ...updatedOrder, items: [...(updatedOrder.items || []), ...localOnly] };
+              }
+            }
+
+            const next = { ...prev, [updatedOrder.tableId]: merged };
             saveOrdersToStorage(next);
             return next;
           });
@@ -998,11 +1016,13 @@ export default function App() {
       if (existing >= 0) {
         order.items[existing].quantity += 1;
       } else {
+        // Use area override price if the table's area matches one of the item's overrides
+        const _aov1 = item.areaOverrides?.[order.areaName || ""];
         order.items.push({
           id:         itemId,
           menuItemId: item.id,
           name:       item.name,
-          price:      parsePriceNumber(item.price || item.basePrice),
+          price:      (_aov1 && Number(_aov1) > 0) ? Number(_aov1) : parsePriceNumber(item.price || item.basePrice),
           quantity:   1,
           sentToKot:  false,
           note:       "",
@@ -1021,6 +1041,9 @@ export default function App() {
     if (tableId.startsWith("counter-") || tableId.startsWith("online-")) return;
 
     try {
+      // Resolve area override for the backend payload (mirrors local-push logic above)
+      const _areaName2 = orders[tableId]?.areaName || "";
+      const _aov2      = item.areaOverrides?.[_areaName2];
       const serverOrder = await api.post("/operations/order/item", {
         tableId,
         outletId: outlet?.id,
@@ -1028,7 +1051,7 @@ export default function App() {
           id:         itemId,
           menuItemId: item.id,
           name:       item.name,
-          price:      parsePriceNumber(item.price || item.basePrice),
+          price:      (_aov2 && Number(_aov2) > 0) ? Number(_aov2) : parsePriceNumber(item.price || item.basePrice),
           quantity:   1,
           note:       "",
           stationName: resolvedStation,

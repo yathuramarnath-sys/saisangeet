@@ -5,7 +5,7 @@ const {
   getControlLogs
 } = require("../operations/operations.memory-store");
 const { syncOperationsState, persistOperationsState } = require("../operations/operations.state");
-const { getTodaySales, getSalesForRange } = require("../operations/closed-orders-store");
+const { getTodaySales, getSalesForRange, getCreditSettlementsForRange } = require("../operations/closed-orders-store");
 const { queryClosedOrders, listClosedOrders } = require("../../db/closed-orders.repository");
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { getOwnerSetupData } = require("../../data/owner-setup-store");
@@ -45,7 +45,8 @@ function buildStaffSales(closedToday) {
     staffMap[key].orders    += 1;
     staffMap[key].sales     += net;
     staffMap[key].discounts += disc;
-    if (order.voidRequested) staffMap[key].voids += 1;
+    // Count orders that had at least one real voided item (not ghost voids — those never reached kitchen)
+    if ((order.items || []).some(i => i.isVoided && !i.isGhostVoid)) staffMap[key].voids += 1;
   }
 
   return Object.values(staffMap).map(r => ({
@@ -94,11 +95,16 @@ function buildCaptainIncentives(closedToday, tenantId) {
   }));
 }
 
-function buildSalesData(closedToday) {
+function buildSalesData(closedToday, creditSettlements = []) {
   const paymentMap = {};
   const itemMap    = {};
   let totalGross   = 0;
   let totalDiscount = 0;
+
+  // Void tracking
+  const voidLog      = [];
+  let   totalVoids   = 0;
+  let   totalVoidAmt = 0;
 
   for (const order of closedToday) {
     const items    = order.items || [];
@@ -116,7 +122,31 @@ function buildSalesData(closedToday) {
       paymentMap[mode].orders += 1;
     }
 
+    // ── Void items — isVoided=true and NOT a ghost void (ghost = never reached kitchen) ──
+    const voidedItems = items.filter(i => i.isVoided && !i.isGhostVoid);
+    // Find who approved the void from audit trail
+    const voidApproval = (order.auditTrail || []).find(e => e.label === "Void approved");
+    const approvedBy   = voidApproval?.actor || "—";
+    const closedTime   = new Date(order.closedAt || order._receivedAt || 0)
+      .toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+
+    for (const item of voidedItems) {
+      const amt = (item.price || 0) * (item.quantity || 1);
+      totalVoids   += 1;
+      totalVoidAmt += amt;
+      voidLog.push({
+        bill:       order.billNo || order.orderNumber || "—",
+        outlet:     order.outletName || "—",
+        cashier:    order.cashierName || "—",
+        amount:     Math.round(amt),
+        reason:     item.voidReason || "No reason",
+        approvedBy,
+        time:       closedTime,
+      });
+    }
+
     for (const item of items) {
+      if (item.isVoided) continue;   // exclude voided items from sales totals
       const key = item.name || "Unknown";
       if (!itemMap[key]) itemMap[key] = {
         name:     key,
@@ -131,6 +161,23 @@ function buildSalesData(closedToday) {
         itemMap[key].category = item.category || item.categoryName;
       }
     }
+  }
+
+  // ── Credit collections — settled on THIS date (may have been billed on a different day) ──
+  // These are credit orders where creditSettledAt falls within the selected date range.
+  // Shown as "Credit (Cash)", "Credit (Upi)", etc. in the Payments tab.
+  for (const order of creditSettlements) {
+    const method = _cap(order.creditSettledMethod || "cash");
+    const mode   = `Credit (${method})`;
+    // Recover the original bill amount
+    const items    = order.items || [];
+    const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+    const disc     = Math.min(order.discountAmount || 0, subtotal);
+    const amount   = subtotal - disc;
+
+    if (!paymentMap[mode]) paymentMap[mode] = { mode, amount: 0, orders: 0, isCreditCollection: true };
+    paymentMap[mode].amount += amount;
+    paymentMap[mode].orders += 1;
   }
 
   const totalOrders   = closedToday.length;
@@ -184,7 +231,7 @@ function buildSalesData(closedToday) {
     ...p,
     amount: Math.round(p.amount),
     pct:    totalCollected > 0 ? Math.round(p.amount / totalCollected * 100) : 0,
-    icon:   p.mode === "Cash" ? "💵" : p.mode === "Upi" ? "📱" : "💳"
+    icon:   p.isCreditCollection ? "🔄" : p.mode === "Cash" ? "💵" : p.mode === "Upi" ? "📱" : "💳"
   }));
 
   const itemSales = Object.values(itemMap)
@@ -290,12 +337,12 @@ function buildSalesData(closedToday) {
       summary: {
         totalDiscountAmt:   Math.round(totalDiscount),
         totalDiscountBills: discountBills,
-        totalVoids:         0,
-        totalVoidAmt:       0,
+        totalVoids,
+        totalVoidAmt:       Math.round(totalVoidAmt),
         manualOverrides:    0,
       },
       discountLog: [],
-      voidLog:     [],
+      voidLog,
     },
     categorySales: buildCategorySales(closedToday),
   };
@@ -599,8 +646,15 @@ async function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) 
   // Sales data — smart fetcher: memory for today, Postgres for history
   const closedToday     = await _getOrdersForRange(tenantId, { dateFrom, dateTo, outletId });
   const todayOrderCount = closedToday.length;
+
+  // Credit settlements received on this date (independent of when the bill was closed)
+  const todayStr         = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const creditFrom       = dateFrom || todayStr;
+  const creditTo         = dateTo   || todayStr;
+  const creditSettlements = getCreditSettlementsForRange(tenantId, creditFrom, creditTo, outletId || null);
+
   const salesData       = {
-    ...buildSalesData(closedToday),
+    ...buildSalesData(closedToday, creditSettlements),
     captainIncentives: buildCaptainIncentives(closedToday, tenantId),
   };
 

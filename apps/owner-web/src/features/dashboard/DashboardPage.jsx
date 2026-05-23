@@ -229,10 +229,11 @@ export function DashboardPage() {
   const [outletId,   setOutletId]   = useState("__all__");
   const [dateFrom,   setDateFrom]   = useState(todayISO);
   const [dateTo,     setDateTo]     = useState(todayISO);
-  const [data,       setData]       = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [lastSynced, setLastSynced] = useState(null);
-  const [error,      setError]      = useState("");
+  const [data,          setData]          = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [lastSynced,    setLastSynced]    = useState(null);
+  const [error,         setError]         = useState("");
+  const [sessionExpired, setSessionExpired] = useState(false);
   const timerRef = useRef(null);
 
   const isToday = dateFrom === todayISO() && dateTo === todayISO();
@@ -292,6 +293,23 @@ export function DashboardPage() {
     });
 
     sock.on("sales:updated", () => fetchData());
+
+    // Backend emits this when the JWT is expired or invalid — stop reconnecting
+    // and show a re-login prompt so the owner knows real-time updates have stopped.
+    sock.on("auth:expired", () => {
+      setSessionExpired(true);
+      sock.disconnect();
+    });
+
+    // Socket-level connection failure (network down, server unreachable)
+    sock.on("connect_error", () => {
+      // Don't overwrite a session-expired state — that's a more specific message
+      if (!sessionExpired) setError("Live updates paused — retrying connection...");
+    });
+    sock.on("connect", () => {
+      // Clear connection error once socket recovers
+      setError(prev => prev === "Live updates paused — retrying connection..." ? "" : prev);
+    });
 
     return () => { sock.disconnect(); };
   }, [isToday, fetchData]);
@@ -383,7 +401,21 @@ export function DashboardPage() {
         </select>
       </div>
 
-      {error && <div className="dash-error">{error}</div>}
+      {sessionExpired && (
+        <div className="dash-error" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <span>⚠️ Your session has expired — live updates are paused.</span>
+          <button
+            style={{ background: "#fff", color: "#dc2626", border: "1px solid #dc2626", borderRadius: 6, padding: "4px 14px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+            onClick={() => {
+              localStorage.removeItem("pos_token");
+              window.location.href = "/login";
+            }}
+          >
+            Log in again
+          </button>
+        </div>
+      )}
+      {!sessionExpired && error && <div className="dash-error">{error}</div>}
 
       {loading && !data ? (
         <div className="dash-spinner-wrap">
