@@ -24,13 +24,13 @@ const {
   lookupItemBySku,
 } = require("./menu.service");
 
-async function listMenuCategoriesHandler(_req, res) {
-  const result = await fetchMenuCategories();
+async function listMenuCategoriesHandler(req, res) {
+  const result = await fetchMenuCategories(req.query.outletId);
   res.json(result);
 }
 
-async function listMenuItemsHandler(_req, res) {
-  const result = await fetchMenuItems();
+async function listMenuItemsHandler(req, res) {
+  const result = await fetchMenuItems(req.query.outletId);
   res.json(result);
 }
 

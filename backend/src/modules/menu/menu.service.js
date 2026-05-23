@@ -8,8 +8,34 @@ function slugify(value) {
     .replace(/^-+|-+$/g, "");
 }
 
-async function fetchMenuCategories() {
-  return getOwnerSetupData().menu.categories;
+async function fetchMenuCategories(outletId) {
+  const data       = getOwnerSetupData();
+  const categories = data.menu?.categories || [];
+
+  if (!outletId) return categories;
+
+  // Resolve outlet name from id
+  const outlets    = data.outlets || [];
+  const outlet     = outlets.find(o => String(o.id) === String(outletId));
+  const outletName = outlet?.name || "";
+
+  if (!outletName) return categories;
+
+  // Only return categories that have at least one item available at this outlet
+  const items = data.menu?.items || [];
+  const availCategoryIds = new Set(
+    items
+      .filter(item => {
+        const avail = item.outletAvailability || [];
+        if (avail.length === 0) return true;               // no restrictions → everywhere
+        const entry = avail.find(a => a.outlet === outletName);
+        if (!entry) return true;                           // outlet not listed → default on
+        return entry.enabled !== false;
+      })
+      .map(item => item.categoryId)
+  );
+
+  return categories.filter(c => availCategoryIds.has(c.id));
 }
 
 async function fetchMenuStations() {
@@ -37,7 +63,7 @@ function computeItemPrice(item) {
   return 0;
 }
 
-async function fetchMenuItems() {
+async function fetchMenuItems(outletId) {
   const data       = getOwnerSetupData();
   const items      = data.menu?.items      || [];
   const categories = data.menu?.categories || [];
@@ -45,7 +71,27 @@ async function fetchMenuItems() {
   // This means Inventory page / KDS stock tab / Captain menu all receive
   // categoryName without needing their own join logic.
   const catById = Object.fromEntries(categories.map(c => [c.id, c.name]));
-  return items.map(item => ({
+
+  let filtered = items;
+
+  if (outletId) {
+    // Resolve outlet name from id
+    const outlets    = data.outlets || [];
+    const outlet     = outlets.find(o => String(o.id) === String(outletId));
+    const outletName = outlet?.name || "";
+
+    if (outletName) {
+      filtered = items.filter(item => {
+        const avail = item.outletAvailability || [];
+        if (avail.length === 0) return true;               // no restrictions → everywhere
+        const entry = avail.find(a => a.outlet === outletName);
+        if (!entry) return true;                           // outlet not listed → default on
+        return entry.enabled !== false;
+      });
+    }
+  }
+
+  return filtered.map(item => ({
     ...item,
     price:        computeItemPrice(item),
     categoryName: item.categoryName || catById[item.categoryId] || "",
