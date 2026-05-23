@@ -135,19 +135,6 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
 
   return (
     <div className="tpp">
-      {/* Header */}
-      <div className="tpp-head">
-        <h3>🪑 Select Table</h3>
-        <p>Pick a table to start billing</p>
-      </div>
-
-      {/* Status summary */}
-      <div className="tpp-summary">
-        <div className="tpp-sum-pill free">{freeCount} Free</div>
-        <div className="tpp-sum-pill occ">{occupiedCount} Occupied</div>
-        {holdCount > 0 && <div className="tpp-sum-pill hold">{holdCount} On Hold</div>}
-      </div>
-
       {/* Area tabs */}
       {tableAreas.length > 1 && (
         <div className="tpp-area-tabs">
@@ -203,15 +190,6 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
         ))}
       </div>
 
-      {/* Legend */}
-      <div className="tpp-legend">
-        {Object.entries(STATUS_COLORS).slice(0, 4).map(([key, val]) => (
-          <span key={key} className="tpp-legend-item"
-            style={{ background: val.bg, color: val.text, borderColor: val.border }}>
-            {val.label}
-          </span>
-        ))}
-      </div>
     </div>
   );
 }

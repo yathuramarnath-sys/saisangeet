@@ -242,30 +242,30 @@ export function OrderPanel({
           </p>
         </div>
         <div className="order-head-right">
+          {/* Quick action icons — hold, transfer, note */}
+          {!order.isClosed && (
+            <>
+              <button type="button"
+                className={`oq-icon-btn${order.isOnHold ? " active-hold" : ""}`}
+                title={order.isOnHold ? "Resume Order" : "Hold Order"}
+                onClick={() => onHoldToggle?.()}>
+                {order.isOnHold ? "▶" : "⏸"}
+              </button>
+              <button type="button" className="oq-icon-btn"
+                title="Transfer Table"
+                onClick={() => setShowTransfer(true)}>⇄</button>
+              <button type="button"
+                className={`oq-icon-btn${showNote || order.orderNote ? " active-note" : ""}`}
+                title="Order Note"
+                onClick={() => setShowNote(v => !v)}>✏️</button>
+            </>
+          )}
           {order.isOnHold      && <span className="order-badge hold">On Hold</span>}
           {order.billRequested && <span className="order-badge bill">Bill Req.</span>}
           {order.billRequested && order.isSplitBill && <span className="order-badge split">Split Bill</span>}
           {order.voidRequested && <span className="order-badge void">Void</span>}
           {order.isClosed      && <span className="order-badge closed">Closed</span>}
         </div>
-      </div>
-
-      {/* ── Inline quick actions bar ──────────────────────────────────────── */}
-      <div className="order-quick-bar">
-        <button type="button"
-          className={`oq-btn${order.isOnHold ? " active-hold" : ""}`}
-          onClick={() => onHoldToggle?.()}>
-          {order.isOnHold ? "▶ Resume" : "⏸ Hold"}
-        </button>
-        <button type="button" className="oq-btn"
-          onClick={() => setShowTransfer(true)}>
-          ⇄ Transfer
-        </button>
-        <button type="button"
-          className={`oq-btn${showNote || order.orderNote ? " active-note" : ""}`}
-          onClick={() => setShowNote(v => !v)}>
-          📝 Note
-        </button>
       </div>
 
       {/* ── Order Note ────────────────────────────────────────────────────── */}
@@ -301,48 +301,51 @@ export function OrderPanel({
 
             {voidingIdx !== idx && (
               <>
-                <div className="order-item-top">
-                  <div className="order-item-name-row">
-                    <span className="order-item-name"
-                      style={{ textDecoration: item.isVoided ? "line-through" : "none" }}>
-                      {item.name}{item.unit ? <span className="order-item-unit">/{item.unit}</span> : null}
-                    </span>
-                    {item.sentToKot && !item.isVoided && (
-                      <span className="order-item-kot-tag">KOT ✓</span>
-                    )}
-                    {item.isComp && (
-                      <span className="order-item-comp-tag">COMP</span>
-                    )}
-                    {item.isVoided && (
-                      <span className="order-item-void-tag">VOID</span>
-                    )}
+                {/* Name + controls on one row */}
+                <div className="order-item-row">
+                  <div className="order-item-top">
+                    <div className="order-item-name-row">
+                      <span className="order-item-name"
+                        style={{ textDecoration: item.isVoided ? "line-through" : "none" }}>
+                        {item.name}{item.unit ? <span className="order-item-unit">/{item.unit}</span> : null}
+                      </span>
+                      {item.sentToKot && !item.isVoided && (
+                        <span className="order-item-kot-tag">KOT ✓</span>
+                      )}
+                      {item.isComp && (
+                        <span className="order-item-comp-tag">COMP</span>
+                      )}
+                      {item.isVoided && (
+                        <span className="order-item-void-tag">VOID</span>
+                      )}
+                    </div>
                   </div>
-                  {/* Item actions: removed comp + void buttons — PIN-protected void coming later */}
+
+                  {!item.isVoided && (
+                    <div className="order-item-controls">
+                      {!item.sentToKot && (
+                        <button type="button" className="qty-btn"
+                          onClick={() => onChangeQty(idx, item.quantity - 1)}>−</button>
+                      )}
+                      <span className="qty-value">{item.quantity}</span>
+                      {!item.sentToKot && (
+                        <button type="button" className="qty-btn"
+                          onClick={() => onChangeQty(idx, item.quantity + 1)}>+</button>
+                      )}
+                      <span className="order-item-price"
+                        style={{ textDecoration: item.isComp ? "line-through" : "none", opacity: item.isComp ? 0.45 : 1 }}>
+                        ₹{(item.price * item.quantity).toFixed(0)}
+                      </span>
+                      {item.isComp && <span className="order-item-comp-price">FREE</span>}
+                      {!item.sentToKot && !item.isComp && (
+                        <button type="button" className="order-item-remove"
+                          onClick={() => onRemoveItem(idx)}>✕</button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {!item.isVoided && (
-                  <div className="order-item-controls">
-                    {!item.sentToKot && (
-                      <button type="button" className="qty-btn"
-                        onClick={() => onChangeQty(idx, item.quantity - 1)}>−</button>
-                    )}
-                    <span className="qty-value">{item.quantity}</span>
-                    {!item.sentToKot && (
-                      <button type="button" className="qty-btn"
-                        onClick={() => onChangeQty(idx, item.quantity + 1)}>+</button>
-                    )}
-                    <span className="order-item-price"
-                      style={{ textDecoration: item.isComp ? "line-through" : "none", opacity: item.isComp ? 0.45 : 1 }}>
-                      ₹{(item.price * item.quantity).toFixed(0)}
-                    </span>
-                    {item.isComp && <span className="order-item-comp-price">FREE</span>}
-                    {!item.sentToKot && !item.isComp && (
-                      <button type="button" className="order-item-remove"
-                        onClick={() => onRemoveItem(idx)}>✕</button>
-                    )}
-                  </div>
-                )}
-
+                {/* Note: compact single line below */}
                 {!item.sentToKot && !item.isVoided && (
                   <input className="order-item-note" type="text"
                     placeholder="Note (less spicy, no onion…)"

@@ -9085,26 +9085,78 @@ input, select, textarea {
 .csp-confirm-btn:hover:not(:disabled) { background: #047857; }
 .csp-confirm-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
-/* ── Compact order panel — fit 5-6 items on 15" touch screens ─────────────
-   All !important to override v2 theme overrides above.                      */
-.order-panel-head    { padding: 8px 14px 8px !important; }
-.order-table-label   { font-size: 14px !important; }
+/* ══════════════════════════════════════════════════════════════════════════
+   COMPACT POS v2 — 4-col menu, inline item rows, icon action buttons
+   All rules use !important to override earlier theme layers.
+   ══════════════════════════════════════════════════════════════════════════ */
 
-.order-quick-bar     { padding: 5px 10px !important; gap: 5px !important; }
-.oq-btn              { padding: 5px 6px !important; font-size: 11px !important; }
+/* 1 — Layout: narrower side panels, more room for menu */
+.pos-shell { grid-template-columns: 210px 1fr 300px !important; }
 
-.order-items         { padding: 2px 10px !important; }
-.order-item          { padding: 6px 0 !important; }
+/* 2 — Menu grid: 4 columns, compact cards */
+.menu-items-grid {
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 7px !important;
+}
+.menu-item-btn   { min-height: 62px !important; padding: 9px 8px 8px 10px !important; }
+.menu-item-name  { font-size: 11.5px !important; }
+.menu-item-price { font-size: 12.5px !important; }
 
-.order-discount      { padding: 5px 12px !important; }
-.order-totals        { padding: 5px 12px !important; }
-.order-total-row     { padding: 2px 0 !important; font-size: 12px !important; }
-.order-total-row.total {
-  font-size: 14px !important;
-  margin-top: 4px !important;
-  padding-top: 6px !important;
+/* 3 — Order header: compact */
+.order-panel-head  { padding: 8px 12px !important; }
+.order-table-label { font-size: 13px !important; }
+.order-meta        { font-size: 11px !important; margin-top: 1px !important; }
+
+/* 4 — Hold/Transfer/Note: icon-only buttons */
+.oq-icon-btn {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  border: 1.5px solid #d1d5db;
+  background: #f5f5f5;
+  font-size: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 100ms; flex-shrink: 0;
+}
+.oq-icon-btn:hover            { background: #e5e7eb; border-color: #9ca3af; }
+.oq-icon-btn.active-hold      { background: #fffbeb; border-color: rgba(217,119,6,0.4); }
+.oq-icon-btn.active-note      { background: #eff6ff; border-color: rgba(0,102,255,0.3); }
+.order-head-right              { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+
+/* 5 — Order item: name left, qty+price right on same row */
+.order-item      { padding: 5px 0 !important; }
+.order-item-row  { display: flex; align-items: center; gap: 6px; }
+.order-item-top  {
+  flex: 1 !important; min-width: 0 !important;
+  margin-bottom: 0 !important;
+  display: flex !important; align-items: center !important;
+}
+.order-item-controls { flex-shrink: 0 !important; }
+
+/* 6 — Note: compact single line */
+.order-item-note {
+  margin-top: 2px !important;
+  padding: 2px 7px !important;
+  font-size: 10.5px !important;
+  border-radius: 5px !important;
 }
 
-.order-actions       { padding: 6px 12px 10px !important; gap: 5px !important; }
-.pos-btn             { padding: 9px 12px !important; font-size: 12.5px !important; }
-.pos-btn.pay         { padding: 11px 12px !important; font-size: 13.5px !important; }
+/* 7 — Order items area */
+.order-items { padding: 2px 10px !important; }
+
+/* 8 — Totals: compact */
+.order-discount              { padding: 4px 12px !important; }
+.order-totals                { padding: 4px 12px !important; }
+.order-total-row             { padding: 1px 0 !important; font-size: 12px !important; }
+.order-total-row.total       { font-size: 14px !important; margin-top: 3px !important; padding-top: 5px !important; }
+
+/* 9 — Action buttons: KOT / Split / Print Bill / Collect Payment */
+.order-actions     { padding: 5px 12px 10px !important; gap: 5px !important; }
+.order-actions-row { gap: 5px !important; }
+.pos-btn           { padding: 8px 10px !important; font-size: 12px !important; border-radius: 9px !important; }
+.pos-btn.pay       { padding: 10px 12px !important; font-size: 13px !important; }
+
+/* 10 — Hide WiFi banner + table legend (removed from JSX, belt-and-suspenders) */
+.pos-local-banner { display: none !important; }
+.tpp-legend       { display: none !important; }
+.tpp-summary      { display: none !important; }
+.tpp-head         { display: none !important; }

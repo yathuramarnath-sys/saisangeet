@@ -2089,11 +2089,6 @@ export default function App() {
           ⏳ Connecting to server…
         </div>
       )}
-      {localConn && (
-        <div className="pos-local-banner">
-          📶 Local WiFi server active — tablets work without internet
-        </div>
-      )}
 
       {/* ── Row 1: Brand bar ─────────────────────────────────────────────── */}
       <div className="pos-brand-bar">

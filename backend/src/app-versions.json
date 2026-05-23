@@ -1,14 +1,15 @@
 {
   "pos": {
-    "version": "1.4.29",
+    "version": "1.4.30",
     "label": "POS Terminal",
-    "changelog": "Compact order panel — 5-6 items now visible on 15\" touch screens",
+    "changelog": "Redesigned order panel — 4-col menu, inline item rows, icon action buttons, cleaner table picker",
     "whatsNew": [
-      "📋 Order panel is now compact — 5-6 items visible at once on 15\" touch screens",
-      "🔒 Data isolation — changing outlet code completely wipes previous outlet data from this machine before loading the new outlet",
-      "🗑 Wastage button — log spoilage, overcooked or dropped items during shift",
-      "📄 Menu now shows 20 items per page with page navigation",
-      "✏️ Category list is compact and scrollable — no more long scroll"
+      "🔲 Menu grid now shows 4 columns — more items visible at once",
+      "➡️ Order items compact — name and qty/price on same line",
+      "🎯 Hold / Transfer / Note are now icon buttons in the header — no wasted row",
+      "🗑 KOT, Split, Print Bill and Collect Payment buttons are more compact",
+      "🧹 Table picker cleaned up — removed clutter, just the tables",
+      "📶 WiFi status bar removed from bottom"
     ],
     "installGuide": [
       "1. Close Plato POS completely (if open, right-click Taskbar → Close Window)",
@@ -17,7 +18,7 @@
       "4. Click 'Yes' on the security prompt",
       "5. Follow the installer steps — click Next, Next, Install",
       "6. POS will open automatically after install",
-      "7. Log in with your cashier PIN — you are on v1.4.29"
+      "7. Log in with your cashier PIN — you are on v1.4.30"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
