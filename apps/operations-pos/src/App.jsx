@@ -848,6 +848,7 @@ export default function App() {
       const freshOutlet = Array.isArray(outletsList) ? outletsList.find(o => o.id === id) : null;
       const freshAreas  = freshOutlet ? buildAreasFromOutlet(freshOutlet) : null;
       if (freshOutlet) {
+        setOutlet(freshOutlet);          // ← update React state so gstTreatment, tables etc. reflect immediately
         setTableAreas(freshAreas || []);
         localStorage.setItem("pos_table_config", JSON.stringify(freshAreas || []));
       }

@@ -1,15 +1,15 @@
 {
   "pos": {
-    "version": "1.4.37",
+    "version": "1.4.38",
     "label": "POS Terminal",
-    "changelog": "Compact action bar — all buttons fit on small screens",
+    "changelog": "Fix: GST Inclusive/Exclusive setting now reflects immediately after Sync — no restart needed",
     "whatsNew": [
-      "📐 All top bar buttons now fit on small screens — no more cut-off buttons"
+      "🧾 GST treatment change in Owner Console now reflects on POS immediately after pressing Sync"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.4.37"
+      "3. Log in with your cashier PIN — you are on v1.4.38"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
