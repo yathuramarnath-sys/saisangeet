@@ -1,9 +1,8 @@
 const TABS = [
   { id: "live",    icon: "⚡", label: "Live"    },
   { id: "sales",   icon: "📊", label: "Sales"   },
-  { id: "staff",   icon: "👥", label: "Staff"   },
-  { id: "alerts",  icon: "🔔", label: "Alerts"  },
-  { id: "actions", icon: "⚙️", label: "More"    },
+  { id: "reports", icon: "📋", label: "Reports" },
+  { id: "more",    icon: "⚙️", label: "More"    },
 ];
 
 export function BottomNav({ active, onChange }) {

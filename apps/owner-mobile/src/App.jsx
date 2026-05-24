@@ -4,12 +4,9 @@ import { isLoggedIn } from "./lib/auth";
 import { LoginScreen }   from "./screens/LoginScreen";
 import { LiveScreen }    from "./screens/LiveScreen";
 import { SalesScreen }   from "./screens/SalesScreen";
-import { StaffScreen }   from "./screens/StaffScreen";
-import { AlertsScreen }  from "./screens/AlertsScreen";
-import { ActionsScreen } from "./screens/ActionsScreen";
+import { ReportsScreen } from "./screens/ReportsScreen";
+import { MoreScreen }    from "./screens/MoreScreen";
 import { BottomNav }     from "./components/BottomNav";
-
-const TABS = ["live", "sales", "staff", "alerts", "actions"];
 
 export function App() {
   const [loggedIn, setLoggedIn] = useState(isLoggedIn());
@@ -24,9 +21,8 @@ export function App() {
       <div className="screen-wrap">
         {tab === "live"    && <LiveScreen />}
         {tab === "sales"   && <SalesScreen />}
-        {tab === "staff"   && <StaffScreen />}
-        {tab === "alerts"  && <AlertsScreen />}
-        {tab === "actions" && <ActionsScreen />}
+        {tab === "reports" && <ReportsScreen />}
+        {tab === "more"    && <MoreScreen />}
       </div>
       <BottomNav active={tab} onChange={setTab} />
     </div>

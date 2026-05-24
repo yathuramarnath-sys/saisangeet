@@ -292,6 +292,186 @@ input, textarea { font-family: inherit; }
   font-weight: 600;
 }
 
+/* ── Outlet filter button ──────────────────────────────────────────────────── */
+.outlet-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.of-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  flex-shrink: 0;
+}
+.of-label { flex: 1; }
+.of-arrow { color: var(--text3); font-size: 12px; }
+
+/* ── Modal overlay + sheet ─────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+}
+.modal-sheet {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 0 40px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px 16px;
+  font-size: 16px;
+  font-weight: 800;
+}
+.modal-header button {
+  font-size: 18px;
+  color: var(--text3);
+  padding: 4px 8px;
+}
+.outlet-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.outlet-option.active { color: var(--brand); background: #f0fdf4; }
+
+/* ── KPI grid (Live screen) ────────────────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+.kpi-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 10px 12px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+.kpi-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+.kpi-val   { font-size: 15px; font-weight: 900; color: var(--text); letter-spacing: -0.3px; }
+.kpi-label { font-size: 11px; font-weight: 700; color: var(--text2); margin: 2px 0; }
+.kpi-sub   { font-size: 10px; color: var(--text3); }
+
+/* ── Order type row ────────────────────────────────────────────────────────── */
+.otype-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.otype-row:last-child { border-bottom: none; }
+.otype-label  { width: 70px; font-size: 13px; font-weight: 700; color: var(--text); flex-shrink: 0; }
+.otype-val    { width: 72px; text-align: right; font-size: 12px; font-weight: 700; color: var(--text); flex-shrink: 0; }
+.otype-orders { width: 28px; text-align: right; font-size: 11px; color: var(--text3); flex-shrink: 0; }
+
+/* ── Reports screen tabs ───────────────────────────────────────────────────── */
+.report-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 16px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.report-tabs::-webkit-scrollbar { display: none; }
+.report-tab {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text2);
+  border-bottom: 2.5px solid transparent;
+  white-space: nowrap;
+}
+.report-tab.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+
+/* ── Report summary grid ───────────────────────────────────────────────────── */
+.report-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.rscard {
+  border-radius: var(--radius);
+  padding: 14px 10px;
+  text-align: center;
+}
+.rscard.green  { background: #f0fdf4; }
+.rscard.blue   { background: #eff6ff; }
+.rscard.purple { background: #fdf4ff; }
+.rscard.orange { background: #fefce8; }
+.rscard.red    { background: #fff1f2; }
+.rscard.teal   { background: #f0fdfa; }
+
+.rsc-val   { font-size: 15px; font-weight: 900; color: var(--text); letter-spacing: -0.3px; }
+.rsc-label { font-size: 11px; font-weight: 600; color: var(--text2); margin-top: 3px; }
+
+/* ── Report rows ───────────────────────────────────────────────────────────── */
+.report-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.report-row:last-child { border-bottom: none; }
+.rrow-label  { font-size: 13px; font-weight: 600; color: var(--text); }
+.rrow-orders { font-size: 12px; color: var(--text3); }
+.rrow-val    { font-size: 13px; font-weight: 800; color: var(--text); }
+
+/* ── Staff report row ──────────────────────────────────────────────────────── */
+.staff-report-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.staff-report-row:last-child { border-bottom: none; }
+
+/* ── Section toggle ────────────────────────────────────────────────────────── */
+.section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+}
+
 /* ── Sales screen ──────────────────────────────────────────────────────────── */
 .range-tabs {
   display: flex;
