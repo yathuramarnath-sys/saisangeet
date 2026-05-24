@@ -33,6 +33,10 @@ const env = {
   // Google OAuth
   googleClientId:     process.env.GOOGLE_CLIENT_ID     || "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+
+  // MSG91 SMS
+  msg91AuthKey: process.env.MSG91_AUTH_KEY || "",
+  msg91Sender:  process.env.MSG91_SENDER   || "PLATOPOS",
 };
 
 module.exports = {
