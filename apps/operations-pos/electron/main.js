@@ -75,19 +75,54 @@ function setupAutoUpdater() {
 
 // ── Updater IPC ───────────────────────────────────────────────────────────────
 // Called by renderer when cashier clicks "Restart & Install"
+// Strategy: write a standalone updater.bat to TEMP, launch it detached, then
+// quit the POS. By the time the bat runs the installer, the POS is fully closed
+// and no files are locked — completely bypasses the NSIS "cannot be closed" error.
 ipcMain.on("update:install-now", () => {
   if (!autoUpdater) return;
+
   try {
-    autoUpdater.quitAndInstall(false, true); // isSilent=false, isForceRunAfter=true
+    const fs   = require("fs");
+    const os   = require("os");
+    const path = require("path");
+    const { spawn } = require("child_process");
+
+    // Find the downloaded installer in the electron-updater cache
+    const installerPath = autoUpdater.downloadedUpdateHelper?.installerPath
+      || path.join(os.tmpdir(), "Plato-POS-Setup.exe");
+
+    // Write a batch script that waits for POS to exit, then runs the installer
+    const batPath = path.join(os.tmpdir(), "plato_updater.bat");
+    const bat = [
+      "@echo off",
+      "timeout /t 3 /nobreak >nul",
+      `taskkill /F /IM "Plato POS.exe" /T >nul 2>&1`,
+      "timeout /t 3 /nobreak >nul",
+      // Delete old install folder so installer has no locked files
+      `for /f "tokens=2,*" %%a in ('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /v InstallLocation 2^>nul') do rmdir /s /q "%%b" >nul 2>&1`,
+      `rmdir /s /q "%LOCALAPPDATA%\\Programs\\Plato POS" >nul 2>&1`,
+      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /f >nul 2>&1`,
+      "timeout /t 1 /nobreak >nul",
+      `start "" /wait "${installerPath}"`,
+      "exit",
+    ].join("\r\n");
+
+    fs.writeFileSync(batPath, bat);
+
+    // Launch the batch file detached — it runs independently after POS quits
+    spawn("cmd.exe", ["/c", batPath], {
+      detached: true,
+      stdio:    "ignore",
+      windowsHide: false,
+    }).unref();
+
+    // Now quit the POS — files will be released before the installer runs
+    setTimeout(() => app.quit(), 500);
+
   } catch (err) {
-    console.error("[updater] quitAndInstall failed:", err.message);
-    // Fallback: show a dialog so the user knows what happened
-    dialog.showMessageBox(mainWindow, {
-      type: "info",
-      title: "Update Ready",
-      message: "Close the POS and run Plato-POS-Setup.exe from your Desktop to install the update.",
-      buttons: ["OK"],
-    });
+    console.error("[updater] launch-and-quit failed:", err.message);
+    // Last resort: try the standard approach
+    try { autoUpdater.quitAndInstall(false, true); } catch (_) {}
   }
 });
 

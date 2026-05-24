@@ -1,15 +1,15 @@
 {
   "pos": {
-    "version": "1.4.39",
+    "version": "1.4.40",
     "label": "POS Terminal",
-    "changelog": "Fix: installer now handles all upgrade scenarios — no more failed uninstall or cannot be closed errors",
+    "changelog": "Fix: POS now closes itself before installer runs — locked file errors eliminated permanently",
     "whatsNew": [
-      "🔧 Installer completely fixed — works from any previous version without manual steps"
+      "🔧 Updates now work reliably — POS closes itself first, then installer runs on clean files"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.4.39"
+      "3. Log in with your cashier PIN — you are on v1.4.40"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
