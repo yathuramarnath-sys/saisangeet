@@ -383,8 +383,78 @@ async function resetPasswordByToken({ token, newPassword }) {
   return { ok: true };
 }
 
+/**
+ * Google OAuth — exchange code for user info, then issue a JWT.
+ * Finds the owner by Google email — no new account is created.
+ */
+async function loginWithGoogle({ code }) {
+  if (!env.googleClientId || !env.googleClientSecret) {
+    throw new ApiError(500, "GOOGLE_NOT_CONFIGURED", "Google login is not configured.");
+  }
+
+  // 1. Exchange authorization code for access token
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method:  "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id:     env.googleClientId,
+      client_secret: env.googleClientSecret,
+      redirect_uri:  `${env.appUrl.replace("app.", "api.")}/auth/google/callback`,
+      grant_type:    "authorization_code",
+    }),
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) {
+    throw new ApiError(401, "GOOGLE_TOKEN_FAILED", "Failed to get Google token.");
+  }
+
+  // 2. Get user profile from Google
+  const profileRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+  });
+  const profile = await profileRes.json();
+  if (!profile.email) {
+    throw new ApiError(401, "GOOGLE_PROFILE_FAILED", "Failed to get Google profile.");
+  }
+
+  // 3. Find existing owner user by email
+  const user = await findUserByIdentifier(profile.email.toLowerCase());
+  if (!user || user.status === "inactive") {
+    throw new ApiError(403, "GOOGLE_NOT_REGISTERED",
+      "No Plato account found for this Google email. Please sign in with your password first.");
+  }
+
+  const tenantId = getTenantForIdentifier(profile.email.toLowerCase());
+
+  const tokenPayload = {
+    sub:         user.id,
+    tenantId,
+    outletId:    user.outletId,
+    fullName:    user.fullName,
+    roles:       user.roles,
+    permissions: user.permissions,
+  };
+
+  const jwt_token = jwt.sign(tokenPayload, env.jwtSecret, { expiresIn: "30d" });
+
+  return {
+    token: jwt_token,
+    user: {
+      id:          user.id,
+      fullName:    user.fullName,
+      email:       user.email,
+      phone:       user.phone,
+      outletId:    user.outletId,
+      roles:       user.roles,
+      permissions: user.permissions,
+    },
+  };
+}
+
 module.exports = {
   login,
+  loginWithGoogle,
   signup,
   isSignupAvailable,
   saveSignupInterest,

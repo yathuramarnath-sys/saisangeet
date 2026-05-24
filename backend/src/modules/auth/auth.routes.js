@@ -22,6 +22,8 @@ const {
   resetOwnerHandler,
   forgotPasswordHandler,
   resetPasswordByTokenHandler,
+  googleAuthHandler,
+  googleCallbackHandler,
 } = require("./auth.controller");
 
 const { resolveSubdomain } = require("../billing/billing.service");
@@ -51,5 +53,9 @@ authRouter.post("/reset-owner",      asyncHandler(resetOwnerHandler));
 // Forgot / reset password via email token
 authRouter.post("/forgot-password",  authLimiter, forgotPasswordRules, validate, asyncHandler(forgotPasswordHandler));
 authRouter.post("/reset-password",   authLimiter, resetPasswordRules,  validate, asyncHandler(resetPasswordByTokenHandler));
+
+// Google OAuth
+authRouter.get("/google",          googleAuthHandler);
+authRouter.get("/google/callback", asyncHandler(googleCallbackHandler));
 
 module.exports = { authRouter };

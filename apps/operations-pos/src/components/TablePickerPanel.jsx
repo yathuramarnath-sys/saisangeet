@@ -1,7 +1,8 @@
 import { useState } from "react";
 
-export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder }) {
+export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder, gstTreatment = "exclusive" }) {
   const [activeArea, setActiveArea] = useState(null);
+  const inclusive = gstTreatment === "inclusive";
 
   function tableStatus(tableId) {
     const o = orders[tableId];
@@ -25,10 +26,10 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
     const afterDisc = sub - disc;
     const tax       = billable.reduce((s, i) => {
       const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
-      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-      return s + Math.round(lineAfter * rate / 100);
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+      return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     }, 0);
-    return afterDisc + tax;
+    return inclusive ? afterDisc : afterDisc + tax;
   }
 
   const filtered = activeArea
@@ -70,10 +71,10 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
       const afterDisc = sub - disc;
       const tax       = billable.reduce((s, i) => {
         const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
-        const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-        return s + Math.round(lineAfter * rate / 100);
+        const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+        return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
       }, 0);
-      return afterDisc + tax;
+      return inclusive ? afterDisc : afterDisc + tax;
     }
 
     return (

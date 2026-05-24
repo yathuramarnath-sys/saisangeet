@@ -1,8 +1,9 @@
 /* Counter / Ticket panel — shown for Takeaway & Delivery modes */
 
-export function CounterPanel({ orders, selectedId, onSelect, onNewOrder, mode }) {
-  const tickets = Object.values(orders).filter(o => o.isCounter && !o.isClosed);
-  const closed  = Object.values(orders).filter(o => o.isCounter && o.isClosed).slice(-3);
+export function CounterPanel({ orders, selectedId, onSelect, onNewOrder, mode, gstTreatment = "exclusive" }) {
+  const tickets   = Object.values(orders).filter(o => o.isCounter && !o.isClosed);
+  const closed    = Object.values(orders).filter(o => o.isCounter && o.isClosed).slice(-3);
+  const inclusive = gstTreatment === "inclusive";
 
   function fmt(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
 
@@ -13,10 +14,10 @@ export function CounterPanel({ orders, selectedId, onSelect, onNewOrder, mode })
     const afterDisc = sub - disc;
     const tax       = billable.reduce((s, i) => {
       const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
-      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-      return s + Math.round(lineAfter * rate / 100);
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+      return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     }, 0);
-    return afterDisc + tax;
+    return inclusive ? afterDisc : afterDisc + tax;
   }
 
   const modeLabel = mode === "delivery" ? "Delivery" : "Takeaway";

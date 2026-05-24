@@ -1,15 +1,17 @@
 {
   "pos": {
-    "version": "1.4.42",
+    "version": "1.4.50",
     "label": "POS Terminal",
-    "changelog": "Permanent fix: fixed install path C:\\PlatoPos + close-app check skipped + kill loop in updater",
+    "changelog": "GST totals now correct for Takeaway/Delivery — ticket cards and table cards now respect outlet GST treatment (inclusive/exclusive)",
     "whatsNew": [
-      "🔧 Updates now permanently reliable — fixed install path, process kill loop, skip close-app check"
+      "✅ Takeaway & Delivery ticket totals now show the correct amount — no more ₹100+₹5=₹105 for inclusive-GST outlets",
+      "🧾 Items set to 0% GST now print correctly — no more CGST/SGST on tax-free items",
+      "📋 Credit Ledger now survives server restarts — bills no longer disappear"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.4.42"
+      "3. Log in with your cashier PIN — you are on v1.4.50"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,

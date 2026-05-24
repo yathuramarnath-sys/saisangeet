@@ -1,0 +1,28 @@
+{
+  "default": {
+    "active": [],
+    "history": [
+      {
+        "id": "shift-1778673240218",
+        "cashierName": "Demo Cashier",
+        "outletName": "Main Branch",
+        "outletId": "outlet-demo-AULT",
+        "openingCash": 5000,
+        "closingCash": 5440,
+        "closedAt": "2026-05-13T11:54:00.416Z",
+        "status": "Closed"
+      }
+    ],
+    "movements": [
+      {
+        "id": "mov-1778673240218",
+        "shiftId": "shift-1778673240218",
+        "type": "out",
+        "amount": 200,
+        "note": "Change given to Table 3",
+        "outletId": "outlet-demo-AULT",
+        "recordedAt": "2026-05-13T11:54:00.413Z"
+      }
+    ]
+  }
+}

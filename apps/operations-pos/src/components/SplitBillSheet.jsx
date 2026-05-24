@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { getFinancials } from "./OrderPanel";
 
-export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit }) {
+export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit, gstTreatment = "exclusive" }) {
   const seatLabels  = order.seatLabels || [];
   const billable    = (order.items || []).filter(i => !i.isVoided && !i.isComp);
 
@@ -37,7 +37,7 @@ export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit }) {
   }
 
   const unassignedItems = billable.filter(i => (assignments[i.id] ?? 0) === 0);
-  const fin = getFinancials(order);
+  const fin = getFinancials(order, { gstTreatment });
 
   function handleConfirm() {
     const splits = displayLabels

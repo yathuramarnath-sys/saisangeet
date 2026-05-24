@@ -1,0 +1,35 @@
+{
+  "test": {
+    "outlet1": [
+      {
+        "id": "adv-1778674866294-ksapo",
+        "tenantId": "test",
+        "outletId": "outlet1",
+        "customerName": "Rahul Kumar",
+        "phone": "9876543210",
+        "guests": 6,
+        "date": "2026-05-20",
+        "time": "19:00",
+        "note": "Corner seat please",
+        "items": [
+          {
+            "menuItemId": "item1",
+            "name": "Butter Chicken",
+            "price": 320,
+            "quantity": 2
+          }
+        ],
+        "advanceAmount": 500,
+        "advanceMethod": "upi",
+        "advanceRef": "UPI123",
+        "status": "checkedin",
+        "assignedTableId": "table5",
+        "createdAt": "2026-05-13T12:21:06.289Z",
+        "updatedAt": "2026-05-13T12:21:06.299Z",
+        "checkedInAt": "2026-05-13T12:21:06.299Z",
+        "cancelledAt": null,
+        "cancelReason": ""
+      }
+    ]
+  }
+}

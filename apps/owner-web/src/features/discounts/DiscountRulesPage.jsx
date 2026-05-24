@@ -20,13 +20,14 @@ function fmtRule(rule) {
 const EMPTY_FORM = { name: "", discountType: "percentage", value: "", notes: "", outletScope: "All Outlets" };
 
 export function DiscountRulesPage() {
-  const [rules,   setRules]   = useState([]);
-  const [outlets, setOutlets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving,  setSaving]  = useState(false);
-  const [form,    setForm]    = useState(EMPTY_FORM);
-  const [filter,  setFilter]  = useState("All Outlets");
-  const [msg,     setMsg]     = useState({ text: "", ok: true });
+  const [rules,     setRules]     = useState([]);
+  const [outlets,   setOutlets]   = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [saving,    setSaving]    = useState(false);
+  const [form,      setForm]      = useState(EMPTY_FORM);
+  const [editingId, setEditingId] = useState(null);   // null = create mode, id = edit mode
+  const [filter,    setFilter]    = useState("All Outlets");
+  const [msg,       setMsg]       = useState({ text: "", ok: true });
 
   const flash = (text, ok = true) => {
     setMsg({ text, ok });
@@ -54,6 +55,24 @@ export function DiscountRulesPage() {
   }, []);
 
   useEffect(() => { loadRules(); }, [loadRules]);
+
+  /* ── Start editing a rule ───────────────────────────────── */
+  function startEdit(rule) {
+    setEditingId(rule.id);
+    setForm({
+      name:         rule.name,
+      discountType: rule.discountType || "percentage",
+      value:        String(rule.value),
+      notes:        rule.notes || "",
+      outletScope:  rule.outletScope || "All Outlets",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+  }
 
   /* ── Create ─────────────────────────────────────────────── */
   async function handleCreate(e) {
@@ -84,6 +103,31 @@ export function DiscountRulesPage() {
     }
   }
 
+  /* ── Update ─────────────────────────────────────────────── */
+  async function handleUpdate(e) {
+    e.preventDefault();
+    if (!form.name.trim() || form.value === "") return;
+    setSaving(true);
+    try {
+      const payload = {
+        name:         form.name.trim(),
+        discountType: form.discountType,
+        value:        Number(form.value),
+        notes:        form.notes.trim(),
+        outletScope:  form.outletScope,
+      };
+      const updated = await api.patch(`/settings/discounts/${editingId}`, payload);
+      setRules(prev => prev.map(r => r.id === editingId ? { ...r, ...updated } : r));
+      setEditingId(null);
+      setForm(EMPTY_FORM);
+      flash(`"${payload.name}" updated`);
+    } catch {
+      flash("Failed to update. Please try again.", false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   /* ── Toggle active ──────────────────────────────────────── */
   async function toggleActive(rule) {
     const next = rule.isActive === false ? true : false;
@@ -102,6 +146,7 @@ export function DiscountRulesPage() {
     try {
       await api.delete(`/settings/discounts/${rule.id}`);
       setRules(prev => prev.filter(r => r.id !== rule.id));
+      if (editingId === rule.id) cancelEdit();
       flash(`"${rule.name}" deleted`);
     } catch {
       flash("Delete failed. Try again.", false);
@@ -115,6 +160,8 @@ export function DiscountRulesPage() {
 
   const activeCount = rules.filter(r => r.isActive !== false).length;
   const pausedCount = rules.length - activeCount;
+
+  const isEditing = editingId !== null;
 
   return (
     <>
@@ -187,13 +234,37 @@ export function DiscountRulesPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 24, padding: "0 24px 40px", alignItems: "start" }}>
 
-        {/* ── Create form ── */}
+        {/* ── Create / Edit form ── */}
         <div>
-          <div className="credit-customer-card">
-            <div className="credit-customer-head">
-              <strong className="credit-customer-name">➕ Add Discount Rule</strong>
+          <div className="credit-customer-card" style={{
+            border: isEditing ? "2px solid #f59e0b" : undefined,
+          }}>
+            <div className="credit-customer-head" style={{
+              background: isEditing ? "#fffbeb" : undefined,
+              borderBottom: isEditing ? "1px solid #fde68a" : undefined,
+            }}>
+              <strong className="credit-customer-name">
+                {isEditing ? "✏️ Edit Discount Rule" : "➕ Add Discount Rule"}
+              </strong>
+              {isEditing && (
+                <button
+                  onClick={cancelEdit}
+                  style={{
+                    marginLeft: "auto",
+                    background: "none",
+                    border: "none",
+                    color: "#6b7280",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    padding: "2px 8px",
+                  }}
+                >
+                  ✕ Cancel
+                </button>
+              )}
             </div>
-            <form className="simple-form" style={{ padding: "16px" }} onSubmit={handleCreate}>
+            <form className="simple-form" style={{ padding: "16px" }} onSubmit={isEditing ? handleUpdate : handleCreate}>
               <label>
                 Rule name
                 <input
@@ -254,29 +325,43 @@ export function DiscountRulesPage() {
                 />
               </label>
 
-              <button type="submit" className="btn-primary" disabled={saving} style={{ marginTop: 4 }}>
-                {saving ? "Saving…" : "Add Rule"}
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <button type="submit" className="btn-primary" disabled={saving} style={{ flex: 1 }}>
+                  {saving ? "Saving…" : isEditing ? "Save Changes" : "Add Rule"}
+                </button>
+                {isEditing && (
+                  <button
+                    type="button"
+                    className="shift-filter-tab"
+                    onClick={cancelEdit}
+                    style={{ fontWeight: 600 }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </form>
           </div>
 
           {/* How it works */}
-          <div style={{
-            marginTop: 12,
-            padding: "12px 16px",
-            background: "#eff6ff",
-            border: "1px solid #bfdbfe",
-            borderRadius: 10,
-            fontSize: 13,
-            color: "#1e40af",
-            lineHeight: 1.6,
-          }}>
-            <strong>💡 How it works</strong><br />
-            Active rules appear as buttons in the POS cashier screen.
-            Branch-specific rules only appear in that branch's POS.
-            The cashier manually picks which rule to apply per customer —
-            rules are <strong>never auto-applied</strong>.
-          </div>
+          {!isEditing && (
+            <div style={{
+              marginTop: 12,
+              padding: "12px 16px",
+              background: "#eff6ff",
+              border: "1px solid #bfdbfe",
+              borderRadius: 10,
+              fontSize: 13,
+              color: "#1e40af",
+              lineHeight: 1.6,
+            }}>
+              <strong>💡 How it works</strong><br />
+              Active rules appear as buttons in the POS cashier screen.
+              Branch-specific rules only appear in that branch's POS.
+              The cashier manually picks which rule to apply per customer —
+              rules are <strong>never auto-applied</strong>.
+            </div>
+          )}
         </div>
 
         {/* ── Rules list ── */}
@@ -292,14 +377,17 @@ export function DiscountRulesPage() {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {visibleRules.map(rule => {
-                const isActive = rule.isActive !== false;
+                const isActive    = rule.isActive !== false;
                 const isAllOutlets = !rule.outletScope || rule.outletScope === "All Outlets";
+                const isBeingEdited = editingId === rule.id;
                 return (
                   <div key={rule.id} style={{
-                    border: `1.5px solid ${isActive ? "#e5e7eb" : "#f3f4f6"}`,
+                    border: isBeingEdited
+                      ? "2px solid #f59e0b"
+                      : `1.5px solid ${isActive ? "#e5e7eb" : "#f3f4f6"}`,
                     borderRadius: 12,
                     padding: "14px 16px",
-                    background: isActive ? "#fff" : "#fafafa",
+                    background: isBeingEdited ? "#fffdf0" : isActive ? "#fff" : "#fafafa",
                     display: "flex",
                     alignItems: "center",
                     gap: 12,
@@ -339,6 +427,18 @@ export function DiscountRulesPage() {
                         }}>
                           🏪 {isAllOutlets ? "All Branches" : rule.outletScope}
                         </span>
+                        {isBeingEdited && (
+                          <span style={{
+                            padding: "2px 10px",
+                            borderRadius: 20,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            background: "#fef3c7",
+                            color: "#92400e",
+                          }}>
+                            ✏️ Editing…
+                          </span>
+                        )}
                       </div>
                       {rule.notes && (
                         <div style={{ fontSize: 12, color: "#6b7280" }}>{rule.notes}</div>
@@ -347,6 +447,13 @@ export function DiscountRulesPage() {
 
                     {/* Actions */}
                     <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                      <button
+                        className="shift-filter-tab"
+                        onClick={() => startEdit(rule)}
+                        style={{ fontWeight: 600, color: "#d97706", borderColor: "#fde68a", background: "#fffbeb" }}
+                      >
+                        Edit
+                      </button>
                       <button
                         className="shift-filter-tab"
                         onClick={() => toggleActive(rule)}

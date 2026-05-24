@@ -2279,6 +2279,7 @@ export default function App() {
             serviceMode={serviceMode}
             onNewCounterOrder={handleNewCounterOrder}
             onDeleteCounterOrder={handleDeleteCounterOrder}
+            gstTreatment={outlet?.gstTreatment || "exclusive"}
           />
         ) : selectedOrder?.isSplitBill && selectedOrder?.splitBills?.length > 0 ? (
           <SplitSettlementPanel
