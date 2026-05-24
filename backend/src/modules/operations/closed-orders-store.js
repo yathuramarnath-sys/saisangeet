@@ -8,7 +8,7 @@
 
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { loadRuntimeState, saveRuntimeState } = require("../../db/runtime-state.repository");
-const { insertClosedOrder, updateClosedOrderData } = require("../../db/closed-orders.repository");
+const { insertClosedOrder, updateClosedOrderData, queryCreditOrders, findCreditOrderById } = require("../../db/closed-orders.repository");
 
 const SCOPE = "closed-orders";
 
@@ -175,8 +175,21 @@ function getOrderById(tenantId, orderId, outletId = null) {
  *   outletId  — restrict to a specific outlet
  *   dateFrom  — ISO date string or YYYY-MM-DD (inclusive, IST)
  *   dateTo    — ISO date string or YYYY-MM-DD (inclusive, IST)
+ *
+ * When DB is enabled, reads directly from the closed_orders Postgres table so
+ * credit bills survive server restarts. Falls back to the in-memory store
+ * when DB is disabled (no-DB / local dev mode).
  */
-function getCreditOrders(tenantId, outletId = null, dateFrom = null, dateTo = null) {
+async function getCreditOrders(tenantId, outletId = null, dateFrom = null, dateTo = null) {
+  // ── DB path: read from Postgres closed_orders table ───────────────────────
+  if (isDatabaseEnabled()) {
+    // Normalise dateFrom / dateTo to plain YYYY-MM-DD if they arrive as ISO timestamps
+    const from = dateFrom ? dateFrom.slice(0, 10) : null;
+    const to   = dateTo   ? dateTo.slice(0, 10)   : null;
+    return queryCreditOrders(tenantId, { dateFrom: from, dateTo: to, outletId });
+  }
+
+  // ── In-memory fallback (no DB) ─────────────────────────────────────────────
   if (!store.has(tenantId)) return [];
   const tenantMap = store.get(tenantId);
   const keys      = outletId ? [outletId] : [...tenantMap.keys()];
@@ -204,35 +217,66 @@ function getCreditOrders(tenantId, outletId = null, dateFrom = null, dateTo = nu
 
 /**
  * Settle a credit order — mark creditStatus "paid" and record settlement info.
- * Returns the updated order or null if not found.
+ * Returns a Promise resolving to the updated order or null if not found.
+ *
+ * When DB is enabled, falls back to Postgres if the order is no longer in the
+ * in-memory store (e.g. after a server restart).
  */
-function settleCreditOrder(tenantId, orderId, settlementInfo) {
-  if (!store.has(tenantId)) return null;
-  const tenantMap = store.get(tenantId);
-  for (const [outletId, orders] of tenantMap.entries()) {
-    const order = orders.find(o => String(o.id || o.orderNumber) === String(orderId) && o.isCreditSale);
-    if (order) {
-      order.creditStatus        = "paid";
-      order.creditSettledAt     = new Date().toISOString();
-      order.creditSettledBy     = settlementInfo.settledBy  || null;
-      order.creditSettledMethod = settlementInfo.method     || "cash";
-      order.creditSettledRef    = settlementInfo.reference  || null;
+async function settleCreditOrder(tenantId, orderId, settlementInfo) {
+  const now = new Date().toISOString();
 
-      // ── Persist to both stores ─────────────────────────────────────────────
-      // 1. app_runtime_state (fast JSONB blob — keeps in-memory state alive)
-      _persist();
-      // 2. closed_orders table row (permanent record — sync settlement status)
-      const closedAt = order.closedAt || order._receivedAt;
-      if (closedAt) {
-        updateClosedOrderData(tenantId, outletId, closedAt, order).catch(err =>
-          console.error("[closed-orders-store] credit settle Postgres sync error:", err.message)
-        );
+  // ── Try in-memory store first ──────────────────────────────────────────────
+  if (store.has(tenantId)) {
+    const tenantMap = store.get(tenantId);
+    for (const [outletId, orders] of tenantMap.entries()) {
+      const order = orders.find(o => String(o.id || o.orderNumber) === String(orderId) && o.isCreditSale);
+      if (order) {
+        order.creditStatus        = "paid";
+        order.creditSettledAt     = now;
+        order.creditSettledBy     = settlementInfo.settledBy  || null;
+        order.creditSettledMethod = settlementInfo.method     || "cash";
+        order.creditSettledRef    = settlementInfo.reference  || null;
+
+        _persist();
+        const closedAt = order.closedAt || order._receivedAt;
+        if (closedAt) {
+          updateClosedOrderData(tenantId, outletId, closedAt, order).catch(err =>
+            console.error("[closed-orders-store] credit settle Postgres sync error:", err.message)
+          );
+        }
+        return order;
       }
-
-      return order;
     }
   }
-  return null;
+
+  // ── DB fallback: order not in memory (server restarted) ───────────────────
+  if (!isDatabaseEnabled()) return null;
+
+  const found = await findCreditOrderById(tenantId, orderId);
+  if (!found) return null;
+
+  const { order, outletId } = found;
+  order.creditStatus        = "paid";
+  order.creditSettledAt     = now;
+  order.creditSettledBy     = settlementInfo.settledBy  || null;
+  order.creditSettledMethod = settlementInfo.method     || "cash";
+  order.creditSettledRef    = settlementInfo.reference  || null;
+
+  // Write back the updated order to Postgres
+  const closedAt = order.closedAt || order._receivedAt;
+  if (closedAt) {
+    await updateClosedOrderData(tenantId, outletId, closedAt, order).catch(err =>
+      console.error("[closed-orders-store] DB-fallback settle Postgres sync error:", err.message)
+    );
+  }
+
+  // Also re-add to in-memory store so subsequent reads in the same session work
+  const list = _getOutletList(tenantId, outletId);
+  const existing = list.findIndex(o => String(o.id || o.orderNumber) === String(orderId));
+  if (existing >= 0) list[existing] = order;
+  else list.unshift(order);
+
+  return order;
 }
 
 /**

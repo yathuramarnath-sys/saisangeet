@@ -18,7 +18,7 @@ export function getFinancials(order, { gstTreatment = "exclusive" } = {}) {
     const lineAfter = subtotal > 0
       ? (i.price * i.quantity) * (afterDiscount / subtotal)
       : 0;
-    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
     // Exclusive: tax added on top  → tax = base × rate/100
     // Inclusive: tax extracted      → tax = price × rate/(100+rate)
     return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));

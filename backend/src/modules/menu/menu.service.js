@@ -657,7 +657,7 @@ async function bulkImportMenuItems(payload) {
     const station = staSlug ? staBySlug[staSlug] : null;
 
     // ── Build item (in-memory only) ──────────────────────────────────────────
-    const taxRate    = Number(row.taxRate || 5);
+    const taxRate    = row.taxRate != null && row.taxRate !== "" ? Number(row.taxRate) : 5;
     const taxMode    = row.taxMode === "Inclusive" ? "Inclusive" : "Exclusive";
     const gstLabel   = `GST ${taxRate}%`;
     const rwTakeaway = `Rs ${Number(row.takeawayPrice || 0)}`;

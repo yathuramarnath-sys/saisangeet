@@ -51,7 +51,7 @@ export function printBill(order, items, outletOrName, options = {}) {
     const lineAmt   = i.price * i.quantity;
     // Proportional share of discount for this line
     const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
-    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
     const lineTax   = Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     taxBreakdown[rate] = (taxBreakdown[rate] || 0) + lineTax;
   });
