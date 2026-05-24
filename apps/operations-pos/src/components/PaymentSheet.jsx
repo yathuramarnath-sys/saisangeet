@@ -183,7 +183,7 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
         </div>
 
         {/* ── Payment entry form — ALWAYS visible ───────────────────────── */}
-        {/* Payment method selector */}
+        {/* Payment method selector + Credit option in one row */}
         <div className="payment-methods">
           {METHODS.map((m) => (
             <button
@@ -194,16 +194,28 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
                 setCurrentMethod(m.id);
                 setCurrentRef("");
                 setCurrentAmount(String(remaining > 0 ? remaining : fin.total));
+                if (showCredit) setShowCredit(false);
               }}
             >
               <span className="payment-method-icon">{m.icon}</span>
               <span>{m.label}</span>
             </button>
           ))}
+          {/* Credit Sale — shown as a 4th method button so it's always visible */}
+          {!showCredit && remaining > 0 && (
+            <button
+              type="button"
+              className="payment-method-btn payment-method-btn--credit"
+              onClick={() => { setShowCredit(true); setCreditError(""); }}
+            >
+              <span className="payment-method-icon">📋</span>
+              <span>Credit</span>
+            </button>
+          )}
         </div>
 
         {/* PhonePe QR — full-amount quick pay */}
-        {onPhonePeQR && remaining > 0 && (
+        {onPhonePeQR && remaining > 0 && !showCredit && (
           <button
             type="button"
             className="payment-phonepe-btn"
@@ -211,17 +223,6 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
           >
             <span className="payment-phonepe-btn-icon">📱</span>
             Pay ₹{remaining} via PhonePe QR
-          </button>
-        )}
-
-        {/* Credit Sale button */}
-        {!showCredit && remaining > 0 && (
-          <button
-            type="button"
-            className="payment-credit-btn"
-            onClick={() => { setShowCredit(true); setCreditError(""); }}
-          >
-            <span>📋</span> Settle as Credit / GST Bill
           </button>
         )}
 
