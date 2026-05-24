@@ -400,7 +400,7 @@ async function loginWithGoogle({ code }) {
       code,
       client_id:     env.googleClientId,
       client_secret: env.googleClientSecret,
-      redirect_uri:  `${env.appUrl.replace("app.", "api.")}/auth/google/callback`,
+      redirect_uri:  `https://api.dinexpos.in/api/v1/auth/google/callback`,
       grant_type:    "authorization_code",
     }),
   });

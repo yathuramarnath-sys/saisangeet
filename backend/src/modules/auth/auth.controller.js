@@ -89,7 +89,7 @@ async function resetPasswordByTokenHandler(req, res) {
 function googleAuthHandler(_req, res) {
   const params = new URLSearchParams({
     client_id:     env.googleClientId,
-    redirect_uri:  `${env.appUrl.replace("app.", "api.")}/auth/google/callback`,
+    redirect_uri:  `https://api.dinexpos.in/api/v1/auth/google/callback`,
     response_type: "code",
     scope:         "openid email profile",
     access_type:   "online",
