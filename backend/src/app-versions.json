@@ -1,11 +1,11 @@
 {
   "pos": {
-    "version": "1.4.32",
+    "version": "1.4.33",
     "label": "POS Terminal",
-    "changelog": "Fix: Restart & Install button now works correctly on Windows",
+    "changelog": "Fix: installer now force-closes old POS automatically — no more manual close required",
     "whatsNew": [
-      "🔧 Restart & Install now correctly installs the update on Windows",
-      "💬 If install fails, a clear message tells you what to do"
+      "🔧 Installer now auto-closes the old POS before updating — no more error popup",
+      "✅ Update process is now fully automatic"
     ],
     "installGuide": [
       "1. Close Plato POS completely (if open, right-click Taskbar → Close Window)",
@@ -14,7 +14,7 @@
       "4. Click 'Yes' on the security prompt",
       "5. Follow the installer steps — click Next, Next, Install",
       "6. POS will open automatically after install",
-      "7. Log in with your cashier PIN — you are on v1.4.32"
+      "7. Log in with your cashier PIN — you are on v1.4.33"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
