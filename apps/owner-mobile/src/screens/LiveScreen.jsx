@@ -47,15 +47,16 @@ export function LiveScreen() {
     weekday: "short", day: "numeric", month: "short"
   });
 
-  const daySummary   = summary?.dayEnd?.summary || {};
-  const payModes     = summary?.payment?.modes || [];
+  const sd           = summary?.salesData || {};
+  const daySummary   = sd?.dayEnd?.summary || {};
+  const payModes     = sd?.payment?.modes  || [];
   const findMode     = (name) => (payModes.find(m => m.mode === name)?.amount || 0);
 
-  const totalSales   = daySummary.totalSales   ?? 0;
-  const orderCount   = daySummary.totalOrders  ?? 0;
+  const totalSales   = daySummary.totalSales  ?? 0;
+  const orderCount   = daySummary.totalOrders ?? 0;
   const avgBill      = orderCount > 0 ? totalSales / orderCount : 0;
-  const gstCollected = daySummary.totalTax     ?? summary?.gst?.summary?.totalGst ?? 0;
-  const cashTotal    = summary?.payment?.summary?.cashAmount ?? findMode("Cash");
+  const gstCollected = daySummary.totalTax    ?? sd?.gst?.summary?.totalGst ?? 0;
+  const cashTotal    = sd?.payment?.summary?.cashAmount ?? findMode("Cash");
   const upiTotal     = findMode("Upi");
   const cardTotal    = findMode("Card");
 

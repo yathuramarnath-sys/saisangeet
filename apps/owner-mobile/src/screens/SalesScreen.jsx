@@ -48,11 +48,12 @@ export function SalesScreen() {
       .catch(() => setLoading(false));
   }, [rangeIdx]);
 
-  const daySummary = data?.dayEnd?.summary || {};
-  const payModes   = data?.payment?.modes  || [];
+  const sd         = data?.salesData || {};
+  const daySummary = sd?.dayEnd?.summary || {};
+  const payModes   = sd?.payment?.modes  || [];
   const findMode   = (name) => (payModes.find(m => m.mode === name)?.amount || 0);
 
-  const items    = data?.itemSales || [];
+  const items    = sd?.itemSales || [];
   const revenue  = daySummary.totalSales  ?? 0;
   const orders   = daySummary.totalOrders ?? 0;
   const payments = payModes.length > 0 ? {
