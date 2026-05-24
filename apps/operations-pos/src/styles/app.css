@@ -9165,3 +9165,14 @@ input, select, textarea {
 .tpp-legend       { display: none !important; }
 .tpp-summary      { display: none !important; }
 .tpp-head         { display: none !important; }
+
+/* 11 — Compact action bar — fits all buttons on small/tight screens */
+.pos-action-bar   { padding: 0 6px !important; gap: 3px !important; }
+.pab-group        { gap: 3px !important; }
+.pab-btn          { padding: 5px 7px !important; font-size: 11px !important; gap: 3px !important; border-radius: 8px !important; }
+.pab-icon         { font-size: 12px !important; }
+.pab-label        { font-size: 10.5px !important; }
+.pab-stats        { gap: 4px !important; padding: 0 4px !important; }
+.pab-stat-btn     { padding: 3px 6px !important; }
+.pab-stat-val     { font-size: 13px !important; }
+.pab-stat-lbl     { font-size: 8.5px !important; }

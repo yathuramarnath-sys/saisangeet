@@ -1,15 +1,15 @@
 {
   "pos": {
-    "version": "1.4.36",
+    "version": "1.4.37",
     "label": "POS Terminal",
-    "changelog": "Fix: switched to silent one-click installer — no more close app errors on update",
+    "changelog": "Compact action bar — all buttons fit on small screens",
     "whatsNew": [
-      "🔧 Updates now install silently — no wizard, no errors, no manual steps needed"
+      "📐 All top bar buttons now fit on small screens — no more cut-off buttons"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.4.36"
+      "3. Log in with your cashier PIN — you are on v1.4.37"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
