@@ -294,11 +294,12 @@ async function resolveLinkCode(payload) {
       )
     )
     .map((u) => ({
-      id:     u.id,
-      name:   u.fullName || u.name,
-      role:   u.roles?.[0] || "Staff",
-      pin:    u.pin || "0000",
-      avatar: (u.fullName || u.name || "?")[0].toUpperCase(),
+      id:               u.id,
+      name:             u.fullName || u.name,
+      role:             u.roles?.[0] || "Staff",
+      pin:              u.pin || "0000",
+      avatar:           (u.fullName || u.name || "?")[0].toUpperCase(),
+      canApplyDiscount: u.canApplyDiscount === true,
     }));
 
   // ── 5. Consume the pending token so the same code can't be reused ─────────
@@ -381,11 +382,12 @@ async function fetchStaffForDevice(outletId) {
     .map((u) => {
       const roleValue = Array.isArray(u.roles) ? (u.roles[0] || "Staff") : (u.role || "Staff");
       return {
-        id:     u.id,
-        name:   u.fullName || u.name,
-        role:   roleValue,
-        pin:    u.pin || "0000",
-        avatar: (u.fullName || u.name || "?")[0].toUpperCase(),
+        id:               u.id,
+        name:             u.fullName || u.name,
+        role:             roleValue,
+        pin:              u.pin || "0000",
+        avatar:           (u.fullName || u.name || "?")[0].toUpperCase(),
+        canApplyDiscount: u.canApplyDiscount === true,
       };
     });
 

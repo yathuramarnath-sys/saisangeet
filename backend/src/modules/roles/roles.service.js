@@ -117,14 +117,15 @@ async function updateUser(userId, payload) {
 
       updatedUser = {
         ...user,  // preserves ALL existing fields as the base
-        fullName:     payload.fullName     ?? user.fullName,
-        name:         payload.fullName     ?? user.name,
-        roles:        payload.roles        ?? user.roles ?? [],
-        outletName:   payload.outletName   ?? user.outletName,
-        isActive:     payload.isActive     ?? user.isActive,
-        pin:          payload.pin          ?? user.pin,
-        mobileNumber: payload.mobileNumber ?? user.mobileNumber ?? "",
-        incentivePct: payload.incentivePct ?? user.incentivePct ?? 0,
+        fullName:         payload.fullName         ?? user.fullName,
+        name:             payload.fullName         ?? user.name,
+        roles:            payload.roles            ?? user.roles ?? [],
+        outletName:       payload.outletName       ?? user.outletName,
+        isActive:         payload.isActive         ?? user.isActive,
+        pin:              payload.pin              ?? user.pin,
+        mobileNumber:     payload.mobileNumber     ?? user.mobileNumber ?? "",
+        incentivePct:     payload.incentivePct     ?? user.incentivePct ?? 0,
+        canApplyDiscount: payload.canApplyDiscount ?? user.canApplyDiscount ?? false,
         // Auth fields are intentionally omitted from the payload mapping and
         // MUST come from the existing user record only. They are never accepted
         // from the Staff Management UI payload — only auth.service endpoints
