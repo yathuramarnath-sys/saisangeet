@@ -1,19 +1,15 @@
 {
   "pos": {
-    "version": "1.4.35",
+    "version": "1.4.36",
     "label": "POS Terminal",
-    "changelog": "Fix: installer uses cmd to delete old files — resolves update install error",
+    "changelog": "Fix: switched to silent one-click installer — no more close app errors on update",
     "whatsNew": [
-      "🔧 Update installer fixed — no more errors when updating from old version"
+      "🔧 Updates now install silently — no wizard, no errors, no manual steps needed"
     ],
     "installGuide": [
-      "1. Close Plato POS completely (if open, right-click Taskbar → Close Window)",
-      "2. If POS does not close, open Task Manager → find 'Plato POS' → End Task",
-      "3. Run 'Plato-POS-Setup.exe' as Administrator (right-click → Run as administrator)",
-      "4. Click 'Yes' on the security prompt",
-      "5. Follow the installer steps — click Next, Next, Install",
-      "6. POS will open automatically after install",
-      "7. Log in with your cashier PIN — you are on v1.4.35"
+      "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
+      "2. Installation happens automatically — POS opens when done",
+      "3. Log in with your cashier PIN — you are on v1.4.36"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
