@@ -48,16 +48,25 @@ export function SalesScreen() {
       .catch(() => setLoading(false));
   }, [rangeIdx]);
 
-  const items    = data?.topItems    || data?.itemSales    || [];
-  const payments = data?.paymentBreakdown || null;
-  const revenue  = data?.totalRevenue ?? data?.total ?? 0;
-  const orders   = data?.orderCount   ?? data?.orders ?? 0;
+  const daySummary = data?.dayEnd?.summary || {};
+  const payModes   = data?.payment?.modes  || [];
+  const findMode   = (name) => (payModes.find(m => m.mode === name)?.amount || 0);
+
+  const items    = data?.itemSales || [];
+  const revenue  = daySummary.totalSales  ?? 0;
+  const orders   = daySummary.totalOrders ?? 0;
+  const payments = payModes.length > 0 ? {
+    cash:   findMode("Cash"),
+    upi:    findMode("Upi"),
+    card:   findMode("Card"),
+    credit: findMode("Credit"),
+  } : null;
 
   // Normalize top items
-  const topItems = items
-    .slice(0, 8)
-    .sort((a, b) => (b.revenue || b.total || 0) - (a.revenue || a.total || 0));
-  const maxRevenue = topItems[0] ? (topItems[0].revenue || topItems[0].total || 1) : 1;
+  const topItems = [...items]
+    .sort((a, b) => (b.amount || 0) - (a.amount || 0))
+    .slice(0, 8);
+  const maxRevenue = topItems[0] ? (topItems[0].amount || 1) : 1;
 
   return (
     <div className="screen">
@@ -127,8 +136,8 @@ export function SalesScreen() {
             <div className="section-card">
               <h3 className="section-title">Top Items</h3>
               {topItems.map((item, i) => {
-                const rev = item.revenue || item.total || 0;
-                const qty = item.quantity || item.qty || 0;
+                const rev = item.amount || 0;
+                const qty = item.qty || item.quantity || 0;
                 const pct = Math.round((rev / maxRevenue) * 100);
                 return (
                   <div className="item-row" key={item.name || i}>
