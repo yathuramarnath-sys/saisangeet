@@ -91,18 +91,29 @@ ipcMain.on("update:install-now", () => {
     const installerPath = autoUpdater.downloadedUpdateHelper?.installerPath
       || path.join(os.tmpdir(), "Plato-POS-Setup.exe");
 
-    // Write a batch script that waits for POS to exit, then runs the installer
+    // Write a batch script that:
+    // 1. Waits for POS to fully exit
+    // 2. Kills any remaining POS processes in a loop (prevents Windows auto-restart)
+    // 3. Removes from startup registry so Windows won't relaunch it
+    // 4. Cleans old install folder
+    // 5. Runs installer only when everything is clear
     const batPath = path.join(os.tmpdir(), "plato_updater.bat");
+    const installerEscaped = installerPath.replace(/\\/g, "\\\\");
     const bat = [
       "@echo off",
-      "timeout /t 3 /nobreak >nul",
-      `taskkill /F /IM "Plato POS.exe" /T >nul 2>&1`,
-      "timeout /t 3 /nobreak >nul",
-      // Delete old install folder so installer has no locked files
-      `for /f "tokens=2,*" %%a in ('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /v InstallLocation 2^>nul') do rmdir /s /q "%%b" >nul 2>&1`,
-      `rmdir /s /q "%LOCALAPPDATA%\\Programs\\Plato POS" >nul 2>&1`,
+      // Wait for POS main process to fully exit
+      "timeout /t 5 /nobreak >nul",
+      // Kill loop — repeat 8 times every 3s to ensure no auto-restart survives
+      "for /l %%i in (1,1,8) do (taskkill /F /IM \"Plato POS.exe\" /T >nul 2>&1 & timeout /t 3 /nobreak >nul)",
+      // Remove from Windows startup so it can't auto-relaunch
+      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "Plato POS" /f >nul 2>&1`,
+      // Remove old install registry entry (prevents "failed to uninstall" error)
       `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /f >nul 2>&1`,
-      "timeout /t 1 /nobreak >nul",
+      // Delete old install folder (C:\PlatoPos is the new path — delete old AppData path)
+      `rmdir /s /q "%LOCALAPPDATA%\\Programs\\Plato POS" >nul 2>&1`,
+      `rmdir /s /q "C:\\PlatoPos" >nul 2>&1`,
+      "timeout /t 2 /nobreak >nul",
+      // Run installer — POS is dead, no locks, no conflicts
       `start "" /wait "${installerPath}"`,
       "exit",
     ].join("\r\n");
