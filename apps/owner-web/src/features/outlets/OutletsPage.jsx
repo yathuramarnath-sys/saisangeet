@@ -371,6 +371,17 @@ export function OutletsPage() {
         services: editDraft.services,
         hours: joinTimings(editDraft.openingTime, editDraft.closingTime)
       });
+      // Save waitlist turnover settings if any were filled in
+      const turnoverPatch = {};
+      ["breakfast","lunch","snacks","dinner"].forEach(k => {
+        const v = editDraft[`turnover_${k}`];
+        if (v && Number(v) > 0) turnoverPatch[k] = Number(v);
+      });
+      if (Object.keys(turnoverPatch).length) {
+        import("../../lib/api").then(({ api }) =>
+          api.put("/operations/waitlist/settings", { outletId: editingOutletId, ...turnoverPatch }).catch(() => {})
+        );
+      }
 
       const result = await reloadOutlets();
       const refreshedOutlet = result.outlets.find((outlet) => outlet.id === editingOutletId);
@@ -933,6 +944,31 @@ export function OutletsPage() {
                       }
                     />
                   </label>
+                ))}
+              </div>
+
+              <div className="mini-stack">
+                <strong>Waitlist — Avg Table Turnover</strong>
+                <p style={{ fontSize: "0.8rem", color: "var(--muted)", margin: "0 0 4px" }}>
+                  Used to estimate wait time for walk-in queue. Set per meal period.
+                </p>
+                {[
+                  { key: "breakfast", label: "Breakfast", placeholder: "20" },
+                  { key: "lunch",     label: "Lunch",     placeholder: "30" },
+                  { key: "snacks",    label: "Snacks",    placeholder: "25" },
+                  { key: "dinner",    label: "Dinner",    placeholder: "45" },
+                ].map(({ key, label, placeholder }) => (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ minWidth: 80, fontSize: "0.85rem", color: "var(--muted)", fontWeight: 600 }}>{label}</span>
+                    <input
+                      type="number" min="5" max="120"
+                      placeholder={placeholder}
+                      value={editDraft[`turnover_${key}`] ?? ""}
+                      onChange={e => setEditDraft(c => ({ ...c, [`turnover_${key}`]: e.target.value }))}
+                      style={{ width: 80, padding: "6px 10px", border: "1px solid var(--line-strong)", borderRadius: 8, font: "inherit", fontSize: "0.88rem" }}
+                    />
+                    <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>mins avg</span>
+                  </div>
                 ))}
               </div>
 

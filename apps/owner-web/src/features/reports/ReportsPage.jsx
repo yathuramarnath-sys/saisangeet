@@ -1309,6 +1309,95 @@ function VoidsReprintsReport({ dateFrom, dateTo, outletId }) {
   );
 }
 
+// ── Waitlist Report ───────────────────────────────────────────────────────────
+function WaitlistReport({ dateFrom, dateTo, outletId }) {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const p = new URLSearchParams({ dateFrom, dateTo });
+    if (outletId) p.set("outletId", outletId);
+    api.get(`/operations/waitlist/history?${p}`)
+      .then(res => setEntries(Array.isArray(res) ? res : []))
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false));
+  }, [dateFrom, dateTo, outletId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const seated   = entries.filter(e => e.status === "seated");
+  const noShows  = entries.filter(e => e.status === "no_show");
+  const avgWait  = seated.length
+    ? Math.round(seated.reduce((s, e) => {
+        const mins = e.seatedAt && e.joinedAt
+          ? (new Date(e.seatedAt) - new Date(e.joinedAt)) / 60000
+          : 0;
+        return s + mins;
+      }, 0) / seated.length)
+    : 0;
+
+  function handleCSV() {
+    if (!entries.length) return;
+    downloadCSV(`waitlist_${dateFrom}_${dateTo}`,
+      ["Date & Time", "Name", "Phone", "Party Size", "Status", "Wait (mins)", "Table"],
+      entries.map(e => {
+        const wait = e.seatedAt && e.joinedAt
+          ? Math.round((new Date(e.seatedAt) - new Date(e.joinedAt)) / 60000)
+          : "—";
+        return [
+          new Date(e.joinedAt).toLocaleString("en-IN"),
+          e.name, e.phone || "—", e.partySize,
+          e.status, wait, e.assignedTableLabel || "—",
+        ];
+      })
+    );
+  }
+
+  return (
+    <div className="rpt-body">
+      <SectionHead eyebrow="Walk-in Queue" title="Waitlist Report" />
+
+      <div className="rpt-kpi-row" style={{ marginBottom: 20 }}>
+        <div className="metric-card"><span className="metric-label">Total Parties</span><strong>{entries.length}</strong></div>
+        <div className="metric-card"><span className="metric-label">Seated</span><strong style={{ color: "#059669" }}>{seated.length}</strong></div>
+        <div className="metric-card"><span className="metric-label">No-shows</span><strong style={{ color: "#dc2626" }}>{noShows.length}</strong></div>
+        <div className="metric-card"><span className="metric-label">Avg Wait Time</span><strong>{avgWait ? `${avgWait} mins` : "—"}</strong></div>
+      </div>
+
+      {loading && <p style={{ color: "#6b7280" }}>Loading…</p>}
+      {!loading && entries.length === 0 && (
+        <div className="rpt-empty"><span>🪑</span><p>No waitlist data for this period.</p></div>
+      )}
+      {!loading && entries.length > 0 && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{entries.length} entries</p>
+            <button className="rpt-export-btn" onClick={handleCSV}>⬇ CSV</button>
+          </div>
+          <RptTable
+            cols={["Time", "Name", "Party", "Status", "Wait", "Table"]}
+            rows={entries.map(e => {
+              const wait = e.seatedAt && e.joinedAt
+                ? `${Math.round((new Date(e.seatedAt) - new Date(e.joinedAt)) / 60000)} min`
+                : "—";
+              const statusColor = e.status === "seated" ? "#059669" : e.status === "no_show" ? "#dc2626" : "#6b7280";
+              return [
+                new Date(e.joinedAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true }),
+                e.name,
+                `${e.partySize} pax`,
+                <span style={{ color: statusColor, fontWeight: 600 }}>{e.status.replace("_", "-")}</span>,
+                wait,
+                e.assignedTableLabel || "—",
+              ];
+            })}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Reports Shell ────────────────────────────────────────────────────────────
 const REPORTS = [
   { key: "day-end",    label: "Day End Summary"  },
@@ -1322,6 +1411,7 @@ const REPORTS = [
   { key: "orders",     label: "🗄 Order History"  },
   { key: "wastage",    label: "🗑 Wastage"        },
   { key: "voids",      label: "🚫 Voids & Reprints" },
+  { key: "waitlist",   label: "🪑 Waitlist"         },
   { key: "email",      label: "📧 Email Settings" }
 ];
 
@@ -1459,6 +1549,7 @@ export function ReportsPage() {
       {active === "orders"     && <OrderHistoryTab         dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "wastage"    && <WastageReport           dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "voids"      && <VoidsReprintsReport    dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
+      {active === "waitlist"   && <WaitlistReport         dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "email"      && (
         <div className="rpt-body">
           <EmailTrigger />

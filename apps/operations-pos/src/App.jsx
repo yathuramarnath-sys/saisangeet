@@ -28,6 +28,7 @@ import { CreditSettlePanel }  from "./components/CreditSettlePanel";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { PhonePeQRModal }     from "./components/PhonePeQRModal";
 import { WastageModal }       from "./components/WastageModal";
+import { WaitlistPanel }     from "./components/WaitlistPanel";
 import { WhatsNewModal, useWhatsNew } from "./components/WhatsNewModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
@@ -343,6 +344,8 @@ export default function App() {
   );
   const [showPhonePeQR,      setShowPhonePeQR]      = useState(false);
   const [showWastage,        setShowWastage]        = useState(false);
+  const [showWaitlist,       setShowWaitlist]       = useState(false);
+  const [waitlistSuggest,    setWaitlistSuggest]    = useState(null); // { party, tableLabel, tableSeats }
   const { show: showWhatsNew, dismiss: dismissWhatsNew } = useWhatsNew();
   const [isSyncing,          setIsSyncing]          = useState(false);
   const [lastSyncedAt,       setLastSyncedAt]       = useState(() => {
@@ -650,6 +653,11 @@ export default function App() {
               socket.emit("order:update", { outletId: target.id, order });
             }
           });
+        });
+
+        socket.on("waitlist:updated", () => {
+          // Another terminal added/removed a waitlist entry — no action needed
+          // here; the WaitlistPanel re-polls on its own interval.
         });
 
         // ── Local WiFi socket (localhost:4001) ────────────────────────────────
@@ -1565,6 +1573,8 @@ export default function App() {
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
         return { ...prev, [tableId]: fresh };
       });
+      // Check waitlist for a party that fits this freed table
+      checkWaitlistSuggest(tableId);
     }, 1500);
   }
 
@@ -1912,6 +1922,7 @@ export default function App() {
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
         return { ...prev, [tableId]: fresh };
       });
+      checkWaitlistSuggest(tableId);
     }, 1500);
   }
 
@@ -1997,6 +2008,38 @@ export default function App() {
       api.post("/operations/bill-request", { outletId: outlet?.id, tableId })
         .catch(err => console.warn("[POS] bill-request after print failed:", err.message));
     }
+  }
+
+  // ── Waitlist auto-suggest ─────────────────────────────────────────────────
+  // Called when a table frees — checks if any waiting party fits, shows popup.
+  async function checkWaitlistSuggest(tableId) {
+    if (!outlet?.id) return;
+    try {
+      const queue = await api.get(`/operations/waitlist?outletId=${outlet.id}`);
+      if (!Array.isArray(queue) || !queue.length) return;
+      // Find the table's seat count from tableAreas
+      let tableSeats = 4;
+      let tableLabel = tableId;
+      for (const area of tableAreas) {
+        const t = area.tables.find(t => t.id === tableId);
+        if (t) { tableSeats = t.seats || 4; tableLabel = t.number || t.name || tableId; break; }
+      }
+      // Best match: oldest waiting party whose size fits the freed table
+      const match = queue.find(p => p.partySize <= tableSeats);
+      if (!match) return;
+      setWaitlistSuggest({ party: match, tableId, tableLabel, tableSeats });
+    } catch (_) {}
+  }
+
+  async function handleWaitlistSeat(party, tableId, tableLabel) {
+    setWaitlistSuggest(null);
+    try {
+      await api.patch(`/operations/waitlist/${party.id}/seat`, {
+        assignedTableId:    tableId,
+        assignedTableLabel: String(tableLabel),
+      });
+      showToast(`✓ ${party.name} seated at ${tableLabel}`);
+    } catch (_) {}
   }
 
   // ── Order note ────────────────────────────────────────────────────────────
@@ -2286,6 +2329,11 @@ export default function App() {
           <button type="button" className="pab-btn red"
             onClick={() => setShowCashOut(true)}>
             <span className="pab-label">Cash Out</span>
+          </button>
+          <button type="button" className="pab-btn teal"
+            onClick={() => setShowWaitlist(true)}
+            title="Manage table waitlist — add walk-in parties, seat when table is free">
+            <span className="pab-label">🪑 Waitlist</span>
           </button>
           <button type="button" className="pab-btn rose"
             onClick={() => setShowWastage(true)}
@@ -2714,6 +2762,38 @@ export default function App() {
           menuItems={menuItems}
           onClose={() => setShowWastage(false)}
         />
+      )}
+
+      {/* Waitlist panel */}
+      {showWaitlist && (
+        <WaitlistPanel
+          outlet={outlet}
+          orders={orders}
+          onClose={() => setShowWaitlist(false)}
+          onSeatParty={(party) => showToast(`✓ ${party.name} marked as seated`)}
+        />
+      )}
+
+      {/* Waitlist auto-suggest — shown when a table frees and a waiting party fits */}
+      {waitlistSuggest && (
+        <div className="wl-suggest-overlay" onClick={() => setWaitlistSuggest(null)}>
+          <div className="wl-suggest-card" onClick={e => e.stopPropagation()}>
+            <p className="wl-suggest-title">Table {waitlistSuggest.tableLabel} is free!</p>
+            <p className="wl-suggest-body">
+              <strong>{waitlistSuggest.party.name}</strong> (party of {waitlistSuggest.party.partySize}) has been waiting
+              {" "}{Math.floor((Date.now() - new Date(waitlistSuggest.party.joinedAt).getTime()) / 60000)} mins — fits this table ({waitlistSuggest.tableSeats} seats).
+            </p>
+            <div className="wl-suggest-btns">
+              <button className="wl-seat-btn"
+                onClick={() => handleWaitlistSeat(waitlistSuggest.party, waitlistSuggest.tableId, waitlistSuggest.tableLabel)}>
+                Seat Now
+              </button>
+              <button className="wl-dismiss-btn" onClick={() => setWaitlistSuggest(null)}>
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* What's New — shown once per version after login */}
