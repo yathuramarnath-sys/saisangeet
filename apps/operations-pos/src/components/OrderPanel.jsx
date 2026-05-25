@@ -211,9 +211,20 @@ export function OrderPanel({
   const [voidingIdx,     setVoidingIdx]     = useState(null);   // index of item being voided
   const [pinForVoidIdx,  setPinForVoidIdx]  = useState(null);   // waiting PIN before VoidPicker
   const [showCancelPin,  setShowCancelPin]  = useState(false);  // waiting PIN before cancel order
+  const [editingQtyIdx,  setEditingQtyIdx]  = useState(null);   // index of item whose qty is being typed
+  const [editingQtyVal,  setEditingQtyVal]  = useState("");     // current typed value
 
   // Helper: does this cashier need a PIN check? (PIN set and not 0000)
   const needsPin = cashierPin && cashierPin !== "0000";
+
+  function commitQtyEdit(idx) {
+    const n = parseInt(editingQtyVal, 10);
+    if (!isNaN(n) && n !== (order.items?.[idx]?.quantity || 1)) {
+      onChangeQty(idx, n);  // n=0 removes the item (existing behaviour)
+    }
+    setEditingQtyIdx(null);
+    setEditingQtyVal("");
+  }
 
   if (!order) {
     return (
@@ -336,7 +347,33 @@ export function OrderPanel({
                         <button type="button" className="qty-btn"
                           onClick={() => onChangeQty(idx, item.quantity - 1)}>−</button>
                       )}
-                      <span className="qty-value">{item.quantity}</span>
+                      {/* Tap qty number to type a value directly */}
+                      {!item.sentToKot && editingQtyIdx === idx ? (
+                        <input
+                          className="qty-edit-input"
+                          type="number"
+                          min="0"
+                          autoFocus
+                          value={editingQtyVal}
+                          onChange={e => setEditingQtyVal(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter")  { e.preventDefault(); commitQtyEdit(idx); }
+                            if (e.key === "Escape") { setEditingQtyIdx(null); setEditingQtyVal(""); }
+                          }}
+                          onBlur={() => commitQtyEdit(idx)}
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span
+                          className={`qty-value${!item.sentToKot ? " qty-value-tap" : ""}`}
+                          title={!item.sentToKot ? "Tap to edit quantity" : ""}
+                          onClick={() => {
+                            if (item.sentToKot) return;
+                            setEditingQtyIdx(idx);
+                            setEditingQtyVal(String(item.quantity));
+                          }}
+                        >{item.quantity}</span>
+                      )}
                       {!item.sentToKot && (
                         <button type="button" className="qty-btn"
                           onClick={() => onChangeQty(idx, item.quantity + 1)}>+</button>
