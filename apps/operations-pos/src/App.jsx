@@ -308,6 +308,10 @@ export default function App() {
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
   const ordersRef  = useRef({});
+  // Refs for barcode scanner listener — always hold latest values without re-subscribing
+  const selectedTableIdRef = useRef(null);
+  const outletRef          = useRef(null);
+  const handleAddItemRef   = useRef(null);
   // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
   const billPrintingRef = useRef(false);
   // Tracks socket connection state for reconnect-resync logic
@@ -975,6 +979,11 @@ export default function App() {
     ordersRef.current = orders; // keep ref in sync for socket callbacks
   }, [orders]);
 
+  // Keep barcode scanner refs in sync with latest state/functions
+  useEffect(() => { selectedTableIdRef.current = selectedTableId; }, [selectedTableId]);
+  useEffect(() => { outletRef.current = outlet; }, [outlet]);
+  useEffect(() => { handleAddItemRef.current = handleAddItem; }); // no dep — always latest
+
   // Persist counter ticket number across refreshes
   useEffect(() => {
     localStorage.setItem("pos_counter_ticket_num", String(counterTicketNum));
@@ -1031,6 +1040,59 @@ export default function App() {
     }
     window.addEventListener("dinex:print-error", onPrintError);
     return () => window.removeEventListener("dinex:print-error", onPrintError);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Barcode scanner listener ──────────────────────────────────────────────
+  // USB/Bluetooth scanners act like a keyboard — they type the barcode very fast
+  // (< 50 ms between characters) then press Enter. We buffer rapid keystrokes and
+  // on Enter call /menu/sku-lookup to find the item, then add it to the order.
+  // Ignored when an input/textarea/select is focused (cashier is typing normally).
+  useEffect(() => {
+    let buffer = "";
+    let bufferTimer = null;
+
+    function resetBuffer() {
+      buffer = "";
+      if (bufferTimer) { clearTimeout(bufferTimer); bufferTimer = null; }
+    }
+
+    function onKeyDown(e) {
+      // Skip if focus is inside a text input / textarea / select
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+      if (e.key === "Enter") {
+        const scanned = buffer.trim();
+        resetBuffer();
+        if (scanned.length < 2) return;           // too short — ignore
+        if (!selectedTableIdRef.current) {
+          showToast("Select a table first, then scan");
+          return;
+        }
+        // Look up item by SKU/barcode
+        api.get(`/menu/sku-lookup?sku=${encodeURIComponent(scanned)}&outletId=${outletRef.current?.id || ""}`)
+          .then((item) => {
+            handleAddItemRef.current(item);
+            showToast(`✅ ${item.name} added via scanner`);
+          })
+          .catch((err) => {
+            const notFound = err?.message?.toLowerCase().includes("not found") || err?.message?.includes("SKU_NOT_FOUND");
+            showToast(notFound ? `❌ Barcode not found: ${scanned}` : `❌ Scanner error — try again`);
+          });
+        return;
+      }
+
+      // Only buffer printable single characters
+      if (e.key.length === 1) {
+        buffer += e.key;
+        // Reset buffer if no new character arrives within 80 ms (human typing is slower)
+        if (bufferTimer) clearTimeout(bufferTimer);
+        bufferTimer = setTimeout(resetBuffer, 80);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => { window.removeEventListener("keydown", onKeyDown); resetBuffer(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived state ─────────────────────────────────────────────────────────
