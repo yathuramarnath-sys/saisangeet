@@ -839,7 +839,33 @@ export default function App() {
         try { localStorage.setItem("pos_discount_rules", JSON.stringify(active)); } catch (_) {}
       }
       if (cats)    setCategories(cats);
-      if (items)   setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
+      if (items) {
+        const freshMenuItems = items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) }));
+        setMenuItems(freshMenuItems);
+
+        // ── Propagate updated taxRate to already-open table orders ────────────
+        // When owner assigns/changes GST on a menu item, open orders that already
+        // have that item in the cart still carry the old taxRate (captured at add-time).
+        // On every sync, refresh taxRate on open order items from the fresh menu.
+        // Price is intentionally NOT updated — only the tax classification.
+        setOrders(prev => {
+          const menuById = Object.fromEntries(freshMenuItems.map(m => [m.id, m]));
+          const updated  = {};
+          let changed    = false;
+          Object.entries(prev).forEach(([tableId, order]) => {
+            if (!order?.items?.length) { updated[tableId] = order; return; }
+            const newItems = order.items.map(item => {
+              const menuItem = menuById[item.menuItemId] || menuById[item.id];
+              if (!menuItem || menuItem.taxRate == null) return item;
+              if (item.taxRate === menuItem.taxRate) return item;
+              changed = true;
+              return { ...item, taxRate: Number(menuItem.taxRate) };
+            });
+            updated[tableId] = changed ? { ...order, items: newItems } : order;
+          });
+          return changed ? updated : prev;
+        });
+      }
       if (stations?.length) {
         localStorage.setItem("pos_kitchen_stations", JSON.stringify(stations));
       }
