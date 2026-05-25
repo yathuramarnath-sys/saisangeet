@@ -33,6 +33,7 @@ const { zohoRouter }         = require("../modules/zoho/zoho.routes");
 const { settlementsRouter }  = require("../modules/settlements/settlements.routes");
 const { inventoryRouter }    = require("../modules/inventory/inventory.routes");
 const { advanceOrdersRouter } = require("../modules/advance-orders/advance-orders.routes");
+const { customersRouter }     = require("../modules/customers/customers.routes");
 const { backupRouter }        = require("../modules/backup/backup.routes");
 const { requireAuth }      = require("../middleware/require-auth");
 const { asyncHandler }  = require("../utils/async-handler");
@@ -96,6 +97,7 @@ apiRouter.use("/integrations/zoho", zohoRouter);
 apiRouter.use("/settlements",        settlementsRouter);
 apiRouter.use("/inventory",          inventoryRouter);
 apiRouter.use("/advance-orders",     advanceOrdersRouter);
+apiRouter.use("/customers",          customersRouter);
 apiRouter.use("/backup",             backupRouter);
 
 // ── GET /settings/security — fetch current security settings (PIN masked) ────

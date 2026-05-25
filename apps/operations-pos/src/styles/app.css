@@ -6776,6 +6776,25 @@ body { background: #F7F3EE; }
 .pcf-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .pcf-error { font-size: 12px; color: #dc2626; font-weight: 600; margin: 0; }
 
+/* Customer picker dropdown */
+.pcf-picker-wrap { position: relative; }
+.pcf-drop {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 99;
+  background: #fff; border: 1.5px solid #d97706; border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12); max-height: 220px; overflow-y: auto;
+  margin-top: 2px;
+}
+.pcf-drop-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #fef3c7;
+  transition: background 0.1s;
+}
+.pcf-drop-item:last-child { border-bottom: none; }
+.pcf-drop-item:hover { background: #fffbeb; }
+.pcf-drop-name { font-weight: 700; font-size: 13px; color: #1f2937; }
+.pcf-drop-meta { font-size: 11px; color: #9ca3af; }
+.pcf-drop-empty { padding: 10px 12px; font-size: 12px; color: #9ca3af; font-style: italic; }
+
 /* Outstanding credit warning */
 .pcf-outstanding-warn {
   display: flex; gap: 8px; align-items: flex-start;

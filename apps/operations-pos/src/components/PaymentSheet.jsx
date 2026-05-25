@@ -27,11 +27,41 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
   });
   const [currentRef,    setCurrentRef]    = useState("");
   const [loading,       setLoading]       = useState(false);
-  // Outstanding credit warning — checked when cashier types customer name
-  const [existingCredit, setExistingCredit] = useState(null); // { count, total, bills[] }
+  // Customer master — loaded when credit section opens
+  const [customerList,    setCustomerList]    = useState([]);
+  const [custSearch,      setCustSearch]      = useState("");
+  const [showCustDrop,    setShowCustDrop]    = useState(false);
+  // Outstanding credit warning
+  const [existingCredit,  setExistingCredit]  = useState(null);
   const creditCheckTimer = useRef(null);
 
-  // Debounced check: when cashier types a name in credit form, look up outstanding bills
+  // Load customer master when credit section opens
+  useEffect(() => {
+    if (!showCredit) return;
+    api.get("/customers").then(list => setCustomerList(Array.isArray(list) ? list : [])).catch(() => {});
+  }, [showCredit]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Filtered dropdown list
+  const custDropList = custSearch.trim().length >= 1
+    ? customerList.filter(c =>
+        (c.name  || "").toLowerCase().includes(custSearch.toLowerCase()) ||
+        (c.phone || "").includes(custSearch)
+      ).slice(0, 8)
+    : customerList.slice(0, 8);
+
+  function pickCustomer(c) {
+    setCreditForm({
+      name:      c.name    || "",
+      gstin:     c.gstin   || "",
+      address:   c.address || "",
+      phone:     c.phone   || "",
+      poNumber:  "",
+    });
+    setCustSearch(c.name || "");
+    setShowCustDrop(false);
+  }
+
+  // Outstanding credit check when customer name is set
   useEffect(() => {
     const name = creditForm.name.trim();
     if (!name || !showCredit) { setExistingCredit(null); return; }
@@ -268,15 +298,41 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
               <strong>₹{remaining > 0 ? remaining : fin.total}</strong>
             </div>
             <div className="payment-credit-fields">
-              <div className="pcf-field">
+              {/* Customer search picker */}
+              <div className="pcf-field pcf-picker-wrap">
                 <label>Company / Customer Name <span className="pcf-req">*</span></label>
                 <input
                   type="text"
-                  placeholder="e.g. ABC Enterprises / Rajan Kumar"
-                  value={creditForm.name}
-                  onChange={e => setCreditForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Search saved customers or type new name…"
+                  value={custSearch || creditForm.name}
                   autoFocus
+                  autoComplete="off"
+                  onChange={e => {
+                    setCustSearch(e.target.value);
+                    setCreditForm(p => ({ ...p, name: e.target.value }));
+                    setShowCustDrop(true);
+                  }}
+                  onFocus={() => setShowCustDrop(true)}
+                  onBlur={() => setTimeout(() => setShowCustDrop(false), 180)}
                 />
+                {showCustDrop && custDropList.length > 0 && (
+                  <div className="pcf-drop">
+                    {custDropList.map(c => (
+                      <div key={c.id} className="pcf-drop-item" onMouseDown={() => pickCustomer(c)}>
+                        <span className="pcf-drop-name">{c.name}</span>
+                        <span className="pcf-drop-meta">
+                          {c.phone && `📞 ${c.phone}`}
+                          {c.gstin && ` · GST`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {showCustDrop && custDropList.length === 0 && custSearch.trim().length > 0 && (
+                  <div className="pcf-drop">
+                    <div className="pcf-drop-empty">No saved customer — will create new</div>
+                  </div>
+                )}
               </div>
               {/* Outstanding credit warning */}
               {existingCredit && (

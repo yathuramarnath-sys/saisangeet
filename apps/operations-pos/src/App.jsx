@@ -1947,6 +1947,16 @@ export default function App() {
     mutateOrder(selectedTableId, o => { o.customer = data; return o; });
     setShowCustomerForm(false);
     showToast("Customer details saved");
+    // Persist to customer master so credit form can pick from it
+    if (data.name) {
+      api.post("/customers", {
+        name:    data.name,
+        phone:   data.phone   || "",
+        email:   data.email   || "",
+        gstin:   data.gstn    || "",   // CustomerFormModal uses "gstn" key
+        address: data.address || "",
+      }).catch(() => {}); // fire-and-forget — non-critical
+    }
   }
 
   // ── Print bill ────────────────────────────────────────────────────────────

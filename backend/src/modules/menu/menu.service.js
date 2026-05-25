@@ -642,19 +642,14 @@ async function bulkImportMenuItems(payload) {
     }
     const category = catBySlug[catSlug];
 
-    // ── Ensure station exists (in-memory only) — skip if no station name given ──
+    // ── Station lookup — NEVER auto-create stations from CSV ─────────────────
+    // Stations are created exclusively from Kitchen Stations page in Owner Console.
+    // CSV import only links items to EXISTING stations — if the station name in
+    // the CSV doesn't match a saved station, the item is imported without a station
+    // assignment (station field stays blank). This prevents phantom stations appearing
+    // (e.g. "Bakery", "Beverages") every time a menu CSV is re-imported.
     const staSlug = stationName ? slugify(stationName) : "";
-    if (staSlug && !staBySlug[staSlug]) {
-      const newSta = {
-        id:         `station-${staSlug}`,
-        name:       stationName,
-        outletId:   "all",
-        categories: [],
-      };
-      stations.push(newSta);
-      staBySlug[staSlug] = newSta;
-    }
-    const station = staSlug ? staBySlug[staSlug] : null;
+    const station = staSlug ? (staBySlug[staSlug] || null) : null;
 
     // ── Build item (in-memory only) ──────────────────────────────────────────
     const taxRate    = row.taxRate != null && row.taxRate !== "" ? Number(row.taxRate) : 5;

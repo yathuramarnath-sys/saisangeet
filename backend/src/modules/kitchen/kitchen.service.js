@@ -1,4 +1,9 @@
-const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { getOwnerSetupData, updateOwnerSetupDataNow } = require("../../data/owner-setup-store");
+
+// All kitchen station mutations use updateOwnerSetupDataNow (awaitable Postgres write)
+// so that create / update / delete survive a Railway server restart immediately.
+// Previously updateOwnerSetupData (fire-and-forget) could lose changes if the
+// server restarted before the async Postgres write completed.
 
 function getStations() {
   return (getOwnerSetupData().menu?.stations || []);
@@ -19,7 +24,7 @@ async function createKitchenStation({ name, outletId, categories }) {
     categories: Array.isArray(categories) ? categories : []
   };
 
-  updateOwnerSetupData((data) => ({
+  await updateOwnerSetupDataNow((data) => ({
     ...data,
     menu: {
       ...data.menu,
@@ -33,7 +38,7 @@ async function createKitchenStation({ name, outletId, categories }) {
 async function updateKitchenStation(id, { name, outletId, categories }) {
   let updated = null;
 
-  updateOwnerSetupData((data) => {
+  await updateOwnerSetupDataNow((data) => {
     const stations = (data.menu?.stations || []).map((s) => {
       if (s.id !== id) return s;
       updated = {
@@ -54,7 +59,7 @@ async function updateKitchenStation(id, { name, outletId, categories }) {
 async function deleteKitchenStation(id) {
   let found = false;
 
-  updateOwnerSetupData((data) => {
+  await updateOwnerSetupDataNow((data) => {
     const stations = (data.menu?.stations || []).filter((s) => {
       if (s.id === id) { found = true; return false; }
       return true;

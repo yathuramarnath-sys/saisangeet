@@ -1309,6 +1309,118 @@ function VoidsReprintsReport({ dateFrom, dateTo, outletId }) {
   );
 }
 
+// ── Customers Tab ────────────────────────────────────────────────────────────
+function CustomersTab() {
+  const [customers, setCustomers] = useState([]);
+  const [loading,   setLoading]   = useState(false);
+  const [q,         setQ]         = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    api.get("/customers")
+      .then(res => setCustomers(Array.isArray(res) ? res : []))
+      .catch(() => setCustomers([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const lq = q.trim().toLowerCase();
+  const filtered = lq
+    ? customers.filter(c =>
+        (c.name  || "").toLowerCase().includes(lq) ||
+        (c.phone || "").includes(lq) ||
+        (c.email || "").toLowerCase().includes(lq) ||
+        (c.gstin || "").toLowerCase().includes(lq)
+      )
+    : customers;
+
+  function handleCSV() {
+    if (!filtered.length) return;
+    downloadCSV("customers_list",
+      ["Name", "Phone", "Email", "GSTIN", "Address", "Company", "Notes", "Saved On"],
+      filtered.map(c => [
+        c.name, c.phone || "", c.email || "", c.gstin || "",
+        c.address || "", c.company || "", c.notes || "",
+        c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : ""
+      ])
+    );
+  }
+
+  const withPhone = customers.filter(c => c.phone).length;
+  const withEmail = customers.filter(c => c.email).length;
+  const withGstin = customers.filter(c => c.gstin).length;
+
+  return (
+    <div className="rpt-body">
+      <SectionHead eyebrow="Saved from POS" title="Customer List" />
+
+      {/* KPIs */}
+      <div className="rpt-kpi-row" style={{ marginBottom: 20 }}>
+        <KpiCard dark label="Total Customers" value={customers.length} sub="in master list" />
+        <KpiCard label="With Phone"  value={withPhone} sub="can send SMS / WhatsApp" />
+        <KpiCard label="With Email"  value={withEmail} sub="can send emails" />
+        <KpiCard label="With GSTIN"  value={withGstin} sub="B2B / GST billing" />
+      </div>
+
+      {/* Search + Export */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <input
+          type="text"
+          placeholder="Search by name, phone, email or GSTIN…"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          style={{
+            flex: 1, minWidth: 220, padding: "7px 12px", borderRadius: 8,
+            border: "1.5px solid #d1d5db", fontSize: 13, outline: "none",
+            fontFamily: "Manrope, sans-serif",
+          }}
+        />
+        <button className="rpt-export-btn" onClick={handleCSV} disabled={!filtered.length}>⬇ CSV</button>
+      </div>
+
+      {loading && <p style={{ color: "#6b7280", padding: "1rem 0" }}>Loading…</p>}
+
+      {!loading && customers.length === 0 && (
+        <div className="rpt-empty-state">
+          <div className="rpt-empty-icon">👥</div>
+          <strong>No customers saved yet</strong>
+          <p>
+            Customer details are saved when the cashier fills in the Customer form on the POS
+            (credit bill, takeaway, or delivery orders). They'll appear here automatically.
+          </p>
+          <p className="rpt-empty-hint">
+            Use customer data for birthday wishes, WhatsApp promotions, and GST invoicing.
+          </p>
+        </div>
+      )}
+
+      {!loading && customers.length > 0 && filtered.length === 0 && (
+        <p style={{ color: "#6b7280", fontSize: 13 }}>No customers match "<strong>{q}</strong>".</p>
+      )}
+
+      {!loading && filtered.length > 0 && (
+        <RptTable
+          cols={["Name", "Phone", "Email", "GSTIN", "Address / Company", "Notes", "Saved On"]}
+          rows={filtered.map(c => [
+            <strong>{c.name}</strong>,
+            c.phone
+              ? <a href={`tel:${c.phone}`} style={{ color: "#059669", textDecoration: "none", fontWeight: 600 }}>{c.phone}</a>
+              : <span style={{ color: "#9ca3af" }}>—</span>,
+            c.email || <span style={{ color: "#9ca3af" }}>—</span>,
+            c.gstin
+              ? <span style={{ fontFamily: "monospace", fontSize: 12, background: "#f0fdf4", color: "#166534", padding: "2px 6px", borderRadius: 4 }}>{c.gstin}</span>
+              : <span style={{ color: "#9ca3af" }}>—</span>,
+            [c.company, c.address].filter(Boolean).join(" · ") || <span style={{ color: "#9ca3af" }}>—</span>,
+            c.notes || <span style={{ color: "#9ca3af" }}>—</span>,
+            c.createdAt
+              ? new Date(c.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+              : "—",
+          ])}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── Waitlist Report ───────────────────────────────────────────────────────────
 function WaitlistReport({ dateFrom, dateTo, outletId }) {
   const [entries, setEntries] = useState([]);
@@ -1412,6 +1524,7 @@ const REPORTS = [
   { key: "wastage",    label: "🗑 Wastage"        },
   { key: "voids",      label: "🚫 Voids & Reprints" },
   { key: "waitlist",   label: "🪑 Waitlist"         },
+  { key: "customers",  label: "👥 Customers"       },
   { key: "email",      label: "📧 Email Settings" }
 ];
 
@@ -1510,7 +1623,7 @@ export function ReportsPage() {
         </div>
 
         <div className="rpt-filters">
-          {active === "gst" ? (
+          {active === "customers" ? null : active === "gst" ? (
             /* GST uses a month picker — range derived automatically */
             <input type="month" className="rpt-date-input" value={month}
               onChange={e => setMonth(e.target.value)} />
@@ -1550,6 +1663,7 @@ export function ReportsPage() {
       {active === "wastage"    && <WastageReport           dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "voids"      && <VoidsReprintsReport    dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "waitlist"   && <WaitlistReport         dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
+      {active === "customers"  && <CustomersTab />}
       {active === "email"      && (
         <div className="rpt-body">
           <EmailTrigger />
