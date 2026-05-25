@@ -29,6 +29,7 @@ import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { PhonePeQRModal }     from "./components/PhonePeQRModal";
 import { WastageModal }       from "./components/WastageModal";
 import { WaitlistPanel }     from "./components/WaitlistPanel";
+import { StockPanel }        from "./components/StockPanel";
 import { WhatsNewModal, useWhatsNew } from "./components/WhatsNewModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
@@ -344,6 +345,8 @@ export default function App() {
   );
   const [showPhonePeQR,      setShowPhonePeQR]      = useState(false);
   const [showWastage,        setShowWastage]        = useState(false);
+  const [showStock,          setShowStock]          = useState(false);
+  const [stockSnapshot,      setStockSnapshot]      = useState({}); // { [itemId]: { currentStock, lowStockLevel, allowNegative } }
   const [showWaitlist,       setShowWaitlist]       = useState(false);
   const [waitlistSuggest,    setWaitlistSuggest]    = useState(null); // { party, tableLabel, tableSeats }
   const { show: showWhatsNew, dismiss: dismissWhatsNew } = useWhatsNew();
@@ -468,6 +471,21 @@ export default function App() {
             target.name
           );
         });
+
+        // Load stock snapshot for this outlet and merge lowStockLevel from menu items
+        api.get(`/inventory/stock/snapshot?outletId=${target.id}`)
+          .then(snap => {
+            if (snap && typeof snap === "object") {
+              const merged = { ...snap };
+              (items || []).forEach(item => {
+                if (merged[item.id] && item.lowStockLevel > 0) {
+                  merged[item.id] = { ...merged[item.id], lowStockLevel: Number(item.lowStockLevel) };
+                }
+              });
+              setStockSnapshot(merged);
+            }
+          })
+          .catch(() => {});
 
         setServerConn("live");
         socketConnRef.current = "live";
@@ -894,6 +912,23 @@ export default function App() {
         tableAreas: freshAreas,
       });
 
+      // Refresh stock snapshot and merge lowStockLevel from fresh menu items
+      if (items) {
+        api.get(`/inventory/stock/snapshot?outletId=${id}`)
+          .then(snap => {
+            if (snap && typeof snap === "object") {
+              const merged = { ...snap };
+              items.forEach(item => {
+                if (merged[item.id] && item.lowStockLevel > 0) {
+                  merged[item.id] = { ...merged[item.id], lowStockLevel: Number(item.lowStockLevel) };
+                }
+              });
+              setStockSnapshot(merged);
+            }
+          })
+          .catch(() => {});
+      }
+
       const now = new Date();
       setLastSyncedAt(now);
       localStorage.setItem("pos_last_synced", now.toISOString());
@@ -1068,6 +1103,13 @@ export default function App() {
   async function handleAddItem(item) {
     if (!selectedTableId) return;
     const tableId = selectedTableId;
+
+    // Block add if stock is tracked, at 0, and allowNegative is off
+    const snap = stockSnapshot[item.id];
+    if (snap && snap.currentStock <= 0 && snap.allowNegative === false) {
+      showToast(`${item.name} is out of stock`);
+      return;
+    }
 
     // Generate the item ID here so local state and the backend record use the same ID.
     // This makes the reconcile step safe: when we apply the server response we can
@@ -1328,6 +1370,24 @@ export default function App() {
     const printer = getKotPrinter();
     const printerLabel = printer ? ` → ${printer.name}` : "";
     showToast(`🖨️ KOT-${String(serverKotNumber).padStart(4, "0")} sent${printerLabel}`);
+
+    // Deduct stock for tracked items — fire-and-forget, non-blocking
+    if (outlet?.id && unsent.length) {
+      api.post("/inventory/stock/deduct", {
+        outletId: outlet.id,
+        items: unsent.map(i => ({ itemId: i.menuItemId || i.id, quantity: i.quantity || 1 })),
+      }).then(result => {
+        if (result?.deducted?.length) {
+          setStockSnapshot(prev => {
+            const next = { ...prev };
+            result.deducted.forEach(({ itemId, newStock }) => {
+              if (next[itemId]) next[itemId] = { ...next[itemId], currentStock: newStock };
+            });
+            return next;
+          });
+        }
+      }).catch(() => {});
+    }
 
     // Reconcile from the last server response (most up-to-date order state).
     // All items across all station groups are sentToKot: true on the server by
@@ -2340,6 +2400,11 @@ export default function App() {
             title="Log production wastage — spoilage, overcooked, dropped items">
             <span className="pab-label">🗑 Wastage</span>
           </button>
+          <button type="button" className="pab-btn lime"
+            onClick={() => setShowStock(true)}
+            title="View and update stock counts for tracked items">
+            <span className="pab-label">📦 Stock</span>
+          </button>
           <button type="button" className={`pab-btn cyan${isSyncing ? " syncing" : ""}`}
             onClick={() => syncMenuData()}
             title={lastSyncedAt ? `Last synced: ${lastSyncedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })} — syncs menu, tables & outlet` : "Master Sync — pulls menu, tables & outlet from Owner Console"}
@@ -2388,6 +2453,7 @@ export default function App() {
           onToggleAvailability={handleToggleAvailability}
           quantities={menuQuantities}
           onDecrement={handleDecrementItem}
+          stockSnapshot={stockSnapshot}
         />
       </div>
 
@@ -2761,6 +2827,22 @@ export default function App() {
           outletId={branchConfig?.outletId}
           menuItems={menuItems}
           onClose={() => setShowWastage(false)}
+        />
+      )}
+
+      {/* Stock panel */}
+      {showStock && (
+        <StockPanel
+          outlet={outlet}
+          menuItems={menuItems}
+          stockSnapshot={stockSnapshot}
+          onClose={() => setShowStock(false)}
+          onStockUpdated={(itemId, newStock) =>
+            setStockSnapshot(prev => ({
+              ...prev,
+              [itemId]: { ...(prev[itemId] || {}), currentStock: newStock }
+            }))
+          }
         />
       )}
 

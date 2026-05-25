@@ -1,21 +1,23 @@
 {
   "pos": {
-    "version": "1.4.50",
+    "version": "1.4.51",
     "label": "POS Terminal",
-    "changelog": "GST totals now correct for Takeaway/Delivery — ticket cards and table cards now respect outlet GST treatment (inclusive/exclusive)",
+    "changelog": "Inventory management — track finished product stock, auto-deduct on KOT, low stock alerts, table waitlist, void/cancel PIN protection",
     "whatsNew": [
-      "✅ Takeaway & Delivery ticket totals now show the correct amount — no more ₹100+₹5=₹105 for inclusive-GST outlets",
-      "🧾 Items set to 0% GST now print correctly — no more CGST/SGST on tax-free items",
-      "📋 Credit Ledger now survives server restarts — bills no longer disappear"
+      "📦 New Stock panel — cashier adds daily stock counts, deducts automatically on every KOT",
+      "🔴 Out of stock items are blocked from adding to cart (owner can allow negative)",
+      "🟠 Low stock badge shows on menu grid when item falls below threshold",
+      "🪑 Table Waitlist — manage walk-in queue, seat parties, SMS notifications",
+      "🔒 Void and Cancel now require manager PIN"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.4.50"
+      "3. Log in with your cashier PIN — you are on v1.4.51"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-05-24"
+    "releaseDate": "2026-05-25"
   },
   "captain": {
     "version": "1.25",
@@ -57,14 +59,15 @@
     "releaseDate": "2026-05-23"
   },
   "ownerWeb": {
-    "version": "0.2.0",
+    "version": "0.2.1",
     "label": "Owner Dashboard",
-    "changelog": "Wastage report tab, menu pagination, staff page cleanup, credit collections in Payments tab",
+    "changelog": "Inventory tracking per outlet — enable tracking per item, set allowNegative, view live stock levels, low stock threshold in item form",
     "whatsNew": [
-      "🗑 New Wastage tab in Reports — see what was wasted, by item and reason",
-      "📄 Menu now paginates at 20 items — faster to load",
-      "👥 Staff page cleaner — removed unused sections",
-      "💳 Credit collections now show correctly in Payment Report"
+      "📦 Inventory page — enable stock tracking per item per outlet",
+      "🔄 Allow Negative toggle per outlet — control whether POS blocks at 0",
+      "📊 Live stock levels visible in Owner Console (read-only)",
+      "⚠️ Set low stock alert threshold per item in Menu → item form",
+      "🗃️ Compact table editor in Outlets — create and edit tables inline"
     ],
     "installGuide": [
       "No installation needed — Owner Dashboard updates automatically.",
@@ -72,7 +75,7 @@
     ],
     "downloadUrl": null,
     "apkUrl": null,
-    "releaseDate": "2026-05-23"
+    "releaseDate": "2026-05-25"
   },
   "tabletPos": {
     "version": "1.1.4",

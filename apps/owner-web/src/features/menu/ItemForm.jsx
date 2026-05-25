@@ -223,6 +223,25 @@ export function ItemForm({
         </div>
       </div>
 
+      {/* ── Section 4b: Low stock alert threshold ─────────────────── */}
+      <div style={sectionStyle}>
+        <p style={sectionTitle}>📦 Stock Alert</p>
+        <label>
+          Low stock alert level
+          <input
+            type="number"
+            min="0"
+            placeholder="e.g. 10 — POS shows 'Low' badge below this count. Leave 0 to disable."
+            value={draft.lowStockLevel ?? ""}
+            onChange={e => f("lowStockLevel", e.target.value === "" ? "" : Number(e.target.value))}
+          />
+        </label>
+        <p style={{ margin:"4px 0 0", fontSize:"0.78rem", color:"#6b7280" }}>
+          Cashier sees an orange "Low" badge on this item when stock falls to or below this number.
+          Set to 0 to disable the alert.
+        </p>
+      </div>
+
       {/* ── Section 5: Optional Fields ───────────────────────────────── */}
       {(fs.description || fs.shortCode || fs.hsnCode || fs.sku ||
         fs.rank || fs.exposeInCaptain || fs.allowDecimalQty ||

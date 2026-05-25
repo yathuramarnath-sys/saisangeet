@@ -75,7 +75,7 @@ const PALETTE = [
   { bg: "#D35400", light: "#FDEBD0", grad: "linear-gradient(135deg,#E67E22,#9A3412)" },
 ];
 
-export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, quantities, onDecrement }) {
+export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, quantities, onDecrement, stockSnapshot }) {
   const [search,      setSearch]      = useState("");
   const [stockState,  setStockState]  = useState(() => getStockState());
 
@@ -152,14 +152,17 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
             : Number(String(item.price || item.basePrice || "").replace(/[^\d.]/g, "")) || 0;
           const color   = search ? PALETTE[0] : itemCatColor(item);
           const emoji   = getItemEmoji(item.name);
-          const soldOut = stockState[item.id]?.available === false;
-          const qty     = (quantities && quantities[item.id]) || 0;
+          const soldOut  = stockState[item.id]?.available === false;
+          const qty      = (quantities && quantities[item.id]) || 0;
+          const snap     = stockSnapshot?.[item.id];
+          const stockOut = snap && snap.currentStock <= 0 && snap.allowNegative === false;
+          const stockLow = snap && !stockOut && snap.lowStockLevel > 0 && snap.currentStock <= snap.lowStockLevel;
 
           return (
             /* Use <div> not <button> so inner <button> elements are valid HTML */
             <div
               key={item.id}
-              className={`menu-food-card${soldOut ? " sold-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}${qty > 0 ? " in-cart" : ""}`}
+              className={`menu-food-card${soldOut ? " sold-out" : stockOut ? " stock-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}${qty > 0 ? " in-cart" : ""}`}
               title={soldOut ? "Sold Out — tap toggle to re-enable" : undefined}
             >
               {/* Availability toggle */}
@@ -189,11 +192,16 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
                 <span className="mfc-name">{item.name}</span>
                 {soldOut ? (
                   <div className="mfc-soldout-label">SOLD OUT</div>
+                ) : stockOut ? (
+                  <div className="mfc-soldout-label mfc-stockout-label">OUT OF STOCK</div>
                 ) : (
                   <div className="mfc-bottom">
                     <span className="mfc-price" style={{ color: color.bg }}>
                       ₹{price}{item.unit ? <span className="mfc-unit">/{item.unit}</span> : null}
                     </span>
+                    {stockLow && (
+                      <span className="mfc-stock-low-badge">Low ({snap.currentStock})</span>
+                    )}
                     {qty > 0 ? (
                       <div className="mfc-qty-controls" onClick={e => e.stopPropagation()}>
                         <button type="button" className="mfc-qty-btn mfc-minus"

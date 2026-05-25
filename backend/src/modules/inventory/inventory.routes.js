@@ -1,25 +1,22 @@
 /**
  * inventory.routes.js
  *
- * Handles the Owner Console ↔ POS sync for item visibility settings.
+ * POST /inventory/item-visibility      — POS sold-out toggle
+ * GET  /inventory/item-visibility      — current item availability state
  *
- * POST /inventory/item-visibility
- *   Body: { itemId, posVisible, online?, outletId? }
- *
- *   - posVisible: false → mark item "sold out" on ALL POS devices for this tenant
- *   - posVisible: true  → mark item available again on all POS devices
- *   - online: false     → mark item offline for Zomato/Swiggy
- *   - Saves state to req.app.locals.outletAvailability (same map socket system uses)
- *   - Broadcasts via socket to all outlet rooms so POS/Captain/KDS update live
- *
- * GET /inventory/item-visibility
- *   Returns the current posVisible/online state for all items of this tenant.
+ * GET  /inventory/stock/snapshot       — POS loads on sync  ?outletId=
+ * POST /inventory/stock/add            — cashier adds qty from POS
+ * POST /inventory/stock/deduct         — bulk deduct on KOT send
+ * GET  /inventory/stock/config         — get outlet config (allowNegative, trackedItems)
+ * PUT  /inventory/stock/config         — save outlet config (owner console)
+ * PUT  /inventory/stock/low-level      — set lowStockLevel per item (owner console)
  */
 
 const express       = require("express");
 const { requireAuth } = require("../../middleware/require-auth");
 const { asyncHandler } = require("../../utils/async-handler");
 const { getOwnerSetupData } = require("../../data/owner-setup-store");
+const stockStore    = require("./stock-store");
 
 const inventoryRouter = express.Router();
 inventoryRouter.use(requireAuth);
@@ -110,6 +107,84 @@ inventoryRouter.get("/item-visibility", asyncHandler(async (req, res) => {
   }
 
   res.json(result);
+}));
+
+// ── GET /inventory/stock/snapshot ────────────────────────────────────────────
+// POS calls on load/sync to get tracked items + current stock counts.
+inventoryRouter.get("/stock/snapshot", asyncHandler(async (req, res) => {
+  const { outletId } = req.query;
+  if (!outletId) return res.status(400).json({ error: "outletId required" });
+  const tenantId = req.user?.tenantId || "default";
+  const snapshot = stockStore.getPosStockSnapshot(tenantId, outletId);
+  res.json(snapshot);
+}));
+
+// ── POST /inventory/stock/add ─────────────────────────────────────────────────
+// Cashier adds qty from StockPanel in POS.
+// Body: { outletId, itemId, qty, updatedBy? }
+inventoryRouter.post("/stock/add", asyncHandler(async (req, res) => {
+  const { outletId, itemId, qty, updatedBy } = req.body || {};
+  if (!outletId || !itemId || qty == null) {
+    return res.status(400).json({ error: "outletId, itemId, qty required" });
+  }
+  const tenantId = req.user?.tenantId || "default";
+  const entry = stockStore.addStock(tenantId, outletId, itemId, qty, updatedBy);
+  res.json(entry);
+}));
+
+// ── POST /inventory/stock/deduct ──────────────────────────────────────────────
+// Called on KOT send. Body: { outletId, items: [{ itemId, quantity }] }
+// Returns { blocked: [itemId], deducted: [{itemId, newStock}] }
+inventoryRouter.post("/stock/deduct", asyncHandler(async (req, res) => {
+  const { outletId, items } = req.body || {};
+  if (!outletId || !Array.isArray(items)) {
+    return res.status(400).json({ error: "outletId and items[] required" });
+  }
+  const tenantId = req.user?.tenantId || "default";
+  const result = stockStore.deductStock(tenantId, outletId, items);
+  res.json(result);
+}));
+
+// ── GET /inventory/stock/config ───────────────────────────────────────────────
+inventoryRouter.get("/stock/config", asyncHandler(async (req, res) => {
+  const { outletId } = req.query;
+  if (!outletId) return res.status(400).json({ error: "outletId required" });
+  const tenantId = req.user?.tenantId || "default";
+  res.json(stockStore.getOutletConfig(tenantId, outletId));
+}));
+
+// ── PUT /inventory/stock/config ───────────────────────────────────────────────
+// Owner Console saves allowNegative + trackedItems for an outlet.
+// Body: { outletId, allowNegative?, trackedItems? }
+inventoryRouter.put("/stock/config", asyncHandler(async (req, res) => {
+  const { outletId, allowNegative, trackedItems } = req.body || {};
+  if (!outletId) return res.status(400).json({ error: "outletId required" });
+  const tenantId = req.user?.tenantId || "default";
+  const patch = {};
+  if (typeof allowNegative === "boolean") patch.allowNegative = allowNegative;
+  if (Array.isArray(trackedItems)) patch.trackedItems = trackedItems;
+  const cfg = stockStore.saveOutletConfig(tenantId, outletId, patch);
+  res.json(cfg);
+}));
+
+// ── PUT /inventory/stock/low-level ────────────────────────────────────────────
+// Set lowStockLevel per item (from ItemForm in Owner Console).
+// Body: { outletId, itemId, level }  OR  { outletId, levels: [{itemId, level}] }
+inventoryRouter.put("/stock/low-level", asyncHandler(async (req, res) => {
+  const { outletId, itemId, level, levels } = req.body || {};
+  if (!outletId) return res.status(400).json({ error: "outletId required" });
+  const tenantId = req.user?.tenantId || "default";
+
+  if (Array.isArray(levels)) {
+    const results = levels.map(({ itemId: id, level: lvl }) =>
+      stockStore.setLowStockLevel(tenantId, outletId, id, lvl)
+    );
+    return res.json(results);
+  }
+
+  if (!itemId || level == null) return res.status(400).json({ error: "itemId and level required" });
+  const entry = stockStore.setLowStockLevel(tenantId, outletId, itemId, level);
+  res.json(entry);
 }));
 
 module.exports = { inventoryRouter };
