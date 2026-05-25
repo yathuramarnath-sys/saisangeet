@@ -4048,6 +4048,33 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   vertical-align: middle;
 }
 
+/* ── Outlet inline edit ──────────────────────────────────────────────────── */
+.location-card.outlet-editing {
+  border: 2px solid #059669;
+  background: #f0fdf4;
+}
+.outlet-inline-form { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+.outlet-inline-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.outlet-inline-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; font-weight: 600; color: #374151; }
+.outlet-inline-grid input,
+.outlet-inline-grid select {
+  padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 7px;
+  font: inherit; font-size: 0.88rem; background: #fff; outline: none;
+  transition: border-color 0.15s;
+}
+.outlet-inline-grid input:focus,
+.outlet-inline-grid select:focus { border-color: #059669; }
+.outlet-inline-section { display: flex; flex-direction: column; gap: 8px; }
+.outlet-inline-section > strong { font-size: 0.85rem; color: #111827; }
+.outlet-check-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.outlet-turnover-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.outlet-inline-btns { display: flex; gap: 10px; padding-top: 4px; }
+.outlet-inline-btns .primary-btn { flex: 1; }
+
 /* ── Menu item — outlet availability selector ───────────────────────────── */
 .menu-outlet-avail {
   display: flex;
