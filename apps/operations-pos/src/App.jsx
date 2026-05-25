@@ -1603,6 +1603,12 @@ export default function App() {
     const isCreditSale     = !!creditPayment;
     const creditCustomer   = creditPayment?.creditCustomer || null;
 
+    // Stamp creditCustomer on the live order NOW so any reprint (from
+    // past orders or the next print-bill call) includes the customer name.
+    if (isCreditSale && creditCustomer) {
+      mutateOrder(tableId, o => { o.creditCustomer = creditCustomer; o.isCreditSale = true; return o; });
+    }
+
     const closedOrder = {
       ...structuredClone(order),
       payments:       allPayments,

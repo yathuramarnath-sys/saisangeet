@@ -51,6 +51,10 @@ export function printBill(order, items, outletOrName, options = {}) {
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const discount  = Math.min(order.discountAmount || 0, subtotal);
   const afterDisc = subtotal - discount;
+  // Discount % shown on bill — round to 1 decimal, drop ".0" for whole numbers
+  const discountPct = subtotal > 0 && discount > 0
+    ? (() => { const p = (discount / subtotal) * 100; return Number.isInteger(Math.round(p * 10) / 10) ? Math.round(p) : Math.round(p * 10) / 10; })()
+    : 0;
 
   // ── GST Treatment: "exclusive" (add on top) or "inclusive" (extract from price) ──
   const inclusive = (outlet?.gstTreatment === "inclusive");
@@ -262,7 +266,7 @@ export function printBill(order, items, outletOrName, options = {}) {
   <table class="items-tbl">
     <tbody>
       <tr><td colspan="3" class="sum-lbl">Subtotal</td><td class="col-amt sum-val">&#8377;${subtotal.toFixed(2)}</td></tr>
-      ${showDiscountOnBill && discount > 0 ? `<tr><td colspan="3" class="sum-lbl disc-lbl">Discount</td><td class="col-amt sum-val disc-val">&#8722;&#8377;${discount.toFixed(2)}</td></tr>` : ""}
+      ${showDiscountOnBill && discount > 0 ? `<tr><td colspan="3" class="sum-lbl disc-lbl">Discount (${discountPct}%)</td><td class="col-amt sum-val disc-val">&#8722;&#8377;${discount.toFixed(2)}</td></tr>` : ""}
       ${showGstBreakdown
         ? taxRows.map(t => `
       <tr><td colspan="3" class="sum-lbl">CGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.cgst.toFixed(2)}</td></tr>
