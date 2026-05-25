@@ -6776,6 +6776,21 @@ body { background: #F7F3EE; }
 .pcf-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .pcf-error { font-size: 12px; color: #dc2626; font-weight: 600; margin: 0; }
 
+/* Outstanding credit warning */
+.pcf-outstanding-warn {
+  display: flex; gap: 8px; align-items: flex-start;
+  background: #fff7ed; border: 1.5px solid #fed7aa;
+  border-radius: 8px; padding: 10px 12px; margin: 2px 0 4px;
+}
+.pcf-warn-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.pcf-warn-body { font-size: 12px; color: #92400e; line-height: 1.5; }
+.pcf-warn-body strong { color: #b45309; }
+.pcf-warn-bills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.pcf-warn-bill-chip {
+  background: #fef3c7; border: 1px solid #fcd34d; border-radius: 4px;
+  padding: 2px 7px; font-size: 11px; font-weight: 600; color: #92400e;
+}
+
 .payment-credit-settle-btn {
   width: 100%; margin: 0; padding: 13px;
   background: #d97706; border: none; border-top: 1.5px solid #b45309;
@@ -8970,7 +8985,27 @@ input, select, textarea {
   border-radius: 4px;
   letter-spacing: 0.5px;
 }
+.csp-customer-right {
+  display: flex; align-items: center; gap: 8px;
+}
 .csp-customer-total { font-weight: 800; font-size: 15px; color: #dc2626; }
+.csp-bill-count { font-size: 11px; color: #9ca3af; font-weight: 600; }
+
+/* Settle All button */
+.csp-settle-all-btn {
+  background: #dc2626; color: #fff; border: none; border-radius: 6px;
+  padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;
+  font-family: 'Manrope', sans-serif; letter-spacing: 0.3px;
+  transition: background 0.15s;
+}
+.csp-settle-all-btn:hover { background: #b91c1c; }
+
+/* Settle All bill breakdown lines */
+.csp-settle-bill-line {
+  display: flex; justify-content: space-between;
+  font-size: 12px; color: #6b7280; padding: 2px 0;
+  border-bottom: 1px dotted #e5e7eb;
+}
 
 /* Bill row */
 .csp-bill-row {

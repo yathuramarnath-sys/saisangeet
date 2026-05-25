@@ -245,6 +245,32 @@ operationsRouter.post("/credits/:id/settle", requireAuth, asyncHandler(async (re
   res.json({ ok: true, order: updated });
 }));
 
+// POST /operations/credits/settle-customer — settle ALL unpaid bills for a customer in one call
+operationsRouter.post("/credits/settle-customer", requireAuth, asyncHandler(async (req, res) => {
+  const { settleCreditOrder, getCreditOrders } = require("./closed-orders-store");
+  const tenantId   = req.user?.tenantId || "default";
+  const { customerName, method = "cash", reference = null, settledBy = null } = req.body;
+  if (!customerName?.trim()) return res.status(400).json({ error: "customerName required" });
+
+  const allOrders = await getCreditOrders(tenantId, null, null, null);
+  const unpaid = allOrders.filter(o =>
+    o.creditStatus !== "paid" &&
+    (o.creditCustomer?.name || "").trim().toLowerCase() === customerName.trim().toLowerCase()
+  );
+  if (!unpaid.length) return res.status(404).json({ error: "No unpaid bills found for this customer" });
+
+  const settled = [];
+  for (const order of unpaid) {
+    const id = order.id || order.orderNumber;
+    const result = await settleCreditOrder(tenantId, id, { method, reference, settledBy });
+    if (result) settled.push(id);
+  }
+
+  const io = req.app.locals.io;
+  if (io) io.to(`tenant:${tenantId}`).emit("credits:updated");
+  res.json({ ok: true, settledCount: settled.length, settledIds: settled });
+}));
+
 // Action log — Owner Console audit trail
 operationsRouter.get("/action-logs",   requireAuth, asyncHandler(async (req, res) => {
   const { getActionLogs } = require("../action-log/actionLog.service");

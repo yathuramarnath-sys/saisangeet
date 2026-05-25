@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getFinancials } from "./OrderPanel";
+import { api } from "../lib/api";
 
 const METHODS = [
   { id: "cash", label: "Cash",  icon: "₹"  },
@@ -26,6 +27,35 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
   });
   const [currentRef,    setCurrentRef]    = useState("");
   const [loading,       setLoading]       = useState(false);
+  // Outstanding credit warning — checked when cashier types customer name
+  const [existingCredit, setExistingCredit] = useState(null); // { count, total, bills[] }
+  const creditCheckTimer = useRef(null);
+
+  // Debounced check: when cashier types a name in credit form, look up outstanding bills
+  useEffect(() => {
+    const name = creditForm.name.trim();
+    if (!name || !showCredit) { setExistingCredit(null); return; }
+    if (creditCheckTimer.current) clearTimeout(creditCheckTimer.current);
+    creditCheckTimer.current = setTimeout(async () => {
+      try {
+        const all = await api.get("/operations/credits");
+        const unpaid = (Array.isArray(all) ? all : []).filter(b =>
+          b.creditStatus !== "paid" &&
+          (b.creditCustomer?.name || "").trim().toLowerCase() === name.toLowerCase()
+        );
+        if (unpaid.length > 0) {
+          const total = unpaid.reduce((s, b) => {
+            const p = b.payments?.find(p => p.method === "credit");
+            return s + (p?.amount || 0);
+          }, 0);
+          setExistingCredit({ count: unpaid.length, total, bills: unpaid });
+        } else {
+          setExistingCredit(null);
+        }
+      } catch { setExistingCredit(null); }
+    }, 600);
+    return () => { if (creditCheckTimer.current) clearTimeout(creditCheckTimer.current); };
+  }, [creditForm.name, showCredit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!fin) return null;
 
@@ -248,6 +278,27 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
                   autoFocus
                 />
               </div>
+              {/* Outstanding credit warning */}
+              {existingCredit && (
+                <div className="pcf-outstanding-warn">
+                  <span className="pcf-warn-icon">⚠️</span>
+                  <div className="pcf-warn-body">
+                    <strong>{creditForm.name.trim()}</strong> has <strong>{existingCredit.count} unpaid bill{existingCredit.count > 1 ? "s" : ""}</strong> totalling{" "}
+                    <strong>₹{Number(existingCredit.total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>
+                    <div className="pcf-warn-bills">
+                      {existingCredit.bills.map(b => {
+                        const p = b.payments?.find(p => p.method === "credit");
+                        return (
+                          <span key={b.id} className="pcf-warn-bill-chip">
+                            Bill #{b.billNo || b.orderNumber} · ₹{Number(p?.amount || 0).toLocaleString("en-IN")}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="pcf-field">
                 <label>GSTIN <span className="pcf-optional">(optional — required for Tax Invoice)</span></label>
                 <input
