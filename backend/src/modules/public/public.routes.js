@@ -7,7 +7,7 @@
  */
 const express = require("express");
 const { asyncHandler } = require("../../utils/async-handler");
-const { getOwnerSetupData } = require("../../data/owner-setup-store");
+const { getOwnerSetupData, getAllCachedTenants } = require("../../data/owner-setup-store");
 
 const publicRouter = express.Router();
 
@@ -16,9 +16,17 @@ publicRouter.get("/outlet", asyncHandler(async (req, res) => {
   const { outletId, tenantId } = req.query;
   if (!outletId) return res.status(400).json({ error: "outletId required" });
 
-  // Try to find outlet across all tenants (customer doesn't know tenantId)
-  // tenantId can be passed in QR link as optional hint for faster lookup
-  const tids = tenantId ? [tenantId] : ["default"];
+  // Build list of tenantIds to search.
+  // If tenantId is provided in the QR URL, try it first (fast path).
+  // Otherwise search all cached tenants so the QR works even without tid param.
+  let tids = [];
+  if (tenantId) tids.push(tenantId);
+  const allTenants = getAllCachedTenants();
+  for (const [tid] of allTenants) {
+    if (!tids.includes(tid)) tids.push(tid);
+  }
+  // Always include "default" as fallback
+  if (!tids.includes("default")) tids.push("default");
 
   for (const tid of tids) {
     const data   = getOwnerSetupData(tid);
@@ -49,12 +57,28 @@ publicRouter.get("/menu", asyncHandler(async (req, res) => {
   const { outletId, tenantId } = req.query;
   if (!outletId) return res.status(400).json({ error: "outletId required" });
 
-  // Use the same controller functions the authenticated menu routes use
   const { fetchMenuCategories, fetchMenuItems } = require("../menu/menu.service");
-  const [categories, items] = await Promise.all([
-    fetchMenuCategories(outletId).catch(() => []),
-    fetchMenuItems(outletId).catch(() => []),
-  ]);
+  const { runWithTenant } = require("../../data/tenant-context");
+
+  // Resolve correct tenantId — search all tenants if not provided
+  let resolvedTenantId = tenantId || null;
+  if (!resolvedTenantId) {
+    const allTenants = getAllCachedTenants();
+    for (const [tid, data] of allTenants) {
+      const found = (data?.outlets || []).some(o => o.id === outletId);
+      if (found) { resolvedTenantId = tid; break; }
+    }
+  }
+  resolvedTenantId = resolvedTenantId || "default";
+
+  // Run inside tenant context so menu.service reads the correct tenant's data
+  let categories = [], items = [];
+  await runWithTenant(resolvedTenantId, async () => {
+    [categories, items] = await Promise.all([
+      fetchMenuCategories(outletId).catch(() => []),
+      fetchMenuItems(outletId).catch(() => []),
+    ]);
+  });
 
   res.json({
     categories: categories || [],
