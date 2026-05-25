@@ -30,10 +30,11 @@ async function signupHandler(req, res) {
 
 function meHandler(req, res) {
   res.json({
-    id: req.user.sub,
-    fullName: req.user.fullName,
-    outletId: req.user.outletId,
-    roles: req.user.roles,
+    id:         req.user.sub,
+    fullName:   req.user.fullName,
+    outletId:   req.user.outletId,
+    tenantId:   req.user.tenantId,
+    roles:      req.user.roles,
     permissions: req.user.permissions
   });
 }

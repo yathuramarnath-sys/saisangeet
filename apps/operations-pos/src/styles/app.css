@@ -9352,6 +9352,9 @@ input, select, textarea {
 /* ── pab-btn lime (stock) ────────────────────────────────────────────────── */
 .pab-btn.lime { background: linear-gradient(135deg, #65a30d, #4d7c0f); }
 
+/* ── pab-btn emerald (QR orders) ─────────────────────────────────────────── */
+.pab-btn.emerald { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+
 /* ── Stock badges on menu cards ─────────────────────────────────────────── */
 .menu-food-card.stock-out { opacity: 0.6; }
 .mfc-stockout-label {

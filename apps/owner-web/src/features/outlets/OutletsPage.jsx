@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "../../lib/AuthContext";
 
 import {
   createOutlet,
@@ -213,8 +214,87 @@ function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave
   );
 }
 
+// ── QR Code Modal ─────────────────────────────────────────────────────────────
+const QR_BASE_URL = "https://order.dinexpos.in";
+
+function buildQRUrl(outletId, tableId, tableLabel, tenantId) {
+  const params = new URLSearchParams({ o: outletId, t: tableId, tl: tableLabel });
+  if (tenantId) params.set("tid", tenantId);
+  return `${QR_BASE_URL}?${params.toString()}`;
+}
+
+function qrImageUrl(text, size = 220) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&margin=10&ecc=M`;
+}
+
+function QRCodeModal({ outlet, tenantId, onClose }) {
+  const tables = outlet.tables || [];
+
+  function handlePrint() {
+    window.print();
+  }
+
+  if (!tables.length) {
+    return (
+      <div className="qr-backdrop" onClick={onClose}>
+        <div className="qr-modal" onClick={e => e.stopPropagation()}>
+          <div className="qr-modal-header">
+            <h3>QR Codes — {outlet.name}</h3>
+            <button className="qr-close-btn" onClick={onClose}>✕</button>
+          </div>
+          <p style={{ padding: "24px", color: "#9ca3af", textAlign: "center" }}>
+            No tables configured for this outlet.<br />Add tables in the Edit section first.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="qr-backdrop" onClick={onClose}>
+      <div className="qr-modal" onClick={e => e.stopPropagation()}>
+        <div className="qr-modal-header">
+          <h3>📱 QR Codes — {outlet.name}</h3>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="primary-btn" style={{ padding: "6px 16px", fontSize: "0.85rem" }} onClick={handlePrint}>
+              🖨️ Print All
+            </button>
+            <button className="qr-close-btn" onClick={onClose}>✕</button>
+          </div>
+        </div>
+        <p className="qr-modal-hint">
+          Customers scan → view menu → order → Captain App receives the order
+        </p>
+        <div className="qr-grid">
+          {tables.map(table => {
+            const tableLabel = table.name || table.tableNumber || table.id;
+            const qrUrl = buildQRUrl(outlet.id, table.id, tableLabel, tenantId);
+            return (
+              <div key={table.id} className="qr-card">
+                <img
+                  src={qrImageUrl(qrUrl)}
+                  alt={`QR for Table ${tableLabel}`}
+                  width={180}
+                  height={180}
+                  loading="lazy"
+                />
+                <div className="qr-card-label">{outlet.name}</div>
+                <div className="qr-card-table">Table {tableLabel}</div>
+                <div className="qr-card-area">{table.workArea || ""}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export function OutletsPage() {
+  const { user } = useAuth();
+  const tenantId = user?.tenantId || null;
+
   const [pageData,      setPageData]      = useState({ outlets: [], taxProfiles: [], receiptTemplates: [], devices: [] });
   const [loading,       setLoading]       = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
@@ -224,6 +304,7 @@ export function OutletsPage() {
   const [editSaving,    setEditSaving]    = useState(false);
   const [createDraft,   setCreateDraft]   = useState(buildCreateDraft({ taxProfiles: [], receiptTemplates: [] }));
   const [createSaving,  setCreateSaving]  = useState(false);
+  const [qrOutlet,      setQrOutlet]      = useState(null); // outlet shown in QR modal
   const formRef = useRef(null);
 
   useEffect(() => {
@@ -462,6 +543,10 @@ export function OutletsPage() {
                   {editingOutletId !== outlet.id && (
                     <div className="location-actions">
                       <button type="button" className="ghost-chip" onClick={() => startEditingOutlet(outlet)}>Edit</button>
+                      <button type="button" className="ghost-chip ghost-chip-qr"
+                        onClick={() => setQrOutlet(outlet)}>
+                        📱 QR Codes
+                      </button>
                       <button type="button" className={`ghost-chip${outlet.isActive ? "" : " ghost-chip-active"}`}
                         onClick={() => handleToggleOutletActive(outlet)}>
                         {outlet.isActive ? "Disable" : "Enable"}
@@ -496,6 +581,15 @@ export function OutletsPage() {
         </article>
 
       </section>
+
+      {/* QR Code Generator Modal */}
+      {qrOutlet && (
+        <QRCodeModal
+          outlet={qrOutlet}
+          tenantId={tenantId}
+          onClose={() => setQrOutlet(null)}
+        />
+      )}
     </>
   );
 }

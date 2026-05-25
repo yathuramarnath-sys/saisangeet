@@ -18,8 +18,10 @@ const { reportsRouter } = require("../modules/reports/reports.routes");
 const { shiftsRouter } = require("../modules/shifts/shifts.routes");
 const { setupRouter } = require("../modules/setup/setup.routes");
 const { kitchenRouter } = require("../modules/kitchen/kitchen.routes");
-const wastageRouter     = require("../modules/operations/wastage.routes");
-const waitlistRouter    = require("../modules/operations/waitlist.routes");
+const wastageRouter        = require("../modules/operations/wastage.routes");
+const waitlistRouter       = require("../modules/operations/waitlist.routes");
+const customerOrderRouter  = require("../modules/operations/customer-order.routes");
+const { publicRouter }     = require("../modules/public/public.routes");
 const { clientsRouter } = require("../modules/clients/clients.routes");
 const { billingRouter }    = require("../modules/billing/billing.routes");
 const { whatsappRouter }   = require("../modules/whatsapp/whatsapp.routes");
@@ -37,6 +39,9 @@ const { asyncHandler }  = require("../utils/async-handler");
 const { updateOwnerSetupDataNow, getOwnerSetupData } = require("../data/owner-setup-store");
 
 const apiRouter = express.Router();
+
+// ── Public: customer QR menu + outlet info — no auth needed ──────────────────
+apiRouter.use("/public", publicRouter);
 
 // ── Public: app version manifest — no auth needed ─────────────────────────────
 // Returns current versions for all Plato apps so clients can show update banners.
@@ -77,8 +82,9 @@ apiRouter.use("/reports", reportsRouter);
 apiRouter.use("/shifts", shiftsRouter);
 apiRouter.use("/setup", setupRouter);
 apiRouter.use("/kitchen-stations", kitchenRouter);
-apiRouter.use("/operations/wastage",   wastageRouter);
-apiRouter.use("/operations/waitlist",  waitlistRouter);
+apiRouter.use("/operations/wastage",        wastageRouter);
+apiRouter.use("/operations/waitlist",       waitlistRouter);
+apiRouter.use("/operations/customer-order", customerOrderRouter);
 apiRouter.use("/admin/clients", clientsRouter);
 apiRouter.use("/billing",        billingRouter);
 apiRouter.use("/whatsapp",       whatsappRouter);

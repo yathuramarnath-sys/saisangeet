@@ -1,0 +1,201 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Manrope", -apple-system, sans-serif;
+  background: #f9fafb;
+  color: #111827;
+  min-height: 100dvh;
+  -webkit-text-size-adjust: 100%;
+}
+
+button { font-family: inherit; cursor: pointer; }
+input, textarea, select { font-family: inherit; }
+
+/* ── App shell ─────────────────────────────────────────────────────────────── */
+.cw-app { display: flex; flex-direction: column; min-height: 100dvh; }
+
+.cw-header {
+  position: sticky; top: 0; z-index: 50;
+  background: #059669; color: #fff;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.cw-header-outlet { font-size: 0.95rem; font-weight: 700; }
+.cw-cart-icon-btn {
+  background: rgba(255,255,255,0.2); border: none; border-radius: 8px;
+  color: #fff; padding: 6px 12px; font-size: 1rem; font-weight: 700;
+  position: relative;
+}
+.cw-cart-icon-badge {
+  position: absolute; top: -6px; right: -6px;
+  background: #f59e0b; color: #fff; border-radius: 50%;
+  width: 18px; height: 18px; font-size: 0.7rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.cw-back-btn {
+  background: rgba(255,255,255,0.2); border: none; border-radius: 8px;
+  color: #fff; padding: 6px 12px; font-size: 0.85rem; font-weight: 600;
+}
+
+/* ── Splash / loading ──────────────────────────────────────────────────────── */
+.cw-splash {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 100dvh; gap: 16px; padding: 24px;
+  text-align: center; color: #6b7280;
+}
+.cw-spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid #e5e7eb; border-top-color: #059669;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.cw-error-icon { font-size: 2.5rem; }
+
+/* ── Step wrapper ──────────────────────────────────────────────────────────── */
+.cw-step {
+  flex: 1; padding: 24px 16px 40px;
+  display: flex; flex-direction: column; gap: 16px;
+  max-width: 480px; margin: 0 auto; width: 100%;
+}
+
+/* ── Step 1: Welcome / Info ────────────────────────────────────────────────── */
+.cw-welcome { text-align: center; padding: 24px 0 8px; }
+.cw-logo { font-size: 2.5rem; margin-bottom: 8px; }
+.cw-outlet { font-size: 1.4rem; font-weight: 800; color: #111827; }
+.cw-table-badge {
+  display: inline-block; margin: 10px auto 0;
+  background: #059669; color: #fff;
+  font-size: 0.88rem; font-weight: 700; border-radius: 20px;
+  padding: 4px 14px;
+}
+.cw-subtitle { font-size: 0.85rem; color: #6b7280; margin-top: 8px; }
+
+.cw-info-form { display: flex; flex-direction: column; gap: 14px; }
+.cw-info-form label {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 0.85rem; font-weight: 700; color: #374151;
+}
+.cw-info-form input {
+  padding: 12px 14px; border: 1.5px solid #d1d5db; border-radius: 10px;
+  font-size: 1rem; outline: none; transition: border-color 0.15s;
+}
+.cw-info-form input:focus { border-color: #059669; }
+
+.cw-error { font-size: 0.82rem; color: #dc2626; }
+
+.cw-primary-btn {
+  background: #059669; color: #fff; border: none; border-radius: 12px;
+  padding: 14px; font-size: 1rem; font-weight: 700;
+  width: 100%; margin-top: 4px;
+  transition: background 0.15s;
+}
+.cw-primary-btn:active { background: #047857; }
+.cw-primary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Step 2: Menu ──────────────────────────────────────────────────────────── */
+.cw-menu-wrap {
+  flex: 1; display: flex; flex-direction: column;
+  padding-bottom: 80px; /* space for floating cart bar */
+}
+
+.cw-search-bar {
+  display: flex; align-items: center; gap: 8px;
+  background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px;
+  padding: 10px 14px; margin: 12px 16px 0;
+}
+.cw-search-bar input { flex: 1; border: none; outline: none; font-size: 0.95rem; }
+.cw-search-icon { font-size: 0.9rem; }
+.cw-search-clear {
+  background: none; border: none; color: #9ca3af; font-size: 1rem; padding: 0;
+}
+
+.cw-cat-row {
+  display: flex; gap: 8px; overflow-x: auto; padding: 12px 16px 4px;
+  scrollbar-width: none;
+}
+.cw-cat-row::-webkit-scrollbar { display: none; }
+.cw-cat-pill {
+  flex-shrink: 0; background: #f3f4f6; border: none; border-radius: 20px;
+  padding: 6px 14px; font-size: 0.82rem; font-weight: 600; color: #374151;
+  white-space: nowrap; transition: all 0.15s;
+}
+.cw-cat-pill.active { background: #059669; color: #fff; }
+
+.cw-item-list { flex: 1; padding: 8px 16px; display: flex; flex-direction: column; gap: 0; }
+.cw-empty { text-align: center; color: #9ca3af; padding: 40px 0; font-size: 0.9rem; }
+
+.cw-item-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0; border-bottom: 1px solid #f3f4f6; gap: 12px;
+}
+.cw-item-info { flex: 1; min-width: 0; }
+.cw-item-name {
+  display: flex; align-items: center; font-size: 0.92rem; font-weight: 700;
+  color: #111827; margin-bottom: 2px;
+}
+.cw-item-desc { font-size: 0.77rem; color: #9ca3af; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-item-price { font-size: 0.88rem; font-weight: 700; color: #059669; }
+
+.cw-qty-ctrl { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.cw-qty-ctrl.small { gap: 4px; }
+.cw-qty-btn {
+  width: 30px; height: 30px; border-radius: 8px; border: none;
+  font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.cw-qty-btn.plus  { background: #059669; color: #fff; }
+.cw-qty-btn.minus { background: #f3f4f6; color: #374151; }
+.cw-qty-val { font-size: 0.9rem; font-weight: 800; min-width: 18px; text-align: center; }
+.cw-add-btn {
+  background: #fff; border: 1.5px solid #059669; color: #059669;
+  border-radius: 8px; padding: 6px 16px; font-size: 0.85rem; font-weight: 700;
+}
+
+/* Floating cart bar */
+.cw-cart-bar {
+  position: fixed; bottom: 16px; left: 16px; right: 16px;
+  background: #059669; color: #fff; border-radius: 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; cursor: pointer; z-index: 40;
+  box-shadow: 0 4px 20px rgba(5,150,105,0.4);
+}
+.cw-cart-count  { font-size: 0.82rem; font-weight: 700; background: rgba(255,255,255,0.2); padding: 3px 10px; border-radius: 20px; }
+.cw-cart-label  { font-size: 0.95rem; font-weight: 800; }
+.cw-cart-total  { font-size: 0.88rem; font-weight: 700; }
+
+/* ── Step 3: Cart ──────────────────────────────────────────────────────────── */
+.cw-cart-header { display: flex; align-items: center; justify-content: space-between; }
+.cw-cart-header h2 { font-size: 1.2rem; font-weight: 800; }
+
+.cw-cart-list { display: flex; flex-direction: column; gap: 0; }
+.cw-cart-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid #f3f4f6; gap: 12px;
+}
+.cw-cart-info { flex: 1; min-width: 0; }
+.cw-cart-name  { font-size: 0.9rem; font-weight: 700; }
+.cw-cart-price { font-size: 0.85rem; color: #059669; font-weight: 700; margin-top: 2px; display: block; }
+
+.cw-cart-total-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0; border-top: 2px solid #e5e7eb; margin-top: 4px;
+  font-size: 1rem;
+}
+.cw-cart-total-row strong { font-size: 1.1rem; color: #059669; }
+
+.cw-notes-label {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 0.85rem; font-weight: 700; color: #374151;
+}
+.cw-notes-label textarea {
+  padding: 10px 12px; border: 1.5px solid #d1d5db; border-radius: 10px;
+  font-size: 0.9rem; resize: none; outline: none;
+}
+.cw-notes-label textarea:focus { border-color: #059669; }
+
+/* ── Confirmed ─────────────────────────────────────────────────────────────── */
+.cw-confirmed { align-items: center; text-align: center; justify-content: center; min-height: 70vh; }
+.cw-confirm-icon { font-size: 4rem; margin-bottom: 8px; }
+.cw-confirmed h2 { font-size: 1.5rem; font-weight: 800; color: #059669; }
+.cw-confirmed p  { font-size: 0.9rem; color: #374151; margin-top: 8px; max-width: 280px; }
+.cw-confirm-sub  { font-size: 0.82rem; color: #9ca3af; }

@@ -340,6 +340,7 @@ export default function App() {
   });
   const [showOnlineOrders,    setShowOnlineOrders]    = useState(false);
   const [pendingOnlineCount,  setPendingOnlineCount]  = useState(0);
+  const [pendingQRCount,      setPendingQRCount]      = useState(0); // customer QR orders (notification only)
   const [onlineOrdersEnabled, setOnlineOrdersEnabled] = useState(() =>
     localStorage.getItem("pos_online_orders_enabled") !== "false"
   );
@@ -746,6 +747,12 @@ export default function App() {
             if (enabled) setPendingOnlineCount(n => n + 1);
             return enabled;
           });
+        });
+
+        // ── QR table orders from customers (handled by Captain App; POS just shows badge) ──
+        socket.on("customer:order:new", (order) => {
+          setPendingQRCount(n => n + 1);
+          showToast(`📲 QR Order — Table ${order.tableLabel || order.tableId} (${order.customerName})`);
         });
 
         // ── PhonePe QR payment confirmed (via webhook → socket) ───────────────
@@ -2341,6 +2348,14 @@ export default function App() {
             title={onlineOrdersEnabled ? "Online orders ON — click to pause" : "Online orders PAUSED — click to enable"}
           >
             <span>{onlineOrdersEnabled ? "Online ON" : "Online OFF"}</span>
+          </button>
+          <button type="button" className="pab-btn emerald"
+            onClick={() => setPendingQRCount(0)}
+            title="QR table orders from customers — handled by Captain App">
+            <span className="pab-label">📲 QR Orders</span>
+            {pendingQRCount > 0 && (
+              <span className="pab-badge">{pendingQRCount}</span>
+            )}
           </button>
           <button type="button" className="pab-btn blue"
             onClick={() => setShowPastOrders(true)}>
