@@ -1,19 +1,18 @@
 {
   "pos": {
-    "version": "1.4.51",
+    "version": "1.4.52",
     "label": "POS Terminal",
-    "changelog": "Inventory management — track finished product stock, auto-deduct on KOT, low stock alerts, table waitlist, void/cancel PIN protection",
+    "changelog": "Barcode scanner support, tap-to-edit quantity, GST inclusive bill fix, QR ordering improvements",
     "whatsNew": [
-      "📦 New Stock panel — cashier adds daily stock counts, deducts automatically on every KOT",
-      "🔴 Out of stock items are blocked from adding to cart (owner can allow negative)",
-      "🟠 Low stock badge shows on menu grid when item falls below threshold",
-      "🪑 Table Waitlist — manage walk-in queue, seat parties, SMS notifications",
-      "🔒 Void and Cancel now require manager PIN"
+      "🔍 Barcode scanner — plug in USB scanner, scan product → auto-adds to order instantly",
+      "✏️ Tap quantity number to type directly — no more clicking + 25 times",
+      "🧾 GST bill fix — CGST/SGST now shows correctly for inclusive-priced items",
+      "📱 QR Codes button now visible inside outlet edit form"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.4.51"
+      "3. Log in with your cashier PIN — you are on v1.4.52"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,

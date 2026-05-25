@@ -1,41 +1,98 @@
 {
   "pos": {
-    "version": "1.4.51",
+    "version": "1.4.52",
     "label": "POS Terminal",
+    "changelog": "Barcode scanner support, tap-to-edit quantity, GST inclusive bill fix, QR ordering improvements",
+    "whatsNew": [
+      "🔍 Barcode scanner — plug in USB scanner, scan product → auto-adds to order instantly",
+      "✏️ Tap quantity number to type directly — no more clicking + 25 times",
+      "🧾 GST bill fix — CGST/SGST now shows correctly for inclusive-priced items",
+      "📱 QR Codes button now visible inside outlet edit form"
+    ],
+    "installGuide": [
+      "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
+      "2. Installation happens automatically — POS opens when done",
+      "3. Log in with your cashier PIN — you are on v1.4.52"
+    ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
-    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-pos.apk",
+    "apkUrl": null,
     "releaseDate": "2026-05-25"
   },
   "captain": {
-    "version": "1.16",
+    "version": "1.25",
     "label": "Captain App",
-    "changelog": "Fix merge/transfer sync — freed table clears properly on POS; secondary actions now show as single-line list",
+    "changelog": "Concurrent edit merge fix — local unsent items no longer lost on socket sync",
+    "whatsNew": [
+      "🔄 Orders no longer lose unsent items when another device updates the table"
+    ],
+    "installGuide": [
+      "1. On Android, go to Settings → Security → Allow Install from Unknown Sources",
+      "2. Transfer 'plato-captain.apk' to your phone (WhatsApp, USB, or Google Drive)",
+      "3. Open the APK file on your phone and tap Install",
+      "4. If asked to uninstall old version first — tap Uninstall, then Install again",
+      "5. Open Captain App and enter your outlet code"
+    ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
-    "releaseDate": "2026-05-15"
+    "releaseDate": "2026-05-23"
   },
   "kds": {
     "version": "1.7",
     "label": "Kitchen Display",
-    "changelog": "Coloured source stripe, table-first card header, highlighted item notes, large-screen support for Android TV and 21-50\" monitors",
+    "changelog": "Coloured source stripe, table-first card header, highlighted item notes, large-screen support",
+    "whatsNew": [
+      "🎨 Order source colour stripe (green = POS, blue = Captain, orange = Online)",
+      "📋 Table number shown first on each KOT card",
+      "📝 Item notes highlighted in yellow for easy reading",
+      "🖥️ Better layout on large screens"
+    ],
+    "installGuide": [
+      "1. On Android tablet, go to Settings → Security → Allow Install from Unknown Sources",
+      "2. Transfer 'plato-kds.apk' to the tablet",
+      "3. Open the APK and tap Install",
+      "4. Open Kitchen Display and enter your outlet code",
+      "5. Select your kitchen station from the Settings tab"
+    ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-kds.apk",
-    "releaseDate": "2026-05-13"
+    "releaseDate": "2026-05-23"
   },
   "ownerWeb": {
-    "version": "0.2.0",
+    "version": "0.2.1",
     "label": "Owner Dashboard",
-    "changelog": "App Store download page, update notifications",
+    "changelog": "Inventory tracking per outlet — enable tracking per item, set allowNegative, view live stock levels, low stock threshold in item form",
+    "whatsNew": [
+      "📦 Inventory page — enable stock tracking per item per outlet",
+      "🔄 Allow Negative toggle per outlet — control whether POS blocks at 0",
+      "📊 Live stock levels visible in Owner Console (read-only)",
+      "⚠️ Set low stock alert threshold per item in Menu → item form",
+      "🗃️ Compact table editor in Outlets — create and edit tables inline"
+    ],
+    "installGuide": [
+      "No installation needed — Owner Dashboard updates automatically.",
+      "Just refresh your browser (Ctrl+R or Cmd+R) to get the latest version."
+    ],
     "downloadUrl": null,
     "apkUrl": null,
-    "releaseDate": "2026-05-12"
+    "releaseDate": "2026-05-25"
   },
   "tabletPos": {
     "version": "1.1.4",
     "label": "Tablet POS",
-    "changelog": "GST Treatment toggle, New Order tab, FSSAI field, ghost void fixes, split bill auto-close",
+    "changelog": "Area override price pickup, concurrent edit merge fix",
+    "whatsNew": [
+      "💰 Area-specific prices now apply correctly (Rooftop, AC Hall, etc.)",
+      "🔄 Orders no longer lose unsent items on socket sync"
+    ],
+    "installGuide": [
+      "1. On Android tablet, go to Settings → Security → Allow Install from Unknown Sources",
+      "2. Transfer the APK to the tablet",
+      "3. Uninstall the old Tablet POS first if prompted",
+      "4. Open the APK and tap Install",
+      "5. Open Tablet POS and enter your outlet code"
+    ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-Tablet-POS-v1.1.4.apk",
-    "releaseDate": "2026-05-22"
+    "releaseDate": "2026-05-23"
   }
 }
