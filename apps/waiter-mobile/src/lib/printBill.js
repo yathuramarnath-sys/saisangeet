@@ -38,19 +38,20 @@ export function printBill(order, items, outletData, options = {}) {
   const afterDisc = subtotal - discount;
 
   // ── Per-item tax calculation ───────────────────────────────────────────────
+  // Accumulate as decimals so CGST and SGST split evenly (e.g. ₹0.50 + ₹0.50, not ₹1 + ₹0)
   const taxBreakdown = {};
   billableItems.forEach(i => {
     const lineAmt   = i.price * i.quantity;
     const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
-    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-    const lineTax   = Math.round(lineAfter * rate / 100);
+    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+    const lineTax   = lineAfter * rate / 100;
     taxBreakdown[rate] = (taxBreakdown[rate] || 0) + lineTax;
   });
   const taxRows  = Object.entries(taxBreakdown).map(([rate, amt]) => ({
     rate:    Number(rate),
     cgstPct: Number(rate) / 2,
-    cgst:    Math.round(amt / 2),
-    sgst:    amt - Math.round(amt / 2),
+    cgst:    amt / 2,
+    sgst:    amt / 2,
   }));
   const taxTotal = taxRows.reduce((s, r) => s + r.cgst + r.sgst, 0);
   const total    = afterDisc + taxTotal;

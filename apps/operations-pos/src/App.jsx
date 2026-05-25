@@ -924,6 +924,19 @@ export default function App() {
     };
   }, [outlet]);
 
+  // ── Background outlet + menu refresh every 10 minutes ────────────────────
+  // Safety net for when the Owner Console changes gstTreatment, taxRate, or
+  // other settings while the POS is running. Socket sync:config handles it
+  // instantly, but this periodic refresh catches missed events (e.g. POS was
+  // offline or connected before the Owner Web made the change).
+  useEffect(() => {
+    if (!outlet?.id) return;
+    const id = setInterval(() => {
+      syncMenuData(outlet.id);
+    }, 10 * 60 * 1000); // every 10 minutes
+    return () => clearInterval(id);
+  }, [outlet?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Cashier-visible print failure alerts ──────────────────────────────────
   // printBill.js and kotPrint.js dispatch this event when Electron silent
   // printing fails — otherwise the cashier has no idea the KOT/Bill didn't print.
