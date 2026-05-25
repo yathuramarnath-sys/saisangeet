@@ -15,22 +15,34 @@ function generateSyncCode() {
 async function fetchOutlets() {
   const data = getOwnerSetupData();
   const bp   = data.businessProfile || {};
-  // Merge business-profile receipt fields into each outlet so POS/Captain
-  // can print a complete bill header without a separate API call.
-  return (data.outlets || []).map(o => ({
-    ...o,
-    phone:         o.phone         || bp.phone         || "",
-    addressLine1:  o.addressLine1  || bp.addressLine1  || "",
-    addressLine2:  o.addressLine2  || bp.addressLine2  || "",
-    city:          o.city          || bp.city          || "",
-    state:         o.state         || bp.state         || "",
-    gstin:         o.gstin         || bp.gstin         || "",
-    fssaiNo:       o.fssaiNo       || bp.fssaiNo       || "",
-    showFssai:     o.showFssai     ?? true,
-    gstTreatment:  o.gstTreatment  || "exclusive",
-    invoiceHeader: o.invoiceHeader || bp.invoiceHeader || "",
-    invoiceFooter: o.invoiceFooter || bp.invoiceFooter || "",
-  }));
+  const taxProfiles = data.taxProfiles || [];
+
+  return (data.outlets || []).map(o => {
+    // Resolve default tax rate (CGST + SGST) from the outlet's defaultTaxProfileId.
+    // This is used as a per-item fallback in printBill.js when item.taxRate is null/empty.
+    const defaultProfile = o.defaultTaxProfileId
+      ? taxProfiles.find(tp => tp.id === o.defaultTaxProfileId)
+      : (taxProfiles.find(tp => tp.isDefault) || taxProfiles[0]);
+    const defaultTaxRate = defaultProfile
+      ? (Number(defaultProfile.cgstRate || 0) + Number(defaultProfile.sgstRate || 0))
+      : 0;
+
+    return {
+      ...o,
+      phone:          o.phone         || bp.phone         || "",
+      addressLine1:   o.addressLine1  || bp.addressLine1  || "",
+      addressLine2:   o.addressLine2  || bp.addressLine2  || "",
+      city:           o.city          || bp.city          || "",
+      state:          o.state         || bp.state         || "",
+      gstin:          o.gstin         || bp.gstin         || "",
+      fssaiNo:        o.fssaiNo       || bp.fssaiNo       || "",
+      showFssai:      o.showFssai     ?? true,
+      gstTreatment:   o.gstTreatment  || "exclusive",
+      invoiceHeader:  o.invoiceHeader || bp.invoiceHeader || "",
+      invoiceFooter:  o.invoiceFooter || bp.invoiceFooter || "",
+      defaultTaxRate,   // ← resolved numeric rate (e.g. 5 for GST 5%), used as bill fallback
+    };
+  });
 }
 
 /**

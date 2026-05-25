@@ -1489,11 +1489,12 @@ export default function App() {
     const subtotal     = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
     const disc         = Math.min(order.discountAmount || 0, subtotal);
     const afterDisc    = subtotal - disc;
-    // Per-item tax (mirrors printBill.js logic — defaults to 0% if item.taxRate unset)
-    const inclusive    = outlet?.gstTreatment === "inclusive";
+    // Per-item tax (mirrors printBill.js logic — falls back to outlet defaultTaxRate if unset)
+    const inclusive          = outlet?.gstTreatment === "inclusive";
+    const defaultItemTaxRate = outlet?.defaultTaxRate ?? 0;
     const taxAmt       = billableItems.reduce((s, i) => {
       const lineAfter = subtotal > 0 ? (i.price * i.quantity) * (afterDisc / subtotal) : 0;
-      const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 0;
+      const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : defaultItemTaxRate;
       return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     }, 0);
     const total        = inclusive ? afterDisc : afterDisc + taxAmt;

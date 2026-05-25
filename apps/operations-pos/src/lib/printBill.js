@@ -55,7 +55,13 @@ export function printBill(order, items, outletOrName, options = {}) {
   // ── GST Treatment: "exclusive" (add on top) or "inclusive" (extract from price) ──
   const inclusive = (outlet?.gstTreatment === "inclusive");
 
-  // ── Per-item tax calculation (reads item.taxRate; defaults to 0% if not set) ──
+  // Outlet-level fallback rate — used when an item has no taxRate assigned.
+  // outlet.defaultTaxRate is CGST+SGST combined (e.g. 5 for "GST 5%").
+  // This prevents items configured in Owner Console without a per-item tax
+  // from silently printing as 0% GST on the bill.
+  const defaultItemTaxRate = outlet?.defaultTaxRate ?? 0;
+
+  // ── Per-item tax calculation ──────────────────────────────────────────────
   // Discount is spread proportionally across items before applying tax.
   // NOTE: We accumulate as decimals (no Math.round per item) so that CGST and SGST
   // split evenly — e.g. ₹20 item at 5% exclusive = ₹0.50 CGST + ₹0.50 SGST (not ₹1 + ₹0).
@@ -64,7 +70,8 @@ export function printBill(order, items, outletOrName, options = {}) {
     const lineAmt   = i.price * i.quantity;
     // Proportional share of discount for this line
     const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
-    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+    // Use per-item taxRate; fall back to outlet default when not explicitly set
+    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultItemTaxRate;
     const lineTax   = lineAfter * rate / (inclusive ? (100 + rate) : 100);
     taxBreakdown[rate] = (taxBreakdown[rate] || 0) + lineTax;
   });

@@ -37,14 +37,22 @@ export function printBill(order, items, outletData, options = {}) {
   const discount  = Math.min(order.discountAmount || 0, subtotal);
   const afterDisc = subtotal - discount;
 
+  // ── GST Treatment: "exclusive" (add on top) or "inclusive" (extract from price) ──
+  const inclusive = (outletObj?.gstTreatment === "inclusive");
+
+  // Outlet-level fallback rate — used when an item has no taxRate assigned.
+  // outletObj.defaultTaxRate is CGST+SGST combined (e.g. 5 for "GST 5%").
+  const defaultItemTaxRate = outletObj?.defaultTaxRate ?? 0;
+
   // ── Per-item tax calculation ───────────────────────────────────────────────
   // Accumulate as decimals so CGST and SGST split evenly (e.g. ₹0.50 + ₹0.50, not ₹1 + ₹0)
   const taxBreakdown = {};
   billableItems.forEach(i => {
     const lineAmt   = i.price * i.quantity;
     const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
-    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
-    const lineTax   = lineAfter * rate / 100;
+    // Use per-item taxRate; fall back to outlet default when not explicitly set
+    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultItemTaxRate;
+    const lineTax   = lineAfter * rate / (inclusive ? (100 + rate) : 100);
     taxBreakdown[rate] = (taxBreakdown[rate] || 0) + lineTax;
   });
   const taxRows  = Object.entries(taxBreakdown).map(([rate, amt]) => ({
@@ -54,7 +62,9 @@ export function printBill(order, items, outletData, options = {}) {
     sgst:    amt / 2,
   }));
   const taxTotal = taxRows.reduce((s, r) => s + r.cgst + r.sgst, 0);
-  const total    = afterDisc + taxTotal;
+  // Inclusive: tax is already inside the price — total = afterDisc (no extra)
+  // Exclusive: tax is added on top — total = afterDisc + tax
+  const total    = inclusive ? afterDisc : afterDisc + taxTotal;
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
