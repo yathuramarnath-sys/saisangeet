@@ -199,3 +199,45 @@ input, textarea, select { font-family: inherit; }
 .cw-confirmed h2 { font-size: 1.5rem; font-weight: 800; color: #059669; }
 .cw-confirmed p  { font-size: 0.9rem; color: #374151; margin-top: 8px; max-width: 280px; }
 .cw-confirm-sub  { font-size: 0.82rem; color: #9ca3af; }
+
+/* ── Post-order actions screen ───────────────────────────────────────────── */
+.cw-actions-step { gap: 20px; }
+.cw-confirmed-top { text-align: center; padding: 16px 0 8px; }
+.cw-confirmed-top .cw-confirm-icon { font-size: 3rem; margin-bottom: 8px; }
+.cw-confirmed-top h2 { font-size: 1.4rem; font-weight: 800; color: #059669; }
+.cw-confirmed-top p  { font-size: 0.88rem; color: #374151; margin-top: 6px; }
+
+.cw-action-cards { display: flex; flex-direction: column; gap: 12px; }
+.cw-action-card {
+  display: flex; align-items: center; gap: 14px;
+  background: #fff; border: 1.5px solid #e5e7eb; border-radius: 14px;
+  padding: 16px; text-align: left; width: 100%; cursor: pointer;
+  transition: all 0.15s;
+}
+.cw-action-card:active { transform: scale(0.98); }
+.cw-action-card.done  { background: #f0fdf4; border-color: #a7f3d0; }
+.cw-action-card:disabled { opacity: 0.7; cursor: not-allowed; }
+.cw-action-icon { font-size: 1.8rem; flex-shrink: 0; }
+.cw-action-card > div { flex: 1; }
+.cw-action-title { font-size: 0.95rem; font-weight: 800; color: #111827; }
+.cw-action-sub   { font-size: 0.78rem; color: #9ca3af; margin-top: 2px; }
+.cw-action-arrow { font-size: 1.1rem; color: #9ca3af; flex-shrink: 0; }
+
+.cw-action-menu   { border-color: #a7f3d0; background: #f0fdf4; }
+.cw-action-bill   { border-color: #fde68a; background: #fffbeb; }
+.cw-action-waiter { border-color: #bfdbfe; background: #eff6ff; }
+.cw-action-bill.done   { background: #f0fdf4; border-color: #a7f3d0; }
+.cw-action-waiter.done { background: #f0fdf4; border-color: #a7f3d0; }
+
+/* Toast */
+.cw-toast {
+  position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+  background: #111827; color: #fff; border-radius: 10px;
+  padding: 10px 18px; font-size: 0.85rem; font-weight: 600;
+  z-index: 100; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  animation: fadeInDown 0.2s ease;
+}
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

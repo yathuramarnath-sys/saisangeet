@@ -167,21 +167,10 @@ function StepMenu({ categories, items, cart, onAdd, onRemove, onCheckout }) {
   );
 }
 
-// ── Step 3: Cart / Confirm ────────────────────────────────────────────────────
-function StepCart({ cart, customerName, tableLabel, onAdd, onRemove, onConfirm, submitting, submitted }) {
+// ── Step 3: Cart ──────────────────────────────────────────────────────────────
+function StepCart({ cart, customerName, tableLabel, onAdd, onRemove, onConfirm, submitting }) {
   const [notes, setNotes] = useState("");
   const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-
-  if (submitted) {
-    return (
-      <div className="cw-step cw-confirmed">
-        <div className="cw-confirm-icon">✅</div>
-        <h2>Order Placed!</h2>
-        <p>Hi <strong>{customerName}</strong>, your order for <strong>Table {tableLabel}</strong> has been sent.</p>
-        <p className="cw-confirm-sub">Our team will confirm and send it to the kitchen shortly.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="cw-step">
@@ -224,10 +213,110 @@ function StepCart({ cart, customerName, tableLabel, onAdd, onRemove, onConfirm, 
   );
 }
 
+// ── Step 4: Post-Order Actions ────────────────────────────────────────────────
+function StepActions({ customerName, tableLabel, outletId, tableId, tenantId, onAddMore }) {
+  const [billStatus,   setBillStatus]   = useState("idle");   // idle | sending | done
+  const [waiterStatus, setWaiterStatus] = useState("idle");
+  const [toast,        setToast]        = useState("");
+
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(""), 3000);
+  }
+
+  async function handleRequestBill() {
+    setBillStatus("sending");
+    try {
+      await post("/public/bill-request", { outletId, tableId, tableLabel, tenantId, customerName });
+      setBillStatus("done");
+      showToast("✅ Bill request sent! Our staff will bring it shortly.");
+    } catch {
+      setBillStatus("idle");
+      showToast("⚠️ Could not send request. Please ask staff directly.");
+    }
+  }
+
+  async function handleCallWaiter() {
+    setWaiterStatus("sending");
+    try {
+      await post("/public/call-waiter", { outletId, tableId, tableLabel, tenantId, customerName });
+      setWaiterStatus("done");
+      showToast("✅ Waiter notified! Someone will be with you shortly.");
+    } catch {
+      setWaiterStatus("idle");
+      showToast("⚠️ Could not send request. Please wave to our staff.");
+    }
+  }
+
+  return (
+    <div className="cw-step cw-actions-step">
+      {/* Toast */}
+      {toast && <div className="cw-toast">{toast}</div>}
+
+      <div className="cw-confirmed-top">
+        <div className="cw-confirm-icon">✅</div>
+        <h2>Order Placed!</h2>
+        <p>Hi <strong>{customerName}</strong>, your order has been sent to the kitchen.</p>
+        <div className="cw-table-badge" style={{ marginTop: 8 }}>Table {tableLabel}</div>
+      </div>
+
+      <div className="cw-action-cards">
+
+        {/* Add more items */}
+        <button className="cw-action-card cw-action-menu" onClick={onAddMore}>
+          <span className="cw-action-icon">🍛</span>
+          <div>
+            <div className="cw-action-title">Order More</div>
+            <div className="cw-action-sub">Add items for next round</div>
+          </div>
+          <span className="cw-action-arrow">→</span>
+        </button>
+
+        {/* Request bill */}
+        <button
+          className={`cw-action-card cw-action-bill${billStatus === "done" ? " done" : ""}`}
+          onClick={handleRequestBill}
+          disabled={billStatus !== "idle"}
+        >
+          <span className="cw-action-icon">🧾</span>
+          <div>
+            <div className="cw-action-title">
+              {billStatus === "done" ? "Bill Requested ✓" : "Request Bill"}
+            </div>
+            <div className="cw-action-sub">
+              {billStatus === "sending" ? "Sending…" : "Get your bill at the table"}
+            </div>
+          </div>
+          {billStatus === "idle" && <span className="cw-action-arrow">→</span>}
+        </button>
+
+        {/* Call waiter */}
+        <button
+          className={`cw-action-card cw-action-waiter${waiterStatus === "done" ? " done" : ""}`}
+          onClick={handleCallWaiter}
+          disabled={waiterStatus !== "idle"}
+        >
+          <span className="cw-action-icon">🛎️</span>
+          <div>
+            <div className="cw-action-title">
+              {waiterStatus === "done" ? "Waiter Called ✓" : "Call Waiter"}
+            </div>
+            <div className="cw-action-sub">
+              {waiterStatus === "sending" ? "Sending…" : "Need assistance at your table"}
+            </div>
+          </div>
+          {waiterStatus === "idle" && <span className="cw-action-arrow">→</span>}
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 export function App() {
   const params = getParams();
-  const [step,         setStep]        = useState("loading"); // loading|error|info|menu|cart
+  const [step,         setStep]        = useState("loading");
   const [outlet,       setOutlet]      = useState(null);
   const [categories,   setCategories]  = useState([]);
   const [menuItems,    setMenuItems]   = useState([]);
@@ -235,17 +324,16 @@ export function App() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone,setCustomerPhone] = useState("");
   const [submitting,   setSubmitting]  = useState(false);
-  const [submitted,    setSubmitted]   = useState(false);
   const [errorMsg,     setErrorMsg]    = useState("");
+  // tenantId resolved from outlet response (more reliable than URL param)
+  const [resolvedTenantId, setResolvedTenantId] = useState(params.tenantId || "");
 
-  // Load outlet + menu on mount
   useEffect(() => {
     if (!params.outletId || !params.tableId) {
       setErrorMsg("Invalid QR code — missing outlet or table information.");
       setStep("error");
       return;
     }
-
     const tid = params.tenantId ? `&tenantId=${params.tenantId}` : "";
     Promise.all([
       get(`/public/outlet?outletId=${params.outletId}${tid}`),
@@ -253,6 +341,8 @@ export function App() {
     ]).then(([outletData, menuData]) => {
       if (outletData?.error) throw new Error(outletData.error);
       setOutlet(outletData);
+      // Use tenantId returned by backend (most reliable)
+      if (outletData?.tenantId) setResolvedTenantId(outletData.tenantId);
       setCategories(menuData.categories || []);
       setMenuItems(menuData.items || []);
       setStep("info");
@@ -299,7 +389,7 @@ export function App() {
         notes:    notes || "",
       }));
       await post("/operations/customer-order", {
-        tenantId:      outlet?.tenantId || "default",
+        tenantId:      resolvedTenantId || outlet?.tenantId || "default",
         outletId:      params.outletId,
         tableId:       params.tableId,
         tableLabel:    params.tableLabel,
@@ -307,8 +397,8 @@ export function App() {
         customerPhone,
         items:         orderItems,
       });
-      setSubmitted(true);
-      setStep("cart");
+      setCart([]); // clear cart for next order
+      setStep("actions");
     } catch (err) {
       alert(err.message || "Failed to place order. Please try again.");
     } finally {
@@ -348,12 +438,14 @@ export function App() {
             🛒 {cart.length > 0 && <span className="cw-cart-icon-badge">{cart.reduce((s,i) => s+i.quantity, 0)}</span>}
           </button>
         )}
-        {step === "cart" && !submitted && (
+        {step === "cart" && (
           <button className="cw-back-btn" onClick={() => setStep("menu")}>← Menu</button>
+        )}
+        {step === "actions" && (
+          <button className="cw-back-btn" onClick={() => setStep("menu")}>+ Order More</button>
         )}
       </div>
 
-      {/* Steps */}
       {step === "info" && (
         <StepInfo
           outletName={outlet?.name}
@@ -380,7 +472,16 @@ export function App() {
           onRemove={removeFromCart}
           onConfirm={handleConfirm}
           submitting={submitting}
-          submitted={submitted}
+        />
+      )}
+      {step === "actions" && (
+        <StepActions
+          customerName={customerName}
+          tableLabel={params.tableLabel}
+          outletId={params.outletId}
+          tableId={params.tableId}
+          tenantId={resolvedTenantId}
+          onAddMore={() => setStep("menu")}
         />
       )}
     </div>

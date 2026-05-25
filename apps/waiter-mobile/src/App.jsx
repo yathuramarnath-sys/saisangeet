@@ -329,6 +329,14 @@ export function App() {
           .then((data) => { if (Array.isArray(data) && data.length) setCustomerOrders(data); })
           .catch(() => {});
 
+        // ── Waiter called from customer QR page ─────────────────────────────
+        socket.on("waiter:called", ({ tableLabel, tableId, customerName }) => {
+          toast(`🛎️ Table ${tableLabel || tableId} needs assistance${customerName ? ` — ${customerName}` : ""}`, {
+            duration: 6000,
+            style: { background: "#2563eb", color: "#fff" },
+          });
+        });
+
         // ── Local POS WiFi server — auto-reconnect + auto-scan ───────────────
         // Scans 192.168.1/0 and 10.0.0 subnets when saved IP stops responding,
         // updates the saved IP, and reconnects silently. No manual steps needed

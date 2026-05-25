@@ -95,4 +95,47 @@ publicRouter.get("/menu", asyncHandler(async (req, res) => {
   });
 }));
 
+// ── POST /public/bill-request ─────────────────────────────────────────────────
+publicRouter.post("/bill-request", asyncHandler(async (req, res) => {
+  const { outletId, tableId, tableLabel, tenantId, customerName } = req.body || {};
+  if (!outletId || !tableId) return res.status(400).json({ error: "outletId and tableId required" });
+
+  const tid = await resolveTenantForOutlet(outletId, tenantId) || tenantId || "default";
+  const io  = req.app.locals.io;
+  if (io) {
+    io.to(`outlet:${tid}:${outletId}`).emit("bill:requested", {
+      tableId,
+      tableLabel: tableLabel || tableId,
+      isSplit:    false,
+      source:     "qr",
+      customerName: customerName || "",
+    });
+  }
+  // Also persist via operations bill-request so POS table turns blue
+  try {
+    const { requestOrderBill } = require("../operations/operations.repository");
+    await runWithTenant(tid, () => requestOrderBill(tableId, `${customerName || "Customer"} (QR)`, false));
+  } catch (_) { /* non-critical */ }
+
+  res.json({ ok: true });
+}));
+
+// ── POST /public/call-waiter ──────────────────────────────────────────────────
+publicRouter.post("/call-waiter", asyncHandler(async (req, res) => {
+  const { outletId, tableId, tableLabel, tenantId, customerName } = req.body || {};
+  if (!outletId || !tableId) return res.status(400).json({ error: "outletId and tableId required" });
+
+  const tid = await resolveTenantForOutlet(outletId, tenantId) || tenantId || "default";
+  const io  = req.app.locals.io;
+  if (io) {
+    io.to(`outlet:${tid}:${outletId}`).emit("waiter:called", {
+      tableId,
+      tableLabel: tableLabel || tableId,
+      customerName: customerName || "",
+      calledAt: new Date().toISOString(),
+    });
+  }
+  res.json({ ok: true });
+}));
+
 module.exports = { publicRouter };

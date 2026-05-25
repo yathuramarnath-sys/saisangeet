@@ -755,6 +755,11 @@ export default function App() {
           showToast(`📲 QR Order — Table ${order.tableLabel || order.tableId} (${order.customerName})`);
         });
 
+        // ── Waiter called from customer QR page ───────────────────────────────
+        socket.on("waiter:called", ({ tableLabel, tableId, customerName }) => {
+          showToast(`🛎️ Waiter called — Table ${tableLabel || tableId}${customerName ? ` (${customerName})` : ""}`);
+        });
+
         // ── PhonePe QR payment confirmed (via webhook → socket) ───────────────
         // Primary handling is inside PhonePeQRModal (onConfirmed prop).
         // This listener catches the case where no modal is open (e.g. Captain App
