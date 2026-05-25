@@ -126,7 +126,7 @@ function TableEditor({ tables, workAreas, onChange }) {
 }
 
 // ── Inline outlet edit form (renders inside the outlet card) ──────────────────
-function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave, onCancel, saving, statusMessage, statusError }) {
+function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave, onCancel, onQRCode, saving, statusMessage, statusError }) {
   return (
     <form className="outlet-inline-form" onSubmit={onSave}>
       <div className="outlet-inline-grid">
@@ -209,6 +209,11 @@ function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave
       <div className="outlet-inline-btns">
         <button type="submit" className="primary-btn" disabled={saving}>{saving ? "Saving…" : "Save Changes"}</button>
         <button type="button" className="ghost-btn" onClick={onCancel}>Cancel</button>
+        {onQRCode && (
+          <button type="button" className="ghost-chip ghost-chip-qr" onClick={onQRCode} style={{ marginLeft: "auto" }}>
+            📱 QR Codes
+          </button>
+        )}
       </div>
     </form>
   );
@@ -533,6 +538,7 @@ export function OutletsPage() {
                       receiptTemplates={pageData.receiptTemplates}
                       onSave={handleSaveOutlet}
                       onCancel={cancelEditingOutlet}
+                      onQRCode={() => setQrOutlet(outlet)}
                       saving={editSaving}
                       statusMessage={statusMessage}
                       statusError={statusError}
