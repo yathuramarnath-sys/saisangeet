@@ -55,6 +55,8 @@ export function InventoryPage() {
 
   const [wastage,       setWastage]       = useState(loadWastage);
   const [sides,         setSides]         = useState(loadSides);
+  // { [itemId]: { posVisible: bool, online: bool } } — loaded from server
+  const [visibility,    setVisibility]    = useState({});
   const [activeBranch,  setActiveBranch]  = useState(null);
   const [activeCat,     setActiveCat]     = useState("All");
   const [searchQ,       setSearchQ]       = useState("");
@@ -73,12 +75,26 @@ export function InventoryPage() {
   // ── Load outlets on mount ──────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true);
-    api.get("/outlets").catch(() => []).then(outletList => {
+    Promise.all([
+      api.get("/outlets").catch(() => []),
+      api.get("/inventory/item-visibility").catch(() => ({})),
+    ]).then(([outletList, serverVis]) => {
       const active = (outletList || []).filter(o => o.isActive !== false);
       setOutlets(active);
       if (active.length > 0) {
         setForm(f => ({ ...f, branch: f.branch || active[0].name }));
         setActiveBranch(prev => prev ?? active[0].id);
+      }
+      // Build visibility map from server — default posVisible/online to true if not in response
+      if (serverVis && typeof serverVis === "object") {
+        const map = {};
+        for (const [itemId, state] of Object.entries(serverVis)) {
+          map[itemId] = {
+            posVisible: state.posVisible !== false,
+            online:     state.online     !== false,
+          };
+        }
+        setVisibility(map);
       }
       setLoading(false);
     });
@@ -146,9 +162,14 @@ export function InventoryPage() {
     saveStockConfig({ trackedItems: next });
   }
 
-  // POS Visible toggle still goes to the item-visibility endpoint
+  // POS Visible + Online toggles go to item-visibility endpoint + update local state
   function togglePosVisible(itemId, on) {
+    setVisibility(v => ({ ...v, [itemId]: { ...(v[itemId] || {}), posVisible: on } }));
     api.post("/inventory/item-visibility", { itemId, posVisible: on }).catch(() => {});
+  }
+  function toggleOnline(itemId, on) {
+    setVisibility(v => ({ ...v, [itemId]: { ...(v[itemId] || {}), online: on } }));
+    api.post("/inventory/item-visibility", { itemId, online: on }).catch(() => {});
   }
 
   // ── Search + category filter ───────────────────────────────────────────────
@@ -331,6 +352,7 @@ export function InventoryPage() {
               <span>Item</span>
               <span>Track Stock</span>
               <span>Show in POS</span>
+              <span>Online</span>
               <span>Live Stock</span>
             </div>
             <div className="inv-catalog">
@@ -349,8 +371,16 @@ export function InventoryPage() {
                         <span>{tracked ? "On" : "Off"}</span>
                       </label>
                       <label className="inv-toggle-col">
-                        <Toggle on={true} onChange={v => togglePosVisible(item.id, v)} />
-                        <span>Yes</span>
+                        {(() => { const posVis = visibility[item.id]?.posVisible !== false; return <>
+                          <Toggle on={posVis} onChange={v => togglePosVisible(item.id, v)} />
+                          <span>{posVis ? "Yes" : "No"}</span>
+                        </>; })()}
+                      </label>
+                      <label className="inv-toggle-col">
+                        {(() => { const online = visibility[item.id]?.online !== false; return <>
+                          <Toggle on={online} onChange={v => toggleOnline(item.id, v)} />
+                          <span>{online ? "Live" : "Off"}</span>
+                        </>; })()}
                       </label>
                       <div className="inv-toggle-col" style={{ alignItems:"center" }}>
                         {tracked && snap != null ? (
