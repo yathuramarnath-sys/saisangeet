@@ -7,49 +7,69 @@
  */
 const express = require("express");
 const { asyncHandler } = require("../../utils/async-handler");
-const { getOwnerSetupData, getAllCachedTenants } = require("../../data/owner-setup-store");
+const { getAllCachedTenants } = require("../../data/owner-setup-store");
+const { runWithTenant, getCurrentTenantId } = require("../../data/tenant-context");
 
 const publicRouter = express.Router();
+
+/**
+ * Find which tenantId owns this outletId by scanning all cached tenants.
+ * Returns the tenantId string, or null if not found.
+ */
+async function resolveTenantForOutlet(outletId, hintTenantId) {
+  const { getOwnerSetupData } = require("../../data/owner-setup-store");
+
+  // Build search order: hint first, then all others
+  const allTenants = getAllCachedTenants();
+  const tids = [];
+  if (hintTenantId) tids.push(hintTenantId);
+  for (const [tid] of allTenants) {
+    if (!tids.includes(tid)) tids.push(tid);
+  }
+  if (!tids.includes("default")) tids.push("default");
+
+  for (const tid of tids) {
+    let found = false;
+    await runWithTenant(tid, () => {
+      const data = getOwnerSetupData();
+      found = (data?.outlets || []).some(o => o.id === outletId && o.isActive !== false);
+    });
+    if (found) return tid;
+  }
+  return null;
+}
 
 // ── GET /public/outlet ────────────────────────────────────────────────────────
 publicRouter.get("/outlet", asyncHandler(async (req, res) => {
   const { outletId, tenantId } = req.query;
   if (!outletId) return res.status(400).json({ error: "outletId required" });
 
-  // Build list of tenantIds to search.
-  // If tenantId is provided in the QR URL, try it first (fast path).
-  // Otherwise search all cached tenants so the QR works even without tid param.
-  let tids = [];
-  if (tenantId) tids.push(tenantId);
-  const allTenants = getAllCachedTenants();
-  for (const [tid] of allTenants) {
-    if (!tids.includes(tid)) tids.push(tid);
-  }
-  // Always include "default" as fallback
-  if (!tids.includes("default")) tids.push("default");
+  const { getOwnerSetupData } = require("../../data/owner-setup-store");
 
-  for (const tid of tids) {
-    const data   = getOwnerSetupData(tid);
-    const outlet = (data?.outlets || []).find(o => o.id === outletId && o.isActive !== false);
-    if (outlet) {
-      return res.json({
-        id:       outlet.id,
-        name:     outlet.name,
-        city:     outlet.city,
-        tenantId: tid,
-        tables:   (outlet.tables || []).map(t => ({
-          id:    t.id,
-          name:  t.table_number || t.tableNumber || t.name,
-          area:  t.workArea || t.area_name || "Main",
-          seats: t.seats || 4,
-        })),
-        gstTreatment: outlet.gstTreatment || "exclusive",
-        currency: "₹",
-      });
-    }
-  }
+  const tid = await resolveTenantForOutlet(outletId, tenantId);
+  if (!tid) return res.status(404).json({ error: "Outlet not found" });
 
-  res.status(404).json({ error: "Outlet not found" });
+  let outlet = null;
+  await runWithTenant(tid, () => {
+    const data = getOwnerSetupData();
+    outlet = (data?.outlets || []).find(o => o.id === outletId && o.isActive !== false);
+  });
+  if (!outlet) return res.status(404).json({ error: "Outlet not found" });
+
+  return res.json({
+    id:       outlet.id,
+    name:     outlet.name,
+    city:     outlet.city,
+    tenantId: tid,
+    tables:   (outlet.tables || []).map(t => ({
+      id:    t.id,
+      name:  t.table_number || t.tableNumber || t.name,
+      area:  t.workArea || t.area_name || "Main",
+      seats: t.seats || 4,
+    })),
+    gstTreatment: outlet.gstTreatment || "exclusive",
+    currency: "₹",
+  });
 }));
 
 // ── GET /public/menu ──────────────────────────────────────────────────────────
@@ -58,22 +78,11 @@ publicRouter.get("/menu", asyncHandler(async (req, res) => {
   if (!outletId) return res.status(400).json({ error: "outletId required" });
 
   const { fetchMenuCategories, fetchMenuItems } = require("../menu/menu.service");
-  const { runWithTenant } = require("../../data/tenant-context");
 
-  // Resolve correct tenantId — search all tenants if not provided
-  let resolvedTenantId = tenantId || null;
-  if (!resolvedTenantId) {
-    const allTenants = getAllCachedTenants();
-    for (const [tid, data] of allTenants) {
-      const found = (data?.outlets || []).some(o => o.id === outletId);
-      if (found) { resolvedTenantId = tid; break; }
-    }
-  }
-  resolvedTenantId = resolvedTenantId || "default";
+  const tid = await resolveTenantForOutlet(outletId, tenantId) || tenantId || "default";
 
-  // Run inside tenant context so menu.service reads the correct tenant's data
   let categories = [], items = [];
-  await runWithTenant(resolvedTenantId, async () => {
+  await runWithTenant(tid, async () => {
     [categories, items] = await Promise.all([
       fetchMenuCategories(outletId).catch(() => []),
       fetchMenuItems(outletId).catch(() => []),
