@@ -881,30 +881,6 @@ export function StaffPage() {
           )}
         </article>
 
-        {/* ── LOGIN POLICY ── */}
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Security</p>
-              <h3>Login Policy</h3>
-            </div>
-          </div>
-          <div className="mini-stack">
-            <div className="mini-card">
-              <span>POS floor login</span>
-              <strong>{pinPercent}% PIN enabled</strong>
-            </div>
-            <div className="mini-card">
-              <span>Discounts on POS</span>
-              <strong>Only cashiers with permission</strong>
-            </div>
-            <div className="mini-card">
-              <span>Inactive staff login</span>
-              <strong>Blocked on all devices</strong>
-            </div>
-          </div>
-        </article>
-
 
       </section>
     </>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { api } from "../../lib/api";
 import { deleteShiftHistory } from "./shifts.service";
 
@@ -37,6 +37,7 @@ export function ShiftsCashPage() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [filter,      setFilter]      = useState("all"); // all | open | mismatch | closed
   const [deleting,    setDeleting]    = useState(null);  // shiftId being deleted
+  const [outletFilter, setOutletFilter] = useState("");  // "" = All Outlets
 
   // Date range filter — default to today
   const [dateFrom, setDateFrom] = useState(todayStr);
@@ -90,11 +91,20 @@ export function ShiftsCashPage() {
   const shifts    = data.active  || [];
   const history   = data.history || [];
 
-  // Apply date range filter
-  const allShiftsRaw     = [...shifts, ...history];
+  // All unique outlet names across all shifts — for the filter dropdown
+  const allShiftsRaw = [...shifts, ...history];
+  const outletNames  = useMemo(
+    () => [...new Set(allShiftsRaw.map(s => s.outlet).filter(Boolean))].sort(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data]
+  );
+
+  // Apply date range + outlet filter
   const allShiftsInRange = allShiftsRaw.filter(s => {
     const d = toDateStr(s.startedAt || s.closedAt);
-    return !d || (d >= dateFrom && d <= dateTo);
+    const inRange  = !d || (d >= dateFrom && d <= dateTo);
+    const inOutlet = !outletFilter || s.outlet === outletFilter;
+    return inRange && inOutlet;
   });
 
   const openCount    = allShiftsInRange.filter(s => s.status === "open").length;
@@ -123,6 +133,20 @@ export function ShiftsCashPage() {
             <input type="date" className="rpt-date-input" value={dateTo}
               min={dateFrom} max={todayStr()} onChange={e => handleDateTo(e.target.value)} />
           </div>
+          {/* Outlet filter — only shown when there are multiple outlets with shift data */}
+          {outletNames.length > 1 && (
+            <select
+              className="rpt-outlet-select"
+              value={outletFilter}
+              onChange={e => setOutletFilter(e.target.value)}
+              style={{ minWidth: 160 }}
+            >
+              <option value="">All Outlets</option>
+              {outletNames.map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          )}
           <span className="shift-live-pill">● Live from POS</span>
           <button className="topbar-btn" onClick={loadData} title="Refresh">
             ↺ Refresh
