@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PinConfirm } from "./PinConfirm";
 
 // ── Financials ─────────────────────────────────────────────────────────────────
 // gstTreatment: "exclusive" (default) — GST added on top of price
@@ -196,15 +197,23 @@ export function OrderPanel({
   onOrderNoteChange,
   onCompToggle,
   onVoidItem,
+  onCancelOrder,
   onReprintKOT,
   onPrintBill,
   gstTreatment = "exclusive",
   discountRules = [],
   canApplyDiscount = false,
+  cashierName = "",
+  cashierPin  = "",
 }) {
-  const [showTransfer, setShowTransfer] = useState(false);
-  const [showNote,     setShowNote]     = useState(false);
-  const [voidingIdx,   setVoidingIdx]   = useState(null); // index of item being voided
+  const [showTransfer,   setShowTransfer]   = useState(false);
+  const [showNote,       setShowNote]       = useState(false);
+  const [voidingIdx,     setVoidingIdx]     = useState(null);   // index of item being voided
+  const [pinForVoidIdx,  setPinForVoidIdx]  = useState(null);   // waiting PIN before VoidPicker
+  const [showCancelPin,  setShowCancelPin]  = useState(false);  // waiting PIN before cancel order
+
+  // Helper: does this cashier need a PIN check? (PIN set and not 0000)
+  const needsPin = cashierPin && cashierPin !== "0000";
 
   if (!order) {
     return (
@@ -291,7 +300,7 @@ export function OrderPanel({
           <div key={item.id || idx}
             className={`order-item${item.sentToKot ? " sent" : ""}${item.isVoided ? " voided" : ""}${item.isComp ? " comped" : ""}`}>
 
-            {/* Void picker inline */}
+            {/* Void picker inline — shown after PIN confirmed */}
             {voidingIdx === idx && (
               <VoidPicker
                 onVoid={reason => { onVoidItem?.(idx, reason); setVoidingIdx(null); }}
@@ -337,9 +346,21 @@ export function OrderPanel({
                         ₹{(item.price * item.quantity).toFixed(0)}
                       </span>
                       {item.isComp && <span className="order-item-comp-price">FREE</span>}
+                      {/* Pre-KOT: free remove */}
                       {!item.sentToKot && !item.isComp && (
                         <button type="button" className="order-item-remove"
                           onClick={() => onRemoveItem(idx)}>✕</button>
+                      )}
+                      {/* Post-KOT: void requires cashier PIN */}
+                      {item.sentToKot && !item.isComp && (
+                        <button type="button" className="order-item-void-btn"
+                          title="Void item (PIN required)"
+                          onClick={() => {
+                            if (needsPin) { setPinForVoidIdx(idx); }
+                            else          { setVoidingIdx(idx); }
+                          }}>
+                          🚫
+                        </button>
                       )}
                     </div>
                   )}
@@ -487,6 +508,20 @@ export function OrderPanel({
         </div>
       )}
 
+      {/* ── Cancel Order button (PIN gated) ──────────────────────────────── */}
+      {hasItems && !order.isClosed && (
+        <button
+          type="button"
+          className="cancel-order-btn"
+          onClick={() => {
+            if (needsPin) { setShowCancelPin(true); }
+            else          { onCancelOrder?.(); }
+          }}
+        >
+          🗑 Cancel Order
+        </button>
+      )}
+
       {/* Transfer modal */}
       {showTransfer && (
         <TransferModal
@@ -495,6 +530,28 @@ export function OrderPanel({
           currentId={order.tableId}
           onTransfer={onTransferTable}
           onClose={() => setShowTransfer(false)}
+        />
+      )}
+
+      {/* ── PIN confirm for void item ─────────────────────────────────────── */}
+      {pinForVoidIdx !== null && (
+        <PinConfirm
+          cashierName={cashierName}
+          cashierPin={cashierPin}
+          title="Void Item — Confirm PIN"
+          onConfirm={() => { setVoidingIdx(pinForVoidIdx); setPinForVoidIdx(null); }}
+          onCancel={() => setPinForVoidIdx(null)}
+        />
+      )}
+
+      {/* ── PIN confirm for cancel order ─────────────────────────────────── */}
+      {showCancelPin && (
+        <PinConfirm
+          cashierName={cashierName}
+          cashierPin={cashierPin}
+          title="Cancel Order — Confirm PIN"
+          onConfirm={() => { setShowCancelPin(false); onCancelOrder?.(); }}
+          onCancel={() => setShowCancelPin(false)}
         />
       )}
     </div>

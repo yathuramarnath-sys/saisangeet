@@ -316,6 +316,7 @@ export default function App() {
   // ── Shift state ───────────────────────────────────────────────────────────
   const [activeShift,      setActiveShift]      = useState(() => loadActiveShift());
   const [cashierName,      setCashierName]      = useState(null);
+  const [cashierPin,       setCashierPin]       = useState("");   // stored on login for void/cancel re-auth
   const [activeCategory,   setActiveCategory]   = useState(null);
   const [showCashIn,       setShowCashIn]       = useState(false);
   const [showCashOut,      setShowCashOut]      = useState(false);
@@ -1973,6 +1974,16 @@ export default function App() {
       waiterName:  validWaiter,
     });
 
+    // Log every bill print (1st print + reprints) for Owner Console audit trail
+    api.post("/operations/reprint-log", {
+      source:      "pos",
+      cashier:     cashierName,
+      outletName:  outlet?.name,
+      tableLabel:  printOrder.tableNumber || printOrder.tableId,
+      orderNumber: printOrder.orderNumber,
+      billNo:      printOrder.billNo || null,
+    }).catch(() => {});
+
     showToast("🖨️ Bill printed · Collect payment");
 
     setSelectedTableId(null);
@@ -2003,28 +2014,36 @@ export default function App() {
     });
   }
 
-  // ── Void item ─────────────────────────────────────────────────────────────
+  // ── Void item (PIN already verified by OrderPanel before this is called) ──
   function handleVoidItem(idx, reason) {
     if (!selectedTableId) return;
     const item = orders[selectedTableId]?.items?.[idx];
-    // Ghost void: item was voided BEFORE it was ever sent to the kitchen.
-    // We stamp isGhostVoid so the backend can permanently delete it on next table-open.
     const wasNeverSentToKot = item && !item.sentToKot;
 
     mutateOrder(selectedTableId, o => {
       if (o.items[idx]) {
         o.items[idx].isVoided    = true;
         o.items[idx].voidReason  = reason;
-        o.items[idx].sentToKot   = true; // treat as sent so it can't be re-sent
-        if (wasNeverSentToKot) {
-          o.items[idx].isGhostVoid = true; // never reached kitchen — safe to delete
-        }
+        o.items[idx].sentToKot   = true;
+        if (wasNeverSentToKot) o.items[idx].isGhostVoid = true;
       }
       return o;
     });
     showToast("Item voided");
-    // Persist void to backend so Captain app + KDS see the change immediately.
-    // Include managerPin so server-side validation passes when a PIN is configured.
+
+    // Log void to backend for Owner Reports
+    api.post("/operations/void-log", {
+      type:        "void_item",
+      cashier:     cashierName || "POS",
+      outletName:  outlet?.name || "",
+      tableId:     selectedTableId,
+      tableLabel:  orders[selectedTableId]?.tableNumber
+                     ? `T${orders[selectedTableId].tableNumber}`
+                     : selectedTableId,
+      orderNumber: orders[selectedTableId]?.orderNumber || "",
+      items:       [{ name: item?.name, qty: item?.quantity || 1, price: item?.price || 0, reason: reason || "Voided" }],
+    }).catch(() => {});
+
     if (item?.id &&
         !selectedTableId.startsWith("counter-") &&
         !selectedTableId.startsWith("online-")) {
@@ -2037,6 +2056,45 @@ export default function App() {
         managerPin:  sec.managerPin || ""
       }).catch(err => console.warn("[POS] item-void to backend failed:", err.message));
     }
+  }
+
+  // ── Cancel entire order (PIN already verified by OrderPanel) ─────────────
+  function handleCancelOrder() {
+    if (!selectedTableId) return;
+    const order = orders[selectedTableId];
+    if (!order?.items?.length) return;
+
+    const cancelledItems = order.items
+      .filter(i => !i.isVoided)
+      .map(i => ({ name: i.name, qty: i.quantity, price: i.price, reason: "Order cancelled" }));
+
+    // Void all non-voided items
+    mutateOrder(selectedTableId, o => {
+      o.items = o.items.map(i => i.isVoided ? i : {
+        ...i, isVoided: true, voidReason: "Order cancelled", sentToKot: true,
+        isGhostVoid: !i.sentToKot,
+      });
+      return o;
+    });
+    showToast("Order cancelled");
+
+    // Log cancellation
+    api.post("/operations/void-log", {
+      type:        "cancel_order",
+      cashier:     cashierName || "POS",
+      outletName:  outlet?.name || "",
+      tableId:     selectedTableId,
+      tableLabel:  order.tableNumber ? `T${order.tableNumber}` : selectedTableId,
+      orderNumber: order.orderNumber || "",
+      items:       cancelledItems,
+    }).catch(() => {});
+
+    // Clear from backend
+    if (!selectedTableId.startsWith("counter-") && !selectedTableId.startsWith("online-")) {
+      api.delete("/operations/order", { tableId: selectedTableId, outletId: outlet?.id })
+        .catch(err => console.warn("[POS] cancel-order backend failed:", err.message));
+    }
+    setSelectedTableId(null);
   }
 
   // ── Shift callbacks ───────────────────────────────────────────────────────
@@ -2087,7 +2145,7 @@ export default function App() {
   }
 
   if (!cashierName) {
-    return <PosLogin outletName={outlet?.name || branchConfig.outletName} onLogin={name => setCashierName(name)} />;
+    return <PosLogin outletName={outlet?.name || branchConfig.outletName} onLogin={(name, pin) => { setCashierName(name); setCashierPin(pin || ""); }} />;
   }
 
   // ── Shift Gate (cashier logged in, no active shift) ────────────────────────
@@ -2254,7 +2312,7 @@ export default function App() {
             <span className="pab-label">End Shift</span>
           </button>
           <button type="button" className="pab-btn logout-btn"
-            onClick={() => { setCashierName(null); setActiveShift(null); setSelectedTableId(null); }}
+            onClick={() => { setCashierName(null); setCashierPin(""); setActiveShift(null); setSelectedTableId(null); }}
             title="Logout">
             <span className="pab-label">Exit</span>
           </button>
@@ -2352,8 +2410,11 @@ export default function App() {
           onOrderNoteChange={handleOrderNoteChange}
           onCompToggle={handleCompToggle}
           onVoidItem={handleVoidItem}
+          onCancelOrder={handleCancelOrder}
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
+          cashierName={cashierName}
+          cashierPin={cashierPin}
         />
         )}
       </div>

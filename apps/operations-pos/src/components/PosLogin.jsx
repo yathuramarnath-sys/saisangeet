@@ -73,7 +73,7 @@ export function PosLogin({ outletName, onLogin }) {
     if (next.length === 4) {
       setTimeout(() => {
         if (!selected.pin || selected.pin === "0000" || next === selected.pin) {
-          onLogin(selected.name);
+          onLogin(selected.name, selected.pin || "");
         } else {
           triggerShake();
           setError("Wrong PIN — try again");

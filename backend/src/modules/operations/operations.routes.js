@@ -190,6 +190,37 @@ operationsRouter.delete("/order/item", requireAuth, asyncHandler(deviceRemoveOrd
 operationsRouter.patch("/order/item",  requireAuth, asyncHandler(deviceVoidOrderItemHandler));
 operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
 
+// ── Action logs (void / cancel-order / bill-reprint) ─────────────────────────
+// POST /operations/void-log     — called by POS after PIN-confirmed void or cancel
+// POST /operations/reprint-log  — called by POS and Captain App on every bill reprint
+// GET  /operations/action-logs  — called by Owner Console reports
+operationsRouter.post("/void-log", requireAuth, asyncHandler(async (req, res) => {
+  const { addActionLog } = require("./action-log-store");
+  const tenantId = req.user?.tenantId || "default";
+  const { type = "void_item", cashier, outletName, tableId, tableLabel, orderNumber, items } = req.body;
+  const entry = addActionLog(tenantId, { type, cashier, outletName, tableId, tableLabel, orderNumber, items: items || [] });
+  res.status(201).json(entry);
+}));
+
+operationsRouter.post("/reprint-log", requireAuth, asyncHandler(async (req, res) => {
+  const { addActionLog } = require("./action-log-store");
+  const tenantId = req.user?.tenantId || "default";
+  const { source = "pos", cashier, outletName, tableLabel, orderNumber, billNo } = req.body;
+  const entry = addActionLog(tenantId, {
+    type: "bill_reprint", source, cashier, outletName, tableLabel, orderNumber, billNo,
+  });
+  res.status(201).json(entry);
+}));
+
+operationsRouter.get("/action-logs", requireAuth, asyncHandler(async (req, res) => {
+  const { getActionLogs } = require("./action-log-store");
+  const tenantId = req.user?.tenantId || "default";
+  const { types, dateFrom, dateTo } = req.query;
+  const typeArr = types ? types.split(",") : [];
+  const logs = getActionLogs(tenantId, { types: typeArr, dateFrom, dateTo });
+  res.json(logs);
+}));
+
 // ── Credit sales ──────────────────────────────────────────────────────────────
 // GET  /operations/credits          — all credit orders (unpaid + paid) for this tenant
 // POST /operations/credits/:id/settle — mark a credit order as paid

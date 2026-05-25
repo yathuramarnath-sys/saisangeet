@@ -919,6 +919,16 @@ export function App() {
       }
     );
 
+    // Log every bill print from Captain App for Owner Console audit trail
+    api.post("/operations/reprint-log", {
+      source:      "captain",
+      cashier:     printOrder.captainName || printOrder.cashierName || null,
+      outletName:  outlet?.name || branchConfig?.outletName,
+      tableLabel:  printOrder.tableNumber || tid,
+      orderNumber: printOrder.orderNumber,
+      billNo:      printOrder.billNo || null,
+    }).catch(() => {});
+
     // Mark billRequested: true — table turns blue on POS floor plan
     handleUpdateOrder({ ...printOrder, billRequested: true });
     api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid }).catch(() => {});

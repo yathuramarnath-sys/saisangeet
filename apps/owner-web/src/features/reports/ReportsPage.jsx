@@ -1156,6 +1156,159 @@ function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
   );
 }
 
+// ── Voids & Reprints Report ──────────────────────────────────────────────────
+function VoidsReprintsReport({ dateFrom, dateTo, outletId }) {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("all"); // all | void_item | cancel_order | bill_reprint
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const p = new URLSearchParams({ dateFrom, dateTo });
+    if (outletId) p.set("outletId", outletId);
+    api.get(`/operations/action-logs?${p}`)
+      .then(res => setEntries(Array.isArray(res) ? res : []))
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false));
+  }, [dateFrom, dateTo, outletId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = typeFilter === "all" ? entries : entries.filter(e => e.type === typeFilter);
+
+  // Summary counts
+  const voidCount    = entries.filter(e => e.type === "void_item").length;
+  const cancelCount  = entries.filter(e => e.type === "cancel_order").length;
+  const reprintCount = entries.filter(e => e.type === "bill_reprint").length;
+  const posReprints  = entries.filter(e => e.type === "bill_reprint" && e.source !== "captain").length;
+  const captReprints = entries.filter(e => e.type === "bill_reprint" && e.source === "captain").length;
+
+  function handleCSV() {
+    if (!entries.length) return;
+    downloadCSV(
+      `voids_reprints_${dateFrom}_${dateTo}`,
+      ["Date & Time", "Type", "Cashier", "Table", "Order #", "Bill #", "Details", "Source"],
+      entries.map(e => {
+        const details = e.type === "bill_reprint"
+          ? `Bill ${e.billNo || "—"}`
+          : (e.items || []).map(i => `${i.name} x${i.qty}`).join("; ");
+        return [
+          new Date(e.timestamp).toLocaleString("en-IN"),
+          e.type === "void_item" ? "Void Item" : e.type === "cancel_order" ? "Cancel Order" : "Bill Reprint",
+          e.cashier || "—",
+          e.tableLabel || e.tableId || "—",
+          e.orderNumber || "—",
+          e.billNo || "—",
+          details,
+          e.source || "pos",
+        ];
+      })
+    );
+  }
+
+  const typeLabel = t => t === "void_item" ? "Void Item" : t === "cancel_order" ? "Cancel Order" : "Bill Reprint";
+  const typeIcon  = t => t === "void_item" ? "🚫" : t === "cancel_order" ? "❌" : "🖨️";
+
+  return (
+    <div className="rpt-body">
+      <SectionHead eyebrow="POS Audit Trail" title="Voids & Reprints" />
+
+      {/* Summary KPI row */}
+      <div className="rpt-kpi-row" style={{ marginBottom: 20 }}>
+        <div className="metric-card" style={{ minWidth: 120 }}>
+          <span className="metric-label">Void Items</span>
+          <strong style={{ color: "#dc2626" }}>{voidCount}</strong>
+        </div>
+        <div className="metric-card" style={{ minWidth: 120 }}>
+          <span className="metric-label">Order Cancels</span>
+          <strong style={{ color: "#b45309" }}>{cancelCount}</strong>
+        </div>
+        <div className="metric-card" style={{ minWidth: 140 }}>
+          <span className="metric-label">Bill Reprints (POS)</span>
+          <strong style={{ color: "#1d4ed8" }}>{posReprints}</strong>
+        </div>
+        <div className="metric-card" style={{ minWidth: 160 }}>
+          <span className="metric-label">Bill Reprints (Captain)</span>
+          <strong style={{ color: "#1d4ed8" }}>{captReprints}</strong>
+        </div>
+        <div className="metric-card" style={{ minWidth: 120 }}>
+          <span className="metric-label">Total Reprints</span>
+          <strong>{reprintCount}</strong>
+        </div>
+      </div>
+
+      {/* Type filter pills */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        {[
+          { key: "all",           label: "All"           },
+          { key: "void_item",     label: "🚫 Void Items"     },
+          { key: "cancel_order",  label: "❌ Cancel Orders"  },
+          { key: "bill_reprint",  label: "🖨️ Bill Reprints"  },
+        ].map(f => (
+          <button key={f.key}
+            onClick={() => setTypeFilter(f.key)}
+            style={{
+              padding: "4px 14px", borderRadius: 20, border: "1.5px solid",
+              borderColor: typeFilter === f.key ? "#059669" : "#d1d5db",
+              background:  typeFilter === f.key ? "#ecfdf5" : "#fff",
+              color:        typeFilter === f.key ? "#047857" : "#374151",
+              fontWeight:   typeFilter === f.key ? 700 : 400,
+              cursor: "pointer", fontSize: 13,
+            }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {loading && <p style={{ color: "#6b7280", padding: "1rem 0" }}>Loading…</p>}
+
+      {!loading && entries.length === 0 && (
+        <div className="rpt-empty">
+          <span>🔍</span>
+          <p>No void or reprint actions for this period.</p>
+          <p style={{ fontSize: 13, color: "#9ca3af" }}>
+            Void items, cancel orders, and bill reprints are logged automatically when cashiers perform these actions on the POS or Captain App.
+          </p>
+        </div>
+      )}
+
+      {!loading && filtered.length > 0 && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>
+              {filtered.length} {typeFilter === "all" ? "entries" : typeLabel(typeFilter) + " entries"}
+            </p>
+            <button className="rpt-export-btn" onClick={handleCSV}>⬇ CSV</button>
+          </div>
+          <RptTable
+            cols={["Date & Time", "Type", "Cashier", "Table", "Order #", "Details", "Source"]}
+            rows={filtered.map(e => {
+              const details = e.type === "bill_reprint"
+                ? `Bill No: ${e.billNo || "—"}`
+                : (e.items || []).map(i => `${i.name}${i.qty > 1 ? " ×" + i.qty : ""}`).join(", ") || "—";
+              return [
+                new Date(e.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true }),
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, color: e.type === "void_item" ? "#dc2626" : e.type === "cancel_order" ? "#b45309" : "#1d4ed8" }}>
+                  {typeIcon(e.type)} {typeLabel(e.type)}
+                </span>,
+                e.cashier || "—",
+                e.tableLabel || e.tableId || "—",
+                e.orderNumber || "—",
+                details,
+                (e.source === "captain" ? "Captain App" : "POS"),
+              ];
+            })}
+          />
+        </>
+      )}
+
+      {!loading && filtered.length === 0 && entries.length > 0 && (
+        <p style={{ color: "#6b7280", fontSize: 13, padding: "1rem 0" }}>No {typeLabel(typeFilter)} entries for this period.</p>
+      )}
+    </div>
+  );
+}
+
 // ── Reports Shell ────────────────────────────────────────────────────────────
 const REPORTS = [
   { key: "day-end",    label: "Day End Summary"  },
@@ -1168,6 +1321,7 @@ const REPORTS = [
   { key: "incentives", label: "🏆 Incentives"     },
   { key: "orders",     label: "🗄 Order History"  },
   { key: "wastage",    label: "🗑 Wastage"        },
+  { key: "voids",      label: "🚫 Voids & Reprints" },
   { key: "email",      label: "📧 Email Settings" }
 ];
 
@@ -1304,6 +1458,7 @@ export function ReportsPage() {
       {active === "incentives" && <CaptainIncentivesReport date={`${dateFrom}_${dateTo}`}                            data={salesData} />}
       {active === "orders"     && <OrderHistoryTab         dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "wastage"    && <WastageReport           dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
+      {active === "voids"      && <VoidsReprintsReport    dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "email"      && (
         <div className="rpt-body">
           <EmailTrigger />
