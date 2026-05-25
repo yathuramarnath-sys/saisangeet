@@ -17,6 +17,8 @@ const { runWithTenant } = require("../../data/tenant-context");
 const router = express.Router();
 
 // ── POST — customer submits (public, no auth) ─────────────────────────────────
+// Automatically adds items to the table order so POS sees the table turn occupied.
+// Also emits customer:order:new for Captain App badge + notification.
 router.post("/", asyncHandler(async (req, res) => {
   const { tenantId, outletId, tableId, tableLabel, customerName, customerPhone, items } = req.body || {};
 
@@ -27,10 +29,38 @@ router.post("/", asyncHandler(async (req, res) => {
   const tid   = tenantId || "default";
   const entry = store.createOrder(tid, { outletId, tableId, tableLabel, customerName, customerPhone, items });
 
-  // Emit to captain + POS devices in this outlet room
   const io = req.app.locals.io;
+  const actorName = `${customerName} (QR)`;
+
+  // Auto-add items to table order so POS table turns occupied immediately
+  let updatedOrder = null;
+  try {
+    await runWithTenant(tid, async () => {
+      await fetchOrCreateOrderByTable(tableId).catch(() => null);
+      for (const item of items) {
+        const result = await createOrderItem(tableId, {
+          id:           item.id,
+          menuItemId:   item.id,
+          name:         item.name,
+          price:        item.price,
+          quantity:     item.quantity || 1,
+          note:         item.notes || "",
+          categoryName: item.categoryName || "",
+        }, actorName).catch(() => null);
+        if (result) updatedOrder = result;
+      }
+    });
+  } catch (err) {
+    console.warn("[customer-order] auto-add to table failed:", err.message);
+  }
+
   if (io) {
+    // Notify Captain App + POS with the QR order details
     io.to(`outlet:${tid}:${outletId}`).emit("customer:order:new", entry);
+    // Also emit order:updated so POS table floor shows the table as occupied
+    if (updatedOrder) {
+      io.to(`outlet:${tid}:${outletId}`).emit("order:updated", updatedOrder);
+    }
   }
 
   res.status(201).json(entry);
