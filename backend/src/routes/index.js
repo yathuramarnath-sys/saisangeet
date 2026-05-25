@@ -35,7 +35,8 @@ const { inventoryRouter }    = require("../modules/inventory/inventory.routes");
 const { advanceOrdersRouter } = require("../modules/advance-orders/advance-orders.routes");
 const { customersRouter }     = require("../modules/customers/customers.routes");
 const { backupRouter }        = require("../modules/backup/backup.routes");
-const { requireAuth }      = require("../middleware/require-auth");
+const { requireAuth }   = require("../middleware/require-auth");
+const { requireTenant } = require("../middleware/require-tenant");
 const { asyncHandler }  = require("../utils/async-handler");
 const { updateOwnerSetupDataNow, getOwnerSetupData } = require("../data/owner-setup-store");
 
@@ -65,8 +66,24 @@ apiRouter.get("/app-versions", (_req, res) => {
   }
 });
 
+// ── RULE #1: NO DATA MIXING ──────────────────────────────────────────────────
+// authenticate   → sets tenant context from JWT (AsyncLocalStorage)
+// requireTenant  → hard-blocks any request without a verified, non-default tenantId
+//
+// These two run BEFORE every data route. Exceptions (auth + public) are mounted
+// above. Nothing below this line can accidentally touch another tenant's data.
 apiRouter.use(authenticate);
+
+// /auth — login/register handled before requireTenant so users can log in.
+// Auth routes verify identity — they do not read tenant-specific data.
 apiRouter.use("/auth", authRouter);
+
+// ── All data routes — MUST pass requireTenant ─────────────────────────────
+// requireTenant guarantees: valid JWT + tenantId present + not "default".
+// Any request that fails this check is rejected with 401 before any service
+// code runs. This is the security bridge — it cannot be bypassed.
+apiRouter.use(requireTenant);
+
 apiRouter.use("/business-profile", businessProfileRouter);
 apiRouter.use("/menu", menuRouter);
 apiRouter.use("/outlets", outletsRouter);

@@ -1,4 +1,4 @@
-const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { getOwnerSetupData, updateOwnerSetupData, updateOwnerSetupDataNow } = require("../../data/owner-setup-store");
 
 /**
  * Generate a permanent, human-readable sync code for an outlet.
@@ -83,7 +83,7 @@ async function createOutlet(payload) {
     receiptTemplateId: payload.receiptTemplateId || null
   };
 
-  updateOwnerSetupData((current) => ({
+  await updateOwnerSetupDataNow((current) => ({
     ...current,
     outlets: [...current.outlets, outlet]
   }));
@@ -94,7 +94,11 @@ async function createOutlet(payload) {
 async function updateOutletSettings(id, payload) {
   let updatedOutlet = null;
 
-  updateOwnerSetupData((current) => ({
+  // Use updateOwnerSetupDataNow (awaitable Postgres write) so outlet settings like
+  // gstTreatment, showGstBreakdown etc. survive a Railway server restart immediately.
+  // Previously updateOwnerSetupData (fire-and-forget) could lose changes if the
+  // server restarted before the async Postgres write completed.
+  await updateOwnerSetupDataNow((current) => ({
     ...current,
     outlets: current.outlets.map((outlet) => {
       if (outlet.id !== id) {
@@ -113,7 +117,7 @@ async function updateOutletSettings(id, payload) {
 }
 
 async function deleteOutlet(id) {
-  updateOwnerSetupData((current) => ({
+  await updateOwnerSetupDataNow((current) => ({
     ...current,
     outlets: current.outlets.filter((outlet) => outlet.id !== id)
   }));
@@ -128,7 +132,7 @@ async function regenerateOutletSyncCode(id) {
   const newCode = generateSyncCode();
   let updatedOutlet = null;
 
-  updateOwnerSetupData((current) => ({
+  await updateOwnerSetupDataNow((current) => ({
     ...current,
     outlets: current.outlets.map((outlet) => {
       if (outlet.id !== id) return outlet;

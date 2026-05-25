@@ -1,18 +1,18 @@
 {
   "pos": {
-    "version": "1.4.52",
+    "version": "1.4.53",
     "label": "POS Terminal",
-    "changelog": "Barcode scanner support, tap-to-edit quantity, GST inclusive bill fix, QR ordering improvements",
+    "changelog": "GST inclusive permanent fix, security bridge, outlet settings reliability",
     "whatsNew": [
-      "🔍 Barcode scanner — plug in USB scanner, scan product → auto-adds to order instantly",
-      "✏️ Tap quantity number to type directly — no more clicking + 25 times",
-      "🧾 GST bill fix — CGST/SGST now shows correctly for inclusive-priced items",
-      "📱 QR Codes button now visible inside outlet edit form"
+      "🔒 Security bridge — tenant data isolation enforced at every API route",
+      "🧾 GST Inclusive fix — setting now saves reliably and syncs to POS instantly",
+      "⚙️ Outlet settings (GST, receipt options) no longer lost on server restart",
+      "🏪 Outlet filter in Shifts page only shows real outlets — no ghost/test entries"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.4.52"
+      "3. Log in with your cashier PIN — you are on v1.4.53"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,

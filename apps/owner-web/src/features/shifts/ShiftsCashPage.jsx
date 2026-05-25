@@ -38,6 +38,7 @@ export function ShiftsCashPage() {
   const [filter,      setFilter]      = useState("all"); // all | open | mismatch | closed
   const [deleting,    setDeleting]    = useState(null);  // shiftId being deleted
   const [outletFilter, setOutletFilter] = useState("");  // "" = All Outlets
+  const [realOutletNames, setRealOutletNames] = useState([]); // live outlet names from /outlets
 
   // Date range filter — default to today
   const [dateFrom, setDateFrom] = useState(todayStr);
@@ -45,8 +46,16 @@ export function ShiftsCashPage() {
 
   async function loadData() {
     try {
-      const res = await api.get("/shifts/summary");
+      const [res, outlets] = await Promise.all([
+        api.get("/shifts/summary"),
+        api.get("/outlets").catch(() => []),
+      ]);
       setData((res?.active ? res : res?.data) || { active: [], history: [] });
+      // Keep the real outlet name list in sync — only show dropdown entries for
+      // outlets that actually exist, so deleted / test outlets never appear.
+      if (Array.isArray(outlets) && outlets.length) {
+        setRealOutletNames(outlets.map(o => o.name).filter(Boolean));
+      }
       setLastUpdated(new Date());
     } catch {
       // silently keep existing data on network errors
@@ -91,13 +100,19 @@ export function ShiftsCashPage() {
   const shifts    = data.active  || [];
   const history   = data.history || [];
 
-  // All unique outlet names across all shifts — for the filter dropdown
+  // All unique outlet names across all shifts — for the filter dropdown.
+  // Cross-referenced against realOutletNames so deleted/test outlets never appear.
   const allShiftsRaw = [...shifts, ...history];
-  const outletNames  = useMemo(
-    () => [...new Set(allShiftsRaw.map(s => s.outlet).filter(Boolean))].sort(),
+  const outletNames  = useMemo(() => {
+    const fromShifts = [...new Set(allShiftsRaw.map(s => s.outlet).filter(Boolean))];
+    // If we have the real outlet list, only show outlets that actually exist.
+    // This prevents deleted/test outlets from appearing in the dropdown.
+    const valid = realOutletNames.length
+      ? fromShifts.filter(name => realOutletNames.includes(name))
+      : fromShifts;
+    return valid.sort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data]
-  );
+  }, [data, realOutletNames]);
 
   // Apply date range + outlet filter
   const allShiftsInRange = allShiftsRaw.filter(s => {
