@@ -126,6 +126,103 @@ function buildCompactSeatPreview(table) {
   return seatCount > 4 ? `${previewSeats.join(", ")} ... +${seatCount - 4} more` : previewSeats.join(", ");
 }
 
+// ── Compact inline table editor ──────────────────────────────────────────────
+// Shows tables as tight rows. Clicking Edit on a row makes that row editable
+// in-place. Add Table appends a new blank row already in edit mode.
+function TableEditor({ tables, workAreas, onChange }) {
+  const [editingId, setEditingId] = useState(null);
+
+  function updateTable(id, patch) {
+    onChange(tables.map(t => t.id === id ? { ...t, ...patch } : t));
+  }
+
+  function removeTable(id) {
+    onChange(tables.filter(t => t.id !== id));
+    if (editingId === id) setEditingId(null);
+  }
+
+  function addTable() {
+    const newRow = buildEmptyTableRow(workAreas[0] || "AC");
+    onChange([...tables, newRow]);
+    setEditingId(newRow.id);
+  }
+
+  function confirmEdit(id) {
+    // keep row only if it has a name; empty rows get discarded on confirm
+    const t = tables.find(r => r.id === id);
+    if (t && !String(t.name).trim()) {
+      onChange(tables.filter(r => r.id !== id));
+    }
+    setEditingId(null);
+  }
+
+  return (
+    <div className="tbl-editor">
+      <div className="tbl-editor-head">
+        <span>Area</span>
+        <span>Table name</span>
+        <span>Seats</span>
+        <span />
+      </div>
+
+      {tables.length === 0 && (
+        <p className="tbl-editor-empty">No tables yet — click Add Table below.</p>
+      )}
+
+      {tables.map(t => (
+        editingId === t.id ? (
+          // ── Editable row ──────────────────────────────────────────────────
+          <div key={t.id} className="tbl-editor-row tbl-editor-row--editing">
+            <select
+              value={t.workArea}
+              onChange={e => updateTable(t.id, { workArea: e.target.value })}
+            >
+              {(workAreas.length ? workAreas : workAreaOptions).map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              placeholder="e.g. T1"
+              value={t.name}
+              autoFocus
+              onChange={e => updateTable(t.id, { name: e.target.value })}
+              onKeyDown={e => e.key === "Enter" && confirmEdit(t.id)}
+            />
+            <input
+              type="number"
+              min="1"
+              placeholder="4"
+              value={t.seats}
+              onChange={e => updateTable(t.id, { seats: e.target.value })}
+              onKeyDown={e => e.key === "Enter" && confirmEdit(t.id)}
+            />
+            <div className="tbl-editor-row-actions">
+              <button type="button" className="tbl-confirm-btn" onClick={() => confirmEdit(t.id)} title="Done">✓</button>
+              <button type="button" className="tbl-remove-btn" onClick={() => removeTable(t.id)} title="Remove">✕</button>
+            </div>
+          </div>
+        ) : (
+          // ── Display row ───────────────────────────────────────────────────
+          <div key={t.id} className="tbl-editor-row">
+            <span className="tbl-area-pill">{t.workArea}</span>
+            <strong>{t.name || <em style={{ color: "#9ca3af", fontWeight: 400 }}>unnamed</em>}</strong>
+            <span>{t.seats} seats</span>
+            <div className="tbl-editor-row-actions">
+              <button type="button" className="tbl-edit-btn" onClick={() => setEditingId(t.id)}>Edit</button>
+              <button type="button" className="tbl-remove-btn" onClick={() => removeTable(t.id)} title="Remove">✕</button>
+            </div>
+          </div>
+        )
+      ))}
+
+      <button type="button" className="ghost-btn tbl-add-btn" onClick={addTable}>
+        + Add Table
+      </button>
+    </div>
+  );
+}
+
 export function OutletsPage() {
   const [pageData, setPageData] = useState({
     outlets: [],
@@ -658,6 +755,14 @@ export function OutletsPage() {
                 </label>
               ))}
             </div>
+            <div>
+              <p style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--muted)", marginBottom: 8 }}>Tables</p>
+              <TableEditor
+                tables={createDraft.tables}
+                workAreas={createDraft.workAreas}
+                onChange={tables => setCreateDraft(c => ({ ...c, tables }))}
+              />
+            </div>
             <div className="mini-stack">
               <strong>Service modes</strong>
               {serviceOptions.map((service) => (
@@ -806,126 +911,13 @@ export function OutletsPage() {
                 ))}
               </div>
 
-              <div className="mini-stack">
-                <div className="mini-card">
-                  <strong>Tables and seats</strong>
-                  <span>Use one box to manage all tables for this outlet.</span>
-                </div>
-                {editDraft.tables.length ? (
-                  editDraft.tables.map((table, index) => (
-                    <div key={table.id} className="mini-card">
-                      <strong>Table {index + 1}</strong>
-                      <label>
-                        Work area
-                        <select
-                          value={table.workArea}
-                          onChange={(event) =>
-                            setEditDraft((current) => ({
-                              ...current,
-                              tables: current.tables.map((item) =>
-                                item.id === table.id ? { ...item, workArea: event.target.value } : item
-                              )
-                            }))
-                          }
-                        >
-                          {editDraft.workAreas.map((workArea) => (
-                            <option key={`${table.id}-${workArea}`} value={workArea}>
-                              {workArea}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        Table name
-                        <input
-                          type="text"
-                          value={table.name}
-                          onChange={(event) =>
-                            setEditDraft((current) => ({
-                              ...current,
-                              tables: current.tables.map((item) =>
-                                item.id === table.id ? { ...item, name: event.target.value } : item
-                              )
-                            }))
-                          }
-                        />
-                      </label>
-                      <label>
-                        Seats
-                        <input
-                          type="number"
-                          min="1"
-                          value={table.seats}
-                          onChange={(event) =>
-                            setEditDraft((current) => ({
-                              ...current,
-                              tables: current.tables.map((item) =>
-                                item.id === table.id ? { ...item, seats: event.target.value } : item
-                              )
-                            }))
-                          }
-                        />
-                      </label>
-                      <span>Seat preview: {buildSeatPreview(table)}</span>
-                      <button
-                        type="button"
-                        className="ghost-chip"
-                        onClick={() =>
-                          setEditDraft((current) => ({
-                            ...current,
-                            tables:
-                              current.tables.length > 1
-                                ? current.tables.filter((item) => item.id !== table.id)
-                                : []
-                          }))
-                        }
-                      >
-                        Remove Table
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="mini-card">
-                    <span>No tables added yet</span>
-                    <strong>Add tables below</strong>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="ghost-btn"
-                  onClick={() =>
-                    setEditDraft((current) => ({
-                      ...current,
-                      tables: [...current.tables, buildEmptyTableRow(current.workAreas[0] || "AC")]
-                    }))
-                  }
-                >
-                  Add Table
-                </button>
-                <div className="mini-card">
-                  <strong>Saved table summary</strong>
-                  <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
-                    {editDraft.tables
-                      .filter((table) => table.name)
-                      .map((table) => (
-                        <div
-                          key={`edit-summary-${table.id}`}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr 1fr",
-                            gap: "8px",
-                            padding: "8px 0",
-                            borderBottom: "1px solid rgba(15, 23, 42, 0.08)"
-                          }}
-                        >
-                          <span>{table.workArea}</span>
-                          <strong>{table.name}</strong>
-                          <span>{buildCompactSeatPreview(table)}</span>
-                        </div>
-                      ))}
-                    {!editDraft.tables.some((table) => table.name) ? <span>No tables saved yet</span> : null}
-                  </div>
-                </div>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--muted)", marginBottom: 8 }}>Tables</p>
+                <TableEditor
+                  tables={editDraft.tables}
+                  workAreas={editDraft.workAreas}
+                  onChange={tables => setEditDraft(c => ({ ...c, tables }))}
+                />
               </div>
 
               <div className="mini-stack">

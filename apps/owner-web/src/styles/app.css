@@ -7148,3 +7148,118 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4);
   border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block;
 }
+
+/* ── Compact inline table editor ─────────────────────────────────────────── */
+.tbl-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(255,255,255,0.6);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  padding: 10px;
+}
+.tbl-editor-head {
+  display: grid;
+  grid-template-columns: 110px 1fr 70px 80px;
+  gap: 8px;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tbl-editor-empty {
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 8px 6px;
+}
+.tbl-editor-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 70px 80px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 6px;
+  border-radius: 8px;
+  min-height: 40px;
+}
+.tbl-editor-row:hover {
+  background: rgba(5,150,105,0.04);
+}
+.tbl-editor-row--editing {
+  background: rgba(5,150,105,0.06);
+  border: 1px solid rgba(5,150,105,0.18);
+}
+.tbl-editor-row--editing select,
+.tbl-editor-row--editing input {
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.88rem;
+  width: 100%;
+}
+.tbl-editor-row--editing select:focus,
+.tbl-editor-row--editing input:focus {
+  outline: 2px solid rgba(5,150,105,0.15);
+  border-color: #059669;
+}
+.tbl-area-pill {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #047857;
+  background: #ecfdf5;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tbl-editor-row strong {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.tbl-editor-row > span:nth-child(3) {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.tbl-editor-row-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.tbl-edit-btn, .tbl-confirm-btn, .tbl-remove-btn {
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 9px;
+  transition: background 120ms;
+}
+.tbl-edit-btn {
+  background: rgba(5,150,105,0.1);
+  color: #047857;
+}
+.tbl-edit-btn:hover { background: rgba(5,150,105,0.18); }
+.tbl-confirm-btn {
+  background: #059669;
+  color: #fff;
+}
+.tbl-confirm-btn:hover { background: #047857; }
+.tbl-remove-btn {
+  background: rgba(220,38,38,0.08);
+  color: #dc2626;
+}
+.tbl-remove-btn:hover { background: rgba(220,38,38,0.16); }
+.tbl-add-btn {
+  margin-top: 6px;
+  align-self: flex-start;
+  font-size: 0.85rem;
+  padding: 7px 14px;
+  border-radius: 10px;
+}
