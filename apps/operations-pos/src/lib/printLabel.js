@@ -111,12 +111,13 @@ function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
   vertical-align:top;
   border-right:1px dashed #ccc;
 ">
-  <div style="font-size:7pt;font-weight:800;text-align:center;line-height:1.25;width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
-  ${priceStr ? `<div style="font-size:8pt;font-weight:800;text-align:center;margin:0.5mm 0;color:#000;">${priceStr}</div>` : ""}
-  <div style="font-size:5.5pt;text-align:center;color:#444;line-height:1.5;">
-    ${mfdDate ? `MFD: ${mfdDate}` : ""}${mfdDate && expDate ? "&nbsp;&nbsp;" : ""}${expDate ? `EXP: ${expDate}` : ""}
+  <div style="font-size:7pt;font-weight:800;text-align:center;line-height:1.2;width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
+  ${priceStr ? `<div style="font-size:8pt;font-weight:800;text-align:center;margin:0.3mm 0;color:#000;">${priceStr}</div>` : ""}
+  <div style="width:100%;text-align:center;line-height:1.4;">
+    ${mfdDate ? `<div style="font-size:6.5pt;font-weight:700;color:#000;">MFD: ${mfdDate}</div>` : ""}
+    ${expDate  ? `<div style="font-size:6.5pt;font-weight:700;color:#000;">EXP: ${expDate}</div>`  : ""}
   </div>
-  <img src="${barcodeDataUrl}" style="width:${inner}mm;height:auto;margin-top:1mm;display:block;" />
+  <img src="${barcodeDataUrl}" style="width:${inner}mm;height:auto;margin-top:0.5mm;display:block;" />
 </div>`;
 }
 
@@ -126,8 +127,9 @@ function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
  */
 function buildQRLabelDiv(item, mfdDate, expDate, qrDataUrl, labelWidthMm) {
   const name = (item.name || "Item").slice(0, 40);
-  const raw  = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price ?? "";
-  const mrpStr = raw !== "" && raw !== null ? `Rs.${Number(raw).toFixed(2)}` : "";
+  const rawVal2  = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price ?? "";
+  const mrpNum   = rawVal2 !== "" && rawVal2 != null ? extractPrice(rawVal2) : 0;
+  const mrpStr   = mrpNum > 0 ? `Rs.${mrpNum.toFixed(2)}` : "";
 
   const pad   = 1.5;
   const qrMm  = 13;   // QR code square size
@@ -148,10 +150,10 @@ function buildQRLabelDiv(item, mfdDate, expDate, qrDataUrl, labelWidthMm) {
 ">
   <img src="${qrDataUrl}" style="width:${qrMm}mm;height:${qrMm}mm;flex-shrink:0;display:block;" />
   <div style="margin-left:${gap}mm;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:1mm;">
-    <div style="font-size:6.5pt;font-weight:800;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
+    <div style="font-size:6.5pt;font-weight:800;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
     ${mrpStr ? `<div style="font-size:7pt;font-weight:800;color:#000;">MRP: ${mrpStr}</div>` : ""}
-    ${mfdDate ? `<div style="font-size:5.5pt;color:#444;">Pkd Dt: ${mfdDate}</div>` : ""}
-    ${expDate ? `<div style="font-size:5.5pt;color:#444;">Exp Dt: ${expDate}</div>` : ""}
+    ${mfdDate ? `<div style="font-size:6.5pt;font-weight:700;color:#000;">MFD: ${mfdDate}</div>` : ""}
+    ${expDate  ? `<div style="font-size:6.5pt;font-weight:700;color:#000;">EXP: ${expDate}</div>`  : ""}
   </div>
 </div>`;
 }

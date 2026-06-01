@@ -226,6 +226,7 @@ export function BatchLabelModal({ menuItems = [], onClose }) {
                         value={selected[item.id]}
                         onChange={e => setQty(item.id, e.target.value)}
                         onClick={e => e.stopPropagation()}
+                        onFocus={e => e.target.select()}
                       />
                     )}
                   </div>
