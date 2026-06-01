@@ -131,9 +131,11 @@ function buildQRLabelDiv(item, mfdDate, expDate, qrDataUrl, labelWidthMm) {
   const mrpNum   = rawVal2 !== "" && rawVal2 != null ? extractPrice(rawVal2) : 0;
   const mrpStr   = mrpNum > 0 ? `Rs.${mrpNum.toFixed(2)}` : "";
 
-  const pad   = 1;
-  const qrMm  = 22;   // QR fills full height for easy scanning
-  const gap   = 1;
+  const pad  = 1;
+  const qrMm = 14;  // scannable + leaves enough text space
+  const gap  = 1;
+  const dateStr = [mfdDate ? `MFD:${mfdDate}` : "", expDate ? `EXP:${expDate}` : ""]
+    .filter(Boolean).join("  ");
 
   return `
 <div style="
@@ -141,19 +143,18 @@ function buildQRLabelDiv(item, mfdDate, expDate, qrDataUrl, labelWidthMm) {
   height:30mm;
   display:inline-flex;
   flex-direction:row;
-  align-items:stretch;
+  align-items:center;
   padding:${pad}mm;
   box-sizing:border-box;
   overflow:hidden;
   vertical-align:top;
   border-right:1px dashed #ccc;
 ">
-  <img src="${qrDataUrl}" style="width:${qrMm}mm;height:${qrMm}mm;flex-shrink:0;display:block;align-self:center;" />
-  <div style="margin-left:${gap}mm;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:0.5mm;">
+  <img src="${qrDataUrl}" style="width:${qrMm}mm;height:${qrMm}mm;flex-shrink:0;display:block;" />
+  <div style="margin-left:${gap}mm;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:0.8mm;">
     <div style="font-size:6pt;font-weight:800;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
-    ${mrpStr ? `<div style="font-size:7.5pt;font-weight:800;color:#000;">${mrpStr}</div>` : ""}
-    ${mfdDate ? `<div style="font-size:6pt;font-weight:700;color:#000;">MFD:${mfdDate}</div>` : ""}
-    ${expDate  ? `<div style="font-size:6pt;font-weight:700;color:#000;">EXP:${expDate}</div>`  : ""}
+    ${mrpStr ? `<div style="font-size:7pt;font-weight:800;color:#000;">MRP: ${mrpStr}</div>` : ""}
+    ${dateStr ? `<div style="font-size:5.5pt;font-weight:700;color:#000;line-height:1.4;">${dateStr.replace("  ","<br/>")}</div>` : ""}
   </div>
 </div>`;
 }
