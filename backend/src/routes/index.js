@@ -11,6 +11,10 @@ const { usersRouter } = require("../modules/users/users.routes");
 const { taxProfilesRouter } = require("../modules/tax-profiles/tax-profiles.routes");
 const { receiptTemplatesRouter } = require("../modules/receipt-templates/receipt-templates.routes");
 const { devicesRouter } = require("../modules/devices/devices.routes");
+const { resolveLinkCodeHandler } = require("../modules/devices/devices.controller");
+const { resolveLinkCodeRules } = require("../validators/devices.validators");
+const { validate } = require("../middleware/validate");
+const { linkCodeLimiter } = require("../middleware/rate-limit");
 const { discountsRouter } = require("../modules/discounts/discounts.routes");
 const { integrationsRouter } = require("../modules/integrations/integrations.routes");
 const { operationsRouter } = require("../modules/operations/operations.routes");
@@ -77,6 +81,10 @@ apiRouter.use(authenticate);
 // /auth — login/register handled before requireTenant so users can log in.
 // Auth routes verify identity — they do not read tenant-specific data.
 apiRouter.use("/auth", authRouter);
+
+// Public device route — POS terminal setup, no auth required.
+// Must be mounted before requireTenant so devices can link without a JWT.
+apiRouter.post("/devices/resolve-link-code", linkCodeLimiter, resolveLinkCodeRules, validate, asyncHandler(resolveLinkCodeHandler));
 
 // ── All data routes — MUST pass requireTenant ─────────────────────────────
 // requireTenant guarantees: valid JWT + tenantId present + not "default".
