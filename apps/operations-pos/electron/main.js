@@ -22,6 +22,7 @@ function createWindow() {
     minHeight: 640,
     title: "Plato POS",
     autoHideMenuBar: true,
+    show: false, // wait for ready-to-show so window appears fully loaded
     webPreferences: {
       preload:          path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -32,8 +33,28 @@ function createWindow() {
 
   mainWindow.maximize();
 
+  // Show window once fully loaded — prevents blank white flash
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
   // Load built web app
-  mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+  const indexPath = path.join(__dirname, "../dist/index.html");
+  mainWindow.loadFile(indexPath).catch((err) => {
+    console.error("[main] loadFile failed:", err.message, "path:", indexPath);
+    // Show a visible error so the user knows something is wrong
+    mainWindow.show();
+    mainWindow.loadURL(
+      `data:text/html,<h2 style="font-family:sans-serif;color:red;padding:40px">
+        Plato POS failed to load.<br><small>${err.message}</small>
+      </h2>`
+    );
+  });
+
+  mainWindow.webContents.on("did-fail-load", (_e, code, desc) => {
+    console.error("[main] did-fail-load:", code, desc);
+  });
 
   mainWindow.on("closed", () => { mainWindow = null; });
 }
