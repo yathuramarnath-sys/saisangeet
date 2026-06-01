@@ -1,54 +1,32 @@
-; installer.nsh — Plato POS permanent installer fix
+; installer.nsh — Plato POS installer fixes
 ;
-; ROOT CAUSE (discovered by reading electron-builder NSIS templates):
-; "Plato POS cannot be closed" comes from TWO places:
+; preInit: ONLY safe built-in NSIS registry ops — NO plugins, NO nsExec, NO Sleep.
+; nsExec + Sleep in preInit caused installer window to never appear on Windows 11 24H2.
 ;
-;   SOURCE 1 — allowOnlyOneInstallerInstance.nsh line 110
-;     _CHECK_APP_RUNNING finds POS still running → retry loop → shows dialog
-;     FIX: customCheckAppRunning override (empty) skips this check entirely
-;
-;   SOURCE 2 — installUtil.nsh line 219
-;     uninstallOldVersion runs OLD uninstaller (ExecWait) → old uninstaller fails
-;     5 retries → shows SAME "$(appCannotBeClosed)" dialog
-;     FIX: preInit deletes the uninstall registry keys + wipes old directories
-;          so uninstallOldVersion finds no UninstallString and returns early
+; Process killing and directory cleanup is NOT needed here because:
+;   - customCheckAppRunning (empty) skips the "app is running" check
+;   - customUnInstallCheck (ClearErrors) ignores failed old uninstaller
+;   - electron-builder overwrites files directly without needing old folder gone
 
 !macro preInit
-  ; InitPluginsDir MUST be called before any nsExec plugin calls
-  InitPluginsDir
-
-  ; ── Kill ALL Plato POS processes ──────────────────────────────────────────
-  nsExec::ExecToLog '$SYSDIR\cmd.exe /c taskkill /F /IM "Plato POS.exe" /T >nul 2>&1'
-  nsExec::ExecToLog '$SYSDIR\cmd.exe /c taskkill /F /IM "Plato POS Helper.exe" /T >nul 2>&1'
-  nsExec::ExecToLog '$SYSDIR\cmd.exe /c taskkill /F /IM "Plato POS Helper (Renderer).exe" /T >nul 2>&1'
-  nsExec::ExecToLog '$SYSDIR\cmd.exe /c taskkill /F /IM "Plato POS Helper (GPU).exe" /T >nul 2>&1'
-  nsExec::ExecToLog '$SYSDIR\cmd.exe /c wmic process where "name like ''Plato%%''" delete >nul 2>&1'
-  Sleep 2000
-
-  ; ── Wipe ALL known old install paths ─────────────────────────────────────
-  nsExec::ExecToLog '$SYSDIR\cmd.exe /c rmdir /S /Q "C:\Program Files\Plato POS" >nul 2>&1'
-  nsExec::ExecToLog '$SYSDIR\cmd.exe /c rmdir /S /Q "C:\Program Files (x86)\Plato POS" >nul 2>&1'
-  nsExec::ExecToLog '$SYSDIR\cmd.exe /c rmdir /S /Q "$LOCALAPPDATA\Programs\Plato POS" >nul 2>&1'
-  nsExec::ExecToLog '$SYSDIR\cmd.exe /c rmdir /S /Q "C:\PlatoPos" >nul 2>&1'
-  Sleep 500
-
-  ; ── Delete registry keys for old installs ────────────────────────────────
+  ; Delete old uninstall registry keys so electron-builder doesn't try to
+  ; run the missing old uninstaller (which would cause a silent failure).
+  ; These are pure NSIS built-in ops — safe to run before installer UI appears.
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\2624a8bc-0806-5099-9bb3-86068397e784"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\in.dinexpos.pos"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Plato POS"
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\2624a8bc-0806-5099-9bb3-86068397e784"
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Plato POS"
   DeleteRegKey HKCU "Software\2624a8bc-0806-5099-9bb3-86068397e784"
   DeleteRegKey HKCU "Software\in.dinexpos.pos"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Plato POS"
 !macroend
 
-; ── SOURCE 1 FIX ──
-; customCheckAppRunning overrides _CHECK_APP_RUNNING in allowOnlyOneInstallerInstance.nsh
+; Skip the "app is running" check entirely — no dialog, no retry loop
 !macro customCheckAppRunning
 !macroend
 
-; ── SOURCE 2 FIX (backup) ──
-; customUnInstallCheck overrides handleUninstallResult in installUtil.nsh
-; If the old uninstaller fails for ANY reason, skip the error and proceed with install
+; If old uninstaller fails for any reason — ignore and proceed
 !macro customUnInstallCheck
   ClearErrors
 !macroend
