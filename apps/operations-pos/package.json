@@ -1,6 +1,6 @@
 {
   "name": "dinex-pos",
-  "version": "1.4.57",
+  "version": "1.4.58",
   "private": true,
   "description": "Plato POS Terminal",
   "author": "Saisangeet Hospitality Pvt Ltd <hello@dinexpos.in>",
@@ -87,7 +87,11 @@
       "perMachine": false,
       "runAfterFinish": true,
       "artifactName": "Plato-POS-Setup.exe",
-      "include": "electron/installer.nsh"
+      "include": "electron/installer.nsh",
+      "installerIcon": null,
+      "shortcutName": "Plato POS",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "electronVersion": "32.3.3"
   }
