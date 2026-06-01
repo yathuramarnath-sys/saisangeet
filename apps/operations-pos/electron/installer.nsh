@@ -26,6 +26,8 @@
   Sleep 2000
 
   ; ── Wipe ALL known old install paths ─────────────────────────────────────
+  nsExec::ExecToLog '$SYSDIR\cmd.exe /c rmdir /S /Q "C:\Program Files\Plato POS" >nul 2>&1'
+  nsExec::ExecToLog '$SYSDIR\cmd.exe /c rmdir /S /Q "C:\Program Files (x86)\Plato POS" >nul 2>&1'
   nsExec::ExecToLog '$SYSDIR\cmd.exe /c rmdir /S /Q "$LOCALAPPDATA\Programs\Plato POS" >nul 2>&1'
   nsExec::ExecToLog '$SYSDIR\cmd.exe /c rmdir /S /Q "C:\PlatoPos" >nul 2>&1'
   Sleep 500
