@@ -18,6 +18,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { printBatchLabels, generateBarcodeDataUrl, generateQRDataUrl, getLabelPrinter } from "../lib/printLabel";
 
+function extractPrice(val) {
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  return Number(String(val || "").replace(/[^\d.]/g, "")) || 0;
+}
+
 const BATCH_MEMORY_KEY = "pos_last_label_batch";
 
 function todayStr() {
@@ -202,7 +207,7 @@ export function BatchLabelModal({ menuItems = [], onClose, onOpenSettings }) {
               )}
               {filtered.map(item => {
                 const isChecked = selected[item.id] != null;
-                const price = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price;
+                const priceNum = extractPrice(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price);
                 return (
                   <div
                     key={item.id}
@@ -213,9 +218,9 @@ export function BatchLabelModal({ menuItems = [], onClose, onOpenSettings }) {
                         {isChecked ? "✓" : ""}
                       </span>
                       <span className="blm-item-name">{item.name}</span>
-                      {price != null && (
+                      {priceNum > 0 && (
                         <span className="blm-item-price">
-                          Rs.{Number(price).toFixed(0)}
+                          Rs.{priceNum.toFixed(0)}
                         </span>
                       )}
                     </label>

@@ -17,6 +17,17 @@ import bwipjs from "bwip-js";
 
 export const LABEL_PRINTER_KEY = "pos_label_printer";
 
+/**
+ * Extract a numeric price from a value that may be:
+ *   - a number  → returned as-is
+ *   - a string  → "Rs 75", "Rs.75", "₹75", "75" → 75
+ *   - null/undefined → 0
+ */
+function extractPrice(val) {
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  return Number(String(val || "").replace(/[^\d.]/g, "")) || 0;
+}
+
 export function getLabelPrinter() {
   try {
     return JSON.parse(localStorage.getItem(LABEL_PRINTER_KEY) || "{}");
@@ -65,8 +76,9 @@ export function generateQRDataUrl(text) {
  */
 function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
   const name = (item.name || "Item").slice(0, 40);
-  const raw  = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price ?? "";
-  const priceStr = raw !== "" && raw !== null ? `Rs.${Number(raw).toFixed(2)}` : "";
+  const rawVal   = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price ?? "";
+  const priceNum = rawVal !== "" && rawVal != null ? extractPrice(rawVal) : 0;
+  const priceStr = priceNum > 0 ? `Rs.${priceNum.toFixed(2)}` : "";
 
   const pad = 1.5;
   const inner = labelWidthMm - pad * 2;

@@ -19,6 +19,11 @@ import {
   getLabelPrinter,
 } from "../lib/printLabel";
 
+function extractPrice(val) {
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  return Number(String(val || "").replace(/[^\d.]/g, "")) || 0;
+}
+
 // Today in DD/MM/YYYY
 function todayStr() {
   const d = new Date();
@@ -90,10 +95,10 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
     }
   }
 
-  const itemPrice = selectedItem
-    ? (selectedItem.pricing?.[0]?.dineIn ?? selectedItem.takeawayPrice ?? selectedItem.price ?? "")
-    : "";
-  const priceStr = itemPrice !== "" ? `Rs.${Number(itemPrice).toFixed(2)}` : "";
+  const itemPriceNum = selectedItem
+    ? extractPrice(selectedItem.pricing?.[0]?.dineIn ?? selectedItem.takeawayPrice ?? selectedItem.price)
+    : 0;
+  const priceStr = itemPriceNum > 0 ? `Rs.${itemPriceNum.toFixed(2)}` : "";
   const is35   = labelSize === "35x30";
   const isQR   = barcodeType === "qrcode";
   const previewPx = is35 ? 96 : 130;   // approximate px width for preview div
@@ -139,9 +144,9 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
                     onClick={() => setSelectedItem(item)}
                   >
                     <span className="lpm-item-name">{item.name}</span>
-                    {(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price) &&
+                    {extractPrice(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price) > 0 &&
                       <span className="lpm-item-price">
-                        Rs.{Number(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price).toFixed(0)}
+                        Rs.{extractPrice(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price).toFixed(0)}
                       </span>
                     }
                   </button>
