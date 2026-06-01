@@ -216,3 +216,16 @@ cd backend && npm run dev   # Node watch mode, port 4000
 # Owner web
 npm run dev --workspace=apps/owner-web   # Vite, port 5173
 ```
+
+### Build Windows POS installer (Apple Silicon Mac)
+```bash
+cd apps/operations-pos
+CSC_IDENTITY_AUTO_DISCOVERY=false npm run electron:build:win
+# Output: electron-dist/Plato-POS-Setup.exe
+```
+**IMPORTANT rules for POS builds:**
+- NEVER use `ELECTRON_BUILDER_WINE_EXECUTABLE` — wine + signtool corrupts the NSIS uninstaller
+- NEVER use `show: false` on the main BrowserWindow — window stays hidden on Windows
+- NEVER add `perMachine: true` or `installer.nsh` with nsExec/Sleep in preInit — breaks installer on Windows 11
+- NEVER add `ia32` arch — all clients are 64-bit, doubles file size
+- After building, copy to Desktop: `cp electron-dist/Plato-POS-Setup.exe ~/Desktop/Plato-POS-Setup-vX.X.XX.exe`
