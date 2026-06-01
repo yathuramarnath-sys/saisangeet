@@ -132,29 +132,31 @@ function buildQRLabelDiv(item, mfdDate, expDate, qrDataUrl, labelWidthMm) {
   const mrpStr   = mrpNum > 0 ? `Rs.${mrpNum.toFixed(2)}` : "";
 
   const pad  = 1;
-  const qrMm = 14;  // scannable + leaves enough text space
-  const gap  = 1;
-  const dateStr = [mfdDate ? `MFD:${mfdDate}` : "", expDate ? `EXP:${expDate}` : ""]
-    .filter(Boolean).join("  ");
+  const qrMm = 16;
 
   return `
 <div style="
   width:${labelWidthMm}mm;
   height:30mm;
   display:inline-flex;
-  flex-direction:row;
-  align-items:center;
+  flex-direction:column;
   padding:${pad}mm;
   box-sizing:border-box;
   overflow:hidden;
   vertical-align:top;
   border-right:1px dashed #ccc;
 ">
-  <img src="${qrDataUrl}" style="width:${qrMm}mm;height:${qrMm}mm;flex-shrink:0;display:block;" />
-  <div style="margin-left:${gap}mm;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:0.8mm;">
-    <div style="font-size:6pt;font-weight:800;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
-    ${mrpStr ? `<div style="font-size:7pt;font-weight:800;color:#000;">MRP: ${mrpStr}</div>` : ""}
-    ${dateStr ? `<div style="font-size:5.5pt;font-weight:700;color:#000;line-height:1.4;">${dateStr.replace("  ","<br/>")}</div>` : ""}
+  <!-- Row 1: Product name — full width -->
+  <div style="font-size:7pt;font-weight:900;text-align:center;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;flex-shrink:0;">${name}</div>
+
+  <!-- Row 2: QR left | Price+Dates right -->
+  <div style="display:flex;flex-direction:row;flex:1;align-items:center;margin-top:0.5mm;overflow:hidden;">
+    <img src="${qrDataUrl}" style="width:${qrMm}mm;height:${qrMm}mm;flex-shrink:0;display:block;" />
+    <div style="margin-left:1.5mm;flex:1;display:flex;flex-direction:column;justify-content:center;gap:0.8mm;overflow:hidden;">
+      ${mrpStr ? `<div style="font-size:8pt;font-weight:900;color:#000;line-height:1.1;">${mrpStr}</div>` : ""}
+      ${mfdDate ? `<div style="font-size:6.5pt;font-weight:700;color:#000;">MFD:${mfdDate}</div>` : ""}
+      ${expDate  ? `<div style="font-size:6.5pt;font-weight:700;color:#000;">EXP:${expDate}</div>`  : ""}
+    </div>
   </div>
 </div>`;
 }
