@@ -83,9 +83,28 @@ io.on("connection", (socket) => {
   }
 
   const clientType = kdsStation !== undefined ? "KDS" : "POS/Captain";
-  // Resolve which tenant owns this outlet so socket rooms are tenant-isolated.
-  // Prevents one restaurant's devices from receiving events from another restaurant.
-  const tenantId = resolveTenantByOutlet(outletId);
+
+  // Resolve which tenant owns this outlet.
+  // Primary: scan in-memory cache (fast, works for all tenants seen since boot).
+  // Fallback: decode the device JWT — the token carries tenantId + outletId and was
+  // issued by the server, so it is authoritative even for brand-new tenants whose
+  // data hasn't been loaded into the cache yet (first connection after signup).
+  let tenantId = resolveTenantByOutlet(outletId);
+  if (tenantId === "default" && outletId) {
+    const devToken = socket.handshake.auth?.token
+      || socket.handshake.headers?.authorization?.replace("Bearer ", "")
+      || socket.handshake.query?.deviceToken;
+    if (devToken) {
+      try {
+        const decoded = jwt.verify(devToken, env.jwtSecret);
+        if (decoded?.tenantId && decoded.tenantId !== "default") {
+          tenantId = decoded.tenantId;
+          console.log(`[socket] tenant resolved via device token | tenant=${tenantId} | outlet=${outletId}`);
+        }
+      } catch (_) { /* expired/invalid token — keep "default" */ }
+    }
+  }
+
   console.log(`[socket] connect | id=${socket.id} | type=${clientType} | tenant=${tenantId} | outletId=${outletId || "(none)"} | kdsStation="${kdsStation ?? "(n/a)"}"`);
 
   if (outletId) {

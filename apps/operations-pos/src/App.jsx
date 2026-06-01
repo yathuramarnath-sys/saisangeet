@@ -499,6 +499,9 @@ export default function App() {
           .replace("/api/v1", "");
         const socket = io(socketUrl, {
           query: { outletId: target.id },
+          // Pass device token so the server can resolve tenantId for brand-new
+          // tenants whose data isn't in the in-memory cache yet.
+          auth: { token: localStorage.getItem("pos_token") || "" },
           reconnection:      true,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 8000,
@@ -1708,7 +1711,21 @@ export default function App() {
     setTimeout(() => {
       const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
       const table = area?.tables.find(t => t.id === tableId);
-      if (!table || !area) return; // counter/online IDs — no catalog entry
+
+      if (!table || !area) {
+        // Counter / takeaway / online order — no catalog entry.
+        // Still must clear the local slot so the cashier can start the next order.
+        // These IDs can't use buildBlankOrder (no table/area object) so just wipe
+        // the closed order from state — the counter panel will create the next one.
+        setOrders(prev => {
+          if (!prev[tableId]?.isClosed) return prev; // already cleared by socket
+          const next = { ...prev };
+          delete next[tableId];
+          return next;
+        });
+        return;
+      }
+
       setOrders(prev => {
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
