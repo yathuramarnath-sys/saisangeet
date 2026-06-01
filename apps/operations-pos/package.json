@@ -1,6 +1,6 @@
 {
   "name": "dinex-pos",
-  "version": "1.4.56",
+  "version": "1.4.57",
   "private": true,
   "description": "Plato POS Terminal",
   "author": "Saisangeet Hospitality Pvt Ltd <hello@dinexpos.in>",
@@ -74,7 +74,8 @@
         {
           "target": "nsis",
           "arch": [
-            "x64"
+            "x64",
+            "ia32"
           ]
         }
       ]

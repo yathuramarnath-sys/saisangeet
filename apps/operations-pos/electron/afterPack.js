@@ -13,7 +13,9 @@ module.exports = async function afterPack(context) {
   // Only needed for Windows builds
   if (platform !== "windows") return;
 
-  const exePath = path.join(appOutDir, `${packager.appInfo.productFilename}.exe`);
+  // productFilename may have spaces — handle both x64 and ia32 unpacked dirs
+  const exeName = `${packager.appInfo.productFilename}.exe`;
+  const exePath = path.join(appOutDir, exeName);
 
   console.log(`[afterPack] Flipping fuses for: ${exePath}`);
 
