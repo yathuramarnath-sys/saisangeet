@@ -1,21 +1,25 @@
 /**
  * printLabel.js — barcode label printing for POS
  *
- * Generates HTML labels with Code 128 barcodes via bwip-js.
- * Prints using the existing printHTML Electron pipeline (same as bills/KOTs).
+ * Smart Print model:
+ *   - No upfront configuration required.
+ *   - On first print the UI shows an inline printer picker (SmartPrintButton).
+ *   - Chosen printer is remembered in localStorage under LAST_LABEL_PRINTER_KEY.
+ *   - Subsequent prints go directly to that printer — zero clicks.
+ *   - Uses the new print-label Electron IPC which calls webContents.print({ deviceName })
+ *     so ZPL drivers (Zebra ZD230) render the HTML correctly via their Windows driver.
  *
  * Label sizes:
  *   "35x30" → 3 labels per row on 105mm wide paper
  *   "50x30" → 2 labels per row on 100mm wide paper
- *
- * Label printer configured separately from receipt printer.
- * Stored in localStorage as JSON under "pos_label_printer":
- *   { winName: "TSC TTP-244 Pro", ip: "", paper: "35x30" }
  */
 
 import bwipjs from "bwip-js";
 
-export const LABEL_PRINTER_KEY = "pos_label_printer";
+// Legacy key — kept so old saved config isn't lost on upgrade
+export const LABEL_PRINTER_KEY      = "pos_label_printer";
+// Smart Print — stores only the Windows printer name (string)
+export const LAST_LABEL_PRINTER_KEY = "pos_last_label_printer";
 
 /**
  * Extract a numeric price from a value that may be:
@@ -28,6 +32,16 @@ function extractPrice(val) {
   return Number(String(val || "").replace(/[^\d.]/g, "")) || 0;
 }
 
+/** Last-used label printer name (Smart Print memory). */
+export function getLastLabelPrinter() {
+  return localStorage.getItem(LAST_LABEL_PRINTER_KEY) || null;
+}
+export function setLastLabelPrinter(name) {
+  if (name) localStorage.setItem(LAST_LABEL_PRINTER_KEY, name);
+  else localStorage.removeItem(LAST_LABEL_PRINTER_KEY);
+}
+
+/** Legacy config object — kept for backward compat. */
 export function getLabelPrinter() {
   try {
     return JSON.parse(localStorage.getItem(LABEL_PRINTER_KEY) || "{}");
@@ -324,6 +338,107 @@ export async function printLabels(item, opts = {}) {
 
   // ── Browser popup fallback ─────────────────────────────────────────────────
   const w = window.open("", "_blank", "width=600,height=400");
+  if (!w) { alert("Please allow pop-ups to print labels."); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => {
+    w.print();
+    w.onafterprint = () => w.close();
+    setTimeout(() => w.close(), 3500);
+  }, 400);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart Print API — used by SmartPrintButton.
+// Uses print-label IPC (webContents.print + deviceName) so ZPL/label printer
+// drivers render the HTML correctly. Falls back to browser popup on non-Electron.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Send a single-item label job to the given Windows printer.
+ * Called by SmartPrintButton after the user has chosen (or remembered) a printer.
+ */
+export async function printLabelSmart(item, opts = {}, printerName = null) {
+  const { mfdDate = "", expDate = "", qty = 1, labelSize = "35x30", barcodeType = "code128" } = opts;
+
+  const is35     = labelSize === "35x30";
+  const labelW   = is35 ? 35 : 50;
+  const colCount = is35 ? 3 : 2;
+  const pageW    = labelW * colCount;
+
+  const barcodeVal = (item.sku || item.id || item.name || "ITEM")
+    .replace(/[^\x20-\x7E]/g, "").slice(0, 200) || "ITEM";
+
+  const isQR      = barcodeType === "qrcode";
+  const imgUrl    = isQR ? generateQRDataUrl(barcodeVal) : generateBarcodeDataUrl(barcodeVal.slice(0, 48));
+  const divs      = Array.from({ length: Math.max(1, qty) }, () =>
+    isQR ? buildQRLabelDiv(item, mfdDate, expDate, imgUrl, labelW)
+         : buildLabelDiv(item, mfdDate, expDate, imgUrl, labelW)
+  );
+  const rows = [];
+  for (let i = 0; i < divs.length; i += colCount) rows.push(divs.slice(i, i + colCount));
+  const html = buildLabelPageHtml(rows, pageW);
+
+  return _sendLabelHtml(html, printerName, pageW, 30);
+}
+
+/**
+ * Send a batch label job to the given Windows printer.
+ * Called by SmartPrintButton in BatchLabelModal after picker selection.
+ */
+export async function printBatchLabelsSmart(batch, opts = {}, printerName = null) {
+  const { mfdDate = "", expDate = "", labelSize = "35x30", barcodeType = "code128" } = opts;
+
+  const is35     = labelSize === "35x30";
+  const labelW   = is35 ? 35 : 50;
+  const colCount = is35 ? 3 : 2;
+  const pageW    = labelW * colCount;
+  const isQR     = barcodeType === "qrcode";
+
+  const allDivs = [];
+  for (const { item, qty } of batch) {
+    if (!item || !qty || qty < 1) continue;
+    const barcodeVal = (item.sku || item.id || item.name || "ITEM")
+      .replace(/[^\x20-\x7E]/g, "").slice(0, 200) || "ITEM";
+    const imgUrl = isQR ? generateQRDataUrl(barcodeVal) : generateBarcodeDataUrl(barcodeVal.slice(0, 48));
+    for (let i = 0; i < qty; i++) {
+      allDivs.push(
+        isQR ? buildQRLabelDiv(item, mfdDate, expDate, imgUrl, labelW)
+             : buildLabelDiv(item, mfdDate, expDate, imgUrl, labelW)
+      );
+    }
+  }
+  if (allDivs.length === 0) return;
+
+  const rows = [];
+  for (let i = 0; i < allDivs.length; i += colCount) rows.push(allDivs.slice(i, i + colCount));
+  const html = buildLabelPageHtml(rows, pageW);
+
+  return _sendLabelHtml(html, printerName, pageW, 30);
+}
+
+/** Internal: send built HTML via print-label IPC or browser popup fallback. */
+async function _sendLabelHtml(html, printerName, paperWidthMm, paperHeightMm) {
+  // ── Electron: use print-label IPC (webContents.print + deviceName) ──────────
+  if (window.electronAPI?.printLabel) {
+    const result = await window.electronAPI.printLabel({
+      html,
+      printerName:   printerName || null,
+      paperWidthMm,
+      paperHeightMm,
+    });
+    if (!result?.ok) {
+      console.warn("[printLabelSmart] print-label failed:", result?.error);
+      window.dispatchEvent(new CustomEvent("dinex:print-error", {
+        detail: { source: "Label", printerName, error: result?.error },
+      }));
+    }
+    return result;
+  }
+
+  // ── Browser popup fallback (non-Electron / dev) ────────────────────────────
+  const w = window.open("", "_blank", "width=700,height=500");
   if (!w) { alert("Please allow pop-ups to print labels."); return; }
   w.document.write(html);
   w.document.close();

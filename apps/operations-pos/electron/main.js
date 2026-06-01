@@ -923,6 +923,67 @@ ipcMain.handle("print-html", async (event, { html, printerName, printerIp, paper
   });
 });
 
+// ── print-label IPC ──────────────────────────────────────────────────────────
+// Label / sticker printing via the Windows printer driver.
+// Uses webContents.print({ deviceName }) so ZDesigner / TSC / Xprinter drivers
+// render the HTML correctly — NOT the raw ESC/POS path used for receipt printers.
+//
+// payload: { html, printerName, paperWidthMm, paperHeightMm }
+// Returns: { ok: boolean, error?: string }
+ipcMain.handle("print-label", async (_event, { html, printerName, paperWidthMm = 105, paperHeightMm = 30 } = {}) => {
+  return new Promise((resolve) => {
+    const win = new BrowserWindow({
+      show: false, skipTaskbar: true,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    const timeoutHandle = setTimeout(() => {
+      try { win.destroy(); } catch {}
+      resolve({ ok: false, error: "load_timeout" });
+    }, 10000);
+
+    win.webContents.on("did-finish-load", () => {
+      clearTimeout(timeoutHandle);
+      // Small delay so fonts/images in the label HTML finish rendering
+      setTimeout(() => {
+        const printOpts = {
+          silent:          true,
+          printBackground: true,
+          margins:         { marginType: "none" },
+          // pageSize in microns (1 mm = 1000 µm)
+          pageSize: {
+            width:  Math.round(paperWidthMm  * 1000),
+            height: Math.round(paperHeightMm * 1000),
+          },
+        };
+        // Only set deviceName when a real printer is specified —
+        // omitting it falls back to Windows default printer.
+        if (printerName && typeof printerName === "string" && printerName.trim()) {
+          printOpts.deviceName = printerName.trim();
+        }
+
+        win.webContents.print(printOpts, (success, failureReason) => {
+          try { win.destroy(); } catch {}
+          if (success) {
+            resolve({ ok: true });
+          } else {
+            console.error(`[print-label] Failed (${printerName || "default"}):`, failureReason);
+            resolve({ ok: false, error: failureReason || "print_failed" });
+          }
+        });
+      }, 500);
+    });
+
+    win.webContents.on("did-fail-load", (_e, _code, desc) => {
+      clearTimeout(timeoutHandle);
+      try { win.destroy(); } catch {}
+      resolve({ ok: false, error: desc || "load_failed" });
+    });
+
+    win.loadURL(`data:text/html;base64,${Buffer.from(html, "utf8").toString("base64")}`);
+  });
+});
+
 // ── scan-printers IPC ─────────────────────────────────────────────────────────
 // Probes port 9100 (ESC/POS thermal) across local subnets for network printers,
 // and detects USB printers via OS-specific commands.
