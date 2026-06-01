@@ -1,6 +1,6 @@
 {
   "name": "dinex-pos",
-  "version": "1.4.65",
+  "version": "1.4.66",
   "private": true,
   "description": "Plato POS Terminal",
   "author": "Saisangeet Hospitality Pvt Ltd <hello@dinexpos.in>",
@@ -67,8 +67,9 @@
         }
       ]
     },
-    "afterPack": "electron/afterPack.js",
     "win": {
+      "signAndEditExecutable": false,
+      "forceCodeSigning": false,
       "target": [
         {
           "target": "nsis",
