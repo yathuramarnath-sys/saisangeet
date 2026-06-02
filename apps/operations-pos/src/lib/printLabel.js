@@ -94,7 +94,7 @@ function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
   const priceNum = rawVal !== "" && rawVal != null ? extractPrice(rawVal) : 0;
   const priceStr = priceNum > 0 ? `Rs.${priceNum.toFixed(2)}` : "";
 
-  const pad = 1;
+  const pad   = 1;
   const inner = labelWidthMm - pad * 2;
 
   return `
@@ -104,22 +104,18 @@ function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
   display:inline-flex;
   flex-direction:column;
   align-items:flex-start;
-  justify-content:flex-start;
   padding:${pad}mm;
   box-sizing:border-box;
   overflow:hidden;
   vertical-align:top;
   border-right:1px dashed #ccc;
+  font-family:Arial,Helvetica,sans-serif;
 ">
-  <!-- Barcode at TOP full width — easiest to scan -->
-  <img src="${barcodeDataUrl}" style="width:${inner}mm;height:auto;display:block;margin-bottom:0.5mm;" />
-  <!-- Product name -->
-  <div style="font-size:6.5pt;font-weight:800;line-height:1.2;width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${name}</div>
-  <!-- Dates -->
-  ${mfdDate ? `<div style="font-size:6pt;font-weight:700;color:#000;white-space:nowrap;">PKD: ${mfdDate}</div>` : ""}
-  ${expDate  ? `<div style="font-size:6pt;font-weight:700;color:#000;white-space:nowrap;">EXP: ${expDate}</div>`  : ""}
-  <!-- Price at bottom — large and clear -->
-  ${priceStr ? `<div style="font-size:8pt;font-weight:900;color:#000;margin-top:auto;">${priceStr}</div>` : ""}
+  <img src="${barcodeDataUrl}" style="width:${inner}mm;height:10mm;display:block;" />
+  <div style="font-size:6.5pt;font-weight:800;line-height:1.3;width:100%;">${name}</div>
+  ${mfdDate ? `<div style="font-size:6pt;font-weight:700;line-height:1.3;">PKD: ${mfdDate}</div>` : ""}
+  ${expDate  ? `<div style="font-size:6pt;font-weight:700;line-height:1.3;">EXP: ${expDate}</div>`  : ""}
+  ${priceStr ? `<div style="font-size:8.5pt;font-weight:900;line-height:1.3;">${priceStr}</div>` : ""}
 </div>`;
 }
 
@@ -134,7 +130,7 @@ function buildQRLabelDiv(item, mfdDate, expDate, qrDataUrl, labelWidthMm) {
   const mrpStr   = mrpNum > 0 ? `Rs.${mrpNum.toFixed(2)}` : "";
 
   const pad  = 1;
-  const qrMm = 16;
+  const qrMm = 15;
 
   return `
 <div style="
@@ -147,17 +143,15 @@ function buildQRLabelDiv(item, mfdDate, expDate, qrDataUrl, labelWidthMm) {
   overflow:hidden;
   vertical-align:top;
   border-right:1px dashed #ccc;
+  font-family:Arial,Helvetica,sans-serif;
 ">
-  <!-- Row 1: Product name — full width -->
-  <div style="font-size:7pt;font-weight:900;text-align:center;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;flex-shrink:0;">${name}</div>
-
-  <!-- Row 2: QR left | Price+Dates right -->
+  <div style="font-size:6.5pt;font-weight:900;text-align:center;line-height:1.2;width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0;">${name}</div>
   <div style="display:flex;flex-direction:row;flex:1;align-items:center;margin-top:0.5mm;overflow:hidden;">
     <img src="${qrDataUrl}" style="width:${qrMm}mm;height:${qrMm}mm;flex-shrink:0;display:block;" />
-    <div style="margin-left:1.5mm;flex:1;display:flex;flex-direction:column;justify-content:center;gap:0.8mm;overflow:hidden;">
-      ${mrpStr ? `<div style="font-size:8pt;font-weight:900;color:#000;line-height:1.1;">${mrpStr}</div>` : ""}
-      ${mfdDate ? `<div style="font-size:6.5pt;font-weight:700;color:#000;">MFD:${mfdDate}</div>` : ""}
-      ${expDate  ? `<div style="font-size:6.5pt;font-weight:700;color:#000;">EXP:${expDate}</div>`  : ""}
+    <div style="margin-left:1mm;flex:1;display:flex;flex-direction:column;justify-content:center;overflow:hidden;">
+      ${mrpStr ? `<div style="font-size:8pt;font-weight:900;line-height:1.3;">${mrpStr}</div>` : ""}
+      ${mfdDate ? `<div style="font-size:5.5pt;font-weight:700;line-height:1.3;white-space:nowrap;">MFD:${mfdDate}</div>` : ""}
+      ${expDate  ? `<div style="font-size:5.5pt;font-weight:700;line-height:1.3;white-space:nowrap;">EXP:${expDate}</div>`  : ""}
     </div>
   </div>
 </div>`;
