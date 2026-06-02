@@ -1067,7 +1067,7 @@ export default function App() {
       if (e.key === "Enter") {
         const scanned = buffer.trim();
         resetBuffer();
-        if (scanned.length < 2) return;           // too short — ignore
+        if (scanned.length < 1) return;           // empty — ignore (allow single digit item numbers)
         if (!selectedTableIdRef.current) {
           showToast("Select a table first, then scan");
           return;
