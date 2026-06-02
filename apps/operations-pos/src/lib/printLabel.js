@@ -113,9 +113,9 @@ function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
 ">
   <div style="font-size:7pt;font-weight:800;text-align:center;line-height:1.2;width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
   ${priceStr ? `<div style="font-size:8pt;font-weight:800;text-align:center;margin:0.3mm 0;color:#000;">${priceStr}</div>` : ""}
-  <div style="width:100%;text-align:center;line-height:1.4;">
-    ${mfdDate ? `<div style="font-size:6.5pt;font-weight:700;color:#000;">MFD: ${mfdDate}</div>` : ""}
-    ${expDate  ? `<div style="font-size:6.5pt;font-weight:700;color:#000;">EXP: ${expDate}</div>`  : ""}
+  <div style="width:100%;text-align:center;line-height:1.4;white-space:nowrap;">
+    ${mfdDate ? `<div style="font-size:6pt;font-weight:700;color:#000;">MFD: ${mfdDate}</div>` : ""}
+    ${expDate  ? `<div style="font-size:6pt;font-weight:700;color:#000;">EXP: ${expDate}</div>`  : ""}
   </div>
   <img src="${barcodeDataUrl}" style="width:${inner}mm;height:auto;margin-top:0.5mm;display:block;" />
 </div>`;

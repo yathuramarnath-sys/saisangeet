@@ -1149,6 +1149,10 @@ export default function App() {
       const next = updater(structuredClone(order));
       // Stamp cashierName so Captain App bill always shows the correct POS cashier
       if (cashierName) next.cashierName = cashierName;
+      // Always stamp updatedAt so the stale-write guard in order:updated handler
+      // can correctly reject any incoming socket event that has older data.
+      // Without this, cleared items can reappear when Captain broadcasts old state.
+      next.updatedAt = Date.now();
       // Emit to cloud socket (for Owner Web + remote Captain/KDS)
       socketRef.current?.emit("order:update", { outletId: outlet?.id, order: next });
       // Emit to local socket (for tablets on same WiFi — works without internet)
