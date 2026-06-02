@@ -94,7 +94,7 @@ function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
   const priceNum = rawVal !== "" && rawVal != null ? extractPrice(rawVal) : 0;
   const priceStr = priceNum > 0 ? `Rs.${priceNum.toFixed(2)}` : "";
 
-  const pad = 1.5;
+  const pad = 1;
   const inner = labelWidthMm - pad * 2;
 
   return `
@@ -103,21 +103,23 @@ function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
   height:30mm;
   display:inline-flex;
   flex-direction:column;
-  align-items:center;
+  align-items:flex-start;
   justify-content:flex-start;
-  padding:${pad}mm ${pad}mm 1mm;
+  padding:${pad}mm;
   box-sizing:border-box;
   overflow:hidden;
   vertical-align:top;
   border-right:1px dashed #ccc;
 ">
-  <div style="font-size:7pt;font-weight:800;text-align:center;line-height:1.2;width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
-  ${priceStr ? `<div style="font-size:8pt;font-weight:800;text-align:center;margin:0.3mm 0;color:#000;">${priceStr}</div>` : ""}
-  <div style="width:100%;text-align:center;line-height:1.4;white-space:nowrap;">
-    ${mfdDate ? `<div style="font-size:6pt;font-weight:700;color:#000;">MFD: ${mfdDate}</div>` : ""}
-    ${expDate  ? `<div style="font-size:6pt;font-weight:700;color:#000;">EXP: ${expDate}</div>`  : ""}
-  </div>
-  <img src="${barcodeDataUrl}" style="width:${inner}mm;height:auto;margin-top:0.5mm;display:block;" />
+  <!-- Barcode at TOP full width — easiest to scan -->
+  <img src="${barcodeDataUrl}" style="width:${inner}mm;height:auto;display:block;margin-bottom:0.5mm;" />
+  <!-- Product name -->
+  <div style="font-size:6.5pt;font-weight:800;line-height:1.2;width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${name}</div>
+  <!-- Dates -->
+  ${mfdDate ? `<div style="font-size:6pt;font-weight:700;color:#000;white-space:nowrap;">PKD: ${mfdDate}</div>` : ""}
+  ${expDate  ? `<div style="font-size:6pt;font-weight:700;color:#000;white-space:nowrap;">EXP: ${expDate}</div>`  : ""}
+  <!-- Price at bottom — large and clear -->
+  ${priceStr ? `<div style="font-size:8pt;font-weight:900;color:#000;margin-top:auto;">${priceStr}</div>` : ""}
 </div>`;
 }
 
