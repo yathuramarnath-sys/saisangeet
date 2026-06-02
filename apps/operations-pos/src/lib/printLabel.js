@@ -62,10 +62,11 @@ export function generateBarcodeDataUrl(text) {
     bcid:        "code128",
     text:        String(text || "ITEM").slice(0, 48),
     scale:       2,
-    height:      10,
-    includetext: true,
+    height:      8,
+    includetext: true,   // show number below barcode for manual entry
     textxalign:  "center",
-    textyoffset: 2,
+    textfont:    "Helvetica",
+    textsize:    9,
   });
   return canvas.toDataURL("image/png");
 }
@@ -89,33 +90,30 @@ export function generateQRDataUrl(text) {
  * Width is set from labelWidthMm. Height is fixed 30mm.
  */
 function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
-  const name = (item.name || "Item").slice(0, 40);
+  const name     = (item.name || "Item").slice(0, 40);
   const rawVal   = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price ?? "";
   const priceNum = rawVal !== "" && rawVal != null ? extractPrice(rawVal) : 0;
   const priceStr = priceNum > 0 ? `Rs.${priceNum.toFixed(2)}` : "";
+  // Ensure date always uses "/" — replace any spaces that crept in
+  const pkd = mfdDate ? mfdDate.replace(/\s/g, "/") : "";
+  const exp = expDate  ? expDate.replace(/\s/g, "/")  : "";
 
   const pad   = 1;
   const inner = labelWidthMm - pad * 2;
 
   return `
 <div style="
-  width:${labelWidthMm}mm;
-  height:30mm;
-  display:inline-flex;
-  flex-direction:column;
-  align-items:flex-start;
-  padding:${pad}mm;
-  box-sizing:border-box;
-  overflow:hidden;
-  vertical-align:top;
-  border-right:1px dashed #ccc;
+  width:${labelWidthMm}mm;height:30mm;
+  display:inline-flex;flex-direction:column;align-items:flex-start;
+  padding:${pad}mm;box-sizing:border-box;overflow:hidden;
+  vertical-align:top;border-right:1px dashed #ccc;
   font-family:Arial,Helvetica,sans-serif;
 ">
-  <img src="${barcodeDataUrl}" style="width:${inner}mm;height:10mm;display:block;" />
-  <div style="font-size:6.5pt;font-weight:800;line-height:1.3;width:100%;">${name}</div>
-  ${mfdDate ? `<div style="font-size:6pt;font-weight:700;line-height:1.3;">PKD: ${mfdDate}</div>` : ""}
-  ${expDate  ? `<div style="font-size:6pt;font-weight:700;line-height:1.3;">EXP: ${expDate}</div>`  : ""}
-  ${priceStr ? `<div style="font-size:8.5pt;font-weight:900;line-height:1.3;">${priceStr}</div>` : ""}
+  <img src="${barcodeDataUrl}" style="width:${inner}mm;height:8mm;display:block;" />
+  <div style="font-size:6.5pt;font-weight:800;line-height:1.4;width:100%;">${name}</div>
+  ${pkd ? `<div style="font-size:6pt;font-weight:700;line-height:1.4;">PKD ${pkd}</div>` : ""}
+  ${exp ? `<div style="font-size:6pt;font-weight:700;line-height:1.4;">EXP ${exp}</div>`  : ""}
+  ${priceStr ? `<div style="font-size:9pt;font-weight:900;line-height:1.4;">${priceStr}</div>` : ""}
 </div>`;
 }
 
@@ -209,11 +207,15 @@ export async function printBatchLabels(batch, opts = {}) {
 
   // Build all label divs across all items
   const allDivs = [];
+  let itemNum = 1; // sequential number printed on each label
   for (const { item, qty } of batch) {
     if (!item || !qty || qty < 1) continue;
-    const barcodeVal = (item.sku || item.id || item.name || "ITEM")
-      .replace(/[^\x20-\x7E]/g, "")
-      .slice(0, 200) || "ITEM";
+    // Use SKU if set in Owner Web, else use sequential number (001, 002...)
+    const barcodeVal = item.sku?.trim()
+      ? item.sku.trim()
+      : String(itemNum).padStart(3, "0");
+    item._labelNum = barcodeVal; // pass to label builder for display
+    itemNum++;
     const imgDataUrl = isQR
       ? generateQRDataUrl(barcodeVal)
       : generateBarcodeDataUrl(barcodeVal.slice(0, 48));
@@ -291,7 +293,7 @@ export async function printLabels(item, opts = {}) {
   const pageW    = labelW * colCount;
 
   // Barcode/QR value: prefer sku, then id, then sanitised name
-  const barcodeVal = (item.sku || item.id || item.name || "ITEM")
+  const barcodeVal = (item.sku?.trim() ? item.sku.trim() : item._labelNum || (item.id || item.name || "ITEM"))
     .replace(/[^\x20-\x7E]/g, "")
     .slice(0, 200) || "ITEM";
 
@@ -368,7 +370,7 @@ export async function printLabelSmart(item, opts = {}, printerName = null) {
   const colCount = is35 ? 3 : 2;
   const pageW    = labelW * colCount;
 
-  const barcodeVal = (item.sku || item.id || item.name || "ITEM")
+  const barcodeVal = (item.sku?.trim() ? item.sku.trim() : item._labelNum || (item.id || item.name || "ITEM"))
     .replace(/[^\x20-\x7E]/g, "").slice(0, 200) || "ITEM";
 
   const isQR      = barcodeType === "qrcode";
@@ -400,7 +402,7 @@ export async function printBatchLabelsSmart(batch, opts = {}, printerName = null
   const allDivs = [];
   for (const { item, qty } of batch) {
     if (!item || !qty || qty < 1) continue;
-    const barcodeVal = (item.sku || item.id || item.name || "ITEM")
+    const barcodeVal = (item.sku?.trim() ? item.sku.trim() : item._labelNum || (item.id || item.name || "ITEM"))
       .replace(/[^\x20-\x7E]/g, "").slice(0, 200) || "ITEM";
     const imgUrl = isQR ? generateQRDataUrl(barcodeVal) : generateBarcodeDataUrl(barcodeVal.slice(0, 48));
     for (let i = 0; i < qty; i++) {

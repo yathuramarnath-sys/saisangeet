@@ -245,7 +245,7 @@ async function createMenuItem(payload) {
     description:       payload.description       || "",
     shortCode:         payload.shortCode         || "",
     hsnCode:           payload.hsnCode           || "",
-    sku:               payload.sku               || "",
+    sku:               payload.sku               || null, // auto-assigned below
     rank:              payload.rank !== undefined ? Number(payload.rank) : 999,
     exposeInCaptain:   payload.exposeInCaptain   !== undefined ? Boolean(payload.exposeInCaptain)   : true,
     allowDecimalQty:   payload.allowDecimalQty   !== undefined ? Boolean(payload.allowDecimalQty)   : false,
@@ -253,18 +253,30 @@ async function createMenuItem(payload) {
     expiryDate:        payload.expiryDate        || "",
   };
 
-  updateOwnerSetupData((current) => ({
-    ...current,
-    menu: {
-      ...current.menu,
-      categories: current.menu.categories.map((category) =>
-        category.id === item.categoryId
-          ? { ...category, itemCount: Number(category.itemCount || 0) + 1 }
-          : category
-      ),
-      items: [item, ...current.menu.items]
+  updateOwnerSetupData((current) => {
+    // Auto-assign sequential item number as SKU if not provided
+    // Scans all existing items, finds the highest numeric SKU, adds 1
+    if (!item.sku) {
+      const existingItems = current.menu?.items || [];
+      const maxNum = existingItems.reduce((max, i) => {
+        const n = parseInt(i.sku, 10);
+        return !isNaN(n) && n > max ? n : max;
+      }, 0);
+      item.sku = String(maxNum + 1);
     }
-  }));
+    return {
+      ...current,
+      menu: {
+        ...current.menu,
+        categories: current.menu.categories.map((category) =>
+          category.id === item.categoryId
+            ? { ...category, itemCount: Number(category.itemCount || 0) + 1 }
+            : category
+        ),
+        items: [item, ...current.menu.items],
+      },
+    };
+  });
 
   return item;
 }
@@ -693,7 +705,7 @@ async function bulkImportMenuItems(payload) {
       description:       String(row.description       || "").trim(),
       shortCode:         String(row.shortCode         || "").trim().toUpperCase(),
       hsnCode:           String(row.hsnCode           || "").trim(),
-      sku:               String(row.sku               || "").trim(),
+      sku:               String(row.sku               || "").trim() || null, // auto-assigned below
       rank:              row.rank            !== undefined ? Number(row.rank)            : 999,
       packingCharges:    row.packingCharges   !== undefined ? Number(row.packingCharges)  : 0,
       exposeInCaptain:   row.exposeInCaptain  !== undefined ? Boolean(row.exposeInCaptain): true,
@@ -708,15 +720,29 @@ async function bulkImportMenuItems(payload) {
 
   // ── ONE single store write for everything ────────────────────────────────────
   if (newItems.length > 0) {
-    updateOwnerSetupData((current) => ({
-      ...current,
-      menu: {
-        ...current.menu,
-        categories: categories,
-        stations:   stations,
-        items:      [...(current.menu?.items || []), ...newItems],
-      },
-    }));
+    updateOwnerSetupData((current) => {
+      // Auto-assign sequential SKU numbers to items that don't have one
+      const existingItems = current.menu?.items || [];
+      let maxNum = existingItems.reduce((max, i) => {
+        const n = parseInt(i.sku, 10);
+        return !isNaN(n) && n > max ? n : max;
+      }, 0);
+      for (const item of newItems) {
+        if (!item.sku) {
+          maxNum++;
+          item.sku = String(maxNum);
+        }
+      }
+      return {
+        ...current,
+        menu: {
+          ...current.menu,
+          categories,
+          stations,
+          items: [...existingItems, ...newItems],
+        },
+      };
+    });
   }
 
   return {
