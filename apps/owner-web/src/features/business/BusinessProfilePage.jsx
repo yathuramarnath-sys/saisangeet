@@ -46,14 +46,14 @@ const DEFAULT_FIELD_SETTINGS = {
 
 // ── Preset per business type ──────────────────────────────────────────────────
 const BUSINESS_TYPE_PRESETS = {
-  restaurant:   { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: false },
-  cafe:         { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: false },
-  bakery:       { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: true  },
-  sweetShop:    { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: true  },
-  iceCreamShop: { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: false },
-  qsr:          { description: false, shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: false },
-  bar:          { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: false, exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: false },
-  cloudKitchen: { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: false },
+  restaurant:   { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: true },
+  cafe:         { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: true },
+  bakery:       { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: true },
+  sweetShop:    { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: true },
+  iceCreamShop: { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: true },
+  qsr:          { description: false, shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: true },
+  bar:          { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: false, exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: true },
+  cloudKitchen: { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: true },
 };
 
 const emptyProfile = {

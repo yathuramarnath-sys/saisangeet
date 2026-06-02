@@ -169,6 +169,36 @@ async function skuLookupHandler(req, res) {
   res.json(item);
 }
 
+// POST /menu/auto-number
+// Assigns sequential SKU numbers (1, 2, 3...) to all items that don't have one.
+// Safe to call multiple times — only fills in missing SKUs, never overwrites existing ones.
+async function autoNumberItemsHandler(req, res) {
+  const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+  const data = getOwnerSetupData();
+  const items = data.menu?.items || [];
+
+  // Find highest existing numeric SKU
+  const maxNum = items.reduce((max, i) => {
+    const n = parseInt(i.sku, 10);
+    return !isNaN(n) && n > max ? n : max;
+  }, 0);
+
+  let counter = maxNum;
+  let assigned = 0;
+
+  updateOwnerSetupData((current) => {
+    const updated = (current.menu?.items || []).map((item) => {
+      if (item.sku && item.sku.trim()) return item; // already has SKU — skip
+      counter++;
+      assigned++;
+      return { ...item, sku: String(counter) };
+    });
+    return { ...current, menu: { ...current.menu, items: updated } };
+  });
+
+  res.json({ ok: true, assigned, message: `${assigned} items numbered starting from ${maxNum + 1}` });
+}
+
 module.exports = {
   listMenuCategoriesHandler,
   listMenuItemsHandler,
@@ -193,4 +223,5 @@ module.exports = {
   updatePricingProfileHandler,
   bulkImportMenuItemsHandler,
   skuLookupHandler,
+  autoNumberItemsHandler,
 };

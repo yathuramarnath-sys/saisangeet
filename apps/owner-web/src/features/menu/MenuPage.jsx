@@ -213,6 +213,7 @@ export function MenuPage() {
   const [itemPage, setItemPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [autoNumbering, setAutoNumbering] = useState(false);
   const [routingDrafts, setRoutingDrafts] = useState({});
   const [labelItem, setLabelItem] = useState(null); // item to print labels for
   const formRef = useRef(null);
@@ -967,6 +968,22 @@ export function MenuPage() {
     }));
   }
 
+  async function handleAutoNumber() {
+    if (!window.confirm(
+      "This will assign sequential numbers (1, 2, 3...) to all items that don't have an item number.\n\nItems that already have a number will NOT be changed.\n\nContinue?"
+    )) return;
+    setAutoNumbering(true);
+    try {
+      const result = await api.post("/menu/auto-number");
+      alert(`✅ Done! ${result.assigned} items numbered.`);
+      await loadMenu();
+    } catch (err) {
+      alert("Error: " + (err.message || "Failed to auto-number items"));
+    } finally {
+      setAutoNumbering(false);
+    }
+  }
+
   async function handleExportMenu() {
     try {
       setSaveError("");
@@ -1046,6 +1063,15 @@ export function MenuPage() {
           </button>
           <button type="button" className="secondary-btn" onClick={handleExportMenu}>
             Export Menu
+          </button>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={handleAutoNumber}
+            disabled={autoNumbering}
+            title="Assign sequential numbers (1, 2, 3...) to all items without an item number"
+          >
+            {autoNumbering ? "Numbering…" : "# Auto-number Items"}
           </button>
           <button
             type="button"
