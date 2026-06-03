@@ -2447,12 +2447,10 @@ export default function App() {
             <div className="pbb-avatar">{cashierName?.[0]}</div>
             <div>
               <div className="pbb-cashier-name">{activeShift.cashier}</div>
-              <div className="pbb-session">
-                {activeShift.session}
-                <span className="pbb-ver-badge">v{APP_VERSION}</span>
-              </div>
+              <div className="pbb-session">{activeShift.session}</div>
             </div>
           </div>
+          <span className="pbb-ver-pill">v{APP_VERSION}</span>
           <Clock />
         </div>
       </div>

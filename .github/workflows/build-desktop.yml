@@ -1,11 +1,23 @@
-name: Build Desktop Apps
+name: Build & Release Desktop Apps
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Create a GitHub Release with the .exe?"
+        required: false
+        default: "yes"
+        type: choice
+        options:
+          - "yes"
+          - "no"
 
 jobs:
   build-pos-windows:
     runs-on: windows-latest
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,15 +39,50 @@ jobs:
         working-directory: apps/operations-pos
         run: npx electron-builder build --win --x64 --publish never
 
-      - name: Upload POS Windows installer
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DineX-POS-Windows
-          path: apps/operations-pos/electron-dist/*.exe
+          name: Plato-POS-Windows
+          path: |
+            apps/operations-pos/electron-dist/Plato-POS-Setup.exe
+            apps/operations-pos/electron-dist/latest.yml
           retention-days: 30
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./apps/operations-pos/package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Delete existing release/tag
+        if: ${{ inputs.release == 'yes' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "v${{ steps.version.outputs.VERSION }}" --repo ${{ github.repository }} --yes 2>/dev/null || true
+          git tag -d "v${{ steps.version.outputs.VERSION }}" 2>/dev/null || true
+          git push origin ":refs/tags/v${{ steps.version.outputs.VERSION }}" 2>/dev/null || true
+
+      - name: Create GitHub Release
+        if: ${{ inputs.release == 'yes' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.TAG }}" \
+            "apps/operations-pos/electron-dist/Plato-POS-Setup.exe" \
+            "apps/operations-pos/electron-dist/latest.yml" \
+            --repo ${{ github.repository }} \
+            --title "Plato POS ${{ steps.version.outputs.VERSION }}" \
+            --notes "Plato POS v${{ steps.version.outputs.VERSION }} — download Plato-POS-Setup.exe and install on Windows." \
+            --latest
 
   build-kds-windows:
     runs-on: windows-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,6 +91,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Install root dependencies
+        run: npm install --ignore-scripts
 
       - name: Install KDS dependencies
         working-directory: apps/kitchen-display
@@ -57,7 +107,7 @@ jobs:
         working-directory: apps/kitchen-display
         run: npx electron-builder build --win --x64 --publish never
 
-      - name: Upload KDS Windows installer
+      - name: Upload KDS installer
         uses: actions/upload-artifact@v4
         with:
           name: DineX-KDS-Windows

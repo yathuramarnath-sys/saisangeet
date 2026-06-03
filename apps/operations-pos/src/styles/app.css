@@ -8139,26 +8139,86 @@ input, select, textarea {
   .menu-cards-grid  { grid-template-columns: repeat(3, 1fr) !important; }
 }
 
-/* ── Small POS terminal: < 1100px (1024×768 legacy hardware) ────────────── */
+/* ── Version pill — prominent green badge in brand bar ───────────────────── */
+.pbb-ver-pill {
+  display:        inline-flex;
+  align-items:    center;
+  padding:        4px 10px;
+  border-radius:  20px;
+  background:     #16a34a;
+  color:          #ffffff;
+  font-size:      12px;
+  font-weight:    800;
+  letter-spacing: 0.4px;
+  white-space:    nowrap;
+  flex-shrink:    0;
+  box-shadow:     0 1px 4px rgba(22,163,74,0.35);
+}
+
+/* ── Small POS terminal: 1024×768 (900–1099px) ───────────────────────────── */
 @media (max-width: 1099px) {
   .pos-shell {
-    grid-template-columns: 200px 1fr 280px;
+    grid-template-columns: 190px 1fr 270px;
   }
   .pos-topbar-brand { width: 170px; }
   .pos-topbar-right { width: 140px; }
   .pos-topbar-name  { font-size: 13px; }
   .pos-topbar-time  { font-size: 12px; }
 
-  /* Table: 2 cols fits 200px left panel */
-  .table-area-grid  { grid-template-columns: repeat(2, 1fr); }
+  /* Brand bar compact */
+  .pbb-brand        { min-width: 150px !important; gap: 7px !important; }
+  .pbb-sub          { display: none !important; }
+  .pbb-name         { font-size: 12px !important; }
+  .pbb-mode-pill    { padding: 5px 11px !important; font-size: 11px !important; }
+  .pbb-right        { gap: 8px !important; }
+  .pbb-cashier-chip { padding: 4px 8px 4px 5px !important; gap: 6px !important; }
+  .pbb-cashier-name { font-size: 11px !important; }
+  .pbb-session      { font-size: 9px !important; }
+  .pbb-avatar       { width: 24px !important; height: 24px !important; font-size: 11px !important; }
+  .pbb-ver-pill     { font-size: 10px !important; padding: 3px 7px !important; }
 
-  /* Menu: 2 cols */
+  /* Table: 2 cols */
+  .table-area-grid  { grid-template-columns: repeat(2, 1fr); }
   .menu-items-grid  { grid-template-columns: repeat(2, 1fr) !important; }
   .menu-cards-grid  { grid-template-columns: repeat(2, 1fr) !important; }
 
-  /* Bottom action bar: shrink labels */
-  .pab-btn          { padding: 6px 8px; }
-  .pab-label        { font-size: 10px; }
+  /* Action bar — compact, overrides v2 theme !important rules */
+  .pab-btn          { padding: 0 8px !important; height: 28px !important; font-size: 10.5px !important; }
+  .pab-label        { font-size: 10.5px !important; }
+  .pos-action-bar   { height: 42px !important; padding: 0 10px !important; gap: 5px !important; }
+  .pab-stats        { height: 28px !important; padding: 0 8px !important; }
+}
+
+/* ── Very small: 1024×600 and below (< 900px) ────────────────────────────── */
+@media (max-width: 899px) {
+  .pos-shell {
+    grid-template-columns: 170px 1fr 240px;
+  }
+
+  /* Brand bar ultra compact */
+  .pbb-brand        { min-width: 110px !important; gap: 5px !important; }
+  .pbb-icon         { display: none !important; }
+  .pbb-name         { font-size: 11px !important; }
+  .pbb-sub          { display: none !important; }
+  .pbb-mode-pill    { padding: 4px 8px !important; font-size: 10px !important; }
+  .pbb-modes        { gap: 4px !important; }
+  .pbb-right        { gap: 6px !important; }
+  .pbb-cashier-chip { padding: 3px 7px 3px 4px !important; gap: 5px !important; }
+  .pbb-cashier-name { font-size: 10px !important; }
+  .pbb-session      { display: none !important; }
+  .pbb-avatar       { width: 22px !important; height: 22px !important; font-size: 10px !important; }
+  .pbb-ver-pill     { display: none !important; }
+  .pos-topbar-time  { font-size: 11px !important; }
+
+  /* Action bar very compact */
+  .pab-btn          { padding: 0 6px !important; height: 26px !important; font-size: 9.5px !important; }
+  .pab-label        { font-size: 9.5px !important; }
+  .pos-action-bar   { height: 40px !important; padding: 0 8px !important; gap: 4px !important; }
+  .pab-stats        { height: 26px !important; padding: 0 6px !important; }
+
+  .table-area-grid  { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .menu-items-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+  .menu-cards-grid  { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
 /* ── Touch screens (pointer: coarse = finger, not mouse) ────────────────── */
