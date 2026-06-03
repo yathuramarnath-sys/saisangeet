@@ -44,6 +44,7 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
 
   const [amount,   setAmount]   = useState("0");
   const [reason,   setReason]   = useState(reasons[0]);
+  const [notes,    setNotes]    = useState("");
   const [pin,      setPin]      = useState("");
   const [pinError, setPinError] = useState(false);
 
@@ -60,6 +61,7 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
       type,
       amount:       amt,
       reason,
+      notes:        notes.trim(),
       authorizedBy: "Manager",
       time:         new Date().toISOString()
     };
@@ -117,6 +119,17 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="sm-field">
+            <label>Details <span style={{fontWeight:"normal",opacity:0.6}}>(optional)</span></label>
+            <input
+              type="text"
+              className="sm-pin-input"
+              placeholder="e.g. Paid vegetable vendor, electricity bill..."
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
           </div>
 
           <div className="sm-field">
