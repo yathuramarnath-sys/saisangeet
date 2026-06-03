@@ -2349,15 +2349,21 @@ export default function App() {
     api.post("/shifts/movement", { movement }).catch(err => console.error("Movement sync failed:", err.message));
   }
 
-  function handleShiftClosed(closedShift) {
+  function handleShiftClosed(closedShift, openDayEnd = false) {
     setShowCloseShift(false);
     if (closedShift) {
       api.post("/shifts/close", { shift: closedShift }).catch(err => console.error("Shift close sync failed:", err.message));
     }
-    // Keep shift alive in state so Day End can use outlet/cashier info.
-    // Shift is fully nulled when Day End modal closes.
-    setDayEndPostShift(true);
-    setShowDayEnd(true);
+    if (openDayEnd) {
+      // End of day — keep shift alive so Day End has outlet/cashier info.
+      // Shift is nulled when Day End modal closes.
+      setDayEndPostShift(true);
+      setShowDayEnd(true);
+    } else {
+      // Mid-day shift change — go straight to login screen.
+      setActiveShift(null);
+      setSelectedTableId(null);
+    }
   }
 
   function showToast(message) {

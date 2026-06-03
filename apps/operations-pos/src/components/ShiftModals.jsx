@@ -383,7 +383,7 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
       }
     }
 
-    onShiftClosed(closedRecord);
+    onShiftClosed(closedRecord, false);
   }
 
   // After shift closed — show receipt screen
@@ -407,11 +407,14 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
             />
           </div>
           <div className="sm-footer">
-            <button type="button" className="sm-btn-cancel" onClick={() => onShiftClosed(closedRecord)}>
-              Skip Print
+            <button type="button" className="sm-btn-cancel" onClick={() => onShiftClosed(closedRecord, false)}>
+              Skip
             </button>
             <button type="button" className="sm-btn-action close-ok" onClick={handlePrintAndExit}>
-              🖨 Print &amp; Exit
+              🖨 Print Shift
+            </button>
+            <button type="button" className="sm-btn-action" style={{background:"#0f766e",borderColor:"#0f766e"}} onClick={() => onShiftClosed(closedRecord, true)}>
+              📊 Day End
             </button>
           </div>
         </div>
