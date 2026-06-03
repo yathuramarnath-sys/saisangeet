@@ -250,8 +250,12 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
 const DENOMS = [500, 200, 100, 50, 20, 10, 5, 2, 1];
 
 export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
-  // Safety guard — if shift becomes null before the modal unmounts, render nothing
   if (!shift) return null;
+
+  // Count orders that have items and are not settled
+  const openOrderCount = Object.values(orders || {}).filter(
+    o => !o.isClosed && (o.items || []).length > 0
+  ).length;
 
   const [denomCounts, setDenomCounts] = useState(() =>
     Object.fromEntries(DENOMS.map(d => [d, ""]))
@@ -432,6 +436,17 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
         </div>
 
         <div className="sm-body">
+          {/* Open orders warning — must settle all tables before closing shift */}
+          {openOrderCount > 0 && (
+            <div className="sm-open-orders-warn">
+              <span className="sm-warn-icon">⚠️</span>
+              <div>
+                <strong>{openOrderCount} table{openOrderCount > 1 ? "s" : ""} still open</strong>
+                <p>Settle all orders before closing the shift. Go back and collect payment first.</p>
+              </div>
+            </div>
+          )}
+
           {/* Shift summary */}
           <div className="sm-summary-grid">
             <div className="sm-sum-row">
@@ -521,10 +536,14 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
         <div className="sm-footer">
           <button type="button" className="sm-btn-cancel" onClick={onClose}>Cancel</button>
           <button type="button"
-            className={`sm-btn-action ${isExact ? "close-ok" : "close-warn"}`}
-            disabled={!counted}
+            className={`sm-btn-action ${openOrderCount > 0 ? "close-warn" : isExact ? "close-ok" : "close-warn"}`}
+            disabled={!counted || openOrderCount > 0}
+            title={openOrderCount > 0 ? `Settle ${openOrderCount} open table${openOrderCount > 1 ? "s" : ""} first` : undefined}
             onClick={handleClose}>
-            {isExact ? "✓ Close Shift" : "Close Shift (Mismatch)"}
+            {openOrderCount > 0
+              ? `⚠ ${openOrderCount} Open Table${openOrderCount > 1 ? "s" : ""} — Settle First`
+              : isExact ? "✓ Close Shift" : "Close Shift (Mismatch)"
+            }
           </button>
         </div>
       </div>

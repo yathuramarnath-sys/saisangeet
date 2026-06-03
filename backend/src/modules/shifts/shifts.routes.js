@@ -8,6 +8,7 @@ const {
   openShiftHandler,
   recordMovementHandler,
   closeShiftHandler,
+  closeAllShiftsHandler,
   reviewCashMismatchHandler,
   deleteShiftHistoryHandler
 } = require("./shifts.controller");
@@ -26,6 +27,12 @@ shiftsRouter.get(
 shiftsRouter.post("/open",       requireAuth, asyncHandler(openShiftHandler));
 shiftsRouter.post("/movement",   requireAuth, asyncHandler(recordMovementHandler));
 shiftsRouter.post("/close",      requireAuth, asyncHandler(closeShiftHandler));
+shiftsRouter.post(
+  "/close-all",
+  requireAuth,
+  requirePermission("reports.view"),
+  asyncHandler(closeAllShiftsHandler)
+);
 
 shiftsRouter.post(
   "/mismatch/review",

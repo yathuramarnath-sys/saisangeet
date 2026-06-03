@@ -3,6 +3,7 @@ const {
   startShift,
   addMovement,
   endShift,
+  endAllShifts,
   reviewCashMismatch,
   removeShiftFromHistory
 } = require("./shifts.service");
@@ -44,6 +45,15 @@ async function closeShiftHandler(req, res) {
   res.json(result);
 }
 
+async function closeAllShiftsHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const closedBy = req.user?.fullName || "Owner";
+  const result = await endAllShifts(tenantId, closedBy);
+  const io = req.app.locals.io;
+  if (io) io.to(`tenant:${tenantId}`).emit("shift:updated", { type: "close-all", count: result.closedCount });
+  res.json(result);
+}
+
 async function reviewCashMismatchHandler(_req, res) {
   const result = await reviewCashMismatch();
   res.json(result);
@@ -65,6 +75,7 @@ module.exports = {
   openShiftHandler,
   recordMovementHandler,
   closeShiftHandler,
+  closeAllShiftsHandler,
   reviewCashMismatchHandler,
   deleteShiftHistoryHandler
 };
