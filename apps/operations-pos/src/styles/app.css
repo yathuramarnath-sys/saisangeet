@@ -9323,18 +9323,24 @@ input, select, textarea {
 .tpp-summary      { display: none !important; }
 .tpp-head         { display: none !important; }
 
-/* 11 — Compact action bar — fits all 18 buttons on 1366px (13") through 1920px (21") */
-/* Base values target 1366×768 HD (smallest supported screen) */
-.pos-action-bar    { padding: 0 4px !important; gap: 2px !important; }
-.pab-group         { gap: 2px !important; }
-.pab-btn           { padding: 0 5px !important; font-size: 10px !important; gap: 2px !important; border-radius: 8px !important; }
+/* 11 — Compact action bar — fits all 18 buttons on 1366px+ screens.
+   On smaller screens (1024×768 touch POS terminals) buttons scroll
+   horizontally — scrollbar is hidden but swipe/drag still works. */
+.pos-action-bar    { padding: 0 4px !important; gap: 2px !important;
+                     overflow-x: auto !important; overflow-y: hidden !important;
+                     flex-wrap: nowrap !important; scrollbar-width: none !important; }
+.pos-action-bar::-webkit-scrollbar { display: none !important; }
+.pab-group         { gap: 2px !important; flex-shrink: 0 !important; }
+.pab-btn           { padding: 0 5px !important; font-size: 10px !important; gap: 2px !important;
+                     border-radius: 8px !important; flex-shrink: 0 !important; white-space: nowrap !important; }
 .pab-icon          { font-size: 11px !important; }
-.pab-label         { font-size: 10px !important; }
-.pab-stats         { gap: 3px !important; padding: 0 3px !important; }
+.pab-label         { font-size: 10px !important; white-space: nowrap !important; }
+.pab-stats         { gap: 3px !important; padding: 0 3px !important; flex-shrink: 0 !important; }
 .pab-stat-btn      { padding: 3px 5px !important; }
 .pab-stat-val      { font-size: 12px !important; }
 .pab-stat-lbl      { font-size: 8px !important; }
-.online-toggle-btn { padding: 0 6px !important; font-size: 10px !important; height: 28px !important; }
+.online-toggle-btn { padding: 0 6px !important; font-size: 10px !important;
+                     height: 28px !important; flex-shrink: 0 !important; white-space: nowrap !important; }
 
 /* On full HD / large monitors (1920px+) restore slightly larger buttons */
 @media (min-width: 1920px) {
