@@ -35,8 +35,8 @@ export function ShiftsCashPage() {
   const [data,        setData]        = useState({ active: [], history: [] });
   const [loading,     setLoading]     = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [filter,      setFilter]      = useState("all"); // all | open | mismatch | closed
-  const [deleting,    setDeleting]    = useState(null);  // shiftId being deleted
+  const [filter,      setFilter]      = useState("all");
+  const [deleting,    setDeleting]    = useState(null);
 
   // Date range filter — default to today
   const [dateFrom, setDateFrom] = useState(todayStr);
