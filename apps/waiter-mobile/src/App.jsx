@@ -30,6 +30,7 @@ import { OrderScreen }         from "./components/OrderScreen";
 import { TableActionsSheet }   from "./components/TableActionsSheet";
 import { CustomerInfoSheet }   from "./components/CustomerInfoSheet";
 import { SideDrawer }         from "./components/SideDrawer";
+import { IncomingOrdersSheet } from "./components/IncomingOrdersSheet";
 
 // ─── Build areas from outlet tables ──────────────────────────────────────────
 
@@ -132,6 +133,10 @@ export function App() {
   const [showWaiterPick,    setShowWaiterPick]    = useState(false);
   const [kotPendingTableId, setKotPendingTableId] = useState(null);
   const [pickedWaiter,      setPickedWaiter]      = useState(null);
+
+  // Incoming customer (QR) orders
+  const [customerOrders,     setCustomerOrders]    = useState([]);
+  const [showIncoming,       setShowIncoming]      = useState(false);
 
   // Staff lists — filtered by role
   const WAITER_ROLES  = ["waiter", "server", "steward"];
@@ -305,6 +310,31 @@ export function App() {
             if (cats)  setCategories(cats);
             if (items) setMenuItems(items);
           } catch (_) { /* non-critical */ }
+        });
+
+        // ── QR customer orders: listen + initial fetch ───────────────────────
+        socket.on("customer:order:new", (order) => {
+          if (order.outletId !== target.id) return;
+          setCustomerOrders((prev) => {
+            if (prev.some((o) => o.id === order.id)) return prev; // dedupe
+            return [order, ...prev];
+          });
+          toast("📲 New table order received!", {
+            duration: 5000,
+            style: { background: "#059669", color: "#fff" },
+          });
+        });
+        // Fetch any pending orders that came in before app launch
+        api.get(`/operations/customer-order?outletId=${target.id}`)
+          .then((data) => { if (Array.isArray(data) && data.length) setCustomerOrders(data); })
+          .catch(() => {});
+
+        // ── Waiter called from customer QR page ─────────────────────────────
+        socket.on("waiter:called", ({ tableLabel, tableId, customerName }) => {
+          toast(`🛎️ Table ${tableLabel || tableId} needs assistance${customerName ? ` — ${customerName}` : ""}`, {
+            duration: 6000,
+            style: { background: "#2563eb", color: "#fff" },
+          });
         });
 
         // ── Local POS WiFi server — auto-reconnect + auto-scan ───────────────
@@ -919,6 +949,16 @@ export function App() {
       }
     );
 
+    // Log every bill print from Captain App for Owner Console audit trail
+    api.post("/operations/reprint-log", {
+      source:      "captain",
+      cashier:     printOrder.captainName || printOrder.cashierName || null,
+      outletName:  outlet?.name || branchConfig?.outletName,
+      tableLabel:  printOrder.tableNumber || tid,
+      orderNumber: printOrder.orderNumber,
+      billNo:      printOrder.billNo || null,
+    }).catch(() => {});
+
     // Mark billRequested: true — table turns blue on POS floor plan
     handleUpdateOrder({ ...printOrder, billRequested: true });
     api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid }).catch(() => {});
@@ -1195,6 +1235,12 @@ export function App() {
     toast.success(`Table ${fromNum} merged into this order`, { id: tid });
   }
 
+  // ── Handle customer order accepted/rejected ───────────────────────────────
+  function handleCustomerOrderHandled(orderId) {
+    setCustomerOrders((prev) => prev.filter((o) => o.id !== orderId));
+    if (customerOrders.length <= 1) setShowIncoming(false);
+  }
+
   // ── Derived state ──────────────────────────────────────────────────────────
   const selectedOrder = selectedTableId ? orders[selectedTableId] : null;
   const selectedTable = selectedTableId && selectedArea
@@ -1253,6 +1299,17 @@ export function App() {
             </div>
           </div>
           <div className="header-right">
+            {/* Incoming QR orders badge */}
+            {customerOrders.length > 0 && (
+              <button
+                className="captain-incoming-btn"
+                onClick={() => setShowIncoming(true)}
+                aria-label="Incoming orders"
+              >
+                📲
+                <span className="captain-incoming-count">{customerOrders.length}</span>
+              </button>
+            )}
             {pendingKots.length > 0 && (
               <span className="header-kot-dot">{pendingKots.length}</span>
             )}
@@ -1429,6 +1486,16 @@ export function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Incoming Customer Orders Sheet */}
+      {showIncoming && (
+        <IncomingOrdersSheet
+          orders={customerOrders}
+          outletId={outlet?.id || branchConfig?.outletId}
+          onClose={() => setShowIncoming(false)}
+          onOrderHandled={handleCustomerOrderHandled}
+        />
       )}
 
       <Toaster

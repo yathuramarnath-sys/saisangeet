@@ -239,4 +239,116 @@ async function updateClosedOrderData(tenantId, outletId, closedAt, updatedOrder)
   }
 }
 
-module.exports = { ensureClosedOrdersTable, insertClosedOrder, queryClosedOrders, listClosedOrders, updateClosedOrderData };
+/**
+ * Query credit orders from Postgres — orders where isCreditSale is true.
+ * Optionally filtered by date range (IST) and outletId.
+ * Used by getCreditOrders to survive server restarts.
+ *
+ * @param {string}      tenantId
+ * @param {object}      opts
+ * @param {string|null} opts.dateFrom   "YYYY-MM-DD" (inclusive), or null = no lower bound
+ * @param {string|null} opts.dateTo     "YYYY-MM-DD" (inclusive), or null = no upper bound
+ * @param {string|null} opts.outletId   outlet filter, or null = all
+ * @param {number}      opts.limit      max rows (default 5000)
+ * @returns {Promise<object[]>}
+ */
+async function queryCreditOrders(tenantId, { dateFrom = null, dateTo = null, outletId = null, limit = 5000 } = {}) {
+  if (!isDatabaseEnabled()) return [];
+
+  const params = [tenantId];
+  const conditions = ["tenant_id = $1", "order_data->>'isCreditSale' = 'true'"];
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    conditions.push(`closed_date >= $${params.length}`);
+  }
+  if (dateTo) {
+    params.push(dateTo);
+    conditions.push(`closed_date <= $${params.length}`);
+  }
+  if (outletId) {
+    params.push(outletId);
+    conditions.push(`outlet_id = $${params.length}`);
+  }
+
+  params.push(limit);
+  const whereClause = conditions.join(" AND ");
+
+  try {
+    const r = await query(
+      `SELECT order_data, outlet_id
+         FROM closed_orders
+        WHERE ${whereClause}
+        ORDER BY closed_at DESC
+        LIMIT $${params.length}`,
+      params
+    );
+    return r.rows.map((row) => {
+      const order = typeof row.order_data === "string" ? JSON.parse(row.order_data) : row.order_data;
+      // Ensure _outletId is present (used by frontend grouping)
+      if (!order._outletId) order._outletId = row.outlet_id;
+      return order;
+    });
+  } catch (err) {
+    console.error("[closed-orders.repo] queryCreditOrders error:", err.message);
+    return [];
+  }
+}
+
+/**
+ * Load a single closed order from Postgres by (tenantId, outletId, closedAt).
+ * Used by settleCreditOrder when the order is no longer in the in-memory store.
+ */
+async function getClosedOrderByClosedAt(tenantId, outletId, closedAt) {
+  if (!isDatabaseEnabled()) return null;
+  try {
+    const r = await query(
+      `SELECT order_data FROM closed_orders
+        WHERE tenant_id = $1 AND outlet_id = $2 AND closed_at = $3
+        LIMIT 1`,
+      [tenantId, outletId, closedAt]
+    );
+    if (!r.rows.length) return null;
+    const row = r.rows[0];
+    return typeof row.order_data === "string" ? JSON.parse(row.order_data) : row.order_data;
+  } catch (err) {
+    console.error("[closed-orders.repo] getClosedOrderByClosedAt error:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Find a credit order from Postgres by orderId (id or orderNumber).
+ * Searches across all outlets for the tenant.
+ */
+async function findCreditOrderById(tenantId, orderId) {
+  if (!isDatabaseEnabled()) return null;
+  try {
+    // Use JSONB containment — matches either id or orderNumber field
+    const r = await query(
+      `SELECT order_data, outlet_id FROM closed_orders
+        WHERE tenant_id = $1
+          AND order_data->>'isCreditSale' = 'true'
+          AND (
+            order_data->>'id' = $2
+            OR order_data->>'orderNumber' = $2
+          )
+        ORDER BY closed_at DESC
+        LIMIT 1`,
+      [tenantId, String(orderId)]
+    );
+    if (!r.rows.length) return null;
+    const row = r.rows[0];
+    const order = typeof row.order_data === "string" ? JSON.parse(row.order_data) : row.order_data;
+    return { order, outletId: row.outlet_id };
+  } catch (err) {
+    console.error("[closed-orders.repo] findCreditOrderById error:", err.message);
+    return null;
+  }
+}
+
+module.exports = {
+  ensureClosedOrdersTable,
+  insertClosedOrder, queryClosedOrders, listClosedOrders, updateClosedOrderData,
+  queryCreditOrders, getClosedOrderByClosedAt, findCreditOrderById,
+};

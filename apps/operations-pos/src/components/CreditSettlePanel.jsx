@@ -39,15 +39,16 @@ function fmtDate(iso) {
 }
 
 export function CreditSettlePanel({ activeShift, onClose }) {
-  const [bills,       setBills]       = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [search,      setSearch]      = useState("");
-  const [settling,    setSettling]    = useState(null);  // bill being settled
-  const [method,      setMethod]      = useState("Cash");
-  const [reference,   setReference]   = useState("");
-  const [saving,      setSaving]      = useState(false);
-  const [settleErr,   setSettleErr]   = useState("");
-  const [justSettled, setJustSettled] = useState(null); // show success flash
+  const [bills,           setBills]           = useState([]);
+  const [loading,         setLoading]         = useState(true);
+  const [search,          setSearch]          = useState("");
+  const [settling,        setSettling]        = useState(null);  // single bill being settled
+  const [settlingAll,     setSettlingAll]     = useState(null);  // { customerName, bills[], total }
+  const [method,          setMethod]          = useState("Cash");
+  const [reference,       setReference]       = useState("");
+  const [saving,          setSaving]          = useState(false);
+  const [settleErr,       setSettleErr]       = useState("");
+  const [justSettled,     setJustSettled]     = useState(null); // show success flash
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,6 +97,14 @@ export function CreditSettlePanel({ activeShift, onClose }) {
     setSettleErr("");
   }
 
+  function openSettleAll(customerName, custBills) {
+    const total = custBills.reduce((s, b) => s + creditAmt(b), 0);
+    setSettlingAll({ customerName, bills: custBills, total });
+    setMethod("Cash");
+    setReference("");
+    setSettleErr("");
+  }
+
   async function handleSettle() {
     if (!settling) return;
     setSaving(true);
@@ -106,8 +115,6 @@ export function CreditSettlePanel({ activeShift, onClose }) {
         method,
         reference: reference.trim() || null,
       });
-
-      // Record in shift for cash drawer tracking
       if (activeShift?.id) {
         saveCreditCollection(activeShift.id, {
           billId:   String(id),
@@ -118,9 +125,39 @@ export function CreditSettlePanel({ activeShift, onClose }) {
           billNo:   settling.billNo || settling.orderNumber,
         });
       }
-
       setJustSettled({ name: settling.creditCustomer?.name, amount: creditAmt(settling), method });
       setSettling(null);
+      await load();
+      setTimeout(() => setJustSettled(null), 4000);
+    } catch (err) {
+      setSettleErr(err?.message || "Failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSettleAll() {
+    if (!settlingAll) return;
+    setSaving(true);
+    setSettleErr("");
+    try {
+      await api.post("/operations/credits/settle-customer", {
+        customerName: settlingAll.customerName,
+        method,
+        reference: reference.trim() || null,
+      });
+      if (activeShift?.id) {
+        saveCreditCollection(activeShift.id, {
+          billId:   `all-${settlingAll.customerName}`,
+          customer: settlingAll.customerName,
+          amount:   settlingAll.total,
+          method,
+          reference: reference.trim() || null,
+          billNo:   `${settlingAll.bills.length} bills`,
+        });
+      }
+      setJustSettled({ name: settlingAll.customerName, amount: settlingAll.total, method });
+      setSettlingAll(null);
       await load();
       setTimeout(() => setJustSettled(null), 4000);
     } catch (err) {
@@ -188,7 +225,16 @@ export function CreditSettlePanel({ activeShift, onClose }) {
                       {customer?.phone && <span className="csp-customer-phone">📞 {customer.phone}</span>}
                       {customer?.gstin && <span className="csp-gstin-badge">GST</span>}
                     </div>
-                    <span className="csp-customer-total">{fmt(custTotal)}</span>
+                    <div className="csp-customer-right">
+                      <span className="csp-customer-total">{fmt(custTotal)}</span>
+                      <span className="csp-bill-count">{custBills.length} bill{custBills.length > 1 ? "s" : ""}</span>
+                      {custBills.length > 1 && (
+                        <button type="button" className="csp-settle-all-btn"
+                          onClick={() => openSettleAll(customerName, custBills)}>
+                          Settle All
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {custBills.map(bill => (
@@ -266,6 +312,58 @@ export function CreditSettlePanel({ activeShift, onClose }) {
                   onClick={handleSettle}
                 >
                   {saving ? "Saving…" : `✓ Mark Collected · ${fmt(creditAmt(settling))}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Settle ALL bills for one customer ── */}
+        {settlingAll && (
+          <div className="csp-settle-modal-bg" onClick={() => setSettlingAll(null)}>
+            <div className="csp-settle-modal" onClick={e => e.stopPropagation()}>
+              <div className="csp-settle-head">
+                <h4>Settle All Bills</h4>
+                <button type="button" onClick={() => setSettlingAll(null)} className="csp-close sm">✕</button>
+              </div>
+
+              <div className="csp-settle-summary">
+                <div><span>Customer</span><strong>{settlingAll.customerName}</strong></div>
+                <div><span>Bills</span><strong>{settlingAll.bills.length} unpaid bills</strong></div>
+                {settlingAll.bills.map(b => (
+                  <div key={b.id} className="csp-settle-bill-line">
+                    <span>Bill #{b.billNo || b.orderNumber} · {fmtDate(b.closedAt)}</span>
+                    <span>{fmt(creditAmt(b))}</span>
+                  </div>
+                ))}
+                <div className="highlight" style={{ marginTop: 6 }}>
+                  <span>Total Outstanding</span>
+                  <strong>{fmt(settlingAll.total)}</strong>
+                </div>
+              </div>
+
+              <div className="csp-settle-methods">
+                {SETTLE_METHODS.map(m => (
+                  <button key={m} type="button"
+                    className={`csp-method-btn${method === m ? " active" : ""}`}
+                    onClick={() => setMethod(m)}>{m}</button>
+                ))}
+              </div>
+
+              <input type="text" className="csp-ref-input"
+                placeholder="Reference / UTR / Cheque no. (optional)"
+                value={reference}
+                onChange={e => setReference(e.target.value)}
+              />
+
+              {settleErr && <p className="csp-err">{settleErr}</p>}
+
+              <div className="csp-settle-actions">
+                <button type="button" className="csp-cancel-btn" onClick={() => setSettlingAll(null)}>
+                  Cancel
+                </button>
+                <button type="button" className="csp-confirm-btn" disabled={saving} onClick={handleSettleAll}>
+                  {saving ? "Settling…" : `✓ Settle All · ${fmt(settlingAll.total)}`}
                 </button>
               </div>
             </div>

@@ -51,27 +51,40 @@ export function printBill(order, items, outletOrName, options = {}) {
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const discount  = Math.min(order.discountAmount || 0, subtotal);
   const afterDisc = subtotal - discount;
+  // Discount % shown on bill — round to 1 decimal, drop ".0" for whole numbers
+  const discountPct = subtotal > 0 && discount > 0
+    ? (() => { const p = (discount / subtotal) * 100; return Number.isInteger(Math.round(p * 10) / 10) ? Math.round(p) : Math.round(p * 10) / 10; })()
+    : 0;
 
   // ── GST Treatment: "exclusive" (add on top) or "inclusive" (extract from price) ──
   const inclusive = (outlet?.gstTreatment === "inclusive");
 
-  // ── Per-item tax calculation (reads item.taxRate; defaults to 5% if not set) ──
+  // Outlet-level fallback rate — used when an item has no taxRate assigned.
+  // outlet.defaultTaxRate is CGST+SGST combined (e.g. 5 for "GST 5%").
+  // This prevents items configured in Owner Console without a per-item tax
+  // from silently printing as 0% GST on the bill.
+  const defaultItemTaxRate = outlet?.defaultTaxRate ?? 0;
+
+  // ── Per-item tax calculation ──────────────────────────────────────────────
   // Discount is spread proportionally across items before applying tax.
-  const taxBreakdown = {}; // { rateInt: totalTaxAmt }
+  // NOTE: We accumulate as decimals (no Math.round per item) so that CGST and SGST
+  // split evenly — e.g. ₹20 item at 5% exclusive = ₹0.50 CGST + ₹0.50 SGST (not ₹1 + ₹0).
+  const taxBreakdown = {}; // { rate: totalTaxAmt (decimal) }
   billableItems.forEach(i => {
     const lineAmt   = i.price * i.quantity;
     // Proportional share of discount for this line
     const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
-    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-    const lineTax   = Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
+    // Use per-item taxRate; fall back to outlet default when not explicitly set
+    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultItemTaxRate;
+    const lineTax   = lineAfter * rate / (inclusive ? (100 + rate) : 100);
     taxBreakdown[rate] = (taxBreakdown[rate] || 0) + lineTax;
   });
-  // Build rows: each rate split 50/50 into CGST + SGST
+  // Build rows: each rate split exactly 50/50 into CGST + SGST (decimal amounts)
   const taxRows  = Object.entries(taxBreakdown).map(([rate, amt]) => ({
     rate:    Number(rate),
     cgstPct: Number(rate) / 2,
-    cgst:    Math.round(amt / 2),
-    sgst:    amt - Math.round(amt / 2),
+    cgst:    amt / 2,
+    sgst:    amt / 2,
   }));
   const taxTotal = taxRows.reduce((s, r) => s + r.cgst + r.sgst, 0);
   // Inclusive: tax already inside prices — total = afterDisc; Exclusive: add tax on top
@@ -253,7 +266,7 @@ export function printBill(order, items, outletOrName, options = {}) {
   <table class="items-tbl">
     <tbody>
       <tr><td colspan="3" class="sum-lbl">Subtotal</td><td class="col-amt sum-val">&#8377;${subtotal.toFixed(2)}</td></tr>
-      ${showDiscountOnBill && discount > 0 ? `<tr><td colspan="3" class="sum-lbl disc-lbl">Discount</td><td class="col-amt sum-val disc-val">&#8722;&#8377;${discount.toFixed(2)}</td></tr>` : ""}
+      ${showDiscountOnBill && discount > 0 ? `<tr><td colspan="3" class="sum-lbl disc-lbl">Discount (${discountPct}%)</td><td class="col-amt sum-val disc-val">&#8722;&#8377;${discount.toFixed(2)}</td></tr>` : ""}
       ${showGstBreakdown
         ? taxRows.map(t => `
       <tr><td colspan="3" class="sum-lbl">CGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.cgst.toFixed(2)}</td></tr>

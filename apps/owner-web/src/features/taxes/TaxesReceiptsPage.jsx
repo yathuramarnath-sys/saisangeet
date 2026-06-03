@@ -163,7 +163,8 @@ export function TaxesReceiptsPage() {
   const [msg,        setMsg]        = useState("");
   const [editProf,   setEditProf]   = useState(null);
   const [profDraft,  setProfDraft]  = useState(null);
-  const [outletId,   setOutletId]   = useState(null);
+  const [outletId,   setOutletId]   = useState(null);   // primary outlet (list[0])
+  const [allOutletIds, setAllOutletIds] = useState([]); // ALL outlet IDs — so receipt settings apply to every outlet
   const [outletData, setOutletData] = useState(null);
 
   // Which sections are open
@@ -179,6 +180,10 @@ export function TaxesReceiptsPage() {
         const o = list[0];
         setOutletId(o.id);
         setOutletData(o);
+        // Store ALL outlet IDs so updateReceipt can apply settings to every outlet,
+        // not just the first one. A multi-outlet restaurant must have the same GST
+        // treatment on every POS — they all share one Owner Console receipt config.
+        setAllOutletIds(list.map(outlet => outlet.id));
         const fromOutlet = {
           gstTreatment:       o.gstTreatment       || defaultReceiptSettings.gstTreatment,
           showDiscountOnBill: o.showDiscountOnBill ?? defaultReceiptSettings.showDiscountOnBill,
@@ -202,12 +207,19 @@ export function TaxesReceiptsPage() {
 
   function flash(t) { setMsg(t); setTimeout(() => setMsg(""), 3000); }
 
-  function updateReceipt(key, val) {
+  // Update receipt setting — saves to ALL outlets so every POS terminal picks it up.
+  // gstTreatment especially must be consistent: a setting changed on Owner Console
+  // that only reaches the first outlet would leave other outlets on the old value.
+  async function updateReceipt(key, val) {
     const next = { ...receipt, [key]: val };
     setReceipt(next);
     localStorage.setItem(RECEIPT_SETTINGS_KEY, JSON.stringify(next));
-    if (outletId) {
-      api.patch(`/outlets/${outletId}/settings`, { [key]: val }).catch(() => {});
+    const ids = allOutletIds.length ? allOutletIds : (outletId ? [outletId] : []);
+    if (!ids.length) return;
+    try {
+      await Promise.all(ids.map(id => api.patch(`/outlets/${id}/settings`, { [key]: val })));
+    } catch {
+      flash("⚠️ Could not save setting to server — please try again.");
     }
   }
 

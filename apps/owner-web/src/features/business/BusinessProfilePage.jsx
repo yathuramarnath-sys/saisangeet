@@ -46,14 +46,14 @@ const DEFAULT_FIELD_SETTINGS = {
 
 // ── Preset per business type ──────────────────────────────────────────────────
 const BUSINESS_TYPE_PRESETS = {
-  restaurant:   { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: false },
-  cafe:         { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: false },
-  bakery:       { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: true  },
-  sweetShop:    { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: true  },
-  iceCreamShop: { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: false },
-  qsr:          { description: false, shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: false },
-  bar:          { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: false, exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: false },
-  cloudKitchen: { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: false },
+  restaurant:   { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: true },
+  cafe:         { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: true },
+  bakery:       { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: true },
+  sweetShop:    { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: true },
+  iceCreamShop: { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: true,  manufacturingDate: true,  expiryDate: true,  sku: true },
+  qsr:          { description: false, shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: true },
+  bar:          { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: false, exposeInCaptain: true,  allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: true },
+  cloudKitchen: { description: true,  shortCode: true,  hsnCode: true, rank: true, packingCharges: true,  exposeInCaptain: false, allowDecimalQty: false, manufacturingDate: false, expiryDate: false, sku: true },
 };
 
 const emptyProfile = {
@@ -77,6 +77,8 @@ export function BusinessProfilePage() {
   const [profile, setProfile]               = useState(emptyProfile);
   const [menuFieldSettings, setMenuFieldSettings] = useState(DEFAULT_FIELD_SETTINGS);
   const [statusMessage, setStatusMessage]   = useState("");
+  const [backupLoading, setBackupLoading]   = useState(false);
+  const [backupMsg, setBackupMsg]           = useState("");
 
   // Subdomain state
   const [currentSlug, setCurrentSlug]   = useState(null);
@@ -127,6 +129,35 @@ export function BusinessProfilePage() {
   // ── Toggle individual field ────────────────────────────────────────────────
   function toggleField(key) {
     setMenuFieldSettings((cur) => ({ ...cur, [key]: !cur[key] }));
+  }
+
+  // ── Download backup ────────────────────────────────────────────────────────
+  async function handleDownloadBackup() {
+    setBackupLoading(true);
+    setBackupMsg("");
+    try {
+      const token    = localStorage.getItem("pos_token");
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/backup/download`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!response.ok) throw new Error("Backup download failed");
+      const blob      = await response.blob();
+      const url       = URL.createObjectURL(blob);
+      const a         = document.createElement("a");
+      const dateStr   = new Date().toISOString().slice(0, 10);
+      a.href          = url;
+      a.download      = `plato-backup-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setBackupMsg("Backup downloaded successfully.");
+    } catch (err) {
+      setBackupMsg("Failed to download backup. Please try again.");
+    } finally {
+      setBackupLoading(false);
+    }
   }
 
   async function handleSubmit(event) {
@@ -308,6 +339,38 @@ export function BusinessProfilePage() {
               Save Business Profile
             </button>
           </form>
+        </article>
+      </section>
+
+      {/* ── Data Backup ──────────────────────────────────────────────────────── */}
+      <section className="lp2-section">
+        <header className="lp2-section-header">
+          <h2>Data Backup</h2>
+          <p>Download a complete backup of your restaurant data — menu, outlets, staff, and settings.</p>
+        </header>
+        <article className="lp2-card" style={{ maxWidth: 480 }}>
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 14, color: "var(--color-text-secondary, #6B7280)", margin: "0 0 8px" }}>
+              Your data is automatically backed up every night at midnight and emailed to your registered email address.
+            </p>
+            <p style={{ fontSize: 13, color: "var(--color-text-secondary, #6B7280)", margin: 0 }}>
+              You can also download a backup any time using the button below. Save the file to Google Drive or your laptop.
+            </p>
+          </div>
+          {backupMsg && (
+            <p style={{ fontSize: 13, color: backupMsg.includes("success") ? "#059669" : "#DC2626", marginBottom: 12 }}>
+              {backupMsg}
+            </p>
+          )}
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={handleDownloadBackup}
+            disabled={backupLoading}
+            style={{ display: "flex", alignItems: "center", gap: 8, background: "#1A1D27" }}
+          >
+            {backupLoading ? "Preparing backup…" : "⬇ Download Backup"}
+          </button>
         </article>
       </section>
     </>

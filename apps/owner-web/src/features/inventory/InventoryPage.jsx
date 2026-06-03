@@ -1,27 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api } from "../../lib/api";
-import {
-  INVENTORY_TRACKING_KEY,
-  INVENTORY_WASTAGE_KEY,
-  SESSIONS,
-  UNITS,
-} from "./inventory.seed";
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   INVENTORY PAGE
-   Outlets and menu items are loaded live from the API.
-   Tracking config and wastage log are persisted in localStorage (POS reads them).
-───────────────────────────────────────────────────────────────────────────── */
-
-// ── localStorage helpers ──────────────────────────────────────────────────────
+import { INVENTORY_WASTAGE_KEY, UNITS } from "./inventory.seed";
 
 const WASTAGE_SIDES_KEY = "pos_wastage_sides";
-
-function loadTracking() {
-  try { return JSON.parse(localStorage.getItem(INVENTORY_TRACKING_KEY) || "null") || []; }
-  catch { return []; }
-}
-function saveTracking(list) { localStorage.setItem(INVENTORY_TRACKING_KEY, JSON.stringify(list)); }
+const SESSIONS = ["Breakfast", "Lunch", "Dinner"];
 
 function loadWastage() {
   try { return JSON.parse(localStorage.getItem(INVENTORY_WASTAGE_KEY) || "null") || []; }
@@ -34,8 +16,6 @@ function loadSides() {
   catch { return []; }
 }
 function saveSides(list) { localStorage.setItem(WASTAGE_SIDES_KEY, JSON.stringify(list)); }
-
-// ── Toggle ────────────────────────────────────────────────────────────────────
 
 function Toggle({ on, onChange, size = 36 }) {
   return (
@@ -55,184 +35,165 @@ function Toggle({ on, onChange, size = 36 }) {
   );
 }
 
-// ── Stock badge ───────────────────────────────────────────────────────────────
-
-function StockBadge({ current, opening }) {
-  if (!opening) return <span className="inv-badge neutral">—</span>;
-  const pct = current / opening;
-  if (current === 0)  return <span className="inv-badge out">Out</span>;
-  if (pct < 0.25)     return <span className="inv-badge low">Low · {current}</span>;
-  return <span className="inv-badge ok">{current}</span>;
+function StockBadge({ stock, lowStockLevel }) {
+  if (stock === undefined || stock === null) return null;
+  if (stock <= 0)                            return <span className="inv-badge out">Out</span>;
+  if (lowStockLevel > 0 && stock <= lowStockLevel) return <span className="inv-badge low">Low · {stock}</span>;
+  return <span className="inv-badge ok">{stock}</span>;
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export function InventoryPage() {
-  // Live data from API
   const [outlets,       setOutlets]       = useState([]);
   const [menuCatalog,   setMenuCatalog]   = useState([]);
   const [loading,       setLoading]       = useState(true);
 
-  // localStorage-persisted state
-  const [tracking,      setTracking]      = useState(loadTracking);
+  // Per-outlet stock config from backend: { allowNegative, trackedItems }
+  const [stockConfig,   setStockConfig]   = useState({ allowNegative: false, trackedItems: [] });
+  // Per-outlet live stock snapshot: { [itemId]: { currentStock, lowStockLevel } }
+  const [stockSnapshot, setStockSnapshot] = useState({});
+  const [configSaving,  setConfigSaving]  = useState(false);
+
   const [wastage,       setWastage]       = useState(loadWastage);
   const [sides,         setSides]         = useState(loadSides);
-
-  // UI state
-  const [activeSession, setActiveSession] = useState("Lunch");
+  // { [itemId]: { posVisible: bool, online: bool } } — loaded from server
+  const [visibility,    setVisibility]    = useState({});
+  const [activeBranch,  setActiveBranch]  = useState(null);
   const [activeCat,     setActiveCat]     = useState("All");
-  const [activeBranch,  setActiveBranch]  = useState(null); // null = "All" until outlets load
   const [searchQ,       setSearchQ]       = useState("");
+  const [invPage,       setInvPage]       = useState(1);
   const [msg,           setMsg]           = useState("");
   const [newSide,       setNewSide]       = useState("");
-  const [invPage,       setInvPage]       = useState(1);
   const INV_PER_PAGE = 20;
 
-  // Wastage form — branch filled from first outlet once loaded
   const [form, setForm] = useState({
     item: "", unit: "Pcs", qty: "", pricePerUnit: "",
     session: "Lunch", branch: ""
   });
 
-  // ── Load outlets + server visibility on mount ────────────────────────────────
+  function flash(t) { setMsg(t); setTimeout(() => setMsg(""), 3000); }
 
+  // ── Load outlets on mount ──────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true);
     Promise.all([
       api.get("/outlets").catch(() => []),
       api.get("/inventory/item-visibility").catch(() => ({})),
-    ]).then(([outletList, serverVisibility]) => {
-      const activeOutlets = (outletList || []).filter(o => o.isActive !== false);
-      setOutlets(activeOutlets);
-
-      if (activeOutlets.length > 0) {
-        setForm(f => ({ ...f, branch: f.branch || activeOutlets[0].name }));
-        // Default to first outlet so items are branch-scoped from the start
-        setActiveBranch(prev => prev ?? activeOutlets[0].id);
+    ]).then(([outletList, serverVis]) => {
+      const active = (outletList || []).filter(o => o.isActive !== false);
+      setOutlets(active);
+      if (active.length > 0) {
+        setForm(f => ({ ...f, branch: f.branch || active[0].name }));
+        setActiveBranch(prev => prev ?? active[0].id);
       }
-
-      if (serverVisibility && Object.keys(serverVisibility).length > 0) {
-        setTracking(prev => {
-          const next = [...prev];
-          for (const [itemId, state] of Object.entries(serverVisibility)) {
-            const idx = next.findIndex(t => t.id === itemId);
-            if (idx >= 0) {
-              next[idx] = { ...next[idx], posVisible: state.posVisible !== false };
-            } else {
-              next.push({
-                id: itemId, trackingEnabled: false,
-                posVisible: state.posVisible !== false,
-                online: true, unit: "Pcs",
-                sessions: { Breakfast: {opening:0,current:0}, Lunch: {opening:0,current:0}, Dinner: {opening:0,current:0} }
-              });
-            }
-          }
-          saveTracking(next);
-          return next;
-        });
+      // Build visibility map from server — default posVisible/online to true if not in response
+      if (serverVis && typeof serverVis === "object") {
+        const map = {};
+        for (const [itemId, state] of Object.entries(serverVis)) {
+          map[itemId] = {
+            posVisible: state.posVisible !== false,
+            online:     state.online     !== false,
+          };
+        }
+        setVisibility(map);
       }
-
       setLoading(false);
     });
   }, []);
 
-  // ── Reload menu items whenever active branch changes ─────────────────────────
-
+  // ── Reload menu items whenever active branch changes ───────────────────────
   useEffect(() => {
-    if (loading) return; // wait for outlets to load first
-    const url = activeBranch && activeBranch !== "all"
+    if (loading || !activeBranch) return;
+    const url = activeBranch !== "all"
       ? `/menu/items?outletId=${activeBranch}`
       : "/menu/items";
     api.get(url).catch(() => []).then(itemList => {
-      const catalog = (itemList || []).map(item => ({
+      setMenuCatalog((itemList || []).map(item => ({
         id:       item.id,
         name:     item.name,
         category: item.categoryName || item.category || "General",
-      }));
-      setMenuCatalog(catalog);
-      setActiveCat("All"); // reset category when branch changes
+      })));
+      setActiveCat("All");
+      setInvPage(1);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBranch]);
 
-  function flash(t) { setMsg(t); setTimeout(() => setMsg(""), 3000); }
+  // ── Load stock config + snapshot when outlet changes ──────────────────────
+  const loadBranchStock = useCallback(async (outletId) => {
+    if (!outletId || outletId === "all") return;
+    try {
+      const [cfg, snap] = await Promise.all([
+        api.get(`/inventory/stock/config?outletId=${outletId}`).catch(() => null),
+        api.get(`/inventory/stock/snapshot?outletId=${outletId}`).catch(() => null),
+      ]);
+      if (cfg)  setStockConfig(cfg);
+      if (snap) setStockSnapshot(snap);
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    if (activeBranch && activeBranch !== "all") loadBranchStock(activeBranch);
+  }, [activeBranch, loadBranchStock]);
 
   // Reset page when filters change
   useEffect(() => { setInvPage(1); }, [searchQ, activeCat, activeBranch]);
 
-  // ── Search + Category filter ─────────────────────────────────────────────────
+  // ── Save stock config to backend ───────────────────────────────────────────
+  async function saveStockConfig(patch) {
+    if (!activeBranch || activeBranch === "all") return;
+    const next = { ...stockConfig, ...patch };
+    setStockConfig(next);
+    setConfigSaving(true);
+    try {
+      await api.put("/inventory/stock/config", {
+        outletId:      activeBranch,
+        allowNegative: next.allowNegative,
+        trackedItems:  next.trackedItems,
+      });
+    } catch (_) { flash("Failed to save — check connection"); }
+    finally { setConfigSaving(false); }
+  }
 
+  function toggleTracking(itemId, on) {
+    const current = stockConfig.trackedItems || [];
+    const next = on
+      ? [...new Set([...current, itemId])]
+      : current.filter(id => id !== itemId);
+    saveStockConfig({ trackedItems: next });
+  }
+
+  // POS Visible + Online toggles go to item-visibility endpoint + update local state
+  function togglePosVisible(itemId, on) {
+    setVisibility(v => ({ ...v, [itemId]: { ...(v[itemId] || {}), posVisible: on } }));
+    api.post("/inventory/item-visibility", { itemId, posVisible: on }).catch(() => {});
+  }
+  function toggleOnline(itemId, on) {
+    setVisibility(v => ({ ...v, [itemId]: { ...(v[itemId] || {}), online: on } }));
+    api.post("/inventory/item-visibility", { itemId, online: on }).catch(() => {});
+  }
+
+  // ── Search + category filter ───────────────────────────────────────────────
   const categories = ["All", ...new Set(menuCatalog.map(m => m.category))];
-
   const filteredCatalog = menuCatalog.filter(m => {
     const matchesCat    = activeCat === "All" || m.category === activeCat;
     const q             = searchQ.trim().toLowerCase();
     const matchesSearch = !q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q);
     return matchesCat && matchesSearch;
   });
-
   const totalInvPages = Math.max(1, Math.ceil(filteredCatalog.length / INV_PER_PAGE));
   const pagedCatalog  = filteredCatalog.slice((invPage - 1) * INV_PER_PAGE, invPage * INV_PER_PAGE);
 
-  // ── Tracking toggle helpers ──────────────────────────────────────────────────
+  const trackedSet = new Set(stockConfig.trackedItems || []);
+  const trackedCount = (stockConfig.trackedItems || []).filter(id =>
+    menuCatalog.some(m => m.id === id)
+  ).length;
 
-  function getT(id) {
-    return tracking.find(t => t.id === id) || {
-      id, trackingEnabled: false, posVisible: true, online: true, unit: "Pcs",
-      sessions: {
-        Breakfast: { opening: 0, current: 0 },
-        Lunch:     { opening: 0, current: 0 },
-        Dinner:    { opening: 0, current: 0 }
-      }
-    };
-  }
-
-  function updateT(id, changes) {
-    const exists = tracking.find(t => t.id === id);
-    const next = exists
-      ? tracking.map(t => t.id === id ? { ...t, ...changes } : t)
-      : [...tracking, { ...getT(id), ...changes }];
-    setTracking(next);
-    saveTracking(next);
-
-    // ── Sync posVisible / online changes to backend so ALL POS devices update ──
-    // "Tracking" toggle is owner-side only — no POS sync needed.
-    if ("posVisible" in changes || "online" in changes) {
-      const payload = { itemId: id };
-      if ("posVisible" in changes) payload.posVisible = !!changes.posVisible;
-      if ("online"     in changes) payload.online     = changes.online !== false;
-      api.post("/inventory/item-visibility", payload).catch(err => {
-        console.warn("[Inventory] Failed to sync item visibility to backend:", err);
-      });
-    }
-  }
-
-  function updateStock(id, session, field, val) {
-    const t = getT(id);
-    const next = tracking.find(x => x.id === id)
-      ? tracking.map(x => x.id !== id ? x : {
-          ...x,
-          sessions: {
-            ...x.sessions,
-            [session]: { ...x.sessions[session], [field]: Math.max(0, Number(val) || 0) }
-          }
-        })
-      : [...tracking, {
-          ...t,
-          sessions: {
-            ...t.sessions,
-            [session]: { ...t.sessions[session], [field]: Math.max(0, Number(val) || 0) }
-          }
-        }];
-    setTracking(next);
-    saveTracking(next);
-  }
-
-  // ── Wastage entry ─────────────────────────────────────────────────────────────
-
+  // ── Wastage form ───────────────────────────────────────────────────────────
   const autoValue = form.qty && form.pricePerUnit
     ? (Number(form.qty) * Number(form.pricePerUnit)).toFixed(2)
     : "";
+  const totalWastageVal = wastage.reduce((s, w) => s + (w.value || 0), 0);
+  const wastageItemNames = [...menuCatalog.map(m => m.name), ...sides];
 
   function handleWastageSubmit(e) {
     e.preventDefault();
@@ -261,40 +222,38 @@ export function InventoryPage() {
     setNewSide("");
   }
 
-  // ── Derived ───────────────────────────────────────────────────────────────────
-
-  const trackedItems    = tracking.filter(t => t.trackingEnabled);
-  const totalWastageVal = wastage.reduce((s, w) => s + (w.value || 0), 0);
-  const lowCount = trackedItems.filter(t => {
-    const s = t.sessions[activeSession];
-    return s?.opening > 0 && s.current / s.opening < 0.25;
-  }).length;
-
-  // All item names for wastage dropdown: menu items + custom sides
-  const wastageItemNames = [...menuCatalog.map(m => m.name), ...sides];
-
-  // ── Render ────────────────────────────────────────────────────────────────────
+  const selectedOutlet = outlets.find(o => o.id === activeBranch);
 
   return (
     <>
       <header className="topbar">
         <div><p className="eyebrow">Owner Setup</p><h2>Inventory</h2></div>
         <div className="topbar-actions">
-          <span className="status online">{trackedItems.length} items tracked</span>
+          <span className="status online">{trackedCount} items tracked</span>
         </div>
       </header>
 
       {/* Stats */}
       <div className="devices-stats" style={{ marginBottom: 20 }}>
-        <div className="dev-stat"><strong>{trackedItems.length}</strong><span>Tracked</span></div>
-        <div className={`dev-stat ${lowCount > 0 ? "warn" : ""}`}><strong>{lowCount}</strong><span>Low stock</span></div>
-        <div className="dev-stat bad"><strong>{trackedItems.filter(t => !t.online).length}</strong><span>Offline items</span></div>
+        <div className="dev-stat"><strong>{trackedCount}</strong><span>Tracked</span></div>
+        <div className="dev-stat">
+          <strong>
+            {Object.entries(stockSnapshot).filter(([, s]) => s.currentStock <= 0 && !stockConfig.allowNegative).length}
+          </strong>
+          <span>Out of stock</span>
+        </div>
+        <div className="dev-stat warn">
+          <strong>
+            {Object.entries(stockSnapshot).filter(([, s]) => s.currentStock > 0 && s.lowStockLevel > 0 && s.currentStock <= s.lowStockLevel).length}
+          </strong>
+          <span>Low stock</span>
+        </div>
         <div className="dev-stat"><strong>₹{totalWastageVal.toLocaleString()}</strong><span>Wastage value</span></div>
       </div>
 
       {msg && <div className="mobile-banner">{msg}</div>}
 
-      {/* ── Section 1: Enable Tracking ──────────────────────────────────────── */}
+      {/* ── Section 1: Track Items ─────────────────────────────────────────── */}
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="panel-head" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
           <div>
@@ -306,75 +265,63 @@ export function InventoryPage() {
             {filteredCatalog.length > INV_PER_PAGE && (
               <span style={{ marginLeft: 6, color: "#6b7280" }}>· page {invPage}/{totalInvPages}</span>
             )}
-            {activeBranch && activeBranch !== "all" && outlets.length > 1 && (
-              <span style={{ marginLeft: 6, color: "#059669", fontWeight: 700 }}>
-                · {outlets.find(o => o.id === activeBranch)?.name}
-              </span>
-            )}
           </span>
         </div>
 
-        {/* ── Branch tabs ─── */}
+        {/* Branch tabs */}
         {outlets.length > 1 && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            <button
-              className={`shift-filter-tab${activeBranch === "all" ? "" : ""}`}
-              onClick={() => setActiveBranch("all")}
-              style={{
-                fontWeight: (activeBranch === "all" || !activeBranch) ? 700 : 500,
-                background: (activeBranch === "all" || !activeBranch) ? "#059669" : undefined,
-                color:      (activeBranch === "all" || !activeBranch) ? "#fff" : undefined,
-                borderColor:(activeBranch === "all" || !activeBranch) ? "#059669" : undefined,
-              }}
-            >
-              All Branches
-            </button>
             {outlets.map(o => (
-              <button
-                key={o.id}
-                className="shift-filter-tab"
+              <button key={o.id} className="shift-filter-tab"
                 onClick={() => setActiveBranch(o.id)}
                 style={{
                   fontWeight:  activeBranch === o.id ? 700 : 500,
                   background:  activeBranch === o.id ? "#059669" : undefined,
                   color:       activeBranch === o.id ? "#fff" : undefined,
                   borderColor: activeBranch === o.id ? "#059669" : undefined,
-                }}
-              >
+                }}>
                 🏪 {o.name}
               </button>
             ))}
           </div>
         )}
 
-        {/* ── Search + Category filter bar ─── */}
+        {/* allowNegative setting for this outlet */}
+        {activeBranch && activeBranch !== "all" && (
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16,
+            padding:"10px 14px", background:"#f0fdf4", borderRadius:8, border:"1px solid #bbf7d0" }}>
+            <Toggle
+              on={stockConfig.allowNegative === true}
+              onChange={v => saveStockConfig({ allowNegative: v })}
+              size={34}
+            />
+            <div>
+              <strong style={{ fontSize:"0.88rem", color:"#111827" }}>Allow negative stock</strong>
+              <p style={{ margin:0, fontSize:"0.78rem", color:"#6b7280" }}>
+                OFF = POS blocks adding to cart when stock hits 0 &nbsp;|&nbsp; ON = allows selling even when stock runs out
+              </p>
+            </div>
+            {configSaving && <span style={{ fontSize:"0.75rem", color:"#6b7280" }}>Saving…</span>}
+          </div>
+        )}
+
+        {/* Search + Category filter */}
         <div className="inv-filter-bar">
           <div className="inv-search-wrap">
             <svg className="inv-search-icon" width="16" height="16" viewBox="0 0 24 24"
               fill="none" stroke="currentColor" strokeWidth="2.5">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input
-              className="inv-search-input"
-              type="text"
-              placeholder="Search items…"
-              value={searchQ}
-              onChange={e => setSearchQ(e.target.value)}
-            />
+            <input className="inv-search-input" type="text" placeholder="Search items…"
+              value={searchQ} onChange={e => setSearchQ(e.target.value)} />
             {searchQ && (
               <button type="button" className="inv-search-clear" onClick={() => setSearchQ("")}>✕</button>
             )}
           </div>
-
-          {/* Category pills — now only shows categories for selected branch */}
-          <div className="inv-cat-pills" style={{ overflowX: "auto", flexWrap: "nowrap", paddingBottom: 4 }}>
+          <div className="inv-cat-pills" style={{ overflowX:"auto", flexWrap:"nowrap", paddingBottom:4 }}>
             {categories.map(c => (
-              <button
-                key={c}
-                className={`inv-cat-pill${activeCat === c ? " active" : ""}`}
-                onClick={() => setActiveCat(c)}
-                style={{ flexShrink: 0 }}
-              >
+              <button key={c} className={`inv-cat-pill${activeCat === c ? " active" : ""}`}
+                onClick={() => setActiveCat(c)} style={{ flexShrink:0 }}>
                 {c}
                 {c !== "All" && (
                   <span className="inv-cat-pill-count">
@@ -387,11 +334,11 @@ export function InventoryPage() {
         </div>
 
         {loading ? (
-          <p className="inv-hint" style={{ padding: "20px 0" }}>Loading menu items…</p>
+          <p className="inv-hint" style={{ padding:"20px 0" }}>Loading menu items…</p>
         ) : menuCatalog.length === 0 ? (
           <div className="inv-empty-state">
             <span>🍽️</span>
-            <p>No menu items found. Go to <strong>Menu</strong> and add items first — they'll appear here for tracking.</p>
+            <p>No menu items found. Go to <strong>Menu</strong> and add items first.</p>
           </div>
         ) : filteredCatalog.length === 0 ? (
           <div className="inv-empty-state">
@@ -403,39 +350,53 @@ export function InventoryPage() {
           <>
             <div className="inv-toggle-head">
               <span>Item</span>
-              <span>Tracking</span>
+              <span>Track Stock</span>
               <span>Show in POS</span>
               <span>Online</span>
+              <span>Live Stock</span>
             </div>
             <div className="inv-catalog">
               {pagedCatalog.map(item => {
-                const t = getT(item.id);
+                const tracked = trackedSet.has(item.id);
+                const snap    = stockSnapshot[item.id];
                 return (
-                  <div key={item.id} className={`inv-catalog-row${t.trackingEnabled ? " enabled" : ""}`}>
+                  <div key={item.id} className={`inv-catalog-row${tracked ? " enabled" : ""}`}>
                     <div className="inv-catalog-info">
                       <strong>{item.name}</strong>
                       <span>{item.category}</span>
                     </div>
                     <div className="inv-three-toggles">
                       <label className="inv-toggle-col">
-                        <Toggle on={t.trackingEnabled} onChange={v => updateT(item.id, { trackingEnabled: v })} />
-                        <span>{t.trackingEnabled ? "On" : "Off"}</span>
+                        <Toggle on={tracked} onChange={v => toggleTracking(item.id, v)} />
+                        <span>{tracked ? "On" : "Off"}</span>
                       </label>
                       <label className="inv-toggle-col">
-                        <Toggle on={t.posVisible} onChange={v => updateT(item.id, { posVisible: v })} />
-                        <span>{t.posVisible ? "Yes" : "No"}</span>
+                        {(() => { const posVis = visibility[item.id]?.posVisible !== false; return <>
+                          <Toggle on={posVis} onChange={v => togglePosVisible(item.id, v)} />
+                          <span>{posVis ? "Yes" : "No"}</span>
+                        </>; })()}
                       </label>
                       <label className="inv-toggle-col">
-                        <Toggle on={t.online !== false} onChange={v => updateT(item.id, { online: v })} />
-                        <span>{t.online !== false ? "Live" : "Off"}</span>
+                        {(() => { const online = visibility[item.id]?.online !== false; return <>
+                          <Toggle on={online} onChange={v => toggleOnline(item.id, v)} />
+                          <span>{online ? "Live" : "Off"}</span>
+                        </>; })()}
                       </label>
+                      <div className="inv-toggle-col" style={{ alignItems:"center" }}>
+                        {tracked && snap != null ? (
+                          <StockBadge stock={snap.currentStock} lowStockLevel={snap.lowStockLevel} />
+                        ) : tracked ? (
+                          <span className="inv-badge neutral">—</span>
+                        ) : (
+                          <span style={{ color:"#9ca3af", fontSize:"0.78rem" }}>—</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* Pagination bar */}
             {totalInvPages > 1 && (
               <div className="pg-bar" style={{ marginTop: 16 }}>
                 <button className="pg-btn" disabled={invPage === 1}
@@ -463,51 +424,47 @@ export function InventoryPage() {
         )}
       </section>
 
-      {/* ── Section 2: Session stock ─────────────────────────────────────────── */}
-      {trackedItems.length > 0 && (
+      {/* ── Section 2: Live stock levels (read-only for owner) ──────────────── */}
+      {trackedCount > 0 && activeBranch && activeBranch !== "all" && (
         <section className="panel" style={{ marginBottom: 20 }}>
-          <div className="panel-head" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
-            <div><p className="eyebrow">Session Stock</p><h3>Update Stock by Session</h3></div>
-            <div className="inv-session-tabs">
-              {SESSIONS.map(s => (
-                <button key={s} className={`inv-session-tab${activeSession === s ? " active" : ""}`}
-                  onClick={() => setActiveSession(s)}>{s}</button>
-              ))}
+          <div className="panel-head" style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <p className="eyebrow">Live Stock — {selectedOutlet?.name}</p>
+              <h3>Current Stock Levels</h3>
             </div>
+            <button className="ghost-chip" onClick={() => loadBranchStock(activeBranch)}>↻ Refresh</button>
           </div>
+          <p className="inv-hint" style={{ marginBottom: 12 }}>
+            Cashiers update stock from the <strong>POS → 📦 Stock</strong> panel. Stock deducts automatically when KOT is sent.
+          </p>
           <div className="inv-stock-table">
             <div className="inv-stock-head">
-              <span>Item</span><span>Unit</span>
-              <span>Opening qty</span><span>Current qty</span>
-              <span>Status</span><span>POS</span>
+              <span>Item</span>
+              <span>Current Stock</span>
+              <span>Low Stock Threshold</span>
+              <span>Status</span>
             </div>
-            {trackedItems.map(t => {
-              const meta = menuCatalog.find(m => m.id === t.id);
-              const sess = t.sessions?.[activeSession] || { opening: 0, current: 0 };
+            {(stockConfig.trackedItems || []).map(itemId => {
+              const meta = menuCatalog.find(m => m.id === itemId);
+              if (!meta) return null;
+              const snap = stockSnapshot[itemId];
               return (
-                <div key={t.id} className="inv-stock-row">
-                  <span className="inv-item-name">{meta?.name || t.id}</span>
-                  <span>
-                    <select className="inv-unit-select" value={t.unit}
-                      onChange={e => updateT(t.id, { unit: e.target.value })}>
-                      {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
+                <div key={itemId} className="inv-stock-row">
+                  <span className="inv-item-name">{meta.name}</span>
+                  <span style={{ fontWeight: 600 }}>{snap?.currentStock ?? "—"}</span>
+                  <span style={{ color: "#6b7280" }}>
+                    {snap?.lowStockLevel > 0 ? snap.lowStockLevel : "—"}
                   </span>
                   <span>
-                    <input className="inv-qty-input" type="number" min="0" value={sess.opening}
-                      onChange={e => updateStock(t.id, activeSession, "opening", e.target.value)} />
+                    {snap != null
+                      ? <StockBadge stock={snap.currentStock} lowStockLevel={snap.lowStockLevel} />
+                      : <span className="inv-badge neutral">—</span>
+                    }
                   </span>
-                  <span>
-                    <input className="inv-qty-input" type="number" min="0" value={sess.current}
-                      onChange={e => updateStock(t.id, activeSession, "current", e.target.value)} />
-                  </span>
-                  <span><StockBadge current={sess.current} opening={sess.opening} /></span>
-                  <span><Toggle on={t.posVisible} onChange={v => updateT(t.id, { posVisible: v })} size={32} /></span>
                 </div>
               );
             })}
           </div>
-          <p className="inv-hint">Cashier or Manager updates at shift start and mid-service</p>
         </section>
       )}
 
@@ -566,7 +523,7 @@ export function InventoryPage() {
             {loading ? (
               <select disabled><option>Loading…</option></select>
             ) : outlets.length === 0 ? (
-              <select disabled><option>No branches found — create one in Outlets</option></select>
+              <select disabled><option>No branches found</option></select>
             ) : (
               <select value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}>
                 {outlets.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
@@ -575,12 +532,10 @@ export function InventoryPage() {
           </label>
 
           <div className="inv-wastage-submit" style={{ gridColumn: "1 / -1" }}>
-            <button type="submit" className="primary-btn"
-              disabled={outlets.length === 0}>Log Wastage</button>
+            <button type="submit" className="primary-btn" disabled={outlets.length === 0}>Log Wastage</button>
           </div>
         </form>
 
-        {/* Add custom sides / extras to wastage dropdown */}
         <div className="inv-sides-strip">
           <span>Sides / extras in wastage list:</span>
           <div className="inv-sides-chips">

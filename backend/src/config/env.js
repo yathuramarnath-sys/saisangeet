@@ -29,6 +29,14 @@ const env = {
   razorpayKeyId:       process.env.RAZORPAY_KEY_ID       || "",
   razorpayKeySecret:   process.env.RAZORPAY_KEY_SECRET   || "",
   razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || "",
+
+  // Google OAuth
+  googleClientId:     process.env.GOOGLE_CLIENT_ID     || "",
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+
+  // MSG91 SMS
+  msg91AuthKey: process.env.MSG91_AUTH_KEY || "",
+  msg91Sender:  process.env.MSG91_SENDER   || "PLATOPOS",
 };
 
 module.exports = {

@@ -245,7 +245,7 @@ async function createMenuItem(payload) {
     description:       payload.description       || "",
     shortCode:         payload.shortCode         || "",
     hsnCode:           payload.hsnCode           || "",
-    sku:               payload.sku               || "",
+    sku:               payload.sku               || null, // auto-assigned below
     rank:              payload.rank !== undefined ? Number(payload.rank) : 999,
     exposeInCaptain:   payload.exposeInCaptain   !== undefined ? Boolean(payload.exposeInCaptain)   : true,
     allowDecimalQty:   payload.allowDecimalQty   !== undefined ? Boolean(payload.allowDecimalQty)   : false,
@@ -253,18 +253,30 @@ async function createMenuItem(payload) {
     expiryDate:        payload.expiryDate        || "",
   };
 
-  updateOwnerSetupData((current) => ({
-    ...current,
-    menu: {
-      ...current.menu,
-      categories: current.menu.categories.map((category) =>
-        category.id === item.categoryId
-          ? { ...category, itemCount: Number(category.itemCount || 0) + 1 }
-          : category
-      ),
-      items: [item, ...current.menu.items]
+  updateOwnerSetupData((current) => {
+    // Auto-assign sequential item number as SKU if not provided
+    // Scans all existing items, finds the highest numeric SKU, adds 1
+    if (!item.sku) {
+      const existingItems = current.menu?.items || [];
+      const maxNum = existingItems.reduce((max, i) => {
+        const n = parseInt(i.sku, 10);
+        return !isNaN(n) && n > max ? n : max;
+      }, 0);
+      item.sku = String(maxNum + 1);
     }
-  }));
+    return {
+      ...current,
+      menu: {
+        ...current.menu,
+        categories: current.menu.categories.map((category) =>
+          category.id === item.categoryId
+            ? { ...category, itemCount: Number(category.itemCount || 0) + 1 }
+            : category
+        ),
+        items: [item, ...current.menu.items],
+      },
+    };
+  });
 
   return item;
 }
@@ -642,22 +654,17 @@ async function bulkImportMenuItems(payload) {
     }
     const category = catBySlug[catSlug];
 
-    // ── Ensure station exists (in-memory only) — skip if no station name given ──
+    // ── Station lookup — NEVER auto-create stations from CSV ─────────────────
+    // Stations are created exclusively from Kitchen Stations page in Owner Console.
+    // CSV import only links items to EXISTING stations — if the station name in
+    // the CSV doesn't match a saved station, the item is imported without a station
+    // assignment (station field stays blank). This prevents phantom stations appearing
+    // (e.g. "Bakery", "Beverages") every time a menu CSV is re-imported.
     const staSlug = stationName ? slugify(stationName) : "";
-    if (staSlug && !staBySlug[staSlug]) {
-      const newSta = {
-        id:         `station-${staSlug}`,
-        name:       stationName,
-        outletId:   "all",
-        categories: [],
-      };
-      stations.push(newSta);
-      staBySlug[staSlug] = newSta;
-    }
-    const station = staSlug ? staBySlug[staSlug] : null;
+    const station = staSlug ? (staBySlug[staSlug] || null) : null;
 
     // ── Build item (in-memory only) ──────────────────────────────────────────
-    const taxRate    = Number(row.taxRate || 5);
+    const taxRate    = row.taxRate != null && row.taxRate !== "" ? Number(row.taxRate) : 5;
     const taxMode    = row.taxMode === "Inclusive" ? "Inclusive" : "Exclusive";
     const gstLabel   = `GST ${taxRate}%`;
     const rwTakeaway = `Rs ${Number(row.takeawayPrice || 0)}`;
@@ -698,7 +705,7 @@ async function bulkImportMenuItems(payload) {
       description:       String(row.description       || "").trim(),
       shortCode:         String(row.shortCode         || "").trim().toUpperCase(),
       hsnCode:           String(row.hsnCode           || "").trim(),
-      sku:               String(row.sku               || "").trim(),
+      sku:               String(row.sku               || "").trim() || null, // auto-assigned below
       rank:              row.rank            !== undefined ? Number(row.rank)            : 999,
       packingCharges:    row.packingCharges   !== undefined ? Number(row.packingCharges)  : 0,
       exposeInCaptain:   row.exposeInCaptain  !== undefined ? Boolean(row.exposeInCaptain): true,
@@ -713,15 +720,29 @@ async function bulkImportMenuItems(payload) {
 
   // ── ONE single store write for everything ────────────────────────────────────
   if (newItems.length > 0) {
-    updateOwnerSetupData((current) => ({
-      ...current,
-      menu: {
-        ...current.menu,
-        categories: categories,
-        stations:   stations,
-        items:      [...(current.menu?.items || []), ...newItems],
-      },
-    }));
+    updateOwnerSetupData((current) => {
+      // Auto-assign sequential SKU numbers to items that don't have one
+      const existingItems = current.menu?.items || [];
+      let maxNum = existingItems.reduce((max, i) => {
+        const n = parseInt(i.sku, 10);
+        return !isNaN(n) && n > max ? n : max;
+      }, 0);
+      for (const item of newItems) {
+        if (!item.sku) {
+          maxNum++;
+          item.sku = String(maxNum);
+        }
+      }
+      return {
+        ...current,
+        menu: {
+          ...current.menu,
+          categories,
+          stations,
+          items: [...existingItems, ...newItems],
+        },
+      };
+    });
   }
 
   return {

@@ -138,4 +138,11 @@ menuRouter.patch(
   asyncHandler(updatePricingProfileHandler)
 );
 
+// Auto-assign sequential SKU numbers to all items that don't have one
+menuRouter.post(
+  "/auto-number",
+  requireAuth, requirePermission("menu.manage"),
+  asyncHandler(require("./menu.controller").autoNumberItemsHandler)
+);
+
 module.exports = { menuRouter };

@@ -8,6 +8,7 @@ import { PaymentSheet }       from "./components/PaymentSheet";
 import { SplitBillSheet }          from "./components/SplitBillSheet";
 import { SplitSettlementPanel }    from "./components/SplitSettlementPanel";
 import { ShiftGate }          from "./components/ShiftGate";
+import { DayEndModal }        from "./components/DayEndModal";
 import { CashMovementModal, CloseShiftModal } from "./components/ShiftModals";
 import { AdvanceOrderModal }  from "./components/AdvanceOrderModal";
 import { AdvanceOrdersPanel } from "./components/AdvanceOrdersPanel";
@@ -28,6 +29,8 @@ import { CreditSettlePanel }  from "./components/CreditSettlePanel";
 import { OnlineOrdersPanel }  from "./components/OnlineOrdersPanel";
 import { PhonePeQRModal }     from "./components/PhonePeQRModal";
 import { WastageModal }       from "./components/WastageModal";
+import { WaitlistPanel }     from "./components/WaitlistPanel";
+import { StockPanel }        from "./components/StockPanel";
 import { WhatsNewModal, useWhatsNew } from "./components/WhatsNewModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
@@ -306,6 +309,10 @@ export default function App() {
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
   const ordersRef  = useRef({});
+  // Refs for barcode scanner listener — always hold latest values without re-subscribing
+  const selectedTableIdRef = useRef(null);
+  const outletRef          = useRef(null);
+  const handleAddItemRef   = useRef(null);
   // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
   const billPrintingRef = useRef(false);
   // Tracks socket connection state for reconnect-resync logic
@@ -316,10 +323,13 @@ export default function App() {
   // ── Shift state ───────────────────────────────────────────────────────────
   const [activeShift,      setActiveShift]      = useState(() => loadActiveShift());
   const [cashierName,      setCashierName]      = useState(null);
+  const [cashierPin,       setCashierPin]       = useState("");   // stored on login for void/cancel re-auth
   const [activeCategory,   setActiveCategory]   = useState(null);
   const [showCashIn,       setShowCashIn]       = useState(false);
   const [showCashOut,      setShowCashOut]      = useState(false);
   const [showCloseShift,   setShowCloseShift]   = useState(false);
+  const [showDayEnd,       setShowDayEnd]       = useState(false);
+  const [dayEndPostShift,  setDayEndPostShift]  = useState(false);
   const [showAdvanceOrder, setShowAdvanceOrder] = useState(false); // legacy — replaced by panel
   const [showAdvancePanel, setShowAdvancePanel] = useState(false);
   const [counterTicketNum,   setCounterTicketNum]   = useState(() => {
@@ -337,11 +347,16 @@ export default function App() {
   });
   const [showOnlineOrders,    setShowOnlineOrders]    = useState(false);
   const [pendingOnlineCount,  setPendingOnlineCount]  = useState(0);
+  const [pendingQRCount,      setPendingQRCount]      = useState(0); // customer QR orders (notification only)
   const [onlineOrdersEnabled, setOnlineOrdersEnabled] = useState(() =>
     localStorage.getItem("pos_online_orders_enabled") !== "false"
   );
   const [showPhonePeQR,      setShowPhonePeQR]      = useState(false);
   const [showWastage,        setShowWastage]        = useState(false);
+  const [showStock,          setShowStock]          = useState(false);
+  const [stockSnapshot,      setStockSnapshot]      = useState({}); // { [itemId]: { currentStock, lowStockLevel, allowNegative } }
+  const [showWaitlist,       setShowWaitlist]       = useState(false);
+  const [waitlistSuggest,    setWaitlistSuggest]    = useState(null); // { party, tableLabel, tableSeats }
   const { show: showWhatsNew, dismiss: dismissWhatsNew } = useWhatsNew();
   const [isSyncing,          setIsSyncing]          = useState(false);
   const [lastSyncedAt,       setLastSyncedAt]       = useState(() => {
@@ -465,6 +480,21 @@ export default function App() {
           );
         });
 
+        // Load stock snapshot for this outlet and merge lowStockLevel from menu items
+        api.get(`/inventory/stock/snapshot?outletId=${target.id}`)
+          .then(snap => {
+            if (snap && typeof snap === "object") {
+              const merged = { ...snap };
+              (items || []).forEach(item => {
+                if (merged[item.id] && item.lowStockLevel > 0) {
+                  merged[item.id] = { ...merged[item.id], lowStockLevel: Number(item.lowStockLevel) };
+                }
+              });
+              setStockSnapshot(merged);
+            }
+          })
+          .catch(() => {});
+
         setServerConn("live");
         socketConnRef.current = "live";
 
@@ -472,6 +502,9 @@ export default function App() {
           .replace("/api/v1", "");
         const socket = io(socketUrl, {
           query: { outletId: target.id },
+          // Pass device token so the server can resolve tenantId for brand-new
+          // tenants whose data isn't in the in-memory cache yet.
+          auth: { token: localStorage.getItem("pos_token") || "" },
           reconnection:      true,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 8000,
@@ -651,6 +684,11 @@ export default function App() {
           });
         });
 
+        socket.on("waitlist:updated", () => {
+          // Another terminal added/removed a waitlist entry — no action needed
+          // here; the WaitlistPanel re-polls on its own interval.
+        });
+
         // ── Local WiFi socket (localhost:4001) ────────────────────────────────
         // Connects to the local server running in the Electron main process.
         // Tablets on the same WiFi connect to this directly — no internet needed.
@@ -721,6 +759,17 @@ export default function App() {
           });
         });
 
+        // ── QR table orders from customers (handled by Captain App; POS just shows badge) ──
+        socket.on("customer:order:new", (order) => {
+          setPendingQRCount(n => n + 1);
+          showToast(`📲 QR Order — Table ${order.tableLabel || order.tableId} (${order.customerName})`);
+        });
+
+        // ── Waiter called from customer QR page ───────────────────────────────
+        socket.on("waiter:called", ({ tableLabel, tableId, customerName }) => {
+          showToast(`🛎️ Waiter called — Table ${tableLabel || tableId}${customerName ? ` (${customerName})` : ""}`);
+        });
+
         // ── PhonePe QR payment confirmed (via webhook → socket) ───────────────
         // Primary handling is inside PhonePeQRModal (onConfirmed prop).
         // This listener catches the case where no modal is open (e.g. Captain App
@@ -769,7 +818,27 @@ export default function App() {
 
         // Restore orders from localStorage — merge with cached table layout
         // Pass outletId so cross-outlet stale orders are rejected
-        const savedOrders = loadSavedOrders(branchConfig?.outletId || null);
+        let savedOrders = loadSavedOrders(branchConfig?.outletId || null);
+
+        // ── Stale order cleanup ───────────────────────────────────────────────
+        // Remove any active orders older than 24 hours that were never settled.
+        // These are ghost orders from previous days — auto-clear on startup.
+        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        let staleCount = 0;
+        savedOrders = Object.fromEntries(
+          Object.entries(savedOrders).filter(([, order]) => {
+            if (order.isClosed) return true; // keep closed (for history)
+            const hasItems = (order.items || []).some(i => !i.isVoided && !i.isGhostVoid);
+            if (!hasItems) return true; // empty order — keep
+            const lastActivity = order.updatedAt || order.createdAt || 0;
+            if (lastActivity < cutoff) { staleCount++; return false; }
+            return true;
+          })
+        );
+        if (staleCount > 0) {
+          console.info(`[POS] Auto-cleared ${staleCount} stale order(s) older than 24h`);
+        }
+
         setOrders((prev) =>
           ensureOrders(
             Object.keys(prev).length ? prev : savedOrders,
@@ -839,7 +908,33 @@ export default function App() {
         try { localStorage.setItem("pos_discount_rules", JSON.stringify(active)); } catch (_) {}
       }
       if (cats)    setCategories(cats);
-      if (items)   setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
+      if (items) {
+        const freshMenuItems = items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) }));
+        setMenuItems(freshMenuItems);
+
+        // ── Propagate updated taxRate to already-open table orders ────────────
+        // When owner assigns/changes GST on a menu item, open orders that already
+        // have that item in the cart still carry the old taxRate (captured at add-time).
+        // On every sync, refresh taxRate on open order items from the fresh menu.
+        // Price is intentionally NOT updated — only the tax classification.
+        setOrders(prev => {
+          const menuById = Object.fromEntries(freshMenuItems.map(m => [m.id, m]));
+          const updated  = {};
+          let changed    = false;
+          Object.entries(prev).forEach(([tableId, order]) => {
+            if (!order?.items?.length) { updated[tableId] = order; return; }
+            const newItems = order.items.map(item => {
+              const menuItem = menuById[item.menuItemId] || menuById[item.id];
+              if (!menuItem || menuItem.taxRate == null) return item;
+              if (item.taxRate === menuItem.taxRate) return item;
+              changed = true;
+              return { ...item, taxRate: Number(menuItem.taxRate) };
+            });
+            updated[tableId] = changed ? { ...order, items: newItems } : order;
+          });
+          return changed ? updated : prev;
+        });
+      }
       if (stations?.length) {
         localStorage.setItem("pos_kitchen_stations", JSON.stringify(stations));
       }
@@ -848,6 +943,7 @@ export default function App() {
       const freshOutlet = Array.isArray(outletsList) ? outletsList.find(o => o.id === id) : null;
       const freshAreas  = freshOutlet ? buildAreasFromOutlet(freshOutlet) : null;
       if (freshOutlet) {
+        setOutlet(freshOutlet);          // ← update React state so gstTreatment, tables etc. reflect immediately
         setTableAreas(freshAreas || []);
         localStorage.setItem("pos_table_config", JSON.stringify(freshAreas || []));
       }
@@ -857,6 +953,23 @@ export default function App() {
         menuItems:  items   || [],
         tableAreas: freshAreas,
       });
+
+      // Refresh stock snapshot and merge lowStockLevel from fresh menu items
+      if (items) {
+        api.get(`/inventory/stock/snapshot?outletId=${id}`)
+          .then(snap => {
+            if (snap && typeof snap === "object") {
+              const merged = { ...snap };
+              items.forEach(item => {
+                if (merged[item.id] && item.lowStockLevel > 0) {
+                  merged[item.id] = { ...merged[item.id], lowStockLevel: Number(item.lowStockLevel) };
+                }
+              });
+              setStockSnapshot(merged);
+            }
+          })
+          .catch(() => {});
+      }
 
       const now = new Date();
       setLastSyncedAt(now);
@@ -892,6 +1005,11 @@ export default function App() {
     ordersRef.current = orders; // keep ref in sync for socket callbacks
   }, [orders]);
 
+  // Keep barcode scanner refs in sync with latest state/functions
+  useEffect(() => { selectedTableIdRef.current = selectedTableId; }, [selectedTableId]);
+  useEffect(() => { outletRef.current = outlet; }, [outlet]);
+  useEffect(() => { handleAddItemRef.current = handleAddItem; }); // no dep — always latest
+
   // Persist counter ticket number across refreshes
   useEffect(() => {
     localStorage.setItem("pos_counter_ticket_num", String(counterTicketNum));
@@ -923,6 +1041,19 @@ export default function App() {
     };
   }, [outlet]);
 
+  // ── Background outlet + menu refresh every 10 minutes ────────────────────
+  // Safety net for when the Owner Console changes gstTreatment, taxRate, or
+  // other settings while the POS is running. Socket sync:config handles it
+  // instantly, but this periodic refresh catches missed events (e.g. POS was
+  // offline or connected before the Owner Web made the change).
+  useEffect(() => {
+    if (!outlet?.id) return;
+    const id = setInterval(() => {
+      syncMenuData(outlet.id);
+    }, 10 * 60 * 1000); // every 10 minutes
+    return () => clearInterval(id);
+  }, [outlet?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Cashier-visible print failure alerts ──────────────────────────────────
   // printBill.js and kotPrint.js dispatch this event when Electron silent
   // printing fails — otherwise the cashier has no idea the KOT/Bill didn't print.
@@ -935,6 +1066,59 @@ export default function App() {
     }
     window.addEventListener("dinex:print-error", onPrintError);
     return () => window.removeEventListener("dinex:print-error", onPrintError);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Barcode scanner listener ──────────────────────────────────────────────
+  // USB/Bluetooth scanners act like a keyboard — they type the barcode very fast
+  // (< 50 ms between characters) then press Enter. We buffer rapid keystrokes and
+  // on Enter call /menu/sku-lookup to find the item, then add it to the order.
+  // Ignored when an input/textarea/select is focused (cashier is typing normally).
+  useEffect(() => {
+    let buffer = "";
+    let bufferTimer = null;
+
+    function resetBuffer() {
+      buffer = "";
+      if (bufferTimer) { clearTimeout(bufferTimer); bufferTimer = null; }
+    }
+
+    function onKeyDown(e) {
+      // Skip if focus is inside a text input / textarea / select
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+      if (e.key === "Enter") {
+        const scanned = buffer.trim();
+        resetBuffer();
+        if (scanned.length < 1) return;           // empty — ignore (allow single digit item numbers)
+        if (!selectedTableIdRef.current) {
+          showToast("Select a table first, then scan");
+          return;
+        }
+        // Look up item by SKU/barcode
+        api.get(`/menu/sku-lookup?sku=${encodeURIComponent(scanned)}&outletId=${outletRef.current?.id || ""}`)
+          .then((item) => {
+            handleAddItemRef.current(item);
+            showToast(`✅ ${item.name} added via scanner`);
+          })
+          .catch((err) => {
+            const notFound = err?.message?.toLowerCase().includes("not found") || err?.message?.includes("SKU_NOT_FOUND");
+            showToast(notFound ? `❌ Barcode not found: ${scanned}` : `❌ Scanner error — try again`);
+          });
+        return;
+      }
+
+      // Only buffer printable single characters
+      if (e.key.length === 1) {
+        buffer += e.key;
+        // Reset buffer if no new character arrives within 80 ms (human typing is slower)
+        if (bufferTimer) clearTimeout(bufferTimer);
+        bufferTimer = setTimeout(resetBuffer, 80);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => { window.removeEventListener("keydown", onKeyDown); resetBuffer(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived state ─────────────────────────────────────────────────────────
@@ -988,6 +1172,10 @@ export default function App() {
       const next = updater(structuredClone(order));
       // Stamp cashierName so Captain App bill always shows the correct POS cashier
       if (cashierName) next.cashierName = cashierName;
+      // Always stamp updatedAt so the stale-write guard in order:updated handler
+      // can correctly reject any incoming socket event that has older data.
+      // Without this, cleared items can reappear when Captain broadcasts old state.
+      next.updatedAt = Date.now();
       // Emit to cloud socket (for Owner Web + remote Captain/KDS)
       socketRef.current?.emit("order:update", { outletId: outlet?.id, order: next });
       // Emit to local socket (for tablets on same WiFi — works without internet)
@@ -1019,6 +1207,13 @@ export default function App() {
   async function handleAddItem(item) {
     if (!selectedTableId) return;
     const tableId = selectedTableId;
+
+    // Block add if stock is tracked, at 0, and allowNegative is off
+    const snap = stockSnapshot[item.id];
+    if (snap && snap.currentStock <= 0 && snap.allowNegative === false) {
+      showToast(`${item.name} is out of stock`);
+      return;
+    }
 
     // Generate the item ID here so local state and the backend record use the same ID.
     // This makes the reconcile step safe: when we apply the server response we can
@@ -1059,6 +1254,8 @@ export default function App() {
           categoryId: item.categoryId || "",
           category:   (categories.find(c => c.id === item.categoryId)?.name)
                         || item.categoryName || item.category || "",
+          // ⚠️ taxRate MUST be included so 0% items don't fall back to 5% default
+          taxRate:    item.taxRate != null ? Number(item.taxRate) : null,
         });
       }
       return order;
@@ -1087,6 +1284,7 @@ export default function App() {
           categoryId:  item.categoryId || "",
           category:    (categories.find(c => c.id === item.categoryId)?.name)
                          || item.categoryName || item.category || "",
+          taxRate:     item.taxRate != null ? Number(item.taxRate) : null,
         }
       });
 
@@ -1277,6 +1475,24 @@ export default function App() {
     const printerLabel = printer ? ` → ${printer.name}` : "";
     showToast(`🖨️ KOT-${String(serverKotNumber).padStart(4, "0")} sent${printerLabel}`);
 
+    // Deduct stock for tracked items — fire-and-forget, non-blocking
+    if (outlet?.id && unsent.length) {
+      api.post("/inventory/stock/deduct", {
+        outletId: outlet.id,
+        items: unsent.map(i => ({ itemId: i.menuItemId || i.id, quantity: i.quantity || 1 })),
+      }).then(result => {
+        if (result?.deducted?.length) {
+          setStockSnapshot(prev => {
+            const next = { ...prev };
+            result.deducted.forEach(({ itemId, newStock }) => {
+              if (next[itemId]) next[itemId] = { ...next[itemId], currentStock: newStock };
+            });
+            return next;
+          });
+        }
+      }).catch(() => {});
+    }
+
     // Reconcile from the last server response (most up-to-date order state).
     // All items across all station groups are sentToKot: true on the server by
     // this point. Unsent local items absent from the server response are kept.
@@ -1365,11 +1581,12 @@ export default function App() {
     const subtotal     = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
     const disc         = Math.min(order.discountAmount || 0, subtotal);
     const afterDisc    = subtotal - disc;
-    // Per-item tax (mirrors printBill.js logic — defaults to 5% if item.taxRate unset)
-    const inclusive    = outlet?.gstTreatment === "inclusive";
+    // Per-item tax (mirrors printBill.js logic — falls back to outlet defaultTaxRate if unset)
+    const inclusive          = outlet?.gstTreatment === "inclusive";
+    const defaultItemTaxRate = outlet?.defaultTaxRate ?? 0;
     const taxAmt       = billableItems.reduce((s, i) => {
       const lineAfter = subtotal > 0 ? (i.price * i.quantity) * (afterDisc / subtotal) : 0;
-      const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 5;
+      const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : defaultItemTaxRate;
       return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     }, 0);
     const total        = inclusive ? afterDisc : afterDisc + taxAmt;
@@ -1415,6 +1632,12 @@ export default function App() {
     const creditPayment    = newPayments.find(p => p.method === "credit");
     const isCreditSale     = !!creditPayment;
     const creditCustomer   = creditPayment?.creditCustomer || null;
+
+    // Stamp creditCustomer on the live order NOW so any reprint (from
+    // past orders or the next print-bill call) includes the customer name.
+    if (isCreditSale && creditCustomer) {
+      mutateOrder(tableId, o => { o.creditCustomer = creditCustomer; o.isCreditSale = true; return o; });
+    }
 
     const closedOrder = {
       ...structuredClone(order),
@@ -1515,12 +1738,28 @@ export default function App() {
     setTimeout(() => {
       const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
       const table = area?.tables.find(t => t.id === tableId);
-      if (!table || !area) return; // counter/online IDs — no catalog entry
+
+      if (!table || !area) {
+        // Counter / takeaway / online order — no catalog entry.
+        // Still must clear the local slot so the cashier can start the next order.
+        // These IDs can't use buildBlankOrder (no table/area object) so just wipe
+        // the closed order from state — the counter panel will create the next one.
+        setOrders(prev => {
+          if (!prev[tableId]?.isClosed) return prev; // already cleared by socket
+          const next = { ...prev };
+          delete next[tableId];
+          return next;
+        });
+        return;
+      }
+
       setOrders(prev => {
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
         return { ...prev, [tableId]: fresh };
       });
+      // Check waitlist for a party that fits this freed table
+      checkWaitlistSuggest(tableId);
     }, 1500);
   }
 
@@ -1752,6 +1991,16 @@ export default function App() {
     mutateOrder(selectedTableId, o => { o.customer = data; return o; });
     setShowCustomerForm(false);
     showToast("Customer details saved");
+    // Persist to customer master so credit form can pick from it
+    if (data.name) {
+      api.post("/customers", {
+        name:    data.name,
+        phone:   data.phone   || "",
+        email:   data.email   || "",
+        gstin:   data.gstn    || "",   // CustomerFormModal uses "gstn" key
+        address: data.address || "",
+      }).catch(() => {}); // fire-and-forget — non-critical
+    }
   }
 
   // ── Print bill ────────────────────────────────────────────────────────────
@@ -1868,6 +2117,7 @@ export default function App() {
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
         return { ...prev, [tableId]: fresh };
       });
+      checkWaitlistSuggest(tableId);
     }, 1500);
   }
 
@@ -1930,6 +2180,16 @@ export default function App() {
       waiterName:  validWaiter,
     });
 
+    // Log every bill print (1st print + reprints) for Owner Console audit trail
+    api.post("/operations/reprint-log", {
+      source:      "pos",
+      cashier:     cashierName,
+      outletName:  outlet?.name,
+      tableLabel:  printOrder.tableNumber || printOrder.tableId,
+      orderNumber: printOrder.orderNumber,
+      billNo:      printOrder.billNo || null,
+    }).catch(() => {});
+
     showToast("🖨️ Bill printed · Collect payment");
 
     setSelectedTableId(null);
@@ -1943,6 +2203,38 @@ export default function App() {
       api.post("/operations/bill-request", { outletId: outlet?.id, tableId })
         .catch(err => console.warn("[POS] bill-request after print failed:", err.message));
     }
+  }
+
+  // ── Waitlist auto-suggest ─────────────────────────────────────────────────
+  // Called when a table frees — checks if any waiting party fits, shows popup.
+  async function checkWaitlistSuggest(tableId) {
+    if (!outlet?.id) return;
+    try {
+      const queue = await api.get(`/operations/waitlist?outletId=${outlet.id}`);
+      if (!Array.isArray(queue) || !queue.length) return;
+      // Find the table's seat count from tableAreas
+      let tableSeats = 4;
+      let tableLabel = tableId;
+      for (const area of tableAreas) {
+        const t = area.tables.find(t => t.id === tableId);
+        if (t) { tableSeats = t.seats || 4; tableLabel = t.number || t.name || tableId; break; }
+      }
+      // Best match: oldest waiting party whose size fits the freed table
+      const match = queue.find(p => p.partySize <= tableSeats);
+      if (!match) return;
+      setWaitlistSuggest({ party: match, tableId, tableLabel, tableSeats });
+    } catch (_) {}
+  }
+
+  async function handleWaitlistSeat(party, tableId, tableLabel) {
+    setWaitlistSuggest(null);
+    try {
+      await api.patch(`/operations/waitlist/${party.id}/seat`, {
+        assignedTableId:    tableId,
+        assignedTableLabel: String(tableLabel),
+      });
+      showToast(`✓ ${party.name} seated at ${tableLabel}`);
+    } catch (_) {}
   }
 
   // ── Order note ────────────────────────────────────────────────────────────
@@ -1960,28 +2252,36 @@ export default function App() {
     });
   }
 
-  // ── Void item ─────────────────────────────────────────────────────────────
+  // ── Void item (PIN already verified by OrderPanel before this is called) ──
   function handleVoidItem(idx, reason) {
     if (!selectedTableId) return;
     const item = orders[selectedTableId]?.items?.[idx];
-    // Ghost void: item was voided BEFORE it was ever sent to the kitchen.
-    // We stamp isGhostVoid so the backend can permanently delete it on next table-open.
     const wasNeverSentToKot = item && !item.sentToKot;
 
     mutateOrder(selectedTableId, o => {
       if (o.items[idx]) {
         o.items[idx].isVoided    = true;
         o.items[idx].voidReason  = reason;
-        o.items[idx].sentToKot   = true; // treat as sent so it can't be re-sent
-        if (wasNeverSentToKot) {
-          o.items[idx].isGhostVoid = true; // never reached kitchen — safe to delete
-        }
+        o.items[idx].sentToKot   = true;
+        if (wasNeverSentToKot) o.items[idx].isGhostVoid = true;
       }
       return o;
     });
     showToast("Item voided");
-    // Persist void to backend so Captain app + KDS see the change immediately.
-    // Include managerPin so server-side validation passes when a PIN is configured.
+
+    // Log void to backend for Owner Reports
+    api.post("/operations/void-log", {
+      type:        "void_item",
+      cashier:     cashierName || "POS",
+      outletName:  outlet?.name || "",
+      tableId:     selectedTableId,
+      tableLabel:  orders[selectedTableId]?.tableNumber
+                     ? `T${orders[selectedTableId].tableNumber}`
+                     : selectedTableId,
+      orderNumber: orders[selectedTableId]?.orderNumber || "",
+      items:       [{ name: item?.name, qty: item?.quantity || 1, price: item?.price || 0, reason: reason || "Voided" }],
+    }).catch(() => {});
+
     if (item?.id &&
         !selectedTableId.startsWith("counter-") &&
         !selectedTableId.startsWith("online-")) {
@@ -1994,6 +2294,45 @@ export default function App() {
         managerPin:  sec.managerPin || ""
       }).catch(err => console.warn("[POS] item-void to backend failed:", err.message));
     }
+  }
+
+  // ── Cancel entire order (PIN already verified by OrderPanel) ─────────────
+  function handleCancelOrder() {
+    if (!selectedTableId) return;
+    const order = orders[selectedTableId];
+    if (!order?.items?.length) return;
+
+    const cancelledItems = order.items
+      .filter(i => !i.isVoided)
+      .map(i => ({ name: i.name, qty: i.quantity, price: i.price, reason: "Order cancelled" }));
+
+    // Void all non-voided items
+    mutateOrder(selectedTableId, o => {
+      o.items = o.items.map(i => i.isVoided ? i : {
+        ...i, isVoided: true, voidReason: "Order cancelled", sentToKot: true,
+        isGhostVoid: !i.sentToKot,
+      });
+      return o;
+    });
+    showToast("Order cancelled");
+
+    // Log cancellation
+    api.post("/operations/void-log", {
+      type:        "cancel_order",
+      cashier:     cashierName || "POS",
+      outletName:  outlet?.name || "",
+      tableId:     selectedTableId,
+      tableLabel:  order.tableNumber ? `T${order.tableNumber}` : selectedTableId,
+      orderNumber: order.orderNumber || "",
+      items:       cancelledItems,
+    }).catch(() => {});
+
+    // Clear from backend
+    if (!selectedTableId.startsWith("counter-") && !selectedTableId.startsWith("online-")) {
+      api.delete("/operations/order", { tableId: selectedTableId, outletId: outlet?.id })
+        .catch(err => console.warn("[POS] cancel-order backend failed:", err.message));
+    }
+    setSelectedTableId(null);
   }
 
   // ── Shift callbacks ───────────────────────────────────────────────────────
@@ -2011,14 +2350,15 @@ export default function App() {
   }
 
   function handleShiftClosed(closedShift) {
-    setShowCloseShift(false);   // dismiss modal BEFORE nulling shift to avoid crash
-    setActiveShift(null);
-    setSelectedTableId(null);
-    showToast("Shift closed");
-    // Sync closed shift to backend so Owner Web shows the reconciliation
+    setShowCloseShift(false);
     if (closedShift) {
       api.post("/shifts/close", { shift: closedShift }).catch(err => console.error("Shift close sync failed:", err.message));
     }
+    // Always open Day End after shift close — cashier can Skip if mid-day.
+    // Keep shift alive in state so Day End has outlet/cashier info.
+    // Shift is nulled when Day End modal closes.
+    setDayEndPostShift(true);
+    setShowDayEnd(true);
   }
 
   function showToast(message) {
@@ -2044,7 +2384,7 @@ export default function App() {
   }
 
   if (!cashierName) {
-    return <PosLogin outletName={outlet?.name || branchConfig.outletName} onLogin={name => setCashierName(name)} />;
+    return <PosLogin outletName={outlet?.name || branchConfig.outletName} onLogin={(name, pin) => { setCashierName(name); setCashierPin(pin || ""); }} />;
   }
 
   // ── Shift Gate (cashier logged in, no active shift) ────────────────────────
@@ -2089,28 +2429,9 @@ export default function App() {
           ⏳ Connecting to server…
         </div>
       )}
-      {localConn && (
-        <div className="pos-local-banner">
-          📶 Local WiFi server active — tablets work without internet
-        </div>
-      )}
 
       {/* ── Row 1: Brand bar ─────────────────────────────────────────────── */}
       <div className="pos-brand-bar">
-        {/* Brand */}
-        <div className="pbb-brand">
-          <span className="pbb-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <circle cx="12" cy="12" r="9"/>
-              <path d="M8 12h8" strokeLinecap="round"/>
-            </svg>
-          </span>
-          <div>
-            <div className="pbb-name">{outlet?.name || "Plato POS"}</div>
-            <div className="pbb-sub">POS Terminal</div>
-          </div>
-        </div>
-
         {/* Service mode pills */}
         <div className="pbb-modes">
           {SERVICE_MODES.map((m) => (
@@ -2154,6 +2475,14 @@ export default function App() {
             title={onlineOrdersEnabled ? "Online orders ON — click to pause" : "Online orders PAUSED — click to enable"}
           >
             <span>{onlineOrdersEnabled ? "Online ON" : "Online OFF"}</span>
+          </button>
+          <button type="button" className="pab-btn emerald"
+            onClick={() => setPendingQRCount(0)}
+            title="QR table orders from customers — handled by Captain App">
+            <span className="pab-label">📲 QR Orders</span>
+            {pendingQRCount > 0 && (
+              <span className="pab-badge">{pendingQRCount}</span>
+            )}
           </button>
           <button type="button" className="pab-btn blue"
             onClick={() => setShowPastOrders(true)}>
@@ -2203,10 +2532,20 @@ export default function App() {
             onClick={() => setShowCashOut(true)}>
             <span className="pab-label">Cash Out</span>
           </button>
+          <button type="button" className="pab-btn teal"
+            onClick={() => setShowWaitlist(true)}
+            title="Manage table waitlist — add walk-in parties, seat when table is free">
+            <span className="pab-label">🪑 Waitlist</span>
+          </button>
           <button type="button" className="pab-btn rose"
             onClick={() => setShowWastage(true)}
             title="Log production wastage — spoilage, overcooked, dropped items">
             <span className="pab-label">🗑 Wastage</span>
+          </button>
+          <button type="button" className="pab-btn lime"
+            onClick={() => setShowStock(true)}
+            title="View and update stock counts for tracked items">
+            <span className="pab-label">📦 Stock</span>
           </button>
           <button type="button" className={`pab-btn cyan${isSyncing ? " syncing" : ""}`}
             onClick={() => syncMenuData()}
@@ -2223,12 +2562,16 @@ export default function App() {
             onClick={() => setShowSettings(true)}>
             <span className="pab-label">Settings</span>
           </button>
+          <button type="button" className="pab-btn teal"
+            onClick={() => setShowDayEnd(true)}>
+            <span className="pab-label">Day End</span>
+          </button>
           <button type="button" className="pab-btn dark"
             onClick={() => setShowCloseShift(true)}>
             <span className="pab-label">End Shift</span>
           </button>
           <button type="button" className="pab-btn logout-btn"
-            onClick={() => { setCashierName(null); setActiveShift(null); setSelectedTableId(null); }}
+            onClick={() => { setCashierName(null); setCashierPin(""); setActiveShift(null); setSelectedTableId(null); }}
             title="Logout">
             <span className="pab-label">Exit</span>
           </button>
@@ -2256,6 +2599,16 @@ export default function App() {
           onToggleAvailability={handleToggleAvailability}
           quantities={menuQuantities}
           onDecrement={handleDecrementItem}
+          stockSnapshot={stockSnapshot}
+          onSkuLookup={(sku) => {
+            if (!selectedTableId) { showToast("Select a table first"); return; }
+            api.get(`/menu/sku-lookup?sku=${encodeURIComponent(sku)}&outletId=${outlet?.id || ""}`)
+              .then(item => { handleAddItem(item); showToast(`✅ ${item.name} added`); })
+              .catch(err => {
+                const notFound = err?.message?.includes("SKU_NOT_FOUND") || err?.message?.toLowerCase().includes("not found");
+                showToast(notFound ? `❌ Item #${sku} not found` : `❌ Lookup error — try again`);
+              });
+          }}
         />
       </div>
 
@@ -2292,6 +2645,7 @@ export default function App() {
             serviceMode={serviceMode}
             onNewCounterOrder={handleNewCounterOrder}
             onDeleteCounterOrder={handleDeleteCounterOrder}
+            gstTreatment={outlet?.gstTreatment || "exclusive"}
           />
         ) : selectedOrder?.isSplitBill && selectedOrder?.splitBills?.length > 0 ? (
           <SplitSettlementPanel
@@ -2325,8 +2679,11 @@ export default function App() {
           onOrderNoteChange={handleOrderNoteChange}
           onCompToggle={handleCompToggle}
           onVoidItem={handleVoidItem}
+          onCancelOrder={handleCancelOrder}
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
+          cashierName={cashierName}
+          cashierPin={cashierPin}
         />
         )}
       </div>
@@ -2364,6 +2721,7 @@ export default function App() {
           tableLabel={tableLabel}
           onClose={() => setShowSplitBill(false)}
           onConfirmSplit={handleConfirmSplit}
+          gstTreatment={outlet?.gstTreatment || "exclusive"}
         />
       )}
 
@@ -2441,6 +2799,7 @@ export default function App() {
                   category:
                     categories.find((c) => c.id === menuItem?.categoryId)?.name ||
                     menuItem?.categoryName || menuItem?.category || "",
+                  taxRate:    menuItem?.taxRate != null ? Number(menuItem.taxRate) : null,
                 };
               });
 
@@ -2544,6 +2903,86 @@ export default function App() {
         />
       )}
 
+      {/* ── Day End modal ────────────────────────────────────────────────── */}
+      {showDayEnd && (
+        <DayEndModal
+          orders={orders}
+          outlet={outlet}
+          onClose={() => {
+            setShowDayEnd(false);
+            if (dayEndPostShift) {
+              setDayEndPostShift(false);
+              setActiveShift(null);
+              setSelectedTableId(null);
+            }
+          }}
+          onPrint={async (report) => {
+            // Build printable HTML for day end report
+            const now = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+            const payRows = Object.entries(report.paymentTotals || {})
+              .map(([m, a]) => `<tr><td>${m.charAt(0).toUpperCase()+m.slice(1)}</td><td class="r">${Number(a).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>`)
+              .join("");
+            const topRows = (report.top5 || [])
+              .map((it, i) => `<tr><td>#${i+1} ${it.name} ×${it.qty}</td><td class="r">${Number(it.revenue).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>`)
+              .join("");
+            const catRows = (report.categories || [])
+              .map(c => `<tr><td>${c.name}</td><td class="r">${Number(c.revenue).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>`)
+              .join("");
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<style>
+  @page{size:80mm auto;margin:0}
+  body.de-rpt{font-family:Arial,sans-serif;width:78mm;font-size:9pt;padding:2mm}
+  h2{text-align:center;font-size:11pt;margin:0 0 2mm}
+  .center{text-align:center;font-size:8pt;color:#555;margin:0 0 3mm}
+  hr{border:none;border-top:1px dashed #999;margin:3mm 0}
+  table{width:100%;border-collapse:collapse}
+  td{padding:1.5mm 0;font-size:8.5pt}
+  .r{text-align:right;font-weight:700}
+  .section{font-weight:800;font-size:9pt;margin:3mm 0 1mm;text-transform:uppercase;letter-spacing:0.05em}
+  .total td{font-weight:900;border-top:1px solid #000;padding-top:2mm}
+</style></head><body class="de-rpt">
+<h2>${outlet?.name || "OUTLET"}</h2>
+<p class="center">DAY END REPORT — ${report.date}<br/>${now}</p>
+<hr/>
+<table>
+  <tr><td>Total Bills</td><td class="r">${report.totalBills}</td></tr>
+  <tr><td>Total Sales</td><td class="r">${Number(report.totalSales).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>
+  <tr><td>Discounts</td><td class="r">${Number(report.totalDiscount).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>
+  <tr><td>Void / Comp</td><td class="r">${Number(report.totalVoidComp).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>
+</table>
+<hr/>
+<div class="section">Payment Breakdown</div>
+<table>${payRows}</table>
+<hr/>
+<div class="section">Top 5 Items</div>
+<table>${topRows}</table>
+<hr/>
+<div class="section">Category Sales</div>
+<table>
+  ${catRows}
+  <tr class="total"><td>TOTAL</td><td class="r">${Number(report.totalSales).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>
+</table>
+<hr/>
+<p class="center">*** END OF DAY ***</p>
+</body></html>`;
+            // Use default bill printer
+            if (window.electronAPI?.printHTML) {
+              const printers = JSON.parse(localStorage.getItem("pos_printers") || "[]");
+              const def = printers.find(p => p.isDefault) || printers[0];
+              await window.electronAPI.printHTML({
+                html,
+                printerName: def?.winName || null,
+                printerIp:   def?.ip      || null,
+                paperWidthMm: 80,
+              });
+            } else {
+              const w = window.open("","_blank","width=400,height=600");
+              if (w) { w.document.write(html); w.document.close(); w.print(); }
+            }
+          }}
+        />
+      )}
+
       {/* ── Close Shift modal ─────────────────────────────────────────────── */}
       {showCloseShift && (
         <CloseShiftModal
@@ -2564,6 +3003,7 @@ export default function App() {
           outletName={outlet?.name || branchConfig?.outletName}
           cashierName={cashierName}
           outletId={outlet?.id || branchConfig?.outletId}
+          gstTreatment={outlet?.gstTreatment || "exclusive"}
         />
       )}
 
@@ -2623,6 +3063,54 @@ export default function App() {
           menuItems={menuItems}
           onClose={() => setShowWastage(false)}
         />
+      )}
+
+      {/* Stock panel */}
+      {showStock && (
+        <StockPanel
+          outlet={outlet}
+          menuItems={menuItems}
+          stockSnapshot={stockSnapshot}
+          onClose={() => setShowStock(false)}
+          onStockUpdated={(itemId, newStock) =>
+            setStockSnapshot(prev => ({
+              ...prev,
+              [itemId]: { ...(prev[itemId] || {}), currentStock: newStock }
+            }))
+          }
+        />
+      )}
+
+      {/* Waitlist panel */}
+      {showWaitlist && (
+        <WaitlistPanel
+          outlet={outlet}
+          orders={orders}
+          onClose={() => setShowWaitlist(false)}
+          onSeatParty={(party) => showToast(`✓ ${party.name} marked as seated`)}
+        />
+      )}
+
+      {/* Waitlist auto-suggest — shown when a table frees and a waiting party fits */}
+      {waitlistSuggest && (
+        <div className="wl-suggest-overlay" onClick={() => setWaitlistSuggest(null)}>
+          <div className="wl-suggest-card" onClick={e => e.stopPropagation()}>
+            <p className="wl-suggest-title">Table {waitlistSuggest.tableLabel} is free!</p>
+            <p className="wl-suggest-body">
+              <strong>{waitlistSuggest.party.name}</strong> (party of {waitlistSuggest.party.partySize}) has been waiting
+              {" "}{Math.floor((Date.now() - new Date(waitlistSuggest.party.joinedAt).getTime()) / 60000)} mins — fits this table ({waitlistSuggest.tableSeats} seats).
+            </p>
+            <div className="wl-suggest-btns">
+              <button className="wl-seat-btn"
+                onClick={() => handleWaitlistSeat(waitlistSuggest.party, waitlistSuggest.tableId, waitlistSuggest.tableLabel)}>
+                Seat Now
+              </button>
+              <button className="wl-dismiss-btn" onClick={() => setWaitlistSuggest(null)}>
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* What's New — shown once per version after login */}

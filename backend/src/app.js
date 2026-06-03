@@ -34,6 +34,7 @@ const ALLOWED_ORIGINS = [
   "https://pos.dinexpos.in",
   "https://captain.dinexpos.in",
   "https://kds.dinexpos.in",
+  "https://order.dinexpos.in",  // customer QR ordering
   // Allow any *.vercel.app preview deployments
 ];
 

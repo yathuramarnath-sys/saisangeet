@@ -44,23 +44,24 @@ export function printBill(order, items, outletOrName, options = {}) {
   // ── GST Treatment: "exclusive" (add on top) or "inclusive" (extract from price) ──
   const inclusive = (outlet?.gstTreatment === "inclusive");
 
-  // ── Per-item tax calculation (reads item.taxRate; defaults to 5% if not set) ──
+  // ── Per-item tax calculation (reads item.taxRate; defaults to 0% if not set) ──
   // Discount is spread proportionally across items before applying tax.
-  const taxBreakdown = {}; // { rateInt: totalTaxAmt }
+  // NOTE: accumulate as decimals so CGST and SGST split evenly.
+  const taxBreakdown = {}; // { rate: totalTaxAmt (decimal) }
   billableItems.forEach(i => {
     const lineAmt   = i.price * i.quantity;
     // Proportional share of discount for this line
     const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
-    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-    const lineTax   = Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
+    const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+    const lineTax   = lineAfter * rate / (inclusive ? (100 + rate) : 100);
     taxBreakdown[rate] = (taxBreakdown[rate] || 0) + lineTax;
   });
-  // Build rows: each rate split 50/50 into CGST + SGST
+  // Build rows: each rate split exactly 50/50 into CGST + SGST (decimal amounts)
   const taxRows  = Object.entries(taxBreakdown).map(([rate, amt]) => ({
     rate:    Number(rate),
     cgstPct: Number(rate) / 2,
-    cgst:    Math.round(amt / 2),
-    sgst:    amt - Math.round(amt / 2),
+    cgst:    amt / 2,
+    sgst:    amt / 2,
   }));
   const taxTotal = taxRows.reduce((s, r) => s + r.cgst + r.sgst, 0);
   // Inclusive: tax already inside prices — total = afterDisc; Exclusive: add tax on top

@@ -21,11 +21,12 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 640,
     title: "Plato POS",
+    autoHideMenuBar: true,
     webPreferences: {
       preload:          path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration:  false,
-      webSecurity:      false, // allow file:// origin to call external APIs
+      webSecurity:      false,
     },
   });
 
@@ -74,8 +75,66 @@ function setupAutoUpdater() {
 
 // ── Updater IPC ───────────────────────────────────────────────────────────────
 // Called by renderer when cashier clicks "Restart & Install"
+// Strategy: write a standalone updater.bat to TEMP, launch it detached, then
+// quit the POS. By the time the bat runs the installer, the POS is fully closed
+// and no files are locked — completely bypasses the NSIS "cannot be closed" error.
 ipcMain.on("update:install-now", () => {
-  autoUpdater?.quitAndInstall();
+  if (!autoUpdater) return;
+
+  try {
+    const fs   = require("fs");
+    const os   = require("os");
+    const path = require("path");
+    const { spawn } = require("child_process");
+
+    // Find the downloaded installer in the electron-updater cache
+    const installerPath = autoUpdater.downloadedUpdateHelper?.installerPath
+      || path.join(os.tmpdir(), "Plato-POS-Setup.exe");
+
+    // Write a batch script that:
+    // 1. Waits for POS to fully exit
+    // 2. Kills any remaining POS processes in a loop (prevents Windows auto-restart)
+    // 3. Removes from startup registry so Windows won't relaunch it
+    // 4. Cleans old install folder
+    // 5. Runs installer only when everything is clear
+    const batPath = path.join(os.tmpdir(), "plato_updater.bat");
+    const installerEscaped = installerPath.replace(/\\/g, "\\\\");
+    const bat = [
+      "@echo off",
+      // Wait for POS main process to fully exit
+      "timeout /t 5 /nobreak >nul",
+      // Kill loop — repeat 8 times every 3s to ensure no auto-restart survives
+      "for /l %%i in (1,1,8) do (taskkill /F /IM \"Plato POS.exe\" /T >nul 2>&1 & timeout /t 3 /nobreak >nul)",
+      // Remove from Windows startup so it can't auto-relaunch
+      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "Plato POS" /f >nul 2>&1`,
+      // Remove old install registry entry (prevents "failed to uninstall" error)
+      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /f >nul 2>&1`,
+      // Delete old install folder (C:\PlatoPos is the new path — delete old AppData path)
+      `rmdir /s /q "%LOCALAPPDATA%\\Programs\\Plato POS" >nul 2>&1`,
+      `rmdir /s /q "C:\\PlatoPos" >nul 2>&1`,
+      "timeout /t 2 /nobreak >nul",
+      // Run installer — POS is dead, no locks, no conflicts
+      `start "" /wait "${installerPath}"`,
+      "exit",
+    ].join("\r\n");
+
+    fs.writeFileSync(batPath, bat);
+
+    // Launch the batch file detached — it runs independently after POS quits
+    spawn("cmd.exe", ["/c", batPath], {
+      detached: true,
+      stdio:    "ignore",
+      windowsHide: false,
+    }).unref();
+
+    // Now quit the POS — files will be released before the installer runs
+    setTimeout(() => app.quit(), 500);
+
+  } catch (err) {
+    console.error("[updater] launch-and-quit failed:", err.message);
+    // Last resort: try the standard approach
+    try { autoUpdater.quitAndInstall(false, true); } catch (_) {}
+  }
 });
 
 // ── Local Network Server ──────────────────────────────────────────────────────
@@ -413,6 +472,24 @@ async function buildEscPosFromHtml(html) {
               };
             }
 
+            // ── Day End Report ────────────────────────────────────────────────
+            if (q('body.de-rpt')) {
+              const tables = qa('table');
+              const toRows = (tbl) => tbl ? Array.from(tbl.querySelectorAll('tr')).map(tr => {
+                const tds = tr.querySelectorAll('td');
+                return { label: tds[0]?.innerText?.trim() || '', value: tds[1]?.innerText?.trim() || '' };
+              }).filter(r => r.label) : [];
+              return {
+                type:       'DAYEND',
+                outlet:     q('h2')?.innerText?.trim() || '',
+                meta:       q('p.center')?.innerText?.trim() || '',
+                summary:    toRows(tables[0]),
+                payments:   toRows(tables[1]),
+                top5:       toRows(tables[2]),
+                categories: toRows(tables[3]),
+              };
+            }
+
             // ── Bill receipt ───────────────────────────────────────────────────
             const q2  = (s) => document.querySelector(s);
             const qa2 = (s) => Array.from(document.querySelectorAll(s));
@@ -569,6 +646,49 @@ async function buildEscPosFromHtml(html) {
           if (data.total) cmd += 'Total Items : ' + data.total + LF;
           if (data.sentBy) cmd += BOLD1 + 'Sent by : ' + data.sentBy + BOLD0 + LF;
           if (data.printer) cmd += data.printer + LF;
+        } else if (data.type === 'DAYEND') {
+          // ── Day End Report ────────────────────────────────────────────────────
+          const safeD = (s) => String(s || '').replace(/₹/g, 'Rs').replace(/[^\x20-\x7E]/g, '');
+          cmd += CENTER + BOLD1 + BIG + safeD(data.outlet || 'OUTLET') + NORMAL + BOLD0 + LF;
+          for (const line of (data.meta || '').split('\n')) {
+            if (line.trim()) cmd += CENTER + safeD(line.trim()) + LF;
+          }
+          cmd += DASH48 + LF;
+          for (const row of (data.summary || [])) {
+            cmd += BOLD1 + safeD(row.label).padEnd(22) + safeD(row.value).padStart(10) + BOLD0 + LF;
+          }
+          cmd += DASH48 + LF;
+          if ((data.payments || []).length > 0) {
+            cmd += CENTER + BOLD1 + 'PAYMENT BREAKDOWN' + BOLD0 + LF;
+            cmd += DASH48 + LF;
+            for (const row of data.payments) {
+              cmd += safeD(row.label).padEnd(22) + safeD(row.value).padStart(10) + LF;
+            }
+            cmd += DASH48 + LF;
+          }
+          if ((data.top5 || []).length > 0) {
+            cmd += CENTER + BOLD1 + 'TOP 5 ITEMS' + BOLD0 + LF;
+            cmd += DASH48 + LF;
+            for (const row of data.top5) {
+              const lbl = safeD(row.label);
+              const trunc = lbl.length > 22 ? lbl.substring(0, 21) + '.' : lbl;
+              cmd += trunc.padEnd(22) + safeD(row.value).padStart(10) + LF;
+            }
+            cmd += DASH48 + LF;
+          }
+          if ((data.categories || []).length > 0) {
+            cmd += CENTER + BOLD1 + 'CATEGORY SALES' + BOLD0 + LF;
+            cmd += DASH48 + LF;
+            for (const row of data.categories) {
+              const isTotal = row.label.toUpperCase() === 'TOTAL';
+              const line = safeD(row.label).padEnd(22) + safeD(row.value).padStart(10);
+              cmd += isTotal ? (BOLD1 + line + BOLD0 + LF) : (line + LF);
+            }
+            cmd += DASH48 + LF;
+          }
+          cmd += CENTER + '*** END OF DAY ***' + LF;
+          cmd += LF + LF + LF + LF;
+
         } else if (data.type === 'BILL') {
           // ── Bill receipt ─────────────────────────────────────────────────────
           // 80mm thermal = 40 chars wide. All columns sum to 40.
@@ -860,6 +980,67 @@ ipcMain.handle("print-html", async (event, { html, printerName, printerIp, paper
       try { win.destroy(); } catch {}
       resolve({ ok: false, error: desc });
     });
+    win.loadURL(`data:text/html;base64,${Buffer.from(html, "utf8").toString("base64")}`);
+  });
+});
+
+// ── print-label IPC ──────────────────────────────────────────────────────────
+// Label / sticker printing via the Windows printer driver.
+// Uses webContents.print({ deviceName }) so ZDesigner / TSC / Xprinter drivers
+// render the HTML correctly — NOT the raw ESC/POS path used for receipt printers.
+//
+// payload: { html, printerName, paperWidthMm, paperHeightMm }
+// Returns: { ok: boolean, error?: string }
+ipcMain.handle("print-label", async (_event, { html, printerName, paperWidthMm = 105, paperHeightMm = 30 } = {}) => {
+  return new Promise((resolve) => {
+    const win = new BrowserWindow({
+      show: false, skipTaskbar: true,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    const timeoutHandle = setTimeout(() => {
+      try { win.destroy(); } catch {}
+      resolve({ ok: false, error: "load_timeout" });
+    }, 10000);
+
+    win.webContents.on("did-finish-load", () => {
+      clearTimeout(timeoutHandle);
+      // Small delay so fonts/images in the label HTML finish rendering
+      setTimeout(() => {
+        const printOpts = {
+          silent:          true,
+          printBackground: true,
+          margins:         { marginType: "none" },
+          // pageSize in microns (1 mm = 1000 µm)
+          pageSize: {
+            width:  Math.round(paperWidthMm  * 1000),
+            height: Math.round(paperHeightMm * 1000),
+          },
+        };
+        // Only set deviceName when a real printer is specified —
+        // omitting it falls back to Windows default printer.
+        if (printerName && typeof printerName === "string" && printerName.trim()) {
+          printOpts.deviceName = printerName.trim();
+        }
+
+        win.webContents.print(printOpts, (success, failureReason) => {
+          try { win.destroy(); } catch {}
+          if (success) {
+            resolve({ ok: true });
+          } else {
+            console.error(`[print-label] Failed (${printerName || "default"}):`, failureReason);
+            resolve({ ok: false, error: failureReason || "print_failed" });
+          }
+        });
+      }, 500);
+    });
+
+    win.webContents.on("did-fail-load", (_e, _code, desc) => {
+      clearTimeout(timeoutHandle);
+      try { win.destroy(); } catch {}
+      resolve({ ok: false, error: desc || "load_failed" });
+    });
+
     win.loadURL(`data:text/html;base64,${Buffer.from(html, "utf8").toString("base64")}`);
   });
 });

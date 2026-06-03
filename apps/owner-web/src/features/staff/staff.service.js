@@ -138,7 +138,11 @@ function normalizeStaff(users) {
     status: user.isActive === false ? "Inactive" : "Active",
     warning: user.isActive === false,
     pin: user.pin || "",
-    mobileNumber: user.mobileNumber || ""
+    mobileNumber: user.mobileNumber || "",
+    // ── MUST be preserved — used by POS (canApplyDiscount) and Reports (incentivePct)
+    // Previously missing, causing the checkbox to reset to unchecked on every page reload
+    canApplyDiscount: user.canApplyDiscount === true,
+    incentivePct:     user.incentivePct     ?? 0,
   }));
 }
 

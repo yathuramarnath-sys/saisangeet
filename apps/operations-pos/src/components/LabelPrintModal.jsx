@@ -13,11 +13,16 @@
 
 import { useState, useMemo, useEffect } from "react";
 import {
-  printLabels,
+  printLabelSmart,
   generateBarcodeDataUrl,
   generateQRDataUrl,
-  getLabelPrinter,
 } from "../lib/printLabel";
+import { SmartPrintButton } from "./SmartPrintButton";
+
+function extractPrice(val) {
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  return Number(String(val || "").replace(/[^\d.]/g, "")) || 0;
+}
 
 // Today in DD/MM/YYYY
 function todayStr() {
@@ -47,17 +52,14 @@ function toInputDate(val) {
 }
 
 export function LabelPrintModal({ menuItems = [], onClose }) {
-  const stored = getLabelPrinter();
-
-  const [search,      setSearch]      = useState("");
+  const [search,       setSearch]       = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
-  const [mfdDate,     setMfdDate]     = useState(todayStr());
-  const [expDate,     setExpDate]     = useState("");
-  const [qty,         setQty]         = useState(1);
-  const [labelSize,   setLabelSize]   = useState(stored.paper || "35x30");
-  const [barcodeType, setBarcodeType] = useState(stored.barcodeType || "code128");
-  const [printing,    setPrinting]    = useState(false);
-  const [barcodeUrl,  setBarcodeUrl]  = useState(null);
+  const [mfdDate,      setMfdDate]      = useState(todayStr());
+  const [expDate,      setExpDate]      = useState("");
+  const [qty,          setQty]          = useState(1);
+  const [labelSize,    setLabelSize]    = useState("35x30");
+  const [barcodeType,  setBarcodeType]  = useState("code128");
+  const [barcodeUrl,   setBarcodeUrl]   = useState(null);
 
   // Filtered item list
   const filtered = useMemo(() => {
@@ -80,20 +82,15 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
     } catch { setBarcodeUrl(null); }
   }, [selectedItem, barcodeType]);
 
-  async function handlePrint() {
+  async function handlePrint(printerName) {
     if (!selectedItem) return;
-    setPrinting(true);
-    try {
-      await printLabels(selectedItem, { mfdDate, expDate, qty, labelSize, barcodeType });
-    } finally {
-      setPrinting(false);
-    }
+    await printLabelSmart(selectedItem, { mfdDate, expDate, qty, labelSize, barcodeType }, printerName);
   }
 
-  const itemPrice = selectedItem
-    ? (selectedItem.pricing?.[0]?.dineIn ?? selectedItem.takeawayPrice ?? selectedItem.price ?? "")
-    : "";
-  const priceStr = itemPrice !== "" ? `Rs.${Number(itemPrice).toFixed(2)}` : "";
+  const itemPriceNum = selectedItem
+    ? extractPrice(selectedItem.pricing?.[0]?.dineIn ?? selectedItem.takeawayPrice ?? selectedItem.price)
+    : 0;
+  const priceStr = itemPriceNum > 0 ? `Rs.${itemPriceNum.toFixed(2)}` : "";
   const is35   = labelSize === "35x30";
   const isQR   = barcodeType === "qrcode";
   const previewPx = is35 ? 96 : 130;   // approximate px width for preview div
@@ -139,9 +136,9 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
                     onClick={() => setSelectedItem(item)}
                   >
                     <span className="lpm-item-name">{item.name}</span>
-                    {(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price) &&
+                    {extractPrice(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price) > 0 &&
                       <span className="lpm-item-price">
-                        Rs.{Number(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price).toFixed(0)}
+                        Rs.{extractPrice(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price).toFixed(0)}
                       </span>
                     }
                   </button>
@@ -219,7 +216,7 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
             </div>
 
             <p className="lpm-printer-hint" style={{ marginTop: 4 }}>
-              ⚙️ Label printer configured in <strong>Settings → Printers</strong>
+              💡 First print will ask you to choose a printer. It remembers your choice after that.
             </p>
           </div>
 
@@ -273,16 +270,12 @@ export function LabelPrintModal({ menuItems = [], onClose }) {
                   {Math.ceil(qty / (is35 ? 3 : 2))} row{Math.ceil(qty / (is35 ? 3 : 2)) > 1 ? "s" : ""}
                 </p>
 
-                <button
-                  type="button"
-                  className="lpm-print-btn"
-                  disabled={printing || !selectedItem}
-                  onClick={handlePrint}
-                >
-                  {printing
-                    ? <span className="pos-spinner" />
-                    : `🖨 Print ${qty} Label${qty > 1 ? "s" : ""}`}
-                </button>
+                <SmartPrintButton
+                  onPrint={handlePrint}
+                  label={`Print ${qty} Label${qty > 1 ? "s" : ""}`}
+                  disabled={!selectedItem}
+                  className="lpm-smart-print"
+                />
               </>
             )}
           </div>

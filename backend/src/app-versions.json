@@ -1,27 +1,22 @@
 {
   "pos": {
-    "version": "1.4.25",
+    "version": "1.4.53",
     "label": "POS Terminal",
-    "changelog": "Production wastage logging, menu pagination (20/page), compact category form, staff page cleanup, KOT fallback fix",
+    "changelog": "GST inclusive permanent fix, security bridge, outlet settings reliability",
     "whatsNew": [
-      "🗑 Wastage button — log spoilage, overcooked, dropped items during shift",
-      "📄 Menu now shows 20 items per page with page navigation",
-      "✏️ Category list is now compact and scrollable — no more long scroll",
-      "👥 Staff page cleaned up — removed unused Approval Limits section",
-      "🍳 Kitchen station routing no longer creates ghost 'Main Kitchen' after deploy"
+      "🔒 Security bridge — tenant data isolation enforced at every API route",
+      "🧾 GST Inclusive fix — setting now saves reliably and syncs to POS instantly",
+      "⚙️ Outlet settings (GST, receipt options) no longer lost on server restart",
+      "🏪 Outlet filter in Shifts page only shows real outlets — no ghost/test entries"
     ],
     "installGuide": [
-      "1. Close Plato POS completely (if open, right-click Taskbar → Close Window)",
-      "2. If POS does not close, open Task Manager → find 'Plato POS' → End Task",
-      "3. Run 'Plato-POS-Setup.exe' as Administrator (right-click → Run as administrator)",
-      "4. Click 'Yes' on the security prompt",
-      "5. Follow the installer steps — click Next, Next, Install",
-      "6. POS will open automatically after install",
-      "7. Log in with your cashier PIN — you are on v1.4.25"
+      "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
+      "2. Installation happens automatically — POS opens when done",
+      "3. Log in with your cashier PIN — you are on v1.4.53"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-05-23"
+    "releaseDate": "2026-05-25"
   },
   "captain": {
     "version": "1.25",
@@ -63,14 +58,15 @@
     "releaseDate": "2026-05-23"
   },
   "ownerWeb": {
-    "version": "0.2.0",
+    "version": "0.2.1",
     "label": "Owner Dashboard",
-    "changelog": "Wastage report tab, menu pagination, staff page cleanup, credit collections in Payments tab",
+    "changelog": "Inventory tracking per outlet — enable tracking per item, set allowNegative, view live stock levels, low stock threshold in item form",
     "whatsNew": [
-      "🗑 New Wastage tab in Reports — see what was wasted, by item and reason",
-      "📄 Menu now paginates at 20 items — faster to load",
-      "👥 Staff page cleaner — removed unused sections",
-      "💳 Credit collections now show correctly in Payment Report"
+      "📦 Inventory page — enable stock tracking per item per outlet",
+      "🔄 Allow Negative toggle per outlet — control whether POS blocks at 0",
+      "📊 Live stock levels visible in Owner Console (read-only)",
+      "⚠️ Set low stock alert threshold per item in Menu → item form",
+      "🗃️ Compact table editor in Outlets — create and edit tables inline"
     ],
     "installGuide": [
       "No installation needed — Owner Dashboard updates automatically.",
@@ -78,7 +74,7 @@
     ],
     "downloadUrl": null,
     "apkUrl": null,
-    "releaseDate": "2026-05-23"
+    "releaseDate": "2026-05-25"
   },
   "tabletPos": {
     "version": "1.1.4",

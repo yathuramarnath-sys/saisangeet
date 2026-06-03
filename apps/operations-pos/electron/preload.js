@@ -28,6 +28,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Returns: Promise<{ ok: boolean, error?: string }>
   printHTML: (payload) => ipcRenderer.invoke("print-html", payload),
 
+  // ── Label / sticker printing via Windows driver ───────────────────────────
+  // Uses webContents.print({ deviceName }) so the Windows printer driver
+  // (e.g. ZDesigner for Zebra ZD230) renders the HTML — NOT the ESC/POS path.
+  // This is correct for ZPL label printers and any non-thermal receipt printer.
+  //
+  // payload: {
+  //   html:           string  — full HTML document
+  //   printerName:    string  — exact Windows printer name; null → OS print dialog
+  //   paperWidthMm:   number  — page width  (e.g. 105 for 35×30 × 3/row)
+  //   paperHeightMm:  number  — page height (e.g. 30)
+  // }
+  // Returns: Promise<{ ok: boolean, error?: string }>
+  printLabel: (payload) => ipcRenderer.invoke("print-label", payload),
+
   // ── Auto-install network printer in Windows ───────────────────────────────
   // Creates a TCP/IP port + installs a Windows printer automatically so staff
   // don't need to manually set up network printers.

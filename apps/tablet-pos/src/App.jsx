@@ -918,6 +918,7 @@ export default function App() {
           categoryId: item.categoryId || "",
           category:   (categories.find(c => c.id === item.categoryId)?.name)
                         || item.categoryName || item.category || "",
+          taxRate:    item.taxRate != null ? Number(item.taxRate) : null,
         });
       }
       return order;
@@ -943,6 +944,7 @@ export default function App() {
           categoryId:  item.categoryId || "",
           category:    (categories.find(c => c.id === item.categoryId)?.name)
                          || item.categoryName || item.category || "",
+          taxRate:     item.taxRate != null ? Number(item.taxRate) : null,
         }
       });
 
@@ -1205,10 +1207,10 @@ export default function App() {
     const disc         = Math.min(order.discountAmount || 0, subtotal);
     const afterDisc    = subtotal - disc;
     const inclusive    = outlet?.gstTreatment === "inclusive";
-    // Per-item tax (mirrors printBill.js logic — defaults to 5% if item.taxRate unset)
+    // Per-item tax (mirrors printBill.js logic — defaults to 0% if item.taxRate unset)
     const taxAmt       = billableItems.reduce((s, i) => {
       const lineAfter = subtotal > 0 ? (i.price * i.quantity) * (afterDisc / subtotal) : 0;
-      const rate = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 5;
+      const rate = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 0;
       return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     }, 0);
     const total        = inclusive ? afterDisc : afterDisc + taxAmt;

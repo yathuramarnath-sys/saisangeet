@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PinConfirm } from "./PinConfirm";
 
 // ── Financials ─────────────────────────────────────────────────────────────────
 // gstTreatment: "exclusive" (default) — GST added on top of price
@@ -18,7 +19,7 @@ export function getFinancials(order, { gstTreatment = "exclusive" } = {}) {
     const lineAfter = subtotal > 0
       ? (i.price * i.quantity) * (afterDiscount / subtotal)
       : 0;
-    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
     // Exclusive: tax added on top  → tax = base × rate/100
     // Inclusive: tax extracted      → tax = price × rate/(100+rate)
     return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
@@ -196,15 +197,34 @@ export function OrderPanel({
   onOrderNoteChange,
   onCompToggle,
   onVoidItem,
+  onCancelOrder,
   onReprintKOT,
   onPrintBill,
   gstTreatment = "exclusive",
   discountRules = [],
   canApplyDiscount = false,
+  cashierName = "",
+  cashierPin  = "",
 }) {
-  const [showTransfer, setShowTransfer] = useState(false);
-  const [showNote,     setShowNote]     = useState(false);
-  const [voidingIdx,   setVoidingIdx]   = useState(null); // index of item being voided
+  const [showTransfer,   setShowTransfer]   = useState(false);
+  const [showNote,       setShowNote]       = useState(false);
+  const [voidingIdx,     setVoidingIdx]     = useState(null);   // index of item being voided
+  const [pinForVoidIdx,  setPinForVoidIdx]  = useState(null);   // waiting PIN before VoidPicker
+  const [showCancelPin,  setShowCancelPin]  = useState(false);  // waiting PIN before cancel order
+  const [editingQtyIdx,  setEditingQtyIdx]  = useState(null);   // index of item whose qty is being typed
+  const [editingQtyVal,  setEditingQtyVal]  = useState("");     // current typed value
+
+  // Helper: does this cashier need a PIN check? (PIN set and not 0000)
+  const needsPin = cashierPin && cashierPin !== "0000";
+
+  function commitQtyEdit(idx) {
+    const n = parseInt(editingQtyVal, 10);
+    if (!isNaN(n) && n !== (order.items?.[idx]?.quantity || 1)) {
+      onChangeQty(idx, n);  // n=0 removes the item (existing behaviour)
+    }
+    setEditingQtyIdx(null);
+    setEditingQtyVal("");
+  }
 
   if (!order) {
     return (
@@ -229,43 +249,43 @@ export function OrderPanel({
 
   return (
     <div className="order-panel">
-      {/* ── Header ────────────────────────────────────────────────────────── */}
+      {/* ── Header — compact single row: area/guests + icons ─────────────── */}
       <div className="order-panel-head">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 className="order-table-label">{tableLabel}</h3>
-          <p className="order-meta">
-            {order.areaName} ·{" "}
-            <input className="guests-input" type="number" min="0" max="99"
-              value={order.guests || ""} placeholder="0"
-              onChange={e => onGuestsChange(Number(e.target.value))} />
-            {" "}guests
-          </p>
-        </div>
+        <p className="order-meta" style={{ flex: 1, minWidth: 0 }}>
+          {order.areaName} ·{" "}
+          <input className="guests-input" type="number" min="0" max="99"
+            value={order.guests || ""} placeholder="0"
+            onChange={e => onGuestsChange(Number(e.target.value))} />
+          {" "}guests
+        </p>
         <div className="order-head-right">
+          {!order.isClosed && (
+            <>
+              <button type="button"
+                className={`oq-icon-btn${order.isOnHold ? " active-hold" : ""}`}
+                title={order.isOnHold ? "Resume Order" : "Hold Order"}
+                onClick={() => onHoldToggle?.()}>
+                {order.isOnHold ? "▶" : "⏸"}
+              </button>
+              <button type="button" className="oq-icon-btn"
+                title="Transfer Table"
+                onClick={() => setShowTransfer(true)}>⇄</button>
+              <button type="button"
+                className={`oq-icon-btn${showNote || order.orderNote ? " active-note" : ""}`}
+                title="Order Note"
+                onClick={() => setShowNote(v => !v)}>✏️</button>
+              {hasItems && (
+                <button type="button" className="oq-icon-btn"
+                  title="Split Bill"
+                  onClick={onOpenSplitBill}>✂️</button>
+              )}
+            </>
+          )}
           {order.isOnHold      && <span className="order-badge hold">On Hold</span>}
           {order.billRequested && <span className="order-badge bill">Bill Req.</span>}
-          {order.billRequested && order.isSplitBill && <span className="order-badge split">Split Bill</span>}
           {order.voidRequested && <span className="order-badge void">Void</span>}
           {order.isClosed      && <span className="order-badge closed">Closed</span>}
         </div>
-      </div>
-
-      {/* ── Inline quick actions bar ──────────────────────────────────────── */}
-      <div className="order-quick-bar">
-        <button type="button"
-          className={`oq-btn${order.isOnHold ? " active-hold" : ""}`}
-          onClick={() => onHoldToggle?.()}>
-          {order.isOnHold ? "▶ Resume" : "⏸ Hold"}
-        </button>
-        <button type="button" className="oq-btn"
-          onClick={() => setShowTransfer(true)}>
-          ⇄ Transfer
-        </button>
-        <button type="button"
-          className={`oq-btn${showNote || order.orderNote ? " active-note" : ""}`}
-          onClick={() => setShowNote(v => !v)}>
-          📝 Note
-        </button>
       </div>
 
       {/* ── Order Note ────────────────────────────────────────────────────── */}
@@ -291,7 +311,7 @@ export function OrderPanel({
           <div key={item.id || idx}
             className={`order-item${item.sentToKot ? " sent" : ""}${item.isVoided ? " voided" : ""}${item.isComp ? " comped" : ""}`}>
 
-            {/* Void picker inline */}
+            {/* Void picker inline — shown after PIN confirmed */}
             {voidingIdx === idx && (
               <VoidPicker
                 onVoid={reason => { onVoidItem?.(idx, reason); setVoidingIdx(null); }}
@@ -301,48 +321,89 @@ export function OrderPanel({
 
             {voidingIdx !== idx && (
               <>
-                <div className="order-item-top">
-                  <div className="order-item-name-row">
-                    <span className="order-item-name"
-                      style={{ textDecoration: item.isVoided ? "line-through" : "none" }}>
-                      {item.name}{item.unit ? <span className="order-item-unit">/{item.unit}</span> : null}
-                    </span>
-                    {item.sentToKot && !item.isVoided && (
-                      <span className="order-item-kot-tag">KOT ✓</span>
-                    )}
-                    {item.isComp && (
-                      <span className="order-item-comp-tag">COMP</span>
-                    )}
-                    {item.isVoided && (
-                      <span className="order-item-void-tag">VOID</span>
-                    )}
+                {/* Name + controls on one row */}
+                <div className="order-item-row">
+                  <div className="order-item-top">
+                    <div className="order-item-name-row">
+                      <span className="order-item-name"
+                        style={{ textDecoration: item.isVoided ? "line-through" : "none" }}>
+                        {item.name}{item.unit ? <span className="order-item-unit">/{item.unit}</span> : null}
+                      </span>
+                      {item.sentToKot && !item.isVoided && (
+                        <span className="order-item-kot-tag">KOT ✓</span>
+                      )}
+                      {item.isComp && (
+                        <span className="order-item-comp-tag">COMP</span>
+                      )}
+                      {item.isVoided && (
+                        <span className="order-item-void-tag">VOID</span>
+                      )}
+                    </div>
                   </div>
-                  {/* Item actions: removed comp + void buttons — PIN-protected void coming later */}
+
+                  {!item.isVoided && (
+                    <div className="order-item-controls">
+                      {!item.sentToKot && (
+                        <button type="button" className="qty-btn"
+                          onClick={() => onChangeQty(idx, item.quantity - 1)}>−</button>
+                      )}
+                      {/* Tap qty number to type a value directly */}
+                      {!item.sentToKot && editingQtyIdx === idx ? (
+                        <input
+                          className="qty-edit-input"
+                          type="number"
+                          min="0"
+                          autoFocus
+                          value={editingQtyVal}
+                          onChange={e => setEditingQtyVal(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter")  { e.preventDefault(); commitQtyEdit(idx); }
+                            if (e.key === "Escape") { setEditingQtyIdx(null); setEditingQtyVal(""); }
+                          }}
+                          onBlur={() => commitQtyEdit(idx)}
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span
+                          className={`qty-value${!item.sentToKot ? " qty-value-tap" : ""}`}
+                          title={!item.sentToKot ? "Tap to edit quantity" : ""}
+                          onClick={() => {
+                            if (item.sentToKot) return;
+                            setEditingQtyIdx(idx);
+                            setEditingQtyVal(String(item.quantity));
+                          }}
+                        >{item.quantity}</span>
+                      )}
+                      {!item.sentToKot && (
+                        <button type="button" className="qty-btn"
+                          onClick={() => onChangeQty(idx, item.quantity + 1)}>+</button>
+                      )}
+                      <span className="order-item-price"
+                        style={{ textDecoration: item.isComp ? "line-through" : "none", opacity: item.isComp ? 0.45 : 1 }}>
+                        ₹{(item.price * item.quantity).toFixed(0)}
+                      </span>
+                      {item.isComp && <span className="order-item-comp-price">FREE</span>}
+                      {/* Pre-KOT: free remove */}
+                      {!item.sentToKot && !item.isComp && (
+                        <button type="button" className="order-item-remove"
+                          onClick={() => onRemoveItem(idx)}>✕</button>
+                      )}
+                      {/* Post-KOT: void requires cashier PIN */}
+                      {item.sentToKot && !item.isComp && (
+                        <button type="button" className="order-item-void-btn"
+                          title="Void item (PIN required)"
+                          onClick={() => {
+                            if (needsPin) { setPinForVoidIdx(idx); }
+                            else          { setVoidingIdx(idx); }
+                          }}>
+                          🚫
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {!item.isVoided && (
-                  <div className="order-item-controls">
-                    {!item.sentToKot && (
-                      <button type="button" className="qty-btn"
-                        onClick={() => onChangeQty(idx, item.quantity - 1)}>−</button>
-                    )}
-                    <span className="qty-value">{item.quantity}</span>
-                    {!item.sentToKot && (
-                      <button type="button" className="qty-btn"
-                        onClick={() => onChangeQty(idx, item.quantity + 1)}>+</button>
-                    )}
-                    <span className="order-item-price"
-                      style={{ textDecoration: item.isComp ? "line-through" : "none", opacity: item.isComp ? 0.45 : 1 }}>
-                      ₹{(item.price * item.quantity).toFixed(0)}
-                    </span>
-                    {item.isComp && <span className="order-item-comp-price">FREE</span>}
-                    {!item.sentToKot && !item.isComp && (
-                      <button type="button" className="order-item-remove"
-                        onClick={() => onRemoveItem(idx)}>✕</button>
-                    )}
-                  </div>
-                )}
-
+                {/* Note: compact single line below */}
                 {!item.sentToKot && !item.isVoided && (
                   <input className="order-item-note" type="text"
                     placeholder="Note (less spicy, no onion…)"
@@ -438,13 +499,6 @@ export function OrderPanel({
                   Reprint
                 </button>
               ) : null}
-              <button type="button" className="pos-btn split" onClick={onOpenSplitBill}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.5">
-                  <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l5.1 5.1M4 4l5 5"/>
-                </svg>
-                Split
-              </button>
               {onPrintBill && (
                 <button
                   type="button"
@@ -491,6 +545,20 @@ export function OrderPanel({
         </div>
       )}
 
+      {/* ── Cancel Order button (PIN gated) ──────────────────────────────── */}
+      {hasItems && !order.isClosed && (
+        <button
+          type="button"
+          className="cancel-order-btn"
+          onClick={() => {
+            if (needsPin) { setShowCancelPin(true); }
+            else          { onCancelOrder?.(); }
+          }}
+        >
+          🗑 Cancel Order
+        </button>
+      )}
+
       {/* Transfer modal */}
       {showTransfer && (
         <TransferModal
@@ -499,6 +567,28 @@ export function OrderPanel({
           currentId={order.tableId}
           onTransfer={onTransferTable}
           onClose={() => setShowTransfer(false)}
+        />
+      )}
+
+      {/* ── PIN confirm for void item ─────────────────────────────────────── */}
+      {pinForVoidIdx !== null && (
+        <PinConfirm
+          cashierName={cashierName}
+          cashierPin={cashierPin}
+          title="Void Item — Confirm PIN"
+          onConfirm={() => { setVoidingIdx(pinForVoidIdx); setPinForVoidIdx(null); }}
+          onCancel={() => setPinForVoidIdx(null)}
+        />
+      )}
+
+      {/* ── PIN confirm for cancel order ─────────────────────────────────── */}
+      {showCancelPin && (
+        <PinConfirm
+          cashierName={cashierName}
+          cashierPin={cashierPin}
+          title="Cancel Order — Confirm PIN"
+          onConfirm={() => { setShowCancelPin(false); onCancelOrder?.(); }}
+          onCancel={() => setShowCancelPin(false)}
         />
       )}
     </div>

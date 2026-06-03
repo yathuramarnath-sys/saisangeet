@@ -1,7 +1,8 @@
 import { useState } from "react";
 
-export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder }) {
+export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder, gstTreatment = "exclusive" }) {
   const [activeArea, setActiveArea] = useState(null);
+  const inclusive = gstTreatment === "inclusive";
 
   function tableStatus(tableId) {
     const o = orders[tableId];
@@ -25,10 +26,10 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
     const afterDisc = sub - disc;
     const tax       = billable.reduce((s, i) => {
       const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
-      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-      return s + Math.round(lineAfter * rate / 100);
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+      return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     }, 0);
-    return afterDisc + tax;
+    return inclusive ? afterDisc : afterDisc + tax;
   }
 
   const filtered = activeArea
@@ -70,10 +71,10 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
       const afterDisc = sub - disc;
       const tax       = billable.reduce((s, i) => {
         const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
-        const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-        return s + Math.round(lineAfter * rate / 100);
+        const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+        return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
       }, 0);
-      return afterDisc + tax;
+      return inclusive ? afterDisc : afterDisc + tax;
     }
 
     return (
@@ -135,19 +136,6 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
 
   return (
     <div className="tpp">
-      {/* Header */}
-      <div className="tpp-head">
-        <h3>🪑 Select Table</h3>
-        <p>Pick a table to start billing</p>
-      </div>
-
-      {/* Status summary */}
-      <div className="tpp-summary">
-        <div className="tpp-sum-pill free">{freeCount} Free</div>
-        <div className="tpp-sum-pill occ">{occupiedCount} Occupied</div>
-        {holdCount > 0 && <div className="tpp-sum-pill hold">{holdCount} On Hold</div>}
-      </div>
-
       {/* Area tabs */}
       {tableAreas.length > 1 && (
         <div className="tpp-area-tabs">
@@ -203,15 +191,6 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
         ))}
       </div>
 
-      {/* Legend */}
-      <div className="tpp-legend">
-        {Object.entries(STATUS_COLORS).slice(0, 4).map(([key, val]) => (
-          <span key={key} className="tpp-legend-item"
-            style={{ background: val.bg, color: val.text, borderColor: val.border }}>
-            {val.label}
-          </span>
-        ))}
-      </div>
     </div>
   );
 }

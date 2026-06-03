@@ -1,22 +1,47 @@
 /**
  * printLabel.js — barcode label printing for POS
  *
- * Generates HTML labels with Code 128 barcodes via bwip-js.
- * Prints using the existing printHTML Electron pipeline (same as bills/KOTs).
+ * Smart Print model:
+ *   - No upfront configuration required.
+ *   - On first print the UI shows an inline printer picker (SmartPrintButton).
+ *   - Chosen printer is remembered in localStorage under LAST_LABEL_PRINTER_KEY.
+ *   - Subsequent prints go directly to that printer — zero clicks.
+ *   - Uses the new print-label Electron IPC which calls webContents.print({ deviceName })
+ *     so ZPL drivers (Zebra ZD230) render the HTML correctly via their Windows driver.
  *
  * Label sizes:
  *   "35x30" → 3 labels per row on 105mm wide paper
  *   "50x30" → 2 labels per row on 100mm wide paper
- *
- * Label printer configured separately from receipt printer.
- * Stored in localStorage as JSON under "pos_label_printer":
- *   { winName: "TSC TTP-244 Pro", ip: "", paper: "35x30" }
  */
 
 import bwipjs from "bwip-js";
 
-export const LABEL_PRINTER_KEY = "pos_label_printer";
+// Legacy key — kept so old saved config isn't lost on upgrade
+export const LABEL_PRINTER_KEY      = "pos_label_printer";
+// Smart Print — stores only the Windows printer name (string)
+export const LAST_LABEL_PRINTER_KEY = "pos_last_label_printer";
 
+/**
+ * Extract a numeric price from a value that may be:
+ *   - a number  → returned as-is
+ *   - a string  → "Rs 75", "Rs.75", "₹75", "75" → 75
+ *   - null/undefined → 0
+ */
+function extractPrice(val) {
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  return Number(String(val || "").replace(/[^\d.]/g, "")) || 0;
+}
+
+/** Last-used label printer name (Smart Print memory). */
+export function getLastLabelPrinter() {
+  return localStorage.getItem(LAST_LABEL_PRINTER_KEY) || null;
+}
+export function setLastLabelPrinter(name) {
+  if (name) localStorage.setItem(LAST_LABEL_PRINTER_KEY, name);
+  else localStorage.removeItem(LAST_LABEL_PRINTER_KEY);
+}
+
+/** Legacy config object — kept for backward compat. */
 export function getLabelPrinter() {
   try {
     return JSON.parse(localStorage.getItem(LABEL_PRINTER_KEY) || "{}");
@@ -37,10 +62,11 @@ export function generateBarcodeDataUrl(text) {
     bcid:        "code128",
     text:        String(text || "ITEM").slice(0, 48),
     scale:       2,
-    height:      10,
-    includetext: true,
+    height:      8,
+    includetext: true,   // show number below barcode for manual entry
     textxalign:  "center",
-    textyoffset: 2,
+    textfont:    "Helvetica",
+    textsize:    9,
   });
   return canvas.toDataURL("image/png");
 }
@@ -64,33 +90,30 @@ export function generateQRDataUrl(text) {
  * Width is set from labelWidthMm. Height is fixed 30mm.
  */
 function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
-  const name = (item.name || "Item").slice(0, 40);
-  const raw  = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price ?? "";
-  const priceStr = raw !== "" && raw !== null ? `Rs.${Number(raw).toFixed(2)}` : "";
+  const name     = (item.name || "Item").slice(0, 40);
+  const rawVal   = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price ?? "";
+  const priceNum = rawVal !== "" && rawVal != null ? extractPrice(rawVal) : 0;
+  const priceStr = priceNum > 0 ? `Rs.${priceNum.toFixed(2)}` : "";
+  // Ensure date always uses "/" — replace any spaces that crept in
+  const pkd = mfdDate ? mfdDate.replace(/\s/g, "/") : "";
+  const exp = expDate  ? expDate.replace(/\s/g, "/")  : "";
 
-  const pad = 1.5;
+  const pad   = 1;
   const inner = labelWidthMm - pad * 2;
 
   return `
 <div style="
-  width:${labelWidthMm}mm;
-  height:30mm;
-  display:inline-flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:flex-start;
-  padding:${pad}mm ${pad}mm 1mm;
-  box-sizing:border-box;
-  overflow:hidden;
-  vertical-align:top;
-  border-right:1px dashed #ccc;
+  width:${labelWidthMm}mm;height:30mm;
+  display:inline-flex;flex-direction:column;align-items:flex-start;
+  padding:${pad}mm;box-sizing:border-box;overflow:hidden;
+  vertical-align:top;border-right:1px dashed #ccc;
+  font-family:Arial,Helvetica,sans-serif;
 ">
-  <div style="font-size:7pt;font-weight:800;text-align:center;line-height:1.25;width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
-  ${priceStr ? `<div style="font-size:8pt;font-weight:800;text-align:center;margin:0.5mm 0;color:#000;">${priceStr}</div>` : ""}
-  <div style="font-size:5.5pt;text-align:center;color:#444;line-height:1.5;">
-    ${mfdDate ? `MFD: ${mfdDate}` : ""}${mfdDate && expDate ? "&nbsp;&nbsp;" : ""}${expDate ? `EXP: ${expDate}` : ""}
-  </div>
-  <img src="${barcodeDataUrl}" style="width:${inner}mm;height:auto;margin-top:1mm;display:block;" />
+  <img src="${barcodeDataUrl}" style="width:${inner}mm;height:8mm;display:block;" />
+  <div style="font-size:6.5pt;font-weight:800;line-height:1.4;width:100%;">${name}</div>
+  ${pkd ? `<div style="font-size:6pt;font-weight:700;line-height:1.4;">PKD ${pkd}</div>` : ""}
+  ${exp ? `<div style="font-size:6pt;font-weight:700;line-height:1.4;">EXP ${exp}</div>`  : ""}
+  ${priceStr ? `<div style="font-size:9pt;font-weight:900;line-height:1.4;">${priceStr}</div>` : ""}
 </div>`;
 }
 
@@ -100,32 +123,34 @@ function buildLabelDiv(item, mfdDate, expDate, barcodeDataUrl, labelWidthMm) {
  */
 function buildQRLabelDiv(item, mfdDate, expDate, qrDataUrl, labelWidthMm) {
   const name = (item.name || "Item").slice(0, 40);
-  const raw  = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price ?? "";
-  const mrpStr = raw !== "" && raw !== null ? `Rs.${Number(raw).toFixed(2)}` : "";
+  const rawVal2  = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price ?? "";
+  const mrpNum   = rawVal2 !== "" && rawVal2 != null ? extractPrice(rawVal2) : 0;
+  const mrpStr   = mrpNum > 0 ? `Rs.${mrpNum.toFixed(2)}` : "";
 
-  const pad   = 1.5;
-  const qrMm  = 13;   // QR code square size
-  const gap   = 1.5;  // gap between QR and text
+  const pad  = 1;
+  const qrMm = 15;
 
   return `
 <div style="
   width:${labelWidthMm}mm;
   height:30mm;
   display:inline-flex;
-  flex-direction:row;
-  align-items:center;
+  flex-direction:column;
   padding:${pad}mm;
   box-sizing:border-box;
   overflow:hidden;
   vertical-align:top;
   border-right:1px dashed #ccc;
+  font-family:Arial,Helvetica,sans-serif;
 ">
-  <img src="${qrDataUrl}" style="width:${qrMm}mm;height:${qrMm}mm;flex-shrink:0;display:block;" />
-  <div style="margin-left:${gap}mm;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:1mm;">
-    <div style="font-size:6.5pt;font-weight:800;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${name}</div>
-    ${mrpStr ? `<div style="font-size:7pt;font-weight:800;color:#000;">MRP: ${mrpStr}</div>` : ""}
-    ${mfdDate ? `<div style="font-size:5.5pt;color:#444;">Pkd Dt: ${mfdDate}</div>` : ""}
-    ${expDate ? `<div style="font-size:5.5pt;color:#444;">Exp Dt: ${expDate}</div>` : ""}
+  <div style="font-size:6.5pt;font-weight:900;text-align:center;line-height:1.2;width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0;">${name}</div>
+  <div style="display:flex;flex-direction:row;flex:1;align-items:center;margin-top:0.5mm;overflow:hidden;">
+    <img src="${qrDataUrl}" style="width:${qrMm}mm;height:${qrMm}mm;flex-shrink:0;display:block;" />
+    <div style="margin-left:1mm;flex:1;display:flex;flex-direction:column;justify-content:center;overflow:hidden;">
+      ${mrpStr ? `<div style="font-size:8pt;font-weight:900;line-height:1.3;">${mrpStr}</div>` : ""}
+      ${mfdDate ? `<div style="font-size:5.5pt;font-weight:700;line-height:1.3;white-space:nowrap;">MFD:${mfdDate}</div>` : ""}
+      ${expDate  ? `<div style="font-size:5.5pt;font-weight:700;line-height:1.3;white-space:nowrap;">EXP:${expDate}</div>`  : ""}
+    </div>
   </div>
 </div>`;
 }
@@ -182,11 +207,15 @@ export async function printBatchLabels(batch, opts = {}) {
 
   // Build all label divs across all items
   const allDivs = [];
+  let itemNum = 1; // sequential number printed on each label
   for (const { item, qty } of batch) {
     if (!item || !qty || qty < 1) continue;
-    const barcodeVal = (item.sku || item.id || item.name || "ITEM")
-      .replace(/[^\x20-\x7E]/g, "")
-      .slice(0, 200) || "ITEM";
+    // Use SKU if set in Owner Web, else use sequential number (001, 002...)
+    const barcodeVal = item.sku?.trim()
+      ? item.sku.trim()
+      : String(itemNum).padStart(3, "0");
+    item._labelNum = barcodeVal; // pass to label builder for display
+    itemNum++;
     const imgDataUrl = isQR
       ? generateQRDataUrl(barcodeVal)
       : generateBarcodeDataUrl(barcodeVal.slice(0, 48));
@@ -264,7 +293,7 @@ export async function printLabels(item, opts = {}) {
   const pageW    = labelW * colCount;
 
   // Barcode/QR value: prefer sku, then id, then sanitised name
-  const barcodeVal = (item.sku || item.id || item.name || "ITEM")
+  const barcodeVal = (item.sku?.trim() ? item.sku.trim() : item._labelNum || (item.id || item.name || "ITEM"))
     .replace(/[^\x20-\x7E]/g, "")
     .slice(0, 200) || "ITEM";
 
@@ -312,6 +341,107 @@ export async function printLabels(item, opts = {}) {
 
   // ── Browser popup fallback ─────────────────────────────────────────────────
   const w = window.open("", "_blank", "width=600,height=400");
+  if (!w) { alert("Please allow pop-ups to print labels."); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => {
+    w.print();
+    w.onafterprint = () => w.close();
+    setTimeout(() => w.close(), 3500);
+  }, 400);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart Print API — used by SmartPrintButton.
+// Uses print-label IPC (webContents.print + deviceName) so ZPL/label printer
+// drivers render the HTML correctly. Falls back to browser popup on non-Electron.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Send a single-item label job to the given Windows printer.
+ * Called by SmartPrintButton after the user has chosen (or remembered) a printer.
+ */
+export async function printLabelSmart(item, opts = {}, printerName = null) {
+  const { mfdDate = "", expDate = "", qty = 1, labelSize = "35x30", barcodeType = "code128" } = opts;
+
+  const is35     = labelSize === "35x30";
+  const labelW   = is35 ? 35 : 50;
+  const colCount = is35 ? 3 : 2;
+  const pageW    = labelW * colCount;
+
+  const barcodeVal = (item.sku?.trim() ? item.sku.trim() : item._labelNum || (item.id || item.name || "ITEM"))
+    .replace(/[^\x20-\x7E]/g, "").slice(0, 200) || "ITEM";
+
+  const isQR      = barcodeType === "qrcode";
+  const imgUrl    = isQR ? generateQRDataUrl(barcodeVal) : generateBarcodeDataUrl(barcodeVal.slice(0, 48));
+  const divs      = Array.from({ length: Math.max(1, qty) }, () =>
+    isQR ? buildQRLabelDiv(item, mfdDate, expDate, imgUrl, labelW)
+         : buildLabelDiv(item, mfdDate, expDate, imgUrl, labelW)
+  );
+  const rows = [];
+  for (let i = 0; i < divs.length; i += colCount) rows.push(divs.slice(i, i + colCount));
+  const html = buildLabelPageHtml(rows, pageW);
+
+  return _sendLabelHtml(html, printerName, pageW, 30);
+}
+
+/**
+ * Send a batch label job to the given Windows printer.
+ * Called by SmartPrintButton in BatchLabelModal after picker selection.
+ */
+export async function printBatchLabelsSmart(batch, opts = {}, printerName = null) {
+  const { mfdDate = "", expDate = "", labelSize = "35x30", barcodeType = "code128" } = opts;
+
+  const is35     = labelSize === "35x30";
+  const labelW   = is35 ? 35 : 50;
+  const colCount = is35 ? 3 : 2;
+  const pageW    = labelW * colCount;
+  const isQR     = barcodeType === "qrcode";
+
+  const allDivs = [];
+  for (const { item, qty } of batch) {
+    if (!item || !qty || qty < 1) continue;
+    const barcodeVal = (item.sku?.trim() ? item.sku.trim() : item._labelNum || (item.id || item.name || "ITEM"))
+      .replace(/[^\x20-\x7E]/g, "").slice(0, 200) || "ITEM";
+    const imgUrl = isQR ? generateQRDataUrl(barcodeVal) : generateBarcodeDataUrl(barcodeVal.slice(0, 48));
+    for (let i = 0; i < qty; i++) {
+      allDivs.push(
+        isQR ? buildQRLabelDiv(item, mfdDate, expDate, imgUrl, labelW)
+             : buildLabelDiv(item, mfdDate, expDate, imgUrl, labelW)
+      );
+    }
+  }
+  if (allDivs.length === 0) return;
+
+  const rows = [];
+  for (let i = 0; i < allDivs.length; i += colCount) rows.push(allDivs.slice(i, i + colCount));
+  const html = buildLabelPageHtml(rows, pageW);
+
+  return _sendLabelHtml(html, printerName, pageW, 30);
+}
+
+/** Internal: send built HTML via print-label IPC or browser popup fallback. */
+async function _sendLabelHtml(html, printerName, paperWidthMm, paperHeightMm) {
+  // ── Electron: use print-label IPC (webContents.print + deviceName) ──────────
+  if (window.electronAPI?.printLabel) {
+    const result = await window.electronAPI.printLabel({
+      html,
+      printerName:   printerName || null,
+      paperWidthMm,
+      paperHeightMm,
+    });
+    if (!result?.ok) {
+      console.warn("[printLabelSmart] print-label failed:", result?.error);
+      window.dispatchEvent(new CustomEvent("dinex:print-error", {
+        detail: { source: "Label", printerName, error: result?.error },
+      }));
+    }
+    return result;
+  }
+
+  // ── Browser popup fallback (non-Electron / dev) ────────────────────────────
+  const w = window.open("", "_blank", "width=700,height=500");
   if (!w) { alert("Please allow pop-ups to print labels."); return; }
   w.document.write(html);
   w.document.close();

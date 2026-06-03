@@ -4048,6 +4048,33 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   vertical-align: middle;
 }
 
+/* ── Outlet inline edit ──────────────────────────────────────────────────── */
+.location-card.outlet-editing {
+  border: 2px solid #059669;
+  background: #f0fdf4;
+}
+.outlet-inline-form { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+.outlet-inline-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.outlet-inline-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; font-weight: 600; color: #374151; }
+.outlet-inline-grid input,
+.outlet-inline-grid select {
+  padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 7px;
+  font: inherit; font-size: 0.88rem; background: #fff; outline: none;
+  transition: border-color 0.15s;
+}
+.outlet-inline-grid input:focus,
+.outlet-inline-grid select:focus { border-color: #059669; }
+.outlet-inline-section { display: flex; flex-direction: column; gap: 8px; }
+.outlet-inline-section > strong { font-size: 0.85rem; color: #111827; }
+.outlet-check-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.outlet-turnover-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.outlet-inline-btns { display: flex; gap: 10px; padding-top: 4px; }
+.outlet-inline-btns .primary-btn { flex: 1; }
+
 /* ── Menu item — outlet availability selector ───────────────────────────── */
 .menu-outlet-avail {
   display: flex;
@@ -4633,6 +4660,49 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   border-radius: 50%;
   animation: spin .65s linear infinite;
   display: inline-block;
+}
+
+/* ── Google Sign-In button ───────────────────────────────────────────────── */
+.lp2-google-btn {
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  gap:             10px;
+  width:           100%;
+  padding:         11px 16px;
+  border:          1.5px solid #dadce0;
+  border-radius:   10px;
+  background:      #fff;
+  color:           #3c4043;
+  font-size:       .92rem;
+  font-weight:     600;
+  font-family:     inherit;
+  cursor:          pointer;
+  text-decoration: none;
+  transition:      border-color .15s, box-shadow .15s, background .15s;
+  margin-bottom:   4px;
+}
+.lp2-google-btn:hover {
+  border-color: #4285f4;
+  box-shadow:   0 1px 6px rgba(66,133,244,.18);
+  background:   #f8faff;
+}
+
+/* ── Divider between Google and password form ────────────────────────────── */
+.lp2-divider {
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  margin:      18px 0 14px;
+  color:       #9ca3af;
+  font-size:   .78rem;
+}
+.lp2-divider::before,
+.lp2-divider::after {
+  content:    "";
+  flex:       1;
+  height:     1px;
+  background: #e5e7eb;
 }
 
 /* footer */
@@ -7104,4 +7174,179 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 .spinner-sm {
   width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4);
   border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block;
+}
+
+/* ── Compact inline table editor ─────────────────────────────────────────── */
+.tbl-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(255,255,255,0.6);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  padding: 10px;
+}
+.tbl-editor-head {
+  display: grid;
+  grid-template-columns: 110px 1fr 70px 80px;
+  gap: 8px;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tbl-editor-empty {
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 8px 6px;
+}
+.tbl-editor-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 70px 80px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 6px;
+  border-radius: 8px;
+  min-height: 40px;
+}
+.tbl-editor-row:hover {
+  background: rgba(5,150,105,0.04);
+}
+.tbl-editor-row--editing {
+  background: rgba(5,150,105,0.06);
+  border: 1px solid rgba(5,150,105,0.18);
+}
+.tbl-editor-row--editing select,
+.tbl-editor-row--editing input {
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.88rem;
+  width: 100%;
+}
+.tbl-editor-row--editing select:focus,
+.tbl-editor-row--editing input:focus {
+  outline: 2px solid rgba(5,150,105,0.15);
+  border-color: #059669;
+}
+.tbl-area-pill {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #047857;
+  background: #ecfdf5;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tbl-editor-row strong {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.tbl-editor-row > span:nth-child(3) {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.tbl-editor-row-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.tbl-edit-btn, .tbl-confirm-btn, .tbl-remove-btn {
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 9px;
+  transition: background 120ms;
+}
+.tbl-edit-btn {
+  background: rgba(5,150,105,0.1);
+  color: #047857;
+}
+.tbl-edit-btn:hover { background: rgba(5,150,105,0.18); }
+.tbl-confirm-btn {
+  background: #059669;
+  color: #fff;
+}
+.tbl-confirm-btn:hover { background: #047857; }
+.tbl-remove-btn {
+  background: rgba(220,38,38,0.08);
+  color: #dc2626;
+}
+.tbl-remove-btn:hover { background: rgba(220,38,38,0.16); }
+.tbl-add-btn {
+  margin-top: 6px;
+  align-self: flex-start;
+  font-size: 0.85rem;
+  padding: 7px 14px;
+  border-radius: 10px;
+}
+
+/* ── QR Code generator modal ─────────────────────────────────────────────── */
+.ghost-chip-qr {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
+}
+.ghost-chip-qr:hover { background: #d1fae5; }
+
+.qr-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  z-index: 1000; display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.qr-modal {
+  background: #fff; border-radius: 16px; max-width: 900px; width: 100%;
+  max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.qr-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px 16px; border-bottom: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+.qr-modal-header h3 { font-size: 1.1rem; font-weight: 800; color: #111827; }
+.qr-close-btn {
+  background: #f3f4f6; border: none; border-radius: 8px;
+  width: 32px; height: 32px; font-size: 0.9rem; color: #6b7280; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.qr-close-btn:hover { background: #e5e7eb; }
+.qr-modal-hint {
+  padding: 10px 24px 4px; font-size: 0.82rem; color: #6b7280;
+  flex-shrink: 0;
+}
+.qr-grid {
+  flex: 1; overflow-y: auto;
+  padding: 16px 24px 24px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+.qr-card {
+  border: 1.5px solid #e5e7eb; border-radius: 12px;
+  padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: #fafafa;
+}
+.qr-card img { border-radius: 8px; border: 1px solid #f3f4f6; }
+.qr-card-label { font-size: 0.78rem; color: #6b7280; text-align: center; }
+.qr-card-table { font-size: 1rem; font-weight: 800; color: #111827; text-align: center; }
+.qr-card-area  { font-size: 0.75rem; color: #9ca3af; }
+
+/* Print — only show QR cards, hide everything else */
+@media print {
+  body > *:not(.qr-backdrop) { display: none !important; }
+  .qr-backdrop { position: static; background: none; padding: 0; }
+  .qr-modal { box-shadow: none; max-height: none; border-radius: 0; }
+  .qr-modal-header button, .qr-close-btn, .qr-modal-hint { display: none !important; }
+  .qr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 12px; }
+  .qr-card { border: 1px solid #ccc; break-inside: avoid; }
 }

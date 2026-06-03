@@ -93,7 +93,7 @@ function EditPaymentModal({ order, fin, onSave, onClose }) {
 }
 
 /* ── Past Orders Modal ────────────────────────────────────────────────────── */
-export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outletName, cashierName, outletId }) {
+export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outletName, cashierName, outletId, gstTreatment = "exclusive" }) {
   const [filter,    setFilter]    = useState("all");   // all | cash | card | upi | online
   const [search,    setSearch]    = useState("");
   const [editOrder, setEditOrder] = useState(null);
@@ -142,7 +142,7 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
   }, [closedOrders, filter, search]);
 
   const totalRevenue = filtered.reduce((s, o) => {
-    const fin = getFinancials(o);
+    const fin = getFinancials(o, { gstTreatment });
     return s + (fin?.total || 0);
   }, 0);
 
@@ -197,7 +197,7 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
               </div>
             )}
             {filtered.map(order => {
-              const fin        = getFinancials(order);
+              const fin        = getFinancials(order, { gstTreatment });
               const billLabel  = order.billNo != null ? `#${order.billNo}` : `#${order.orderNumber}`;
               const isExpanded = expanded === (order.billNo ?? order.orderNumber);
               const payMethods = [...new Set((order.payments || []).map(p => p.method))].join(" + ");
@@ -282,7 +282,7 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
       {editOrder && (
         <EditPaymentModal
           order={editOrder}
-          fin={getFinancials(editOrder)}
+          fin={getFinancials(editOrder, { gstTreatment })}
           onClose={() => setEditOrder(null)}
           onSave={(payments) => {
             onEditPayment(editOrder, payments);

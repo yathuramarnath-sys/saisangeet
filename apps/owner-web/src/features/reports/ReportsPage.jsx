@@ -1156,6 +1156,360 @@ function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
   );
 }
 
+// ── Voids & Reprints Report ──────────────────────────────────────────────────
+function VoidsReprintsReport({ dateFrom, dateTo, outletId }) {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("all"); // all | void_item | cancel_order | bill_reprint
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const p = new URLSearchParams({ dateFrom, dateTo });
+    if (outletId) p.set("outletId", outletId);
+    api.get(`/operations/action-logs?${p}`)
+      .then(res => setEntries(Array.isArray(res) ? res : []))
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false));
+  }, [dateFrom, dateTo, outletId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = typeFilter === "all" ? entries : entries.filter(e => e.type === typeFilter);
+
+  // Summary counts
+  const voidCount    = entries.filter(e => e.type === "void_item").length;
+  const cancelCount  = entries.filter(e => e.type === "cancel_order").length;
+  const reprintCount = entries.filter(e => e.type === "bill_reprint").length;
+  const posReprints  = entries.filter(e => e.type === "bill_reprint" && e.source !== "captain").length;
+  const captReprints = entries.filter(e => e.type === "bill_reprint" && e.source === "captain").length;
+
+  function handleCSV() {
+    if (!entries.length) return;
+    downloadCSV(
+      `voids_reprints_${dateFrom}_${dateTo}`,
+      ["Date & Time", "Type", "Cashier", "Table", "Order #", "Bill #", "Details", "Source"],
+      entries.map(e => {
+        const details = e.type === "bill_reprint"
+          ? `Bill ${e.billNo || "—"}`
+          : (e.items || []).map(i => `${i.name} x${i.qty}`).join("; ");
+        return [
+          new Date(e.timestamp).toLocaleString("en-IN"),
+          e.type === "void_item" ? "Void Item" : e.type === "cancel_order" ? "Cancel Order" : "Bill Reprint",
+          e.cashier || "—",
+          e.tableLabel || e.tableId || "—",
+          e.orderNumber || "—",
+          e.billNo || "—",
+          details,
+          e.source || "pos",
+        ];
+      })
+    );
+  }
+
+  const typeLabel = t => t === "void_item" ? "Void Item" : t === "cancel_order" ? "Cancel Order" : "Bill Reprint";
+  const typeIcon  = t => t === "void_item" ? "🚫" : t === "cancel_order" ? "❌" : "🖨️";
+
+  return (
+    <div className="rpt-body">
+      <SectionHead eyebrow="POS Audit Trail" title="Voids & Reprints" />
+
+      {/* Summary KPI row */}
+      <div className="rpt-kpi-row" style={{ marginBottom: 20 }}>
+        <div className="metric-card" style={{ minWidth: 120 }}>
+          <span className="metric-label">Void Items</span>
+          <strong style={{ color: "#dc2626" }}>{voidCount}</strong>
+        </div>
+        <div className="metric-card" style={{ minWidth: 120 }}>
+          <span className="metric-label">Order Cancels</span>
+          <strong style={{ color: "#b45309" }}>{cancelCount}</strong>
+        </div>
+        <div className="metric-card" style={{ minWidth: 140 }}>
+          <span className="metric-label">Bill Reprints (POS)</span>
+          <strong style={{ color: "#1d4ed8" }}>{posReprints}</strong>
+        </div>
+        <div className="metric-card" style={{ minWidth: 160 }}>
+          <span className="metric-label">Bill Reprints (Captain)</span>
+          <strong style={{ color: "#1d4ed8" }}>{captReprints}</strong>
+        </div>
+        <div className="metric-card" style={{ minWidth: 120 }}>
+          <span className="metric-label">Total Reprints</span>
+          <strong>{reprintCount}</strong>
+        </div>
+      </div>
+
+      {/* Type filter pills */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        {[
+          { key: "all",           label: "All"           },
+          { key: "void_item",     label: "🚫 Void Items"     },
+          { key: "cancel_order",  label: "❌ Cancel Orders"  },
+          { key: "bill_reprint",  label: "🖨️ Bill Reprints"  },
+        ].map(f => (
+          <button key={f.key}
+            onClick={() => setTypeFilter(f.key)}
+            style={{
+              padding: "4px 14px", borderRadius: 20, border: "1.5px solid",
+              borderColor: typeFilter === f.key ? "#059669" : "#d1d5db",
+              background:  typeFilter === f.key ? "#ecfdf5" : "#fff",
+              color:        typeFilter === f.key ? "#047857" : "#374151",
+              fontWeight:   typeFilter === f.key ? 700 : 400,
+              cursor: "pointer", fontSize: 13,
+            }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {loading && <p style={{ color: "#6b7280", padding: "1rem 0" }}>Loading…</p>}
+
+      {!loading && entries.length === 0 && (
+        <div className="rpt-empty">
+          <span>🔍</span>
+          <p>No void or reprint actions for this period.</p>
+          <p style={{ fontSize: 13, color: "#9ca3af" }}>
+            Void items, cancel orders, and bill reprints are logged automatically when cashiers perform these actions on the POS or Captain App.
+          </p>
+        </div>
+      )}
+
+      {!loading && filtered.length > 0 && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>
+              {filtered.length} {typeFilter === "all" ? "entries" : typeLabel(typeFilter) + " entries"}
+            </p>
+            <button className="rpt-export-btn" onClick={handleCSV}>⬇ CSV</button>
+          </div>
+          <RptTable
+            cols={["Date & Time", "Type", "Cashier", "Table", "Order #", "Details", "Source"]}
+            rows={filtered.map(e => {
+              const details = e.type === "bill_reprint"
+                ? `Bill No: ${e.billNo || "—"}`
+                : (e.items || []).map(i => `${i.name}${i.qty > 1 ? " ×" + i.qty : ""}`).join(", ") || "—";
+              return [
+                new Date(e.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true }),
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, color: e.type === "void_item" ? "#dc2626" : e.type === "cancel_order" ? "#b45309" : "#1d4ed8" }}>
+                  {typeIcon(e.type)} {typeLabel(e.type)}
+                </span>,
+                e.cashier || "—",
+                e.tableLabel || e.tableId || "—",
+                e.orderNumber || "—",
+                details,
+                (e.source === "captain" ? "Captain App" : "POS"),
+              ];
+            })}
+          />
+        </>
+      )}
+
+      {!loading && filtered.length === 0 && entries.length > 0 && (
+        <p style={{ color: "#6b7280", fontSize: 13, padding: "1rem 0" }}>No {typeLabel(typeFilter)} entries for this period.</p>
+      )}
+    </div>
+  );
+}
+
+// ── Customers Tab ────────────────────────────────────────────────────────────
+function CustomersTab() {
+  const [customers, setCustomers] = useState([]);
+  const [loading,   setLoading]   = useState(false);
+  const [q,         setQ]         = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    api.get("/customers")
+      .then(res => setCustomers(Array.isArray(res) ? res : []))
+      .catch(() => setCustomers([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const lq = q.trim().toLowerCase();
+  const filtered = lq
+    ? customers.filter(c =>
+        (c.name  || "").toLowerCase().includes(lq) ||
+        (c.phone || "").includes(lq) ||
+        (c.email || "").toLowerCase().includes(lq) ||
+        (c.gstin || "").toLowerCase().includes(lq)
+      )
+    : customers;
+
+  function handleCSV() {
+    if (!filtered.length) return;
+    downloadCSV("customers_list",
+      ["Name", "Phone", "Email", "GSTIN", "Address", "Company", "Notes", "Saved On"],
+      filtered.map(c => [
+        c.name, c.phone || "", c.email || "", c.gstin || "",
+        c.address || "", c.company || "", c.notes || "",
+        c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : ""
+      ])
+    );
+  }
+
+  const withPhone = customers.filter(c => c.phone).length;
+  const withEmail = customers.filter(c => c.email).length;
+  const withGstin = customers.filter(c => c.gstin).length;
+
+  return (
+    <div className="rpt-body">
+      <SectionHead eyebrow="Saved from POS" title="Customer List" />
+
+      {/* KPIs */}
+      <div className="rpt-kpi-row" style={{ marginBottom: 20 }}>
+        <KpiCard dark label="Total Customers" value={customers.length} sub="in master list" />
+        <KpiCard label="With Phone"  value={withPhone} sub="can send SMS / WhatsApp" />
+        <KpiCard label="With Email"  value={withEmail} sub="can send emails" />
+        <KpiCard label="With GSTIN"  value={withGstin} sub="B2B / GST billing" />
+      </div>
+
+      {/* Search + Export */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <input
+          type="text"
+          placeholder="Search by name, phone, email or GSTIN…"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          style={{
+            flex: 1, minWidth: 220, padding: "7px 12px", borderRadius: 8,
+            border: "1.5px solid #d1d5db", fontSize: 13, outline: "none",
+            fontFamily: "Manrope, sans-serif",
+          }}
+        />
+        <button className="rpt-export-btn" onClick={handleCSV} disabled={!filtered.length}>⬇ CSV</button>
+      </div>
+
+      {loading && <p style={{ color: "#6b7280", padding: "1rem 0" }}>Loading…</p>}
+
+      {!loading && customers.length === 0 && (
+        <div className="rpt-empty-state">
+          <div className="rpt-empty-icon">👥</div>
+          <strong>No customers saved yet</strong>
+          <p>
+            Customer details are saved when the cashier fills in the Customer form on the POS
+            (credit bill, takeaway, or delivery orders). They'll appear here automatically.
+          </p>
+          <p className="rpt-empty-hint">
+            Use customer data for birthday wishes, WhatsApp promotions, and GST invoicing.
+          </p>
+        </div>
+      )}
+
+      {!loading && customers.length > 0 && filtered.length === 0 && (
+        <p style={{ color: "#6b7280", fontSize: 13 }}>No customers match "<strong>{q}</strong>".</p>
+      )}
+
+      {!loading && filtered.length > 0 && (
+        <RptTable
+          cols={["Name", "Phone", "Email", "GSTIN", "Address / Company", "Notes", "Saved On"]}
+          rows={filtered.map(c => [
+            <strong>{c.name}</strong>,
+            c.phone
+              ? <a href={`tel:${c.phone}`} style={{ color: "#059669", textDecoration: "none", fontWeight: 600 }}>{c.phone}</a>
+              : <span style={{ color: "#9ca3af" }}>—</span>,
+            c.email || <span style={{ color: "#9ca3af" }}>—</span>,
+            c.gstin
+              ? <span style={{ fontFamily: "monospace", fontSize: 12, background: "#f0fdf4", color: "#166534", padding: "2px 6px", borderRadius: 4 }}>{c.gstin}</span>
+              : <span style={{ color: "#9ca3af" }}>—</span>,
+            [c.company, c.address].filter(Boolean).join(" · ") || <span style={{ color: "#9ca3af" }}>—</span>,
+            c.notes || <span style={{ color: "#9ca3af" }}>—</span>,
+            c.createdAt
+              ? new Date(c.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+              : "—",
+          ])}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Waitlist Report ───────────────────────────────────────────────────────────
+function WaitlistReport({ dateFrom, dateTo, outletId }) {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const p = new URLSearchParams({ dateFrom, dateTo });
+    if (outletId) p.set("outletId", outletId);
+    api.get(`/operations/waitlist/history?${p}`)
+      .then(res => setEntries(Array.isArray(res) ? res : []))
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false));
+  }, [dateFrom, dateTo, outletId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const seated   = entries.filter(e => e.status === "seated");
+  const noShows  = entries.filter(e => e.status === "no_show");
+  const avgWait  = seated.length
+    ? Math.round(seated.reduce((s, e) => {
+        const mins = e.seatedAt && e.joinedAt
+          ? (new Date(e.seatedAt) - new Date(e.joinedAt)) / 60000
+          : 0;
+        return s + mins;
+      }, 0) / seated.length)
+    : 0;
+
+  function handleCSV() {
+    if (!entries.length) return;
+    downloadCSV(`waitlist_${dateFrom}_${dateTo}`,
+      ["Date & Time", "Name", "Phone", "Party Size", "Status", "Wait (mins)", "Table"],
+      entries.map(e => {
+        const wait = e.seatedAt && e.joinedAt
+          ? Math.round((new Date(e.seatedAt) - new Date(e.joinedAt)) / 60000)
+          : "—";
+        return [
+          new Date(e.joinedAt).toLocaleString("en-IN"),
+          e.name, e.phone || "—", e.partySize,
+          e.status, wait, e.assignedTableLabel || "—",
+        ];
+      })
+    );
+  }
+
+  return (
+    <div className="rpt-body">
+      <SectionHead eyebrow="Walk-in Queue" title="Waitlist Report" />
+
+      <div className="rpt-kpi-row" style={{ marginBottom: 20 }}>
+        <div className="metric-card"><span className="metric-label">Total Parties</span><strong>{entries.length}</strong></div>
+        <div className="metric-card"><span className="metric-label">Seated</span><strong style={{ color: "#059669" }}>{seated.length}</strong></div>
+        <div className="metric-card"><span className="metric-label">No-shows</span><strong style={{ color: "#dc2626" }}>{noShows.length}</strong></div>
+        <div className="metric-card"><span className="metric-label">Avg Wait Time</span><strong>{avgWait ? `${avgWait} mins` : "—"}</strong></div>
+      </div>
+
+      {loading && <p style={{ color: "#6b7280" }}>Loading…</p>}
+      {!loading && entries.length === 0 && (
+        <div className="rpt-empty"><span>🪑</span><p>No waitlist data for this period.</p></div>
+      )}
+      {!loading && entries.length > 0 && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{entries.length} entries</p>
+            <button className="rpt-export-btn" onClick={handleCSV}>⬇ CSV</button>
+          </div>
+          <RptTable
+            cols={["Time", "Name", "Party", "Status", "Wait", "Table"]}
+            rows={entries.map(e => {
+              const wait = e.seatedAt && e.joinedAt
+                ? `${Math.round((new Date(e.seatedAt) - new Date(e.joinedAt)) / 60000)} min`
+                : "—";
+              const statusColor = e.status === "seated" ? "#059669" : e.status === "no_show" ? "#dc2626" : "#6b7280";
+              return [
+                new Date(e.joinedAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true }),
+                e.name,
+                `${e.partySize} pax`,
+                <span style={{ color: statusColor, fontWeight: 600 }}>{e.status.replace("_", "-")}</span>,
+                wait,
+                e.assignedTableLabel || "—",
+              ];
+            })}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Reports Shell ────────────────────────────────────────────────────────────
 const REPORTS = [
   { key: "day-end",    label: "Day End Summary"  },
@@ -1168,6 +1522,9 @@ const REPORTS = [
   { key: "incentives", label: "🏆 Incentives"     },
   { key: "orders",     label: "🗄 Order History"  },
   { key: "wastage",    label: "🗑 Wastage"        },
+  { key: "voids",      label: "🚫 Voids & Reprints" },
+  { key: "waitlist",   label: "🪑 Waitlist"         },
+  { key: "customers",  label: "👥 Customers"       },
   { key: "email",      label: "📧 Email Settings" }
 ];
 
@@ -1266,7 +1623,7 @@ export function ReportsPage() {
         </div>
 
         <div className="rpt-filters">
-          {active === "gst" ? (
+          {active === "customers" ? null : active === "gst" ? (
             /* GST uses a month picker — range derived automatically */
             <input type="month" className="rpt-date-input" value={month}
               onChange={e => setMonth(e.target.value)} />
@@ -1304,6 +1661,9 @@ export function ReportsPage() {
       {active === "incentives" && <CaptainIncentivesReport date={`${dateFrom}_${dateTo}`}                            data={salesData} />}
       {active === "orders"     && <OrderHistoryTab         dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
       {active === "wastage"    && <WastageReport           dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
+      {active === "voids"      && <VoidsReprintsReport    dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
+      {active === "waitlist"   && <WaitlistReport         dateFrom={dateFrom} dateTo={dateTo} outletId={outletId} />}
+      {active === "customers"  && <CustomersTab />}
       {active === "email"      && (
         <div className="rpt-body">
           <EmailTrigger />

@@ -8,6 +8,7 @@ import { AppRoutes } from "./pages/routes";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { ProtectedRoute } from "./pages/ProtectedRoute";
 
 export function App() {
@@ -18,10 +19,11 @@ export function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/login"         element={<LoginPage />} />
+          <Route path="/signup"        element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password"  element={<ForgotPasswordPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route
             path="/*"
             element={

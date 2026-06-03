@@ -113,7 +113,7 @@ jobs:
 
       - name: Install KDS dependencies
         working-directory: apps/kitchen-display
-        run: npm install
+        run: npm install --no-workspaces
 
       - name: Build Vite app
         working-directory: apps/kitchen-display
@@ -123,7 +123,7 @@ jobs:
         working-directory: apps/kitchen-display
         run: npx electron-builder build --win --x64 --publish never
 
-      - name: Upload KDS Windows installer
+      - name: Upload KDS installer
         uses: actions/upload-artifact@v4
         with:
           name: DineX-KDS-Windows

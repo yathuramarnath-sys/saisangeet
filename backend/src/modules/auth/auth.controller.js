@@ -1,4 +1,5 @@
-const { login, signup, isSignupAvailable, saveSignupInterest, changePassword, resetOwnerPassword, forgotPassword, resetPasswordByToken } = require("./auth.service");
+const { login, loginWithGoogle, signup, isSignupAvailable, saveSignupInterest, changePassword, resetOwnerPassword, forgotPassword, resetPasswordByToken } = require("./auth.service");
+const { env } = require("../../config/env");
 
 // Very basic email format check — prevents garbage hitting the DB
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,10 +30,11 @@ async function signupHandler(req, res) {
 
 function meHandler(req, res) {
   res.json({
-    id: req.user.sub,
-    fullName: req.user.fullName,
-    outletId: req.user.outletId,
-    roles: req.user.roles,
+    id:         req.user.sub,
+    fullName:   req.user.fullName,
+    outletId:   req.user.outletId,
+    tenantId:   req.user.tenantId,
+    roles:      req.user.roles,
     permissions: req.user.permissions
   });
 }
@@ -82,6 +84,40 @@ async function resetPasswordByTokenHandler(req, res) {
   res.json(result);
 }
 
+// ── Google OAuth ─────────────────────────────────────────────────────────────
+
+// Step 1 — redirect user to Google sign-in page
+function googleAuthHandler(_req, res) {
+  const params = new URLSearchParams({
+    client_id:     env.googleClientId,
+    redirect_uri:  `https://api.dinexpos.in/api/v1/auth/google/callback`,
+    response_type: "code",
+    scope:         "openid email profile",
+    access_type:   "online",
+    prompt:        "select_account",
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+}
+
+// Step 2 — Google redirects back here with ?code=...
+async function googleCallbackHandler(req, res) {
+  const { code, error } = req.query;
+  const frontendUrl = env.appUrl; // https://app.dinexpos.in
+
+  if (error || !code) {
+    return res.redirect(`${frontendUrl}/login?error=google_cancelled`);
+  }
+
+  try {
+    const result = await loginWithGoogle({ code });
+    // Pass JWT back to frontend via URL param — frontend stores it in localStorage
+    return res.redirect(`${frontendUrl}/auth/callback?token=${result.token}`);
+  } catch (err) {
+    const msg = err.message || "google_error";
+    return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(msg)}`);
+  }
+}
+
 module.exports = {
   loginHandler,
   signupAvailableHandler,
@@ -92,5 +128,7 @@ module.exports = {
   changePasswordHandler,
   resetOwnerHandler,
   forgotPasswordHandler,
-  resetPasswordByTokenHandler
+  resetPasswordByTokenHandler,
+  googleAuthHandler,
+  googleCallbackHandler,
 };

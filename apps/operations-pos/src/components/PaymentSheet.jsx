@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getFinancials } from "./OrderPanel";
+import { api } from "../lib/api";
 
 const METHODS = [
   { id: "cash", label: "Cash",  icon: "₹"  },
@@ -26,6 +27,65 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
   });
   const [currentRef,    setCurrentRef]    = useState("");
   const [loading,       setLoading]       = useState(false);
+  // Customer master — loaded when credit section opens
+  const [customerList,    setCustomerList]    = useState([]);
+  const [custSearch,      setCustSearch]      = useState("");
+  const [showCustDrop,    setShowCustDrop]    = useState(false);
+  // Outstanding credit warning
+  const [existingCredit,  setExistingCredit]  = useState(null);
+  const creditCheckTimer = useRef(null);
+
+  // Load customer master when credit section opens
+  useEffect(() => {
+    if (!showCredit) return;
+    api.get("/customers").then(list => setCustomerList(Array.isArray(list) ? list : [])).catch(() => {});
+  }, [showCredit]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Filtered dropdown list
+  const custDropList = custSearch.trim().length >= 1
+    ? customerList.filter(c =>
+        (c.name  || "").toLowerCase().includes(custSearch.toLowerCase()) ||
+        (c.phone || "").includes(custSearch)
+      ).slice(0, 8)
+    : customerList.slice(0, 8);
+
+  function pickCustomer(c) {
+    setCreditForm({
+      name:      c.name    || "",
+      gstin:     c.gstin   || "",
+      address:   c.address || "",
+      phone:     c.phone   || "",
+      poNumber:  "",
+    });
+    setCustSearch(c.name || "");
+    setShowCustDrop(false);
+  }
+
+  // Outstanding credit check when customer name is set
+  useEffect(() => {
+    const name = creditForm.name.trim();
+    if (!name || !showCredit) { setExistingCredit(null); return; }
+    if (creditCheckTimer.current) clearTimeout(creditCheckTimer.current);
+    creditCheckTimer.current = setTimeout(async () => {
+      try {
+        const all = await api.get("/operations/credits");
+        const unpaid = (Array.isArray(all) ? all : []).filter(b =>
+          b.creditStatus !== "paid" &&
+          (b.creditCustomer?.name || "").trim().toLowerCase() === name.toLowerCase()
+        );
+        if (unpaid.length > 0) {
+          const total = unpaid.reduce((s, b) => {
+            const p = b.payments?.find(p => p.method === "credit");
+            return s + (p?.amount || 0);
+          }, 0);
+          setExistingCredit({ count: unpaid.length, total, bills: unpaid });
+        } else {
+          setExistingCredit(null);
+        }
+      } catch { setExistingCredit(null); }
+    }, 600);
+    return () => { if (creditCheckTimer.current) clearTimeout(creditCheckTimer.current); };
+  }, [creditForm.name, showCredit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!fin) return null;
 
@@ -183,7 +243,7 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
         </div>
 
         {/* ── Payment entry form — ALWAYS visible ───────────────────────── */}
-        {/* Payment method selector */}
+        {/* Payment method selector + Credit option in one row */}
         <div className="payment-methods">
           {METHODS.map((m) => (
             <button
@@ -194,16 +254,28 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
                 setCurrentMethod(m.id);
                 setCurrentRef("");
                 setCurrentAmount(String(remaining > 0 ? remaining : fin.total));
+                if (showCredit) setShowCredit(false);
               }}
             >
               <span className="payment-method-icon">{m.icon}</span>
               <span>{m.label}</span>
             </button>
           ))}
+          {/* Credit Sale — shown as a 4th method button so it's always visible */}
+          {!showCredit && remaining > 0 && (
+            <button
+              type="button"
+              className="payment-method-btn payment-method-btn--credit"
+              onClick={() => { setShowCredit(true); setCreditError(""); }}
+            >
+              <span className="payment-method-icon">📋</span>
+              <span>Credit</span>
+            </button>
+          )}
         </div>
 
         {/* PhonePe QR — full-amount quick pay */}
-        {onPhonePeQR && remaining > 0 && (
+        {onPhonePeQR && remaining > 0 && !showCredit && (
           <button
             type="button"
             className="payment-phonepe-btn"
@@ -211,17 +283,6 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
           >
             <span className="payment-phonepe-btn-icon">📱</span>
             Pay ₹{remaining} via PhonePe QR
-          </button>
-        )}
-
-        {/* Credit Sale button */}
-        {!showCredit && remaining > 0 && (
-          <button
-            type="button"
-            className="payment-credit-btn"
-            onClick={() => { setShowCredit(true); setCreditError(""); }}
-          >
-            <span>📋</span> Settle as Credit / GST Bill
           </button>
         )}
 
@@ -237,16 +298,63 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
               <strong>₹{remaining > 0 ? remaining : fin.total}</strong>
             </div>
             <div className="payment-credit-fields">
-              <div className="pcf-field">
+              {/* Customer search picker */}
+              <div className="pcf-field pcf-picker-wrap">
                 <label>Company / Customer Name <span className="pcf-req">*</span></label>
                 <input
                   type="text"
-                  placeholder="e.g. ABC Enterprises / Rajan Kumar"
-                  value={creditForm.name}
-                  onChange={e => setCreditForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Search saved customers or type new name…"
+                  value={custSearch || creditForm.name}
                   autoFocus
+                  autoComplete="off"
+                  onChange={e => {
+                    setCustSearch(e.target.value);
+                    setCreditForm(p => ({ ...p, name: e.target.value }));
+                    setShowCustDrop(true);
+                  }}
+                  onFocus={() => setShowCustDrop(true)}
+                  onBlur={() => setTimeout(() => setShowCustDrop(false), 180)}
                 />
+                {showCustDrop && custDropList.length > 0 && (
+                  <div className="pcf-drop">
+                    {custDropList.map(c => (
+                      <div key={c.id} className="pcf-drop-item" onMouseDown={() => pickCustomer(c)}>
+                        <span className="pcf-drop-name">{c.name}</span>
+                        <span className="pcf-drop-meta">
+                          {c.phone && `📞 ${c.phone}`}
+                          {c.gstin && ` · GST`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {showCustDrop && custDropList.length === 0 && custSearch.trim().length > 0 && (
+                  <div className="pcf-drop">
+                    <div className="pcf-drop-empty">No saved customer — will create new</div>
+                  </div>
+                )}
               </div>
+              {/* Outstanding credit warning */}
+              {existingCredit && (
+                <div className="pcf-outstanding-warn">
+                  <span className="pcf-warn-icon">⚠️</span>
+                  <div className="pcf-warn-body">
+                    <strong>{creditForm.name.trim()}</strong> has <strong>{existingCredit.count} unpaid bill{existingCredit.count > 1 ? "s" : ""}</strong> totalling{" "}
+                    <strong>₹{Number(existingCredit.total).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>
+                    <div className="pcf-warn-bills">
+                      {existingCredit.bills.map(b => {
+                        const p = b.payments?.find(p => p.method === "credit");
+                        return (
+                          <span key={b.id} className="pcf-warn-bill-chip">
+                            Bill #{b.billNo || b.orderNumber} · ₹{Number(p?.amount || 0).toLocaleString("en-IN")}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="pcf-field">
                 <label>GSTIN <span className="pcf-optional">(optional — required for Tax Invoice)</span></label>
                 <input

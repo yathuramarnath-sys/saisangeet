@@ -15,8 +15,14 @@
  *  - Printer config link → opens Settings → Printers
  */
 
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { printBatchLabels, generateBarcodeDataUrl, generateQRDataUrl, getLabelPrinter } from "../lib/printLabel";
+import { useState, useMemo } from "react";
+import { printBatchLabelsSmart, generateBarcodeDataUrl, generateQRDataUrl } from "../lib/printLabel";
+import { SmartPrintButton } from "./SmartPrintButton";
+
+function extractPrice(val) {
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  return Number(String(val || "").replace(/[^\d.]/g, "")) || 0;
+}
 
 const BATCH_MEMORY_KEY = "pos_last_label_batch";
 
@@ -58,16 +64,13 @@ function saveLastBatch(batch, expDate) {
   } catch { /* ignore */ }
 }
 
-export function BatchLabelModal({ menuItems = [], onClose, onOpenSettings }) {
-  const printerCfg = getLabelPrinter();
-
+export function BatchLabelModal({ menuItems = [], onClose }) {
   const [search,      setSearch]      = useState("");
   const [selected,    setSelected]    = useState({});   // { itemId: qty }
   const [mfdDate,     setMfdDate]     = useState(todayStr());
   const [expDate,     setExpDate]     = useState("");
-  const [labelSize,   setLabelSize]   = useState(printerCfg.paper       || "35x30");
-  const [barcodeType, setBarcodeType] = useState(printerCfg.barcodeType || "code128");
-  const [printing,    setPrinting]    = useState(false);
+  const [labelSize,   setLabelSize]   = useState("35x30");
+  const [barcodeType, setBarcodeType] = useState("code128");
   const [printDone,   setPrintDone]   = useState(false);
   const [lastBatch,   setLastBatch]   = useState(() => loadLastBatch());
 
@@ -130,18 +133,13 @@ export function BatchLabelModal({ menuItems = [], onClose, onOpenSettings }) {
     if (lastBatch.expDate) setExpDate(lastBatch.expDate);
   }
 
-  async function handlePrint() {
+  async function handlePrint(printerName) {
     if (batch.length === 0) return;
     saveLastBatch(batch, expDate);
-    setPrinting(true);
     setPrintDone(false);
-    try {
-      await printBatchLabels(batch, { mfdDate, expDate, labelSize, barcodeType });
-      setPrintDone(true);
-      setTimeout(() => setPrintDone(false), 3000);
-    } finally {
-      setPrinting(false);
-    }
+    await printBatchLabelsSmart(batch, { mfdDate, expDate, labelSize, barcodeType }, printerName);
+    setPrintDone(true);
+    setTimeout(() => setPrintDone(false), 3000);
   }
 
   const selectedCount = Object.keys(selected).length;
@@ -202,7 +200,7 @@ export function BatchLabelModal({ menuItems = [], onClose, onOpenSettings }) {
               )}
               {filtered.map(item => {
                 const isChecked = selected[item.id] != null;
-                const price = item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price;
+                const priceNum = extractPrice(item.pricing?.[0]?.dineIn ?? item.takeawayPrice ?? item.price);
                 return (
                   <div
                     key={item.id}
@@ -213,9 +211,9 @@ export function BatchLabelModal({ menuItems = [], onClose, onOpenSettings }) {
                         {isChecked ? "✓" : ""}
                       </span>
                       <span className="blm-item-name">{item.name}</span>
-                      {price != null && (
+                      {priceNum > 0 && (
                         <span className="blm-item-price">
-                          Rs.{Number(price).toFixed(0)}
+                          Rs.{priceNum.toFixed(0)}
                         </span>
                       )}
                     </label>
@@ -228,6 +226,7 @@ export function BatchLabelModal({ menuItems = [], onClose, onOpenSettings }) {
                         value={selected[item.id]}
                         onChange={e => setQty(item.id, e.target.value)}
                         onClick={e => e.stopPropagation()}
+                        onFocus={e => e.target.select()}
                       />
                     )}
                   </div>
@@ -302,30 +301,16 @@ export function BatchLabelModal({ menuItems = [], onClose, onOpenSettings }) {
               )}
             </div>
 
-            {/* Print button */}
-            <button
-              type="button"
-              className="blm-print-btn"
-              disabled={printing || selectedCount === 0}
-              onClick={handlePrint}
-            >
-              {printing ? (
-                <><span className="pos-spinner" /> Printing…</>
-              ) : printDone ? (
-                "✓ Sent to printer"
-              ) : (
-                `🖨 Print ${totalStickers > 0 ? `${totalStickers} ` : ""}Label${totalStickers !== 1 ? "s" : ""}`
-              )}
-            </button>
-
-            {/* Printer settings link */}
-            <button
-              type="button"
-              className="blm-settings-link"
-              onClick={() => { onClose(); onOpenSettings?.(); }}
-            >
-              ⚙️ Label Printer Settings
-            </button>
+            {/* Smart Print button */}
+            {printDone ? (
+              <div className="blm-print-done">✓ Sent to printer</div>
+            ) : (
+              <SmartPrintButton
+                onPrint={handlePrint}
+                label={`Print ${totalStickers > 0 ? `${totalStickers} ` : ""}Label${totalStickers !== 1 ? "s" : ""}`}
+                disabled={selectedCount === 0}
+              />
+            )}
 
           </div>
         </div>
