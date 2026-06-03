@@ -2574,6 +2574,15 @@ export default function App() {
           quantities={menuQuantities}
           onDecrement={handleDecrementItem}
           stockSnapshot={stockSnapshot}
+          onSkuLookup={(sku) => {
+            if (!selectedTableId) { showToast("Select a table first"); return; }
+            api.get(`/menu/sku-lookup?sku=${encodeURIComponent(sku)}&outletId=${outlet?.id || ""}`)
+              .then(item => { handleAddItem(item); showToast(`✅ ${item.name} added`); })
+              .catch(err => {
+                const notFound = err?.message?.includes("SKU_NOT_FOUND") || err?.message?.toLowerCase().includes("not found");
+                showToast(notFound ? `❌ Item #${sku} not found` : `❌ Lookup error — try again`);
+              });
+          }}
         />
       </div>
 
