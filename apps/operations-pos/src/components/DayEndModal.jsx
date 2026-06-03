@@ -40,43 +40,9 @@ export function DayEndModal({ orders, outlet, onClose, onPrint }) {
   }, []);
 
   function runPreChecks() {
-    setStage("checking");
-    const issues = [];
-
-    for (const [tableId, order] of Object.entries(orders)) {
-      if (order.isClosed) continue;
-      const activeItems = (order.items || []).filter(i => !i.isVoided && !i.isGhostVoid);
-      if (activeItems.length === 0) continue;
-
-      const label = order.tableNumber
-        ? `Table ${order.tableNumber}`
-        : tableId.startsWith("counter-") ? `Counter #${order.orderNumber || tableId}`
-        : tableId.startsWith("online-")  ? `Online order`
-        : `Table ${order.tableNumber || tableId}`;
-
-      // Check hold orders
-      if (order.isOnHold) {
-        issues.push(`${label} — on hold`);
-        continue;
-      }
-
-      // Check unsent KOT items
-      const unsentItems = activeItems.filter(i => !i.sentToKot);
-      if (unsentItems.length > 0) {
-        issues.push(`${label} — ${unsentItems.length} item(s) not sent to KOT`);
-        continue;
-      }
-
-      // Active order with items (not settled)
-      issues.push(`${label} — order not settled (${activeItems.length} item(s))`);
-    }
-
-    if (issues.length > 0) {
-      setBlocks(issues);
-      setStage("blocked");
-    } else {
-      loadReport();
-    }
+    // Day End is a read-only report — load it always so the cashier can
+    // print it before closing the last shift. No hard blocks.
+    loadReport();
   }
 
   async function loadReport() {

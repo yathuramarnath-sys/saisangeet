@@ -472,6 +472,24 @@ async function buildEscPosFromHtml(html) {
               };
             }
 
+            // ── Day End Report ────────────────────────────────────────────────
+            if (q('body.de-rpt')) {
+              const tables = qa('table');
+              const toRows = (tbl) => tbl ? Array.from(tbl.querySelectorAll('tr')).map(tr => {
+                const tds = tr.querySelectorAll('td');
+                return { label: tds[0]?.innerText?.trim() || '', value: tds[1]?.innerText?.trim() || '' };
+              }).filter(r => r.label) : [];
+              return {
+                type:       'DAYEND',
+                outlet:     q('h2')?.innerText?.trim() || '',
+                meta:       q('p.center')?.innerText?.trim() || '',
+                summary:    toRows(tables[0]),
+                payments:   toRows(tables[1]),
+                top5:       toRows(tables[2]),
+                categories: toRows(tables[3]),
+              };
+            }
+
             // ── Bill receipt ───────────────────────────────────────────────────
             const q2  = (s) => document.querySelector(s);
             const qa2 = (s) => Array.from(document.querySelectorAll(s));
@@ -628,6 +646,49 @@ async function buildEscPosFromHtml(html) {
           if (data.total) cmd += 'Total Items : ' + data.total + LF;
           if (data.sentBy) cmd += BOLD1 + 'Sent by : ' + data.sentBy + BOLD0 + LF;
           if (data.printer) cmd += data.printer + LF;
+        } else if (data.type === 'DAYEND') {
+          // ── Day End Report ────────────────────────────────────────────────────
+          const safeD = (s) => String(s || '').replace(/₹/g, 'Rs').replace(/[^\x20-\x7E]/g, '');
+          cmd += CENTER + BOLD1 + BIG + safeD(data.outlet || 'OUTLET') + NORMAL + BOLD0 + LF;
+          for (const line of (data.meta || '').split('\n')) {
+            if (line.trim()) cmd += CENTER + safeD(line.trim()) + LF;
+          }
+          cmd += DASH48 + LF;
+          for (const row of (data.summary || [])) {
+            cmd += BOLD1 + safeD(row.label).padEnd(22) + safeD(row.value).padStart(10) + BOLD0 + LF;
+          }
+          cmd += DASH48 + LF;
+          if ((data.payments || []).length > 0) {
+            cmd += CENTER + BOLD1 + 'PAYMENT BREAKDOWN' + BOLD0 + LF;
+            cmd += DASH48 + LF;
+            for (const row of data.payments) {
+              cmd += safeD(row.label).padEnd(22) + safeD(row.value).padStart(10) + LF;
+            }
+            cmd += DASH48 + LF;
+          }
+          if ((data.top5 || []).length > 0) {
+            cmd += CENTER + BOLD1 + 'TOP 5 ITEMS' + BOLD0 + LF;
+            cmd += DASH48 + LF;
+            for (const row of data.top5) {
+              const lbl = safeD(row.label);
+              const trunc = lbl.length > 22 ? lbl.substring(0, 21) + '.' : lbl;
+              cmd += trunc.padEnd(22) + safeD(row.value).padStart(10) + LF;
+            }
+            cmd += DASH48 + LF;
+          }
+          if ((data.categories || []).length > 0) {
+            cmd += CENTER + BOLD1 + 'CATEGORY SALES' + BOLD0 + LF;
+            cmd += DASH48 + LF;
+            for (const row of data.categories) {
+              const isTotal = row.label.toUpperCase() === 'TOTAL';
+              const line = safeD(row.label).padEnd(22) + safeD(row.value).padStart(10);
+              cmd += isTotal ? (BOLD1 + line + BOLD0 + LF) : (line + LF);
+            }
+            cmd += DASH48 + LF;
+          }
+          cmd += CENTER + '*** END OF DAY ***' + LF;
+          cmd += LF + LF + LF + LF;
+
         } else if (data.type === 'BILL') {
           // ── Bill receipt ─────────────────────────────────────────────────────
           // 80mm thermal = 40 chars wide. All columns sum to 40.

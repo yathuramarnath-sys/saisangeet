@@ -2922,7 +2922,7 @@ export default function App() {
             const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
 <style>
   @page{size:80mm auto;margin:0}
-  body{font-family:Arial,sans-serif;width:78mm;font-size:9pt;padding:2mm}
+  body.de-rpt{font-family:Arial,sans-serif;width:78mm;font-size:9pt;padding:2mm}
   h2{text-align:center;font-size:11pt;margin:0 0 2mm}
   .center{text-align:center;font-size:8pt;color:#555;margin:0 0 3mm}
   hr{border:none;border-top:1px dashed #999;margin:3mm 0}
@@ -2931,7 +2931,7 @@ export default function App() {
   .r{text-align:right;font-weight:700}
   .section{font-weight:800;font-size:9pt;margin:3mm 0 1mm;text-transform:uppercase;letter-spacing:0.05em}
   .total td{font-weight:900;border-top:1px solid #000;padding-top:2mm}
-</style></head><body>
+</style></head><body class="de-rpt">
 <h2>${outlet?.name || "OUTLET"}</h2>
 <p class="center">DAY END REPORT — ${report.date}<br/>${now}</p>
 <hr/>
