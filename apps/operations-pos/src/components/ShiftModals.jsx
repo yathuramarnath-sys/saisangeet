@@ -2,15 +2,6 @@ import { useState } from "react";
 import { getBillPrinter } from "../lib/kotPrint";
 import { getCreditCollectionsForShift } from "./CreditSettlePanel";
 
-function fmtTime12(iso) {
-  const d = new Date(iso);
-  let h = d.getHours();
-  const m = String(d.getMinutes()).padStart(2, "0");
-  const ampm = h >= 12 ? "pm" : "am";
-  h = h % 12 || 12;
-  return `${h}:${m} ${ampm}`;
-}
-
 const CASH_OUT_REASONS = ["Petty expense","Vendor payment","Courier payout","Staff advance","Utility bill","Other"];
 const CASH_IN_REASONS  = ["Change refill","Float top-up","Manager deposit","Other"];
 
@@ -196,7 +187,7 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
         <div className="sr-meta">
           {now.toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" })}
           {" · "}
-          {fmtTime12(now)}
+          {now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", hour12:true })}
         </div>
       </div>
 
@@ -204,8 +195,12 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
 
       <div className="sr-row"><span>Cashier</span><span>{shift.cashier}</span></div>
       <div className="sr-row"><span>Session</span><span>{shift.session}</span></div>
-      <div className="sr-row"><span>Started</span><span>{fmtTime12(shift.startedAt)}</span></div>
-      <div className="sr-row"><span>Closed</span><span>{fmtTime12(now)}</span></div>
+      <div className="sr-row"><span>Started</span><span>
+        {new Date(shift.startedAt).toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", hour12:true })}
+      </span></div>
+      <div className="sr-row"><span>Closed</span><span>
+        {now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", hour12:true })}
+      </span></div>
 
       <div className="sr-divider">{'─'.repeat(32)}</div>
       <div className="sr-section-title">CASH REGISTER</div>
