@@ -2562,10 +2562,7 @@ export default function App() {
             onClick={() => setShowSettings(true)}>
             <span className="pab-label">Settings</span>
           </button>
-          <button type="button" className="pab-btn teal"
-            onClick={() => setShowDayEnd(true)}>
-            <span className="pab-label">Day End</span>
-          </button>
+
           <button type="button" className="pab-btn dark"
             onClick={() => setShowCloseShift(true)}>
             <span className="pab-label">End Shift</span>
