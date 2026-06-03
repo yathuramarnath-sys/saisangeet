@@ -9323,16 +9323,27 @@ input, select, textarea {
 .tpp-summary      { display: none !important; }
 .tpp-head         { display: none !important; }
 
-/* 11 — Compact action bar — fits all buttons on small/tight screens */
-.pos-action-bar   { padding: 0 6px !important; gap: 3px !important; }
-.pab-group        { gap: 3px !important; }
-.pab-btn          { padding: 5px 7px !important; font-size: 11px !important; gap: 3px !important; border-radius: 8px !important; }
-.pab-icon         { font-size: 12px !important; }
-.pab-label        { font-size: 10.5px !important; }
-.pab-stats        { gap: 4px !important; padding: 0 4px !important; }
-.pab-stat-btn     { padding: 3px 6px !important; }
-.pab-stat-val     { font-size: 13px !important; }
-.pab-stat-lbl     { font-size: 8.5px !important; }
+/* 11 — Compact action bar — fits all 18 buttons on 1366px (13") through 1920px (21") */
+/* Base values target 1366×768 HD (smallest supported screen) */
+.pos-action-bar    { padding: 0 4px !important; gap: 2px !important; }
+.pab-group         { gap: 2px !important; }
+.pab-btn           { padding: 0 5px !important; font-size: 10px !important; gap: 2px !important; border-radius: 8px !important; }
+.pab-icon          { font-size: 11px !important; }
+.pab-label         { font-size: 10px !important; }
+.pab-stats         { gap: 3px !important; padding: 0 3px !important; }
+.pab-stat-btn      { padding: 3px 5px !important; }
+.pab-stat-val      { font-size: 12px !important; }
+.pab-stat-lbl      { font-size: 8px !important; }
+.online-toggle-btn { padding: 0 6px !important; font-size: 10px !important; height: 28px !important; }
+
+/* On full HD / large monitors (1920px+) restore slightly larger buttons */
+@media (min-width: 1920px) {
+  .pos-action-bar    { padding: 0 8px !important; gap: 4px !important; }
+  .pab-group         { gap: 4px !important; }
+  .pab-btn           { padding: 0 9px !important; font-size: 11px !important; gap: 4px !important; }
+  .pab-label         { font-size: 10.5px !important; }
+  .online-toggle-btn { padding: 0 10px !important; font-size: 11px !important; height: 30px !important; }
+}
 
 /* ── PinConfirm Modal ──────────────────────────────────────────────────────── */
 .pin-confirm-overlay {
