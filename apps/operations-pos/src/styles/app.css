@@ -2230,15 +2230,15 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  background: #fff3cd;
-  border: 1.5px solid #f59e0b;
+  background: #eff6ff;
+  border: 1.5px solid #3b82f6;
   border-radius: 12px;
   padding: 14px 16px;
   margin-bottom: 4px;
 }
 .sm-warn-icon { font-size: 22px; flex-shrink: 0; }
-.sm-open-orders-warn strong { font-size: 14px; color: #92400e; display: block; margin-bottom: 2px; }
-.sm-open-orders-warn p { font-size: 12px; color: #78350f; margin: 0; }
+.sm-open-orders-warn strong { font-size: 14px; color: #1e40af; display: block; margin-bottom: 2px; }
+.sm-open-orders-warn p { font-size: 12px; color: #1d4ed8; margin: 0; }
 
 /* Close shift summary */
 .sm-summary-grid {

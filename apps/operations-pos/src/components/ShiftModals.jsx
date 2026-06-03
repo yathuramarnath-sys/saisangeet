@@ -436,13 +436,13 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
         </div>
 
         <div className="sm-body">
-          {/* Open orders warning — must settle all tables before closing shift */}
+          {/* Open orders info — they will carry over to next shift automatically */}
           {openOrderCount > 0 && (
             <div className="sm-open-orders-warn">
-              <span className="sm-warn-icon">⚠️</span>
+              <span className="sm-warn-icon">ℹ️</span>
               <div>
-                <strong>{openOrderCount} table{openOrderCount > 1 ? "s" : ""} still open</strong>
-                <p>Settle all orders before closing the shift. Go back and collect payment first.</p>
+                <strong>{openOrderCount} table{openOrderCount > 1 ? "s" : ""} still running</strong>
+                <p>These orders will carry over to the next shift automatically. Payment collected by the next cashier will count in their shift.</p>
               </div>
             </div>
           )}
@@ -536,14 +536,10 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
         <div className="sm-footer">
           <button type="button" className="sm-btn-cancel" onClick={onClose}>Cancel</button>
           <button type="button"
-            className={`sm-btn-action ${openOrderCount > 0 ? "close-warn" : isExact ? "close-ok" : "close-warn"}`}
-            disabled={!counted || openOrderCount > 0}
-            title={openOrderCount > 0 ? `Settle ${openOrderCount} open table${openOrderCount > 1 ? "s" : ""} first` : undefined}
+            className={`sm-btn-action ${isExact ? "close-ok" : "close-warn"}`}
+            disabled={!counted}
             onClick={handleClose}>
-            {openOrderCount > 0
-              ? `⚠ ${openOrderCount} Open Table${openOrderCount > 1 ? "s" : ""} — Settle First`
-              : isExact ? "✓ Close Shift" : "Close Shift (Mismatch)"
-            }
+            {isExact ? "✓ Close Shift" : "Close Shift (Mismatch)"}
           </button>
         </div>
       </div>
