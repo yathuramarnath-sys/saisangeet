@@ -2562,10 +2562,7 @@ export default function App() {
             onClick={() => setShowSettings(true)}>
             <span className="pab-label">Settings</span>
           </button>
-          <button type="button" className="pab-btn teal"
-            onClick={() => setShowDayEnd(true)}>
-            <span className="pab-label">Day End</span>
-          </button>
+
           <button type="button" className="pab-btn dark"
             onClick={() => setShowCloseShift(true)}>
             <span className="pab-label">End Shift</span>
@@ -2694,6 +2691,7 @@ export default function App() {
           order={selectedOrder}
           tableLabel={tableLabel}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
+          outletId={outlet?.id || branchConfig?.outletId}
           onClose={() => setShowPayment(false)}
           onSettle={handleSettle}
           onPhonePeQR={() => { setShowPayment(false); setShowPhonePeQR(true); }}
@@ -3020,6 +3018,7 @@ export default function App() {
       {showCreditPanel && (
         <CreditSettlePanel
           activeShift={activeShift}
+          outletId={outlet?.id || branchConfig?.outletId}
           onClose={() => setShowCreditPanel(false)}
         />
       )}

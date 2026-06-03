@@ -38,7 +38,7 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 }
 
-export function CreditSettlePanel({ activeShift, onClose }) {
+export function CreditSettlePanel({ activeShift, outletId, onClose }) {
   const [bills,           setBills]           = useState([]);
   const [loading,         setLoading]         = useState(true);
   const [search,          setSearch]          = useState("");
@@ -53,12 +53,13 @@ export function CreditSettlePanel({ activeShift, onClose }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/operations/credits");
+      const url = outletId ? `/operations/credits?outletId=${outletId}` : "/operations/credits";
+      const res = await api.get(url);
       const all = Array.isArray(res) ? res : (res?.data || []);
       setBills(all.filter(b => b.creditStatus !== "paid"));
     } catch { /* keep existing */ }
     finally { setLoading(false); }
-  }, []);
+  }, [outletId]);
 
   useEffect(() => { load(); }, [load]);
 
