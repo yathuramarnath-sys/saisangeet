@@ -2349,11 +2349,9 @@ export default function App() {
   }
 
   function handleShiftClosed(closedShift) {
-    setShowCloseShift(false);   // dismiss modal BEFORE nulling shift to avoid crash
+    setShowCloseShift(false);
     setActiveShift(null);
     setSelectedTableId(null);
-    showToast("Shift closed");
-    // Sync closed shift to backend so Owner Web shows the reconciliation
     if (closedShift) {
       api.post("/shifts/close", { shift: closedShift }).catch(err => console.error("Shift close sync failed:", err.message));
     }
