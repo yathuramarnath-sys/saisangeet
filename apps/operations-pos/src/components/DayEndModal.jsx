@@ -17,7 +17,7 @@ import { useState, useEffect } from "react";
 import { api } from "../lib/api";
 
 function fmt(n) {
-  return `Rs.${Number(n || 0).toFixed(2)}`;
+  return Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 const METHOD_LABELS = {

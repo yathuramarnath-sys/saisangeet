@@ -2913,13 +2913,13 @@ export default function App() {
             // Build printable HTML for day end report
             const now = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
             const payRows = Object.entries(report.paymentTotals || {})
-              .map(([m, a]) => `<tr><td>${m.charAt(0).toUpperCase()+m.slice(1)}</td><td class="r">Rs.${Number(a).toFixed(2)}</td></tr>`)
+              .map(([m, a]) => `<tr><td>${m.charAt(0).toUpperCase()+m.slice(1)}</td><td class="r">${Number(a).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>`)
               .join("");
             const topRows = (report.top5 || [])
-              .map((it, i) => `<tr><td>#${i+1} ${it.name} ×${it.qty}</td><td class="r">Rs.${Number(it.revenue).toFixed(2)}</td></tr>`)
+              .map((it, i) => `<tr><td>#${i+1} ${it.name} ×${it.qty}</td><td class="r">${Number(it.revenue).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>`)
               .join("");
             const catRows = (report.categories || [])
-              .map(c => `<tr><td>${c.name}</td><td class="r">Rs.${Number(c.revenue).toFixed(2)}</td></tr>`)
+              .map(c => `<tr><td>${c.name}</td><td class="r">${Number(c.revenue).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>`)
               .join("");
             const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
 <style>
@@ -2939,9 +2939,9 @@ export default function App() {
 <hr/>
 <table>
   <tr><td>Total Bills</td><td class="r">${report.totalBills}</td></tr>
-  <tr><td>Total Sales</td><td class="r">Rs.${Number(report.totalSales).toFixed(2)}</td></tr>
-  <tr><td>Discounts</td><td class="r">Rs.${Number(report.totalDiscount).toFixed(2)}</td></tr>
-  <tr><td>Void / Comp</td><td class="r">Rs.${Number(report.totalVoidComp).toFixed(2)}</td></tr>
+  <tr><td>Total Sales</td><td class="r">${Number(report.totalSales).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>
+  <tr><td>Discounts</td><td class="r">${Number(report.totalDiscount).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>
+  <tr><td>Void / Comp</td><td class="r">${Number(report.totalVoidComp).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>
 </table>
 <hr/>
 <div class="section">Payment Breakdown</div>
@@ -2953,7 +2953,7 @@ export default function App() {
 <div class="section">Category Sales</div>
 <table>
   ${catRows}
-  <tr class="total"><td>TOTAL</td><td class="r">Rs.${Number(report.totalSales).toFixed(2)}</td></tr>
+  <tr class="total"><td>TOTAL</td><td class="r">${Number(report.totalSales).toLocaleString("en-IN",{minimumFractionDigits:2})}</td></tr>
 </table>
 <hr/>
 <p class="center">*** END OF DAY ***</p>

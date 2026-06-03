@@ -163,13 +163,12 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
     });
     return acc;
   }, {});
-  const fmt = n => "₹" + Math.abs(n).toLocaleString("en-IN");
+  const fmt = n => Math.abs(n).toLocaleString("en-IN");
   const now = new Date();
 
   return (
     <div className="shift-receipt" id="shift-receipt-print">
       <div className="sr-header">
-        <div className="sr-logo">🍽</div>
         <div className="sr-outlet">{shift.outlet}</div>
         <div className="sr-title">SHIFT CLOSING REPORT</div>
         <div className="sr-meta">
@@ -211,7 +210,7 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
         <div className="sr-section-title">DENOMINATION BREAKDOWN</div>
         {(denomBreakdown || []).map(d => (
           <div key={d.note} className="sr-row sr-denom-row">
-            <span>₹{d.note} × {d.count}</span>
+            <span>{d.note} × {d.count}</span>
             <span>{fmt(d.total)}</span>
           </div>
         ))}
