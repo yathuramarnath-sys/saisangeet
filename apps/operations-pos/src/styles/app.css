@@ -2268,6 +2268,21 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   font-weight: 600;
 }
 
+/* Open orders warning inside Close Shift modal */
+.sm-open-orders-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #eff6ff;
+  border: 1.5px solid #3b82f6;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 4px;
+}
+.sm-warn-icon { font-size: 22px; flex-shrink: 0; }
+.sm-open-orders-warn strong { font-size: 14px; color: #1e40af; display: block; margin-bottom: 2px; }
+.sm-open-orders-warn p { font-size: 12px; color: #1d4ed8; margin: 0; }
+
 /* Close shift summary */
 .sm-summary-grid {
   background: #f7f6f3;
@@ -5276,6 +5291,8 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   border-bottom: 1px solid rgba(255,255,255,0.06);
   gap: 16px;
   z-index: 20;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .pbb-brand {
@@ -5284,9 +5301,10 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   gap: 9px;
   flex-shrink: 0;
   min-width: 190px;
+  overflow: hidden;
 }
 .pbb-icon { display: flex; align-items: center; justify-content: center; color: inherit; }
-.pbb-name { font-size: 13px; font-weight: 900; color: #fff; letter-spacing: -0.3px; }
+.pbb-name { font-size: 13px; font-weight: 900; color: #fff; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pbb-sub  { font-size: 10px; color: rgba(255,255,255,0.35); font-weight: 500; }
 
 .pbb-modes {
@@ -5294,6 +5312,9 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   gap: 6px;
   flex: 1;
   justify-content: center;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 .pbb-mode-pill {
   padding: 6px 16px;
@@ -5362,12 +5383,19 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   gap: 8px;
   z-index: 18;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;         /* Firefox — hide scrollbar */
+  -ms-overflow-style: none;      /* IE/Edge — hide scrollbar */
+  min-height: 48px;
 }
+.pos-action-bar::-webkit-scrollbar { display: none; } /* Chrome/Safari — hide scrollbar */
 
 .pab-group {
   display: flex;
   align-items: center;
   gap: 5px;
+  flex-shrink: 0;                /* prevent groups from squashing */
 }
 
 .pab-btn {
@@ -5429,6 +5457,7 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   align-items: center;
   gap: 12px;
   padding: 0 16px;
+  flex-shrink: 0;
   background: #F8F9FB;
   border-radius: 8px;
   border: 1px solid #ECEEF2;
@@ -8066,7 +8095,7 @@ input, select, textarea {
 /* ── Table legend chips — amber for selected/active ──────────────────────── */
 /* Keep existing status colors for table cards — they carry meaning */
 
-/* ── Version badge in cashier chip ───────────────────────────────────────── */
+/* ── Version badge in cashier chip (legacy inline, kept for fallback) ─────── */
 .pbb-ver-badge {
   display:        inline-block;
   margin-left:    5px;
@@ -8080,10 +8109,20 @@ input, select, textarea {
   vertical-align: middle;
 }
 
-/* In the light topbar variant */
-.pbb-session .pbb-ver-badge {
-  background: rgba(26,35,50,0.08);
-  color:      var(--v2-text3);
+/* ── Standalone version pill — displayed prominently in topbar ────────────── */
+.pbb-ver-pill {
+  display:        inline-flex;
+  align-items:    center;
+  padding:        4px 10px;
+  border-radius:  20px;
+  background:     #16a34a;
+  color:          #ffffff;
+  font-size:      12px;
+  font-weight:    800;
+  letter-spacing: 0.4px;
+  white-space:    nowrap;
+  flex-shrink:    0;
+  box-shadow:     0 1px 4px rgba(22,163,74,0.35);
 }
 
 /* ── 19. Update banner — show current version inline ─────────────────────── */
@@ -8219,6 +8258,20 @@ input, select, textarea {
   .table-area-grid  { grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .menu-items-grid  { grid-template-columns: repeat(2, 1fr) !important; }
   .menu-cards-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* ── Scrollability hint — fade on right edge of action bar on all screens ── */
+.pos-action-bar-wrap {
+  position: relative;
+}
+.pos-action-bar-wrap::after {
+  content: "";
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 32px;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.9));
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* ── Touch screens (pointer: coarse = finger, not mouse) ────────────────── */

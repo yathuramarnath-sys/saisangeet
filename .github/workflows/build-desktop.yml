@@ -39,7 +39,7 @@ jobs:
         working-directory: apps/operations-pos
         run: npx electron-builder build --win --x64 --publish never
 
-      - name: Upload artifact
+      - name: Upload artifact (always)
         uses: actions/upload-artifact@v4
         with:
           name: Plato-POS-Windows
@@ -66,6 +66,22 @@ jobs:
           git tag -d "v${{ steps.version.outputs.VERSION }}" 2>/dev/null || true
           git push origin ":refs/tags/v${{ steps.version.outputs.VERSION }}" 2>/dev/null || true
 
+      - name: Write release notes
+        if: ${{ inputs.release == 'yes' }}
+        shell: bash
+        run: |
+          cat > /tmp/notes.md << 'NOTES'
+          ### Plato POS v${{ steps.version.outputs.VERSION }}
+
+          Download **Plato-POS-Setup.exe** below and run the installer on Windows.
+
+          **What's new:**
+          - Responsive layout for small POS screens (1024x768 and 1024x600)
+          - Version badge shown prominently in topbar
+          - Shift close: open tables carry over automatically to next cashier
+          - Action bar scrolls horizontally when buttons overflow on small screens
+          NOTES
+
       - name: Create GitHub Release
         if: ${{ inputs.release == 'yes' }}
         shell: bash
@@ -77,7 +93,7 @@ jobs:
             "apps/operations-pos/electron-dist/latest.yml" \
             --repo ${{ github.repository }} \
             --title "Plato POS ${{ steps.version.outputs.VERSION }}" \
-            --notes "Plato POS v${{ steps.version.outputs.VERSION }} — download Plato-POS-Setup.exe and install on Windows." \
+            --notes-file /tmp/notes.md \
             --latest
 
   build-kds-windows:
@@ -91,6 +107,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Install root dependencies (provides app-builder-bin for electron-builder)
+        run: npm install --ignore-scripts
 
       - name: Install KDS dependencies
         working-directory: apps/kitchen-display

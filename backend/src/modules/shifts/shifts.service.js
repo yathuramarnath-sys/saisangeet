@@ -2,7 +2,7 @@ const {
   markCashMismatchUnderReview
 } = require("../operations/operations.memory-store");
 const { syncOperationsState, persistOperationsState } = require("../operations/operations.state");
-const { openShift, recordMovement, closeShift, getShifts, deleteShiftFromHistory } = require("../operations/shifts-store");
+const { openShift, recordMovement, closeShift, closeAllShifts, getShifts, deleteShiftFromHistory } = require("../operations/shifts-store");
 
 /** GET /shifts/summary — returns live shift data for Owner Web. */
 async function fetchShiftSummary(tenantId) {
@@ -27,6 +27,12 @@ async function endShift(tenantId, closedShift) {
   return { ok: true };
 }
 
+/** POST /shifts/close-all — owner force-closes all open shifts (end of day). */
+async function endAllShifts(tenantId, closedBy) {
+  const closed = closeAllShifts(tenantId, closedBy);
+  return { ok: true, closedCount: closed.length, shifts: closed };
+}
+
 /** DELETE /shifts/history/:shiftId — owner removes a specific shift entry. */
 async function removeShiftFromHistory(tenantId, shiftId) {
   const deleted = deleteShiftFromHistory(tenantId, shiftId);
@@ -45,6 +51,7 @@ module.exports = {
   startShift,
   addMovement,
   endShift,
+  endAllShifts,
   reviewCashMismatch,
   removeShiftFromHistory
 };

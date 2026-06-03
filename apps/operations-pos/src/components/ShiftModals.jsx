@@ -44,6 +44,7 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
 
   const [amount,   setAmount]   = useState("0");
   const [reason,   setReason]   = useState(reasons[0]);
+  const [notes,    setNotes]    = useState("");
   const [pin,      setPin]      = useState("");
   const [pinError, setPinError] = useState(false);
 
@@ -60,6 +61,7 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
       type,
       amount:       amt,
       reason,
+      notes:        notes.trim(),
       authorizedBy: "Manager",
       time:         new Date().toISOString()
     };
@@ -117,6 +119,17 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="sm-field">
+            <label>Details <span style={{fontWeight:"normal",opacity:0.6}}>(optional)</span></label>
+            <input
+              type="text"
+              className="sm-pin-input"
+              placeholder="e.g. Paid vegetable vendor, electricity bill..."
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
           </div>
 
           <div className="sm-field">
@@ -249,8 +262,12 @@ function ShiftReceipt({ shift, cashSales, expectedCash, closingNum, variance, sh
 const DENOMS = [500, 200, 100, 50, 20, 10, 5, 2, 1];
 
 export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
-  // Safety guard — if shift becomes null before the modal unmounts, render nothing
   if (!shift) return null;
+
+  // Count orders that have items and are not settled
+  const openOrderCount = Object.values(orders || {}).filter(
+    o => !o.isClosed && (o.items || []).length > 0
+  ).length;
 
   const [denomCounts, setDenomCounts] = useState(() =>
     Object.fromEntries(DENOMS.map(d => [d, ""]))
@@ -270,7 +287,11 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
     try {
       const all = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]") || [];
       const shiftStart = new Date(shift.startedAt).getTime();
-      return all.filter(o => o.isClosed && new Date(o.closedAt || 0).getTime() >= shiftStart);
+      return all.filter(o =>
+        o.isClosed &&
+        new Date(o.closedAt || 0).getTime() >= shiftStart &&
+        (!o.outletName || !shift.outlet || o.outletName === shift.outlet)
+      );
     } catch { return []; }
   })();
 
@@ -431,6 +452,17 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
         </div>
 
         <div className="sm-body">
+          {/* Open orders info — they will carry over to next shift automatically */}
+          {openOrderCount > 0 && (
+            <div className="sm-open-orders-warn">
+              <span className="sm-warn-icon">ℹ️</span>
+              <div>
+                <strong>{openOrderCount} table{openOrderCount > 1 ? "s" : ""} still running</strong>
+                <p>These orders will carry over to the next shift automatically. Payment collected by the next cashier will count in their shift.</p>
+              </div>
+            </div>
+          )}
+
           {/* Shift summary */}
           <div className="sm-summary-grid">
             <div className="sm-sum-row">

@@ -163,4 +163,28 @@ function deleteShiftFromHistory(tenantId, shiftId) {
   return false;    // not found
 }
 
-module.exports = { openShift, recordMovement, closeShift, getShifts, hydrateShifts, deleteShiftFromHistory };
+/**
+ * Force-close all active shifts for a tenant (end-of-day owner action).
+ * Returns the list of shifts that were closed.
+ */
+function closeAllShifts(tenantId, closedBy) {
+  const t = _getTenant(tenantId);
+  const now = new Date().toISOString();
+  const closed = t.active.map(s => ({
+    ...s,
+    status:      "closed",
+    closedAt:    now,
+    closedBy:    closedBy || "Owner",
+    forceClose:  true,
+    actualCash:  s.openingCash || 0,
+    variance:    0,
+    note:        "Force-closed by owner at end of day"
+  }));
+  closed.forEach(s => t.history.unshift(s));
+  if (t.history.length > 500) t.history.splice(500);
+  t.active = [];
+  _persist();
+  return closed;
+}
+
+module.exports = { openShift, recordMovement, closeShift, closeAllShifts, getShifts, hydrateShifts, deleteShiftFromHistory };
