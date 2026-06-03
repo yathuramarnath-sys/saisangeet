@@ -92,12 +92,9 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install root dependencies
-        run: npm install --ignore-scripts
-
       - name: Install KDS dependencies
         working-directory: apps/kitchen-display
-        run: npm install
+        run: npm install --no-workspaces
 
       - name: Build Vite app
         working-directory: apps/kitchen-display
