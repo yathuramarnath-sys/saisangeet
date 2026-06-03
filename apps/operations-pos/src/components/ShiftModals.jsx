@@ -288,7 +288,11 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
     try {
       const all = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]") || [];
       const shiftStart = new Date(shift.startedAt).getTime();
-      return all.filter(o => o.isClosed && new Date(o.closedAt || 0).getTime() >= shiftStart);
+      return all.filter(o =>
+        o.isClosed &&
+        new Date(o.closedAt || 0).getTime() >= shiftStart &&
+        (!o.outletName || !shift.outlet || o.outletName === shift.outlet)
+      );
     } catch { return []; }
   })();
 
