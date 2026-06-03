@@ -108,6 +108,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install root dependencies (provides app-builder-bin for electron-builder)
+        run: npm install --ignore-scripts
+
       - name: Install KDS dependencies
         working-directory: apps/kitchen-display
         run: npm install
