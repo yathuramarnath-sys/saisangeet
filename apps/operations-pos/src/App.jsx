@@ -8,6 +8,7 @@ import { PaymentSheet }       from "./components/PaymentSheet";
 import { SplitBillSheet }          from "./components/SplitBillSheet";
 import { SplitSettlementPanel }    from "./components/SplitSettlementPanel";
 import { ShiftGate }          from "./components/ShiftGate";
+import { DayEndModal }        from "./components/DayEndModal";
 import { CashMovementModal, CloseShiftModal } from "./components/ShiftModals";
 import { AdvanceOrderModal }  from "./components/AdvanceOrderModal";
 import { AdvanceOrdersPanel } from "./components/AdvanceOrdersPanel";
@@ -327,6 +328,7 @@ export default function App() {
   const [showCashIn,       setShowCashIn]       = useState(false);
   const [showCashOut,      setShowCashOut]      = useState(false);
   const [showCloseShift,   setShowCloseShift]   = useState(false);
+  const [showDayEnd,       setShowDayEnd]       = useState(false);
   const [showAdvanceOrder, setShowAdvanceOrder] = useState(false); // legacy — replaced by panel
   const [showAdvancePanel, setShowAdvancePanel] = useState(false);
   const [counterTicketNum,   setCounterTicketNum]   = useState(() => {
@@ -815,7 +817,27 @@ export default function App() {
 
         // Restore orders from localStorage — merge with cached table layout
         // Pass outletId so cross-outlet stale orders are rejected
-        const savedOrders = loadSavedOrders(branchConfig?.outletId || null);
+        let savedOrders = loadSavedOrders(branchConfig?.outletId || null);
+
+        // ── Stale order cleanup ───────────────────────────────────────────────
+        // Remove any active orders older than 24 hours that were never settled.
+        // These are ghost orders from previous days — auto-clear on startup.
+        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        let staleCount = 0;
+        savedOrders = Object.fromEntries(
+          Object.entries(savedOrders).filter(([, order]) => {
+            if (order.isClosed) return true; // keep closed (for history)
+            const hasItems = (order.items || []).some(i => !i.isVoided && !i.isGhostVoid);
+            if (!hasItems) return true; // empty order — keep
+            const lastActivity = order.updatedAt || order.createdAt || 0;
+            if (lastActivity < cutoff) { staleCount++; return false; }
+            return true;
+          })
+        );
+        if (staleCount > 0) {
+          console.info(`[POS] Auto-cleared ${staleCount} stale order(s) older than 24h`);
+        }
+
         setOrders((prev) =>
           ensureOrders(
             Object.keys(prev).length ? prev : savedOrders,
@@ -2540,6 +2562,10 @@ export default function App() {
             onClick={() => setShowSettings(true)}>
             <span className="pab-label">Settings</span>
           </button>
+          <button type="button" className="pab-btn teal"
+            onClick={() => setShowDayEnd(true)}>
+            <span className="pab-label">Day End</span>
+          </button>
           <button type="button" className="pab-btn dark"
             onClick={() => setShowCloseShift(true)}>
             <span className="pab-label">End Shift</span>
@@ -2872,6 +2898,79 @@ export default function App() {
                   },
                 }).catch(() => {}); // silent — local state already updated
               }
+            }
+          }}
+        />
+      )}
+
+      {/* ── Day End modal ────────────────────────────────────────────────── */}
+      {showDayEnd && (
+        <DayEndModal
+          orders={orders}
+          outlet={outlet}
+          onClose={() => setShowDayEnd(false)}
+          onPrint={async (report) => {
+            // Build printable HTML for day end report
+            const now = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+            const payRows = Object.entries(report.paymentTotals || {})
+              .map(([m, a]) => `<tr><td>${m.charAt(0).toUpperCase()+m.slice(1)}</td><td class="r">Rs.${Number(a).toFixed(2)}</td></tr>`)
+              .join("");
+            const topRows = (report.top5 || [])
+              .map((it, i) => `<tr><td>#${i+1} ${it.name} ×${it.qty}</td><td class="r">Rs.${Number(it.revenue).toFixed(2)}</td></tr>`)
+              .join("");
+            const catRows = (report.categories || [])
+              .map(c => `<tr><td>${c.name}</td><td class="r">Rs.${Number(c.revenue).toFixed(2)}</td></tr>`)
+              .join("");
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<style>
+  @page{size:80mm auto;margin:0}
+  body{font-family:Arial,sans-serif;width:78mm;font-size:9pt;padding:2mm}
+  h2{text-align:center;font-size:11pt;margin:0 0 2mm}
+  .center{text-align:center;font-size:8pt;color:#555;margin:0 0 3mm}
+  hr{border:none;border-top:1px dashed #999;margin:3mm 0}
+  table{width:100%;border-collapse:collapse}
+  td{padding:1.5mm 0;font-size:8.5pt}
+  .r{text-align:right;font-weight:700}
+  .section{font-weight:800;font-size:9pt;margin:3mm 0 1mm;text-transform:uppercase;letter-spacing:0.05em}
+  .total td{font-weight:900;border-top:1px solid #000;padding-top:2mm}
+</style></head><body>
+<h2>${outlet?.name || "OUTLET"}</h2>
+<p class="center">DAY END REPORT — ${report.date}<br/>${now}</p>
+<hr/>
+<table>
+  <tr><td>Total Bills</td><td class="r">${report.totalBills}</td></tr>
+  <tr><td>Total Sales</td><td class="r">Rs.${Number(report.totalSales).toFixed(2)}</td></tr>
+  <tr><td>Discounts</td><td class="r">Rs.${Number(report.totalDiscount).toFixed(2)}</td></tr>
+  <tr><td>Void / Comp</td><td class="r">Rs.${Number(report.totalVoidComp).toFixed(2)}</td></tr>
+</table>
+<hr/>
+<div class="section">Payment Breakdown</div>
+<table>${payRows}</table>
+<hr/>
+<div class="section">Top 5 Items</div>
+<table>${topRows}</table>
+<hr/>
+<div class="section">Category Sales</div>
+<table>
+  ${catRows}
+  <tr class="total"><td>TOTAL</td><td class="r">Rs.${Number(report.totalSales).toFixed(2)}</td></tr>
+</table>
+<hr/>
+<p class="center">*** END OF DAY ***</p>
+</body></html>`;
+            // Use default bill printer
+            if (window.electronAPI?.printHTML) {
+              const printers = JSON.parse(localStorage.getItem("pos_printers") || "[]");
+              const def = printers.find(p => p.isDefault) || printers[0];
+              await window.electronAPI.printHTML({
+                html,
+                printerName: def?.winName || null,
+                printerIp:   def?.ip      || null,
+                paperWidthMm: 80,
+              });
+            } else {
+              const w = window.open("","_blank","width=400,height=600");
+              if (w) { w.document.write(html); w.document.close(); w.print(); }
             }
           }}
         />

@@ -9692,3 +9692,54 @@ input, select, textarea {
 }
 .smpb-popover-cancel:hover { color: #94a3b8; }
 .sp-row-error { font-size: 0.78rem; color: #dc2626; margin: 0; }
+
+/* ─── DayEndModal ───────────────────────────────────────────────────────────── */
+.dayend-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center; z-index: 1100;
+}
+.dayend-modal {
+  background: #1e293b; border-radius: 16px; width: 900px; max-width: 96vw;
+  max-height: 90vh; display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5); overflow: hidden;
+}
+.dayend-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 20px 24px 16px; border-bottom: 1px solid #334155;
+}
+.dayend-head h2 { font-size: 1.2rem; font-weight: 800; color: #f1f5f9; margin: 0; }
+.dayend-date { font-size: 0.85rem; color: #94a3b8; margin: 4px 0 0; }
+.dayend-close { background: none; border: none; color: #64748b; font-size: 1.2rem; cursor: pointer; padding: 4px; }
+.dayend-close:hover { color: #f1f5f9; }
+.dayend-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 48px; color: #94a3b8; }
+.dayend-blocked { padding: 32px 24px; text-align: center; }
+.dayend-blocked-icon { font-size: 2.5rem; margin-bottom: 12px; }
+.dayend-blocked h3 { color: #fbbf24; font-size: 1.1rem; margin: 0 0 8px; }
+.dayend-blocked p { color: #94a3b8; margin: 0 0 16px; font-size: 0.9rem; }
+.dayend-block-list { list-style: none; padding: 0; margin: 0 0 24px; text-align: left; display: inline-block; }
+.dayend-block-list li { color: #f87171; font-size: 0.9rem; padding: 4px 0; }
+.dayend-retry-btn { background: #334155; color: #e2e8f0; border: none; border-radius: 8px; padding: 10px 24px; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+.dayend-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.dayend-summary-row { display: flex; gap: 12px; margin-bottom: 20px; }
+.dayend-summary-box { flex: 1; background: #0f172a; border-radius: 10px; padding: 14px; text-align: center; }
+.dayend-summary-box.green { border-left: 3px solid #10b981; }
+.dayend-summary-box.red   { border-left: 3px solid #ef4444; }
+.dayend-summary-box.orange{ border-left: 3px solid #f59e0b; }
+.dayend-summary-label { display: block; font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.dayend-summary-value { display: block; font-size: 1.1rem; font-weight: 800; color: #f1f5f9; }
+.dayend-columns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.dayend-section { background: #0f172a; border-radius: 10px; padding: 14px; }
+.dayend-section-title { font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+.dayend-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #1e293b; font-size: 0.85rem; color: #e2e8f0; }
+.dayend-row:last-child { border-bottom: none; }
+.dayend-row.total { border-top: 1px solid #334155; margin-top: 4px; font-weight: 800; color: #f1f5f9; }
+.dayend-row-val { font-weight: 700; color: #34d399; }
+.dayend-row.total .dayend-row-val { color: #f1f5f9; }
+.dayend-item-name { display: flex; align-items: center; gap: 4px; }
+.dayend-rank { color: #f59e0b; font-weight: 700; font-size: 0.75rem; }
+.dayend-qty { color: #64748b; font-size: 0.8rem; }
+.dayend-empty { color: #475569; font-size: 0.85rem; font-style: italic; }
+.dayend-footer { padding: 16px 24px; border-top: 1px solid #334155; display: flex; gap: 12px; justify-content: flex-end; }
+.dayend-print-btn { background: linear-gradient(135deg,#059669,#047857); color: #fff; border: none; border-radius: 8px; padding: 11px 24px; font-size: 0.95rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 8px; }
+.dayend-print-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.dayend-close-btn { background: #334155; color: #e2e8f0; border: none; border-radius: 8px; padding: 11px 24px; font-size: 0.95rem; font-weight: 600; cursor: pointer; font-family: inherit; }

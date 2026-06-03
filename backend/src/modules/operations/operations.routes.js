@@ -285,6 +285,86 @@ operationsRouter.get("/action-logs",   requireAuth, asyncHandler(async (req, res
   res.json(logs);
 }));
 
+// ── Day End Report ────────────────────────────────────────────────────────────
+// GET /operations/day-end?outletId=xxx
+// Returns today's sales summary: totals, payment breakdown, top 5 items, category sales
+operationsRouter.get("/day-end", requireAuth, asyncHandler(async (req, res) => {
+  const { getTodaySalesByOutlet } = require("./closed-orders-store");
+  const tenantId = req.user?.tenantId || "default";
+  const { outletId } = req.query;
+
+  const orders = getTodaySalesByOutlet(tenantId, outletId);
+
+  // ── Totals ────────────────────────────────────────────────────────────────
+  let totalBills    = orders.length;
+  let totalSales    = 0;
+  let totalDiscount = 0;
+  let totalVoidComp = 0;
+  const paymentTotals = {};
+  const itemSales     = {};  // itemName → { qty, revenue }
+  const catSales      = {};  // categoryName → revenue
+
+  for (const order of orders) {
+    const items    = order.items || [];
+    const payments = order.payments || [];
+
+    // Payment breakdown
+    for (const p of payments) {
+      const method = p.method || "cash";
+      paymentTotals[method] = (paymentTotals[method] || 0) + Number(p.amount || 0);
+    }
+
+    // Items
+    for (const item of items) {
+      if (item.isVoided || item.isGhostVoid) {
+        totalVoidComp += Number(item.price || 0) * Number(item.quantity || 1);
+        continue;
+      }
+      if (item.isComp) {
+        totalVoidComp += Number(item.price || 0) * Number(item.quantity || 1);
+        continue;
+      }
+      const qty = Number(item.quantity || 1);
+      const rev = Number(item.price || 0) * qty;
+      totalSales += rev;
+
+      // Top items
+      const key = item.name || "Unknown";
+      if (!itemSales[key]) itemSales[key] = { qty: 0, revenue: 0 };
+      itemSales[key].qty     += qty;
+      itemSales[key].revenue += rev;
+
+      // Category sales
+      const cat = item.categoryName || item.category || "Other";
+      catSales[cat] = (catSales[cat] || 0) + rev;
+    }
+
+    totalDiscount += Number(order.discountAmount || 0);
+  }
+
+  // Top 5 items by quantity
+  const top5 = Object.entries(itemSales)
+    .sort((a, b) => b[1].qty - a[1].qty)
+    .slice(0, 5)
+    .map(([name, { qty, revenue }]) => ({ name, qty, revenue }));
+
+  // Category breakdown sorted by revenue
+  const categories = Object.entries(catSales)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, revenue]) => ({ name, revenue }));
+
+  res.json({
+    date:          new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "2-digit", year: "numeric" }),
+    totalBills,
+    totalSales,
+    totalDiscount,
+    totalVoidComp,
+    paymentTotals,
+    top5,
+    categories,
+  });
+}));
+
 module.exports = {
   operationsRouter
 };
