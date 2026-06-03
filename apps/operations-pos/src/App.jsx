@@ -2694,6 +2694,7 @@ export default function App() {
           order={selectedOrder}
           tableLabel={tableLabel}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
+          outletId={outlet?.id || branchConfig?.outletId}
           onClose={() => setShowPayment(false)}
           onSettle={handleSettle}
           onPhonePeQR={() => { setShowPayment(false); setShowPhonePeQR(true); }}
@@ -3020,6 +3021,7 @@ export default function App() {
       {showCreditPanel && (
         <CreditSettlePanel
           activeShift={activeShift}
+          outletId={outlet?.id || branchConfig?.outletId}
           onClose={() => setShowCreditPanel(false)}
         />
       )}

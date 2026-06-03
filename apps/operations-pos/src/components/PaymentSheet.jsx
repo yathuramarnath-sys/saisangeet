@@ -10,7 +10,7 @@ const METHODS = [
 
 const BLANK_CREDIT = { name: "", gstin: "", address: "", phone: "", poNumber: "" };
 
-export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR, gstTreatment = "exclusive" }) {
+export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR, gstTreatment = "exclusive", outletId }) {
   const fin = getFinancials(order, { gstTreatment });
 
   // Local payments added during this modal session (not yet persisted)
@@ -68,7 +68,8 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
     if (creditCheckTimer.current) clearTimeout(creditCheckTimer.current);
     creditCheckTimer.current = setTimeout(async () => {
       try {
-        const all = await api.get("/operations/credits");
+        const credUrl = outletId ? `/operations/credits?outletId=${outletId}` : "/operations/credits";
+        const all = await api.get(credUrl);
         const unpaid = (Array.isArray(all) ? all : []).filter(b =>
           b.creditStatus !== "paid" &&
           (b.creditCustomer?.name || "").trim().toLowerCase() === name.toLowerCase()
