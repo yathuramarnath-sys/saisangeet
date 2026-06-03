@@ -39,9 +39,9 @@ export function ShiftGate({ outletName, cashierName, onShiftStarted }) {
   const staffNames = loadStaffNames();
   const defaultCashier = cashierName || staffNames[0] || "";
 
-  const [session,     setSession]     = useState("Lunch");
+  const [session,     setSession]     = useState("");
   const [cashier,     setCashier]     = useState(defaultCashier);
-  const [openingCash, setOpeningCash] = useState("5000");
+  const [openingCash, setOpeningCash] = useState("");
 
   const today = new Date().toLocaleDateString("en-IN", {
     weekday: "long", day: "numeric", month: "long"
@@ -118,7 +118,10 @@ export function ShiftGate({ outletName, cashierName, onShiftStarted }) {
           <NumPad value={openingCash} onChange={setOpeningCash} />
         </div>
 
-        <button type="button" className="sg-start-btn" onClick={handleStart}>
+        <button type="button" className="sg-start-btn"
+          onClick={handleStart}
+          disabled={!session || !openingCash || Number(openingCash) < 0}
+          style={(!session || !openingCash) ? {opacity:0.5, cursor:"not-allowed"} : {}}>
           Start Shift
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5">
