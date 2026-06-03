@@ -329,6 +329,7 @@ export default function App() {
   const [showCashOut,      setShowCashOut]      = useState(false);
   const [showCloseShift,   setShowCloseShift]   = useState(false);
   const [showDayEnd,       setShowDayEnd]       = useState(false);
+  const [dayEndPostShift,  setDayEndPostShift]  = useState(false);
   const [showAdvanceOrder, setShowAdvanceOrder] = useState(false); // legacy — replaced by panel
   const [showAdvancePanel, setShowAdvancePanel] = useState(false);
   const [counterTicketNum,   setCounterTicketNum]   = useState(() => {
@@ -2350,11 +2351,13 @@ export default function App() {
 
   function handleShiftClosed(closedShift) {
     setShowCloseShift(false);
-    setActiveShift(null);
-    setSelectedTableId(null);
     if (closedShift) {
       api.post("/shifts/close", { shift: closedShift }).catch(err => console.error("Shift close sync failed:", err.message));
     }
+    // Keep shift alive in state so Day End can use outlet/cashier info.
+    // Shift is fully nulled when Day End modal closes.
+    setDayEndPostShift(true);
+    setShowDayEnd(true);
   }
 
   function showToast(message) {
@@ -2904,7 +2907,14 @@ export default function App() {
         <DayEndModal
           orders={orders}
           outlet={outlet}
-          onClose={() => setShowDayEnd(false)}
+          onClose={() => {
+            setShowDayEnd(false);
+            if (dayEndPostShift) {
+              setDayEndPostShift(false);
+              setActiveShift(null);
+              setSelectedTableId(null);
+            }
+          }}
           onPrint={async (report) => {
             // Build printable HTML for day end report
             const now = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
