@@ -52,6 +52,11 @@ const updateOutletRules = [
     .trim()
     .isEmail().withMessage("Report email must be a valid email address")
     .isLength({ max: 200 }).withMessage("Report email too long"),
+
+  body("upiId")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 100 }).withMessage("UPI ID too long"),
 ];
 
 module.exports = { createOutletRules, updateOutletRules };

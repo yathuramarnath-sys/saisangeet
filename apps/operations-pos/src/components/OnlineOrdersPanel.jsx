@@ -44,6 +44,8 @@ function TimeAgo({ isoDate }) {
 
 /* ── Main component ─────────────────────────────────────────────────────── */
 export function OnlineOrdersPanel({ outletId, outletName, outletAddress, socket, onAccept, onClose }) {
+  const PREP_TIMES = [15, 20, 30, 45];
+
   const [orders,        setOrders]        = useState([]);
   const [loading,       setLoading]       = useState(true);
   const [rejectTarget,  setRejectTarget]  = useState(null);
@@ -52,6 +54,10 @@ export function OnlineOrdersPanel({ outletId, outletName, outletAddress, socket,
   const [dispatchOrder, setDispatchOrder] = useState(null);  // order being dispatched via Borzo
   // Track which orders have active Borzo deliveries: orderId → { borzoOrderId, status, ... }
   const [deliveries,    setDeliveries]    = useState({});
+  // Prep time selector: orderId → chosen minutes (shown while cashier picks time)
+  const [prepTimes,     setPrepTimes]     = useState({});
+  // Mark-as-ready in-flight: Set<orderId>
+  const [markingReady,  setMarkingReady]  = useState(new Set());
 
   // ── Fetch from backend ──────────────────────────────────────────────────
   const fetchOrders = useCallback(() => {
@@ -106,14 +112,28 @@ export function OnlineOrdersPanel({ outletId, outletName, outletAddress, socket,
 
   // ── Accept ──────────────────────────────────────────────────────────────
   function handleAccept(order) {
+    const prepMins = prepTimes[order.id] ?? 20;
     // Optimistic update
     setOrders(prev => prev.map(o =>
       o.id === order.id ? { ...o, status: "accepted", acceptedAt: new Date().toISOString() } : o
     ));
-    // Tell backend
-    api.post(`/online-orders/${order.id}/accept`, { outletId }).catch(() => {});
+    // Clear prep time choice
+    setPrepTimes(prev => { const n = { ...prev }; delete n[order.id]; return n; });
+    // Tell backend (includes prep time for UrbanPiper)
+    api.post(`/online-orders/${order.id}/accept`, { outletId, prepMins }).catch(() => {});
     // Hand off to App.jsx to create POS order + send KOT
     onAccept(order);
+  }
+
+  // ── Mark food ready ──────────────────────────────────────────────────────
+  function handleMarkReady(order) {
+    setMarkingReady(prev => new Set(prev).add(order.id));
+    setOrders(prev => prev.map(o =>
+      o.id === order.id ? { ...o, status: "food_ready", foodReadyAt: new Date().toISOString() } : o
+    ));
+    api.post(`/online-orders/${order.id}/food-ready`, { outletId })
+      .catch(() => {})
+      .finally(() => setMarkingReady(prev => { const n = new Set(prev); n.delete(order.id); return n; }));
   }
 
   // ── Reject ──────────────────────────────────────────────────────────────
@@ -150,11 +170,11 @@ export function OnlineOrdersPanel({ outletId, outletName, outletAddress, socket,
 
           {/* Status tabs */}
           <div className="oo-tabs">
-            {["pending","accepted","rejected"].map(t => (
+            {["pending","accepted","food_ready","rejected"].map(t => (
               <button key={t} type="button"
                 className={`oo-tab${filter === t ? " active" : ""}`}
                 onClick={() => setFilter(t)}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {t === "food_ready" ? "Ready" : t.charAt(0).toUpperCase() + t.slice(1)}
                 <span className="oo-tab-count">
                   {orders.filter(o => o.status === t).length}
                 </span>
@@ -239,21 +259,60 @@ export function OnlineOrdersPanel({ outletId, outletName, outletAddress, socket,
                     <div className="oo-card-footer">
                       <span className="oo-total">₹{total.toLocaleString("en-IN")}</span>
                       {filter === "pending" && (
-                        <div className="oo-actions">
-                          <button type="button" className="oo-reject-btn"
-                            onClick={() => { setRejectTarget(order); setRejectReason(REJECT_REASONS[0]); }}>
-                            Reject
-                          </button>
-                          <button type="button" className="oo-accept-btn"
-                            style={{ background: plt.bg }}
-                            onClick={() => handleAccept(order)}>
-                            ✓ Accept &amp; Send KOT
-                          </button>
+                        <div className="oo-actions" style={{ flexDirection: "column", gap: 6 }}>
+                          {/* Prep time selector */}
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>Prep:</span>
+                            {PREP_TIMES.map(t => (
+                              <button key={t} type="button"
+                                style={{
+                                  padding: "2px 8px", fontSize: 12, borderRadius: 12,
+                                  border: "1px solid",
+                                  borderColor: (prepTimes[order.id] ?? 20) === t ? plt.bg : "#d1d5db",
+                                  background: (prepTimes[order.id] ?? 20) === t ? plt.light : "transparent",
+                                  color: (prepTimes[order.id] ?? 20) === t ? plt.bg : "#374151",
+                                  cursor: "pointer",
+                                }}
+                                onClick={() => setPrepTimes(prev => ({ ...prev, [order.id]: t }))}>
+                                {t}m
+                              </button>
+                            ))}
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button type="button" className="oo-reject-btn"
+                              onClick={() => { setRejectTarget(order); setRejectReason(REJECT_REASONS[0]); }}>
+                              Reject
+                            </button>
+                            <button type="button" className="oo-accept-btn"
+                              style={{ background: plt.bg }}
+                              onClick={() => handleAccept(order)}>
+                              ✓ Accept &amp; Send KOT
+                            </button>
+                          </div>
                         </div>
                       )}
                       {filter === "accepted" && (
                         <div className="oo-actions">
                           <span className="oo-status-pill accepted">✓ Accepted · KOT sent</span>
+                          <button type="button" className="oo-dispatch-btn"
+                            style={{ background: "#16a34a", color: "#fff" }}
+                            disabled={markingReady.has(order.id)}
+                            onClick={() => handleMarkReady(order)}>
+                            {markingReady.has(order.id) ? "Marking…" : "✓ Food Ready"}
+                          </button>
+                          {!delivery && (
+                            <button type="button" className="oo-dispatch-btn"
+                              onClick={() => setDispatchOrder(order)}>
+                              🛵 Dispatch Rider
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {filter === "food_ready" && (
+                        <div className="oo-actions">
+                          <span className="oo-status-pill accepted" style={{ background: "#dcfce7", color: "#16a34a" }}>
+                            ✓ Ready for pickup
+                          </span>
                           {!delivery && (
                             <button type="button" className="oo-dispatch-btn"
                               onClick={() => setDispatchOrder(order)}>

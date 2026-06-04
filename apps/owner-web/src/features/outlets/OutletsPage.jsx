@@ -44,6 +44,7 @@ function buildEditDraft(outlet) {
     state:               outlet.state,
     gstin:               outlet.gstin,
     fssaiNo:             outlet.fssaiNo || "",
+    upiId:               outlet.upiId   || "",
     defaultTaxProfileId: outlet.defaultTaxProfileId || "",
     receiptTemplateId:   outlet.receiptTemplateId || "",
     reportEmail:         outlet.reportEmail || "",
@@ -135,6 +136,7 @@ function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave
         <label>State<input type="text" value={draft.state} required onChange={e => setDraft(d => ({ ...d, state: e.target.value }))} /></label>
         <label>GSTIN<input type="text" value={draft.gstin} onChange={e => setDraft(d => ({ ...d, gstin: e.target.value }))} /></label>
         <label>FSSAI No.<input type="text" placeholder="e.g. 10012345678901" value={draft.fssaiNo} onChange={e => setDraft(d => ({ ...d, fssaiNo: e.target.value }))} /></label>
+        <label>UPI ID <small style={{fontWeight:400,color:"#6b7280"}}>(bill QR code)</small><input type="text" placeholder="e.g. restaurant@okhdfc" value={draft.upiId || ""} onChange={e => setDraft(d => ({ ...d, upiId: e.target.value.trim() }))} /></label>
         <label>Report email<input type="email" value={draft.reportEmail} onChange={e => setDraft(d => ({ ...d, reportEmail: e.target.value }))} /></label>
         <label>Opening<input type="time" value={draft.openingTime} onChange={e => setDraft(d => ({ ...d, openingTime: e.target.value }))} /></label>
         <label>Closing<input type="time" value={draft.closingTime} onChange={e => setDraft(d => ({ ...d, closingTime: e.target.value }))} /></label>

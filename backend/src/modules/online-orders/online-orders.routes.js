@@ -32,8 +32,13 @@ const {
 const {
   acceptOrder: upAccept,
   rejectOrder: upReject,
+  markFoodReady: upMarkFoodReady,
   getUpCreds,
 } = require("./urbanpiper.service");
+const {
+  saveOnlineOrder,
+  updateOnlineOrderInDB,
+} = require("./online-orders.repository");
 
 const onlineOrdersRouter  = express.Router();   // private (JWT)
 const webhooksRouter      = express.Router();   // public (no JWT, no rate-limit override)
@@ -158,6 +163,11 @@ webhooksRouter.post(
       addOnlineOrder(tenantId, outletId, order)
     );
 
+    // Persist to Postgres (fire-and-forget — don't block the webhook response)
+    saveOnlineOrder(tenantId, outletId, stored).catch(err =>
+      console.error("[online-orders] DB save failed:", err.message)
+    );
+
     // Push to all POS/Captain screens in that outlet via socket
     const io = req.app.locals.io;
     if (io) {
@@ -204,8 +214,14 @@ onlineOrdersRouter.post(
     });
     if (!updated) return res.status(404).json({ error: "Order not found" });
 
+    // Persist status change (fire-and-forget)
+    updateOnlineOrderInDB(updated.id, {
+      status: "accepted",
+      acceptedAt: updated.acceptedAt,
+      acceptedBy: updated.acceptedBy,
+    }).catch(() => {});
+
     // ── Fire UrbanPiper callback (non-blocking) ────────────────────────────
-    // Use the stored UrbanPiper order id (same as our order.id from normaliseUrbanPiper)
     const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
     upAccept(updated.id, tenantData, { prepMins: prepMins || 20 }).catch(() => {});
 
@@ -228,9 +244,44 @@ onlineOrdersRouter.post(
     });
     if (!updated) return res.status(404).json({ error: "Order not found" });
 
+    // Persist status change (fire-and-forget)
+    updateOnlineOrderInDB(updated.id, {
+      status: "rejected",
+      rejectedAt:   updated.rejectedAt,
+      rejectReason: updated.rejectReason,
+    }).catch(() => {});
+
     // ── Fire UrbanPiper callback (non-blocking) ────────────────────────────
     const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
     upReject(updated.id, tenantData, { reason: reason || "Restaurant busy" }).catch(() => {});
+
+    res.json({ ok: true, order: updated, upCallbackFired: !!getUpCreds(tenantData) });
+  })
+);
+
+/** POST /online-orders/:orderId/food-ready — cashier marks parcel ready at counter */
+onlineOrdersRouter.post(
+  "/:orderId/food-ready",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId || "default";
+    const { outletId } = req.body;
+    if (!outletId) return res.status(400).json({ error: "outletId required" });
+
+    const updated = updateOnlineOrderStatus(tenantId, outletId, req.params.orderId, "food_ready", {
+      foodReadyAt: new Date().toISOString(),
+    });
+    if (!updated) return res.status(404).json({ error: "Order not found" });
+
+    // Persist (fire-and-forget)
+    updateOnlineOrderInDB(updated.id, {
+      status:      "food_ready",
+      foodReadyAt: updated.foodReadyAt,
+    }).catch(() => {});
+
+    // Notify UrbanPiper to dispatch the rider (non-blocking)
+    const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
+    upMarkFoodReady(updated.id, tenantData).catch(() => {});
 
     res.json({ ok: true, order: updated, upCallbackFired: !!getUpCreds(tenantData) });
   })
