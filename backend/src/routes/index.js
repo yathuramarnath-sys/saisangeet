@@ -82,6 +82,10 @@ apiRouter.use(authenticate);
 // Auth routes verify identity — they do not read tenant-specific data.
 apiRouter.use("/auth", authRouter);
 
+// Admin console — default-tenant owner only; mounted before requireTenant
+// because requireTenant blocks tenantId === "default".
+apiRouter.use("/admin/clients", clientsRouter);
+
 // Public device route — POS terminal setup, no auth required.
 // Must be mounted before requireTenant so devices can link without a JWT.
 apiRouter.post("/devices/resolve-link-code", linkCodeLimiter, resolveLinkCodeRules, validate, asyncHandler(resolveLinkCodeHandler));
@@ -111,7 +115,6 @@ apiRouter.use("/kitchen-stations", kitchenRouter);
 apiRouter.use("/operations/wastage",        wastageRouter);
 apiRouter.use("/operations/waitlist",       waitlistRouter);
 apiRouter.use("/operations/customer-order", customerOrderRouter);
-apiRouter.use("/admin/clients", clientsRouter);
 apiRouter.use("/billing",        billingRouter);
 apiRouter.use("/whatsapp",       whatsappRouter);
 apiRouter.use("/counter",        counterRouter);
