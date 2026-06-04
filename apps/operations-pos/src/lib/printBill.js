@@ -93,7 +93,7 @@ export async function printBill(order, items, outletOrName, options = {}) {
 
   // ── UPI QR code ────────────────────────────────────────────────────────────
   let upiQrDataUrl = null;
-  if (outlet?.upiId) {
+  if (outlet?.upiId && outlet?.showQR !== false) {
     const upiUri = `upi://pay?pa=${encodeURIComponent(outlet.upiId)}&pn=${encodeURIComponent(outletName)}&am=${total.toFixed(2)}&cu=INR&tn=Bill%20%23${order.billNo || order.orderNumber || ""}`;
     try {
       upiQrDataUrl = await QRCode.toDataURL(upiUri, { width: 160, margin: 1, color: { dark: "#111111", light: "#ffffff" } });
