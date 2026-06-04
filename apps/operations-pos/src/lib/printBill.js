@@ -5,9 +5,10 @@
  * Fallback         (browser / web):    popup window + window.print()
  */
 
+import QRCode from "qrcode";
 import { getBillPrinter } from "./kotPrint";
 
-export function printBill(order, items, outletOrName, options = {}) {
+export async function printBill(order, items, outletOrName, options = {}) {
   // outletOrName can be a string (legacy) or a full outlet object
   const outlet = (outletOrName && typeof outletOrName === "object") ? outletOrName : null;
   const outletName = outlet?.name || (typeof outletOrName === "string" ? outletOrName : null) || "Restaurant";
@@ -89,6 +90,15 @@ export function printBill(order, items, outletOrName, options = {}) {
   const taxTotal = taxRows.reduce((s, r) => s + r.cgst + r.sgst, 0);
   // Inclusive: tax already inside prices — total = afterDisc; Exclusive: add tax on top
   const total    = inclusive ? afterDisc : afterDisc + taxTotal;
+
+  // ── UPI QR code ────────────────────────────────────────────────────────────
+  let upiQrDataUrl = null;
+  if (outlet?.upiId) {
+    const upiUri = `upi://pay?pa=${encodeURIComponent(outlet.upiId)}&pn=${encodeURIComponent(outletName)}&am=${total.toFixed(2)}&cu=INR&tn=Bill%20%23${order.billNo || order.orderNumber || ""}`;
+    try {
+      upiQrDataUrl = await QRCode.toDataURL(upiUri, { width: 160, margin: 1, color: { dark: "#111111", light: "#ffffff" } });
+    } catch (_) {}
+  }
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -279,9 +289,18 @@ export function printBill(order, items, outletOrName, options = {}) {
   <hr class="div-dash">
   <div class="total-row"><span>TOTAL</span><span>&#8377;${total.toFixed(2)}</span></div>
 
+  <!-- UPI QR -->
+  ${upiQrDataUrl ? `
+  <hr class="div-dash" style="margin-top:10px;">
+  <div style="text-align:center;margin:8px 0 4px;">
+    <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Scan &amp; Pay via UPI</div>
+    <img src="${upiQrDataUrl}" style="width:120px;height:120px;display:block;margin:0 auto;" alt="UPI QR" />
+    <div style="font-size:9px;color:#555;margin-top:4px;">${outlet.upiId}</div>
+  </div>` : ""}
+
   <!-- Footer -->
   <div class="footer">
-    <p>Please pay at the counter</p>
+    <p>${upiQrDataUrl ? "Scan the QR above to pay" : "Please pay at the counter"}</p>
     <p>${invoiceFooter}</p>
   </div>
 
