@@ -72,4 +72,20 @@ function getOnlineOrders(tenantId, outletId, status = null) {
   return status ? list.filter(o => o.status === status) : [...list];
 }
 
-module.exports = { addOnlineOrder, updateOnlineOrderStatus, getOnlineOrders };
+/**
+ * Seed the in-memory store from Postgres rows returned by loadTodayOnlineOrders().
+ * Called once on startup from migrate.js after the online_orders table is ready.
+ */
+function restoreOnlineOrders(dbOrders) {
+  for (const row of dbOrders) {
+    const { _tenantId, _outletId, ...order } = row;
+    if (!_tenantId || !_outletId) continue;
+    const list = _getList(_tenantId, _outletId);
+    if (!list.find(o => o.id === order.id)) {
+      list.push(order);
+    }
+  }
+  console.log(`[online-orders] restored ${dbOrders.length} orders from DB`);
+}
+
+module.exports = { addOnlineOrder, updateOnlineOrderStatus, getOnlineOrders, restoreOnlineOrders };

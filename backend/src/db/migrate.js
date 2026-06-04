@@ -167,6 +167,18 @@ async function runMigrations() {
     console.error("[migrate] Could not create closed_orders table:", err.message);
   }
 
+  // ── 7c. Online-orders table + restore in-memory store ─────────────────────
+  try {
+    const { ensureOnlineOrdersTable, loadTodayOnlineOrders } = require("../modules/online-orders/online-orders.repository");
+    const { restoreOnlineOrders } = require("../modules/online-orders/online-orders.store");
+    await ensureOnlineOrdersTable();
+    const orders = await loadTodayOnlineOrders();
+    restoreOnlineOrders(orders);
+    console.log("[migrate] online_orders table verified.");
+  } catch (err) {
+    console.error("[migrate] Could not set up online_orders table:", err.message);
+  }
+
   // ── 7. Owner auth field repair ───────────────────────────────────────────────
   // Scan every tenant for owner accounts with missing email / passwordHash and
   // repair what can be recovered from users_index. Logs critical errors for any

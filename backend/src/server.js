@@ -14,7 +14,10 @@ const { hydrateClosedOrders }    = require("./modules/operations/closed-orders-s
 const { hydrateShifts }          = require("./modules/operations/shifts-store");
 const { scheduleBackup }             = require("./jobs/daily-backup");
 const { scheduleDailySalesReport }   = require("./jobs/daily-sales-report");
-const { getAllCachedTenants }         = require("./data/owner-setup-store");
+const { getAllCachedTenants,
+        getOwnerSetupData }           = require("./data/owner-setup-store");
+const { runWithTenant }               = require("./data/tenant-context");
+const { toggleItemAvailability }      = require("./modules/online-orders/urbanpiper.service");
 const jwt                             = require("jsonwebtoken");
 
 // Resolve which tenant owns an outletId by searching the in-memory cache.
@@ -196,6 +199,13 @@ io.on("connection", (socket) => {
     }
     // Relay to all other devices in the outlet
     socket.to(`outlet:${tid}:${data.outletId}`).emit("item:availability", data);
+
+    // Fire-and-forget: sync availability to UrbanPiper (Swiggy/Zomato)
+    if (tid !== "default") {
+      runWithTenant(tid, () => getOwnerSetupData())
+        .then(tenantData => toggleItemAvailability(data.itemId, data.available !== false, tenantData))
+        .catch(() => {});
+    }
   });
 
   // On connect, send the current availability state so new devices are in sync

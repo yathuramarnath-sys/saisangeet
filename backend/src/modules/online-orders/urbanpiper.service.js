@@ -141,4 +141,31 @@ async function markFoodReady(upOrderId, tenantData) {
   }
 }
 
-module.exports = { acceptOrder, rejectOrder, markFoodReady, getUpCreds };
+/**
+ * Toggle item availability on UrbanPiper (Swiggy/Zomato) when cashier
+ * marks an item as sold-out or restores it in the POS.
+ *
+ * UrbanPiper: PUT /api/v2/items/{item_ref_id}/
+ * Body: { "available": false } or { "available": true }
+ *
+ * NOTE: item_ref_id in UrbanPiper must match Plato's menu item UUID —
+ * confirm this mapping when UrbanPiper credentials go live.
+ */
+async function toggleItemAvailability(itemId, available, tenantData) {
+  const creds = getUpCreds(tenantData);
+  if (!creds) return { ok: true, skipped: true };
+  try {
+    const result = await upPost(
+      `/api/v2/items/${itemId}/`,
+      { available },
+      creds
+    );
+    console.log(`[urbanpiper] item ${itemId} availability → ${available}`);
+    return result;
+  } catch (err) {
+    console.error(`[urbanpiper] toggleItemAvailability failed for ${itemId}:`, err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+module.exports = { acceptOrder, rejectOrder, markFoodReady, toggleItemAvailability, getUpCreds };
