@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { env } = require("../../config/env");
 const { getOwnerSetupData, updateOwnerSetupData, updateOwnerSetupDataNow } = require("../../data/owner-setup-store");
@@ -11,7 +12,7 @@ async function createLinkToken(payload) {
   // Keep the outlet code exactly as stored (e.g. "MUM-1001") so the generated
   // link code is readable and consistent: "MUM-1001-5678"
   const codeRoot  = (payload.outletCode || "LINK").trim().toUpperCase();
-  const suffix    = String(Date.now()).slice(-8);
+  const suffix    = crypto.randomBytes(4).toString("hex").toUpperCase();
   const linkCode  = `${codeRoot}-${suffix}`;
   const tenantId  = getCurrentTenantId();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);

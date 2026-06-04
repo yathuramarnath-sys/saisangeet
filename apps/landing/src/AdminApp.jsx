@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API_URL = "https://api.dinexpos.in/api/v1";
+const API_URL = import.meta.env.VITE_API_URL || "https://api.dinexpos.in/api/v1";
 const TOKEN_KEY = "dinex_admin_token";
 
 function getToken() { return localStorage.getItem(TOKEN_KEY); }

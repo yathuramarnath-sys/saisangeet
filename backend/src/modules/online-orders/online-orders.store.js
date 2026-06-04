@@ -39,6 +39,13 @@ function addOnlineOrder(tenantId, outletId, raw) {
   };
 
   const list = _getList(tenantId, outletId);
+
+  // Idempotency: if this order ID already exists, return the existing entry unchanged.
+  // UrbanPiper retries webhooks on network failures — without this check the same
+  // Swiggy/Zomato order would appear twice on the POS screen.
+  const existing = list.find(o => o.id === order.id || o.orderId === order.orderId);
+  if (existing) return existing;
+
   list.unshift(order);
   // Keep last 200 per outlet (accepted + rejected accumulate over day)
   if (list.length > 200) list.splice(200);
