@@ -96,7 +96,7 @@ function buildDefaultItemDraft(menuData) {
     trackInventory: "Disabled",
     selectedOutlets: [],
     // optional fields
-    description: "", shortCode: "", hsnCode: "", sku: "",
+    description: "", shortCode: "", hsnCode: "", sku: "", scalePlu: "",
     rank: "999",
     exposeInCaptain: true, allowDecimalQty: false,
     manufacturingDate: "", expiryDate: "",
@@ -392,6 +392,59 @@ export function MenuPage() {
       ...current,
       items: current.items.map((item) => (item.id === itemId ? updater(item) : item))
     }));
+  }
+
+  // Auto-increment Scale PLU: find max existing, next = max + 1
+  const nextScalePlu = (() => {
+    const used = (menuData?.items || [])
+      .map(i => parseInt(i.scalePlu || 0, 10))
+      .filter(n => n > 0);
+    return used.length > 0 ? Math.max(...used) + 1 : 1;
+  })();
+
+  function printScaleSheet() {
+    const weightItems = (menuData?.items || [])
+      .filter(i => ["KG", "G"].includes(i.unit) && i.scalePlu)
+      .sort((a, b) => parseInt(a.scalePlu) - parseInt(b.scalePlu));
+    if (weightItems.length === 0) {
+      alert("No weight items with Scale PLU set yet.\nSet Unit = KG/G on your items — Scale PLU will be auto-assigned.");
+      return;
+    }
+    const rows = weightItems.map(i => `
+      <tr>
+        <td>${String(parseInt(i.scalePlu)).padStart(5, "0")}</td>
+        <td>${i.name || i.itemName || ""}</td>
+        <td>₹${parseFloat(i.basePrice || i.price || 0).toFixed(2)}</td>
+      </tr>`).join("");
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<style>
+  body{font-family:Arial,sans-serif;padding:24px;color:#111}
+  h2{margin:0 0 4px;font-size:18px}
+  .sub{color:#6b7280;font-size:12px;margin:0 0 20px}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f3f4f6;padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  td{padding:9px 14px;font-size:14px;border-bottom:1px solid #f0f0f0}
+  td:first-child{font-family:monospace;font-weight:700;font-size:15px}
+  td:last-child{font-weight:700;color:#059669}
+  .note{margin-top:20px;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:12px}
+</style></head><body>
+<h2>⚖️ Scale Programming Reference</h2>
+<p class="sub">All prices are per 100 grams. Programme each PLU in the scale with the item name and price shown.</p>
+<table>
+  <thead><tr><th>PLU</th><th>Item Name</th><th>Price / 100g</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="note">
+  Generated from Plato Owner Console.<br/>
+  If scale is unavailable: enter weight in grams ÷ 100 as quantity at the POS cashier (e.g. 1.5 kg = qty 15).
+</div>
+</body></html>`;
+    const w = window.open("", "_blank", "width=700,height=600");
+    if (!w) { alert("Allow pop-ups to print the scale sheet."); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); w.onafterprint = () => w.close(); }, 400);
   }
 
   async function reloadMenu() {
@@ -1263,6 +1316,10 @@ export function MenuPage() {
               onChange={(event) => setLibrarySearch(event.target.value)}
               placeholder="Search"
             />
+            <button type="button" className="ghost-btn" onClick={printScaleSheet}
+              title="Print PLU reference sheet for weight scale technician">
+              ⚖️ Scale Sheet
+            </button>
             <button type="button" className="ghost-btn" onClick={() => setShowFilterPanel(true)}>
               Category {categoryFilter !== "All" ? categoryFilter : ""}
             </button>
@@ -1473,6 +1530,7 @@ export function MenuPage() {
                         availableCategoryNames={availableCategoryNames}
                         availableStationNames={availableStationNames}
                         availableAreas={availableAreas}
+                        nextScalePlu={nextScalePlu}
                         saveMessage={saveMessage}
                         saveError={saveError}
                       />
@@ -1736,6 +1794,7 @@ export function MenuPage() {
             availableStationNames={availableStationNames}
             availableOutlets={availableOutlets}
             availableAreas={availableAreas}
+            nextScalePlu={nextScalePlu}
             saveMessage={saveMessage}
             saveError={saveError}
           />

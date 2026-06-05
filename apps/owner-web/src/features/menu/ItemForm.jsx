@@ -22,6 +22,7 @@ export function ItemForm({
   availableStationNames  = [],
   availableOutlets       = [],
   availableAreas         = [],   // dynamic work areas from Table Setup
+  nextScalePlu           = null, // auto-assign next PLU for weight scale items
   saveMessage = "",
   saveError   = "",
 }) {
@@ -87,7 +88,18 @@ export function ItemForm({
         </label>
         <label>
           Sold by
-          <select value={draft.unit || ""} onChange={e => f("unit", e.target.value)}>
+          <select value={draft.unit || ""} onChange={e => {
+            const newUnit = e.target.value;
+            f("unit", newUnit);
+            // Auto-assign Scale PLU when switching to a weight unit and none set yet
+            if (["KG", "G"].includes(newUnit) && !draft.scalePlu && nextScalePlu !== null) {
+              f("scalePlu", String(nextScalePlu));
+            }
+            // Clear Scale PLU when switching away from weight unit
+            if (!["KG", "G"].includes(newUnit) && draft.scalePlu) {
+              f("scalePlu", "");
+            }
+          }}>
             <option value="">— Per piece —</option>
             <option value="KG">KG — per kilogram</option>
             <option value="LTR">LTR — per litre</option>
@@ -95,6 +107,21 @@ export function ItemForm({
             <option value="ML">ML — per millilitre</option>
           </select>
         </label>
+        {/* Scale PLU — shown only for weight (KG/G) items */}
+        {["KG", "G"].includes(draft.unit) && (
+          <label>
+            Scale PLU
+            <span style={{ fontWeight: 400, color: "#9ca3af", fontSize: 11, marginLeft: 4 }}>
+              5-digit code for weighing scale
+            </span>
+            <input
+              type="number" min="1" step="1"
+              value={draft.scalePlu || ""}
+              onChange={e => f("scalePlu", e.target.value)}
+              placeholder="Auto-assigned"
+            />
+          </label>
+        )}
         {isEdit && (
           <label>
             Kitchen station

@@ -313,6 +313,7 @@ export default function App() {
   const selectedTableIdRef = useRef(null);
   const outletRef          = useRef(null);
   const handleAddItemRef   = useRef(null);
+  const menuItemsRef       = useRef([]);   // latest menuItems for scale PLU lookup
   // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
   const billPrintingRef = useRef(false);
   // Tracks socket connection state for reconnect-resync logic
@@ -1008,6 +1009,7 @@ export default function App() {
   // Keep barcode scanner refs in sync with latest state/functions
   useEffect(() => { selectedTableIdRef.current = selectedTableId; }, [selectedTableId]);
   useEffect(() => { outletRef.current = outlet; }, [outlet]);
+  useEffect(() => { menuItemsRef.current = menuItems; }, [menuItems]);
   useEffect(() => { handleAddItemRef.current = handleAddItem; }); // no dep — always latest
 
   // Persist counter ticket number across refreshes
@@ -1095,6 +1097,23 @@ export default function App() {
           showToast("Select a table first, then scan");
           return;
         }
+
+        // ── Weight scale EAN-13 barcode: format 02PPPPPWWWWWC ───────────────
+        // "02" prefix + 5-digit PLU + 5-digit weight-grams + 1 check digit
+        if (scanned.length === 13 && /^\d{13}$/.test(scanned) && scanned.startsWith("02")) {
+          const plu   = parseInt(scanned.slice(2, 7), 10);
+          const grams = parseInt(scanned.slice(7, 12), 10);
+          const item  = menuItemsRef.current.find(i => Number(i.scalePlu) === plu);
+          if (!item) {
+            showToast(`❌ Scale PLU ${String(plu).padStart(5, "0")} not found — check Scale Sheet`);
+            return;
+          }
+          const qty100g = +(grams / 100).toFixed(3);
+          handleAddItemRef.current(item, qty100g, true);
+          showToast(`✅ ${item.name} — ${(grams / 1000).toFixed(3)} kg added`);
+          return;
+        }
+
         // Look up item by SKU/barcode
         api.get(`/menu/sku-lookup?sku=${encodeURIComponent(scanned)}&outletId=${outletRef.current?.id || ""}`)
           .then((item) => {
@@ -1204,7 +1223,7 @@ export default function App() {
     if (!next) setPendingOnlineCount(0);
   }
 
-  async function handleAddItem(item) {
+  async function handleAddItem(item, overrideQty = null, fromScale = false) {
     if (!selectedTableId) return;
     const tableId = selectedTableId;
 
@@ -1236,9 +1255,10 @@ export default function App() {
     //    Backend also consolidates by menuItemId (increments existing unsent line), so
     //    if the cashier taps the same item twice the qty in both states stays in sync.
     mutateOrder(tableId, (order) => {
-      const existing = order.items.findIndex((i) => i.menuItemId === item.id && !i.sentToKot);
+      // Scale items always get a new line (never merge) — each scan is a distinct weight
+      const existing = fromScale ? -1 : order.items.findIndex((i) => i.menuItemId === item.id && !i.sentToKot);
       if (existing >= 0) {
-        order.items[existing].quantity += 1;
+        order.items[existing].quantity += overrideQty ?? 1;
       } else {
         // Use area override price if the table's area matches one of the item's overrides
         const _aov1 = item.areaOverrides?.[order.areaName || ""];
@@ -1247,7 +1267,7 @@ export default function App() {
           menuItemId: item.id,
           name:       item.name,
           price:      (_aov1 && Number(_aov1) > 0) ? Number(_aov1) : parsePriceNumber(item.price || item.basePrice),
-          quantity:   1,
+          quantity:   overrideQty ?? 1,
           sentToKot:  false,
           note:       "",
           station:    resolvedStation,
@@ -1278,7 +1298,7 @@ export default function App() {
           menuItemId: item.id,
           name:       item.name,
           price:      (_aov2 && Number(_aov2) > 0) ? Number(_aov2) : parsePriceNumber(item.price || item.basePrice),
-          quantity:   1,
+          quantity:   overrideQty ?? 1,
           note:       "",
           stationName: resolvedStation,
           categoryId:  item.categoryId || "",
