@@ -107,7 +107,7 @@ function ChangePasswordModal({ onClose }) {
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-export function Sidebar() {
+export function Sidebar({ open, onClose }) {
   const { user, logout } = useAuth();
   const [menuOpen,  setMenuOpen]  = useState(false);
   const [changePwd, setChangePwd] = useState(false);
@@ -117,7 +117,9 @@ export function Sidebar() {
     : "O";
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${open ? " mob-open" : ""}`}>
+      {/* Close button — only visible on mobile */}
+      <button type="button" className="mob-sidebar-close" onClick={onClose} aria-label="Close menu">✕</button>
       <div className="brand-block">
         <div className="brand-mark">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -137,6 +139,7 @@ export function Sidebar() {
             key={item.id}
             to={item.path}
             className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+            onClick={onClose}
           >
             {item.label}
           </NavLink>
