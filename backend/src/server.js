@@ -202,9 +202,10 @@ io.on("connection", (socket) => {
 
     // Fire-and-forget: sync availability to UrbanPiper (Swiggy/Zomato)
     if (tid !== "default") {
-      runWithTenant(tid, () => getOwnerSetupData())
-        .then(tenantData => toggleItemAvailability(data.itemId, data.available !== false, tenantData))
-        .catch(() => {});
+      runWithTenant(tid, async () => {
+        const tenantData = getOwnerSetupData();
+        await toggleItemAvailability(data.itemId, data.available !== false, tenantData);
+      }).catch(() => {});
     }
   });
 
