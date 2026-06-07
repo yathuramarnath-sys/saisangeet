@@ -1,6 +1,20 @@
 // Sentry MUST be the very first require so it can instrument everything
-const { initSentry } = require("./config/sentry");
+const { initSentry, Sentry } = require("./config/sentry");
 initSentry();
+
+// ── Process-level crash guards ────────────────────────────────────────────────
+// These ensure the server NEVER exits due to an unhandled error.
+// Billing and POS operations must keep working even if a non-critical code path
+// throws. Errors are reported to Sentry so we can fix them without downtime.
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException] Non-fatal error caught — server staying up:", err);
+  try { Sentry.captureException(err); } catch (_) {}
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection] Non-fatal rejection caught — server staying up:", reason);
+  try { Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason))); } catch (_) {}
+});
 
 const http = require("http");
 const { Server: SocketServer } = require("socket.io");
@@ -133,94 +147,95 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log(`[socket] disconnect | id=${socket.id} | type=${clientType} | tenant=${tenantId} | outletId=${outletId || "(none)"}`);
   });
+
   socket.on("join-outlet", (id) => {
-    const tid = resolveTenantByOutlet(id);
-    socket.join(`outlet:${tid}:${id}`);
-    socket.to(`outlet:${tid}:${id}`).emit("request:order-sync");
+    try {
+      const tid = resolveTenantByOutlet(id);
+      socket.join(`outlet:${tid}:${id}`);
+      socket.to(`outlet:${tid}:${id}`).emit("request:order-sync");
+    } catch (err) { console.error("[socket] join-outlet error:", err.message); }
   });
 
   // ── KDS station room subscription ────────────────────────────────────────
-  // A KDS screen calls this when it loads or when its assignedStation changes.
-  // stationName = "" → unassigned screen (show all) → joins kds:<tenantId>:<outletId>:__all__
-  // stationName = "South Indian" → dedicated screen → joins kds:<tenantId>:<outletId>:south indian
   socket.on("kds:join-station", ({ outletId: oid, stationName }) => {
-    if (!oid) return;
-    const tid = resolveTenantByOutlet(oid);
-    // Leave any existing KDS station rooms for this outlet
-    const prefix = `kds:${tid}:${oid}:`;
-    [...socket.rooms]
-      .filter(r => r.startsWith(prefix))
-      .forEach(r => socket.leave(r));
-    // Join the correct room
-    const room = stationName
-      ? `kds:${tid}:${oid}:${String(stationName).trim().toLowerCase()}`
-      : `kds:${tid}:${oid}:__all__`;
-    socket.join(room);
+    try {
+      if (!oid) return;
+      const tid = resolveTenantByOutlet(oid);
+      const prefix = `kds:${tid}:${oid}:`;
+      [...socket.rooms].filter(r => r.startsWith(prefix)).forEach(r => socket.leave(r));
+      const room = stationName
+        ? `kds:${tid}:${oid}:${String(stationName).trim().toLowerCase()}`
+        : `kds:${tid}:${oid}:__all__`;
+      socket.join(room);
+    } catch (err) { console.error("[socket] kds:join-station error:", err.message); }
   });
 
   // ── Relay order updates between POS ↔ Captain App ────────────────────────
-  // POS/Captain emit "order:update"; relay to all other devices in the same outlet
   socket.on("order:update", (data) => {
-    if (data.outletId && data.order) {
-      const tid = resolveTenantByOutlet(data.outletId);
-      socket.to(`outlet:${tid}:${data.outletId}`).emit("order:updated", data.order);
-    }
+    try {
+      if (data.outletId && data.order) {
+        const tid = resolveTenantByOutlet(data.outletId);
+        socket.to(`outlet:${tid}:${data.outletId}`).emit("order:updated", data.order);
+      }
+    } catch (err) { console.error("[socket] order:update error:", err.message); }
   });
 
   // ── Relay KOT status changes from KDS back to POS/Captain ────────────────
   socket.on("kot:status", (data) => {
-    // data: { id, status, outletId? }
-    if (data.outletId) {
-      const tid = resolveTenantByOutlet(data.outletId);
-      socket.to(`outlet:${tid}:${data.outletId}`).emit("kot:status", data);
-    }
-    // no broadcast fallback — without outletId we can't target safely
+    try {
+      if (data.outletId) {
+        const tid = resolveTenantByOutlet(data.outletId);
+        socket.to(`outlet:${tid}:${data.outletId}`).emit("kot:status", data);
+      }
+    } catch (err) { console.error("[socket] kot:status error:", err.message); }
   });
 
-  // Relay KOT bumped
   socket.on("kot:bumped", (data) => {
-    if (data.outletId) {
-      const tid = resolveTenantByOutlet(data.outletId);
-      socket.to(`outlet:${tid}:${data.outletId}`).emit("kot:bumped", data);
-    }
+    try {
+      if (data.outletId) {
+        const tid = resolveTenantByOutlet(data.outletId);
+        socket.to(`outlet:${tid}:${data.outletId}`).emit("kot:bumped", data);
+      }
+    } catch (err) { console.error("[socket] kot:bumped error:", err.message); }
   });
 
   // ── Item availability toggle (POS → Captain + KDS) ───────────────────────
-  // data: { outletId, itemId, available: bool }
   socket.on("item:availability", (data) => {
-    if (!data.outletId || !data.itemId) return;
-    const tid = resolveTenantByOutlet(data.outletId);
-    // Update server-side cache
-    if (!outletAvailability[data.outletId]) outletAvailability[data.outletId] = {};
-    if (data.available) {
-      delete outletAvailability[data.outletId][data.itemId];
-    } else {
-      outletAvailability[data.outletId][data.itemId] = false;
-    }
-    // Relay to all other devices in the outlet
-    socket.to(`outlet:${tid}:${data.outletId}`).emit("item:availability", data);
-
-    // Fire-and-forget: sync availability to UrbanPiper (Swiggy/Zomato)
-    if (tid !== "default") {
-      runWithTenant(tid, async () => {
-        const tenantData = getOwnerSetupData();
-        await toggleItemAvailability(data.itemId, data.available !== false, tenantData);
-      }).catch(() => {});
-    }
+    try {
+      if (!data.outletId || !data.itemId) return;
+      const tid = resolveTenantByOutlet(data.outletId);
+      if (!outletAvailability[data.outletId]) outletAvailability[data.outletId] = {};
+      if (data.available) {
+        delete outletAvailability[data.outletId][data.itemId];
+      } else {
+        outletAvailability[data.outletId][data.itemId] = false;
+      }
+      socket.to(`outlet:${tid}:${data.outletId}`).emit("item:availability", data);
+      // Fire-and-forget: sync to UrbanPiper — never crashes the handler
+      if (tid !== "default") {
+        runWithTenant(tid, async () => {
+          const tenantData = getOwnerSetupData();
+          await toggleItemAvailability(data.itemId, data.available !== false, tenantData);
+        }).catch(() => {});
+      }
+    } catch (err) { console.error("[socket] item:availability error:", err.message); }
   });
 
   // On connect, send the current availability state so new devices are in sync
-  if (outletId && outletAvailability[outletId]) {
-    socket.emit("item:availability:state", outletAvailability[outletId]);
-  }
+  try {
+    if (outletId && outletAvailability[outletId]) {
+      socket.emit("item:availability:state", outletAvailability[outletId]);
+    }
+  } catch (err) { console.error("[socket] availability:state emit error:", err.message); }
 
   // ── Online orders on/off toggle (POS → all) ──────────────────────────────
-  // data: { outletId, enabled: bool }
   socket.on("online:orders:toggle", (data) => {
-    if (!data.outletId) return;
-    const tid = resolveTenantByOutlet(data.outletId);
-    outletOnlineEnabled[data.outletId] = data.enabled;
-    socket.to(`outlet:${tid}:${data.outletId}`).emit("online:orders:toggle", data);
+    try {
+      if (!data.outletId) return;
+      const tid = resolveTenantByOutlet(data.outletId);
+      outletOnlineEnabled[data.outletId] = data.enabled;
+      socket.to(`outlet:${tid}:${data.outletId}`).emit("online:orders:toggle", data);
+    } catch (err) { console.error("[socket] online:orders:toggle error:", err.message); }
   });
 });
 
