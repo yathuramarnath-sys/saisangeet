@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { OnboardingWizard, isOnboardingDone } from "../features/onboarding/OnboardingWizard";
 import { api } from "../lib/api";
@@ -39,11 +40,35 @@ function useShowOnboarding() {
 
 export function OwnerLayout({ children }) {
   const [showWizard, closeWizard] = useShowOnboarding();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+
+  // Close sidebar on route change (mobile nav tap)
+  useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      {/* Mobile top bar — hidden on desktop via CSS */}
+      <div className="mob-topbar">
+        <button
+          type="button"
+          className="mob-hamburger"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
+        >
+          <span /><span /><span />
+        </button>
+        <span className="mob-topbar-title">Plato</span>
+      </div>
+
+      {/* Backdrop — closes sidebar when tapped */}
+      {sidebarOpen && (
+        <div className="mob-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main-content">{children}</main>
+
       {showWizard && (
         <OnboardingWizard onComplete={closeWizard} />
       )}

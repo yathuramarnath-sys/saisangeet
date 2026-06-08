@@ -209,10 +209,8 @@ async function runMigrations() {
   await queryFn(`CREATE INDEX IF NOT EXISTS idx_advance_orders_tenant_outlet ON advance_orders (tenant_id, outlet_id)`);
   await queryFn(`CREATE INDEX IF NOT EXISTS idx_advance_orders_date ON advance_orders (date)`);
   await queryFn(`CREATE INDEX IF NOT EXISTS idx_advance_orders_status ON advance_orders (status)`);
-  // Add no_showed_at column if table was created before this migration
   await queryFn(`ALTER TABLE advance_orders ADD COLUMN IF NOT EXISTS no_showed_at TIMESTAMPTZ`);
   console.log("[migrate] advance_orders table verified.");
-
   // ── 7. Owner auth field repair ───────────────────────────────────────────────
   // Scan every tenant for owner accounts with missing email / passwordHash and
   // repair what can be recovered from users_index. Logs critical errors for any
