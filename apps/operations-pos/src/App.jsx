@@ -1078,6 +1078,9 @@ export default function App() {
   useEffect(() => {
     let buffer = "";
     let bufferTimer = null;
+    // Prevents the same barcode scan from firing multiple API calls when a scanner
+    // sends Enter key more than once (common on some USB scanner models).
+    let scanLocked = false;
 
     function resetBuffer() {
       buffer = "";
@@ -1090,6 +1093,7 @@ export default function App() {
       if (tag === "input" || tag === "textarea" || tag === "select") return;
 
       if (e.key === "Enter") {
+        if (scanLocked) { resetBuffer(); return; }  // duplicate Enter from scanner — ignore
         const scanned = buffer.trim();
         resetBuffer();
         if (scanned.length < 1) return;           // empty — ignore (allow single digit item numbers)
@@ -1097,6 +1101,10 @@ export default function App() {
           showToast("Select a table first, then scan");
           return;
         }
+
+        // Lock for 600 ms — enough to absorb any duplicate Enter emissions
+        scanLocked = true;
+        setTimeout(() => { scanLocked = false; }, 600);
 
         // ── Weight scale EAN-13 barcode: format 02PPPPPWWWWWC ───────────────
         // "02" prefix + 5-digit PLU + 5-digit weight-grams + 1 check digit

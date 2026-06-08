@@ -1550,6 +1550,7 @@ export function ReportsPage() {
 
   const [salesData,  setSalesData]  = useState(null);
   const [loading,    setLoading]    = useState(false);
+  const [apiError,   setApiError]   = useState(false);
 
   // Load real outlets once on mount
   useEffect(() => {
@@ -1579,9 +1580,10 @@ export function ReportsPage() {
     if (outletId) params.set("outletId", outletId);
 
     setLoading(true);
+    setApiError(false);
     api.get(`/reports/owner-summary?${params}`)
-      .then(res => { if (res?.salesData) setSalesData(res.salesData); })
-      .catch(() => {})
+      .then(res => { setSalesData(res?.salesData || null); })
+      .catch(() => { setSalesData(null); setApiError(true); })
       .finally(() => setLoading(false));
   }, [active, dateFrom, dateTo, month, outletId]);
 
@@ -1650,6 +1652,12 @@ export function ReportsPage() {
           {loading && <span className="rpt-loading-dot" title="Loading…">⟳</span>}
         </div>
       </div>
+
+      {apiError && !loading && (
+        <div style={{ margin: "12px 16px", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: 13 }}>
+          ⚠ Report data could not be loaded. Check your connection and try again. Figures shown below may be sample data.
+        </div>
+      )}
 
       {active === "day-end"    && <DayEndSummary  outlet={selectedOutletName} date={`${dateFrom} – ${dateTo}`} data={salesData?.dayEnd} />}
       {active === "item-sales" && <ItemSalesReport outlet={selectedOutletName} date={`${dateFrom}_${dateTo}`}  data={salesData} />}

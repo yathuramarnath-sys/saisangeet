@@ -147,6 +147,11 @@ export function ItemForm({
               placeholder="0"
               required
             />
+            {(Number(draft.basePrice) === 0 || draft.basePrice === "" || draft.basePrice === "0") && (
+              <span style={{ color: "#f59e0b", fontSize: 11, marginTop: 2, display: "block" }}>
+                ⚠ Price is ₹0 — item will sell for free on POS
+              </span>
+            )}
           </label>
           <label>
             Online price (₹)

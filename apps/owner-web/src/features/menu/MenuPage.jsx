@@ -901,7 +901,12 @@ export function MenuPage() {
   }
 
   async function handleDeleteItem(item) {
-    if (!window.confirm(`Delete ${item.name}? This cannot be undone.`)) {
+    if (!window.confirm(
+      `Delete "${item.name}"?\n\n` +
+      `⚠ If this item is currently in an open table order on POS, those screens will show an error.\n\n` +
+      `Tip: mark the item as Sold Out instead of deleting during service hours.\n\n` +
+      `Delete anyway? This cannot be undone.`
+    )) {
       return;
     }
 
