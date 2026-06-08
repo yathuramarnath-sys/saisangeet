@@ -43,14 +43,14 @@ export function ItemForm({
     letterSpacing: "0.05em",
     marginBottom: 10,
   };
-  const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
-  const grid3 = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 };
+  const grid2 = "item-form-grid2";
+  const grid3 = "item-form-grid3";
 
   return (
     <form className="simple-form" onSubmit={onSubmit}>
 
       {/* ── Section 1: Basic Info ──────────────────────────────────────── */}
-      <div style={grid2}>
+      <div className={grid2}>
         <label>
           Item name *
           <input
@@ -137,7 +137,7 @@ export function ItemForm({
       <div style={sectionStyle}>
         <p style={sectionTitle}>💰 Pricing</p>
 
-        <div style={grid2}>
+        <div className={grid2}>
           <label>
             Base dine-in price (₹) *
             <input
@@ -173,11 +173,7 @@ export function ItemForm({
             <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 8px" }}>
               Area price overrides — leave 0 to use base price above
             </p>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${Math.min(availableAreas.length, 3)}, 1fr)`,
-              gap: 10,
-            }}>
+            <div className="item-form-grid3">
               {availableAreas.map(area => (
                 <label key={area}>
                   {area} (₹)
@@ -199,7 +195,7 @@ export function ItemForm({
       {/* ── Section 3: Packing Charges ───────────────────────────────── */}
       <div style={sectionStyle}>
         <p style={sectionTitle}>📦 Packing Charges (added on top of base price)</p>
-        <div style={grid2}>
+        <div className={grid2}>
           <label>
             Takeaway packing charge (₹ / item)
             <input
@@ -222,7 +218,7 @@ export function ItemForm({
       {/* ── Section 4: Tax & Availability ────────────────────────────── */}
       <div style={sectionStyle}>
         <p style={sectionTitle}>🧾 Tax &amp; Availability</p>
-        <div style={grid2}>
+        <div className={grid2}>
           <label>
             GST rate
             <select
@@ -291,7 +287,7 @@ export function ItemForm({
                 />
               </label>
             )}
-            <div style={grid2}>
+            <div className={grid2}>
               {fs.shortCode && (
                 <label>
                   Short code (KOT)

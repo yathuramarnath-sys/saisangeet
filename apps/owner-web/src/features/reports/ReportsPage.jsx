@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../../lib/api";
 import {
   dayEndSeed, itemSalesSeed, gstSeed, paymentSeed, discountVoidSeed, staffSalesSeed,
@@ -1536,6 +1536,7 @@ function thisMonthStr() {
 
 export function ReportsPage() {
   const [active, setActive]   = useState("day-end");
+  const reportCache = useRef({});
 
   // Date range — used by all tabs except GST
   const [dateFrom, setDateFrom] = useState(todayStr);
@@ -1564,7 +1565,8 @@ export function ReportsPage() {
       .catch(() => {}); // keep default "All Outlets" on error
   }, []);
 
-  // Fetch reports data whenever date range, outlet or active tab changes
+  // Fetch reports data whenever date range, outlet or active tab changes.
+  // Results are cached per (from, to, outletId) so tab switches don't re-fetch.
   const fetchData = useCallback(() => {
     // Derive API date range: for GST use the full month
     let from = dateFrom;
@@ -1576,18 +1578,32 @@ export function ReportsPage() {
       to   = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
     }
 
+    const cacheKey = `${from}|${to}|${outletId}`;
+    if (reportCache.current[cacheKey]) {
+      setSalesData(reportCache.current[cacheKey]);
+      setApiError(false);
+      return;
+    }
+
     const params = new URLSearchParams({ dateFrom: from, dateTo: to });
     if (outletId) params.set("outletId", outletId);
 
     setLoading(true);
     setApiError(false);
     api.get(`/reports/owner-summary?${params}`)
-      .then(res => { setSalesData(res?.salesData || null); })
+      .then(res => {
+        const data = res?.salesData || null;
+        reportCache.current[cacheKey] = data;
+        setSalesData(data);
+      })
       .catch(() => { setSalesData(null); setApiError(true); })
       .finally(() => setLoading(false));
   }, [active, dateFrom, dateTo, month, outletId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Clear cache when filters change so stale data is never served after a refresh
+  useEffect(() => { reportCache.current = {}; }, [dateFrom, dateTo, month, outletId]);
 
   // Validate: dateFrom must not exceed dateTo
   function handleDateFrom(val) {

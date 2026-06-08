@@ -1170,6 +1170,30 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
 .pos-btn:active { transform: scale(0.975); }
 
+/* ─── Print & Pay combined action row */
+.order-pay-row {
+  display: flex;
+  gap: 8px;
+}
+.order-pay-row .pos-btn.pay {
+  flex: 1;
+}
+.pos-btn.print-settle-btn {
+  background: #7c3aed;
+  color: #fff;
+  border: 1.5px solid #7c3aed;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 14px 12px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(124,58,237,0.25);
+  flex-shrink: 0;
+}
+.pos-btn.print-settle-btn:hover {
+  background: #6d28d9;
+  transform: translateY(-1px);
+}
+
 /* ─── Payment overlay & sheet ────────────────────────────────────────────── */
 
 .payment-overlay {

@@ -1461,6 +1461,7 @@ export default function App() {
       actorName:   "POS",   // always "POS" so backend never writes cashier name into captainName
       items:       unsent,  // ALL unsent items — server handles station split
     };
+    let wasQueued = false;
     try {
       const result = await api.post("/operations/kot", kotPayload);
       if (result?.kots?.length) serverKots = result.kots;
@@ -1468,6 +1469,7 @@ export default function App() {
       if (result?.order) lastServerOrder = result.order;
     } catch (err) {
       // Offline — queue for retry; print with local kotSeq
+      wasQueued = true;
       const queue = loadKotQueue();
       queue.push(kotPayload);
       saveKotQueue(queue);
@@ -1505,7 +1507,11 @@ export default function App() {
 
     const printer = getKotPrinter();
     const printerLabel = printer ? ` → ${printer.name}` : "";
-    showToast(`🖨️ KOT-${String(serverKotNumber).padStart(4, "0")} sent${printerLabel}`);
+    if (wasQueued) {
+      showToast(`⚡ KOT-${String(serverKotNumber).padStart(4, "0")} queued — will send when online`);
+    } else {
+      showToast(`🖨️ KOT-${String(serverKotNumber).padStart(4, "0")} sent${printerLabel}`);
+    }
 
     // Deduct stock for tracked items — fire-and-forget, non-blocking
     if (outlet?.id && unsent.length) {
@@ -1522,7 +1528,11 @@ export default function App() {
             return next;
           });
         }
-      }).catch(() => {});
+      }).catch(err => {
+        console.warn("[POS] stock deduction failed:", err?.message);
+        // Delay warning so it doesn't overlap the KOT sent toast
+        setTimeout(() => showToast("⚠ Stock deduction failed — update inventory manually"), 3000);
+      });
     }
 
     // Reconcile from the last server response (most up-to-date order state).

@@ -336,6 +336,13 @@ body {
   gap: 12px;
 }
 
+/* ── Responsive item form grids ────────────────────────────────────────────── */
+.item-form-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.item-form-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+@media (max-width: 600px) {
+  .item-form-grid2, .item-form-grid3 { grid-template-columns: 1fr; }
+}
+
 .entity-subtitle {
   display: block;
   margin-top: 6px;
@@ -549,6 +556,12 @@ body {
   border-radius: 22px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.92);
+  /* Horizontal scroll on narrow screens — preserves all columns without breaking layout */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.menu-library-table > * {
+  min-width: 700px;
 }
 
 .menu-library-row {
