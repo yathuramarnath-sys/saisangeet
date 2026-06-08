@@ -519,31 +519,18 @@ export function OrderPanel({
             </div>
           )}
 
-          {/* Row 2: Collect Payment + Print & Settle shortcut */}
+          {/* Row 2: Collect Payment */}
           {hasItems && (
-            <div className="order-pay-row">
-              <button type="button" className="pos-btn pay" onClick={onOpenPayment}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.5">
-                  <rect x="2" y="5" width="20" height="14" rx="2"/>
-                  <line x1="2" y1="10" x2="22" y2="10"/>
-                </svg>
-                {fin && fin.balance > 0 && fin.paid > 0
-                  ? `Pay Balance · ₹${fin.balance}`
-                  : `Collect Payment${fin && fin.total > 0 ? ` · ₹${fin.total}` : ""}`}
-              </button>
-              {/* Quick path: print bill + open payment in one tap — cuts 7 taps to 3 for cash */}
-              {unsentItems.length === 0 && onPrintBill && (
-                <button
-                  type="button"
-                  className="pos-btn print-settle-btn"
-                  title="Print bill and open payment in one tap"
-                  onClick={() => { onPrintBill?.(); onOpenPayment?.(); }}
-                >
-                  ⚡ Print &amp; Pay
-                </button>
-              )}
-            </div>
+            <button type="button" className="pos-btn pay" onClick={onOpenPayment}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5">
+                <rect x="2" y="5" width="20" height="14" rx="2"/>
+                <line x1="2" y1="10" x2="22" y2="10"/>
+              </svg>
+              {fin && fin.balance > 0 && fin.paid > 0
+                ? `Pay Balance · ₹${fin.balance}`
+                : `Collect Payment${fin && fin.total > 0 ? ` · ₹${fin.total}` : ""}`}
+            </button>
           )}
         </div>
       )}

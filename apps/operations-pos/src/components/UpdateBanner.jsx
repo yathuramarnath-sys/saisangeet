@@ -17,8 +17,8 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-// ⚠️  Keep this in sync with package.json "version" on every release.
-const APP_VERSION = "1.5.1";
+// Injected at build time by vite.config.js from package.json — never edit manually.
+const APP_VERSION = __APP_VERSION__;
 const APP_KEY     = "pos";
 const API_BASE    = import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1";
 const DISMISS_KEY = "pos_update_dismissed_for";  // localStorage: stores version user dismissed
@@ -111,7 +111,7 @@ export function UpdateBanner() {
           {state === "available" && (
             <>
               <strong>v{newVer} available</strong>
-              {" — "}tap Refresh to update.
+              {" — "}downloading…
             </>
           )}
         </div>
