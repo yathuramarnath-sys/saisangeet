@@ -3601,6 +3601,7 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .adv-badge-confirmed { background: #dbeafe; color: #1d4ed8; }
 .adv-badge-checkedin { background: #dcfce7; color: #15803d; }
 .adv-badge-cancelled { background: #fee2e2; color: #b91c1c; }
+.adv-badge-noshow    { background: #f3e8ff; color: #7e22ce; }
 
 /* Note */
 .advp-card-note {
@@ -3670,6 +3671,11 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   color: var(--sq-text);
 }
 .advp-action-btn.print:hover:not(:disabled) { background: #e5e7eb; }
+.advp-action-btn.noshow {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+.advp-action-btn.noshow:hover:not(:disabled) { background: #e9d5ff; }
 .advp-action-btn.cancel {
   background: #fee2e2;
   color: #b91c1c;
