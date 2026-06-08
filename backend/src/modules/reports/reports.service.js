@@ -9,6 +9,7 @@ const { getTodaySales, getSalesForRange, getCreditSettlementsForRange } = requir
 const { queryClosedOrders, listClosedOrders } = require("../../db/closed-orders.repository");
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { getOwnerSetupData } = require("../../data/owner-setup-store");
+const { getActionLogs }    = require("../operations/action-log-store");
 
 // Insights are generated from live sales data — empty until POS goes live
 const defaultInsights = [];
@@ -95,7 +96,7 @@ function buildCaptainIncentives(closedToday, tenantId) {
   }));
 }
 
-function buildSalesData(closedToday, creditSettlements = []) {
+function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 0, cancelledValue = 0 } = {}) {
   const paymentMap = {};
   const itemMap    = {};
   let totalGross   = 0;
@@ -180,12 +181,42 @@ function buildSalesData(closedToday, creditSettlements = []) {
     paymentMap[mode].orders += 1;
   }
 
-  const totalOrders   = closedToday.length;
-  // Assume prices are GST-inclusive at 5%
-  const taxableAmount = Math.round(totalGross / 1.05);
-  const totalTax      = totalGross - taxableAmount;
+  const totalOrders = closedToday.length;
+
+  // Compute per-item GST using each item's actual taxRate.
+  // Indian restaurant prices are GST-inclusive, so we extract tax:
+  //   tax = lineAmount × rate / (100 + rate)
+  // Items without taxRate fall back to 5% (the standard food rate).
+  // 0% items (bread, roti, certain bakery) contribute zero tax.
+  const taxByRate = {};
+  for (const order of closedToday) {
+    const items = order.items || [];
+    const sub   = items.filter(i => !i.isVoided).reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+    const disc  = Math.min(order.discountAmount || 0, sub);
+    for (const item of items) {
+      if (item.isVoided) continue;
+      const rate    = (item.taxRate != null && item.taxRate !== "") ? Number(item.taxRate) : 5;
+      const lineAmt = sub > 0 ? (item.price || 0) * (item.quantity || 1) * ((sub - disc) / sub) : 0;
+      const lineTax = rate > 0 ? lineAmt * rate / (100 + rate) : 0;
+      if (!taxByRate[rate]) taxByRate[rate] = { taxable: 0, tax: 0 };
+      taxByRate[rate].taxable += lineAmt - lineTax;
+      taxByRate[rate].tax     += lineTax;
+    }
+  }
+  let _taxableSum = 0, _taxSum = 0;
+  for (const s of Object.values(taxByRate)) { _taxableSum += s.taxable; _taxSum += s.tax; }
+  const taxableAmount = Math.round(_taxableSum);
+  const totalTax      = Math.round(_taxSum);
   const cgst          = Math.round(totalTax / 2);
   const sgst          = totalTax - cgst;
+
+  // Per-slab breakdown for GST report (0%, 5%, 12%, 18%, etc.)
+  const taxSlabs = Object.entries(taxByRate)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([rate, s]) => {
+      const t = Math.round(s.tax);
+      return { rate: Number(rate), taxable: Math.round(s.taxable), cgst: Math.round(t / 2), sgst: t - Math.round(t / 2), total: t };
+    });
 
   // ── Order type breakdown (Dine-In / Takeaway / Online) ───────────────────────
   const orderTypeBuckets = {
@@ -217,8 +248,8 @@ function buildSalesData(closedToday, creditSettlements = []) {
     const label = `${String(h).padStart(2, "0")}:00`;
     if (!hourlyMap[label]) hourlyMap[label] = { hour: label, orders: 0, amount: 0 };
     const items3 = order.items || [];
-    const net3   = items3.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0)
-                   - Math.min(order.discountAmount || 0, 0);
+    const sub3   = items3.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+    const net3   = sub3 - Math.min(order.discountAmount || 0, sub3);
     hourlyMap[label].orders += 1;
     hourlyMap[label].amount += net3;
   }
@@ -279,8 +310,8 @@ function buildSalesData(closedToday, creditSettlements = []) {
         netAfterDiscount: Math.round(totalGross),
         totalTax:         Math.round(totalTax),
         totalDiscount:    Math.round(totalDiscount),
-        totalCancelled:   0,
-        cancelledValue:   0,
+        totalCancelled,
+        cancelledValue:   Math.round(cancelledValue),
       },
       paymentModes,
       orderTypes: computedOrderTypes,
@@ -308,6 +339,7 @@ function buildSalesData(closedToday, creditSettlements = []) {
         cgst, sgst,
         totalGst:   Math.round(totalTax),
         totalBills: totalOrders,
+        slabs:      taxSlabs,
       },
       daily: totalOrders > 0 ? [{
         date:    new Date().toLocaleDateString("en-IN"),
@@ -315,6 +347,7 @@ function buildSalesData(closedToday, creditSettlements = []) {
         taxable: Math.round(taxableAmount),
         cgst, sgst,
         total:   Math.round(totalTax),
+        slabs:   taxSlabs,
       }] : [],
       outletBreakdown: [],
     },
@@ -653,8 +686,16 @@ async function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) 
   const creditTo         = dateTo   || todayStr;
   const creditSettlements = getCreditSettlementsForRange(tenantId, creditFrom, creditTo, outletId || null);
 
+  // Cancelled orders logged by POS today
+  const cancelLogs     = getActionLogs(tenantId, { types: ["cancel_order"], dateFrom: creditFrom, dateTo: creditTo });
+  const totalCancelled = cancelLogs.length;
+  const cancelledValue = cancelLogs.reduce((s, e) => {
+    const itms = e.items || [];
+    return s + itms.reduce((is, i) => is + (i.price || 0) * (i.quantity || 1), 0);
+  }, 0);
+
   const salesData       = {
-    ...buildSalesData(closedToday, creditSettlements),
+    ...buildSalesData(closedToday, creditSettlements, { totalCancelled, cancelledValue }),
     captainIncentives: buildCaptainIncentives(closedToday, tenantId),
   };
 
