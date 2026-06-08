@@ -1,4 +1,5 @@
 const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { updateItemPrice } = require("../online-orders/urbanpiper.service");
 
 function slugify(value) {
   return String(value || "")
@@ -284,9 +285,11 @@ async function createMenuItem(payload) {
 
 async function updateMenuItem(id, payload) {
   let updatedItem = null;
+  let oldOnlinePrice = null;
 
   updateOwnerSetupData((current) => {
     const existingItem = current.menu.items.find((item) => item.id === id);
+    if (existingItem) oldOnlinePrice = existingItem.onlinePrice || 0;
 
     if (!existingItem) {
       return current;
@@ -348,6 +351,13 @@ async function updateMenuItem(id, payload) {
       }
     };
   });
+
+  if (updatedItem && payload.onlinePrice !== undefined) {
+    const newPrice = Number(payload.onlinePrice || 0);
+    if (newPrice !== oldOnlinePrice) {
+      updateItemPrice(id, newPrice, getOwnerSetupData()).catch(() => {});
+    }
+  }
 
   return updatedItem;
 }
