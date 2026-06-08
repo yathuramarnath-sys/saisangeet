@@ -102,6 +102,20 @@ export function AdvanceOrdersPanel({ outlet, menuItems = [], tableAreas = [], or
     }
   }
 
+  // ── No Show ──────────────────────────────────────────────────────────────────
+  async function handleNoShow(order) {
+    if (!window.confirm(`Mark "${order.customerName}" as No Show?\nBooking will be closed.`)) return;
+    setActionBusy(order.id);
+    try {
+      const res = await api.post(`/advance-orders/${order.id}/noshow`, { outletId });
+      setAdvOrders((prev) => prev.map((o) => o.id === order.id ? res.order : o));
+    } catch (err) {
+      alert("No-show failed: " + (err.message || "Unknown error"));
+    } finally {
+      setActionBusy(null);
+    }
+  }
+
   // ── Print slip ───────────────────────────────────────────────────────────────
   async function handlePrint(order) {
     try {
@@ -127,6 +141,7 @@ export function AdvanceOrdersPanel({ outlet, menuItems = [], tableAreas = [], or
       confirmed: { label: "Confirmed",  cls: "adv-badge-confirmed" },
       checkedin: { label: "Checked In", cls: "adv-badge-checkedin" },
       cancelled: { label: "Cancelled",  cls: "adv-badge-cancelled" },
+      noshow:    { label: "No Show",    cls: "adv-badge-noshow"    },
     };
     const info = map[status] || { label: status, cls: "" };
     return <span className={`adv-status-badge ${info.cls}`}>{info.label}</span>;
@@ -149,6 +164,7 @@ export function AdvanceOrdersPanel({ outlet, menuItems = [], tableAreas = [], or
   const tabs = [
     { id: "active",    label: "Upcoming"   },
     { id: "checkedin", label: "Checked In" },
+    { id: "noshow",    label: "No Show"    },
     { id: "cancelled", label: "Cancelled"  },
     { id: "all",       label: "All"        },
   ];
@@ -266,7 +282,7 @@ export function AdvanceOrdersPanel({ outlet, menuItems = [], tableAreas = [], or
                     </div>
 
                     {/* Actions */}
-                    {order.status !== "checkedin" && order.status !== "cancelled" && (
+                    {order.status !== "checkedin" && order.status !== "cancelled" && order.status !== "noshow" && (
                       <div className="advp-card-actions">
                         <button
                           type="button"
@@ -291,6 +307,14 @@ export function AdvanceOrdersPanel({ outlet, menuItems = [], tableAreas = [], or
                           onClick={() => handlePrint(order)}
                         >
                           🖨️ Print
+                        </button>
+                        <button
+                          type="button"
+                          className="advp-action-btn noshow"
+                          disabled={isBusy}
+                          onClick={() => handleNoShow(order)}
+                        >
+                          👻 No Show
                         </button>
                         <button
                           type="button"

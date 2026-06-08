@@ -1,238 +1,202 @@
 /**
  * advance-orders-store.js
  *
- * In-memory store for advance orders (reservations with pre-ordered items).
- * Persists to a JSON file under .data/ so orders survive server restarts.
+ * PostgreSQL-backed store for advance orders (bookings with optional pre-ordered items).
  *
- * Data model per advance order:
- * {
- *   id            : "adv-<timestamp>-<random>",
- *   tenantId      : "default",
- *   outletId      : "outlet_id",
- *   customerName  : "Rahul Kumar",
- *   phone         : "9876543210",
- *   guests        : 4,
- *   date          : "2026-05-15",      // YYYY-MM-DD
- *   time          : "19:00",
- *   note          : "Window seat",
- *   items         : [{ menuItemId, name, price, quantity }],
- *   advanceAmount : 500,
- *   advanceMethod : "cash",            // "cash" | "card" | "upi" | ""
- *   advanceRef    : "UPI ref / txn",
- *   status        : "pending",         // "pending" | "confirmed" | "checkedin" | "cancelled"
- *   assignedTableId : null,
- *   createdAt     : "ISO",
- *   updatedAt     : "ISO",
- *   checkedInAt   : null,
- *   cancelledAt   : null,
- *   cancelReason  : ""
- * }
+ * Statuses: pending | confirmed | checkedin | cancelled | noshow
  */
 
-const fs   = require("fs");
-const path = require("path");
+const { query } = require("../../db/pool");
 
-// ── Persistence ───────────────────────────────────────────────────────────────
+// ── Row → JS object ───────────────────────────────────────────────────────────
 
-const DATA_DIR  = path.resolve(__dirname, "../../../../.data");
-const DATA_FILE = path.join(DATA_DIR, "advance-orders.json");
-
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+function rowToOrder(row) {
+  if (!row) return null;
+  const d = row.date;
+  return {
+    id:              row.id,
+    tenantId:        row.tenant_id,
+    outletId:        row.outlet_id,
+    customerName:    row.customer_name,
+    phone:           row.phone,
+    guests:          row.guests,
+    date:            d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10),
+    time:            row.time,
+    note:            row.note,
+    orderType:       row.order_type,
+    items:           row.items || [],
+    advanceAmount:   Number(row.advance_amount),
+    advanceMethod:   row.advance_method,
+    advanceRef:      row.advance_ref,
+    status:          row.status,
+    assignedTableId: row.assigned_table_id,
+    createdAt:       row.created_at,
+    updatedAt:       row.updated_at,
+    checkedInAt:     row.checked_in_at,
+    cancelledAt:     row.cancelled_at,
+    noShowedAt:      row.no_showed_at,
+    cancelReason:    row.cancel_reason,
+  };
 }
-
-function loadFromDisk() {
-  try {
-    ensureDataDir();
-    if (!fs.existsSync(DATA_FILE)) return {};
-    const raw = fs.readFileSync(DATA_FILE, "utf8");
-    return JSON.parse(raw) || {};
-  } catch {
-    return {};
-  }
-}
-
-function saveToDisk(data) {
-  try {
-    ensureDataDir();
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
-  } catch {
-    // Silent — in-memory state is still correct
-  }
-}
-
-// ── In-memory store ───────────────────────────────────────────────────────────
-// Keyed: Map<tenantId, Map<outletId, advance[]>>
-
-/** @type {Map<string, Map<string, Array>>} */
-let _store = null;
-
-function getStore() {
-  if (!_store) {
-    _store = new Map();
-    const disk = loadFromDisk();
-    for (const [tenantId, outlets] of Object.entries(disk)) {
-      const outletMap = new Map();
-      for (const [outletId, orders] of Object.entries(outlets)) {
-        outletMap.set(outletId, orders || []);
-      }
-      _store.set(tenantId, outletMap);
-    }
-  }
-  return _store;
-}
-
-function getOutletOrders(tenantId, outletId) {
-  const store     = getStore();
-  if (!store.has(tenantId))   store.set(tenantId, new Map());
-  const outletMap = store.get(tenantId);
-  if (!outletMap.has(outletId)) outletMap.set(outletId, []);
-  return outletMap.get(outletId);
-}
-
-function persist() {
-  const store = getStore();
-  const out   = {};
-  for (const [tenantId, outletMap] of store.entries()) {
-    out[tenantId] = {};
-    for (const [outletId, orders] of outletMap.entries()) {
-      out[tenantId][outletId] = orders;
-    }
-  }
-  saveToDisk(out);
-}
-
-// ── CRUD helpers ──────────────────────────────────────────────────────────────
 
 function generateId() {
   return `adv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/**
- * Create a new advance order.
- */
-function createAdvanceOrder(tenantId, outletId, payload) {
-  const now    = new Date().toISOString();
-  const order  = {
-    id:             generateId(),
-    tenantId,
-    outletId,
-    customerName:   (payload.customerName || "").trim(),
-    phone:          (payload.phone        || "").trim(),
-    guests:         Number(payload.guests)  || 1,
-    date:           payload.date            || now.slice(0, 10),
-    time:           payload.time            || "12:00",
-    note:           (payload.note || "").trim(),
-    orderType:      payload.orderType      || "dine-in", // "dine-in" | "takeaway" | "delivery"
-    items:          Array.isArray(payload.items) ? payload.items : [],
-    advanceAmount:  Number(payload.advanceAmount) || 0,
-    advanceMethod:  payload.advanceMethod  || "",
-    advanceRef:     (payload.advanceRef    || "").trim(),
-    status:         "pending",
-    assignedTableId: null,
-    createdAt:      now,
-    updatedAt:      now,
-    checkedInAt:    null,
-    cancelledAt:    null,
-    cancelReason:   "",
+// ── CRUD ──────────────────────────────────────────────────────────────────────
+
+async function createAdvanceOrder(tenantId, outletId, payload) {
+  const { rows } = await query(
+    `INSERT INTO advance_orders
+       (id, tenant_id, outlet_id, customer_name, phone, guests, date, time, note,
+        order_type, items, advance_amount, advance_method, advance_ref, status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending')
+     RETURNING *`,
+    [
+      generateId(),
+      tenantId,
+      outletId,
+      (payload.customerName || "").trim(),
+      (payload.phone        || "").trim(),
+      Number(payload.guests) || 1,
+      payload.date || new Date().toISOString().slice(0, 10),
+      payload.time || "12:00",
+      (payload.note || "").trim(),
+      payload.orderType || "dine-in",
+      JSON.stringify(Array.isArray(payload.items) ? payload.items : []),
+      Number(payload.advanceAmount) || 0,
+      payload.advanceMethod || "",
+      (payload.advanceRef || "").trim(),
+    ]
+  );
+  return rowToOrder(rows[0]);
+}
+
+async function listAdvanceOrders(tenantId, outletId, { status } = {}) {
+  const params = [tenantId, outletId];
+  let whereStatus = "";
+  if (status === "active") {
+    whereStatus = "AND status IN ('pending', 'confirmed')";
+  } else if (status) {
+    params.push(status);
+    whereStatus = `AND status = $${params.length}`;
+  }
+  const { rows } = await query(
+    `SELECT * FROM advance_orders
+     WHERE tenant_id = $1 AND outlet_id = $2 ${whereStatus}
+     ORDER BY
+       CASE WHEN status IN ('cancelled','noshow') THEN 1 ELSE 0 END,
+       date ASC, time ASC`,
+    params
+  );
+  return rows.map(rowToOrder);
+}
+
+async function getAdvanceOrder(tenantId, outletId, id) {
+  const { rows } = await query(
+    `SELECT * FROM advance_orders
+     WHERE id = $1 AND tenant_id = $2 AND outlet_id = $3`,
+    [id, tenantId, outletId]
+  );
+  return rowToOrder(rows[0] || null);
+}
+
+async function updateAdvanceOrder(tenantId, outletId, id, patch) {
+  const existing = await getAdvanceOrder(tenantId, outletId, id);
+  if (!existing) return null;
+  if (["checkedin", "cancelled", "noshow"].includes(existing.status)) {
+    return { error: "Cannot edit a checked-in, cancelled, or no-show order" };
+  }
+
+  const fieldMap = {
+    customerName:  "customer_name",
+    phone:         "phone",
+    guests:        "guests",
+    date:          "date",
+    time:          "time",
+    note:          "note",
+    orderType:     "order_type",
+    items:         "items",
+    advanceAmount: "advance_amount",
+    advanceMethod: "advance_method",
+    advanceRef:    "advance_ref",
+    status:        "status",
   };
 
-  const list = getOutletOrders(tenantId, outletId);
-  list.push(order);
-  persist();
-  return order;
-}
+  const setClauses = [];
+  const values = [];
 
-/**
- * List advance orders for an outlet.
- * Optional status filter: "pending" | "confirmed" | "checkedin" | "cancelled" | "active" (pending+confirmed)
- */
-function listAdvanceOrders(tenantId, outletId, { status } = {}) {
-  const list = [...getOutletOrders(tenantId, outletId)];
-
-  if (status === "active") {
-    return list.filter((o) => o.status === "pending" || o.status === "confirmed");
-  }
-  if (status) {
-    return list.filter((o) => o.status === status);
-  }
-  return list;
-}
-
-/**
- * Get a single advance order by id.
- */
-function getAdvanceOrder(tenantId, outletId, id) {
-  return getOutletOrders(tenantId, outletId).find((o) => o.id === id) || null;
-}
-
-/**
- * Update an advance order (edit).
- * Only editable fields — status must be pending or confirmed.
- */
-function updateAdvanceOrder(tenantId, outletId, id, patch) {
-  const list  = getOutletOrders(tenantId, outletId);
-  const idx   = list.findIndex((o) => o.id === id);
-  if (idx === -1) return null;
-
-  const order = list[idx];
-  if (order.status === "checkedin" || order.status === "cancelled") {
-    return { error: "Cannot edit a checked-in or cancelled order" };
+  for (const [jsKey, colName] of Object.entries(fieldMap)) {
+    if (patch[jsKey] !== undefined) {
+      values.push(jsKey === "items" ? JSON.stringify(patch[jsKey]) : patch[jsKey]);
+      setClauses.push(`${colName} = $${values.length}`);
+    }
   }
 
-  const allowed = [
-    "customerName", "phone", "guests", "date", "time", "note",
-    "orderType", "items", "advanceAmount", "advanceMethod", "advanceRef", "status"
-  ];
-  for (const key of allowed) {
-    if (patch[key] !== undefined) order[key] = patch[key];
-  }
-  order.updatedAt = new Date().toISOString();
-  list[idx] = order;
-  persist();
-  return order;
+  if (setClauses.length === 0) return existing;
+
+  values.push(id);      const idParam     = `$${values.length}`;
+  values.push(tenantId); const tenantParam = `$${values.length}`;
+  values.push(outletId); const outletParam = `$${values.length}`;
+
+  const { rows } = await query(
+    `UPDATE advance_orders
+     SET ${setClauses.join(", ")}, updated_at = NOW()
+     WHERE id = ${idParam} AND tenant_id = ${tenantParam} AND outlet_id = ${outletParam}
+     RETURNING *`,
+    values
+  );
+  return rowToOrder(rows[0] || null);
 }
 
-/**
- * Mark as checked in (converts to live order — status update only).
- * Returns updated order or error object.
- */
-function checkInAdvanceOrder(tenantId, outletId, id, { assignedTableId } = {}) {
-  const list = getOutletOrders(tenantId, outletId);
-  const idx  = list.findIndex((o) => o.id === id);
-  if (idx === -1) return null;
+async function checkInAdvanceOrder(tenantId, outletId, id, { assignedTableId } = {}) {
+  const existing = await getAdvanceOrder(tenantId, outletId, id);
+  if (!existing)                        return null;
+  if (existing.status === "cancelled")  return { error: "Order is cancelled" };
+  if (existing.status === "checkedin")  return { error: "Already checked in" };
+  if (existing.status === "noshow")     return { error: "Order is marked no-show" };
 
-  const order = list[idx];
-  if (order.status === "cancelled") return { error: "Order is cancelled" };
-  if (order.status === "checkedin") return { error: "Already checked in" };
-
-  order.status          = "checkedin";
-  order.checkedInAt     = new Date().toISOString();
-  order.updatedAt       = order.checkedInAt;
-  if (assignedTableId)  order.assignedTableId = assignedTableId;
-  list[idx] = order;
-  persist();
-  return order;
+  const { rows } = await query(
+    `UPDATE advance_orders
+     SET status = 'checkedin', checked_in_at = NOW(), updated_at = NOW(),
+         assigned_table_id = COALESCE($1, assigned_table_id)
+     WHERE id = $2 AND tenant_id = $3 AND outlet_id = $4
+     RETURNING *`,
+    [assignedTableId || null, id, tenantId, outletId]
+  );
+  return rowToOrder(rows[0] || null);
 }
 
-/**
- * Cancel an advance order.
- */
-function cancelAdvanceOrder(tenantId, outletId, id, reason = "") {
-  const list = getOutletOrders(tenantId, outletId);
-  const idx  = list.findIndex((o) => o.id === id);
-  if (idx === -1) return null;
+async function cancelAdvanceOrder(tenantId, outletId, id, reason = "") {
+  const existing = await getAdvanceOrder(tenantId, outletId, id);
+  if (!existing)                        return null;
+  if (existing.status === "checkedin")  return { error: "Cannot cancel a checked-in order" };
 
-  const order = list[idx];
-  if (order.status === "checkedin") return { error: "Cannot cancel a checked-in order" };
+  const { rows } = await query(
+    `UPDATE advance_orders
+     SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW(), cancel_reason = $1
+     WHERE id = $2 AND tenant_id = $3 AND outlet_id = $4
+     RETURNING *`,
+    [reason, id, tenantId, outletId]
+  );
+  return rowToOrder(rows[0] || null);
+}
 
-  order.status       = "cancelled";
-  order.cancelReason = reason;
-  order.cancelledAt  = new Date().toISOString();
-  order.updatedAt    = order.cancelledAt;
-  list[idx] = order;
-  persist();
-  return order;
+async function noShowAdvanceOrder(tenantId, outletId, id) {
+  const existing = await getAdvanceOrder(tenantId, outletId, id);
+  if (!existing)                        return null;
+  if (existing.status === "checkedin")  return { error: "Cannot mark a checked-in order as no-show" };
+  if (existing.status === "cancelled")  return { error: "Order is cancelled" };
+  if (existing.status === "noshow")     return { error: "Already marked as no-show" };
+
+  const { rows } = await query(
+    `UPDATE advance_orders
+     SET status = 'noshow', no_showed_at = NOW(), updated_at = NOW()
+     WHERE id = $1 AND tenant_id = $2 AND outlet_id = $3
+     RETURNING *`,
+    [id, tenantId, outletId]
+  );
+  return rowToOrder(rows[0] || null);
 }
 
 // ── Exports ───────────────────────────────────────────────────────────────────
@@ -244,4 +208,5 @@ module.exports = {
   updateAdvanceOrder,
   checkInAdvanceOrder,
   cancelAdvanceOrder,
+  noShowAdvanceOrder,
 };

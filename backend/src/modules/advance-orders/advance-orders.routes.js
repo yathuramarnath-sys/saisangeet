@@ -18,6 +18,7 @@ const {
   listAdvanceOrdersHandler,
   updateAdvanceOrderHandler,
   checkInAdvanceOrderHandler,
+  noShowAdvanceOrderHandler,
   cancelAdvanceOrderHandler,
   printAdvanceOrderHandler,
 } = require("./advance-orders.controller");
@@ -31,6 +32,7 @@ advanceOrdersRouter.post(   "/",               asyncHandler(createAdvanceOrderHa
 advanceOrdersRouter.get(    "/",               asyncHandler(listAdvanceOrdersHandler));
 advanceOrdersRouter.patch(  "/:id",            asyncHandler(updateAdvanceOrderHandler));
 advanceOrdersRouter.post(   "/:id/checkin",    asyncHandler(checkInAdvanceOrderHandler));
+advanceOrdersRouter.post(   "/:id/noshow",     asyncHandler(noShowAdvanceOrderHandler));
 advanceOrdersRouter.delete( "/:id",            asyncHandler(cancelAdvanceOrderHandler));
 advanceOrdersRouter.get(    "/:id/print",      asyncHandler(printAdvanceOrderHandler));
 

@@ -305,6 +305,7 @@ export default function App() {
   const [activeArea,      setActiveArea]      = useState(null);
   const [serviceMode,     setServiceMode]     = useState("dine-in");
   const [toast,           setToast]           = useState(null);
+  const [undoBanner,      setUndoBanner]      = useState(null); // { label, onUndo }
   const socketRef      = useRef(null);   // cloud socket
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
@@ -313,6 +314,7 @@ export default function App() {
   const selectedTableIdRef = useRef(null);
   const outletRef          = useRef(null);
   const handleAddItemRef   = useRef(null);
+  const menuItemsRef       = useRef([]);   // latest menuItems for scale PLU lookup
   // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
   const billPrintingRef = useRef(false);
   // Tracks socket connection state for reconnect-resync logic
@@ -891,13 +893,16 @@ export default function App() {
     const id = outletId || outlet.id;
     setIsSyncing(true);
     try {
-      const [cats, items, stations, outletsList, discRes] = await Promise.all([
+      const [cats, items, stations, outletsList, discRes, staffRes] = await Promise.all([
         api.get(`/menu/categories?outletId=${id}`).catch(() => null),
         api.get(`/menu/items?outletId=${id}`).catch(() => null),
         api.get("/kitchen-stations").catch(() => null),
         api.get("/outlets").catch(() => null),
         api.get("/settings/discounts").catch(() => null),
+        api.get(`/devices/staff?outletId=${id}`).catch(() => null),
       ]);
+      // Refresh staff permissions — picks up any mid-shift permission changes from Owner Console
+      if (staffRes?.staff?.length) setActiveStaff(staffRes.staff);
       if (discRes?.rules) {
         const outletName = outlet?.name || "";
         const active = discRes.rules.filter(r =>
@@ -1008,6 +1013,7 @@ export default function App() {
   // Keep barcode scanner refs in sync with latest state/functions
   useEffect(() => { selectedTableIdRef.current = selectedTableId; }, [selectedTableId]);
   useEffect(() => { outletRef.current = outlet; }, [outlet]);
+  useEffect(() => { menuItemsRef.current = menuItems; }, [menuItems]);
   useEffect(() => { handleAddItemRef.current = handleAddItem; }); // no dep — always latest
 
   // Persist counter ticket number across refreshes
@@ -1076,6 +1082,9 @@ export default function App() {
   useEffect(() => {
     let buffer = "";
     let bufferTimer = null;
+    // Prevents the same barcode scan from firing multiple API calls when a scanner
+    // sends Enter key more than once (common on some USB scanner models).
+    let scanLocked = false;
 
     function resetBuffer() {
       buffer = "";
@@ -1088,6 +1097,7 @@ export default function App() {
       if (tag === "input" || tag === "textarea" || tag === "select") return;
 
       if (e.key === "Enter") {
+        if (scanLocked) { resetBuffer(); return; }  // duplicate Enter from scanner — ignore
         const scanned = buffer.trim();
         resetBuffer();
         if (scanned.length < 1) return;           // empty — ignore (allow single digit item numbers)
@@ -1095,6 +1105,27 @@ export default function App() {
           showToast("Select a table first, then scan");
           return;
         }
+
+        // Lock for 600 ms — enough to absorb any duplicate Enter emissions
+        scanLocked = true;
+        setTimeout(() => { scanLocked = false; }, 600);
+
+        // ── Weight scale EAN-13 barcode: format 02PPPPPWWWWWC ───────────────
+        // "02" prefix + 5-digit PLU + 5-digit weight-grams + 1 check digit
+        if (scanned.length === 13 && /^\d{13}$/.test(scanned) && scanned.startsWith("02")) {
+          const plu   = parseInt(scanned.slice(2, 7), 10);
+          const grams = parseInt(scanned.slice(7, 12), 10);
+          const item  = menuItemsRef.current.find(i => Number(i.scalePlu) === plu);
+          if (!item) {
+            showToast(`❌ Scale PLU ${String(plu).padStart(5, "0")} not found — check Scale Sheet`);
+            return;
+          }
+          const qty100g = +(grams / 100).toFixed(3);
+          handleAddItemRef.current(item, qty100g, true);
+          showToast(`✅ ${item.name} — ${(grams / 1000).toFixed(3)} kg added`);
+          return;
+        }
+
         // Look up item by SKU/barcode
         api.get(`/menu/sku-lookup?sku=${encodeURIComponent(scanned)}&outletId=${outletRef.current?.id || ""}`)
           .then((item) => {
@@ -1204,7 +1235,7 @@ export default function App() {
     if (!next) setPendingOnlineCount(0);
   }
 
-  async function handleAddItem(item) {
+  async function handleAddItem(item, overrideQty = null, fromScale = false) {
     if (!selectedTableId) return;
     const tableId = selectedTableId;
 
@@ -1236,9 +1267,10 @@ export default function App() {
     //    Backend also consolidates by menuItemId (increments existing unsent line), so
     //    if the cashier taps the same item twice the qty in both states stays in sync.
     mutateOrder(tableId, (order) => {
-      const existing = order.items.findIndex((i) => i.menuItemId === item.id && !i.sentToKot);
+      // Scale items always get a new line (never merge) — each scan is a distinct weight
+      const existing = fromScale ? -1 : order.items.findIndex((i) => i.menuItemId === item.id && !i.sentToKot);
       if (existing >= 0) {
-        order.items[existing].quantity += 1;
+        order.items[existing].quantity += overrideQty ?? 1;
       } else {
         // Use area override price if the table's area matches one of the item's overrides
         const _aov1 = item.areaOverrides?.[order.areaName || ""];
@@ -1247,7 +1279,7 @@ export default function App() {
           menuItemId: item.id,
           name:       item.name,
           price:      (_aov1 && Number(_aov1) > 0) ? Number(_aov1) : parsePriceNumber(item.price || item.basePrice),
-          quantity:   1,
+          quantity:   overrideQty ?? 1,
           sentToKot:  false,
           note:       "",
           station:    resolvedStation,
@@ -1278,7 +1310,7 @@ export default function App() {
           menuItemId: item.id,
           name:       item.name,
           price:      (_aov2 && Number(_aov2) > 0) ? Number(_aov2) : parsePriceNumber(item.price || item.basePrice),
-          quantity:   1,
+          quantity:   overrideQty ?? 1,
           note:       "",
           stationName: resolvedStation,
           categoryId:  item.categoryId || "",
@@ -1429,6 +1461,7 @@ export default function App() {
       actorName:   "POS",   // always "POS" so backend never writes cashier name into captainName
       items:       unsent,  // ALL unsent items — server handles station split
     };
+    let wasQueued = false;
     try {
       const result = await api.post("/operations/kot", kotPayload);
       if (result?.kots?.length) serverKots = result.kots;
@@ -1436,6 +1469,7 @@ export default function App() {
       if (result?.order) lastServerOrder = result.order;
     } catch (err) {
       // Offline — queue for retry; print with local kotSeq
+      wasQueued = true;
       const queue = loadKotQueue();
       queue.push(kotPayload);
       saveKotQueue(queue);
@@ -1473,7 +1507,11 @@ export default function App() {
 
     const printer = getKotPrinter();
     const printerLabel = printer ? ` → ${printer.name}` : "";
-    showToast(`🖨️ KOT-${String(serverKotNumber).padStart(4, "0")} sent${printerLabel}`);
+    if (wasQueued) {
+      showToast(`⚡ KOT-${String(serverKotNumber).padStart(4, "0")} queued — will send when online`);
+    } else {
+      showToast(`🖨️ KOT-${String(serverKotNumber).padStart(4, "0")} sent${printerLabel}`);
+    }
 
     // Deduct stock for tracked items — fire-and-forget, non-blocking
     if (outlet?.id && unsent.length) {
@@ -1490,7 +1528,11 @@ export default function App() {
             return next;
           });
         }
-      }).catch(() => {});
+      }).catch(err => {
+        console.warn("[POS] stock deduction failed:", err?.message);
+        // Delay warning so it doesn't overlap the KOT sent toast
+        setTimeout(() => showToast("⚠ Stock deduction failed — update inventory manually"), 3000);
+      });
     }
 
     // Reconcile from the last server response (most up-to-date order state).
@@ -1552,20 +1594,41 @@ export default function App() {
     });
     showToast("Bill requested");
 
-    // 2. Persist to backend and reconcile
-    //    Response: { ok: true, order? }
-    if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
-      try {
-        const result = await api.post("/operations/bill-request", { outletId: outlet?.id, tableId });
-        if (result?.order) {
-          setOrders((prev) => ({
-            ...prev,
-            [tableId]: result.order
-          }));
-        }
-      } catch (err) {
-        console.warn("[POS] bill-request sync failed (offline?):", err.message);
+    if (tableId.startsWith("counter-") || tableId.startsWith("online-")) return;
+
+    // 2. Pre-assign bill number at request time so the preview and audit trail
+    //    show the correct sequential number, not just the order number.
+    //    The endpoint is idempotent — if print happens first it returns the same number.
+    try {
+      const billResult = await api.post("/operations/assign-bill-no", {
+        outletId: outlet?.id,
+        tableId,
+        source: "pos-request",
+      });
+      if (billResult?.billNo != null) {
+        mutateOrder(tableId, o => {
+          o.billNo     = billResult.billNo;
+          o.billNoMode = billResult.billNoMode || null;
+          o.billNoFY   = billResult.billNoFY   || null;
+          o.billNoDate = billResult.billNoDate  || null;
+          return o;
+        });
       }
+    } catch (err) {
+      console.warn("[POS] assign-bill-no at request-time failed (offline?):", err.message);
+    }
+
+    // 3. Persist bill-requested flag to backend and reconcile
+    try {
+      const result = await api.post("/operations/bill-request", { outletId: outlet?.id, tableId });
+      if (result?.order) {
+        setOrders((prev) => ({
+          ...prev,
+          [tableId]: result.order
+        }));
+      }
+    } catch (err) {
+      console.warn("[POS] bill-request sync failed (offline?):", err.message);
     }
   }
 
@@ -2255,10 +2318,12 @@ export default function App() {
   // ── Void item (PIN already verified by OrderPanel before this is called) ──
   function handleVoidItem(idx, reason) {
     if (!selectedTableId) return;
-    const item = orders[selectedTableId]?.items?.[idx];
+    const tableId = selectedTableId;
+    const item = orders[tableId]?.items?.[idx];
     const wasNeverSentToKot = item && !item.sentToKot;
 
-    mutateOrder(selectedTableId, o => {
+    // Apply void immediately in memory so UI updates at once
+    mutateOrder(tableId, o => {
       if (o.items[idx]) {
         o.items[idx].isVoided    = true;
         o.items[idx].voidReason  = reason;
@@ -2267,72 +2332,112 @@ export default function App() {
       }
       return o;
     });
-    showToast("Item voided");
 
-    // Log void to backend for Owner Reports
-    api.post("/operations/void-log", {
-      type:        "void_item",
-      cashier:     cashierName || "POS",
-      outletName:  outlet?.name || "",
-      tableId:     selectedTableId,
-      tableLabel:  orders[selectedTableId]?.tableNumber
-                     ? `T${orders[selectedTableId].tableNumber}`
-                     : selectedTableId,
-      orderNumber: orders[selectedTableId]?.orderNumber || "",
-      items:       [{ name: item?.name, qty: item?.quantity || 1, price: item?.price || 0, reason: reason || "Voided" }],
-    }).catch(() => {});
+    // 5-second undo window — API calls fire only after window expires
+    const timerId = setTimeout(() => {
+      setUndoBanner(null);
+      api.post("/operations/void-log", {
+        type:        "void_item",
+        cashier:     cashierName || "POS",
+        outletName:  outlet?.name || "",
+        tableId,
+        tableLabel:  orders[tableId]?.tableNumber
+                       ? `T${orders[tableId].tableNumber}`
+                       : tableId,
+        orderNumber: orders[tableId]?.orderNumber || "",
+        items:       [{ name: item?.name, qty: item?.quantity || 1, price: item?.price || 0, reason: reason || "Voided" }],
+      }).catch(() => {});
 
-    if (item?.id &&
-        !selectedTableId.startsWith("counter-") &&
-        !selectedTableId.startsWith("online-")) {
-      const sec = JSON.parse(localStorage.getItem("pos_security") || "{}");
-      api.patch("/operations/order/item", {
-        tableId:     selectedTableId,
-        itemId:      item.id,
-        isGhostVoid: wasNeverSentToKot || false,
-        voidReason:  reason || "Voided by POS",
-        managerPin:  sec.managerPin || ""
-      }).catch(err => console.warn("[POS] item-void to backend failed:", err.message));
-    }
+      if (item?.id &&
+          !tableId.startsWith("counter-") &&
+          !tableId.startsWith("online-")) {
+        const sec = JSON.parse(localStorage.getItem("pos_security") || "{}");
+        api.patch("/operations/order/item", {
+          tableId,
+          itemId:      item.id,
+          isGhostVoid: wasNeverSentToKot || false,
+          voidReason:  reason || "Voided by POS",
+          managerPin:  sec.managerPin || ""
+        }).catch(err => console.warn("[POS] item-void to backend failed:", err.message));
+      }
+    }, 5000);
+
+    setUndoBanner({
+      label: `"${item?.name || "Item"}" voided — tap Undo within 5s`,
+      onUndo: () => {
+        clearTimeout(timerId);
+        setUndoBanner(null);
+        mutateOrder(tableId, o => {
+          if (o.items[idx]) {
+            o.items[idx].isVoided   = false;
+            o.items[idx].voidReason = "";
+            if (wasNeverSentToKot) {
+              o.items[idx].sentToKot  = false;
+              o.items[idx].isGhostVoid = false;
+            }
+          }
+          return o;
+        });
+        showToast("Void undone");
+      },
+    });
   }
 
-  // ── Cancel entire order (PIN already verified by OrderPanel) ─────────────
+  // ── Cancel entire order (PIN + confirmation already verified by OrderPanel) ─
   function handleCancelOrder() {
     if (!selectedTableId) return;
     const order = orders[selectedTableId];
     if (!order?.items?.length) return;
 
+    const tableId = selectedTableId;
+    const savedItems   = order.items.map(i => ({ ...i })); // snapshot for undo
     const cancelledItems = order.items
       .filter(i => !i.isVoided)
       .map(i => ({ name: i.name, qty: i.quantity, price: i.price, reason: "Order cancelled" }));
 
-    // Void all non-voided items
-    mutateOrder(selectedTableId, o => {
+    // Void all items immediately in memory so UI clears at once
+    mutateOrder(tableId, o => {
       o.items = o.items.map(i => i.isVoided ? i : {
         ...i, isVoided: true, voidReason: "Order cancelled", sentToKot: true,
         isGhostVoid: !i.sentToKot,
       });
       return o;
     });
-    showToast("Order cancelled");
-
-    // Log cancellation
-    api.post("/operations/void-log", {
-      type:        "cancel_order",
-      cashier:     cashierName || "POS",
-      outletName:  outlet?.name || "",
-      tableId:     selectedTableId,
-      tableLabel:  order.tableNumber ? `T${order.tableNumber}` : selectedTableId,
-      orderNumber: order.orderNumber || "",
-      items:       cancelledItems,
-    }).catch(() => {});
-
-    // Clear from backend
-    if (!selectedTableId.startsWith("counter-") && !selectedTableId.startsWith("online-")) {
-      api.delete("/operations/order", { tableId: selectedTableId, outletId: outlet?.id })
-        .catch(err => console.warn("[POS] cancel-order backend failed:", err.message));
-    }
     setSelectedTableId(null);
+
+    // 5-second undo window — backend calls fire only after window expires
+    const timerId = setTimeout(() => {
+      setUndoBanner(null);
+      api.post("/operations/void-log", {
+        type:        "cancel_order",
+        cashier:     cashierName || "POS",
+        outletName:  outlet?.name || "",
+        tableId,
+        tableLabel:  order.tableNumber ? `T${order.tableNumber}` : tableId,
+        orderNumber: order.orderNumber || "",
+        items:       cancelledItems,
+      }).catch(() => {});
+
+      if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+        api.delete("/operations/order", { tableId, outletId: outlet?.id })
+          .catch(err => console.warn("[POS] cancel-order backend failed:", err.message));
+      }
+    }, 5000);
+
+    setUndoBanner({
+      label: `Order cancelled — tap Undo within 5s`,
+      onUndo: () => {
+        clearTimeout(timerId);
+        setUndoBanner(null);
+        // Restore all items from the pre-cancel snapshot
+        mutateOrder(tableId, o => {
+          o.items = savedItems;
+          return o;
+        });
+        setSelectedTableId(tableId);
+        showToast("Cancellation undone");
+      },
+    });
   }
 
   // ── Shift callbacks ───────────────────────────────────────────────────────
@@ -3123,6 +3228,14 @@ export default function App() {
           activeShift={activeShift}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {/* ── Undo banner (void / cancel) ───────────────────────────────────── */}
+      {undoBanner && (
+        <div className="pos-undo-banner" role="alert">
+          <span>{undoBanner.label}</span>
+          <button type="button" onClick={undoBanner.onUndo}>Undo</button>
+        </div>
       )}
 
       {/* ── Toast ─────────────────────────────────────────────────────────── */}

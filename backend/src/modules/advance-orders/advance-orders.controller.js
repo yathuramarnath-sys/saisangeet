@@ -11,6 +11,7 @@ const {
   updateAdvanceOrder,
   checkInAdvanceOrder,
   cancelAdvanceOrder,
+  noShowAdvanceOrder,
 } = require("./advance-orders-store");
 
 // ── POST /advance-orders ──────────────────────────────────────────────────────
@@ -18,14 +19,13 @@ async function createAdvanceOrderHandler(req, res) {
   const tenantId = req.user?.tenantId || "default";
   const { outletId, ...payload } = req.body || {};
 
-  if (!outletId)               return res.status(400).json({ error: "outletId is required" });
+  if (!outletId)                    return res.status(400).json({ error: "outletId is required" });
   if (!payload.customerName?.trim()) return res.status(400).json({ error: "customerName is required" });
-  if (!payload.phone?.trim())  return res.status(400).json({ error: "phone is required" });
-  if (!payload.date)           return res.status(400).json({ error: "date is required" });
+  if (!payload.phone?.trim())        return res.status(400).json({ error: "phone is required" });
+  if (!payload.date)                 return res.status(400).json({ error: "date is required" });
 
-  const order = createAdvanceOrder(tenantId, outletId, payload);
+  const order = await createAdvanceOrder(tenantId, outletId, payload);
 
-  // Notify owner dashboard
   const io = req.app.locals.io;
   if (io) io.to(`tenant:${tenantId}`).emit("advance-order:created", { order });
 
@@ -39,15 +39,7 @@ async function listAdvanceOrdersHandler(req, res) {
 
   if (!outletId) return res.status(400).json({ error: "outletId query param is required" });
 
-  const orders = listAdvanceOrders(tenantId, outletId, { status });
-
-  // Sort: upcoming first, cancelled last
-  orders.sort((a, b) => {
-    if (a.status === "cancelled" && b.status !== "cancelled") return 1;
-    if (b.status === "cancelled" && a.status !== "cancelled") return -1;
-    return (a.date + a.time).localeCompare(b.date + b.time);
-  });
-
+  const orders = await listAdvanceOrders(tenantId, outletId, { status });
   res.json({ orders });
 }
 
@@ -59,9 +51,9 @@ async function updateAdvanceOrderHandler(req, res) {
 
   if (!outletId) return res.status(400).json({ error: "outletId is required" });
 
-  const result = updateAdvanceOrder(tenantId, outletId, id, patch);
-  if (!result)         return res.status(404).json({ error: "Advance order not found" });
-  if (result.error)    return res.status(400).json({ error: result.error });
+  const result = await updateAdvanceOrder(tenantId, outletId, id, patch);
+  if (!result)      return res.status(404).json({ error: "Advance order not found" });
+  if (result.error) return res.status(400).json({ error: result.error });
 
   const io = req.app.locals.io;
   if (io) io.to(`tenant:${tenantId}`).emit("advance-order:updated", { order: result });
@@ -77,18 +69,35 @@ async function checkInAdvanceOrderHandler(req, res) {
 
   if (!outletId) return res.status(400).json({ error: "outletId is required" });
 
-  const result = checkInAdvanceOrder(tenantId, outletId, id, { assignedTableId });
-  if (!result)         return res.status(404).json({ error: "Advance order not found" });
-  if (result.error)    return res.status(400).json({ error: result.error });
+  const result = await checkInAdvanceOrder(tenantId, outletId, id, { assignedTableId });
+  if (!result)      return res.status(404).json({ error: "Advance order not found" });
+  if (result.error) return res.status(400).json({ error: result.error });
 
   const io = req.app.locals.io;
   if (io) {
     io.to(`tenant:${tenantId}`).emit("advance-order:checkedin", { order: result });
-    // Also broadcast to POS outlet room so POS can load the items onto the table
     if (result.outletId) {
       io.to(`outlet:${tenantId}:${result.outletId}`).emit("advance-order:checkedin", { order: result });
     }
   }
+
+  res.json({ order: result });
+}
+
+// ── POST /advance-orders/:id/noshow ──────────────────────────────────────────
+async function noShowAdvanceOrderHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const { id }   = req.params;
+  const { outletId } = req.body || {};
+
+  if (!outletId) return res.status(400).json({ error: "outletId is required" });
+
+  const result = await noShowAdvanceOrder(tenantId, outletId, id);
+  if (!result)      return res.status(404).json({ error: "Advance order not found" });
+  if (result.error) return res.status(400).json({ error: result.error });
+
+  const io = req.app.locals.io;
+  if (io) io.to(`tenant:${tenantId}`).emit("advance-order:noshow", { order: result });
 
   res.json({ order: result });
 }
@@ -101,7 +110,7 @@ async function cancelAdvanceOrderHandler(req, res) {
 
   if (!outletId) return res.status(400).json({ error: "outletId is required" });
 
-  const result = cancelAdvanceOrder(tenantId, outletId, id, reason || "");
+  const result = await cancelAdvanceOrder(tenantId, outletId, id, reason || "");
   if (!result)      return res.status(404).json({ error: "Advance order not found" });
   if (result.error) return res.status(400).json({ error: result.error });
 
@@ -112,7 +121,6 @@ async function cancelAdvanceOrderHandler(req, res) {
 }
 
 // ── GET /advance-orders/:id/print ─────────────────────────────────────────────
-// Returns structured data for the POS to render a print slip.
 async function printAdvanceOrderHandler(req, res) {
   const tenantId = req.user?.tenantId || "default";
   const { id }   = req.params;
@@ -120,7 +128,7 @@ async function printAdvanceOrderHandler(req, res) {
 
   if (!outletId) return res.status(400).json({ error: "outletId query param is required" });
 
-  const order = getAdvanceOrder(tenantId, outletId, id);
+  const order = await getAdvanceOrder(tenantId, outletId, id);
   if (!order)   return res.status(404).json({ error: "Advance order not found" });
 
   const itemsTotal = (order.items || []).reduce(
@@ -143,6 +151,7 @@ module.exports = {
   listAdvanceOrdersHandler,
   updateAdvanceOrderHandler,
   checkInAdvanceOrderHandler,
+  noShowAdvanceOrderHandler,
   cancelAdvanceOrderHandler,
   printAdvanceOrderHandler,
 };

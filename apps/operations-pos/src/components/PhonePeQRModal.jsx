@@ -45,24 +45,34 @@ export function PhonePeQRModal({ order, outletId, socket, onConfirmed, onClose }
       });
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Listen for socket confirmation ─────────────────────────────────────
+  // ── Listen for socket confirmation (ignore if QR already expired) ──────
   useEffect(() => {
     if (!socket) return;
     function onConfirm(payload) {
       if (payload.tableId !== order.tableId) return;
+      // Reject late socket payment if QR has already expired — prevents double-billing
+      // when a customer scans an old QR after the cashier switched to cash payment.
+      if (qr?.expiresInSecs && elapsed >= qr.expiresInSecs) return;
       setState("confirmed");
       speakConfirmation(payload.amount, tableLabel);
-      setTimeout(() => onConfirmed(payload), 1200); // short pause so user sees ✓
+      setTimeout(() => onConfirmed(payload), 1200);
     }
     socket.on("payment:phonepe:confirmed", onConfirm);
     return () => socket.off("payment:phonepe:confirmed", onConfirm);
-  }, [socket, order.tableId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [socket, order.tableId, elapsed, qr?.expiresInSecs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Polling fallback (every 5s) ─────────────────────────────────────────
+  // ── Polling fallback (every 5s) — stops automatically when QR expires ──
   useEffect(() => {
     if (state !== "ready" || !qr?.merchantTransactionId) return;
+    let localElapsed = 0;
     const interval = setInterval(async () => {
-      setElapsed(e => e + 5);
+      localElapsed += 5;
+      setElapsed(localElapsed);
+      // Stop polling once QR has expired — no point checking a dead QR
+      if (qr.expiresInSecs && localElapsed >= qr.expiresInSecs) {
+        clearInterval(interval);
+        return;
+      }
       try {
         const res = await api.get(`/payments/phonepe/status/${qr.merchantTransactionId}`);
         if (res?.resolved) {
@@ -75,6 +85,13 @@ export function PhonePeQRModal({ order, outletId, socket, onConfirmed, onClose }
     }, 5000);
     return () => clearInterval(interval);
   }, [state, qr]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-close 30 s after expiry so cashier can't forget the modal open ─
+  useEffect(() => {
+    if (state !== "ready" || !qr?.expiresInSecs || elapsed < qr.expiresInSecs) return;
+    const timer = setTimeout(onClose, 30_000);
+    return () => clearTimeout(timer);
+  }, [elapsed, state, qr?.expiresInSecs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── QR expiry countdown ─────────────────────────────────────────────────
   const timeLeft = qr ? Math.max(0, qr.expiresInSecs - elapsed) : 0;
@@ -151,6 +168,9 @@ export function PhonePeQRModal({ order, outletId, socket, onConfirmed, onClose }
         {state === "ready" && expired && (
           <div className="ppqr-center">
             <p style={{fontWeight:600,color:"#dc2626"}}>QR expired</p>
+            <p style={{fontSize:12,color:"#6b7280",marginTop:4}}>
+              Closing in {Math.max(0, 30 - (elapsed - (qr?.expiresInSecs || 0)))}s — use another payment method
+            </p>
             <button className="ppqr-retry-btn" onClick={() => {
               setState("loading"); setElapsed(0); setQr(null);
               api.post("/payments/phonepe/initiate", {

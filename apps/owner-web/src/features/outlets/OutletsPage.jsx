@@ -134,7 +134,22 @@ function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave
         <label>Outlet name<input type="text" value={draft.name} required onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} /></label>
         <label>City<input type="text" value={draft.city} required onChange={e => setDraft(d => ({ ...d, city: e.target.value }))} /></label>
         <label>State<input type="text" value={draft.state} required onChange={e => setDraft(d => ({ ...d, state: e.target.value }))} /></label>
-        <label>GSTIN<input type="text" value={draft.gstin} onChange={e => setDraft(d => ({ ...d, gstin: e.target.value }))} /></label>
+        <label>GSTIN
+          <input
+            type="text"
+            value={draft.gstin}
+            placeholder="e.g. 29ABCDE1234F1Z5"
+            maxLength={15}
+            onChange={e => setDraft(d => ({ ...d, gstin: e.target.value.toUpperCase().trim() }))}
+            pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
+            title="15-character GSTIN (e.g. 29ABCDE1234F1Z5)"
+          />
+          {draft.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(draft.gstin) && (
+            <span style={{ color: "#ef4444", fontSize: 11, marginTop: 2, display: "block" }}>
+              Invalid GSTIN — must be 15 chars (e.g. 29ABCDE1234F1Z5)
+            </span>
+          )}
+        </label>
         <label>FSSAI No.<input type="text" placeholder="e.g. 10012345678901" value={draft.fssaiNo} onChange={e => setDraft(d => ({ ...d, fssaiNo: e.target.value }))} /></label>
         <label>UPI ID <small style={{fontWeight:400,color:"#6b7280"}}>(bill QR code)</small><input type="text" placeholder="e.g. restaurant@okhdfc" value={draft.upiId || ""} onChange={e => setDraft(d => ({ ...d, upiId: e.target.value.trim() }))} /></label>
         <label>Report email<input type="email" value={draft.reportEmail} onChange={e => setDraft(d => ({ ...d, reportEmail: e.target.value }))} /></label>
@@ -356,6 +371,9 @@ export function OutletsPage() {
     event.preventDefault();
     if (!createDraft.workAreas.length) { setStatusError("Select at least one work area."); return; }
     if (!createDraft.services.length)  { setStatusError("Select at least one service mode."); return; }
+    if (createDraft.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(createDraft.gstin)) {
+      setStatusError("Invalid GSTIN format. Use 15-char format e.g. 29ABCDE1234F1Z5"); return;
+    }
     setCreateSaving(true); setStatusError(""); setStatusMessage("");
     try {
       await createOutlet({
@@ -380,6 +398,9 @@ export function OutletsPage() {
   async function handleSaveOutlet(event) {
     event.preventDefault();
     if (!editingOutletId || !editDraft) return;
+    if (editDraft.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(editDraft.gstin)) {
+      setStatusError("Invalid GSTIN format. Use 15-char format e.g. 29ABCDE1234F1Z5"); return;
+    }
     setEditSaving(true); setStatusError(""); setStatusMessage("");
     try {
       await updateOutlet(editingOutletId, {

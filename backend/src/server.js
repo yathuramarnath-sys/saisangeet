@@ -211,7 +211,6 @@ io.on("connection", (socket) => {
         outletAvailability[data.outletId][data.itemId] = false;
       }
       socket.to(`outlet:${tid}:${data.outletId}`).emit("item:availability", data);
-      // Fire-and-forget: sync to UrbanPiper — never crashes the handler
       if (tid !== "default") {
         runWithTenant(tid, async () => {
           const tenantData = getOwnerSetupData();

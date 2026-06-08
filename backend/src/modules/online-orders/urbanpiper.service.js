@@ -168,4 +168,24 @@ async function toggleItemAvailability(itemId, available, tenantData) {
   }
 }
 
-module.exports = { acceptOrder, rejectOrder, markFoodReady, toggleItemAvailability, getUpCreds };
+/**
+ * Push an updated online price for a menu item to UrbanPiper.
+ * Fire-and-forget — caller should .catch(() => {}) this.
+ *
+ * UrbanPiper: POST /api/v2/items/{item_ref_id}/  { "price": <cents-or-rupees> }
+ */
+async function updateItemPrice(itemId, onlinePrice, tenantData) {
+  const creds = getUpCreds(tenantData);
+  if (!creds) return { ok: true, skipped: true };
+  if (!onlinePrice || onlinePrice <= 0) return { ok: true, skipped: true };
+  try {
+    const result = await upPost(`/api/v2/items/${itemId}/`, { price: onlinePrice }, creds);
+    console.log(`[urbanpiper] item ${itemId} online price → ${onlinePrice}`);
+    return result;
+  } catch (err) {
+    console.error(`[urbanpiper] updateItemPrice failed for ${itemId}:`, err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+module.exports = { acceptOrder, rejectOrder, markFoodReady, toggleItemAvailability, updateItemPrice, getUpCreds };

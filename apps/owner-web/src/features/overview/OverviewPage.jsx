@@ -19,7 +19,8 @@ export function OverviewPage() {
     },
     reportSummary: null
   });
-  const [loading, setLoading] = useState(true);
+  const [loading,  setLoading]  = useState(true);
+  const [apiError, setApiError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,10 +30,12 @@ export function OverviewPage() {
         const result = await fetchOverviewData();
         if (!cancelled) {
           setOverview(result);
+          setApiError(false);
           setLoading(false);
         }
       } catch {
         if (!cancelled) {
+          setApiError(true);
           setLoading(false);
         }
       }
@@ -88,18 +91,26 @@ export function OverviewPage() {
         </div>
 
         <div className="hero-stats">
-          <div>
-            <span>Total Sales</span>
-            <strong>{formatCurrency(totalSales)}</strong>
-          </div>
-          <div>
-            <span>Orders Today</span>
-            <strong>{totalOrders}</strong>
-          </div>
-          <div>
-            <span>Profit Trend</span>
-            <strong className="positive">{profitTrend}</strong>
-          </div>
+          {apiError ? (
+            <div style={{ color: "#ef4444", fontSize: 13, padding: "8px 0" }}>
+              ⚠ Could not load today&apos;s sales — check connection and refresh
+            </div>
+          ) : (
+            <>
+              <div>
+                <span>Total Sales</span>
+                <strong>{loading ? "—" : formatCurrency(totalSales)}</strong>
+              </div>
+              <div>
+                <span>Orders Today</span>
+                <strong>{loading ? "—" : totalOrders}</strong>
+              </div>
+              <div>
+                <span>Profit Trend</span>
+                <strong className="positive">{loading ? "—" : profitTrend}</strong>
+              </div>
+            </>
+          )}
         </div>
       </section>
 

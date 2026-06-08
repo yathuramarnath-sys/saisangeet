@@ -96,7 +96,7 @@ function buildDefaultItemDraft(menuData) {
     trackInventory: "Disabled",
     selectedOutlets: [],
     // optional fields
-    description: "", shortCode: "", hsnCode: "", sku: "",
+    description: "", shortCode: "", hsnCode: "", sku: "", scalePlu: "",
     rank: "999",
     exposeInCaptain: true, allowDecimalQty: false,
     manufacturingDate: "", expiryDate: "",
@@ -394,6 +394,59 @@ export function MenuPage() {
     }));
   }
 
+  // Auto-increment Scale PLU: find max existing, next = max + 1
+  const nextScalePlu = (() => {
+    const used = (menuData?.items || [])
+      .map(i => parseInt(i.scalePlu || 0, 10))
+      .filter(n => n > 0);
+    return used.length > 0 ? Math.max(...used) + 1 : 1;
+  })();
+
+  function printScaleSheet() {
+    const weightItems = (menuData?.items || [])
+      .filter(i => ["KG", "G"].includes(i.unit) && i.scalePlu)
+      .sort((a, b) => parseInt(a.scalePlu) - parseInt(b.scalePlu));
+    if (weightItems.length === 0) {
+      alert("No weight items with Scale PLU set yet.\nSet Unit = KG/G on your items — Scale PLU will be auto-assigned.");
+      return;
+    }
+    const rows = weightItems.map(i => `
+      <tr>
+        <td>${String(parseInt(i.scalePlu)).padStart(5, "0")}</td>
+        <td>${i.name || i.itemName || ""}</td>
+        <td>₹${parseFloat(i.basePrice || i.price || 0).toFixed(2)}</td>
+      </tr>`).join("");
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<style>
+  body{font-family:Arial,sans-serif;padding:24px;color:#111}
+  h2{margin:0 0 4px;font-size:18px}
+  .sub{color:#6b7280;font-size:12px;margin:0 0 20px}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f3f4f6;padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  td{padding:9px 14px;font-size:14px;border-bottom:1px solid #f0f0f0}
+  td:first-child{font-family:monospace;font-weight:700;font-size:15px}
+  td:last-child{font-weight:700;color:#059669}
+  .note{margin-top:20px;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:12px}
+</style></head><body>
+<h2>⚖️ Scale Programming Reference</h2>
+<p class="sub">All prices are per 100 grams. Programme each PLU in the scale with the item name and price shown.</p>
+<table>
+  <thead><tr><th>PLU</th><th>Item Name</th><th>Price / 100g</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="note">
+  Generated from Plato Owner Console.<br/>
+  If scale is unavailable: enter weight in grams ÷ 100 as quantity at the POS cashier (e.g. 1.5 kg = qty 15).
+</div>
+</body></html>`;
+    const w = window.open("", "_blank", "width=700,height=600");
+    if (!w) { alert("Allow pop-ups to print the scale sheet."); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); w.onafterprint = () => w.close(); }, 400);
+  }
+
   async function reloadMenu() {
     const result = await fetchMenuData();
     setMenuData(result);
@@ -513,7 +566,32 @@ export function MenuPage() {
   }
 
   async function handleDeleteCategory(category) {
-    if (!window.confirm(`Delete category ${category.name}? Items under this category will also be removed.`)) {
+    // Check if any items in this category appear in active POS orders
+    const categoryItemIds = new Set(
+      menuData.items.filter(i => i.categoryId === category.id).map(i => i.id)
+    );
+    let activeOrderWarning = "";
+    if (categoryItemIds.size > 0) {
+      try {
+        const activeOrders = await api.get("/operations/orders").catch(() => []);
+        const orders = Array.isArray(activeOrders) ? activeOrders : [];
+        const affectedTables = new Set();
+        orders.forEach(order => {
+          (order.items || []).forEach(item => {
+            if (!item.isVoided && (categoryItemIds.has(item.menuItemId) || categoryItemIds.has(item.id))) {
+              affectedTables.add(order.tableId);
+            }
+          });
+        });
+        if (affectedTables.size > 0) {
+          activeOrderWarning = `\n\n⚠️ WARNING: Items from this category are currently in ${affectedTables.size} active table order(s) on POS. Deleting now will cause "item not found" errors on those tables.\n\nTip: Wait until service ends, or mark items as Sold Out instead.`;
+        }
+      } catch (_) {}
+    }
+
+    if (!window.confirm(
+      `Delete category "${category.name}"? All items in this category will also be removed.${activeOrderWarning}\n\nThis cannot be undone.`
+    )) {
       return;
     }
 
@@ -848,7 +926,12 @@ export function MenuPage() {
   }
 
   async function handleDeleteItem(item) {
-    if (!window.confirm(`Delete ${item.name}? This cannot be undone.`)) {
+    if (!window.confirm(
+      `Delete "${item.name}"?\n\n` +
+      `⚠ If this item is currently in an open table order on POS, those screens will show an error.\n\n` +
+      `Tip: mark the item as Sold Out instead of deleting during service hours.\n\n` +
+      `Delete anyway? This cannot be undone.`
+    )) {
       return;
     }
 
@@ -1263,6 +1346,10 @@ export function MenuPage() {
               onChange={(event) => setLibrarySearch(event.target.value)}
               placeholder="Search"
             />
+            <button type="button" className="ghost-btn" onClick={printScaleSheet}
+              title="Print PLU reference sheet for weight scale technician">
+              ⚖️ Scale Sheet
+            </button>
             <button type="button" className="ghost-btn" onClick={() => setShowFilterPanel(true)}>
               Category {categoryFilter !== "All" ? categoryFilter : ""}
             </button>
@@ -1473,6 +1560,7 @@ export function MenuPage() {
                         availableCategoryNames={availableCategoryNames}
                         availableStationNames={availableStationNames}
                         availableAreas={availableAreas}
+                        nextScalePlu={nextScalePlu}
                         saveMessage={saveMessage}
                         saveError={saveError}
                       />
@@ -1736,6 +1824,7 @@ export function MenuPage() {
             availableStationNames={availableStationNames}
             availableOutlets={availableOutlets}
             availableAreas={availableAreas}
+            nextScalePlu={nextScalePlu}
             saveMessage={saveMessage}
             saveError={saveError}
           />

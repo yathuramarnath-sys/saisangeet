@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { api } from "../../lib/api";
 import {
   dayEndSeed, itemSalesSeed, gstSeed, paymentSeed, discountVoidSeed, staffSalesSeed,
@@ -1309,11 +1309,59 @@ function VoidsReprintsReport({ dateFrom, dateTo, outletId }) {
   );
 }
 
+// ── Customer Order History (inline expand) ───────────────────────────────────
+function CustomerOrderHistory({ data }) {
+  if (!data || data.loading)
+    return <p style={{ padding: "10px 16px", color: "#6b7280", fontSize: 13 }}>Loading order history…</p>;
+  if (data.error)
+    return <p style={{ padding: "10px 16px", color: "#dc2626", fontSize: 13 }}>Could not load orders.</p>;
+  if (!data.orders.length)
+    return <p style={{ padding: "10px 16px", color: "#6b7280", fontSize: 13 }}>No past orders found for this phone number.</p>;
+
+  return (
+    <div className="rpt-order-hist">
+      <p className="rpt-order-hist-eyebrow">Last {data.orders.length} orders</p>
+      <table className="rpt-order-hist-table">
+        <thead>
+          <tr>
+            <th>Bill #</th><th>Date</th><th>Items</th>
+            <th style={{ textAlign: "right" }}>Total</th><th>Payment</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.orders.map(o => (
+            <tr key={o.id}>
+              <td style={{ fontFamily: "monospace" }}>{o.billNo}</td>
+              <td>{new Date(o.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
+              <td style={{ maxWidth: 280 }}>{o.items.map(i => `${i.name} ×${i.qty}`).join(", ")}</td>
+              <td style={{ textAlign: "right", fontWeight: 600 }}>₹{Number(o.total || 0).toFixed(0)}</td>
+              <td>{o.paymentMode}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── Customers Tab ────────────────────────────────────────────────────────────
 function CustomersTab() {
-  const [customers, setCustomers] = useState([]);
-  const [loading,   setLoading]   = useState(false);
-  const [q,         setQ]         = useState("");
+  const [customers,     setCustomers]     = useState([]);
+  const [loading,       setLoading]       = useState(false);
+  const [q,             setQ]             = useState("");
+  const [expandedPhone, setExpandedPhone] = useState(null);
+  const [orderCache,    setOrderCache]    = useState({});
+
+  function toggleHistory(phone) {
+    if (!phone) return;
+    if (expandedPhone === phone) { setExpandedPhone(null); return; }
+    setExpandedPhone(phone);
+    if (orderCache[phone]) return;
+    setOrderCache(prev => ({ ...prev, [phone]: { loading: true, orders: [] } }));
+    api.get(`/customers/order-history?phone=${encodeURIComponent(phone)}`)
+      .then(res => setOrderCache(prev => ({ ...prev, [phone]: { loading: false, orders: res.orders || [] } })))
+      .catch(() => setOrderCache(prev => ({ ...prev, [phone]: { loading: false, orders: [], error: true } })));
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -1398,24 +1446,52 @@ function CustomersTab() {
       )}
 
       {!loading && filtered.length > 0 && (
-        <RptTable
-          cols={["Name", "Phone", "Email", "GSTIN", "Address / Company", "Notes", "Saved On"]}
-          rows={filtered.map(c => [
-            <strong>{c.name}</strong>,
-            c.phone
-              ? <a href={`tel:${c.phone}`} style={{ color: "#059669", textDecoration: "none", fontWeight: 600 }}>{c.phone}</a>
-              : <span style={{ color: "#9ca3af" }}>—</span>,
-            c.email || <span style={{ color: "#9ca3af" }}>—</span>,
-            c.gstin
-              ? <span style={{ fontFamily: "monospace", fontSize: 12, background: "#f0fdf4", color: "#166534", padding: "2px 6px", borderRadius: 4 }}>{c.gstin}</span>
-              : <span style={{ color: "#9ca3af" }}>—</span>,
-            [c.company, c.address].filter(Boolean).join(" · ") || <span style={{ color: "#9ca3af" }}>—</span>,
-            c.notes || <span style={{ color: "#9ca3af" }}>—</span>,
-            c.createdAt
-              ? new Date(c.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-              : "—",
-          ])}
-        />
+        <table className="rpt-table">
+          <thead>
+            <tr>
+              <th>Name</th><th>Phone</th><th>Email</th><th>GSTIN</th>
+              <th>Address / Company</th><th>Notes</th><th>Saved On</th>
+              <th style={{ width: 72, textAlign: "center" }}>Orders</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(c => (
+              <Fragment key={c.id}>
+                <tr className={expandedPhone === c.phone && c.phone ? "rpt-cust-row-open" : ""}>
+                  <td><strong>{c.name}</strong></td>
+                  <td>{c.phone
+                    ? <a href={`tel:${c.phone}`} style={{ color: "#059669", textDecoration: "none", fontWeight: 600 }}>{c.phone}</a>
+                    : <span style={{ color: "#9ca3af" }}>—</span>}</td>
+                  <td>{c.email || <span style={{ color: "#9ca3af" }}>—</span>}</td>
+                  <td>{c.gstin
+                    ? <span style={{ fontFamily: "monospace", fontSize: 12, background: "#f0fdf4", color: "#166534", padding: "2px 6px", borderRadius: 4 }}>{c.gstin}</span>
+                    : <span style={{ color: "#9ca3af" }}>—</span>}</td>
+                  <td>{[c.company, c.address].filter(Boolean).join(" · ") || <span style={{ color: "#9ca3af" }}>—</span>}</td>
+                  <td>{c.notes || <span style={{ color: "#9ca3af" }}>—</span>}</td>
+                  <td>{c.createdAt
+                    ? new Date(c.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                    : "—"}</td>
+                  <td style={{ textAlign: "center" }}>
+                    {c.phone
+                      ? <button
+                          className={`rpt-hist-btn${expandedPhone === c.phone ? " open" : ""}`}
+                          onClick={() => toggleHistory(c.phone)}>
+                          {expandedPhone === c.phone ? "▲" : "📋"}
+                        </button>
+                      : <span style={{ color: "#9ca3af" }}>—</span>}
+                  </td>
+                </tr>
+                {expandedPhone === c.phone && c.phone && (
+                  <tr>
+                    <td colSpan={8} style={{ padding: 0, background: "#f8fafc", borderTop: "none" }}>
+                      <CustomerOrderHistory data={orderCache[c.phone]} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
@@ -1534,8 +1610,30 @@ function thisMonthStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function getPresets() {
+  const fmt = d => d.toISOString().slice(0, 10);
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const dayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
+  const weekStart = new Date(today); weekStart.setDate(today.getDate() - dayOfWeek);
+  const lastWeekEnd = new Date(weekStart); lastWeekEnd.setDate(weekStart.getDate() - 1);
+  const lastWeekStart = new Date(lastWeekEnd); lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  return [
+    { label: "Today",      from: fmt(today),          to: fmt(today) },
+    { label: "Yesterday",  from: fmt(yesterday),      to: fmt(yesterday) },
+    { label: "This Week",  from: fmt(weekStart),      to: fmt(today) },
+    { label: "Last Week",  from: fmt(lastWeekStart),  to: fmt(lastWeekEnd) },
+    { label: "This Month", from: fmt(monthStart),     to: fmt(today) },
+    { label: "Last Month", from: fmt(lastMonthStart), to: fmt(lastMonthEnd) },
+  ];
+}
+
 export function ReportsPage() {
   const [active, setActive]   = useState("day-end");
+  const reportCache = useRef({});
 
   // Date range — used by all tabs except GST
   const [dateFrom, setDateFrom] = useState(todayStr);
@@ -1550,6 +1648,7 @@ export function ReportsPage() {
 
   const [salesData,  setSalesData]  = useState(null);
   const [loading,    setLoading]    = useState(false);
+  const [apiError,   setApiError]   = useState(false);
 
   // Load real outlets once on mount
   useEffect(() => {
@@ -1563,7 +1662,8 @@ export function ReportsPage() {
       .catch(() => {}); // keep default "All Outlets" on error
   }, []);
 
-  // Fetch reports data whenever date range, outlet or active tab changes
+  // Fetch reports data whenever date range, outlet or active tab changes.
+  // Results are cached per (from, to, outletId) so tab switches don't re-fetch.
   const fetchData = useCallback(() => {
     // Derive API date range: for GST use the full month
     let from = dateFrom;
@@ -1575,17 +1675,32 @@ export function ReportsPage() {
       to   = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
     }
 
+    const cacheKey = `${from}|${to}|${outletId}`;
+    if (reportCache.current[cacheKey]) {
+      setSalesData(reportCache.current[cacheKey]);
+      setApiError(false);
+      return;
+    }
+
     const params = new URLSearchParams({ dateFrom: from, dateTo: to });
     if (outletId) params.set("outletId", outletId);
 
     setLoading(true);
+    setApiError(false);
     api.get(`/reports/owner-summary?${params}`)
-      .then(res => { if (res?.salesData) setSalesData(res.salesData); })
-      .catch(() => {})
+      .then(res => {
+        const data = res?.salesData || null;
+        reportCache.current[cacheKey] = data;
+        setSalesData(data);
+      })
+      .catch(() => { setSalesData(null); setApiError(true); })
       .finally(() => setLoading(false));
   }, [active, dateFrom, dateTo, month, outletId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Clear cache when filters change so stale data is never served after a refresh
+  useEffect(() => { reportCache.current = {}; }, [dateFrom, dateTo, month, outletId]);
 
   // Validate: dateFrom must not exceed dateTo
   function handleDateFrom(val) {
@@ -1630,6 +1745,15 @@ export function ReportsPage() {
           ) : (
             /* All other tabs: from → to date range */
             <div className="rpt-date-range">
+              <div className="rpt-quick-dates">
+                {getPresets().map(p => (
+                  <button key={p.label}
+                    className={`rpt-quick-btn${dateFrom === p.from && dateTo === p.to ? " active" : ""}`}
+                    onClick={() => { setDateFrom(p.from); setDateTo(p.to); }}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
               <label className="rpt-date-label">From</label>
               <input type="date" className="rpt-date-input" value={dateFrom}
                 max={dateTo} onChange={e => handleDateFrom(e.target.value)} />
@@ -1650,6 +1774,12 @@ export function ReportsPage() {
           {loading && <span className="rpt-loading-dot" title="Loading…">⟳</span>}
         </div>
       </div>
+
+      {apiError && !loading && (
+        <div style={{ margin: "12px 16px", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: 13 }}>
+          ⚠ Report data could not be loaded. Check your connection and try again. Figures shown below may be sample data.
+        </div>
+      )}
 
       {active === "day-end"    && <DayEndSummary  outlet={selectedOutletName} date={`${dateFrom} – ${dateTo}`} data={salesData?.dayEnd} />}
       {active === "item-sales" && <ItemSalesReport outlet={selectedOutletName} date={`${dateFrom}_${dateTo}`}  data={salesData} />}

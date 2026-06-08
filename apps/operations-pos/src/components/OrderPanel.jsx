@@ -206,12 +206,13 @@ export function OrderPanel({
   cashierName = "",
   cashierPin  = "",
 }) {
-  const [showTransfer,   setShowTransfer]   = useState(false);
-  const [showNote,       setShowNote]       = useState(false);
-  const [voidingIdx,     setVoidingIdx]     = useState(null);   // index of item being voided
-  const [pinForVoidIdx,  setPinForVoidIdx]  = useState(null);   // waiting PIN before VoidPicker
-  const [showCancelPin,  setShowCancelPin]  = useState(false);  // waiting PIN before cancel order
-  const [editingQtyIdx,  setEditingQtyIdx]  = useState(null);   // index of item whose qty is being typed
+  const [showTransfer,    setShowTransfer]    = useState(false);
+  const [showNote,        setShowNote]        = useState(false);
+  const [voidingIdx,      setVoidingIdx]      = useState(null);   // index of item being voided
+  const [pinForVoidIdx,   setPinForVoidIdx]   = useState(null);   // waiting PIN before VoidPicker
+  const [showCancelPin,   setShowCancelPin]   = useState(false);  // waiting PIN before cancel order
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false); // "Are you sure?" after PIN
+  const [editingQtyIdx,   setEditingQtyIdx]   = useState(null);   // index of item whose qty is being typed
   const [editingQtyVal,  setEditingQtyVal]  = useState("");     // current typed value
 
   // Helper: does this cashier need a PIN check? (PIN set and not 0000)
@@ -518,18 +519,31 @@ export function OrderPanel({
             </div>
           )}
 
-          {/* Row 2: Collect Payment */}
+          {/* Row 2: Collect Payment + Print & Settle shortcut */}
           {hasItems && (
-            <button type="button" className="pos-btn pay" onClick={onOpenPayment}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.5">
-                <rect x="2" y="5" width="20" height="14" rx="2"/>
-                <line x1="2" y1="10" x2="22" y2="10"/>
-              </svg>
-              {fin && fin.balance > 0 && fin.paid > 0
-                ? `Pay Balance · ₹${fin.balance}`
-                : `Collect Payment${fin && fin.total > 0 ? ` · ₹${fin.total}` : ""}`}
-            </button>
+            <div className="order-pay-row">
+              <button type="button" className="pos-btn pay" onClick={onOpenPayment}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5">
+                  <rect x="2" y="5" width="20" height="14" rx="2"/>
+                  <line x1="2" y1="10" x2="22" y2="10"/>
+                </svg>
+                {fin && fin.balance > 0 && fin.paid > 0
+                  ? `Pay Balance · ₹${fin.balance}`
+                  : `Collect Payment${fin && fin.total > 0 ? ` · ₹${fin.total}` : ""}`}
+              </button>
+              {/* Quick path: print bill + open payment in one tap — cuts 7 taps to 3 for cash */}
+              {unsentItems.length === 0 && onPrintBill && (
+                <button
+                  type="button"
+                  className="pos-btn print-settle-btn"
+                  title="Print bill and open payment in one tap"
+                  onClick={() => { onPrintBill?.(); onOpenPayment?.(); }}
+                >
+                  ⚡ Print &amp; Pay
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -552,7 +566,7 @@ export function OrderPanel({
           className="cancel-order-btn"
           onClick={() => {
             if (needsPin) { setShowCancelPin(true); }
-            else          { onCancelOrder?.(); }
+            else          { setShowCancelConfirm(true); }
           }}
         >
           🗑 Cancel Order
@@ -587,9 +601,39 @@ export function OrderPanel({
           cashierName={cashierName}
           cashierPin={cashierPin}
           title="Cancel Order — Confirm PIN"
-          onConfirm={() => { setShowCancelPin(false); onCancelOrder?.(); }}
+          onConfirm={() => { setShowCancelPin(false); setShowCancelConfirm(true); }}
           onCancel={() => setShowCancelPin(false)}
         />
+      )}
+
+      {/* ── "Are you sure?" confirmation after PIN ───────────────────────── */}
+      {showCancelConfirm && (
+        <div className="pin-confirm-overlay" onClick={() => setShowCancelConfirm(false)}>
+          <div className="pin-confirm-card" onClick={e => e.stopPropagation()} style={{ gap: 16, maxWidth: 300 }}>
+            <p className="pin-confirm-title" style={{ color: "#dc2626" }}>Cancel Order?</p>
+            <p className="pin-confirm-sub" style={{ textAlign: "center", lineHeight: 1.5 }}>
+              All items will be voided.<br />You will have 5 seconds to undo.
+            </p>
+            <div style={{ display: "flex", gap: 10, marginTop: 8, width: "100%" }}>
+              <button
+                type="button"
+                className="pin-confirm-cancel"
+                style={{ flex: 1, margin: 0 }}
+                onClick={() => setShowCancelConfirm(false)}
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                className="void-confirm-btn"
+                style={{ flex: 1, background: "#dc2626", border: "none" }}
+                onClick={() => { setShowCancelConfirm(false); onCancelOrder?.(); }}
+              >
+                Yes, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { updateItemPrice } = require("../online-orders/urbanpiper.service");
 
 function slugify(value) {
   return String(value || "")
@@ -246,6 +247,7 @@ async function createMenuItem(payload) {
     shortCode:         payload.shortCode         || "",
     hsnCode:           payload.hsnCode           || "",
     sku:               payload.sku               || null, // auto-assigned below
+    scalePlu:          payload.scalePlu          || null,
     rank:              payload.rank !== undefined ? Number(payload.rank) : 999,
     exposeInCaptain:   payload.exposeInCaptain   !== undefined ? Boolean(payload.exposeInCaptain)   : true,
     allowDecimalQty:   payload.allowDecimalQty   !== undefined ? Boolean(payload.allowDecimalQty)   : false,
@@ -283,9 +285,11 @@ async function createMenuItem(payload) {
 
 async function updateMenuItem(id, payload) {
   let updatedItem = null;
+  let oldOnlinePrice = null;
 
   updateOwnerSetupData((current) => {
     const existingItem = current.menu.items.find((item) => item.id === id);
+    if (existingItem) oldOnlinePrice = existingItem.onlinePrice || 0;
 
     if (!existingItem) {
       return current;
@@ -347,6 +351,13 @@ async function updateMenuItem(id, payload) {
       }
     };
   });
+
+  if (updatedItem && payload.onlinePrice !== undefined) {
+    const newPrice = Number(payload.onlinePrice || 0);
+    if (newPrice !== oldOnlinePrice) {
+      updateItemPrice(id, newPrice, getOwnerSetupData()).catch(() => {});
+    }
+  }
 
   return updatedItem;
 }
@@ -706,6 +717,7 @@ async function bulkImportMenuItems(payload) {
       shortCode:         String(row.shortCode         || "").trim().toUpperCase(),
       hsnCode:           String(row.hsnCode           || "").trim(),
       sku:               String(row.sku               || "").trim() || null, // auto-assigned below
+      scalePlu:          row.scalePlu        !== undefined && row.scalePlu !== null ? String(row.scalePlu).trim() || null : null,
       rank:              row.rank            !== undefined ? Number(row.rank)            : 999,
       packingCharges:    row.packingCharges   !== undefined ? Number(row.packingCharges)  : 0,
       exposeInCaptain:   row.exposeInCaptain  !== undefined ? Boolean(row.exposeInCaptain): true,

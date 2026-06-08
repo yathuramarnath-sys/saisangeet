@@ -11,12 +11,55 @@ const express      = require("express");
 const { requireAuth } = require("../../middleware/require-auth");
 const { asyncHandler } = require("../../utils/async-handler");
 const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { query } = require("../../db/pool");
 
 const customersRouter = express.Router();
 
 function getCustomers() {
   return getOwnerSetupData()?.customers || [];
 }
+
+// GET /customers/order-history?phone=xxx
+customersRouter.get("/order-history", requireAuth, asyncHandler(async (req, res) => {
+  const tenantId = req.user?.tenantId || "default";
+  const { phone, limit: lim = "20" } = req.query;
+  if (!phone?.trim()) return res.status(400).json({ error: "phone is required" });
+
+  const limit = Math.min(parseInt(lim, 10) || 20, 50);
+  let orders = [];
+  try {
+    const r = await query(
+      `SELECT pk, outlet_id, bill_no, closed_at, order_data
+         FROM closed_orders
+        WHERE tenant_id = $1
+          AND (
+            order_data->'customer'->>'phone' = $2
+            OR order_data->>'customerPhone' = $2
+          )
+        ORDER BY closed_at DESC
+        LIMIT $3`,
+      [tenantId, phone.trim(), limit]
+    );
+    orders = r.rows.map(row => {
+      const od = row.order_data || {};
+      const items = od.items || od.kotItems || [];
+      const itemsTotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || i.qty || 1), 0);
+      return {
+        id:          String(row.pk),
+        outletId:    row.outlet_id,
+        billNo:      row.bill_no || od.billNo || od.orderNumber || od.id || String(row.pk),
+        date:        row.closed_at,
+        items:       items.map(i => ({ name: i.name || i.itemName || "Item", qty: i.quantity || i.qty || 1, price: i.price || 0 })),
+        total:       od.grandTotal || od.total || od.billTotal || itemsTotal,
+        paymentMode: od.payments?.[0]?.method || od.paymentMode || od.payment || "—",
+      };
+    });
+  } catch (err) {
+    console.error("[customers] order-history query failed:", err.message);
+  }
+
+  res.json({ orders });
+}));
 
 // GET /customers
 customersRouter.get("/", requireAuth, asyncHandler(async (req, res) => {

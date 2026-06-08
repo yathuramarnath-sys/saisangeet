@@ -1170,6 +1170,30 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
 .pos-btn:active { transform: scale(0.975); }
 
+/* ─── Print & Pay combined action row */
+.order-pay-row {
+  display: flex;
+  gap: 8px;
+}
+.order-pay-row .pos-btn.pay {
+  flex: 1;
+}
+.pos-btn.print-settle-btn {
+  background: #7c3aed;
+  color: #fff;
+  border: 1.5px solid #7c3aed;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 14px 12px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(124,58,237,0.25);
+  flex-shrink: 0;
+}
+.pos-btn.print-settle-btn:hover {
+  background: #6d28d9;
+  transform: translateY(-1px);
+}
+
 /* ─── Payment overlay & sheet ────────────────────────────────────────────── */
 
 .payment-overlay {
@@ -1865,6 +1889,37 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 }
 
 /* ─── Toast ──────────────────────────────────────────────────────────────── */
+
+.pos-undo-banner {
+  position: fixed;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #1e293b;
+  color: #fff;
+  padding: 11px 18px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 201;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+.pos-undo-banner button {
+  background: #f59e0b;
+  color: #000;
+  border: none;
+  border-radius: 100px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+.pos-undo-banner button:hover { background: #fbbf24; }
 
 .pos-toast {
   position: fixed;
@@ -3546,6 +3601,7 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .adv-badge-confirmed { background: #dbeafe; color: #1d4ed8; }
 .adv-badge-checkedin { background: #dcfce7; color: #15803d; }
 .adv-badge-cancelled { background: #fee2e2; color: #b91c1c; }
+.adv-badge-noshow    { background: #f3e8ff; color: #7e22ce; }
 
 /* Note */
 .advp-card-note {
@@ -3615,6 +3671,11 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   color: var(--sq-text);
 }
 .advp-action-btn.print:hover:not(:disabled) { background: #e5e7eb; }
+.advp-action-btn.noshow {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+.advp-action-btn.noshow:hover:not(:disabled) { background: #e9d5ff; }
 .advp-action-btn.cancel {
   background: #fee2e2;
   color: #b91c1c;

@@ -999,8 +999,17 @@ function calculateOrderTotals(order) {
   const discountAmount = Math.min(Number(order.discountAmount || 0), subtotal);
   const discountedSubtotal = Math.max(subtotal - discountAmount, 0);
   const serviceChargeRate = order.serviceChargeEnabled ? Number(order.serviceChargeRate || 0.1) : 0;
-  const serviceCharge = discountedSubtotal * serviceChargeRate;
-  const tax = (discountedSubtotal + serviceCharge) * 0.05;
+  const serviceCharge     = discountedSubtotal * serviceChargeRate;
+  const taxableBase       = discountedSubtotal + serviceCharge;
+  const tax = subtotal > 0
+    ? (order.items || [])
+        .filter(i => !i.isVoided && !i.isComp)
+        .reduce((sum, item) => {
+          const rate   = (item.taxRate != null && item.taxRate !== "") ? Number(item.taxRate) : 5;
+          const weight = Number(item.price || 0) * Number(item.quantity || 0) / subtotal;
+          return sum + taxableBase * weight * rate / 100;
+        }, 0)
+    : 0;
   const total = Math.round(discountedSubtotal + serviceCharge + tax);
   const paidAmount = (order.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 

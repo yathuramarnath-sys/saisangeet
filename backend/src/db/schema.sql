@@ -284,3 +284,33 @@ CREATE TABLE IF NOT EXISTS action_logs (
 CREATE INDEX IF NOT EXISTS idx_action_logs_tenant_ts   ON action_logs (tenant_id,  created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_action_logs_outlet_ts   ON action_logs (outlet_id,  created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_action_logs_table_ts    ON action_logs (table_id,   created_at DESC);
+
+-- ── Advance orders (bookings with optional pre-ordered items) ─────────────────
+CREATE TABLE IF NOT EXISTS advance_orders (
+  id                TEXT          PRIMARY KEY,
+  tenant_id         TEXT          NOT NULL,
+  outlet_id         TEXT          NOT NULL,
+  customer_name     TEXT          NOT NULL,
+  phone             TEXT          NOT NULL DEFAULT '',
+  guests            INTEGER       NOT NULL DEFAULT 1,
+  date              DATE          NOT NULL,
+  time              TEXT          NOT NULL DEFAULT '12:00',
+  note              TEXT          NOT NULL DEFAULT '',
+  order_type        TEXT          NOT NULL DEFAULT 'dine-in',
+  items             JSONB         NOT NULL DEFAULT '[]'::jsonb,
+  advance_amount    NUMERIC(10,2) NOT NULL DEFAULT 0,
+  advance_method    TEXT          NOT NULL DEFAULT '',
+  advance_ref       TEXT          NOT NULL DEFAULT '',
+  status            TEXT          NOT NULL DEFAULT 'pending',
+  assigned_table_id TEXT,
+  created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  checked_in_at     TIMESTAMPTZ,
+  cancelled_at      TIMESTAMPTZ,
+  no_showed_at      TIMESTAMPTZ,
+  cancel_reason     TEXT          NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_advance_orders_tenant_outlet ON advance_orders (tenant_id, outlet_id);
+CREATE INDEX IF NOT EXISTS idx_advance_orders_date          ON advance_orders (date);
+CREATE INDEX IF NOT EXISTS idx_advance_orders_status        ON advance_orders (status);

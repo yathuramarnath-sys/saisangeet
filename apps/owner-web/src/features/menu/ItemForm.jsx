@@ -22,6 +22,7 @@ export function ItemForm({
   availableStationNames  = [],
   availableOutlets       = [],
   availableAreas         = [],   // dynamic work areas from Table Setup
+  nextScalePlu           = null, // auto-assign next PLU for weight scale items
   saveMessage = "",
   saveError   = "",
 }) {
@@ -42,14 +43,14 @@ export function ItemForm({
     letterSpacing: "0.05em",
     marginBottom: 10,
   };
-  const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
-  const grid3 = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 };
+  const grid2 = "item-form-grid2";
+  const grid3 = "item-form-grid3";
 
   return (
     <form className="simple-form" onSubmit={onSubmit}>
 
       {/* ── Section 1: Basic Info ──────────────────────────────────────── */}
-      <div style={grid2}>
+      <div className={grid2}>
         <label>
           Item name *
           <input
@@ -87,7 +88,18 @@ export function ItemForm({
         </label>
         <label>
           Sold by
-          <select value={draft.unit || ""} onChange={e => f("unit", e.target.value)}>
+          <select value={draft.unit || ""} onChange={e => {
+            const newUnit = e.target.value;
+            f("unit", newUnit);
+            // Auto-assign Scale PLU when switching to a weight unit and none set yet
+            if (["KG", "G"].includes(newUnit) && !draft.scalePlu && nextScalePlu !== null) {
+              f("scalePlu", String(nextScalePlu));
+            }
+            // Clear Scale PLU when switching away from weight unit
+            if (!["KG", "G"].includes(newUnit) && draft.scalePlu) {
+              f("scalePlu", "");
+            }
+          }}>
             <option value="">— Per piece —</option>
             <option value="KG">KG — per kilogram</option>
             <option value="LTR">LTR — per litre</option>
@@ -95,6 +107,21 @@ export function ItemForm({
             <option value="ML">ML — per millilitre</option>
           </select>
         </label>
+        {/* Scale PLU — shown only for weight (KG/G) items */}
+        {["KG", "G"].includes(draft.unit) && (
+          <label>
+            Scale PLU
+            <span style={{ fontWeight: 400, color: "#9ca3af", fontSize: 11, marginLeft: 4 }}>
+              5-digit code for weighing scale
+            </span>
+            <input
+              type="number" min="1" step="1"
+              value={draft.scalePlu || ""}
+              onChange={e => f("scalePlu", e.target.value)}
+              placeholder="Auto-assigned"
+            />
+          </label>
+        )}
         {isEdit && (
           <label>
             Kitchen station
@@ -110,7 +137,7 @@ export function ItemForm({
       <div style={sectionStyle}>
         <p style={sectionTitle}>💰 Pricing</p>
 
-        <div style={grid2}>
+        <div className={grid2}>
           <label>
             Base dine-in price (₹) *
             <input
@@ -120,6 +147,11 @@ export function ItemForm({
               placeholder="0"
               required
             />
+            {(Number(draft.basePrice) === 0 || draft.basePrice === "" || draft.basePrice === "0") && (
+              <span style={{ color: "#f59e0b", fontSize: 11, marginTop: 2, display: "block" }}>
+                ⚠ Price is ₹0 — item will sell for free on POS
+              </span>
+            )}
           </label>
           <label>
             Online price (₹)
@@ -141,11 +173,7 @@ export function ItemForm({
             <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 8px" }}>
               Area price overrides — leave 0 to use base price above
             </p>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${Math.min(availableAreas.length, 3)}, 1fr)`,
-              gap: 10,
-            }}>
+            <div className="item-form-grid3">
               {availableAreas.map(area => (
                 <label key={area}>
                   {area} (₹)
@@ -167,7 +195,7 @@ export function ItemForm({
       {/* ── Section 3: Packing Charges ───────────────────────────────── */}
       <div style={sectionStyle}>
         <p style={sectionTitle}>📦 Packing Charges (added on top of base price)</p>
-        <div style={grid2}>
+        <div className={grid2}>
           <label>
             Takeaway packing charge (₹ / item)
             <input
@@ -190,7 +218,7 @@ export function ItemForm({
       {/* ── Section 4: Tax & Availability ────────────────────────────── */}
       <div style={sectionStyle}>
         <p style={sectionTitle}>🧾 Tax &amp; Availability</p>
-        <div style={grid2}>
+        <div className={grid2}>
           <label>
             GST rate
             <select
@@ -259,7 +287,7 @@ export function ItemForm({
                 />
               </label>
             )}
-            <div style={grid2}>
+            <div className={grid2}>
               {fs.shortCode && (
                 <label>
                   Short code (KOT)

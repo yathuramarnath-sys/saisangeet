@@ -179,6 +179,38 @@ async function runMigrations() {
     console.error("[migrate] Could not set up online_orders table:", err.message);
   }
 
+  // ── 7d. Advance-orders table ─────────────────────────────────────────────────
+  await queryFn(`
+    CREATE TABLE IF NOT EXISTS advance_orders (
+      id                TEXT          PRIMARY KEY,
+      tenant_id         TEXT          NOT NULL,
+      outlet_id         TEXT          NOT NULL,
+      customer_name     TEXT          NOT NULL,
+      phone             TEXT          NOT NULL DEFAULT '',
+      guests            INTEGER       NOT NULL DEFAULT 1,
+      date              DATE          NOT NULL,
+      time              TEXT          NOT NULL DEFAULT '12:00',
+      note              TEXT          NOT NULL DEFAULT '',
+      order_type        TEXT          NOT NULL DEFAULT 'dine-in',
+      items             JSONB         NOT NULL DEFAULT '[]',
+      advance_amount    NUMERIC(10,2) NOT NULL DEFAULT 0,
+      advance_method    TEXT          NOT NULL DEFAULT '',
+      advance_ref       TEXT          NOT NULL DEFAULT '',
+      status            TEXT          NOT NULL DEFAULT 'pending',
+      assigned_table_id TEXT,
+      created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+      updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+      checked_in_at     TIMESTAMPTZ,
+      cancelled_at      TIMESTAMPTZ,
+      no_showed_at      TIMESTAMPTZ,
+      cancel_reason     TEXT          NOT NULL DEFAULT ''
+    )
+  `);
+  await queryFn(`CREATE INDEX IF NOT EXISTS idx_advance_orders_tenant_outlet ON advance_orders (tenant_id, outlet_id)`);
+  await queryFn(`CREATE INDEX IF NOT EXISTS idx_advance_orders_date ON advance_orders (date)`);
+  await queryFn(`CREATE INDEX IF NOT EXISTS idx_advance_orders_status ON advance_orders (status)`);
+  await queryFn(`ALTER TABLE advance_orders ADD COLUMN IF NOT EXISTS no_showed_at TIMESTAMPTZ`);
+  console.log("[migrate] advance_orders table verified.");
   // ── 7. Owner auth field repair ───────────────────────────────────────────────
   // Scan every tenant for owner accounts with missing email / passwordHash and
   // repair what can be recovered from users_index. Logs critical errors for any
