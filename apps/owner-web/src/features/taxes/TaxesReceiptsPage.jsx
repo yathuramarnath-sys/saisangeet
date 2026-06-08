@@ -211,10 +211,24 @@ export function TaxesReceiptsPage() {
   // gstTreatment especially must be consistent: a setting changed on Owner Console
   // that only reaches the first outlet would leave other outlets on the old value.
   async function updateReceipt(key, val) {
+    const ids = allOutletIds.length ? allOutletIds : (outletId ? [outletId] : []);
+
+    // Warn before applying GST treatment change to multiple outlets — billing impact is immediate
+    if (key === "gstTreatment" && ids.length > 1) {
+      const label = val === "inclusive"
+        ? "Tax-Inclusive (GST extracted from item price)"
+        : "Tax-Exclusive (GST added on top of item price)";
+      const ok = window.confirm(
+        `Change GST treatment to "${label}" across all ${ids.length} outlets?\n\n` +
+        `⚠ This affects GST calculation on every POS terminal immediately.\n\n` +
+        `Inform all cashiers before changing this during an active shift.`
+      );
+      if (!ok) return;
+    }
+
     const next = { ...receipt, [key]: val };
     setReceipt(next);
     localStorage.setItem(RECEIPT_SETTINGS_KEY, JSON.stringify(next));
-    const ids = allOutletIds.length ? allOutletIds : (outletId ? [outletId] : []);
     if (!ids.length) return;
     try {
       await Promise.all(ids.map(id => api.patch(`/outlets/${id}/settings`, { [key]: val })));

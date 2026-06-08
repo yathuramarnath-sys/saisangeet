@@ -305,6 +305,7 @@ export default function App() {
   const [activeArea,      setActiveArea]      = useState(null);
   const [serviceMode,     setServiceMode]     = useState("dine-in");
   const [toast,           setToast]           = useState(null);
+  const [undoBanner,      setUndoBanner]      = useState(null); // { label, onUndo }
   const socketRef      = useRef(null);   // cloud socket
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
@@ -892,13 +893,16 @@ export default function App() {
     const id = outletId || outlet.id;
     setIsSyncing(true);
     try {
-      const [cats, items, stations, outletsList, discRes] = await Promise.all([
+      const [cats, items, stations, outletsList, discRes, staffRes] = await Promise.all([
         api.get(`/menu/categories?outletId=${id}`).catch(() => null),
         api.get(`/menu/items?outletId=${id}`).catch(() => null),
         api.get("/kitchen-stations").catch(() => null),
         api.get("/outlets").catch(() => null),
         api.get("/settings/discounts").catch(() => null),
+        api.get(`/devices/staff?outletId=${id}`).catch(() => null),
       ]);
+      // Refresh staff permissions — picks up any mid-shift permission changes from Owner Console
+      if (staffRes?.staff?.length) setActiveStaff(staffRes.staff);
       if (discRes?.rules) {
         const outletName = outlet?.name || "";
         const active = discRes.rules.filter(r =>
@@ -1580,20 +1584,41 @@ export default function App() {
     });
     showToast("Bill requested");
 
-    // 2. Persist to backend and reconcile
-    //    Response: { ok: true, order? }
-    if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
-      try {
-        const result = await api.post("/operations/bill-request", { outletId: outlet?.id, tableId });
-        if (result?.order) {
-          setOrders((prev) => ({
-            ...prev,
-            [tableId]: result.order
-          }));
-        }
-      } catch (err) {
-        console.warn("[POS] bill-request sync failed (offline?):", err.message);
+    if (tableId.startsWith("counter-") || tableId.startsWith("online-")) return;
+
+    // 2. Pre-assign bill number at request time so the preview and audit trail
+    //    show the correct sequential number, not just the order number.
+    //    The endpoint is idempotent — if print happens first it returns the same number.
+    try {
+      const billResult = await api.post("/operations/assign-bill-no", {
+        outletId: outlet?.id,
+        tableId,
+        source: "pos-request",
+      });
+      if (billResult?.billNo != null) {
+        mutateOrder(tableId, o => {
+          o.billNo     = billResult.billNo;
+          o.billNoMode = billResult.billNoMode || null;
+          o.billNoFY   = billResult.billNoFY   || null;
+          o.billNoDate = billResult.billNoDate  || null;
+          return o;
+        });
       }
+    } catch (err) {
+      console.warn("[POS] assign-bill-no at request-time failed (offline?):", err.message);
+    }
+
+    // 3. Persist bill-requested flag to backend and reconcile
+    try {
+      const result = await api.post("/operations/bill-request", { outletId: outlet?.id, tableId });
+      if (result?.order) {
+        setOrders((prev) => ({
+          ...prev,
+          [tableId]: result.order
+        }));
+      }
+    } catch (err) {
+      console.warn("[POS] bill-request sync failed (offline?):", err.message);
     }
   }
 
@@ -2283,10 +2308,12 @@ export default function App() {
   // ── Void item (PIN already verified by OrderPanel before this is called) ──
   function handleVoidItem(idx, reason) {
     if (!selectedTableId) return;
-    const item = orders[selectedTableId]?.items?.[idx];
+    const tableId = selectedTableId;
+    const item = orders[tableId]?.items?.[idx];
     const wasNeverSentToKot = item && !item.sentToKot;
 
-    mutateOrder(selectedTableId, o => {
+    // Apply void immediately in memory so UI updates at once
+    mutateOrder(tableId, o => {
       if (o.items[idx]) {
         o.items[idx].isVoided    = true;
         o.items[idx].voidReason  = reason;
@@ -2295,72 +2322,112 @@ export default function App() {
       }
       return o;
     });
-    showToast("Item voided");
 
-    // Log void to backend for Owner Reports
-    api.post("/operations/void-log", {
-      type:        "void_item",
-      cashier:     cashierName || "POS",
-      outletName:  outlet?.name || "",
-      tableId:     selectedTableId,
-      tableLabel:  orders[selectedTableId]?.tableNumber
-                     ? `T${orders[selectedTableId].tableNumber}`
-                     : selectedTableId,
-      orderNumber: orders[selectedTableId]?.orderNumber || "",
-      items:       [{ name: item?.name, qty: item?.quantity || 1, price: item?.price || 0, reason: reason || "Voided" }],
-    }).catch(() => {});
+    // 5-second undo window — API calls fire only after window expires
+    const timerId = setTimeout(() => {
+      setUndoBanner(null);
+      api.post("/operations/void-log", {
+        type:        "void_item",
+        cashier:     cashierName || "POS",
+        outletName:  outlet?.name || "",
+        tableId,
+        tableLabel:  orders[tableId]?.tableNumber
+                       ? `T${orders[tableId].tableNumber}`
+                       : tableId,
+        orderNumber: orders[tableId]?.orderNumber || "",
+        items:       [{ name: item?.name, qty: item?.quantity || 1, price: item?.price || 0, reason: reason || "Voided" }],
+      }).catch(() => {});
 
-    if (item?.id &&
-        !selectedTableId.startsWith("counter-") &&
-        !selectedTableId.startsWith("online-")) {
-      const sec = JSON.parse(localStorage.getItem("pos_security") || "{}");
-      api.patch("/operations/order/item", {
-        tableId:     selectedTableId,
-        itemId:      item.id,
-        isGhostVoid: wasNeverSentToKot || false,
-        voidReason:  reason || "Voided by POS",
-        managerPin:  sec.managerPin || ""
-      }).catch(err => console.warn("[POS] item-void to backend failed:", err.message));
-    }
+      if (item?.id &&
+          !tableId.startsWith("counter-") &&
+          !tableId.startsWith("online-")) {
+        const sec = JSON.parse(localStorage.getItem("pos_security") || "{}");
+        api.patch("/operations/order/item", {
+          tableId,
+          itemId:      item.id,
+          isGhostVoid: wasNeverSentToKot || false,
+          voidReason:  reason || "Voided by POS",
+          managerPin:  sec.managerPin || ""
+        }).catch(err => console.warn("[POS] item-void to backend failed:", err.message));
+      }
+    }, 5000);
+
+    setUndoBanner({
+      label: `"${item?.name || "Item"}" voided — tap Undo within 5s`,
+      onUndo: () => {
+        clearTimeout(timerId);
+        setUndoBanner(null);
+        mutateOrder(tableId, o => {
+          if (o.items[idx]) {
+            o.items[idx].isVoided   = false;
+            o.items[idx].voidReason = "";
+            if (wasNeverSentToKot) {
+              o.items[idx].sentToKot  = false;
+              o.items[idx].isGhostVoid = false;
+            }
+          }
+          return o;
+        });
+        showToast("Void undone");
+      },
+    });
   }
 
-  // ── Cancel entire order (PIN already verified by OrderPanel) ─────────────
+  // ── Cancel entire order (PIN + confirmation already verified by OrderPanel) ─
   function handleCancelOrder() {
     if (!selectedTableId) return;
     const order = orders[selectedTableId];
     if (!order?.items?.length) return;
 
+    const tableId = selectedTableId;
+    const savedItems   = order.items.map(i => ({ ...i })); // snapshot for undo
     const cancelledItems = order.items
       .filter(i => !i.isVoided)
       .map(i => ({ name: i.name, qty: i.quantity, price: i.price, reason: "Order cancelled" }));
 
-    // Void all non-voided items
-    mutateOrder(selectedTableId, o => {
+    // Void all items immediately in memory so UI clears at once
+    mutateOrder(tableId, o => {
       o.items = o.items.map(i => i.isVoided ? i : {
         ...i, isVoided: true, voidReason: "Order cancelled", sentToKot: true,
         isGhostVoid: !i.sentToKot,
       });
       return o;
     });
-    showToast("Order cancelled");
-
-    // Log cancellation
-    api.post("/operations/void-log", {
-      type:        "cancel_order",
-      cashier:     cashierName || "POS",
-      outletName:  outlet?.name || "",
-      tableId:     selectedTableId,
-      tableLabel:  order.tableNumber ? `T${order.tableNumber}` : selectedTableId,
-      orderNumber: order.orderNumber || "",
-      items:       cancelledItems,
-    }).catch(() => {});
-
-    // Clear from backend
-    if (!selectedTableId.startsWith("counter-") && !selectedTableId.startsWith("online-")) {
-      api.delete("/operations/order", { tableId: selectedTableId, outletId: outlet?.id })
-        .catch(err => console.warn("[POS] cancel-order backend failed:", err.message));
-    }
     setSelectedTableId(null);
+
+    // 5-second undo window — backend calls fire only after window expires
+    const timerId = setTimeout(() => {
+      setUndoBanner(null);
+      api.post("/operations/void-log", {
+        type:        "cancel_order",
+        cashier:     cashierName || "POS",
+        outletName:  outlet?.name || "",
+        tableId,
+        tableLabel:  order.tableNumber ? `T${order.tableNumber}` : tableId,
+        orderNumber: order.orderNumber || "",
+        items:       cancelledItems,
+      }).catch(() => {});
+
+      if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+        api.delete("/operations/order", { tableId, outletId: outlet?.id })
+          .catch(err => console.warn("[POS] cancel-order backend failed:", err.message));
+      }
+    }, 5000);
+
+    setUndoBanner({
+      label: `Order cancelled — tap Undo within 5s`,
+      onUndo: () => {
+        clearTimeout(timerId);
+        setUndoBanner(null);
+        // Restore all items from the pre-cancel snapshot
+        mutateOrder(tableId, o => {
+          o.items = savedItems;
+          return o;
+        });
+        setSelectedTableId(tableId);
+        showToast("Cancellation undone");
+      },
+    });
   }
 
   // ── Shift callbacks ───────────────────────────────────────────────────────
@@ -3151,6 +3218,14 @@ export default function App() {
           activeShift={activeShift}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {/* ── Undo banner (void / cancel) ───────────────────────────────────── */}
+      {undoBanner && (
+        <div className="pos-undo-banner" role="alert">
+          <span>{undoBanner.label}</span>
+          <button type="button" onClick={undoBanner.onUndo}>Undo</button>
+        </div>
       )}
 
       {/* ── Toast ─────────────────────────────────────────────────────────── */}

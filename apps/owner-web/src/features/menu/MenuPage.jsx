@@ -566,7 +566,32 @@ export function MenuPage() {
   }
 
   async function handleDeleteCategory(category) {
-    if (!window.confirm(`Delete category ${category.name}? Items under this category will also be removed.`)) {
+    // Check if any items in this category appear in active POS orders
+    const categoryItemIds = new Set(
+      menuData.items.filter(i => i.categoryId === category.id).map(i => i.id)
+    );
+    let activeOrderWarning = "";
+    if (categoryItemIds.size > 0) {
+      try {
+        const activeOrders = await api.get("/operations/orders").catch(() => []);
+        const orders = Array.isArray(activeOrders) ? activeOrders : [];
+        const affectedTables = new Set();
+        orders.forEach(order => {
+          (order.items || []).forEach(item => {
+            if (!item.isVoided && (categoryItemIds.has(item.menuItemId) || categoryItemIds.has(item.id))) {
+              affectedTables.add(order.tableId);
+            }
+          });
+        });
+        if (affectedTables.size > 0) {
+          activeOrderWarning = `\n\n⚠️ WARNING: Items from this category are currently in ${affectedTables.size} active table order(s) on POS. Deleting now will cause "item not found" errors on those tables.\n\nTip: Wait until service ends, or mark items as Sold Out instead.`;
+        }
+      } catch (_) {}
+    }
+
+    if (!window.confirm(
+      `Delete category "${category.name}"? All items in this category will also be removed.${activeOrderWarning}\n\nThis cannot be undone.`
+    )) {
       return;
     }
 

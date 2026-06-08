@@ -227,12 +227,13 @@ function Step3({ onNext, onSkip }) {
       const catRes = await api.post("/menu/categories", { name: catName.trim() });
       const categoryId = catRes?.id || catRes?.category?.id;
 
-      // Create items
+      // Create items (taxRate defaults to 5% — owner can change per-item later)
       for (const it of validItems) {
         await api.post("/menu/items", {
           name:       it.name.trim(),
           price:      it.price ? parseFloat(it.price) : 0,
           categoryId: categoryId || undefined,
+          taxRate:    5,
         });
       }
       onNext({ itemCount: validItems.length });
@@ -352,49 +353,78 @@ const APP_LINKS = [
   },
 ];
 
-function Step4({ onDone }) {
+function Step4({ onDone, completedSteps }) {
+  const hasOutlet = completedSteps.has(2);
+  const hasMenu   = completedSteps.has(3);
+  const allReady  = hasOutlet && hasMenu;
+
   return (
     <div className="ob-step-body">
-      <div className="ob-step-icon">🎉</div>
-      <h2 className="ob-step-title">You're all set! Download the apps</h2>
+      <div className="ob-step-icon">{allReady ? "🎉" : "⚠️"}</div>
+      <h2 className="ob-step-title">{allReady ? "You're all set! Download the apps" : "Almost ready — a few things still needed"}</h2>
       <p className="ob-step-sub">
-        Install one app per station. Each device enters the <strong>branch link code</strong> from
-        the App Store page to sync to your outlet.
+        {allReady
+          ? <>Install one app per station. Each device enters the <strong>branch link code</strong> from the App Store page to sync to your outlet.</>
+          : "Your POS won't work until the items below are set up. You can do them now or from the dashboard later."}
       </p>
 
-      <div className="ob-app-list">
-        {APP_LINKS.map(app => (
-          <div key={app.name} className="ob-app-card">
-            <span className="ob-app-icon">{app.icon}</span>
-            <div className="ob-app-info">
-              <strong>{app.name}</strong>
-              <span>{app.desc}</span>
-            </div>
-            <div className="ob-app-links">
-              {app.links.map(l => (
-                <a
-                  key={l.label}
-                  href={l.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download={l.dl ? true : undefined}
-                  className="ob-app-link-btn"
-                >
-                  {l.dl ? "↓" : "↗"} {l.label}
-                </a>
-              ))}
+      {/* Readiness checklist — shown only when something was skipped */}
+      {!allReady && (
+        <div className="ob-readiness">
+          <div className={`ob-readiness-row ${hasOutlet ? "done" : "warn"}`}>
+            <span>{hasOutlet ? "✓" : "✗"}</span>
+            <div>
+              <strong>Outlet created</strong>
+              {!hasOutlet && <p>Without an outlet, POS devices cannot link to your account. <a href="/outlets">Set up outlets →</a></p>}
             </div>
           </div>
-        ))}
-      </div>
+          <div className={`ob-readiness-row ${hasMenu ? "done" : "warn"}`}>
+            <span>{hasMenu ? "✓" : "✗"}</span>
+            <div>
+              <strong>Menu items added</strong>
+              {!hasMenu && <p>POS will show zero items. <a href="/menu">Add menu items →</a></p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {allReady && (
+        <div className="ob-app-list">
+          {APP_LINKS.map(app => (
+            <div key={app.name} className="ob-app-card">
+              <span className="ob-app-icon">{app.icon}</span>
+              <div className="ob-app-info">
+                <strong>{app.name}</strong>
+                <span>{app.desc}</span>
+              </div>
+              <div className="ob-app-links">
+                {app.links.map(l => (
+                  <a
+                    key={l.label}
+                    href={l.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={l.dl ? true : undefined}
+                    className="ob-app-link-btn"
+                  >
+                    {l.dl ? "↓" : "↗"} {l.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="ob-actions">
         <button className="ob-next-btn ob-finish-btn" onClick={onDone}>
-          Go to Dashboard →
+          {allReady ? "Go to Dashboard →" : "Go to Dashboard — finish setup there"}
         </button>
-        <p className="ob-done-note">
-          You can always find download links in <strong>App Store</strong> from the sidebar.
-        </p>
+        {allReady && (
+          <p className="ob-done-note">
+            You can always find download links in <strong>App Store</strong> from the sidebar.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -403,10 +433,15 @@ function Step4({ onDone }) {
 // ─── Main wizard ──────────────────────────────────────────────────────────────
 
 export function OnboardingWizard({ onComplete }) {
-  const [step,    setStep]    = useState(1);
-  const [context, setContext] = useState({});
+  const [step,           setStep]           = useState(1);
+  const [context,        setContext]        = useState({});
+  const [completedSteps, setCompletedSteps] = useState(new Set());
 
   function goNext(data = {}) {
+    // Only mark step as completed when data was actually saved (not when skipped)
+    if (data && Object.keys(data).length > 0) {
+      setCompletedSteps(prev => new Set([...prev, step]));
+    }
     setContext(prev => ({ ...prev, ...data }));
     if (step < 4) {
       setStep(s => s + 1);
@@ -467,7 +502,7 @@ export function OnboardingWizard({ onComplete }) {
             />
           )}
           {step === 4 && (
-            <Step4 onDone={finish} />
+            <Step4 onDone={finish} completedSteps={completedSteps} />
           )}
         </div>
 
