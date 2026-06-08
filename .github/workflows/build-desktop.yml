@@ -27,9 +27,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install root dependencies (provides app-builder-bin for electron-builder)
+        run: npm install --ignore-scripts
+
       - name: Install POS dependencies
         working-directory: apps/operations-pos
-        run: npm install
+        run: npm install --no-workspaces
 
       - name: Build Vite app
         working-directory: apps/operations-pos
