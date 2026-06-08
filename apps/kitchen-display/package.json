@@ -53,6 +53,8 @@
       ]
     },
     "win": {
+      "signAndEditExecutable": false,
+      "forceCodeSigning": false,
       "target": [
         {
           "target": "nsis",
