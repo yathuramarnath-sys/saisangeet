@@ -2697,6 +2697,7 @@ export default function App() {
           categories={categories}
           menuItems={menuItems}
           activeCategory={activeCategory || categories[0]?.name}
+          onCategoryChange={setActiveCategory}
           onAddItem={handleAddItem}
           onToggleAvailability={handleToggleAvailability}
           quantities={menuQuantities}

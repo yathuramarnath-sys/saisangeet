@@ -1,4 +1,5 @@
 /* ─── Bitepoint POS Design System ────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -9932,5 +9933,301 @@ input, select, textarea {
 .dayend-empty { color: #475569; font-size: 0.85rem; font-style: italic; }
 .dayend-footer { padding: 16px 24px; border-top: 1px solid #334155; display: flex; gap: 12px; justify-content: flex-end; }
 .dayend-print-btn { background: linear-gradient(135deg,#059669,#047857); color: #fff; border: none; border-radius: 8px; padding: 11px 24px; font-size: 0.95rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 8px; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PLATO v3 — Inter · Green design system — final override layer
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Font override */
+.pos-shell, .pos-shell * {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+/* Grid: hide left category sidebar, expand menu area */
+.pos-shell {
+  grid-template-columns: 0 1fr 360px !important;
+}
+.pos-left { display: none !important; }
+
+/* ── Search bar ── */
+.menu-search-wrap {
+  padding: 8px 12px 6px !important;
+  background: #fff !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+}
+.menu-search {
+  border-radius: 8px !important;
+  border: 1.5px solid #E2E8F0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  color: #0F172A !important;
+}
+.menu-search:focus {
+  border-color: #059669 !important;
+  box-shadow: none !important;
+}
+.menu-search-icon { color: #94A3B8 !important; }
+
+/* ── Category chips — horizontal, ONE green ── */
+.menu-cats {
+  display: flex !important;
+  gap: 6px !important;
+  padding: 8px 12px !important;
+  overflow-x: auto !important;
+  flex-shrink: 0 !important;
+  scrollbar-width: none !important;
+  background: #fff !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+.menu-cats::-webkit-scrollbar { display: none !important; }
+.menu-cat-btn {
+  padding: 6px 14px !important;
+  border-radius: 20px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  color: #475569 !important;
+  background: #F8FAFC !important;
+  border: none !important;
+  flex-shrink: 0 !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: all .15s !important;
+}
+.menu-cat-btn:hover {
+  color: #0F172A !important;
+  background: #E2E8F0 !important;
+}
+.menu-cat-btn.active {
+  background: #059669 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+/* ── Menu grid — touch-friendly tiles ── */
+.menu-cards-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+  gap: 1px !important;
+  background: #E2E8F0 !important;
+  padding: 0 !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+  align-content: start !important;
+  margin: 0 !important;
+}
+
+/* ── Food card — clean flat tile ── */
+.menu-food-card {
+  background: #fff !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  padding: 12px 12px 42px !important;
+  min-height: 90px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  transform: none !important;
+  cursor: pointer !important;
+  position: relative !important;
+  transition: background .1s !important;
+}
+.menu-food-card:hover {
+  background: #F8FAFC !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.menu-food-card:active { background: #ECFDF5 !important; }
+.menu-food-card.in-cart {
+  background: #ECFDF5 !important;
+  outline: 2px solid #059669 !important;
+  outline-offset: -2px !important;
+}
+.menu-food-card.sold-out {
+  opacity: 0.5 !important;
+}
+.menu-food-card.sold-out .mfc-icon-area { display: none !important; }
+
+/* Hide old emoji icon area and old veg badge */
+.mfc-icon-area { display: none !important; }
+.mfc-veg-badge { display: none !important; }
+
+/* FSSAI veg/nonveg indicator */
+.mfc-veg-dot {
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 3px !important;
+  border: 1.5px solid !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  margin-bottom: 5px !important;
+  background: transparent !important;
+}
+.mfc-veg-dot::after {
+  content: "" !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+}
+.mfc-veg-dot.veg        { border-color: #16A34A !important; }
+.mfc-veg-dot.veg::after  { background: #16A34A !important; }
+.mfc-veg-dot.nonveg      { border-color: #DC2626 !important; }
+.mfc-veg-dot.nonveg::after { background: #DC2626 !important; }
+
+/* Info wrapper */
+.mfc-info {
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  flex: 1 !important;
+}
+
+/* Item name */
+.mfc-name {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #0F172A !important;
+  line-height: 1.35 !important;
+  padding-right: 0 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  margin-bottom: 2px !important;
+}
+
+/* Price */
+.mfc-price {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #0F172A !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* Bottom row */
+.mfc-bottom {
+  display: flex !important;
+  align-items: center !important;
+  margin-top: 2px !important;
+}
+
+/* Add button — absolute bottom-right */
+.mfc-add-btn {
+  position: absolute !important;
+  bottom: 10px !important;
+  right: 10px !important;
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  border: 1.5px solid #059669 !important;
+  color: #059669 !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  transition: all .15s !important;
+}
+.menu-food-card:hover .mfc-add-btn {
+  background: #059669 !important;
+  color: #fff !important;
+}
+
+/* Qty +/− controls */
+.mfc-qty-controls {
+  position: absolute !important;
+  bottom: 8px !important;
+  right: 8px !important;
+  gap: 3px !important;
+  background: transparent !important;
+  display: flex !important;
+  align-items: center !important;
+}
+.mfc-qty-btn {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 6px !important;
+  background: #059669 !important;
+  color: #fff !important;
+  border: none !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background .1s !important;
+}
+.mfc-qty-btn:hover { background: #047857 !important; transform: none !important; }
+.mfc-qty-val {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  min-width: 18px !important;
+  text-align: center !important;
+  color: #0F172A !important;
+}
+
+/* Availability toggle */
+.mfc-avail-toggle {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 4px !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  z-index: 2 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.mfc-avail-toggle.on  { background: #ECFDF5 !important; color: #059669 !important; border: 1.5px solid #059669 !important; }
+.mfc-avail-toggle.off { background: #FEF2F2 !important; color: #DC2626 !important; border: 1.5px solid #DC2626 !important; }
+
+/* Low stock badge */
+.mfc-stock-low-badge {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: #D97706 !important;
+  background: #FFFBEB !important;
+  border: 1px solid #FCD34D !important;
+  border-radius: 4px !important;
+  padding: 1px 5px !important;
+}
+
+/* Sold-out label */
+.mfc-soldout-label {
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  color: #DC2626 !important;
+  background: #FEF2F2 !important;
+  border-radius: 4px !important;
+  padding: 3px 6px !important;
+  letter-spacing: 0.04em !important;
+  display: inline-block !important;
+  margin-top: 4px !important;
+  border: none !important;
+}
+
+/* Primary CTA — Collect Payment button */
+.pos-btn.pay {
+  background: #059669 !important;
+  color: #fff !important;
+  border-color: #059669 !important;
+  box-shadow: 0 4px 14px rgba(5,150,105,.25) !important;
+}
+.pos-btn.pay:hover {
+  background: #047857 !important;
+  border-color: #047857 !important;
+}
 .dayend-print-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .dayend-close-btn { background: #334155; color: #e2e8f0; border: none; border-radius: 8px; padding: 11px 24px; font-size: 0.95rem; font-weight: 600; cursor: pointer; font-family: inherit; }
