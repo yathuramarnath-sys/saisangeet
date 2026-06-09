@@ -75,7 +75,9 @@ const PALETTE = [
   { bg: "#D35400", light: "#FDEBD0", grad: "linear-gradient(135deg,#E67E22,#9A3412)" },
 ];
 
-export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, quantities, onDecrement, stockSnapshot, onSkuLookup, onCategoryChange }) {
+const FAVOURITES_CAT = "⭐ Favourites";
+
+export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, quantities, onDecrement, stockSnapshot, onSkuLookup, onCategoryChange, favouriteItemIds = [] }) {
   const [search,      setSearch]      = useState("");
   const [stockState,  setStockState]  = useState(() => getStockState());
 
@@ -97,15 +99,16 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = q
-      ? menuItems.filter(i => i.name.toLowerCase().includes(q))
-      : menuItems.filter(
-          i => i.category    === activeCategory
-            || i.categoryName === activeCategory
-            || i.categoryId  === activeCatId
-        );
-    return base.filter(i => i.isActive !== false);
-  }, [menuItems, activeCategory, activeCatId, search]);
+    if (q) return menuItems.filter(i => i.name.toLowerCase().includes(q) && i.isActive !== false);
+    if (activeCategory === FAVOURITES_CAT) {
+      const favSet = new Set(favouriteItemIds);
+      return menuItems.filter(i => favSet.has(String(i.id)) && i.isActive !== false);
+    }
+    return menuItems.filter(i =>
+      (i.category === activeCategory || i.categoryName === activeCategory || i.categoryId === activeCatId)
+      && i.isActive !== false
+    );
+  }, [menuItems, activeCategory, activeCatId, search, favouriteItemIds]);
 
   function itemCatColor(item) {
     for (const cat of categories) {
@@ -151,6 +154,16 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
 
       {/* ── Category chips — horizontal ──────────────────────────────────── */}
       <div className="menu-cats">
+        {favouriteItemIds.length > 0 && (
+          <button
+            key="__fav__"
+            type="button"
+            className={`menu-cat-btn${activeCategory === FAVOURITES_CAT ? " active" : ""}`}
+            onClick={() => onCategoryChange?.(FAVOURITES_CAT)}
+          >
+            ⭐ Favourites
+          </button>
+        )}
         {categories.map((cat) => (
           <button
             key={cat.name}

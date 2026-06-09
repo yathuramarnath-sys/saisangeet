@@ -1,8 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder, gstTreatment = "exclusive" }) {
   const [activeArea, setActiveArea] = useState(null);
+  const [tick, setTick] = useState(0);
   const inclusive = gstTreatment === "inclusive";
+
+  // Tick every 30 seconds to refresh elapsed time badges
+  useEffect(() => {
+    const id = setInterval(() => setTick(n => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  function elapsedMinutes(tableId) {
+    const o = orders[tableId];
+    if (!o?.occupiedAt) return null;
+    return Math.floor((Date.now() - o.occupiedAt) / 60_000);
+  }
+
+  function elapsedColor(mins) {
+    if (mins < 30) return "#059669";
+    if (mins < 60) return "#D97706";
+    return "#DC2626";
+  }
+
+  function elapsedLabel(mins) {
+    if (mins < 60) return `${mins}m`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  }
 
   function tableStatus(tableId) {
     const o = orders[tableId];
@@ -178,6 +202,11 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
                     {guests > 0 && <span className="tpp-table-seats">{guests} guests</span>}
                     {total !== null && <span className="tpp-table-amt">₹{total.toLocaleString("en-IN")}</span>}
                     {total === null && (table.seats || 0) > 0 && <span className="tpp-table-seats">{table.seats} seats</span>}
+                    {st !== "available" && (() => {
+                      const mins = elapsedMinutes(table.id);
+                      if (mins === null) return null;
+                      return <span className="tpp-elapsed" style={{ color: elapsedColor(mins) }}>⏱ {elapsedLabel(mins)}</span>;
+                    })()}
                   </button>
                 );
               })}

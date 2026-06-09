@@ -113,6 +113,15 @@ function saveKotQueue(queue) {
   try { localStorage.setItem(KOT_QUEUE_KEY, JSON.stringify(queue)); } catch (_) {}
 }
 
+// ── Item order count tracking (for Favourites chip) ───────────────────────
+const ITEM_COUNTS_KEY = "pos_item_counts";
+function loadItemCounts() {
+  try { return JSON.parse(localStorage.getItem(ITEM_COUNTS_KEY) || "{}"); } catch { return {}; }
+}
+function saveItemCounts(counts) {
+  try { localStorage.setItem(ITEM_COUNTS_KEY, JSON.stringify(counts)); } catch (_) {}
+}
+
 async function flushKotQueue(outletId) {
   const queue = loadKotQueue();
   if (!queue.length) return;
@@ -302,6 +311,9 @@ export default function App() {
   const [isOnline,        setIsOnline]        = useState(() => navigator.onLine);
   const [showPayment,     setShowPayment]     = useState(false);
   const [showDrawer,      setShowDrawer]      = useState(false);
+  const [darkMode,        setDarkMode]        = useState(() => localStorage.getItem("pos_dark_mode") === "true");
+  const [repeatSuggest,   setRepeatSuggest]   = useState(null);
+  const [itemCounts,      setItemCounts]      = useState(() => loadItemCounts());
   const [showSplitBill,   setShowSplitBill]   = useState(false);
   const [activeArea,      setActiveArea]      = useState(null);
   const [serviceMode,     setServiceMode]     = useState("dine-in");
@@ -1185,6 +1197,14 @@ export default function App() {
     return (selectedOrder.items || []).filter(i => !i.isVoided).length;
   }, [selectedOrder]);
 
+  // Top 8 most-ordered items (for Favourites chip)
+  const favouriteItemIds = useMemo(() =>
+    Object.entries(itemCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 8)
+      .map(([id]) => String(id)),
+  [itemCounts]);
+
   // Quantities of unsent items in current order — used by MenuPanel +/− buttons.
   // MUST be here (before any conditional returns) to obey React Rules of Hooks.
   const menuQuantities = useMemo(() => {
@@ -1268,6 +1288,10 @@ export default function App() {
     //    Backend also consolidates by menuItemId (increments existing unsent line), so
     //    if the cashier taps the same item twice the qty in both states stays in sync.
     mutateOrder(tableId, (order) => {
+      // Stamp occupiedAt when first active item is added — used for elapsed time display
+      if (!order.occupiedAt && !(order.items || []).some(i => !i.isVoided && !i.isComp)) {
+        order.occupiedAt = Date.now();
+      }
       // Scale items always get a new line (never merge) — each scan is a distinct weight
       const existing = fromScale ? -1 : order.items.findIndex((i) => i.menuItemId === item.id && !i.sentToKot);
       if (existing >= 0) {
@@ -1292,6 +1316,13 @@ export default function App() {
         });
       }
       return order;
+    });
+
+    // Track item order frequency for Favourites chip
+    setItemCounts(prev => {
+      const updated = { ...prev, [item.id]: (prev[item.id] || 0) + 1 };
+      saveItemCounts(updated);
+      return updated;
     });
 
     // 2. Persist to backend and reconcile with server response.
@@ -1890,6 +1921,22 @@ export default function App() {
   async function handleSelectTable(tableId) {
     setSelectedTableId(tableId);
 
+    // Offer to repeat last order for this table (dine-in only)
+    if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+      const curOrder = orders[tableId];
+      const isEmpty = !(curOrder?.items || []).some(i => !i.isVoided && !i.isComp);
+      if (isEmpty) {
+        try {
+          const closed = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+          const last = closed.find(o => o.tableId === tableId);
+          if (last) {
+            const repeatItems = (last.items || []).filter(i => !i.isVoided && !i.isComp);
+            if (repeatItems.length > 0) setRepeatSuggest({ tableId, lastOrder: last });
+          }
+        } catch (_) {}
+      }
+    }
+
     if (!tableId || !outlet?.id) return;
     if (tableId.startsWith("counter-") || tableId.startsWith("online-")) return;
 
@@ -1937,6 +1984,24 @@ export default function App() {
       // Offline or server unreachable — keep local state, no data lost
       console.warn("[POS] table fetch failed (offline?):", err.message);
     }
+  }
+
+  // ── Repeat last order on this table ──────────────────────────────────────
+  function handleRepeatOrder() {
+    if (!repeatSuggest) return;
+    const { tableId, lastOrder } = repeatSuggest;
+    setRepeatSuggest(null);
+    const items = (lastOrder.items || []).filter(i => !i.isVoided && !i.isComp);
+    let added = 0;
+    items.forEach(item => {
+      const menuItem = menuItems.find(m => String(m.id) === String(item.menuItemId));
+      if (menuItem) {
+        handleAddItem({ ...menuItem }, item.quantity || 1);
+        added++;
+      }
+    });
+    if (added > 0) showToast(`✓ ${added} item${added !== 1 ? "s" : ""} added from last visit`);
+    else showToast("Items no longer on menu");
   }
 
   // ── Hold order ────────────────────────────────────────────────────────────
@@ -2510,7 +2575,7 @@ export default function App() {
 
   // ─── Main POS UI ──────────────────────────────────────────────────────────
   return (
-    <div className="pos-shell">
+    <div className={`pos-shell${darkMode ? " pos-dark" : ""}`}>
 
       {/* ── Update banner ────────────────────────────────────────────────── */}
       <UpdateBanner />
@@ -2759,6 +2824,15 @@ export default function App() {
             </div>
             <div className="pos-drawer-sec">
               <div className="pos-drawer-sec-label">Settings</div>
+              <button type="button" className="pos-drawer-item" onClick={() => {
+                const next = !darkMode;
+                setDarkMode(next);
+                localStorage.setItem("pos_dark_mode", String(next));
+                setShowDrawer(false);
+              }}>
+                <span className="pos-drawer-ico">{darkMode ? "☀️" : "🌙"}</span>
+                <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>
+              </button>
               <button type="button" className="pos-drawer-item" onClick={() => { setShowSettings(true); setShowDrawer(false); }}>
                 <span className="pos-drawer-ico">⚙️</span><span>POS Settings</span>
               </button>
@@ -2796,6 +2870,7 @@ export default function App() {
           quantities={menuQuantities}
           onDecrement={handleDecrementItem}
           stockSnapshot={stockSnapshot}
+          favouriteItemIds={favouriteItemIds}
           onSkuLookup={(sku) => {
             if (!selectedTableId) { showToast("Select a table first"); return; }
             api.get(`/menu/sku-lookup?sku=${encodeURIComponent(sku)}&outletId=${outlet?.id || ""}`)
@@ -3306,6 +3381,23 @@ export default function App() {
               <button className="wl-dismiss-btn" onClick={() => setWaitlistSuggest(null)}>
                 Skip
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Repeat last order suggest */}
+      {repeatSuggest && (
+        <div className="wl-suggest-overlay" onClick={() => setRepeatSuggest(null)}>
+          <div className="wl-suggest-card" onClick={e => e.stopPropagation()}>
+            <p className="wl-suggest-title">Repeat last order?</p>
+            <p className="wl-suggest-body">
+              <strong>{(repeatSuggest.lastOrder.items || []).filter(i => !i.isVoided && !i.isComp).length} items</strong>
+              {" "}from the previous visit on this table.
+            </p>
+            <div className="wl-suggest-btns">
+              <button className="wl-seat-btn" onClick={handleRepeatOrder}>Add All</button>
+              <button className="wl-dismiss-btn" onClick={() => setRepeatSuggest(null)}>Skip</button>
             </div>
           </div>
         </div>
