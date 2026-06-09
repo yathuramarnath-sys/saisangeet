@@ -18,10 +18,9 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
   const [showCredit,   setShowCredit]   = useState(false);
   const [creditForm,   setCreditForm]   = useState(BLANK_CREDIT);
   const [creditError,  setCreditError]  = useState("");
-  const [currentAmount, setCurrentAmount] = useState(() => {
-    const bal = fin?.balance ?? fin?.total ?? 0;
-    return String(bal > 0 ? bal : (fin?.total ?? ""));
-  });
+  // Cash starts empty so denomination buttons build up from 0 (click ₹500 → 500, not 100+500=600).
+  // UPI/Card pre-fill with the exact amount due since there's no denomination picking.
+  const [currentAmount, setCurrentAmount] = useState("");
   const [currentRef,   setCurrentRef]   = useState("");
   const [loading,      setLoading]      = useState(false);
   const [customerList,   setCustomerList]   = useState([]);
@@ -168,7 +167,7 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
             {METHODS.map(m => (
               <button key={m.id} type="button"
                 className={`pay2-method-tab${currentMethod === m.id ? " active" : ""}`}
-                onClick={() => { setCurrentMethod(m.id); setCurrentRef(""); setCurrentAmount(String(remaining > 0 ? remaining : fin.total)); }}>
+                onClick={() => { setCurrentMethod(m.id); setCurrentRef(""); setCurrentAmount(m.id === "cash" ? "" : String(remaining > 0 ? remaining : fin.total)); }}>
                 {m.label}
               </button>
             ))}
