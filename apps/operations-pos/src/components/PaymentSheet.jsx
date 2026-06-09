@@ -266,7 +266,7 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
           <div className="pay2-denom-grid">
             {[100, 200, 500, 1000, 2000].map(amt => (
               <button key={amt} type="button" className="pay2-denom-btn"
-                onClick={() => setCurrentAmount(String((Number(currentAmount) || 0) + amt))}>
+                onClick={() => setCurrentAmount(String(amt))}>
                 ₹{amt}
               </button>
             ))}

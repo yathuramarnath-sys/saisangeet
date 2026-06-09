@@ -312,7 +312,6 @@ export default function App() {
   const [showPayment,     setShowPayment]     = useState(false);
   const [showDrawer,      setShowDrawer]      = useState(false);
   const [darkMode,        setDarkMode]        = useState(() => localStorage.getItem("pos_dark_mode") === "true");
-  const [repeatSuggest,   setRepeatSuggest]   = useState(null);
   const [itemCounts,      setItemCounts]      = useState(() => loadItemCounts());
   const [showSplitBill,   setShowSplitBill]   = useState(false);
   const [activeArea,      setActiveArea]      = useState(null);
@@ -1938,23 +1937,6 @@ export default function App() {
   async function handleSelectTable(tableId) {
     setSelectedTableId(tableId);
 
-    // Offer to repeat last order for this table (dine-in only)
-    if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
-      const curOrder = orders[tableId];
-      // Only offer Repeat when the table genuinely has no order at all (not ghost-voided items).
-      const isEmpty = !curOrder || !(curOrder.items?.length > 0);
-      if (isEmpty) {
-        try {
-          const closed = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-          const last = closed.find(o => o.tableId === tableId);
-          if (last) {
-            const repeatItems = (last.items || []).filter(i => !i.isVoided && !i.isComp);
-            if (repeatItems.length > 0) setRepeatSuggest({ tableId, lastOrder: last });
-          }
-        } catch (_) {}
-      }
-    }
-
     if (!tableId || !outlet?.id) return;
     if (tableId.startsWith("counter-") || tableId.startsWith("online-")) return;
 
@@ -2007,24 +1989,6 @@ export default function App() {
       // Offline or server unreachable — keep local state, no data lost
       console.warn("[POS] table fetch failed (offline?):", err.message);
     }
-  }
-
-  // ── Repeat last order on this table ──────────────────────────────────────
-  function handleRepeatOrder() {
-    if (!repeatSuggest) return;
-    const { tableId, lastOrder } = repeatSuggest;
-    setRepeatSuggest(null);
-    const items = (lastOrder.items || []).filter(i => !i.isVoided && !i.isComp);
-    let added = 0;
-    items.forEach(item => {
-      const menuItem = menuItems.find(m => String(m.id) === String(item.menuItemId));
-      if (menuItem) {
-        handleAddItem({ ...menuItem }, item.quantity || 1);
-        added++;
-      }
-    });
-    if (added > 0) showToast(`✓ ${added} item${added !== 1 ? "s" : ""} added from last visit`);
-    else showToast("Items no longer on menu");
   }
 
   // ── Hold order ────────────────────────────────────────────────────────────
@@ -3404,23 +3368,6 @@ export default function App() {
               <button className="wl-dismiss-btn" onClick={() => setWaitlistSuggest(null)}>
                 Skip
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Repeat last order suggest */}
-      {repeatSuggest && (
-        <div className="wl-suggest-overlay" onClick={() => setRepeatSuggest(null)}>
-          <div className="wl-suggest-card" onClick={e => e.stopPropagation()}>
-            <p className="wl-suggest-title">Repeat last order?</p>
-            <p className="wl-suggest-body">
-              <strong>{(repeatSuggest.lastOrder.items || []).filter(i => !i.isVoided && !i.isComp).length} items</strong>
-              {" "}from the previous visit on this table.
-            </p>
-            <div className="wl-suggest-btns">
-              <button className="wl-seat-btn" onClick={handleRepeatOrder}>Add All</button>
-              <button className="wl-dismiss-btn" onClick={() => setRepeatSuggest(null)}>Skip</button>
             </div>
           </div>
         </div>
