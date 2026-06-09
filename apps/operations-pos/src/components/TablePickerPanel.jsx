@@ -13,14 +13,23 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
 
   function elapsedMinutes(tableId) {
     const o = orders[tableId];
-    if (!o?.occupiedAt) return null;
-    return Math.floor((Date.now() - o.occupiedAt) / 60_000);
+    if (o?.occupiedAt) return Math.floor((Date.now() - o.occupiedAt) / 60_000);
+    // Retroactive fallback for orders that predate occupiedAt stamping
+    const active = (o?.items || []).filter(i => !i.isVoided && !i.isComp);
+    if (active.length > 0) return 0; // show "0m" rather than nothing
+    return null;
   }
 
   function elapsedColor(mins) {
     if (mins < 30) return "#059669";
     if (mins < 60) return "#D97706";
     return "#DC2626";
+  }
+
+  function elapsedBg(mins) {
+    if (mins < 30) return "#DCFCE7";
+    if (mins < 60) return "#FEF3C7";
+    return "#FEE2E2";
   }
 
   function elapsedLabel(mins) {
@@ -176,6 +185,16 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
         </div>
       )}
 
+      {/* Floating + New Order button */}
+      {onNewCounterOrder && (
+        <button type="button" className="tpp-new-order-fab" onClick={onNewCounterOrder}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          New Order
+        </button>
+      )}
+
       {/* Table grid */}
       <div className="tpp-areas">
         {filtered.map(area => (
@@ -205,7 +224,13 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
                     {st !== "available" && (() => {
                       const mins = elapsedMinutes(table.id);
                       if (mins === null) return null;
-                      return <span className="tpp-elapsed" style={{ color: elapsedColor(mins) }}>⏱ {elapsedLabel(mins)}</span>;
+                      const c = elapsedColor(mins);
+                      return (
+                        <span className="tpp-elapsed"
+                          style={{ color: c, background: elapsedBg(mins), borderColor: c }}>
+                          {elapsedLabel(mins)}
+                        </span>
+                      );
                     })()}
                   </button>
                 );
