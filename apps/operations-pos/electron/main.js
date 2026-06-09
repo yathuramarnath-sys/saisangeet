@@ -118,15 +118,19 @@ ipcMain.on("update:install-now", () => {
       // Second sweep via WMI — catches any process whose path contains "Plato POS"
       "wmic process where \"ExecutablePath like '%%Plato POS%%'\" delete >nul 2>&1",
       "timeout /t 3 /nobreak >nul",
-      // Remove from Windows startup registry
-      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "Plato POS" /f >nul 2>&1`,
-      // Remove old uninstall registry entry (prevents NSIS uninstaller conflict)
-      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /f >nul 2>&1`,
-      // Clean old install directories (both legacy paths)
+      // Read the ACTUAL install directory from registry before deleting it
+      // This works regardless of where the user or previous installer put the files
+      `for /f "tokens=2*" %%a in ('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /v "InstallLocation" 2^>nul') do set INSTDIR=%%b`,
+      `if defined INSTDIR (rmdir /s /q "%%INSTDIR%%" >nul 2>&1)`,
+      // Also wipe known legacy paths as fallback (covers machines that had old path)
       `rmdir /s /q "%LOCALAPPDATA%\\Programs\\Plato POS" >nul 2>&1`,
       `rmdir /s /q "C:\\PlatoPos" >nul 2>&1`,
+      // Remove startup registry entry so Windows won't relaunch old version
+      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "Plato POS" /f >nul 2>&1`,
+      // Remove old uninstall registry entry AFTER reading InstallLocation above
+      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /f >nul 2>&1`,
       "timeout /t 2 /nobreak >nul",
-      // Run installer — all POS processes dead, no file locks, no conflicts
+      // Run installer — all POS processes dead, old files wiped, no conflicts
       `start "" /wait "${installerPath}"`,
       "exit",
     ].join("\r\n");
