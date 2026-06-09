@@ -71,6 +71,7 @@
     "win": {
       "signAndEditExecutable": false,
       "forceCodeSigning": false,
+      "artifactName": "Plato-POS-Setup.exe",
       "target": [
         {
           "target": "nsis",
@@ -84,8 +85,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": false,
       "allowElevation": true,
-      "runAfterFinish": true,
-      "artifactName": "Plato-POS-Setup.exe"
+      "runAfterFinish": true
     },
     "electronVersion": "32.3.3"
   }
