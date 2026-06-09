@@ -11124,3 +11124,217 @@ input, select, textarea {
   /* Drawer full width on mobile */
   .pos-drawer { width: 100% !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   FIX: Payment overlay — truly full-screen (override modal defaults)
+   The base CSS at line ~1200 sets justify-content:center + padding:20px which
+   makes the sheet appear as a centred card. Override to full-screen sheet.
+   ══════════════════════════════════════════════════════════════════════════════ */
+.payment-overlay {
+  justify-content: flex-start !important;
+  padding: 0 !important;
+  align-items: stretch !important;
+}
+.payment-sheet {
+  max-height: none !important;
+  min-height: 100vh !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+  background: #F8FAFC !important;
+}
+
+/* ── Payment recorded chips ── */
+.payment-recorded-section {
+  margin: 0 20px 12px !important;
+}
+.payment-recorded-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #94A3B8 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .4px !important;
+  margin-bottom: 6px !important;
+}
+.payment-recorded-chip {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 9px 12px !important;
+  background: #ECFDF5 !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #065F46 !important;
+  margin-bottom: 5px !important;
+}
+.payment-recorded-chip-icon { color: #059669; margin-right: 4px; }
+
+/* ── Payment close button ── */
+.payment-close {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 9px !important;
+  background: #F1F5F9 !important;
+  border: 1px solid #E2E8F0 !important;
+  font-size: 13px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  color: #64748B !important;
+  flex-shrink: 0 !important;
+}
+.payment-close:hover { background: #E2E8F0 !important; color: #0F172A !important; }
+
+/* ── PhonePe button ── */
+.payment-phonepe-btn {
+  margin: 0 20px 12px !important;
+  padding: 13px !important;
+  border-radius: 10px !important;
+  background: #5B2D8E !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  width: calc(100% - 40px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+
+/* ── Ref input ── */
+.payment-ref-wrap { padding: 0 20px 12px !important; }
+.payment-ref-input {
+  width: 100% !important;
+  border: 1.5px solid #E2E8F0 !important;
+  border-radius: 10px !important;
+  padding: 11px 14px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #0F172A !important;
+  background: #fff !important;
+  margin-top: 6px !important;
+}
+.payment-ref-input:focus { border-color: #059669 !important; outline: none !important; }
+
+/* ── Print & Pay button ── */
+.pos-btn.print-settle-btn {
+  background: #F1F5F9 !important;
+  color: #0F172A !important;
+  border: 1.5px solid #E2E8F0 !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  padding: 10px 14px !important;
+  white-space: nowrap !important;
+}
+.pos-btn.print-settle-btn:hover {
+  background: #0F172A !important;
+  color: #fff !important;
+  border-color: #0F172A !important;
+}
+
+/* ── Credit form styles ── */
+.payment-credit-form {
+  margin: 0 20px 12px !important;
+  background: #fff !important;
+  border: 1.5px solid #E2E8F0 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+.payment-credit-form-head {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 12px 14px !important;
+  background: #F8FAFC !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #0F172A !important;
+}
+.payment-credit-close {
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  color: #94A3B8 !important;
+  padding: 2px 6px !important;
+}
+.payment-credit-amount-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+  color: #64748B !important;
+  border-bottom: 1px solid #F1F5F9 !important;
+}
+.payment-credit-amount-row strong { font-size: 16px !important; font-weight: 800 !important; color: #0F172A !important; }
+.payment-credit-fields { padding: 12px 14px !important; display: flex !important; flex-direction: column !important; gap: 10px !important; }
+.pcf-field { display: flex !important; flex-direction: column !important; gap: 4px !important; }
+.pcf-field label { font-size: 11px !important; font-weight: 600 !important; color: #64748B !important; text-transform: uppercase !important; letter-spacing: .3px !important; }
+.pcf-field input {
+  border: 1.5px solid #E2E8F0 !important;
+  border-radius: 8px !important;
+  padding: 9px 12px !important;
+  font-size: 13px !important;
+  color: #0F172A !important;
+  background: #F8FAFC !important;
+}
+.pcf-field input:focus { border-color: #059669 !important; outline: none !important; background: #fff !important; }
+.pcf-req { color: #EF4444 !important; }
+.pcf-optional { color: #94A3B8 !important; font-size: 10px !important; font-weight: 400 !important; text-transform: none !important; }
+.pcf-row-2 { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+.pcf-error { color: #EF4444 !important; font-size: 12px !important; font-weight: 600 !important; margin-top: -4px !important; }
+.payment-credit-settle-btn {
+  margin: 0 14px 14px !important;
+  padding: 13px !important;
+  border-radius: 10px !important;
+  background: #334155 !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  width: calc(100% - 28px) !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+.payment-credit-settle-btn:disabled { opacity: .5 !important; cursor: not-allowed !important; }
+.pcf-drop {
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  background: #fff !important;
+  border: 1.5px solid #E2E8F0 !important;
+  border-radius: 10px !important;
+  z-index: 10 !important;
+  max-height: 200px !important;
+  overflow-y: auto !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12) !important;
+  margin-top: 3px !important;
+}
+.pcf-picker-wrap { position: relative !important; }
+.pcf-drop-item { padding: 10px 12px !important; cursor: pointer !important; border-bottom: 1px solid #F1F5F9 !important; }
+.pcf-drop-item:hover { background: #F8FAFC !important; }
+.pcf-drop-item:last-child { border-bottom: none !important; }
+.pcf-drop-name { font-size: 13px !important; font-weight: 600 !important; color: #0F172A !important; display: block !important; }
+.pcf-drop-meta { font-size: 11px !important; color: #94A3B8 !important; }
+.pcf-drop-empty { padding: 10px 12px !important; font-size: 12px !important; color: #94A3B8 !important; }
+.pcf-outstanding-warn {
+  display: flex !important;
+  gap: 8px !important;
+  padding: 10px 12px !important;
+  background: #FEF3C7 !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  color: #92400E !important;
+}
+.pcf-warn-icon { font-size: 16px !important; flex-shrink: 0 !important; }
+.pcf-warn-body { display: flex !important; flex-direction: column !important; gap: 4px !important; }
+.pcf-warn-bills { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; margin-top: 4px !important; }
+.pcf-warn-bill-chip { background: #FDE68A !important; border-radius: 5px !important; padding: 2px 7px !important; font-size: 11px !important; font-weight: 600 !important; }
