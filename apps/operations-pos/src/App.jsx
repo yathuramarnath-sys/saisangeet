@@ -301,6 +301,7 @@ export default function App() {
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [isOnline,        setIsOnline]        = useState(() => navigator.onLine);
   const [showPayment,     setShowPayment]     = useState(false);
+  const [showDrawer,      setShowDrawer]      = useState(false);
   const [showSplitBill,   setShowSplitBill]   = useState(false);
   const [activeArea,      setActiveArea]      = useState(null);
   const [serviceMode,     setServiceMode]     = useState("dine-in");
@@ -2537,6 +2538,9 @@ export default function App() {
 
       {/* ── Row 1: Brand bar ─────────────────────────────────────────────── */}
       <div className="pos-brand-bar">
+        {/* Hamburger */}
+        <button type="button" className="pbb-hamburger" onClick={() => setShowDrawer(true)}>☰</button>
+
         {/* Service mode pills */}
         <div className="pbb-modes">
           {SERVICE_MODES.map((m) => (
@@ -2548,8 +2552,19 @@ export default function App() {
           ))}
         </div>
 
-        {/* Right: cashier + clock */}
+        {/* Right: KOT badge + cashier + clock */}
         <div className="pbb-right">
+          {pendingKOT > 0 && (
+            <button type="button" className="pbb-kot-badge" onClick={() => {
+              const tableWithKot = tableAreas.flatMap(a => a.tables).find(t => {
+                const o = orders[t.id];
+                return (o?.items || []).some(i => !i.sentToKot && !i.isVoided);
+              });
+              if (tableWithKot) setSelectedTableId(tableWithKot.id);
+            }}>
+              KOT · {pendingKOT}
+            </button>
+          )}
           <div className="pbb-cashier-chip">
             <div className="pbb-avatar">{cashierName?.[0]}</div>
             <div>
@@ -2679,6 +2694,84 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      {/* ── Side Drawer ──────────────────────────────────────────────────── */}
+      {showDrawer && (
+        <div className="pos-drawer-mask" onClick={() => setShowDrawer(false)}>
+          <div className="pos-drawer" onClick={e => e.stopPropagation()}>
+            <div className="pos-drawer-head">
+              <span className="pos-drawer-title">Menu</span>
+              <button type="button" className="pos-drawer-close" onClick={() => setShowDrawer(false)}>✕</button>
+            </div>
+            <div className="pos-drawer-sec">
+              <div className="pos-drawer-sec-label">Orders</div>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowOnlineOrders(true); setPendingOnlineCount(0); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🌐</span><span>Online Orders</span>
+                {pendingOnlineCount > 0 && onlineOrdersEnabled && <span className="pab-badge">{pendingOnlineCount}</span>}
+              </button>
+              <button type="button" className={`pos-drawer-item pos-drawer-toggle${onlineOrdersEnabled ? " on" : " off"}`} onClick={handleToggleOnlineOrders}>
+                <span className="pos-drawer-ico">{onlineOrdersEnabled ? "✅" : "⏸"}</span>
+                <span>{onlineOrdersEnabled ? "Online ON" : "Online OFF"}</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowPastOrders(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">📋</span><span>Past Orders</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowAdvancePanel(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">⏰</span><span>Advance Orders</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowCreditPanel(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">💳</span><span>Credits</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowWaitlist(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🪑</span><span>Waitlist</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { selectedTableId ? setShowCustomerForm(true) : showToast("Select a table first"); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">👤</span><span>Customer</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setPendingQRCount(0); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">📲</span><span>QR Orders</span>
+                {pendingQRCount > 0 && <span className="pab-badge">{pendingQRCount}</span>}
+              </button>
+            </div>
+            <div className="pos-drawer-sec">
+              <div className="pos-drawer-sec-label">Cash</div>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowCashIn(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">💵</span><span>Cash In</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowCashOut(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">💸</span><span>Cash Out</span>
+              </button>
+            </div>
+            <div className="pos-drawer-sec">
+              <div className="pos-drawer-sec-label">Operations</div>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowWastage(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🗑</span><span>Wastage</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowStock(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">📦</span><span>Stock Check</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowBatchLabel(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🏷</span><span>Print Labels</span>
+              </button>
+              <button type="button" className={`pos-drawer-item${isSyncing ? " syncing" : ""}`} onClick={() => { syncMenuData(); setShowDrawer(false); }} disabled={isSyncing}>
+                <span className="pos-drawer-ico">🔄</span><span>{isSyncing ? "Syncing…" : "Sync Data"}</span>
+              </button>
+            </div>
+            <div className="pos-drawer-sec">
+              <div className="pos-drawer-sec-label">Settings</div>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowSettings(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">⚙️</span><span>POS Settings</span>
+              </button>
+              <button type="button" className="pos-drawer-item pos-drawer-danger" onClick={() => { setShowCloseShift(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🔒</span><span>End Shift</span>
+              </button>
+              <button type="button" className="pos-drawer-item pos-drawer-danger" onClick={() => { setCashierName(null); setCashierPin(""); setActiveShift(null); setSelectedTableId(null); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🚪</span><span>Exit POS</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Left: Category Sidebar ───────────────────────────────────────── */}
       <div className="pos-left">

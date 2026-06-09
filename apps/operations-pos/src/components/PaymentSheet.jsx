@@ -425,18 +425,26 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
               autoFocus
             />
           </div>
-          {quickAmounts.length > 0 && (
-            <div className="payment-quick-amounts">
-              {quickAmounts.map((qa) => (
-                <button
-                  key={qa}
-                  type="button"
-                  className="payment-quick-btn"
-                  onClick={() => setCurrentAmount(String(qa))}
-                >
-                  ₹{qa}
+          {currentMethod === "cash" && !isFullyPaid && (
+            <div className="payment-denom-grid">
+              {[100, 200, 500, 1000, 2000].map(amt => (
+                <button key={amt} type="button" className="payment-denom-btn"
+                  onClick={() => setCurrentAmount(String((Number(currentAmount) || 0) + amt))}>
+                  ₹{amt}
                 </button>
               ))}
+              <button type="button" className="payment-denom-btn payment-denom-exact"
+                onClick={() => setCurrentAmount(String(remaining))}>
+                Exact
+              </button>
+              <button type="button" className="payment-denom-btn payment-denom-clear"
+                onClick={() => setCurrentAmount("")}>
+                Clear
+              </button>
+              <button type="button" className="payment-denom-btn payment-denom-plus"
+                onClick={() => setCurrentAmount(String((Number(currentAmount) || 0) + 500))}>
+                +₹500
+              </button>
             </div>
           )}
         </div>
