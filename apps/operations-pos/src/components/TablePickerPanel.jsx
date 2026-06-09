@@ -169,20 +169,15 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
                     key={table.id}
                     type="button"
                     className={`tpp-table-btn${!isOpen ? " closed" : ""}`}
-                    style={{
-                      background:  col.bg,
-                      borderColor: col.border,
-                      color:       col.text
-                    }}
+                    data-st={st}
                     disabled={!isOpen}
                     onClick={() => isOpen && onSelectTable(table.id)}
                   >
-                    {/* Status dot */}
-                    <span className="tpp-status-dot" style={{ background: col.dot || col.border }} />
                     <span className="tpp-table-num">{table.number}</span>
-                    <span className="tpp-table-status" style={{ color: st === "available" ? col.dot : col.text }}>{col.label}</span>
-                    {total !== null && <span className="tpp-table-amt">₹{total}</span>}
-                    {(table.seats || 0) > 0 && <span className="tpp-table-seats">{table.seats} seats</span>}
+                    <span className="tpp-table-status">{col.label}</span>
+                    {guests > 0 && <span className="tpp-table-seats">{guests} guests</span>}
+                    {total !== null && <span className="tpp-table-amt">₹{total.toLocaleString("en-IN")}</span>}
+                    {total === null && (table.seats || 0) > 0 && <span className="tpp-table-seats">{table.seats} seats</span>}
                   </button>
                 );
               })}
