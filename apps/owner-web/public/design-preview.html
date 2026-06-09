@@ -413,10 +413,10 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 }
 .cat-chips::-webkit-scrollbar { display: none; }
 .cat-chip {
-  padding: 6px 16px;
+  padding: 7px 16px;
   border-radius: 20px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-muted);
   background: var(--bg-page);
   border: 1.5px solid var(--border);
@@ -425,27 +425,34 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
   transition: all .15s;
   flex-shrink: 0;
 }
-.cat-chip.active {
-  background: var(--sq-text);
-  color: #fff;
-  border-color: var(--sq-text);
-}
-.cat-chip.fav {
-  background: #FFF8E1;
-  border-color: #F59E0B;
-  color: #B45309;
-}
-.cat-chip.fav.active {
-  background: #F59E0B;
-  border-color: #F59E0B;
-  color: #fff;
-}
-[data-dark="1"] .cat-chip.fav { background: #2a1f0a; }
+.cat-chip.active { opacity: 1 !important; filter: none !important; }
+
+/* Favourites */
+.cat-chip.fav { background:#FFF8E1; border-color:#F59E0B; color:#B45309; }
+.cat-chip.fav.active { background:#F59E0B; border-color:#F59E0B; color:#fff; }
+[data-dark="1"] .cat-chip.fav { background:#2a1f0a; }
+
+/* Per-category colours */
+.cat-chip[data-c="red"]    { background:#FFF0F0; border-color:#FECACA; color:#B91C1C; }
+.cat-chip[data-c="red"].active    { background:#DC2626; border-color:#DC2626; color:#fff; }
+.cat-chip[data-c="orange"] { background:#FFF7ED; border-color:#FED7AA; color:#C2410C; }
+.cat-chip[data-c="orange"].active { background:#EA580C; border-color:#EA580C; color:#fff; }
+.cat-chip[data-c="teal"]   { background:#F0FDFA; border-color:#99F6E4; color:#0F766E; }
+.cat-chip[data-c="teal"].active   { background:#0D9488; border-color:#0D9488; color:#fff; }
+.cat-chip[data-c="blue"]   { background:#EFF6FF; border-color:#BFDBFE; color:#1D4ED8; }
+.cat-chip[data-c="blue"].active   { background:#2563EB; border-color:#2563EB; color:#fff; }
+.cat-chip[data-c="purple"] { background:#FAF5FF; border-color:#DDD6FE; color:#7C3AED; }
+.cat-chip[data-c="purple"].active { background:#7C3AED; border-color:#7C3AED; color:#fff; }
+.cat-chip[data-c="pink"]   { background:#FFF1F2; border-color:#FECDD3; color:#BE123C; }
+.cat-chip[data-c="pink"].active   { background:#E11D48; border-color:#E11D48; color:#fff; }
+.cat-chip[data-c="green"]  { background:#F0FDF4; border-color:#BBF7D0; color:#15803D; }
+.cat-chip[data-c="green"].active  { background:#16A34A; border-color:#16A34A; color:#fff; }
+[data-dark="1"] .cat-chip[data-c] { filter: brightness(0.7); }
 
 .menu-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 10px;
   padding: 4px 16px 16px;
   overflow-y: auto;
@@ -454,33 +461,68 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 .menu-item-card {
   background: var(--bg-surface);
   border-radius: 12px;
-  padding: 12px 10px;
+  padding: 0;
   cursor: pointer;
   border: 1.5px solid var(--border);
   transition: all .15s;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  overflow: hidden;
   box-shadow: var(--sq-shadow);
+  position: relative;
 }
 .menu-item-card:hover {
-  border-color: #059669;
-  box-shadow: 0 0 0 3px rgba(5,150,105,0.12);
+  border-color: var(--mic-accent, #059669);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mic-accent, #059669) 15%, transparent);
+  transform: translateY(-1px);
 }
 .menu-item-card:active { transform: scale(0.97); }
+
+/* Coloured top strip — matches the category */
+.mic-strip {
+  height: 5px;
+  background: var(--mic-accent, #059669);
+  flex-shrink: 0;
+}
+
+.mic-body {
+  padding: 10px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+/* Veg / Non-veg FSSAI square indicator */
+.mic-veg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mic-veg {
+  width: 14px; height: 14px;
+  border-radius: 3px;
+  border: 1.5px solid;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.mic-veg.veg   { border-color: #16A34A; }
+.mic-veg.nonveg { border-color: #DC2626; }
+.mic-veg .veg-dot   { width: 7px; height: 7px; border-radius: 50%; background: #16A34A; }
+.mic-veg .nonveg-dot { width: 7px; height: 7px; border-radius: 50%; background: #DC2626; }
+
 .mic-name {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-main);
-  line-height: 1.3;
+  line-height: 1.35;
 }
 .mic-price {
   font-size: 13px;
   font-weight: 800;
-  color: #059669;
+  color: var(--mic-accent, #059669);
   margin-top: 2px;
 }
-.mic-dot { width: 6px; height: 6px; border-radius: 50%; background: #27AE60; }
 
 /* Order side */
 .order-side {
@@ -967,80 +1009,188 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
         <input type="text" placeholder="🔍  Search menu..." />
       </div>
 
-      <!-- Category chips — horizontal, scrollable -->
+      <!-- Category chips — horizontal, scrollable, each with its own colour -->
       <div class="cat-chips">
-        <button class="cat-chip fav active">⭐ Favourites</button>
-        <button class="cat-chip">Starters</button>
-        <button class="cat-chip">Mains</button>
-        <button class="cat-chip">Biryani & Rice</button>
-        <button class="cat-chip">Breads</button>
-        <button class="cat-chip">Drinks</button>
-        <button class="cat-chip">Desserts</button>
-        <button class="cat-chip">Add-ons</button>
+        <button class="cat-chip fav active" onclick="filterCat(this,'#F59E0B')">⭐ Favourites</button>
+        <button class="cat-chip" data-c="red"    onclick="filterCat(this,'#DC2626')">Starters</button>
+        <button class="cat-chip" data-c="orange" onclick="filterCat(this,'#EA580C')">Mains</button>
+        <button class="cat-chip" data-c="teal"   onclick="filterCat(this,'#0D9488')">Biryani &amp; Rice</button>
+        <button class="cat-chip" data-c="blue"   onclick="filterCat(this,'#2563EB')">Breads</button>
+        <button class="cat-chip" data-c="purple" onclick="filterCat(this,'#7C3AED')">Drinks</button>
+        <button class="cat-chip" data-c="pink"   onclick="filterCat(this,'#E11D48')">Desserts</button>
+        <button class="cat-chip" data-c="green"  onclick="filterCat(this,'#16A34A')">Soups</button>
       </div>
 
-      <!-- Menu items grid -->
+      <!-- Menu items grid — no images, colour strip + veg/non-veg indicator -->
       <div class="menu-grid">
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Chicken Tikka</div>
-          <div class="mic-price">₹ 160</div>
+
+        <!-- Non-veg items — red strip -->
+        <div class="menu-item-card" style="--mic-accent:#DC2626">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg nonveg"><div class="nonveg-dot"></div></div>
+            </div>
+            <div class="mic-name">Chicken Tikka</div>
+            <div class="mic-price">₹ 160</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Dal Makhani</div>
-          <div class="mic-price">₹ 180</div>
+
+        <!-- Veg items — green strip -->
+        <div class="menu-item-card" style="--mic-accent:#16A34A">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Dal Makhani</div>
+            <div class="mic-price">₹ 180</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Veg Biryani</div>
-          <div class="mic-price">₹ 220</div>
+
+        <div class="menu-item-card" style="--mic-accent:#16A34A">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Veg Biryani</div>
+            <div class="mic-price">₹ 220</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Butter Naan</div>
-          <div class="mic-price">₹ 50</div>
+
+        <div class="menu-item-card" style="--mic-accent:#16A34A">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Butter Naan</div>
+            <div class="mic-price">₹ 50</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Paneer Butter Masala</div>
-          <div class="mic-price">₹ 200</div>
+
+        <div class="menu-item-card" style="--mic-accent:#16A34A">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Paneer Butter Masala</div>
+            <div class="mic-price">₹ 200</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Chicken Biryani</div>
-          <div class="mic-price">₹ 280</div>
+
+        <div class="menu-item-card" style="--mic-accent:#DC2626">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg nonveg"><div class="nonveg-dot"></div></div>
+            </div>
+            <div class="mic-name">Chicken Biryani</div>
+            <div class="mic-price">₹ 280</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Jeera Rice</div>
-          <div class="mic-price">₹ 120</div>
+
+        <div class="menu-item-card" style="--mic-accent:#16A34A">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Jeera Rice</div>
+            <div class="mic-price">₹ 120</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Lassi</div>
-          <div class="mic-price">₹ 80</div>
+
+        <div class="menu-item-card" style="--mic-accent:#2563EB">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Mango Lassi</div>
+            <div class="mic-price">₹ 80</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Tandoori Roti</div>
-          <div class="mic-price">₹ 30</div>
+
+        <div class="menu-item-card" style="--mic-accent:#16A34A">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Tandoori Roti</div>
+            <div class="mic-price">₹ 30</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot" style="background:#E67E22"></span>
-          <div class="mic-name">Mutton Curry</div>
-          <div class="mic-price">₹ 320</div>
+
+        <div class="menu-item-card" style="--mic-accent:#DC2626">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg nonveg"><div class="nonveg-dot"></div></div>
+            </div>
+            <div class="mic-name">Mutton Curry</div>
+            <div class="mic-price">₹ 320</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Gulab Jamun</div>
-          <div class="mic-price">₹ 90</div>
+
+        <div class="menu-item-card" style="--mic-accent:#16A34A">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Gulab Jamun</div>
+            <div class="mic-price">₹ 90</div>
+          </div>
         </div>
-        <div class="menu-item-card">
-          <span class="mic-dot"></span>
-          <div class="mic-name">Veg Pulao</div>
-          <div class="mic-price">₹ 160</div>
+
+        <div class="menu-item-card" style="--mic-accent:#16A34A">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Veg Pulao</div>
+            <div class="mic-price">₹ 160</div>
+          </div>
         </div>
+
+        <div class="menu-item-card" style="--mic-accent:#DC2626">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg nonveg"><div class="nonveg-dot"></div></div>
+            </div>
+            <div class="mic-name">Fish Fry</div>
+            <div class="mic-price">₹ 240</div>
+          </div>
+        </div>
+
+        <div class="menu-item-card" style="--mic-accent:#2563EB">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Fresh Lime Soda</div>
+            <div class="mic-price">₹ 60</div>
+          </div>
+        </div>
+
+        <div class="menu-item-card" style="--mic-accent:#16A34A">
+          <div class="mic-strip"></div>
+          <div class="mic-body">
+            <div class="mic-veg-row">
+              <div class="mic-veg veg"><div class="veg-dot"></div></div>
+            </div>
+            <div class="mic-name">Raita</div>
+            <div class="mic-price">₹ 60</div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -1284,6 +1434,15 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
     const isDark = root.getAttribute('data-dark') === '1';
     root.setAttribute('data-dark', isDark ? '0' : '1');
     document.getElementById('themeBtn').textContent = isDark ? '🌙 Dark' : '☀️ Light';
+  }
+
+  function filterCat(btn, color) {
+    document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    // tint the grid accent to show category context (demo only)
+    document.querySelectorAll('.menu-item-card').forEach(c => {
+      c.style.opacity = '1';
+    });
   }
 
   function addAmount(n) {
