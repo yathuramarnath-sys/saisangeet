@@ -225,53 +225,56 @@ body{background:var(--bg);height:100dvh;overflow:hidden;display:flex;flex-direct
 }
 
 /* Search bar — like Swiggy */
-.msearch{padding:10px 16px 0;flex-shrink:0}
+.msearch{padding:10px 14px 6px;flex-shrink:0;background:var(--surface)}
 .msearch-inner{
   display:flex;align-items:center;gap:8px;
-  background:var(--surface);border:1.5px solid var(--border);
-  border-radius:8px;padding:8px 14px;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:20px;padding:7px 14px;
 }
 .msearch-inner:focus-within{border-color:var(--green)}
-.msearch-icon{color:var(--txt3);font-size:15px}
+.msearch-icon{color:var(--txt3);font-size:14px}
 .msearch-inner input{
-  flex:1;background:none;font-size:13px;font-weight:500;
+  flex:1;background:none;font-size:13px;font-weight:400;
   color:var(--txt);
 }
 .msearch-inner input::placeholder{color:var(--txt3)}
 .msearch-inner input:focus{outline:none}
 
-/* Category tabs — underline style (Swiggy desktop) */
+/* Category chips — ONE colour, pill style, no rainbow */
 .mcats{
-  display:flex;gap:0;padding:0 12px;
+  display:flex;gap:6px;padding:8px 14px;
   overflow-x:auto;flex-shrink:0;scrollbar-width:none;
-  background:var(--surface);
-  border-bottom:2px solid var(--border);
+  background:var(--surface);border-bottom:1px solid var(--border);
 }
 .mcats::-webkit-scrollbar{display:none}
 .mcat{
-  padding:11px 18px;border-radius:0;
-  font-size:13px;font-weight:600;white-space:nowrap;
-  color:var(--txt2);background:transparent;
-  border:none;border-bottom:2px solid transparent;
-  margin-bottom:-2px;
-  transition:all .15s;flex-shrink:0;cursor:pointer;
+  padding:6px 16px;border-radius:20px;
+  font-size:12px;font-weight:600;white-space:nowrap;
+  color:var(--txt2);background:var(--bg);
+  border:none;flex-shrink:0;cursor:pointer;
+  transition:all .15s;
 }
-.mcat:hover{color:var(--txt)}
-.mcat.active{color:var(--green);border-bottom-color:var(--green)}
+.mcat:hover{color:var(--txt);background:var(--border)}
+.mcat.active{background:var(--green);color:#fff}
 
-/* Menu — compact list rows (Square/Toast style) */
+/* Menu — touch-friendly card GRID */
 .mgrid{
   flex:1;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:1px;
+  background:var(--border);
   overflow-y:auto;
-  background:var(--surface);
-  display:flex;flex-direction:column;
+  align-content:start;
 }
 .mitem{
-  display:flex;align-items:center;
-  gap:12px;padding:10px 16px;
-  border-bottom:1px solid var(--border);
-  cursor:pointer;min-height:52px;
+  background:var(--surface);
+  padding:12px 12px 42px;
+  cursor:pointer;
+  display:flex;flex-direction:column;gap:5px;
   transition:background .1s;
+  position:relative;
+  min-height:90px;
 }
 .mitem:hover{background:var(--bg)}
 .mitem:active{background:var(--green-lt)}
@@ -288,19 +291,20 @@ body{background:var(--bg);height:100dvh;overflow:hidden;display:flex;flex-direct
 .mi-veg.nv .dot{width:6px;height:6px;border-radius:50%;background:var(--red)}
 
 .mi-name{
-  flex:1;font-size:13px;font-weight:600;color:var(--txt);
-  line-height:1.3;
+  font-size:13px;font-weight:600;color:var(--txt);
+  line-height:1.35;
 }
 .mi-price{
   font-size:13px;font-weight:800;color:var(--txt);
-  min-width:52px;text-align:right;
+  margin-top:2px;
 }
 
-/* Add button — static in row */
+/* Add button — Swiggy style, absolute bottom-right */
 .mi-add{
-  width:32px;height:32px;border-radius:8px;flex-shrink:0;
-  background:transparent;border:1.5px solid var(--green);
-  color:var(--green);font-size:20px;font-weight:600;
+  position:absolute;bottom:10px;right:10px;
+  width:30px;height:30px;border-radius:8px;
+  background:var(--surface);border:1.5px solid var(--green);
+  color:var(--green);font-size:18px;font-weight:700;
   display:flex;align-items:center;justify-content:center;
   transition:all .15s;
 }
