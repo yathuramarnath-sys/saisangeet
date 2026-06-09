@@ -224,18 +224,18 @@ body{background:var(--bg);height:100dvh;overflow:hidden;display:flex;flex-direct
   font-size:12px;font-weight:600;color:var(--txt2);
 }
 
-/* Search bar — like Swiggy */
-.msearch{padding:10px 14px 6px;flex-shrink:0;background:var(--surface)}
+/* Search bar */
+.msearch{padding:8px 12px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border)}
 .msearch-inner{
   display:flex;align-items:center;gap:8px;
-  background:var(--bg);border:1px solid var(--border);
-  border-radius:20px;padding:7px 14px;
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:8px;padding:9px 12px;
 }
 .msearch-inner:focus-within{border-color:var(--green)}
-.msearch-icon{color:var(--txt3);font-size:14px}
+.msearch-icon{color:var(--txt3);font-size:15px;flex-shrink:0}
 .msearch-inner input{
-  flex:1;background:none;font-size:13px;font-weight:400;
-  color:var(--txt);
+  flex:1;background:none;font-size:14px;font-weight:400;
+  color:var(--txt);border:none;
 }
 .msearch-inner input::placeholder{color:var(--txt3)}
 .msearch-inner input:focus{outline:none}
@@ -646,7 +646,7 @@ body{background:var(--bg);height:100dvh;overflow:hidden;display:flex;flex-direct
 
       <div class="msearch">
         <div class="msearch-inner">
-          <span class="msearch-icon">🔍</span>
+          <svg class="msearch-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input type="text" placeholder="Search menu items..."/>
         </div>
       </div>
