@@ -10587,3 +10587,25 @@ input, select, textarea {
   background: #ECFDF5 !important;
 }
 .dayend-close-btn { background: #334155; color: #e2e8f0; border: none; border-radius: 8px; padding: 11px 24px; font-size: 0.95rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+
+/* ── Full-screen floor view (no table selected → table grid fills whole screen) ── */
+.pos-shell:has(.tpp) {
+  grid-template-columns: 0 0 1fr !important;
+}
+.pos-shell:has(.tpp) .pos-center {
+  display: none !important;
+}
+.pos-shell:has(.tpp) .tpp-table-grid {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+  gap: 12px !important;
+}
+.pos-shell:has(.tpp) .tpp-table-btn {
+  min-height: 110px !important;
+  padding: 16px 14px 14px !important;
+}
+.pos-shell:has(.tpp) .tpp-areas {
+  padding: 16px !important;
+}
+.pos-shell:has(.tpp) .tpp-table-num {
+  font-size: 16px !important;
+}
