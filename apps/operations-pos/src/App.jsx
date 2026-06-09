@@ -547,9 +547,26 @@ export default function App() {
                     const localOnlyUnsent = sameSession
                       ? (local?.items || []).filter(li => !li.sentToKot && !serverItemIds.has(li.id))
                       : [];
-                    merged[tableId] = localOnlyUnsent.length
-                      ? { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] }
-                      : serverOrder;
+                    // Stale-write guard: don't let reconnect fetch overwrite a newer local state.
+                    // Exception: closed/settled orders are always authoritative.
+                    if (
+                      local &&
+                      !serverOrder.isClosed &&
+                      (local.updatedAt || 0) > (serverOrder.updatedAt || 0)
+                    ) {
+                      // Local is newer — skip server overwrite, but still append unsent items
+                      if (localOnlyUnsent.length) {
+                        merged[tableId] = local; // already has the items
+                      }
+                      // else: leave merged[tableId] as local (from { ...prev })
+                    } else {
+                      const isGhostItem = (i) => i.isGhostVoid === true || (i.isVoided === true && i.sentToKot === false);
+                      const cleanedServerItems = (serverOrder.items || []).filter(i => !isGhostItem(i));
+                      merged[tableId] = {
+                        ...serverOrder,
+                        items: [...cleanedServerItems, ...localOnlyUnsent],
+                      };
+                    }
                   });
                   return merged;
                 });
@@ -1924,7 +1941,8 @@ export default function App() {
     // Offer to repeat last order for this table (dine-in only)
     if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
       const curOrder = orders[tableId];
-      const isEmpty = !(curOrder?.items || []).some(i => !i.isVoided && !i.isComp);
+      // Only offer Repeat when the table genuinely has no order at all (not ghost-voided items).
+      const isEmpty = !curOrder || !(curOrder.items?.length > 0);
       if (isEmpty) {
         try {
           const closed = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
@@ -1946,6 +1964,15 @@ export default function App() {
 
       setOrders((prev) => {
         const localOrder = prev[tableId];
+        // Stale-write guard: if our local copy is newer than the server's, don't overwrite.
+        // Allow server to win only when it's a closed/settled order (authoritative final state).
+        if (
+          localOrder &&
+          !serverOrder.isClosed &&
+          (localOrder.updatedAt || 0) > (serverOrder.updatedAt || 0)
+        ) {
+          return prev;
+        }
         // Preserve unsent local items for the SAME order session (offline adds).
         // If orderNumber differs, the table was reset between sessions — discard stale items.
         const serverItemIds   = new Set((serverOrder.items || []).map((i) => i.id));
@@ -1955,11 +1982,7 @@ export default function App() {
           ? (localOrder?.items || []).filter((li) => !li.sentToKot && !serverItemIds.has(li.id))
           : [];
         // Clean ghost voided items: items voided BEFORE they were ever sent to the kitchen.
-        // PRIMARY: isGhostVoid flag (set by handleVoidItem when item.sentToKot was false).
-        // CATCH-ALL: any item that is voided AND sentToKot===false is by definition a ghost —
-        // covers old items created before the isGhostVoid flag was introduced.
         const isGhostItem  = (i) => i.isGhostVoid === true || (i.isVoided === true && i.sentToKot === false);
-        const ghostItems   = (serverOrder.items || []).filter(isGhostItem);
         const cleanedServerItems = (serverOrder.items || []).filter(i => !isGhostItem(i));
         return {
           ...prev,
