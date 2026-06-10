@@ -202,8 +202,8 @@ function loadSavedOrders(currentOutletId = null) {
   try {
     // ── Cross-outlet guard ───────────────────────────────────────────────────
     const storedOutletId = localStorage.getItem(ORDERS_OUTLET_KEY);
-    if (currentOutletId && storedOutletId && String(storedOutletId) !== String(currentOutletId)) {
-      // Orders belong to a different outlet — wipe them so they don't bleed in
+    if (currentOutletId && (!storedOutletId || String(storedOutletId) !== String(currentOutletId))) {
+      // Orders belong to a different outlet (or have no outlet stamp) — wipe them so they don't bleed in
       console.warn(
         `[POS] Clearing stale orders: stored outlet=${storedOutletId}, current outlet=${currentOutletId}`
       );
