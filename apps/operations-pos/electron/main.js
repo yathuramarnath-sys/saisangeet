@@ -7,6 +7,7 @@ const { Server: SocketIOServer } = require("socket.io");
 
 // Auto-updater — only active in packaged builds (not dev mode)
 let autoUpdater = null;
+let downloadedInstallerPath = null;  // set by update-downloaded event; used by install-now handler
 if (app.isPackaged) {
   try { autoUpdater = require("electron-updater").autoUpdater; } catch (_) {}
 }
@@ -56,8 +57,8 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on("update-downloaded", (info) => {
-    console.log(`[updater] v${info.version} downloaded — installs on next quit`);
-    // Notify renderer — shows "Ready to install" button
+    downloadedInstallerPath = info.downloadedFile;  // capture correct path for install-now handler
+    console.log(`[updater] v${info.version} downloaded → ${downloadedInstallerPath}`);
     mainWindow?.webContents.send("update:ready", { version: info.version });
   });
 
@@ -71,6 +72,12 @@ function setupAutoUpdater() {
       console.error("[updater] checkForUpdates failed:", err.message);
     });
   }, 5000);
+
+  // Re-check every 4 hours — outlets that run all day get the latest installer staged
+  // without needing a manual restart to trigger the initial check
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, 4 * 60 * 60 * 1000);
 }
 
 // ── Updater IPC ───────────────────────────────────────────────────────────────
@@ -83,56 +90,63 @@ ipcMain.on("update:install-now", () => {
 
   try {
     const fs   = require("fs");
-    const os   = require("os");
     const path = require("path");
     const { spawn } = require("child_process");
 
-    // Find the downloaded installer in the electron-updater cache
-    const installerPath = autoUpdater.downloadedUpdateHelper?.installerPath
-      || path.join(os.tmpdir(), "Plato-POS-Setup.exe");
+    // Use the path captured from the update-downloaded event (authoritative).
+    // Never fall back to a guessed path — if we don't have it, use quitAndInstall.
+    const installerPath = downloadedInstallerPath;
+    if (!installerPath || !fs.existsSync(installerPath)) {
+      console.warn("[updater] installer path unknown or missing — falling back to quitAndInstall");
+      autoUpdater.quitAndInstall(false, true);
+      return;
+    }
 
-    // Write a batch script that:
-    // 1. Waits for POS to fully exit
-    // 2. Kills any remaining POS processes in a loop (prevents Windows auto-restart)
-    // 3. Removes from startup registry so Windows won't relaunch it
-    // 4. Cleans old install folder
+    // Batch script that:
+    // 1. Waits for POS to fully exit (all Electron processes)
+    // 2. Kills main process + ALL Electron Helper variants by wildcard (prevents NSIS "files in use")
+    // 3. Kills by WMI path match as a second sweep (catches any remaining helpers)
+    // 4. Cleans registry entries so NSIS uninstaller doesn't fail
     // 5. Runs installer only when everything is clear
     const batPath = path.join(os.tmpdir(), "plato_updater.bat");
-    const installerEscaped = installerPath.replace(/\\/g, "\\\\");
     const bat = [
       "@echo off",
-      // Wait for POS main process to fully exit
+      // Wait for main process to exit
       "timeout /t 5 /nobreak >nul",
-      // Kill loop — repeat 8 times every 3s to ensure no auto-restart survives
-      "for /l %%i in (1,1,8) do (taskkill /F /IM \"Plato POS.exe\" /T >nul 2>&1 & timeout /t 3 /nobreak >nul)",
-      // Remove from Windows startup so it can't auto-relaunch
-      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "Plato POS" /f >nul 2>&1`,
-      // Remove old install registry entry (prevents "failed to uninstall" error)
-      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /f >nul 2>&1`,
-      // Delete old install folder (C:\PlatoPos is the new path — delete old AppData path)
+      // Kill main exe + ALL Helper variants ("Plato POS Helper.exe", "Plato POS Helper (Renderer).exe", etc.)
+      "taskkill /F /IM \"Plato POS*.exe\" /T >nul 2>&1",
+      // Second sweep via WMI — catches any process whose path contains "Plato POS"
+      "wmic process where \"ExecutablePath like '%%Plato POS%%'\" delete >nul 2>&1",
+      "timeout /t 3 /nobreak >nul",
+      // Read the ACTUAL install directory from registry before deleting it
+      // This works regardless of where the user or previous installer put the files
+      `for /f "tokens=2*" %%a in ('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /v "InstallLocation" 2^>nul') do set INSTDIR=%%b`,
+      `if defined INSTDIR (rmdir /s /q "%%INSTDIR%%" >nul 2>&1)`,
+      // Also wipe known legacy paths as fallback (covers machines that had old path)
       `rmdir /s /q "%LOCALAPPDATA%\\Programs\\Plato POS" >nul 2>&1`,
       `rmdir /s /q "C:\\PlatoPos" >nul 2>&1`,
+      // Remove startup registry entry so Windows won't relaunch old version
+      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "Plato POS" /f >nul 2>&1`,
+      // Remove old uninstall registry entry AFTER reading InstallLocation above
+      `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\in.dinexpos.pos" /f >nul 2>&1`,
       "timeout /t 2 /nobreak >nul",
-      // Run installer — POS is dead, no locks, no conflicts
+      // Run installer — all POS processes dead, old files wiped, no conflicts
       `start "" /wait "${installerPath}"`,
       "exit",
     ].join("\r\n");
 
     fs.writeFileSync(batPath, bat);
 
-    // Launch the batch file detached — it runs independently after POS quits
     spawn("cmd.exe", ["/c", batPath], {
-      detached: true,
-      stdio:    "ignore",
-      windowsHide: false,
+      detached:    true,
+      stdio:       "ignore",
+      windowsHide: true,   // hide the cmd window — cleaner UX
     }).unref();
 
-    // Now quit the POS — files will be released before the installer runs
     setTimeout(() => app.quit(), 500);
 
   } catch (err) {
     console.error("[updater] launch-and-quit failed:", err.message);
-    // Last resort: try the standard approach
     try { autoUpdater.quitAndInstall(false, true); } catch (_) {}
   }
 });

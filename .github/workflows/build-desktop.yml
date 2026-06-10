@@ -17,6 +17,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      ELECTRON_BUILDER_CACHE: C:\eb-cache
 
     steps:
       - name: Checkout code
@@ -27,9 +29,19 @@ jobs:
         with:
           node-version: 22
 
+      - name: Cache electron-builder tools (nsis, electron binary, etc.)
+        uses: actions/cache@v4
+        with:
+          path: C:\eb-cache
+          key: eb-win-pos-${{ hashFiles('apps/operations-pos/package.json') }}
+          restore-keys: eb-win-pos-
+
+      - name: Install root dependencies (provides app-builder-bin for electron-builder)
+        run: npm install --ignore-scripts
+
       - name: Install POS dependencies
         working-directory: apps/operations-pos
-        run: npm install
+        run: npm install --no-workspaces
 
       - name: Build Vite app
         working-directory: apps/operations-pos
@@ -98,6 +110,8 @@ jobs:
 
   build-kds-windows:
     runs-on: windows-latest
+    env:
+      ELECTRON_BUILDER_CACHE: C:\eb-cache
 
     steps:
       - name: Checkout code
@@ -107,6 +121,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Cache electron-builder tools (nsis, electron binary, etc.)
+        uses: actions/cache@v4
+        with:
+          path: C:\eb-cache
+          key: eb-win-kds-${{ hashFiles('apps/kitchen-display/package.json') }}
+          restore-keys: eb-win-kds-
 
       - name: Install root dependencies (provides app-builder-bin for electron-builder)
         run: npm install --ignore-scripts

@@ -557,6 +557,19 @@ export function OrderPanel({
         </div>
       )}
 
+      {/* ── Cancel Order button (PIN gated) ──────────────────────────────── */}
+      {hasItems && !order.isClosed && (
+        <button
+          type="button"
+          className="cancel-order-btn"
+          onClick={() => {
+            if (needsPin) { setShowCancelPin(true); }
+            else          { setShowCancelConfirm(true); }
+          }}
+        >
+          🗑 Cancel Order
+        </button>
+      )}
 
       {/* Transfer modal */}
       {showTransfer && (
