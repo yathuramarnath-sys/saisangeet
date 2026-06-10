@@ -860,6 +860,12 @@ function addOrderItem(tableId, payload, actor = "System") {
     return clone(order); // no-op — item was already removed
   }
 
+  // Stamp occupiedAt on the very first active item — persisted in JSONB so the
+  // frontend timer survives reconnects, server merges, and multi-device sync.
+  if (!order.occupiedAt && !(order.items || []).some(i => !i.isVoided && !i.isComp)) {
+    order.occupiedAt = Date.now();
+  }
+
   // Consolidate: if the same menu item already has an unsent, non-voided line, increment its
   // quantity rather than pushing a second line. This keeps backend state consistent with the
   // POS UI, which also consolidates by menuItemId for unsent items.
