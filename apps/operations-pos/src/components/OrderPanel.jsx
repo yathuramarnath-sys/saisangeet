@@ -488,7 +488,7 @@ export function OrderPanel({
                     <path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5"/>
                     <polyline points="9 11 12 14 22 4"/>
                   </svg>
-                  KOT ({unsentItems.length})
+                  KOT
                 </button>
               ) : onReprintKOT ? (
                 <button type="button" className="pos-btn kot" onClick={onReprintKOT}>
@@ -513,24 +513,35 @@ export function OrderPanel({
                     <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
                     <rect x="6" y="14" width="12" height="8"/>
                   </svg>
-                  {order.billRequested ? "✓ Bill" : "Print Bill"}
+                  {order.billRequested ? "✓ Print" : "Print"}
                 </button>
               )}
             </div>
           )}
 
-          {/* Row 2: Collect Payment */}
+          {/* Row 2: Collect Payment + Print & Settle shortcut */}
           {hasItems && (
-            <button type="button" className="pos-btn pay" onClick={onOpenPayment}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.5">
-                <rect x="2" y="5" width="20" height="14" rx="2"/>
-                <line x1="2" y1="10" x2="22" y2="10"/>
-              </svg>
-              {fin && fin.balance > 0 && fin.paid > 0
-                ? `Pay Balance · ₹${fin.balance}`
-                : `Collect Payment${fin && fin.total > 0 ? ` · ₹${fin.total}` : ""}`}
-            </button>
+            <div className="order-pay-row">
+              <button type="button" className="pos-btn pay" onClick={onOpenPayment}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5">
+                  <rect x="2" y="5" width="20" height="14" rx="2"/>
+                  <line x1="2" y1="10" x2="22" y2="10"/>
+                </svg>
+                Pay
+              </button>
+              {/* Quick path: print bill + open payment in one tap — cuts 7 taps to 3 for cash */}
+              {unsentItems.length === 0 && onPrintBill && (
+                <button
+                  type="button"
+                  className="pos-btn print-settle-btn"
+                  title="Print bill and open payment in one tap"
+                  onClick={() => { onPrintBill?.(); onOpenPayment?.(); }}
+                >
+                  ⚡ Print &amp; Pay
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

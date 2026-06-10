@@ -1,8 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder, gstTreatment = "exclusive" }) {
   const [activeArea, setActiveArea] = useState(null);
+  const [tick, setTick] = useState(0);
   const inclusive = gstTreatment === "inclusive";
+
+  // Tick every 30 seconds to refresh elapsed time badges
+  useEffect(() => {
+    const id = setInterval(() => setTick(n => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  function elapsedMinutes(tableId) {
+    const o = orders[tableId];
+    if (o?.occupiedAt) return Math.floor((Date.now() - o.occupiedAt) / 60_000);
+    // Retroactive fallback for orders that predate occupiedAt stamping
+    const active = (o?.items || []).filter(i => !i.isVoided && !i.isComp);
+    if (active.length > 0) return 0; // show "0m" rather than nothing
+    return null;
+  }
+
+  function elapsedColor(mins) {
+    if (mins < 30) return "#059669";
+    if (mins < 60) return "#D97706";
+    return "#DC2626";
+  }
+
+  function elapsedBg(mins) {
+    if (mins < 30) return "#DCFCE7";
+    if (mins < 60) return "#FEF3C7";
+    return "#FEE2E2";
+  }
+
+  function elapsedLabel(mins) {
+    if (mins < 60) return `${mins}m`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  }
 
   function tableStatus(tableId) {
     const o = orders[tableId];
@@ -152,6 +185,16 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
         </div>
       )}
 
+      {/* Floating + New Order button */}
+      {onNewCounterOrder && (
+        <button type="button" className="tpp-new-order-fab" onClick={onNewCounterOrder}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          New Order
+        </button>
+      )}
+
       {/* Table grid */}
       <div className="tpp-areas">
         {filtered.map(area => (
@@ -169,20 +212,26 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
                     key={table.id}
                     type="button"
                     className={`tpp-table-btn${!isOpen ? " closed" : ""}`}
-                    style={{
-                      background:  col.bg,
-                      borderColor: col.border,
-                      color:       col.text
-                    }}
+                    data-st={st}
                     disabled={!isOpen}
                     onClick={() => isOpen && onSelectTable(table.id)}
                   >
-                    {/* Status dot */}
-                    <span className="tpp-status-dot" style={{ background: col.dot || col.border }} />
                     <span className="tpp-table-num">{table.number}</span>
-                    <span className="tpp-table-status" style={{ color: st === "available" ? col.dot : col.text }}>{col.label}</span>
-                    {total !== null && <span className="tpp-table-amt">₹{total}</span>}
-                    {(table.seats || 0) > 0 && <span className="tpp-table-seats">{table.seats} seats</span>}
+                    <span className="tpp-table-status">{col.label}</span>
+                    {guests > 0 && <span className="tpp-table-seats">{guests} guests</span>}
+                    {total !== null && <span className="tpp-table-amt">₹{total.toLocaleString("en-IN")}</span>}
+                    {total === null && (table.seats || 0) > 0 && <span className="tpp-table-seats">{table.seats} seats</span>}
+                    {st !== "available" && (() => {
+                      const mins = elapsedMinutes(table.id);
+                      if (mins === null) return null;
+                      const c = elapsedColor(mins);
+                      return (
+                        <span className="tpp-elapsed"
+                          style={{ color: c, background: elapsedBg(mins), borderColor: c }}>
+                          {elapsedLabel(mins)}
+                        </span>
+                      );
+                    })()}
                   </button>
                 );
               })}

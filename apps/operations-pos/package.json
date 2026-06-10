@@ -1,6 +1,6 @@
 {
   "name": "dinex-pos",
-  "version": "1.5.3",
+  "version": "1.6.1",
   "private": true,
   "description": "Plato POS Terminal",
   "author": "Saisangeet Hospitality Pvt Ltd <hello@dinexpos.in>",
@@ -33,7 +33,7 @@
     "@testing-library/react": "^16.3.0",
     "@vitejs/plugin-react": "^5.1.0",
     "electron": "32.3.3",
-    "electron-builder": "^26.8.1",
+    "electron-builder": "26.8.1",
     "jsdom": "^27.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -71,6 +71,7 @@
     "win": {
       "signAndEditExecutable": false,
       "forceCodeSigning": false,
+      "artifactName": "Plato-POS-Setup.exe",
       "target": [
         {
           "target": "nsis",

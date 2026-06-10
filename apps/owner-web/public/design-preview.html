@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Plato POS — Design Preview v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+button{cursor:pointer;font:inherit;border:none;background:none}
+
+/* ─── One colour system ────────────────────────────────────────────────── */
+:root{
+  --green:    #059669;
+  --green-dk: #047857;
+  --green-lt: #ECFDF5;
+  --red:      #DC2626;
+  --red-lt:   #FEF2F2;
+  --amber:    #D97706;
+
+  --bg:       #F8FAFC;
+  --surface:  #FFFFFF;
+  --hdr:      #0F172A;
+  --hdr2:     #1E293B;
+
+  --txt:      #0F172A;
+  --txt2:     #475569;
+  --txt3:     #94A3B8;
+  --border:   #E2E8F0;
+  --border2:  #CBD5E1;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+  --shadow:    0 1px 3px rgba(0,0,0,.07),0 2px 8px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,sans-serif;
+  font-size:14px;
+  -webkit-font-smoothing:antialiased;
+  color:var(--txt);
+}
+
+/* ─── Dark mode ────────────────────────────────────────────────────────── */
+[data-dark="1"]{
+  --bg:      #0A0F1E;
+  --surface: #111827;
+  --hdr:     #020617;
+  --hdr2:    #0F172A;
+  --txt:     #F1F5F9;
+  --txt2:    #94A3B8;
+  --txt3:    #475569;
+  --border:  rgba(255,255,255,.07);
+  --border2: rgba(255,255,255,.12);
+  --green-lt:#042f1e;
+  --red-lt:  #1f0a0a;
+}
+
+body{background:var(--bg);height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ─── Preview switcher ─────────────────────────────────────────────────── */
+.pnav{
+  background:#020617;display:flex;align-items:center;gap:6px;
+  padding:7px 14px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);
+}
+.pnav-label{color:#64748B;font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin-right:4px}
+.pnav-btn{
+  padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;
+  color:#64748B;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  transition:all .15s;
+}
+.pnav-btn.active{background:#059669;color:#fff;border-color:#059669}
+.pnav-sep{flex:1}
+.dark-btn{
+  padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;
+  color:#94A3B8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+}
+
+/* ─── Shell ────────────────────────────────────────────────────────────── */
+.shell{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── Header ───────────────────────────────────────────────────────────── */
+.hdr{
+  height:54px;background:var(--hdr);
+  display:flex;align-items:center;padding:0 18px;gap:14px;
+  flex-shrink:0;
+}
+.hdr-burger{
+  width:34px;height:34px;border-radius:8px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+}
+.hdr-burger span{display:block;width:14px;height:1.5px;background:rgba(255,255,255,.7);border-radius:2px}
+.hdr-brand{
+  font-size:15px;font-weight:800;color:#fff;letter-spacing:-.4px;
+  display:flex;align-items:center;gap:6px;
+}
+.hdr-brand-dot{
+  width:8px;height:8px;border-radius:2px;background:var(--green);
+}
+.hdr-modes{display:flex;gap:3px;margin-left:10px}
+.hdr-mode{
+  padding:5px 13px;border-radius:6px;font-size:12px;font-weight:600;
+  color:rgba(255,255,255,.4);background:transparent;
+  transition:all .15s;
+}
+.hdr-mode.active{background:var(--green);color:#fff}
+.hdr-sep{flex:1}
+.hdr-kot{
+  display:flex;align-items:center;gap:5px;
+  padding:5px 12px;border-radius:6px;
+  background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);
+  cursor:pointer;
+}
+.hdr-kot-dot{width:7px;height:7px;border-radius:50%;background:#F87171;animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hdr-kot-txt{color:#FCA5A5;font-size:11px;font-weight:700}
+.hdr-shift{
+  display:flex;align-items:center;gap:8px;
+  padding:4px 12px;border-radius:6px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);
+}
+.hdr-avatar{
+  width:24px;height:24px;border-radius:6px;background:var(--green);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:#fff;
+}
+.hdr-name{color:rgba(255,255,255,.8);font-size:12px;font-weight:600}
+.hdr-time{color:rgba(255,255,255,.35);font-size:12px;font-weight:500}
+
+/* ─── SCREEN: FLOOR ─────────────────────────────────────────────────────── */
+.scr{display:none;flex:1;flex-direction:column;overflow:hidden}
+.scr.on{display:flex}
+
+.floor-tabs{
+  display:flex;gap:4px;padding:14px 18px 10px;
+  flex-shrink:0;background:var(--surface);
+  border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;
+}
+.floor-tabs::-webkit-scrollbar{display:none}
+.ftab{
+  padding:6px 16px;border-radius:6px;font-size:12px;font-weight:600;
+  color:var(--txt3);background:var(--bg);border:1px solid var(--border);
+  white-space:nowrap;transition:all .15s;
+}
+.ftab.active{background:var(--txt);color:#fff;border-color:var(--txt)}
+[data-dark="1"] .ftab.active{background:var(--green);border-color:var(--green)}
+
+.floor-body{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.floor-grid{
+  flex:1;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:12px;padding:16px;
+  align-content:start;overflow-y:auto;
+}
+
+.tcard{
+  background:var(--surface);border-radius:12px;padding:16px 14px 14px;
+  border:1.5px solid var(--border);
+  cursor:pointer;display:flex;flex-direction:column;gap:8px;
+  min-height:105px;transition:all .15s;box-shadow:var(--shadow-sm);
+  position:relative;overflow:hidden;
+}
+.tcard::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--t-color,transparent);
+}
+.tcard:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.tcard.free{--t-color:transparent}
+.tcard.occ{--t-color:var(--green)}
+.tcard.warn{--t-color:var(--amber)}
+.tcard.late{--t-color:var(--red)}
+.tcard.bill{--t-color:#3B82F6}
+
+.tc-top{display:flex;align-items:center;justify-content:space-between}
+.tc-name{font-size:13px;font-weight:700;color:var(--txt)}
+.tc-badge{
+  font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;
+}
+.tc-badge.occ{background:var(--green-lt);color:var(--green)}
+.tc-badge.warn{background:#FFFBEB;color:var(--amber)}
+.tc-badge.late{background:var(--red-lt);color:var(--red)}
+.tc-badge.bill{background:#EFF6FF;color:#2563EB}
+[data-dark="1"] .tc-badge.warn{background:#1c1500}
+[data-dark="1"] .tc-badge.bill{background:#0d1f3c;color:#60A5FA}
+
+.tc-time{font-size:12px;font-weight:600;color:var(--txt3)}
+.tc-amount{font-size:16px;font-weight:800;color:var(--txt);margin-top:auto}
+.tc-free{font-size:12px;font-weight:500;color:var(--txt3);margin-top:auto}
+
+.floor-fab{
+  position:absolute;bottom:20px;right:20px;
+  background:var(--txt);color:#fff;
+  padding:12px 20px;border-radius:10px;
+  font-size:13px;font-weight:700;
+  display:flex;align-items:center;gap:8px;
+  box-shadow:var(--shadow-md);cursor:pointer;
+  transition:transform .15s;
+}
+[data-dark="1"] .floor-fab{background:var(--green)}
+.floor-fab:hover{transform:scale(1.03)}
+
+/* ─── SCREEN: ORDER (split) ─────────────────────────────────────────────── */
+.order-scr{flex:1;display:none;overflow:hidden}
+.order-scr.on{display:grid;grid-template-columns:1fr 320px}
+
+/* Left: menu panel */
+.mpanel{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.mhdr{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px 8px;background:var(--surface);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.back-btn{
+  display:flex;align-items:center;gap:5px;
+  padding:6px 12px;border-radius:6px;
+  background:var(--bg);border:1px solid var(--border);
+  font-size:12px;font-weight:600;color:var(--txt);
+}
+.tbl-label{font-size:14px;font-weight:800;color:var(--txt)}
+.guest-btn{
+  margin-left:auto;display:flex;align-items:center;gap:5px;
+  padding:5px 10px;border-radius:6px;
+  background:var(--bg);border:1px solid var(--border);
+  font-size:12px;font-weight:600;color:var(--txt2);
+}
+
+/* Search bar */
+.msearch{padding:8px 12px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border)}
+.msearch-inner{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:8px;padding:9px 12px;
+}
+.msearch-inner:focus-within{border-color:var(--green)}
+.msearch-icon{color:var(--txt3);font-size:15px;flex-shrink:0}
+.msearch-inner input{
+  flex:1;background:none;font-size:14px;font-weight:400;
+  color:var(--txt);border:none;
+}
+.msearch-inner input::placeholder{color:var(--txt3)}
+.msearch-inner input:focus{outline:none}
+
+/* Category chips — ONE colour, pill style, no rainbow */
+.mcats{
+  display:flex;gap:6px;padding:8px 14px;
+  overflow-x:auto;flex-shrink:0;scrollbar-width:none;
+  background:var(--surface);border-bottom:1px solid var(--border);
+}
+.mcats::-webkit-scrollbar{display:none}
+.mcat{
+  padding:6px 16px;border-radius:20px;
+  font-size:12px;font-weight:600;white-space:nowrap;
+  color:var(--txt2);background:var(--bg);
+  border:none;flex-shrink:0;cursor:pointer;
+  transition:all .15s;
+}
+.mcat:hover{color:var(--txt);background:var(--border)}
+.mcat.active{background:var(--green);color:#fff}
+
+/* Menu — touch-friendly card GRID */
+.mgrid{
+  flex:1;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:1px;
+  background:var(--border);
+  overflow-y:auto;
+  align-content:start;
+}
+.mitem{
+  background:var(--surface);
+  padding:12px 12px 42px;
+  cursor:pointer;
+  display:flex;flex-direction:column;gap:5px;
+  transition:background .1s;
+  position:relative;
+  min-height:90px;
+}
+.mitem:hover{background:var(--bg)}
+.mitem:active{background:var(--green-lt)}
+
+/* veg/non-veg indicator */
+.mi-veg{
+  width:14px;height:14px;border-radius:3px;border:1.5px solid;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.mi-veg.v{border-color:#16A34A}
+.mi-veg.v .dot{width:6px;height:6px;border-radius:50%;background:#16A34A}
+.mi-veg.nv{border-color:var(--red)}
+.mi-veg.nv .dot{width:6px;height:6px;border-radius:50%;background:var(--red)}
+
+.mi-name{
+  font-size:13px;font-weight:600;color:var(--txt);
+  line-height:1.35;
+}
+.mi-price{
+  font-size:13px;font-weight:800;color:var(--txt);
+  margin-top:2px;
+}
+
+/* Add button — Swiggy style, absolute bottom-right */
+.mi-add{
+  position:absolute;bottom:10px;right:10px;
+  width:30px;height:30px;border-radius:8px;
+  background:var(--surface);border:1.5px solid var(--green);
+  color:var(--green);font-size:18px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.mitem:hover .mi-add{background:var(--green);color:#fff}
+
+/* Right: order panel */
+.opanel{
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--surface);border-left:1px solid var(--border);
+}
+.ophdr{
+  padding:14px 16px 12px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.ophdr-title{font-size:13px;font-weight:800;color:var(--txt)}
+.split-btn{
+  padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;
+  color:#3B82F6;background:#EFF6FF;border:1px solid #BFDBFE;
+}
+[data-dark="1"] .split-btn{background:#0d1f3c;border-color:#1e3a6e;color:#60A5FA}
+
+.olist{flex:1;overflow-y:auto}
+.orow{
+  display:flex;align-items:center;
+  padding:10px 16px;gap:8px;
+  border-bottom:1px solid var(--border);
+}
+.orow-name{flex:1;font-size:12px;font-weight:600;color:var(--txt);line-height:1.3}
+.onew{
+  font-size:9px;font-weight:700;color:#fff;
+  background:var(--amber);padding:1px 5px;border-radius:3px;display:inline-block;margin-left:4px;
+}
+.oqty{display:flex;align-items:center;gap:5px}
+.oqty-btn{
+  width:22px;height:22px;border-radius:5px;
+  background:var(--bg);border:1px solid var(--border);
+  font-size:13px;font-weight:700;color:var(--txt2);
+  display:flex;align-items:center;justify-content:center;
+}
+.oqty-n{font-size:12px;font-weight:700;color:var(--txt);min-width:14px;text-align:center}
+.oprice{font-size:12px;font-weight:700;color:var(--txt);min-width:46px;text-align:right}
+
+.ototals{
+  padding:12px 16px;border-top:1px solid var(--border);
+  display:flex;flex-direction:column;gap:4px;flex-shrink:0;
+}
+.otrow{display:flex;justify-content:space-between;align-items:center}
+.otrow-label{font-size:11px;color:var(--txt3)}
+.otrow-val{font-size:11px;color:var(--txt2)}
+.otrow.total .otrow-label{font-size:14px;font-weight:800;color:var(--txt)}
+.otrow.total .otrow-val{font-size:15px;font-weight:900;color:var(--txt)}
+
+.oactions{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+  padding:12px 16px;flex-shrink:0;
+  border-top:1px solid var(--border);
+}
+.o-kot{
+  padding:12px;border-radius:8px;font-size:12px;font-weight:700;
+  background:var(--bg);border:1.5px solid var(--border);color:var(--txt);
+  position:relative;transition:all .15s;
+}
+.o-kot:hover{background:var(--hdr);color:#fff;border-color:var(--hdr)}
+.o-kot-n{
+  position:absolute;top:-7px;right:-7px;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--amber);color:#fff;
+  font-size:10px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+}
+.o-pay{
+  padding:12px;border-radius:8px;font-size:12px;font-weight:700;
+  background:var(--green);color:#fff;transition:all .15s;
+}
+.o-pay:hover{background:var(--green-dk)}
+
+/* ─── SCREEN: PAYMENT ───────────────────────────────────────────────────── */
+.pay-scr{flex:1;display:none;flex-direction:column;overflow:hidden}
+.pay-scr.on{display:flex}
+
+.pay-hdr{
+  padding:16px 20px;display:flex;align-items:center;gap:12px;
+  background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.pay-back{
+  padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;
+  background:var(--bg);border:1px solid var(--border);color:var(--txt);
+}
+.pay-hdr-title{font-size:15px;font-weight:800;color:var(--txt)}
+
+.pay-body{
+  flex:1;overflow-y:auto;padding:24px 20px 0;
+  display:flex;flex-direction:column;align-items:center;gap:20px;
+  max-width:480px;margin:0 auto;width:100%;
+}
+
+.pay-amount-block{text-align:center}
+.pay-amount-lbl{font-size:12px;font-weight:500;color:var(--txt3);margin-bottom:6px;letter-spacing:.5px;text-transform:uppercase}
+.pay-amount-val{font-size:52px;font-weight:900;color:var(--txt);letter-spacing:-2px;line-height:1}
+
+/* Payment method pills — neutral, one active state */
+.pay-methods{display:flex;gap:6px;width:100%;flex-wrap:wrap;justify-content:center}
+.pay-method{
+  flex:1;min-width:70px;padding:10px 8px;border-radius:8px;
+  font-size:12px;font-weight:700;text-align:center;
+  background:var(--surface);border:1.5px solid var(--border);color:var(--txt2);
+  transition:all .15s;cursor:pointer;
+}
+.pay-method.active{background:var(--txt);color:#fff;border-color:var(--txt)}
+[data-dark="1"] .pay-method.active{background:var(--green);border-color:var(--green)}
+
+/* Denomination buttons — clean, professional */
+.pay-denoms{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+.denom{
+  padding:16px 8px;border-radius:10px;text-align:center;
+  font-size:15px;font-weight:800;color:var(--txt);
+  background:var(--surface);border:1.5px solid var(--border);
+  cursor:pointer;transition:all .15s;
+}
+.denom:hover{border-color:var(--green);color:var(--green);background:var(--green-lt)}
+.denom:active{transform:scale(0.97)}
+.denom.exact{
+  font-size:12px;font-weight:700;
+  background:var(--green-lt);border-color:var(--green);color:var(--green);
+}
+.denom.kb{font-size:20px;color:var(--txt3)}
+
+.pay-rcvd{
+  width:100%;background:var(--surface);
+  border-radius:10px;border:1px solid var(--border);overflow:hidden;
+}
+.pay-rcvd-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:13px 18px;border-bottom:1px solid var(--border);
+}
+.pay-rcvd-row:last-child{border-bottom:none}
+.prl{font-size:12px;color:var(--txt3);font-weight:500}
+.prv{font-size:15px;font-weight:800;color:var(--txt)}
+.prv.change{color:var(--green)}
+
+.pay-footer{
+  padding:16px 20px;flex-shrink:0;
+  max-width:480px;margin:0 auto;width:100%;
+}
+.pay-cta{
+  width:100%;padding:17px;border-radius:10px;
+  background:var(--green);color:#fff;
+  font-size:16px;font-weight:800;
+  box-shadow:0 4px 14px rgba(5,150,105,.3);
+  transition:all .15s;
+}
+.pay-cta:hover{background:var(--green-dk);transform:translateY(-1px)}
+
+/* ─── Side Drawer ───────────────────────────────────────────────────────── */
+.drawer-mask{
+  position:fixed;inset:0;background:rgba(0,0,0,.5);
+  z-index:100;display:none;align-items:stretch;justify-content:flex-end;
+}
+.drawer-mask.open{display:flex}
+.drawer{
+  width:270px;background:var(--surface);
+  display:flex;flex-direction:column;overflow-y:auto;
+  box-shadow:-8px 0 40px rgba(0,0,0,.25);
+}
+.dr-hdr{
+  padding:18px 16px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.dr-title{font-size:14px;font-weight:800;color:var(--txt)}
+.dr-close{
+  width:30px;height:30px;border-radius:6px;
+  background:var(--bg);border:1px solid var(--border);
+  color:var(--txt3);display:flex;align-items:center;justify-content:center;font-size:14px;
+}
+.dr-sec{padding:8px 8px 4px}
+.dr-sec-label{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+  color:var(--txt3);padding:0 8px 6px;
+}
+.dr-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:8px;
+  font-size:13px;font-weight:600;color:var(--txt2);
+  cursor:pointer;transition:background .1s;
+}
+.dr-item:hover{background:var(--bg);color:var(--txt)}
+.dr-ico{
+  width:30px;height:30px;border-radius:7px;
+  background:var(--bg);display:flex;align-items:center;justify-content:center;
+  font-size:14px;border:1px solid var(--border);
+}
+.dr-item.danger{color:var(--red)}
+.dr-item.danger .dr-ico{background:var(--red-lt);border-color:rgba(220,38,38,.2)}
+[data-dark="1"] .dr-item.danger .dr-ico{background:#1f0a0a}
+</style>
+</head>
+<body>
+
+<!-- Preview nav -->
+<nav class="pnav">
+  <span class="pnav-label">Preview</span>
+  <button class="pnav-btn active" onclick="show('floor')">Floor View</button>
+  <button class="pnav-btn" onclick="show('order')">Order View</button>
+  <button class="pnav-btn" onclick="show('payment')">Payment</button>
+  <button class="pnav-btn" onclick="openDrawer()">Side Drawer</button>
+  <div class="pnav-sep"></div>
+  <button class="dark-btn" id="darkBtn" onclick="toggleDark()">🌙 Dark</button>
+</nav>
+
+<div class="shell">
+
+  <!-- Header -->
+  <header class="hdr">
+    <div class="hdr-burger" onclick="openDrawer()">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="hdr-brand">
+      <div class="hdr-brand-dot"></div>
+      Plato POS
+    </div>
+    <div class="hdr-modes">
+      <button class="hdr-mode active">Dine In</button>
+      <button class="hdr-mode">Takeaway</button>
+      <button class="hdr-mode">Delivery</button>
+    </div>
+    <div class="hdr-sep"></div>
+    <div class="hdr-kot">
+      <span class="hdr-kot-dot"></span>
+      <span class="hdr-kot-txt">KOT · 2</span>
+    </div>
+    <div class="hdr-shift">
+      <div class="hdr-avatar">R</div>
+      <span class="hdr-name">Ravi</span>
+    </div>
+    <span class="hdr-time">10:30 AM</span>
+  </header>
+
+  <!-- ── Floor View ── -->
+  <div class="scr on" id="s-floor">
+    <div class="floor-tabs">
+      <button class="ftab active">All Tables</button>
+      <button class="ftab">Ground Floor</button>
+      <button class="ftab">Rooftop</button>
+      <button class="ftab">Bar</button>
+    </div>
+    <div class="floor-body">
+      <div class="floor-grid">
+
+        <div class="tcard free" onclick="show('order')">
+          <div class="tc-top"><span class="tc-name">T1</span></div>
+          <div class="tc-free">Available · 4 seats</div>
+        </div>
+
+        <div class="tcard occ" onclick="show('order')">
+          <div class="tc-top">
+            <span class="tc-name">T2</span>
+            <span class="tc-badge occ">8 min</span>
+          </div>
+          <div class="tc-time">2 guests</div>
+          <div class="tc-amount">₹ 320</div>
+        </div>
+
+        <div class="tcard warn" onclick="show('order')">
+          <div class="tc-top">
+            <span class="tc-name">T3</span>
+            <span class="tc-badge warn">42 min</span>
+          </div>
+          <div class="tc-time">4 guests</div>
+          <div class="tc-amount">₹ 1,840</div>
+        </div>
+
+        <div class="tcard late" onclick="show('order')">
+          <div class="tc-top">
+            <span class="tc-name">T4</span>
+            <span class="tc-badge late">1h 12m</span>
+          </div>
+          <div class="tc-time">3 guests</div>
+          <div class="tc-amount">₹ 2,650</div>
+        </div>
+
+        <div class="tcard bill" onclick="show('payment')">
+          <div class="tc-top">
+            <span class="tc-name">T5</span>
+            <span class="tc-badge bill">Bill</span>
+          </div>
+          <div class="tc-time">2 guests</div>
+          <div class="tc-amount">₹ 980</div>
+        </div>
+
+        <div class="tcard free" onclick="show('order')">
+          <div class="tc-top"><span class="tc-name">T6</span></div>
+          <div class="tc-free">Available · 6 seats</div>
+        </div>
+
+        <div class="tcard free">
+          <div class="tc-top"><span class="tc-name">T7</span></div>
+          <div class="tc-free">Available · 4 seats</div>
+        </div>
+
+        <div class="tcard occ" onclick="show('order')">
+          <div class="tc-top">
+            <span class="tc-name">T8</span>
+            <span class="tc-badge occ">15 min</span>
+          </div>
+          <div class="tc-time">5 guests</div>
+          <div class="tc-amount">₹ 540</div>
+        </div>
+
+        <div class="tcard free">
+          <div class="tc-top"><span class="tc-name">T9</span></div>
+          <div class="tc-free">Available · 4 seats</div>
+        </div>
+
+        <div class="tcard warn" onclick="show('order')">
+          <div class="tc-top">
+            <span class="tc-name">T10</span>
+            <span class="tc-badge warn">35 min</span>
+          </div>
+          <div class="tc-time">2 guests</div>
+          <div class="tc-amount">₹ 720</div>
+        </div>
+
+      </div>
+      <button class="floor-fab" onclick="show('order')">＋ New Order</button>
+    </div>
+  </div>
+
+  <!-- ── Order View ── -->
+  <div class="order-scr" id="s-order">
+
+    <!-- Menu panel -->
+    <div class="mpanel">
+      <div class="mhdr">
+        <button class="back-btn" onclick="show('floor')">← Tables</button>
+        <span class="tbl-label">Table 3</span>
+        <button class="guest-btn">👥 2 guests</button>
+      </div>
+
+      <div class="msearch">
+        <div class="msearch-inner">
+          <svg class="msearch-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Search menu items..."/>
+        </div>
+      </div>
+
+      <!-- Category chips — ONE colour, neutral inactive -->
+      <div class="mcats">
+        <button class="mcat active">⭐ Favourites</button>
+        <button class="mcat">Starters</button>
+        <button class="mcat">Mains</button>
+        <button class="mcat">Biryani &amp; Rice</button>
+        <button class="mcat">Breads</button>
+        <button class="mcat">Drinks</button>
+        <button class="mcat">Desserts</button>
+        <button class="mcat">Soups</button>
+        <button class="mcat">Combos</button>
+      </div>
+
+      <!-- Menu grid — clean tiles, Swiggy style -->
+      <div class="mgrid">
+
+        <div class="mitem">
+          <div class="mi-veg nv"><div class="dot"></div></div>
+          <div class="mi-name">Chicken Tikka</div>
+          <div class="mi-price">₹ 160</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Dal Makhani</div>
+          <div class="mi-price">₹ 180</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Paneer Butter Masala</div>
+          <div class="mi-price">₹ 200</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg nv"><div class="dot"></div></div>
+          <div class="mi-name">Chicken Biryani</div>
+          <div class="mi-price">₹ 280</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Veg Biryani</div>
+          <div class="mi-price">₹ 220</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Butter Naan</div>
+          <div class="mi-price">₹ 50</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Jeera Rice</div>
+          <div class="mi-price">₹ 120</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Mango Lassi</div>
+          <div class="mi-price">₹ 80</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Tandoori Roti</div>
+          <div class="mi-price">₹ 30</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg nv"><div class="dot"></div></div>
+          <div class="mi-name">Mutton Curry</div>
+          <div class="mi-price">₹ 320</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Gulab Jamun</div>
+          <div class="mi-price">₹ 90</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg nv"><div class="dot"></div></div>
+          <div class="mi-name">Fish Fry</div>
+          <div class="mi-price">₹ 240</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Fresh Lime Soda</div>
+          <div class="mi-price">₹ 60</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Veg Pulao</div>
+          <div class="mi-price">₹ 160</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg nv"><div class="dot"></div></div>
+          <div class="mi-name">Chicken 65</div>
+          <div class="mi-price">₹ 190</div>
+          <div class="mi-add">+</div>
+        </div>
+
+        <div class="mitem">
+          <div class="mi-veg v"><div class="dot"></div></div>
+          <div class="mi-name">Raita</div>
+          <div class="mi-price">₹ 60</div>
+          <div class="mi-add">+</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Order panel -->
+    <div class="opanel">
+      <div class="ophdr">
+        <span class="ophdr-title">Table 3 · Order</span>
+        <button class="split-btn">Split</button>
+      </div>
+
+      <div class="olist">
+        <div class="orow">
+          <div class="orow-name">Chicken Tikka</div>
+          <div class="oqty">
+            <button class="oqty-btn">−</button>
+            <span class="oqty-n">2</span>
+            <button class="oqty-btn">+</button>
+          </div>
+          <div class="oprice">₹ 320</div>
+        </div>
+        <div class="orow">
+          <div class="orow-name">Dal Makhani</div>
+          <div class="oqty">
+            <button class="oqty-btn">−</button>
+            <span class="oqty-n">1</span>
+            <button class="oqty-btn">+</button>
+          </div>
+          <div class="oprice">₹ 180</div>
+        </div>
+        <div class="orow">
+          <div class="orow-name">Butter Naan</div>
+          <div class="oqty">
+            <button class="oqty-btn">−</button>
+            <span class="oqty-n">3</span>
+            <button class="oqty-btn">+</button>
+          </div>
+          <div class="oprice">₹ 150</div>
+        </div>
+        <div class="orow" style="background:rgba(217,119,6,.05)">
+          <div class="orow-name">Veg Biryani <span class="onew">NEW</span></div>
+          <div class="oqty">
+            <button class="oqty-btn">−</button>
+            <span class="oqty-n">1</span>
+            <button class="oqty-btn">+</button>
+          </div>
+          <div class="oprice">₹ 220</div>
+        </div>
+        <div class="orow" style="background:rgba(217,119,6,.05)">
+          <div class="orow-name">Lassi <span class="onew">NEW</span></div>
+          <div class="oqty">
+            <button class="oqty-btn">−</button>
+            <span class="oqty-n">2</span>
+            <button class="oqty-btn">+</button>
+          </div>
+          <div class="oprice">₹ 160</div>
+        </div>
+      </div>
+
+      <div class="ototals">
+        <div class="otrow"><span class="otrow-label">Subtotal</span><span class="otrow-val">₹ 1,030</span></div>
+        <div class="otrow"><span class="otrow-label">GST 5%</span><span class="otrow-val">₹ 51.50</span></div>
+        <div class="otrow total"><span class="otrow-label">Total</span><span class="otrow-val">₹ 1,081.50</span></div>
+      </div>
+
+      <div class="oactions">
+        <button class="o-kot">
+          Send KOT
+          <span class="o-kot-n">2</span>
+        </button>
+        <button class="o-pay" onclick="show('payment')">Collect Payment →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Payment ── -->
+  <div class="pay-scr" id="s-payment">
+    <div class="pay-hdr">
+      <button class="pay-back" onclick="show('order')">← Table 3</button>
+      <span class="pay-hdr-title">Collect Payment</span>
+    </div>
+
+    <div class="pay-body">
+
+      <div class="pay-amount-block">
+        <div class="pay-amount-lbl">Amount Due</div>
+        <div class="pay-amount-val">₹ 1,082</div>
+      </div>
+
+      <div class="pay-methods">
+        <button class="pay-method active">Cash</button>
+        <button class="pay-method">UPI</button>
+        <button class="pay-method">Card</button>
+        <button class="pay-method">Credit</button>
+        <button class="pay-method">PhonePe</button>
+      </div>
+
+      <div class="pay-denoms">
+        <button class="denom" onclick="addAmt(100)">₹ 100</button>
+        <button class="denom" onclick="addAmt(200)">₹ 200</button>
+        <button class="denom" onclick="addAmt(500)">₹ 500</button>
+        <button class="denom" onclick="addAmt(1000)">₹ 1000</button>
+        <button class="denom" onclick="addAmt(2000)">₹ 2000</button>
+        <button class="denom exact" onclick="exactAmt()">Exact</button>
+        <button class="denom kb">⌨</button>
+        <button class="denom" onclick="clearAmt()" style="font-size:12px;color:var(--txt3)">Clear</button>
+        <button class="denom" onclick="addAmt(500)" style="background:var(--green-lt);border-color:var(--green);color:var(--green)">+₹500</button>
+      </div>
+
+      <div class="pay-rcvd">
+        <div class="pay-rcvd-row">
+          <span class="prl">Amount Received</span>
+          <span class="prv" id="rcvd">₹ 0</span>
+        </div>
+        <div class="pay-rcvd-row">
+          <span class="prl">Change to Return</span>
+          <span class="prv change" id="chng">—</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="pay-footer">
+      <button class="pay-cta">Collect  ₹ 1,082</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Side Drawer -->
+<div class="drawer-mask" id="dmask" onclick="maskClick(event)">
+  <div class="drawer">
+    <div class="dr-hdr">
+      <span class="dr-title">Menu</span>
+      <button class="dr-close" onclick="closeDrawer()">✕</button>
+    </div>
+    <div class="dr-sec">
+      <div class="dr-sec-label">Orders</div>
+      <div class="dr-item"><div class="dr-ico">🌐</div>Online Orders</div>
+      <div class="dr-item"><div class="dr-ico">📋</div>Past Orders</div>
+      <div class="dr-item"><div class="dr-ico">⏰</div>Advance Orders</div>
+      <div class="dr-item"><div class="dr-ico">💳</div>Credits</div>
+      <div class="dr-item"><div class="dr-ico">👥</div>Waitlist</div>
+    </div>
+    <div class="dr-sec">
+      <div class="dr-sec-label">Cash</div>
+      <div class="dr-item"><div class="dr-ico">💵</div>Cash In</div>
+      <div class="dr-item"><div class="dr-ico">💸</div>Cash Out</div>
+    </div>
+    <div class="dr-sec">
+      <div class="dr-sec-label">Operations</div>
+      <div class="dr-item"><div class="dr-ico">🗑</div>Wastage</div>
+      <div class="dr-item"><div class="dr-ico">📦</div>Stock Check</div>
+      <div class="dr-item"><div class="dr-ico">🏷</div>Print Labels</div>
+      <div class="dr-item"><div class="dr-ico">🔄</div>Sync Data</div>
+    </div>
+    <div class="dr-sec">
+      <div class="dr-sec-label">Settings</div>
+      <div class="dr-item"><div class="dr-ico">⚙️</div>POS Settings</div>
+      <div class="dr-item danger"><div class="dr-ico">🔒</div>End Shift</div>
+      <div class="dr-item danger"><div class="dr-ico">🚪</div>Exit POS</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DUE = 1082;
+let rcvd = 0;
+
+function show(s){
+  document.querySelectorAll('.scr,.order-scr,.pay-scr').forEach(e=>e.classList.remove('on'));
+  const m={floor:'s-floor',order:'s-order',payment:'s-payment'};
+  document.getElementById(m[s])?.classList.add('on');
+  document.querySelectorAll('.pnav-btn').forEach((b,i)=>{
+    b.classList.toggle('active', ['floor','order','payment'][i]===s);
+  });
+}
+function openDrawer(){
+  document.getElementById('dmask').classList.add('open');
+  document.querySelectorAll('.pnav-btn').forEach((b,i)=>b.classList.toggle('active',i===3));
+}
+function closeDrawer(){document.getElementById('dmask').classList.remove('open')}
+function maskClick(e){if(e.target===document.getElementById('dmask'))closeDrawer()}
+function toggleDark(){
+  const d=document.documentElement.getAttribute('data-dark')==='1';
+  document.documentElement.setAttribute('data-dark',d?'0':'1');
+  document.getElementById('darkBtn').textContent=d?'🌙 Dark':'☀️ Light';
+}
+function addAmt(n){rcvd+=n;render()}
+function exactAmt(){rcvd=DUE;render()}
+function clearAmt(){rcvd=0;render()}
+function render(){
+  document.getElementById('rcvd').textContent='₹ '+rcvd.toLocaleString('en-IN');
+  const ch=rcvd-DUE;
+  document.getElementById('chng').textContent=ch>0?'₹ '+ch.toLocaleString('en-IN'):'—';
+}
+// category chip clicks
+document.querySelectorAll('.mcat').forEach(c=>{
+  c.onclick=()=>{
+    document.querySelectorAll('.mcat').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+  };
+});
+</script>
+</body>
+</html>
+

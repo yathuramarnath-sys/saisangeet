@@ -885,6 +885,7 @@ function addOrderItem(tableId, payload, actor = "System") {
       categoryId:   payload.categoryId   || "",   // kept for KDS station-routing on KOT send
       categoryName: payload.categoryName || "",   // category name — fallback for ID-mismatch routing
       category:     payload.category     || "",
+      taxRate:      payload.taxRate ?? null,      // persisted so server responses always carry GST rate
     };
     order.items.push(nextItem);
   }

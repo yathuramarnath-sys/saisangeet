@@ -113,6 +113,15 @@ function saveKotQueue(queue) {
   try { localStorage.setItem(KOT_QUEUE_KEY, JSON.stringify(queue)); } catch (_) {}
 }
 
+// ── Item order count tracking (for Favourites chip) ───────────────────────
+const ITEM_COUNTS_KEY = "pos_item_counts";
+function loadItemCounts() {
+  try { return JSON.parse(localStorage.getItem(ITEM_COUNTS_KEY) || "{}"); } catch { return {}; }
+}
+function saveItemCounts(counts) {
+  try { localStorage.setItem(ITEM_COUNTS_KEY, JSON.stringify(counts)); } catch (_) {}
+}
+
 async function flushKotQueue(outletId) {
   const queue = loadKotQueue();
   if (!queue.length) return;
@@ -184,6 +193,17 @@ async function flushClosedOrderQueue(outletId) {
 const ORDERS_KEY        = "pos_active_orders";
 const ORDERS_OUTLET_KEY = "pos_active_orders_outlet"; // guards against cross-outlet data bleed
 
+// When the server returns order items it may omit taxRate (not stored in DB).
+// Preserve taxRate from the local version so GST never disappears.
+function withLocalTaxRate(serverItems, localItems) {
+  if (!serverItems?.length) return serverItems || [];
+  if (!localItems?.length) return serverItems;
+  const localById = Object.fromEntries(localItems.map(i => [i.id, i]));
+  return serverItems.map(si =>
+    si.taxRate != null ? si : { ...si, taxRate: localById[si.id]?.taxRate ?? null }
+  );
+}
+
 /**
  * Load saved orders from localStorage.
  * Pass currentOutletId so we can detect and reject stale orders from a
@@ -193,8 +213,8 @@ function loadSavedOrders(currentOutletId = null) {
   try {
     // ── Cross-outlet guard ───────────────────────────────────────────────────
     const storedOutletId = localStorage.getItem(ORDERS_OUTLET_KEY);
-    if (currentOutletId && storedOutletId && String(storedOutletId) !== String(currentOutletId)) {
-      // Orders belong to a different outlet — wipe them so they don't bleed in
+    if (currentOutletId && (!storedOutletId || String(storedOutletId) !== String(currentOutletId))) {
+      // Orders belong to a different outlet (or have no outlet stamp) — wipe them so they don't bleed in
       console.warn(
         `[POS] Clearing stale orders: stored outlet=${storedOutletId}, current outlet=${currentOutletId}`
       );
@@ -301,6 +321,9 @@ export default function App() {
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [isOnline,        setIsOnline]        = useState(() => navigator.onLine);
   const [showPayment,     setShowPayment]     = useState(false);
+  const [showDrawer,      setShowDrawer]      = useState(false);
+  const [darkMode,        setDarkMode]        = useState(() => localStorage.getItem("pos_dark_mode") === "true");
+  const [itemCounts,      setItemCounts]      = useState(() => loadItemCounts());
   const [showSplitBill,   setShowSplitBill]   = useState(false);
   const [activeArea,      setActiveArea]      = useState(null);
   const [serviceMode,     setServiceMode]     = useState("dine-in");
@@ -534,9 +557,29 @@ export default function App() {
                     const localOnlyUnsent = sameSession
                       ? (local?.items || []).filter(li => !li.sentToKot && !serverItemIds.has(li.id))
                       : [];
-                    merged[tableId] = localOnlyUnsent.length
-                      ? { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] }
-                      : serverOrder;
+                    // Stale-write guard: don't let reconnect fetch overwrite a newer local state.
+                    // Exception: closed/settled orders are always authoritative.
+                    if (
+                      local &&
+                      !serverOrder.isClosed &&
+                      (local.updatedAt || 0) > (serverOrder.updatedAt || 0)
+                    ) {
+                      // Local is newer — skip server overwrite, but still append unsent items
+                      if (localOnlyUnsent.length) {
+                        merged[tableId] = local; // already has the items
+                      }
+                      // else: leave merged[tableId] as local (from { ...prev })
+                    } else {
+                      const isGhostItem = (i) => i.isGhostVoid === true || (i.isVoided === true && i.sentToKot === false);
+                      const cleanedServerItems = withLocalTaxRate(
+                        (serverOrder.items || []).filter(i => !isGhostItem(i)),
+                        local?.items
+                      );
+                      merged[tableId] = {
+                        ...serverOrder,
+                        items: [...cleanedServerItems, ...localOnlyUnsent],
+                      };
+                    }
                   });
                   return merged;
                 });
@@ -581,13 +624,12 @@ export default function App() {
             // order so they aren't silently dropped.
             let merged = updatedOrder;
             if (current && !updatedOrder.isClosed) {
-              const incomingIds  = new Set((updatedOrder.items || []).map(i => i.id));
+              const incomingWithTax = withLocalTaxRate(updatedOrder.items || [], current.items);
+              const incomingIds  = new Set(incomingWithTax.map(i => i.id));
               const localOnly    = (current.items || []).filter(
                 i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
               );
-              if (localOnly.length > 0) {
-                merged = { ...updatedOrder, items: [...(updatedOrder.items || []), ...localOnly] };
-              }
+              merged = { ...updatedOrder, items: [...incomingWithTax, ...localOnly] };
             }
 
             const next = { ...prev, [updatedOrder.tableId]: merged };
@@ -1184,6 +1226,14 @@ export default function App() {
     return (selectedOrder.items || []).filter(i => !i.isVoided).length;
   }, [selectedOrder]);
 
+  // Top 8 most-ordered items (for Favourites chip)
+  const favouriteItemIds = useMemo(() =>
+    Object.entries(itemCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 8)
+      .map(([id]) => String(id)),
+  [itemCounts]);
+
   // Quantities of unsent items in current order — used by MenuPanel +/− buttons.
   // MUST be here (before any conditional returns) to obey React Rules of Hooks.
   const menuQuantities = useMemo(() => {
@@ -1267,6 +1317,10 @@ export default function App() {
     //    Backend also consolidates by menuItemId (increments existing unsent line), so
     //    if the cashier taps the same item twice the qty in both states stays in sync.
     mutateOrder(tableId, (order) => {
+      // Stamp occupiedAt when first active item is added — used for elapsed time display
+      if (!order.occupiedAt && !(order.items || []).some(i => !i.isVoided && !i.isComp)) {
+        order.occupiedAt = Date.now();
+      }
       // Scale items always get a new line (never merge) — each scan is a distinct weight
       const existing = fromScale ? -1 : order.items.findIndex((i) => i.menuItemId === item.id && !i.sentToKot);
       if (existing >= 0) {
@@ -1291,6 +1345,13 @@ export default function App() {
         });
       }
       return order;
+    });
+
+    // Track item order frequency for Favourites chip
+    setItemCounts(prev => {
+      const updated = { ...prev, [item.id]: (prev[item.id] || 0) + 1 };
+      saveItemCounts(updated);
+      return updated;
     });
 
     // 2. Persist to backend and reconcile with server response.
@@ -1335,8 +1396,11 @@ export default function App() {
             (li) => !li.sentToKot && !serverItemIds.has(li.id)
           );
           // Drop server items that are unsent AND no longer in local state (locally deleted)
-          const filteredServerItems = (serverOrder.items || []).filter(
-            (si) => si.sentToKot || si.isVoided || localItemIds.has(si.id)
+          const filteredServerItems = withLocalTaxRate(
+            (serverOrder.items || []).filter(
+              (si) => si.sentToKot || si.isVoided || localItemIds.has(si.id)
+            ),
+            localOrder.items
           );
           return {
             ...prev,
@@ -1644,12 +1708,12 @@ export default function App() {
     const subtotal     = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
     const disc         = Math.min(order.discountAmount || 0, subtotal);
     const afterDisc    = subtotal - disc;
-    // Per-item tax (mirrors printBill.js logic — falls back to outlet defaultTaxRate if unset)
-    const inclusive          = outlet?.gstTreatment === "inclusive";
-    const defaultItemTaxRate = outlet?.defaultTaxRate ?? 0;
+    // Per-item tax — must match getFinancials exactly so "amount due" on screen == settlement total.
+    // Falls back to 0 (not outlet defaultTaxRate) so display and settlement always agree.
+    const inclusive    = outlet?.gstTreatment === "inclusive";
     const taxAmt       = billableItems.reduce((s, i) => {
       const lineAfter = subtotal > 0 ? (i.price * i.quantity) * (afterDisc / subtotal) : 0;
-      const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : defaultItemTaxRate;
+      const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 0;
       return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     }, 0);
     const total        = inclusive ? afterDisc : afterDisc + taxAmt;
@@ -1898,6 +1962,15 @@ export default function App() {
 
       setOrders((prev) => {
         const localOrder = prev[tableId];
+        // Stale-write guard: if our local copy is newer than the server's, don't overwrite.
+        // Allow server to win only when it's a closed/settled order (authoritative final state).
+        if (
+          localOrder &&
+          !serverOrder.isClosed &&
+          (localOrder.updatedAt || 0) > (serverOrder.updatedAt || 0)
+        ) {
+          return prev;
+        }
         // Preserve unsent local items for the SAME order session (offline adds).
         // If orderNumber differs, the table was reset between sessions — discard stale items.
         const serverItemIds   = new Set((serverOrder.items || []).map((i) => i.id));
@@ -1907,12 +1980,11 @@ export default function App() {
           ? (localOrder?.items || []).filter((li) => !li.sentToKot && !serverItemIds.has(li.id))
           : [];
         // Clean ghost voided items: items voided BEFORE they were ever sent to the kitchen.
-        // PRIMARY: isGhostVoid flag (set by handleVoidItem when item.sentToKot was false).
-        // CATCH-ALL: any item that is voided AND sentToKot===false is by definition a ghost —
-        // covers old items created before the isGhostVoid flag was introduced.
         const isGhostItem  = (i) => i.isGhostVoid === true || (i.isVoided === true && i.sentToKot === false);
-        const ghostItems   = (serverOrder.items || []).filter(isGhostItem);
-        const cleanedServerItems = (serverOrder.items || []).filter(i => !isGhostItem(i));
+        const cleanedServerItems = withLocalTaxRate(
+          (serverOrder.items || []).filter(i => !isGhostItem(i)),
+          localOrder?.items
+        );
         return {
           ...prev,
           [tableId]: {
@@ -2509,7 +2581,7 @@ export default function App() {
 
   // ─── Main POS UI ──────────────────────────────────────────────────────────
   return (
-    <div className="pos-shell">
+    <div className={`pos-shell${darkMode ? " pos-dark" : ""}`}>
 
       {/* ── Update banner ────────────────────────────────────────────────── */}
       <UpdateBanner />
@@ -2537,6 +2609,9 @@ export default function App() {
 
       {/* ── Row 1: Brand bar ─────────────────────────────────────────────── */}
       <div className="pos-brand-bar">
+        {/* Hamburger */}
+        <button type="button" className="pbb-hamburger" onClick={() => setShowDrawer(true)}>☰</button>
+
         {/* Service mode pills */}
         <div className="pbb-modes">
           {SERVICE_MODES.map((m) => (
@@ -2548,8 +2623,19 @@ export default function App() {
           ))}
         </div>
 
-        {/* Right: cashier + clock */}
+        {/* Right: KOT badge + cashier + clock */}
         <div className="pbb-right">
+          {pendingKOT > 0 && (
+            <button type="button" className="pbb-kot-badge" onClick={() => {
+              const tableWithKot = tableAreas.flatMap(a => a.tables).find(t => {
+                const o = orders[t.id];
+                return (o?.items || []).some(i => !i.sentToKot && !i.isVoided);
+              });
+              if (tableWithKot) setSelectedTableId(tableWithKot.id);
+            }}>
+              KOT · {pendingKOT}
+            </button>
+          )}
           <div className="pbb-cashier-chip">
             <div className="pbb-avatar">{cashierName?.[0]}</div>
             <div>
@@ -2680,6 +2766,93 @@ export default function App() {
         </div>
       </div>
 
+      {/* ── Side Drawer ──────────────────────────────────────────────────── */}
+      {showDrawer && (
+        <div className="pos-drawer-mask" onClick={() => setShowDrawer(false)}>
+          <div className="pos-drawer" onClick={e => e.stopPropagation()}>
+            <div className="pos-drawer-head">
+              <span className="pos-drawer-title">Menu</span>
+              <button type="button" className="pos-drawer-close" onClick={() => setShowDrawer(false)}>✕</button>
+            </div>
+            <div className="pos-drawer-sec">
+              <div className="pos-drawer-sec-label">Orders</div>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowOnlineOrders(true); setPendingOnlineCount(0); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🌐</span><span>Online Orders</span>
+                {pendingOnlineCount > 0 && onlineOrdersEnabled && <span className="pab-badge">{pendingOnlineCount}</span>}
+              </button>
+              <button type="button" className={`pos-drawer-item pos-drawer-toggle${onlineOrdersEnabled ? " on" : " off"}`} onClick={handleToggleOnlineOrders}>
+                <span className="pos-drawer-ico">{onlineOrdersEnabled ? "✅" : "⏸"}</span>
+                <span>{onlineOrdersEnabled ? "Online ON" : "Online OFF"}</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowPastOrders(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">📋</span><span>Past Orders</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowAdvancePanel(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">⏰</span><span>Advance Orders</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowCreditPanel(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">💳</span><span>Credits</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowWaitlist(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🪑</span><span>Waitlist</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { selectedTableId ? setShowCustomerForm(true) : showToast("Select a table first"); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">👤</span><span>Customer</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setPendingQRCount(0); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">📲</span><span>QR Orders</span>
+                {pendingQRCount > 0 && <span className="pab-badge">{pendingQRCount}</span>}
+              </button>
+            </div>
+            <div className="pos-drawer-sec">
+              <div className="pos-drawer-sec-label">Cash</div>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowCashIn(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">💵</span><span>Cash In</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowCashOut(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">💸</span><span>Cash Out</span>
+              </button>
+            </div>
+            <div className="pos-drawer-sec">
+              <div className="pos-drawer-sec-label">Operations</div>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowWastage(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🗑</span><span>Wastage</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowStock(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">📦</span><span>Stock Check</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowBatchLabel(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🏷</span><span>Print Labels</span>
+              </button>
+              <button type="button" className={`pos-drawer-item${isSyncing ? " syncing" : ""}`} onClick={() => { syncMenuData(); setShowDrawer(false); }} disabled={isSyncing}>
+                <span className="pos-drawer-ico">🔄</span><span>{isSyncing ? "Syncing…" : "Sync Data"}</span>
+              </button>
+            </div>
+            <div className="pos-drawer-sec">
+              <div className="pos-drawer-sec-label">Settings</div>
+              <button type="button" className="pos-drawer-item" onClick={() => {
+                const next = !darkMode;
+                setDarkMode(next);
+                localStorage.setItem("pos_dark_mode", String(next));
+                setShowDrawer(false);
+              }}>
+                <span className="pos-drawer-ico">{darkMode ? "☀️" : "🌙"}</span>
+                <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowSettings(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">⚙️</span><span>POS Settings</span>
+              </button>
+              <button type="button" className="pos-drawer-item pos-drawer-danger" onClick={() => { setShowCloseShift(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🔒</span><span>End Shift</span>
+              </button>
+              <button type="button" className="pos-drawer-item pos-drawer-danger" onClick={() => { setCashierName(null); setCashierPin(""); setActiveShift(null); setSelectedTableId(null); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">🚪</span><span>Exit POS</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Left: Category Sidebar ───────────────────────────────────────── */}
       <div className="pos-left">
         <CategorySidebar
@@ -2697,11 +2870,13 @@ export default function App() {
           categories={categories}
           menuItems={menuItems}
           activeCategory={activeCategory || categories[0]?.name}
+          onCategoryChange={setActiveCategory}
           onAddItem={handleAddItem}
           onToggleAvailability={handleToggleAvailability}
           quantities={menuQuantities}
           onDecrement={handleDecrementItem}
           stockSnapshot={stockSnapshot}
+          favouriteItemIds={favouriteItemIds}
           onSkuLookup={(sku) => {
             if (!selectedTableId) { showToast("Select a table first"); return; }
             api.get(`/menu/sku-lookup?sku=${encodeURIComponent(sku)}&outletId=${outlet?.id || ""}`)
