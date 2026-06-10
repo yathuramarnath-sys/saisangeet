@@ -86,8 +86,7 @@
       "allowToChangeInstallationDirectory": false,
       "allowElevation": true,
       "runAfterFinish": true,
-      "artifactName": "Plato-POS-Setup.exe",
-      "installDir": "$LOCALAPPDATA\\Programs\\Plato POS"
+      "artifactName": "Plato-POS-Setup.exe"
     },
     "electronVersion": "32.3.3"
   }
