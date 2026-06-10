@@ -280,6 +280,14 @@ export function OrderPanel({
                   title="Split Bill"
                   onClick={onOpenSplitBill}>✂️</button>
               )}
+              {hasItems && !order.isClosed && (
+                <button type="button" className="oq-icon-btn cancel-icon-btn"
+                  title="Cancel Order"
+                  onClick={() => {
+                    if (needsPin) { setShowCancelPin(true); }
+                    else          { setShowCancelConfirm(true); }
+                  }}>🗑</button>
+              )}
             </>
           )}
           {order.isOnHold      && <span className="order-badge hold">On Hold</span>}
@@ -530,17 +538,6 @@ export function OrderPanel({
                 </svg>
                 Pay
               </button>
-              {/* Quick path: print bill + open payment in one tap — cuts 7 taps to 3 for cash */}
-              {unsentItems.length === 0 && onPrintBill && (
-                <button
-                  type="button"
-                  className="pos-btn print-settle-btn"
-                  title="Print bill and open payment in one tap"
-                  onClick={() => { onPrintBill?.(); onOpenPayment?.(); }}
-                >
-                  ⚡ Print &amp; Pay
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -557,19 +554,6 @@ export function OrderPanel({
         </div>
       )}
 
-      {/* ── Cancel Order button (PIN gated) ──────────────────────────────── */}
-      {hasItems && !order.isClosed && (
-        <button
-          type="button"
-          className="cancel-order-btn"
-          onClick={() => {
-            if (needsPin) { setShowCancelPin(true); }
-            else          { setShowCancelConfirm(true); }
-          }}
-        >
-          🗑 Cancel Order
-        </button>
-      )}
 
       {/* Transfer modal */}
       {showTransfer && (
