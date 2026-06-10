@@ -193,6 +193,17 @@ async function flushClosedOrderQueue(outletId) {
 const ORDERS_KEY        = "pos_active_orders";
 const ORDERS_OUTLET_KEY = "pos_active_orders_outlet"; // guards against cross-outlet data bleed
 
+// When the server returns order items it may omit taxRate (not stored in DB).
+// Preserve taxRate from the local version so GST never disappears.
+function withLocalTaxRate(serverItems, localItems) {
+  if (!serverItems?.length) return serverItems || [];
+  if (!localItems?.length) return serverItems;
+  const localById = Object.fromEntries(localItems.map(i => [i.id, i]));
+  return serverItems.map(si =>
+    si.taxRate != null ? si : { ...si, taxRate: localById[si.id]?.taxRate ?? null }
+  );
+}
+
 /**
  * Load saved orders from localStorage.
  * Pass currentOutletId so we can detect and reject stale orders from a
@@ -560,7 +571,10 @@ export default function App() {
                       // else: leave merged[tableId] as local (from { ...prev })
                     } else {
                       const isGhostItem = (i) => i.isGhostVoid === true || (i.isVoided === true && i.sentToKot === false);
-                      const cleanedServerItems = (serverOrder.items || []).filter(i => !isGhostItem(i));
+                      const cleanedServerItems = withLocalTaxRate(
+                        (serverOrder.items || []).filter(i => !isGhostItem(i)),
+                        local?.items
+                      );
                       merged[tableId] = {
                         ...serverOrder,
                         items: [...cleanedServerItems, ...localOnlyUnsent],
@@ -610,13 +624,12 @@ export default function App() {
             // order so they aren't silently dropped.
             let merged = updatedOrder;
             if (current && !updatedOrder.isClosed) {
-              const incomingIds  = new Set((updatedOrder.items || []).map(i => i.id));
+              const incomingWithTax = withLocalTaxRate(updatedOrder.items || [], current.items);
+              const incomingIds  = new Set(incomingWithTax.map(i => i.id));
               const localOnly    = (current.items || []).filter(
                 i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
               );
-              if (localOnly.length > 0) {
-                merged = { ...updatedOrder, items: [...(updatedOrder.items || []), ...localOnly] };
-              }
+              merged = { ...updatedOrder, items: [...incomingWithTax, ...localOnly] };
             }
 
             const next = { ...prev, [updatedOrder.tableId]: merged };
@@ -1383,8 +1396,11 @@ export default function App() {
             (li) => !li.sentToKot && !serverItemIds.has(li.id)
           );
           // Drop server items that are unsent AND no longer in local state (locally deleted)
-          const filteredServerItems = (serverOrder.items || []).filter(
-            (si) => si.sentToKot || si.isVoided || localItemIds.has(si.id)
+          const filteredServerItems = withLocalTaxRate(
+            (serverOrder.items || []).filter(
+              (si) => si.sentToKot || si.isVoided || localItemIds.has(si.id)
+            ),
+            localOrder.items
           );
           return {
             ...prev,
@@ -1692,12 +1708,12 @@ export default function App() {
     const subtotal     = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
     const disc         = Math.min(order.discountAmount || 0, subtotal);
     const afterDisc    = subtotal - disc;
-    // Per-item tax (mirrors printBill.js logic — falls back to outlet defaultTaxRate if unset)
-    const inclusive          = outlet?.gstTreatment === "inclusive";
-    const defaultItemTaxRate = outlet?.defaultTaxRate ?? 0;
+    // Per-item tax — must match getFinancials exactly so "amount due" on screen == settlement total.
+    // Falls back to 0 (not outlet defaultTaxRate) so display and settlement always agree.
+    const inclusive    = outlet?.gstTreatment === "inclusive";
     const taxAmt       = billableItems.reduce((s, i) => {
       const lineAfter = subtotal > 0 ? (i.price * i.quantity) * (afterDisc / subtotal) : 0;
-      const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : defaultItemTaxRate;
+      const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 0;
       return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
     }, 0);
     const total        = inclusive ? afterDisc : afterDisc + taxAmt;
@@ -1965,7 +1981,10 @@ export default function App() {
           : [];
         // Clean ghost voided items: items voided BEFORE they were ever sent to the kitchen.
         const isGhostItem  = (i) => i.isGhostVoid === true || (i.isVoided === true && i.sentToKot === false);
-        const cleanedServerItems = (serverOrder.items || []).filter(i => !isGhostItem(i));
+        const cleanedServerItems = withLocalTaxRate(
+          (serverOrder.items || []).filter(i => !isGhostItem(i)),
+          localOrder?.items
+        );
         return {
           ...prev,
           [tableId]: {
