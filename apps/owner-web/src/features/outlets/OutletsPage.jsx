@@ -42,6 +42,9 @@ function buildEditDraft(outlet) {
     name:                outlet.name,
     city:                outlet.city,
     state:               outlet.state,
+    phone:               outlet.phone        || "",
+    addressLine1:        outlet.addressLine1 || "",
+    addressLine2:        outlet.addressLine2 || "",
     gstin:               outlet.gstin,
     fssaiNo:             outlet.fssaiNo || "",
     upiId:               outlet.upiId   || "",
@@ -132,6 +135,9 @@ function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave
     <form className="outlet-inline-form" onSubmit={onSave}>
       <div className="outlet-inline-grid">
         <label>Outlet name<input type="text" value={draft.name} required onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} /></label>
+        <label>Phone <small style={{fontWeight:400,color:"#6b7280"}}>(printed on receipt)</small><input type="text" placeholder="e.g. 9876543210" value={draft.phone} onChange={e => setDraft(d => ({ ...d, phone: e.target.value.trim() }))} /></label>
+        <label>Address Line 1 <small style={{fontWeight:400,color:"#6b7280"}}>(printed on receipt)</small><input type="text" placeholder="e.g. 130/2C1, Main Road" value={draft.addressLine1} onChange={e => setDraft(d => ({ ...d, addressLine1: e.target.value }))} /></label>
+        <label>Address Line 2 <small style={{fontWeight:400,color:"#6b7280"}}>(optional)</small><input type="text" placeholder="e.g. Near Bus Stand" value={draft.addressLine2} onChange={e => setDraft(d => ({ ...d, addressLine2: e.target.value }))} /></label>
         <label>City<input type="text" value={draft.city} required onChange={e => setDraft(d => ({ ...d, city: e.target.value }))} /></label>
         <label>State<input type="text" value={draft.state} required onChange={e => setDraft(d => ({ ...d, state: e.target.value }))} /></label>
         <label>GSTIN
@@ -405,6 +411,7 @@ export function OutletsPage() {
     try {
       await updateOutlet(editingOutletId, {
         name: editDraft.name, city: editDraft.city, state: editDraft.state,
+        phone: editDraft.phone || "", addressLine1: editDraft.addressLine1 || "", addressLine2: editDraft.addressLine2 || "",
         gstin: editDraft.gstin, fssaiNo: editDraft.fssaiNo, upiId: editDraft.upiId || "",
         defaultTaxProfileId: editDraft.defaultTaxProfileId,
         receiptTemplateId:   editDraft.receiptTemplateId,

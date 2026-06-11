@@ -334,6 +334,7 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
       closingCash:  closingNum,
       expectedCash,
       variance,
+      sales:        cashSales,
       closedAt:     new Date().toISOString(),
       status:       variance !== 0 ? "mismatch" : "closed",
       note:         note.trim(),
