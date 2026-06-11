@@ -1,4 +1,4 @@
-const { fetchTaxProfiles, createTaxProfile } = require("./tax-profiles.service");
+const { fetchTaxProfiles, createTaxProfile, updateTaxProfile } = require("./tax-profiles.service");
 
 async function listTaxProfilesHandler(_req, res) {
   const result = await fetchTaxProfiles();
@@ -10,7 +10,14 @@ async function createTaxProfileHandler(req, res) {
   res.status(201).json(result);
 }
 
+async function updateTaxProfileHandler(req, res) {
+  const result = await updateTaxProfile(req.params.id, req.body);
+  if (!result) return res.status(404).json({ error: "Tax profile not found" });
+  res.json(result);
+}
+
 module.exports = {
   listTaxProfilesHandler,
-  createTaxProfileHandler
+  createTaxProfileHandler,
+  updateTaxProfileHandler,
 };

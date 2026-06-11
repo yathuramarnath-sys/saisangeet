@@ -1059,7 +1059,7 @@ export function MenuPage() {
     try {
       const result = await api.post("/menu/auto-number");
       alert(`✅ Done! ${result.assigned} items numbered.`);
-      await loadMenu();
+      await reloadMenu();
     } catch (err) {
       alert("Error: " + (err.message || "Failed to auto-number items"));
     } finally {

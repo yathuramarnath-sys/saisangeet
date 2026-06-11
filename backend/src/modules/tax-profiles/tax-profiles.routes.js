@@ -5,7 +5,8 @@ const { requirePermission } = require("../../middleware/require-permission");
 const { asyncHandler } = require("../../utils/async-handler");
 const {
   listTaxProfilesHandler,
-  createTaxProfileHandler
+  createTaxProfileHandler,
+  updateTaxProfileHandler,
 } = require("./tax-profiles.controller");
 
 const taxProfilesRouter = express.Router();
@@ -16,6 +17,12 @@ taxProfilesRouter.post(
   requireAuth,
   requirePermission("tax.manage"),
   asyncHandler(createTaxProfileHandler)
+);
+taxProfilesRouter.patch(
+  "/:id",
+  requireAuth,
+  requirePermission("tax.manage"),
+  asyncHandler(updateTaxProfileHandler)
 );
 
 module.exports = {

@@ -15,19 +15,19 @@ const {
 const discountsRouter = express.Router();
 
 discountsRouter.get("/", requireAuth, asyncHandler(listDiscountSettingsHandler));
-discountsRouter.post("/", requireAuth, requirePermission("reports.view"), asyncHandler(createDiscountRuleHandler));
-discountsRouter.patch("/:ruleId", requireAuth, requirePermission("reports.view"), asyncHandler(updateDiscountRuleHandler));
-discountsRouter.delete("/:ruleId", requireAuth, requirePermission("reports.view"), asyncHandler(deleteDiscountRuleHandler));
+discountsRouter.post("/", requireAuth, requirePermission("discounts.manage"), asyncHandler(createDiscountRuleHandler));
+discountsRouter.patch("/:ruleId", requireAuth, requirePermission("discounts.manage"), asyncHandler(updateDiscountRuleHandler));
+discountsRouter.delete("/:ruleId", requireAuth, requirePermission("discounts.manage"), asyncHandler(deleteDiscountRuleHandler));
 discountsRouter.patch(
   "/approval/:policyId",
   requireAuth,
-  requirePermission("reports.view"),
+  requirePermission("discounts.manage"),
   asyncHandler(updateDiscountApprovalPolicyHandler)
 );
 discountsRouter.patch(
   "/defaults/config",
   requireAuth,
-  requirePermission("reports.view"),
+  requirePermission("discounts.manage"),
   asyncHandler(updateDiscountDefaultsHandler)
 );
 
