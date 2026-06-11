@@ -95,25 +95,38 @@ async function createOutlet(payload) {
 
 async function updateOutletSettings(id, payload) {
   let updatedOutlet = null;
+  let oldName = null;
 
   // Use updateOwnerSetupDataNow (awaitable Postgres write) so outlet settings like
   // gstTreatment, showGstBreakdown etc. survive a Railway server restart immediately.
   // Previously updateOwnerSetupData (fire-and-forget) could lose changes if the
   // server restarted before the async Postgres write completed.
-  await updateOwnerSetupDataNow((current) => ({
-    ...current,
-    outlets: current.outlets.map((outlet) => {
-      if (outlet.id !== id) {
-        return outlet;
-      }
-
-      updatedOutlet = {
-        ...outlet,
-        ...payload
-      };
+  await updateOwnerSetupDataNow((current) => {
+    const outlets = current.outlets.map((outlet) => {
+      if (outlet.id !== id) return outlet;
+      oldName = outlet.name;
+      updatedOutlet = { ...outlet, ...payload };
       return updatedOutlet;
-    })
-  }));
+    });
+
+    // If the outlet was renamed, rewrite outletAvailability entries in all menu items
+    // so the owner console still shows items as assigned to the renamed outlet.
+    const nameChanged = payload.name && oldName && payload.name !== oldName;
+    const menuItems = nameChanged
+      ? (current.menu?.items || []).map(item => ({
+          ...item,
+          outletAvailability: (item.outletAvailability || []).map(a =>
+            a.outlet === oldName ? { ...a, outlet: payload.name } : a
+          )
+        }))
+      : current.menu?.items;
+
+    return {
+      ...current,
+      outlets,
+      menu: nameChanged ? { ...current.menu, items: menuItems } : current.menu,
+    };
+  });
 
   return updatedOutlet || null;
 }
