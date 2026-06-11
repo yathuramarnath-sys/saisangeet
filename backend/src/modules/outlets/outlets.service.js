@@ -109,22 +109,40 @@ async function updateOutletSettings(id, payload) {
       return updatedOutlet;
     });
 
-    // If the outlet was renamed, rewrite outletAvailability entries in all menu items
-    // so the owner console still shows items as assigned to the renamed outlet.
+    // When outlet is renamed, cascade the new name to every place that references
+    // the old name: menu item availability, linked devices, and staff assignments.
     const nameChanged = payload.name && oldName && payload.name !== oldName;
-    const menuItems = nameChanged
-      ? (current.menu?.items || []).map(item => ({
-          ...item,
-          outletAvailability: (item.outletAvailability || []).map(a =>
-            a.outlet === oldName ? { ...a, outlet: payload.name } : a
-          )
-        }))
-      : current.menu?.items;
+
+    if (!nameChanged) {
+      return { ...current, outlets };
+    }
+
+    const menuItems = (current.menu?.items || []).map(item => ({
+      ...item,
+      outletAvailability: (item.outletAvailability || []).map(a =>
+        a.outlet === oldName ? { ...a, outlet: payload.name } : a
+      )
+    }));
+
+    const devices = (current.devices || []).map(d =>
+      d.outletName === oldName ? { ...d, outletName: payload.name } : d
+    );
+
+    const users = (current.users || []).map(u =>
+      u.outletName === oldName ? { ...u, outletName: payload.name } : u
+    );
+
+    const discounts = (current.discounts || []).map(disc =>
+      disc.outletScope === oldName ? { ...disc, outletScope: payload.name } : disc
+    );
 
     return {
       ...current,
       outlets,
-      menu: nameChanged ? { ...current.menu, items: menuItems } : current.menu,
+      menu:      { ...current.menu, items: menuItems },
+      devices,
+      users,
+      discounts,
     };
   });
 
