@@ -95,25 +95,56 @@ async function createOutlet(payload) {
 
 async function updateOutletSettings(id, payload) {
   let updatedOutlet = null;
+  let oldName = null;
 
   // Use updateOwnerSetupDataNow (awaitable Postgres write) so outlet settings like
   // gstTreatment, showGstBreakdown etc. survive a Railway server restart immediately.
   // Previously updateOwnerSetupData (fire-and-forget) could lose changes if the
   // server restarted before the async Postgres write completed.
-  await updateOwnerSetupDataNow((current) => ({
-    ...current,
-    outlets: current.outlets.map((outlet) => {
-      if (outlet.id !== id) {
-        return outlet;
-      }
-
-      updatedOutlet = {
-        ...outlet,
-        ...payload
-      };
+  await updateOwnerSetupDataNow((current) => {
+    const outlets = current.outlets.map((outlet) => {
+      if (outlet.id !== id) return outlet;
+      oldName = outlet.name;
+      updatedOutlet = { ...outlet, ...payload };
       return updatedOutlet;
-    })
-  }));
+    });
+
+    // When outlet is renamed, cascade the new name to every place that references
+    // the old name: menu item availability, linked devices, and staff assignments.
+    const nameChanged = payload.name && oldName && payload.name !== oldName;
+
+    if (!nameChanged) {
+      return { ...current, outlets };
+    }
+
+    const menuItems = (current.menu?.items || []).map(item => ({
+      ...item,
+      outletAvailability: (item.outletAvailability || []).map(a =>
+        a.outlet === oldName ? { ...a, outlet: payload.name } : a
+      )
+    }));
+
+    const devices = (current.devices || []).map(d =>
+      d.outletName === oldName ? { ...d, outletName: payload.name } : d
+    );
+
+    const users = (current.users || []).map(u =>
+      u.outletName === oldName ? { ...u, outletName: payload.name } : u
+    );
+
+    const discounts = (current.discounts || []).map(disc =>
+      disc.outletScope === oldName ? { ...disc, outletScope: payload.name } : disc
+    );
+
+    return {
+      ...current,
+      outlets,
+      menu:      { ...current.menu, items: menuItems },
+      devices,
+      users,
+      discounts,
+    };
+  });
 
   return updatedOutlet || null;
 }
