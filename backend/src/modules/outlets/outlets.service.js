@@ -79,6 +79,8 @@ async function createOutlet(payload) {
     workAreas: payload.workAreas || ["AC", "Non-AC", "Self Service"],
     tables: payload.tables || [],
     reportEmail: payload.reportEmail || "",
+    fssaiNo:     payload.fssaiNo    || "",
+    upiId:       payload.upiId      || "",
     defaultTaxProfileId: payload.defaultTaxProfileId || null,
     receiptTemplateId: payload.receiptTemplateId || null
   };

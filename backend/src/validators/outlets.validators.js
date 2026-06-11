@@ -53,6 +53,11 @@ const updateOutletRules = [
     .isEmail().withMessage("Report email must be a valid email address")
     .isLength({ max: 200 }).withMessage("Report email too long"),
 
+  body("fssaiNo")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 20 }).withMessage("FSSAI number must be 14 digits"),
+
   body("upiId")
     .optional({ checkFalsy: true })
     .trim()
