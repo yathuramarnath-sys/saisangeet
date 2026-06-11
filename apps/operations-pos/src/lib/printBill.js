@@ -276,7 +276,7 @@ export async function printBill(order, items, outletOrName, options = {}) {
   <table class="items-tbl">
     <tbody>
       <tr><td colspan="3" class="sum-lbl">Subtotal</td><td class="col-amt sum-val">&#8377;${subtotal.toFixed(2)}</td></tr>
-      ${showDiscountOnBill && discount > 0 ? `<tr><td colspan="3" class="sum-lbl disc-lbl">Discount (${discountPct}%)</td><td class="col-amt sum-val disc-val">&#8722;&#8377;${discount.toFixed(2)}</td></tr>` : ""}
+      ${showDiscountOnBill && discount > 0 ? `<tr><td colspan="3" class="sum-lbl disc-lbl">Discount (${discountPct}%)</td><td class="col-amt sum-val disc-val">${discount.toFixed(2)}</td></tr>` : ""}
       ${showGstBreakdown
         ? taxRows.map(t => `
       <tr><td colspan="3" class="sum-lbl">CGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.cgst.toFixed(2)}</td></tr>
