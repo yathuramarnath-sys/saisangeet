@@ -1,23 +1,23 @@
 {
   "pos": {
-    "version": "1.5.2",
+    "version": "1.6.2",
     "label": "POS Terminal",
-    "changelog": "UPI QR on bill, online order food-ready button, prep time selector, UrbanPiper improvements",
+    "changelog": "FSSAI + UPI QR on bill, shift terminal lock, discount display fix, outlet rename cascade",
     "whatsNew": [
-      "🔲 UPI QR code printed on bill — scan & pay instantly",
-      "✅ Food Ready button for online orders (Swiggy/Zomato)",
-      "⏱️ Prep time selector (15/20/30/45 min) when accepting online orders",
-      "📦 Online orders persist across server restarts",
-      "🔄 Sold-out toggle syncs to UrbanPiper automatically"
+      "🧾 FSSAI number and UPI QR code now print correctly on receipts",
+      "🔒 Terminal locked if previous shift is still open — prevents duplicate shifts",
+      "💰 Discount amount no longer truncated on printed bills",
+      "🏷️ Renaming an outlet now updates all linked devices, staff and menu items",
+      "🔄 Auto-update reliability improvements"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.5.2"
+      "3. Log in with your cashier PIN — you are on v1.6.2"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-06-04"
+    "releaseDate": "2026-06-11"
   },
   "captain": {
     "version": "1.25",
