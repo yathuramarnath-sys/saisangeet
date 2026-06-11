@@ -405,7 +405,7 @@ export function OutletsPage() {
     try {
       await updateOutlet(editingOutletId, {
         name: editDraft.name, city: editDraft.city, state: editDraft.state,
-        gstin: editDraft.gstin, fssaiNo: editDraft.fssaiNo,
+        gstin: editDraft.gstin, fssaiNo: editDraft.fssaiNo, upiId: editDraft.upiId || "",
         defaultTaxProfileId: editDraft.defaultTaxProfileId,
         receiptTemplateId:   editDraft.receiptTemplateId,
         reportEmail:  editDraft.reportEmail,
