@@ -156,6 +156,20 @@ function RbSection({ title, icon, open, onToggle, children }) {
   );
 }
 
+// Map backend field names (cgstRate/sgstRate…) → frontend names (cgst/sgst…)
+function apiToProfile(tp) {
+  return {
+    id:        tp.id,
+    name:      tp.name,
+    cgst:      tp.cgstRate    ?? tp.cgst    ?? 0,
+    sgst:      tp.sgstRate    ?? tp.sgst    ?? 0,
+    igst:      tp.igstRate    ?? tp.igst    ?? 0,
+    cess:      tp.cessRate    ?? tp.cess    ?? 0,
+    inclusive: tp.isInclusive ?? tp.inclusive ?? false,
+    isDefault: tp.isDefault   ?? false,
+  };
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export function TaxesReceiptsPage() {
   const [profiles,   setProfiles]   = useState(() => load(TAX_SETTINGS_KEY + "_profiles", defaultTaxProfiles));
@@ -171,6 +185,13 @@ export function TaxesReceiptsPage() {
   const [open, setOpen] = useState({
     branding: true, itemsTotal: true, discount: true, business: true, additionalText: false,
   });
+
+  // ── Load tax profiles from backend on mount ──────────────────────────────────
+  useEffect(() => {
+    api.get("/tax-profiles")
+      .then(list => { if (list?.length) setProfiles(list.map(apiToProfile)); })
+      .catch(() => {});
+  }, []);
 
   // ── Load receipt settings from backend outlet on mount ──────────────────────
   useEffect(() => {
@@ -242,12 +263,22 @@ export function TaxesReceiptsPage() {
   }
 
   function startEditProfile(p) { setEditProf(p.id); setProfDraft({ ...p }); }
-  function saveProfile() {
-    const next = profiles.map(p => p.id === profDraft.id ? profDraft : p);
-    setProfiles(next);
-    localStorage.setItem(TAX_SETTINGS_KEY + "_profiles", JSON.stringify(next));
-    setEditProf(null);
-    flash("Tax profile updated.");
+  async function saveProfile() {
+    try {
+      const updated = await api.patch(`/tax-profiles/${profDraft.id}`, {
+        name:        profDraft.name,
+        cgstRate:    profDraft.cgst,
+        sgstRate:    profDraft.sgst,
+        igstRate:    profDraft.igst,
+        cessRate:    profDraft.cess,
+        isInclusive: profDraft.inclusive,
+      });
+      setProfiles(ps => ps.map(p => p.id === profDraft.id ? apiToProfile(updated) : p));
+      setEditProf(null);
+      flash("Tax profile updated.");
+    } catch {
+      flash("⚠️ Could not save — please try again.");
+    }
   }
 
   // ── Preview data (uses live outlet data) ────────────────────────────────────

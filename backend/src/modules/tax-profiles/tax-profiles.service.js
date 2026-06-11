@@ -1,4 +1,4 @@
-const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { getOwnerSetupData, updateOwnerSetupData, updateOwnerSetupDataNow } = require("../../data/owner-setup-store");
 
 async function fetchTaxProfiles() {
   return getOwnerSetupData().taxProfiles;
@@ -29,7 +29,32 @@ async function createTaxProfile(payload) {
   return profile;
 }
 
+async function updateTaxProfile(id, payload) {
+  let updatedProfile = null;
+
+  await updateOwnerSetupDataNow((current) => ({
+    ...current,
+    taxProfiles: current.taxProfiles.map((tp) => {
+      if (tp.id !== id) return tp;
+      updatedProfile = {
+        ...tp,
+        name:        payload.name        ?? tp.name,
+        cgstRate:    payload.cgstRate    !== undefined ? Number(payload.cgstRate)    : tp.cgstRate,
+        sgstRate:    payload.sgstRate    !== undefined ? Number(payload.sgstRate)    : tp.sgstRate,
+        igstRate:    payload.igstRate    !== undefined ? Number(payload.igstRate)    : tp.igstRate,
+        cessRate:    payload.cessRate    !== undefined ? Number(payload.cessRate)    : tp.cessRate,
+        isInclusive: payload.isInclusive !== undefined ? Boolean(payload.isInclusive): tp.isInclusive,
+        isDefault:   payload.isDefault   !== undefined ? Boolean(payload.isDefault)  : tp.isDefault,
+      };
+      return updatedProfile;
+    })
+  }));
+
+  return updatedProfile || null;
+}
+
 module.exports = {
   fetchTaxProfiles,
-  createTaxProfile
+  createTaxProfile,
+  updateTaxProfile,
 };

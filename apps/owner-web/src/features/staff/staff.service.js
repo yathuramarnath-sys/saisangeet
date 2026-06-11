@@ -1,6 +1,5 @@
 import { api } from "../../lib/api";
 import { staffSeedData } from "./staff.seed";
-import { loadRestaurantState } from "../../../../../packages/shared-types/src/mockRestaurantStore.js";
 import { sharedAreas } from "../../../../../packages/shared-types/src/restaurantFlow.js";
 
 const permissionCatalog = {
@@ -334,7 +333,7 @@ function buildAlerts(staff, roles, permissionPolicies) {
 
 export async function fetchStaffData() {
   try {
-    const state = loadRestaurantState();
+    const state = {};
 
     const [roles, permissions, users, outlets, discountSettings] = await Promise.all([
       api.get("/roles"),
