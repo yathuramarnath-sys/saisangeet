@@ -2571,6 +2571,10 @@ export default function App() {
         outletName={outlet?.name}
         cashierName={cashierName}
         onShiftStarted={handleShiftStarted}
+        onEndPreviousShift={(staleShift) => {
+          setActiveShift(staleShift);
+          setShowCloseShift(true);
+        }}
       />
     );
   }
@@ -2759,7 +2763,10 @@ export default function App() {
             <span className="pab-label">End Shift</span>
           </button>
           <button type="button" className="pab-btn logout-btn"
-            onClick={() => { setCashierName(null); setCashierPin(""); setActiveShift(null); setSelectedTableId(null); }}
+            onClick={() => {
+              if (activeShift) { showToast("End your shift before exiting"); setShowCloseShift(true); return; }
+              setCashierName(null); setCashierPin(""); setSelectedTableId(null);
+            }}
             title="Logout">
             <span className="pab-label">Exit</span>
           </button>
@@ -2845,7 +2852,10 @@ export default function App() {
               <button type="button" className="pos-drawer-item pos-drawer-danger" onClick={() => { setShowCloseShift(true); setShowDrawer(false); }}>
                 <span className="pos-drawer-ico">🔒</span><span>End Shift</span>
               </button>
-              <button type="button" className="pos-drawer-item pos-drawer-danger" onClick={() => { setCashierName(null); setCashierPin(""); setActiveShift(null); setSelectedTableId(null); setShowDrawer(false); }}>
+              <button type="button" className="pos-drawer-item pos-drawer-danger" onClick={() => {
+                if (activeShift) { showToast("End your shift before exiting"); setShowCloseShift(true); setShowDrawer(false); return; }
+                setCashierName(null); setCashierPin(""); setSelectedTableId(null); setShowDrawer(false);
+              }}>
                 <span className="pos-drawer-ico">🚪</span><span>Exit POS</span>
               </button>
             </div>

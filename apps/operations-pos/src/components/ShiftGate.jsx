@@ -2,6 +2,13 @@ import { useState } from "react";
 
 const SESSIONS = ["Breakfast", "Lunch", "Dinner", "Full Day"];
 
+function loadStaleOpenShift() {
+  try {
+    const shifts = JSON.parse(localStorage.getItem("pos_active_shifts") || "[]");
+    return (Array.isArray(shifts) ? shifts : []).find(s => s.status === "open") || null;
+  } catch { return null; }
+}
+
 function loadStaffNames() {
   try {
     const saved = JSON.parse(localStorage.getItem("pos_staff") || "null");
@@ -35,10 +42,11 @@ function NumPad({ value, onChange, maxLen = 6 }) {
 }
 
 /* ── ShiftGate ────────────────────────────────────────────────────────────── */
-export function ShiftGate({ outletName, cashierName, onShiftStarted }) {
+export function ShiftGate({ outletName, cashierName, onShiftStarted, onEndPreviousShift }) {
   const staffNames = loadStaffNames();
   const defaultCashier = cashierName || staffNames[0] || "";
 
+  const [stalePrevShift] = useState(() => loadStaleOpenShift());
   const [session,     setSession]     = useState("");
   const [cashier,     setCashier]     = useState(defaultCashier);
   const [openingCash, setOpeningCash] = useState("");
@@ -48,6 +56,13 @@ export function ShiftGate({ outletName, cashierName, onShiftStarted }) {
   });
 
   function handleStart() {
+    let existing = [];
+    try { existing = JSON.parse(localStorage.getItem("pos_active_shifts") || "[]") || []; }
+    catch {}
+
+    // Guard: never create a second open shift on this terminal
+    if (existing.some(s => s.status === "open")) return;
+
     const shift = {
       id:          `shift-${Date.now()}`,
       cashier,
@@ -61,11 +76,60 @@ export function ShiftGate({ outletName, cashierName, onShiftStarted }) {
       status:      "open"
     };
 
-    let existing = [];
-    try { existing = JSON.parse(localStorage.getItem("pos_active_shifts") || "[]") || []; }
-    catch {}
     localStorage.setItem("pos_active_shifts", JSON.stringify([...existing, shift]));
     onShiftStarted(shift);
+  }
+
+  // ── Terminal Locked: previous shift not closed ───────────────────────────
+  if (stalePrevShift) {
+    const startedTime = stalePrevShift.startedAt
+      ? new Date(stalePrevShift.startedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+      : "";
+    return (
+      <div className="sg-overlay">
+        <div className="sg-card" style={{ gap: 20 }}>
+          <div className="sg-brand">
+            <div className="sg-brand-icon">
+              <img src="/plato-pos-logo.svg" alt="Plato POS" style={{ width: 48, height: 48, objectFit: "contain" }} />
+            </div>
+            <div className="sg-brand-text">
+              <h2>{outletName || "Plato POS"}</h2>
+              <p>Terminal Locked</p>
+            </div>
+          </div>
+
+          <div style={{
+            background: "#FEF2F2", border: "1.5px solid #FECACA",
+            borderRadius: 12, padding: "16px 18px", textAlign: "center"
+          }}>
+            <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>🔒</div>
+            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#991B1B", marginBottom: 4 }}>
+              Shift Open — {stalePrevShift.cashier}
+            </div>
+            <div style={{ fontSize: "0.8rem", color: "#B91C1C" }}>
+              {stalePrevShift.session}{startedTime ? ` · Started ${startedTime}` : ""}
+            </div>
+          </div>
+
+          <p style={{ fontSize: "0.82rem", color: "#6B7280", textAlign: "center", lineHeight: 1.5 }}>
+            The previous cashier's shift is still open.<br />
+            End that shift before starting a new one.
+          </p>
+
+          <button
+            type="button"
+            className="sg-start-btn"
+            style={{ background: "#DC2626" }}
+            onClick={() => onEndPreviousShift?.(stalePrevShift)}
+          >
+            End Previous Shift
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
