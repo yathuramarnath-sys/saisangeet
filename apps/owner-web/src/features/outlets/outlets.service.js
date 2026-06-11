@@ -19,6 +19,8 @@ function normalizeOutlet(outlet, appConfig) {
     city: outlet.city || "Unknown",
     state: outlet.state || "Unknown",
     gstin: outlet.gstin || "",
+    fssaiNo: outlet.fssaiNo || "",
+    upiId: outlet.upiId || "",
     isActive: outlet.isActive ?? true,
     hours,
     services,
