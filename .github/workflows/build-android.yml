@@ -62,6 +62,9 @@ jobs:
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > apps/waiter-mobile/android/local.properties
 
+      - name: Remove local Java path from gradle.properties
+        run: sed -i '/org.gradle.java.home/d' apps/waiter-mobile/android/gradle.properties
+
       - name: Build release APK
         working-directory: apps/waiter-mobile/android
         run: ./gradlew assembleRelease --no-daemon
@@ -141,6 +144,9 @@ jobs:
 
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > apps/kitchen-display/android/local.properties
+
+      - name: Remove local Java path from gradle.properties
+        run: sed -i '/org.gradle.java.home/d' apps/kitchen-display/android/gradle.properties
 
       - name: Build release APK
         working-directory: apps/kitchen-display/android
