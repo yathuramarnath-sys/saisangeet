@@ -1,23 +1,23 @@
 {
   "pos": {
-    "version": "1.6.2",
+    "version": "1.6.3",
     "label": "POS Terminal",
-    "changelog": "FSSAI + UPI QR on bill, shift terminal lock, discount display fix, outlet rename cascade",
+    "changelog": "FSSAI and UPI QR now print on assigned thermal printer (ESC/POS fix)",
     "whatsNew": [
-      "🧾 FSSAI number and UPI QR code now print correctly on receipts",
+      "🧾 FSSAI number now prints on assigned thermal printer receipts",
+      "📱 UPI QR code now prints natively on assigned thermal printer — scan-to-pay works",
       "🔒 Terminal locked if previous shift is still open — prevents duplicate shifts",
       "💰 Discount amount no longer truncated on printed bills",
-      "🏷️ Renaming an outlet now updates all linked devices, staff and menu items",
-      "🔄 Auto-update reliability improvements"
+      "🏷️ Renaming an outlet now updates all linked devices, staff and menu items"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.6.2"
+      "3. Log in with your cashier PIN — you are on v1.6.3"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-06-11"
+    "releaseDate": "2026-06-12"
   },
   "captain": {
     "version": "1.25",

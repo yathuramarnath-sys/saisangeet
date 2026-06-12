@@ -417,6 +417,22 @@ ipcMain.handle("auto-install-printer", async (_event, { ip, port = 9100, display
 // ── Shared: HTML → ESC/POS buffer ────────────────────────────────────────────
 // Loads the receipt HTML in a hidden window, extracts structured data via JS,
 // and builds the ESC/POS command string.  Returns { ok, buffer } or { ok:false, error }.
+// ESC/POS native QR code command (GS ( k sequence, standard model-2 QR)
+function escPosQr(text, size) {
+  size = (size >= 1 && size <= 8) ? size : 4;
+  const GS       = '\x1D';
+  const dataLen  = Buffer.byteLength(text, 'utf8') + 3; // +3 for cn+fn+m
+  const dL       = String.fromCharCode(dataLen & 0xff);
+  const dH       = String.fromCharCode((dataLen >> 8) & 0xff);
+  return (
+    GS + '(k\x04\x001A2\x00' +                                     // select model 2
+    GS + `(k\x03\x001C${String.fromCharCode(size)}` +              // set module size
+    GS + '(k\x03\x001E1' +                                         // error correction M
+    GS + '(k' + dL + dH + '1P0' + text +                          // store data
+    GS + '(k\x03\x001Q0'                                           // print
+  );
+}
+
 async function buildEscPosFromHtml(html) {
   return new Promise((resolve) => {
     const win = new BrowserWindow({
@@ -560,6 +576,7 @@ async function buildEscPosFromHtml(html) {
               phone,
               gstin,
               fssai:         q2('.outlet-fssai')?.innerText?.trim() || '',
+              upiId:         q2('.upi-id-text')?.innerText?.trim() || '',
               seatLabel:     q2('.seat-tag')?.innerText?.trim() || '',
               isTaxInvoice,
               isCreditBill,
@@ -772,7 +789,17 @@ async function buildEscPosFromHtml(html) {
           // Grand total — big centred
           cmd += CENTER + BOLD1 + BIG + 'TOTAL  ' + stripRs(data.total || '') + NORMAL + BOLD0 + LF;
           cmd += DASH_BILL + LF;
-          cmd += CENTER + 'Please pay at the counter' + LF;
+          if (data.upiId) {
+            const totalNum  = (data.total || '').replace(/[^\d.]/g, '');
+            const upiUri    = `upi://pay?pa=${encodeURIComponent(data.upiId)}&pn=${encodeURIComponent(data.outlet || '')}&am=${totalNum}&cu=INR&tn=${encodeURIComponent('Bill #' + (data.billNo || ''))}`;
+            cmd += CENTER + 'Scan & Pay via UPI' + LF;
+            cmd += escPosQr(upiUri, 6);
+            cmd += CENTER + safeB(data.upiId) + LF;
+            cmd += DASH_BILL + LF;
+            cmd += CENTER + 'Scan the QR above to pay' + LF;
+          } else {
+            cmd += CENTER + 'Please pay at the counter' + LF;
+          }
           cmd += CENTER + safeB(data.footer || 'Thank you for dining with us!') + LF;
         }
 
