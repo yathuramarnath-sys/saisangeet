@@ -54,7 +54,7 @@ jobs:
 
       - name: Sync Capacitor (copies web assets into android/)
         working-directory: apps/waiter-mobile
-        run: npx cap sync android
+        run: ./node_modules/.bin/cap sync android
 
       - name: Decode keystore
         run: echo "${{ secrets.CAPTAIN_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-captain.jks
@@ -134,7 +134,7 @@ jobs:
 
       - name: Sync Capacitor (copies web assets into android/)
         working-directory: apps/kitchen-display
-        run: npx cap sync android
+        run: ./node_modules/.bin/cap sync android
 
       - name: Decode keystore
         run: echo "${{ secrets.KDS_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-kds.jks
