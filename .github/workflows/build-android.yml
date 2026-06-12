@@ -1,0 +1,174 @@
+name: Build Android APKs
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Upload APKs to latest GitHub Release?"
+        required: false
+        default: "yes"
+        type: choice
+        options:
+          - "yes"
+          - "no"
+
+jobs:
+  build-captain-android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Android SDK platform 36
+        run: |
+          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-captain-${{ hashFiles('apps/waiter-mobile/package.json') }}
+          restore-keys: npm-captain-
+
+      - name: Install Captain dependencies
+        working-directory: apps/waiter-mobile
+        run: npm install --no-workspaces
+
+      - name: Build Vite app
+        working-directory: apps/waiter-mobile
+        run: npm run build
+
+      - name: Sync Capacitor (copies web assets into android/)
+        working-directory: apps/waiter-mobile
+        run: npx cap sync android
+
+      - name: Decode keystore
+        run: echo "${{ secrets.CAPTAIN_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-captain.jks
+
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > apps/waiter-mobile/android/local.properties
+
+      - name: Build release APK
+        working-directory: apps/waiter-mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+        env:
+          KEYSTORE_PATH: /tmp/dinex-captain.jks
+          KEYSTORE_PASSWORD: Dinex@123
+          KEY_ALIAS: dinex
+          KEY_PASSWORD: Dinex@123
+
+      - name: Rename APK
+        run: |
+          mv apps/waiter-mobile/android/app/build/outputs/apk/release/app-release.apk \
+             apps/waiter-mobile/android/app/build/outputs/apk/release/plato-captain.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plato-captain-apk
+          path: apps/waiter-mobile/android/app/build/outputs/apk/release/plato-captain.apk
+          retention-days: 30
+
+      - name: Upload to latest GitHub Release
+        if: ${{ inputs.release == 'yes' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName' --repo ${{ github.repository }})
+          gh release upload "$LATEST_TAG" \
+            "apps/waiter-mobile/android/app/build/outputs/apk/release/plato-captain.apk" \
+            --repo ${{ github.repository }} --clobber
+
+  build-kds-android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Android SDK platform 36
+        run: |
+          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-kds-${{ hashFiles('apps/kitchen-display/package.json') }}
+          restore-keys: npm-kds-
+
+      - name: Install KDS dependencies
+        working-directory: apps/kitchen-display
+        run: npm install --no-workspaces
+
+      - name: Build Vite app
+        working-directory: apps/kitchen-display
+        run: npm run build
+
+      - name: Sync Capacitor (copies web assets into android/)
+        working-directory: apps/kitchen-display
+        run: npx cap sync android
+
+      - name: Decode keystore
+        run: echo "${{ secrets.KDS_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-kds.jks
+
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > apps/kitchen-display/android/local.properties
+
+      - name: Build release APK
+        working-directory: apps/kitchen-display/android
+        run: ./gradlew assembleRelease --no-daemon
+        env:
+          KEYSTORE_PATH: /tmp/dinex-kds.jks
+          KEYSTORE_PASSWORD: Dinex@123
+          KEY_ALIAS: dinex
+          KEY_PASSWORD: Dinex@123
+
+      - name: Rename APK
+        run: |
+          mv apps/kitchen-display/android/app/build/outputs/apk/release/app-release.apk \
+             apps/kitchen-display/android/app/build/outputs/apk/release/plato-kds.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plato-kds-apk
+          path: apps/kitchen-display/android/app/build/outputs/apk/release/plato-kds.apk
+          retention-days: 30
+
+      - name: Upload to latest GitHub Release
+        if: ${{ inputs.release == 'yes' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName' --repo ${{ github.repository }})
+          gh release upload "$LATEST_TAG" \
+            "apps/kitchen-display/android/app/build/outputs/apk/release/plato-kds.apk" \
+            --repo ${{ github.repository }} --clobber
