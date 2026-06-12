@@ -219,7 +219,7 @@ export async function printBill(order, items, outletOrName, options = {}) {
     <div class="outlet-name">${outletName || "Restaurant"}</div>
     ${showAddress && (outletAddr1 || outletAddr2 || outletCity || outletState) ? `<div class="outlet-addr">${[outletAddr1, outletAddr2, outletCity, outletState].filter(Boolean).join(", ")}</div>` : ""}
     ${(showPhone && outletPhone) || (showGstin && outletGstin) ? `<div class="outlet-meta">${showPhone && outletPhone ? `Ph: ${outletPhone}` : ""}${showPhone && outletPhone && showGstin && outletGstin ? " &nbsp;|&nbsp; " : ""}${showGstin && outletGstin ? `GSTIN: ${outletGstin}` : ""}</div>` : ""}
-    ${outletFssai ? `<div class="outlet-meta">FSSAI: ${outletFssai}</div>` : ""}
+    ${outletFssai ? `<div class="outlet-meta">FSSAI: <span class="outlet-fssai">${outletFssai}</span></div>` : ""}
     ${seatLabel ? `<div><span class="seat-tag">${seatLabel}</span></div>` : ""}
   </div>
   ${isTaxInvoice ? `<div class="tax-invoice-badge">★ TAX INVOICE ★</div>` : (creditCustomer ? `<div style="text-align:center"><span class="credit-badge">CREDIT BILL</span></div>` : "")}
@@ -295,7 +295,7 @@ export async function printBill(order, items, outletOrName, options = {}) {
   <div style="text-align:center;margin:8px 0 4px;">
     <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Scan &amp; Pay via UPI</div>
     <img src="${upiQrDataUrl}" style="width:120px;height:120px;display:block;margin:0 auto;" alt="UPI QR" />
-    <div style="font-size:9px;color:#555;margin-top:4px;">${outlet.upiId}</div>
+    <div class="upi-id-text" style="font-size:9px;color:#555;margin-top:4px;">${outlet.upiId}</div>
   </div>` : ""}
 
   <!-- Footer -->
