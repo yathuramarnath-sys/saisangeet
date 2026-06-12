@@ -23,6 +23,7 @@ android {
             storePassword System.getenv("KEYSTORE_PASSWORD") ?: "Dinex@123"
             keyAlias      System.getenv("KEY_ALIAS") ?: "dinex"
             keyPassword   System.getenv("KEY_PASSWORD") ?: "Dinex@123"
+            storeType     "PKCS12"
         }
     }
     buildTypes {
