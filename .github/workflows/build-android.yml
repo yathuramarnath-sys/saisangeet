@@ -57,7 +57,20 @@ jobs:
         run: ./node_modules/.bin/cap sync android
 
       - name: Decode keystore
-        run: echo "${{ secrets.CAPTAIN_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-captain.jks
+        run: |
+          echo "${{ secrets.CAPTAIN_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-captain-orig.jks
+          keytool -importkeystore \
+            -srckeystore /tmp/dinex-captain-orig.jks \
+            -destkeystore /tmp/dinex-captain.jks \
+            -deststoretype PKCS12 \
+            -J-Dkeystore.pkcs12.legacy \
+            -srcstorepass "Dinex@123" \
+            -deststorepass "Dinex@123" \
+            -srcalias dinex \
+            -destalias dinex \
+            -srckeypass "Dinex@123" \
+            -destkeypass "Dinex@123" \
+            -noprompt
 
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > apps/waiter-mobile/android/local.properties
@@ -140,7 +153,20 @@ jobs:
         run: ./node_modules/.bin/cap sync android
 
       - name: Decode keystore
-        run: echo "${{ secrets.KDS_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-kds.jks
+        run: |
+          echo "${{ secrets.KDS_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-kds-orig.jks
+          keytool -importkeystore \
+            -srckeystore /tmp/dinex-kds-orig.jks \
+            -destkeystore /tmp/dinex-kds.jks \
+            -deststoretype PKCS12 \
+            -J-Dkeystore.pkcs12.legacy \
+            -srcstorepass "Dinex@123" \
+            -deststorepass "Dinex@123" \
+            -srcalias dinex \
+            -destalias dinex \
+            -srckeypass "Dinex@123" \
+            -destkeypass "Dinex@123" \
+            -noprompt
 
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > apps/kitchen-display/android/local.properties
