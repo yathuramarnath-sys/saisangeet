@@ -20,11 +20,13 @@
     "releaseDate": "2026-06-12"
   },
   "captain": {
-    "version": "1.25",
+    "version": "1.26",
     "label": "Captain App",
-    "changelog": "Concurrent edit merge fix — local unsent items no longer lost on socket sync",
+    "changelog": "Discount % on bill, GST fix, credit customer name on reprint",
     "whatsNew": [
-      "🔄 Orders no longer lose unsent items when another device updates the table"
+      "💰 Discount now shows percentage and amount on printed bills (e.g. Discount 25% −₹500)",
+      "🧾 GST / CGST / SGST no longer shows 0% on printed bills",
+      "👤 Credit customer name appears correctly on reprinted bills"
     ],
     "installGuide": [
       "1. On Android, go to Settings → Security → Allow Install from Unknown Sources",
@@ -35,7 +37,7 @@
     ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
-    "releaseDate": "2026-05-23"
+    "releaseDate": "2026-06-12"
   },
   "kds": {
     "version": "1.7",
