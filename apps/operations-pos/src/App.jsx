@@ -1049,6 +1049,15 @@ export default function App() {
     setOrders((prev) => ensureOrders(prev, tableAreas, outlet?.name || "Outlet"));
   }, [tableAreas, outlet]);
 
+  // A work-area terminal (e.g. "Self Service", "Sweet Counter") must only ever
+  // reflect ITS OWN assigned area's tables — never tables from other areas like
+  // "AC Dining". "Full Access" terminals (no workArea) keep seeing everything.
+  const workAreaScopedTableAreas = useMemo(() => {
+    const wa = branchConfig?.workArea || "";
+    if (!wa) return tableAreas;
+    return tableAreas.filter((a) => a.name === wa);
+  }, [tableAreas, branchConfig?.workArea]);
+
   // A work-area terminal with no physical tables assigned to it (a pure counter,
   // e.g. "Self Service" or "Bakery Counter") has nothing to pick a table from —
   // send it straight to the billing screen instead of showing an empty table picker.
@@ -1256,14 +1265,6 @@ export default function App() {
   const filteredAreas = activeArea
     ? tableAreas.filter((a) => a.id === activeArea)
     : tableAreas;
-
-  // A work-area terminal (e.g. "Self Service", "Sweet Counter") must only ever
-  // reflect ITS OWN assigned area's tables — never tables from other areas like
-  // "AC Dining". "Full Access" terminals (no workArea) keep seeing everything.
-  const workAreaScopedTableAreas = useMemo(() => {
-    if (!workArea) return tableAreas;
-    return tableAreas.filter((a) => a.name === workArea);
-  }, [tableAreas, workArea]);
 
   const isCounterMode = serviceMode === "takeaway" || serviceMode === "delivery";
 
