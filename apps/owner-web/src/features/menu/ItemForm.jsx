@@ -190,6 +190,35 @@ export function ItemForm({
             </div>
           </div>
         )}
+
+        {/* Area availability — restrict which work areas can sell this item */}
+        {availableAreas.length > 1 && (
+          <div style={{ marginTop: 10 }}>
+            <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 8px" }}>
+              Available in areas — choose which counters can sell this item
+            </p>
+            <div className="menu-outlet-avail-options">
+              <label className={`menu-outlet-chip${!(draft.selectedAreas?.length) ? " selected" : ""}`}>
+                <input type="radio" name="itemAreaScope" checked={!(draft.selectedAreas?.length)}
+                  onChange={() => f("selectedAreas", [])} />
+                <span>✓ All areas</span>
+              </label>
+              {availableAreas.map(area => {
+                const checked = (draft.selectedAreas || []).includes(area);
+                return (
+                  <label key={area} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
+                    <input type="checkbox" checked={checked}
+                      onChange={e => {
+                        const cur = draft.selectedAreas || [];
+                        f("selectedAreas", e.target.checked ? [...cur, area] : cur.filter(a => a !== area));
+                      }} />
+                    <span>{area}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Section 3: Packing Charges ───────────────────────────────── */}

@@ -137,6 +137,8 @@ function buildMenuItemPayload(formValues, category, stationName) {
     salesAvailability: "Available",
     outletAvailability: Array.isArray(formValues.outletAvailability)
       ? formValues.outletAvailability : [],
+    areaAvailability: Array.isArray(formValues.areaAvailability)
+      ? formValues.areaAvailability : [],
     inventoryTracking: buildInventoryTracking(formValues),
     // ── New pricing model ─────────────────────────────────────────────────
     price:       base,          // primary price for POS / Captain App
@@ -231,6 +233,7 @@ function normalizeMenuItems(items) {
         ...entry,
         enabled: menuControls[item.id]?.outletAvailability?.[entry.outlet] ?? entry.enabled
       })) || [],
+    areaAvailability: item.areaAvailability || [],
     inventoryTracking: {
       ...(item.inventoryTracking || {
         enabled: false,
@@ -316,6 +319,7 @@ export async function fetchMenuData() {
         active: index === 0,
         availableFrom: category.availableFrom || "",
         availableTo: category.availableTo || "",
+        areaAvailability: category.areaAvailability || [],
         station: category.station,
         printerTarget: category.printerTarget,
         displayTarget: category.displayTarget
@@ -349,6 +353,7 @@ export async function createMenuCategory(name, options = {}) {
     name,
     availableFrom: options.availableFrom || "",
     availableTo: options.availableTo || "",
+    areaAvailability: Array.isArray(options.areaAvailability) ? options.areaAvailability : [],
     station: "Main kitchen",
     printerTarget: "Kitchen Printer 1",
     displayTarget: "Hot Kitchen Display"
@@ -404,6 +409,8 @@ export async function createCustomMenuItem(formValues) {
       salesAvailability: "Available",
       outletAvailability: Array.isArray(formValues.outletAvailability)
         ? formValues.outletAvailability : [],
+      areaAvailability: Array.isArray(formValues.areaAvailability)
+        ? formValues.areaAvailability : [],
       price:       base,
       basePrice:   base,
       onlinePrice: Number(formValues.onlinePrice || 0),
@@ -468,6 +475,10 @@ export async function updateCustomMenuItem(itemId, formValues) {
             taxMode: "Exclusive",
             taxRate: Number(formValues.taxRate || 0),
             gstLabel: `GST ${Number(formValues.taxRate || 0)}%`,
+            outletAvailability: Array.isArray(formValues.outletAvailability)
+              ? formValues.outletAvailability : item.outletAvailability,
+            areaAvailability: Array.isArray(formValues.areaAvailability)
+              ? formValues.areaAvailability : (item.areaAvailability || []),
             price:       base2,
             basePrice:   base2,
             onlinePrice: Number(formValues.onlinePrice || 0),

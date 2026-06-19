@@ -66,6 +66,7 @@ const COLUMN_ALIASES = {
   allowDecimalQty:    ["allow decimal", "decimal qty", "decimal quantity", "fractional qty", "decimal"],
   manufacturingDate:  ["manufacturing date", "mfg date", "manufacture date", "mfg", "manufactured date", "mfg/manufacturing date"],
   expiryDate:         ["expiry date", "expiry", "exp date", "best before", "best by", "use by", "expiry/best before"],
+  areaAvailability:   ["available areas", "areas", "available area", "work areas", "work area", "sold in areas", "counters"],
 };
 
 function mapHeader(raw) {
@@ -181,6 +182,8 @@ function normalizeRow(row) {
     allowDecimalQty:   /^(true|yes|1)$/i.test(String(row.allowDecimalQty || "").trim()),
     manufacturingDate: row.manufacturingDate?.trim() || "",
     expiryDate:        row.expiryDate?.trim() || "",
+    // Comma-separated area names; blank = available in all areas
+    areaAvailability:  row.areaAvailability?.trim() || "",
   };
 }
 
@@ -215,11 +218,14 @@ const OPTIONAL_FIELD_META = {
   allowDecimalQty:   { header: "Allow Decimal Qty",     sample: "No",           hint: "Yes to allow 0.5, 1.5 etc." },
   manufacturingDate: { header: "Manufacturing Date",    sample: "01-01-2026",   hint: "DD-MM-YYYY format" },
   expiryDate:        { header: "Expiry Date",           sample: "31-12-2026",   hint: "DD-MM-YYYY format" },
+  areaAvailability:  { header: "Available Areas",       sample: "",             hint: "Comma-separated area names (e.g. AC, Self Service). Leave blank for all areas." },
 };
 
-function buildSampleCSV(fs = {}) {
+function buildSampleCSV(fs = {}, showAreas = false) {
   // Determine which optional columns to include
-  const optionalKeys = Object.keys(OPTIONAL_FIELD_META).filter((k) => fs[k]);
+  const optionalKeys = Object.keys(OPTIONAL_FIELD_META).filter((k) =>
+    k === "areaAvailability" ? showAreas : fs[k]
+  );
 
   const headers = [...BASE_HEADERS, ...optionalKeys.map((k) => OPTIONAL_FIELD_META[k].header)];
 
@@ -233,8 +239,8 @@ function buildSampleCSV(fs = {}) {
     .join("\n");
 }
 
-function downloadSample(fs = {}) {
-  const csvContent = buildSampleCSV(fs);
+function downloadSample(fs = {}, showAreas = false) {
+  const csvContent = buildSampleCSV(fs, showAreas);
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -267,6 +273,10 @@ const CORE_COL_REFERENCE = [
 export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {}, availableOutlets = [] }) {
   const fs = menuFieldSettings;
   const fileRef = useRef(null);
+  // Work areas (AC / Non-AC / Self Service etc.) across outlets — used to show the
+  // "Available Areas" column only when the restaurant actually has multiple counters.
+  const availableAreas = [...new Set(availableOutlets.flatMap((o) => o.workAreas || []).filter(Boolean))];
+  const showAreaCol = availableAreas.length > 1;
 
   // step: "upload" | "preview" | "importing" | "done"
   const [step,           setStep]           = useState("upload");
@@ -338,7 +348,9 @@ export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {},
   }
 
   // Which optional columns to show in the preview table
-  const enabledOptionalCols = Object.keys(OPTIONAL_FIELD_META).filter((k) => fs[k]);
+  const enabledOptionalCols = Object.keys(OPTIONAL_FIELD_META).filter((k) =>
+    k === "areaAvailability" ? showAreaCol : fs[k]
+  );
 
   // Partition rows into valid / invalid
   const validRows   = parsed ? parsed.rows.filter((r) => validateRow(normalizeRow(r)).length === 0) : [];
@@ -346,7 +358,7 @@ export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {},
 
   // Build column reference for upload step
   const optionalColReference = Object.entries(OPTIONAL_FIELD_META)
-    .filter(([k]) => fs[k])
+    .filter(([k]) => (k === "areaAvailability" ? showAreaCol : fs[k]))
     .map(([, meta]) => ({ col: meta.header, req: false, hint: meta.hint }));
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -414,7 +426,7 @@ export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {},
                   {" "}Fill in your menu items in the same format, then upload it here.
                 </p>
               </div>
-              <button className="primary-btn" onClick={() => downloadSample(fs)}>
+              <button className="primary-btn" onClick={() => downloadSample(fs, showAreaCol)}>
                 ↓ Download Sample CSV
               </button>
             </div>
@@ -541,6 +553,7 @@ export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {},
                       {fs.allowDecimalQty  && <th>Decimal Qty</th>}
                       {fs.manufacturingDate && <th>Mfg Date</th>}
                       {fs.expiryDate       && <th>Exp Date</th>}
+                      {showAreaCol         && <th>Areas</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -573,6 +586,7 @@ export function BulkImportPanel({ onClose, onImportDone, menuFieldSettings = {},
                           {fs.allowDecimalQty  && <td>{n.allowDecimalQty ? "Yes" : "No"}</td>}
                           {fs.manufacturingDate && <td>{n.manufacturingDate || "—"}</td>}
                           {fs.expiryDate       && <td>{n.expiryDate || "—"}</td>}
+                          {showAreaCol         && <td>{n.areaAvailability || "All areas"}</td>}
                         </tr>
                       );
                     })}
