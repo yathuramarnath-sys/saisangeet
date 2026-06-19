@@ -95,6 +95,7 @@ function buildDefaultItemDraft(menuData) {
     availableTo: "",
     trackInventory: "Disabled",
     selectedOutlets: [],
+    selectedAreas: [],
     // optional fields
     description: "", shortCode: "", hsnCode: "", sku: "", scalePlu: "",
     rank: "999",
@@ -179,10 +180,12 @@ export function MenuPage() {
   const [categoryName, setCategoryName] = useState("");
   const [categoryAvailableFrom, setCategoryAvailableFrom] = useState("10:00");
   const [categoryAvailableTo, setCategoryAvailableTo] = useState("16:00");
+  const [categorySelectedAreas, setCategorySelectedAreas] = useState([]);
   const [editingCategoryId, setEditingCategoryId] = useState("");
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [editingCategoryAvailableFrom, setEditingCategoryAvailableFrom] = useState("");
   const [editingCategoryAvailableTo, setEditingCategoryAvailableTo] = useState("");
+  const [editingCategorySelectedAreas, setEditingCategorySelectedAreas] = useState([]);
   const [stationName, setStationName] = useState("");
   const [itemDraft, setItemDraft] = useState({ categoryName: "", station: "" });
   const [editingItemId, setEditingItemId] = useState("");
@@ -491,6 +494,9 @@ export function MenuPage() {
         outletAvailability: itemDraft.selectedOutlets?.length
           ? itemDraft.selectedOutlets.map((name) => ({ outlet: name, enabled: true }))
           : availableOutlets.map((o) => ({ outlet: o.name, enabled: true })),
+        areaAvailability: itemDraft.selectedAreas?.length
+          ? itemDraft.selectedAreas.map((name) => ({ area: name, enabled: true }))
+          : [],
       });
       const result = await reloadMenu();
       setItemDraft(buildDefaultItemDraft(result));
@@ -514,11 +520,13 @@ export function MenuPage() {
       setSaveMessage("");
       await createMenuCategory(categoryName.trim(), {
         availableFrom: categoryAvailableFrom,
-        availableTo: categoryAvailableTo
+        availableTo: categoryAvailableTo,
+        areaAvailability: categorySelectedAreas.map((name) => ({ area: name, enabled: true }))
       });
       setCategoryName("");
       setCategoryAvailableFrom("10:00");
       setCategoryAvailableTo("16:00");
+      setCategorySelectedAreas([]);
       await reloadMenu();
       form.reset();
       setSaveMessage("New category created.");
@@ -532,6 +540,9 @@ export function MenuPage() {
     setEditingCategoryName(category.name);
     setEditingCategoryAvailableFrom(category.availableFrom || "");
     setEditingCategoryAvailableTo(category.availableTo || "");
+    setEditingCategorySelectedAreas(
+      (category.areaAvailability || []).filter((e) => e.enabled).map((e) => e.area)
+    );
     setSaveError("");
     setSaveMessage("");
   }
@@ -541,6 +552,7 @@ export function MenuPage() {
     setEditingCategoryName("");
     setEditingCategoryAvailableFrom("");
     setEditingCategoryAvailableTo("");
+    setEditingCategorySelectedAreas([]);
   }
 
   async function handleSaveCategoryEdit(category) {
@@ -555,7 +567,8 @@ export function MenuPage() {
       await updateMenuCategory(category.id, {
         name: editingCategoryName.trim(),
         availableFrom: editingCategoryAvailableFrom,
-        availableTo: editingCategoryAvailableTo
+        availableTo: editingCategoryAvailableTo,
+        areaAvailability: editingCategorySelectedAreas.map((name) => ({ area: name, enabled: true }))
       });
       await reloadMenu();
       cancelEditingCategory();
@@ -881,6 +894,7 @@ export function MenuPage() {
       foodType:      item.foodType      || "Veg",
       unit:          item.unit          || "",
       trackInventory: item.inventoryTracking?.enabled ? "Enabled" : "Disabled",
+      selectedAreas: (item.areaAvailability || []).filter((e) => e.enabled).map((e) => e.area),
       // New pricing model
       basePrice:    String(base),
       onlinePrice:  String(item.onlinePrice || 0),
@@ -916,6 +930,9 @@ export function MenuPage() {
       await updateCustomMenuItem(itemId, {
         ...editDraft,
         availableAreas,
+        areaAvailability: editDraft.selectedAreas?.length
+          ? editDraft.selectedAreas.map((name) => ({ area: name, enabled: true }))
+          : [],
       });
       await reloadMenu();
       cancelEditingItem();
@@ -1729,19 +1746,43 @@ export function MenuPage() {
           </div>
 
           {/* ── Add category (single compact row) ── */}
-          <form onSubmit={handleCreateCategory} style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-            <div style={{ flex: "1 1 160px", minWidth: 120 }}>
-              <input
-                type="text"
-                value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
-                placeholder="New category name…"
-                style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #d1d5db", fontSize: 13 }}
-              />
+          <form onSubmit={handleCreateCategory} style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 160px", minWidth: 120 }}>
+                <input
+                  type="text"
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                  placeholder="New category name…"
+                  style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #d1d5db", fontSize: 13 }}
+                />
+              </div>
+              <button type="submit" className="primary-btn" style={{ whiteSpace: "nowrap", padding: "7px 16px" }}>
+                + Add
+              </button>
             </div>
-            <button type="submit" className="primary-btn" style={{ whiteSpace: "nowrap", padding: "7px 16px" }}>
-              + Add
-            </button>
+            {availableAreas.length > 1 && (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>Sold in:</span>
+                <label className={`menu-outlet-chip${!categorySelectedAreas.length ? " selected" : ""}`}>
+                  <input type="radio" name="newCategoryAreaScope" checked={!categorySelectedAreas.length}
+                    onChange={() => setCategorySelectedAreas([])} />
+                  <span>✓ All areas</span>
+                </label>
+                {availableAreas.map((area) => {
+                  const checked = categorySelectedAreas.includes(area);
+                  return (
+                    <label key={area} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
+                      <input type="checkbox" checked={checked}
+                        onChange={(e) => setCategorySelectedAreas((cur) =>
+                          e.target.checked ? [...cur, area] : cur.filter((a) => a !== area)
+                        )} />
+                      <span>{area}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </form>
 
           {/* ── Scrollable category list ── */}
@@ -1773,6 +1814,30 @@ export function MenuPage() {
                       <input type="time" value={editingCategoryAvailableTo}
                         onChange={(e) => setEditingCategoryAvailableTo(e.target.value)}
                         style={{ fontSize: 12, padding: "3px 6px", borderRadius: 5, border: "1px solid #d1d5db" }} />
+                    </div>
+                    {availableAreas.length > 1 && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, color: "#9ca3af" }}>Sold in:</span>
+                        <label className={`menu-outlet-chip${!editingCategorySelectedAreas.length ? " selected" : ""}`}>
+                          <input type="radio" name="editCategoryAreaScope" checked={!editingCategorySelectedAreas.length}
+                            onChange={() => setEditingCategorySelectedAreas([])} />
+                          <span>✓ All areas</span>
+                        </label>
+                        {availableAreas.map((area) => {
+                          const checked = editingCategorySelectedAreas.includes(area);
+                          return (
+                            <label key={area} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
+                              <input type="checkbox" checked={checked}
+                                onChange={(e) => setEditingCategorySelectedAreas((cur) =>
+                                  e.target.checked ? [...cur, area] : cur.filter((a) => a !== area)
+                                )} />
+                              <span>{area}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 6 }}>
                       <button type="button" className="primary-btn" style={{ padding: "4px 12px", fontSize: 12 }}
                         onClick={() => handleSaveCategoryEdit(category)}>
                         Save
@@ -1795,6 +1860,13 @@ export function MenuPage() {
                       <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>
                         {category.items?.length || 0} items
                       </span>
+                      {availableAreas.length > 1 && (
+                        <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>
+                          · {(category.areaAvailability || []).filter((e) => e.enabled).length
+                            ? (category.areaAvailability || []).filter((e) => e.enabled).map((e) => e.area).join(", ")
+                            : "All areas"}
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: "flex", gap: 4 }}>
                       <button type="button" className="ghost-chip" onClick={() => startEditingCategory(category)}>Edit</button>

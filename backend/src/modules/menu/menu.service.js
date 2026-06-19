@@ -157,7 +157,9 @@ async function createMenuCategory(payload) {
     availableTo: payload.availableTo || "",
     station: payload.station || "",
     printerTarget: payload.printerTarget || "",
-    displayTarget: payload.displayTarget || "Hot Kitchen Display"
+    displayTarget: payload.displayTarget || "Hot Kitchen Display",
+    // Areas this category is sold in — empty array = all areas (no restriction)
+    areaAvailability: payload.areaAvailability || []
   };
 
   updateOwnerSetupData((current) => ({
@@ -223,6 +225,8 @@ async function createMenuItem(payload) {
     badges: payload.badges || ["Custom item", "Available"],
     salesAvailability: payload.salesAvailability || "Available",
     outletAvailability: payload.outletAvailability || [],
+    // Areas this item is sold in — empty array = all areas (no restriction)
+    areaAvailability: payload.areaAvailability || [],
     inventoryTracking: payload.inventoryTracking || {
       enabled: false, mode: "Item wise",
       note: "Inventory tracking is disabled for this item",
@@ -325,6 +329,7 @@ async function updateMenuItem(id, payload) {
       taxRate:            payload.taxRate            !== undefined ? Number(payload.taxRate || 0) : existingItem.taxRate,
       parcelCharges:      payload.parcelCharges      || existingItem.parcelCharges,
       outletAvailability: payload.outletAvailability || existingItem.outletAvailability,
+      areaAvailability:   payload.areaAvailability   !== undefined ? (payload.areaAvailability || []) : (existingItem.areaAvailability || []),
       badges:             payload.badges             || existingItem.badges,
       // Optional fields
       rank:            payload.rank            !== undefined ? Number(payload.rank)           : (existingItem.rank            ?? 999),
@@ -693,6 +698,11 @@ async function bulkImportMenuItems(payload) {
       delivery: rwDelivery,
     }));
 
+    // Available areas — comma-separated names in CSV; blank = available in all areas
+    const areaAvailability = String(row.areaAvailability || "").trim()
+      ? String(row.areaAvailability).split(",").map((a) => a.trim()).filter(Boolean).map((area) => ({ area, enabled: true }))
+      : [];
+
     const newItem = {
       id:                `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       categoryId:        category.id,
@@ -708,6 +718,7 @@ async function bulkImportMenuItems(payload) {
       takeawayPrice:     rwTakeaway,
       deliveryPrice:     rwDelivery,
       outletAvailability,
+      areaAvailability,
       pricing,
       parcelCharges: {
         takeaway: { type: "None", value: 0 },
