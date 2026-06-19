@@ -4110,11 +4110,6 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 .outlet-inline-section { display: flex; flex-direction: column; gap: 8px; }
 .outlet-inline-section > strong { font-size: 0.85rem; color: #111827; }
 .outlet-check-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.mini-card-custom { padding-right: 6px; gap: 6px; }
-.mini-card-remove {
-  border: none; background: transparent; color: #ef4444; cursor: pointer;
-  font-size: 0.75rem; line-height: 1; padding: 2px;
-}
 .outlet-custom-area-row { display: flex; gap: 8px; margin-top: 4px; }
 .outlet-custom-area-row input {
   flex: 1; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 7px;
