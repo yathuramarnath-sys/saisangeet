@@ -6496,6 +6496,37 @@ body { background: var(--sq-bg); }
   color: #64748b;
   margin: 0 0 12px;
 }
+.branch-setup-workarea {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.branch-setup-workarea-label {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0 0 2px;
+  text-align: left;
+}
+.branch-workarea-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1.5px solid #334155;
+  background: #1e293b;
+  color: #cbd5e1;
+  font-size: 13px;
+  cursor: pointer;
+}
+.branch-workarea-option.selected {
+  border-color: #059669;
+  background: #064e3b;
+  color: #d1fae5;
+}
+.branch-workarea-option input { accent-color: #059669; }
 .branch-setup-back {
   background: none;
   border: none;

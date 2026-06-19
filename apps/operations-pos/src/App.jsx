@@ -1929,7 +1929,11 @@ export default function App() {
   function handleNewCounterOrder() {
     const ticketNum = counterTicketNum;
     const ticketId  = `counter-${Date.now()}`;
-    const area      = { id: "counter", name: serviceMode === "delivery" ? "Delivery" : "Takeaway" };
+    // If this terminal is dedicated to a work area (e.g. "Sweet Counter", "Self Service"),
+    // every counter ticket rung here is priced using that area's price overrides.
+    // "Full Access" terminals (no workArea set) keep the old Takeaway/Delivery naming.
+    const areaName = branchConfig?.workArea || (serviceMode === "delivery" ? "Delivery" : "Takeaway");
+    const area      = { id: "counter", name: areaName };
     const fakeTable = { id: ticketId, number: String(ticketNum).padStart(3, "0") };
     const orderNum  = Math.max(10050, ...Object.values(orders).map(o => o.orderNumber || 10050)) + 1;
 
