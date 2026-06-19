@@ -131,6 +131,16 @@ function TableEditor({ tables, workAreas, onChange }) {
 
 // ── Inline outlet edit form (renders inside the outlet card) ──────────────────
 function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave, onCancel, onQRCode, saving, statusMessage, statusError }) {
+  const [customArea, setCustomArea] = useState("");
+  const customAreas = draft.workAreas.filter(a => !workAreaOptions.includes(a));
+
+  function addCustomArea() {
+    const name = customArea.trim();
+    if (!name || draft.workAreas.includes(name)) { setCustomArea(""); return; }
+    setDraft(d => ({ ...d, workAreas: [...d.workAreas, name] }));
+    setCustomArea("");
+  }
+
   return (
     <form className="outlet-inline-form" onSubmit={onSave}>
       <div className="outlet-inline-grid">
@@ -184,6 +194,23 @@ function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave
                 onChange={() => setDraft(d => ({ ...d, workAreas: toggleSelection(d.workAreas, opt) }))} />
             </label>
           ))}
+          {customAreas.map(opt => (
+            <label key={opt} className="mini-card mini-card-custom">
+              <span>{opt}</span>
+              <button type="button" className="mini-card-remove"
+                onClick={() => setDraft(d => ({ ...d, workAreas: d.workAreas.filter(a => a !== opt) }))}>✕</button>
+            </label>
+          ))}
+        </div>
+        <div className="outlet-custom-area-row">
+          <input
+            type="text"
+            placeholder="e.g. Sweet Counter"
+            value={customArea}
+            onChange={e => setCustomArea(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomArea(); } }}
+          />
+          <button type="button" className="ghost-btn" onClick={addCustomArea}>+ Add custom area</button>
         </div>
       </div>
 
