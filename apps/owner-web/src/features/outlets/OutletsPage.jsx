@@ -197,8 +197,8 @@ function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave
           {customAreas.map(opt => (
             <label key={opt} className="mini-card mini-card-custom">
               <span>{opt}</span>
-              <button type="button" className="mini-card-remove"
-                onClick={() => setDraft(d => ({ ...d, workAreas: d.workAreas.filter(a => a !== opt) }))}>✕</button>
+              <input type="checkbox" checked={true}
+                onChange={() => setDraft(d => ({ ...d, workAreas: d.workAreas.filter(a => a !== opt) }))} />
             </label>
           ))}
         </div>
