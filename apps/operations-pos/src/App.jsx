@@ -340,6 +340,9 @@ export default function App() {
   const menuItemsRef       = useRef([]);   // latest menuItems for scale PLU lookup
   // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
   const billPrintingRef = useRef(false);
+  // Guard: only auto-open a counter ticket once per "no table selected" episode,
+  // so clearing back to null (e.g. order cancelled) doesn't loop us straight back in.
+  const autoCounterOpenedRef = useRef(false);
   // Tracks socket connection state for reconnect-resync logic
   const socketConnRef = useRef("connecting"); // "connecting" | "live" | "offline"
   const [serverConn,  setServerConn]  = useState("connecting"); // for UI banner
@@ -1046,6 +1049,18 @@ export default function App() {
     setOrders((prev) => ensureOrders(prev, tableAreas, outlet?.name || "Outlet"));
   }, [tableAreas, outlet]);
 
+  // A work-area terminal with no physical tables assigned to it (a pure counter,
+  // e.g. "Self Service" or "Bakery Counter") has nothing to pick a table from —
+  // send it straight to the billing screen instead of showing an empty table picker.
+  useEffect(() => {
+    if (!branchConfig?.workArea) return;
+    if (selectedTableId) { autoCounterOpenedRef.current = false; return; }
+    if (workAreaScopedTableAreas.some((a) => a.tables.length > 0)) return;
+    if (autoCounterOpenedRef.current) return;
+    autoCounterOpenedRef.current = true;
+    handleNewCounterOrder();
+  }, [branchConfig?.workArea, workAreaScopedTableAreas, selectedTableId]);
+
   // Auto-save every order change to localStorage — belt-and-suspenders
   useEffect(() => {
     if (Object.keys(orders).length > 0) saveOrdersToStorage(orders);
@@ -1241,6 +1256,14 @@ export default function App() {
   const filteredAreas = activeArea
     ? tableAreas.filter((a) => a.id === activeArea)
     : tableAreas;
+
+  // A work-area terminal (e.g. "Self Service", "Sweet Counter") must only ever
+  // reflect ITS OWN assigned area's tables — never tables from other areas like
+  // "AC Dining". "Full Access" terminals (no workArea) keep seeing everything.
+  const workAreaScopedTableAreas = useMemo(() => {
+    if (!workArea) return tableAreas;
+    return tableAreas.filter((a) => a.name === workArea);
+  }, [tableAreas, workArea]);
 
   const isCounterMode = serviceMode === "takeaway" || serviceMode === "delivery";
 
@@ -2963,7 +2986,7 @@ export default function App() {
 
         {!selectedTableId ? (
           <TablePickerPanel
-            tableAreas={tableAreas}
+            tableAreas={workAreaScopedTableAreas}
             orders={orders}
             onSelectTable={handleSelectTable}
             serviceMode={serviceMode}
