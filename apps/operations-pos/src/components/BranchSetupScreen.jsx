@@ -67,6 +67,7 @@ export function BranchSetupScreen({ onComplete }) {
   const [status,   setStatus]   = useState("idle"); // idle | loading | success | error
   const [result,   setResult]   = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [workArea, setWorkArea] = useState(""); // "" = Full Access (all areas)
 
   async function handleVerify(e) {
     e.preventDefault();
@@ -94,6 +95,10 @@ export function BranchSetupScreen({ onComplete }) {
       outletId:      result.outletId,
       outletCode:    result.outletCode,
       outletName:    result.outletName,
+      // Which work area this physical terminal serves — "" / null = Full Access
+      // (all areas, all tables). Set once here, remembered on this machine until
+      // "Forget device" is used or a different branch code is linked.
+      workArea:      workArea || null,
       configuredAt:  new Date().toISOString(),
     };
 
@@ -182,6 +187,23 @@ export function BranchSetupScreen({ onComplete }) {
               {result.tables?.length || 0} tables
               {result.workAreas?.length ? ` · ${result.workAreas.join(", ")}` : ""}
             </p>
+
+            {result.workAreas?.length > 0 && (
+              <div className="branch-setup-workarea">
+                <p className="branch-setup-workarea-label">This terminal is for:</p>
+                <label className={`branch-workarea-option${!workArea ? " selected" : ""}`}>
+                  <input type="radio" name="workArea" checked={!workArea} onChange={() => setWorkArea("")} />
+                  <span>Full Access — all areas, all tables</span>
+                </label>
+                {result.workAreas.map((area) => (
+                  <label key={area} className={`branch-workarea-option${workArea === area ? " selected" : ""}`}>
+                    <input type="radio" name="workArea" checked={workArea === area} onChange={() => setWorkArea(area)} />
+                    <span>{area}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+
             <button className="branch-setup-btn success" onClick={handleConfirm}>
               Start POS →
             </button>

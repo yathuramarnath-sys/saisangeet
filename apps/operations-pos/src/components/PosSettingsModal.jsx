@@ -742,6 +742,7 @@ function CashierTab({ cashierName, activeShift }) {
               <p className="pset-device-branch">
                 <span>Connected:</span> <strong>{cfg.outletName}</strong>
                 <span className="pset-device-code"> · {cfg.outletCode}</span>
+                <span className="pset-device-code"> · {cfg.workArea ? `${cfg.workArea} terminal` : "Full Access"}</span>
               </p>
             ) : <p style={{ color: "#ef4444", fontSize: 13 }}>No branch linked</p>;
           } catch { return null; }
