@@ -99,7 +99,12 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (q) return menuItems.filter(i => i.name.toLowerCase().includes(q) && i.isActive !== false);
+    if (q) {
+      return menuItems.filter(i =>
+        (i.name.toLowerCase().includes(q) || (i.sku || "").toLowerCase().includes(q))
+        && i.isActive !== false
+      );
+    }
     if (activeCategory === FAVOURITES_CAT) {
       const favSet = new Set(favouriteItemIds);
       return menuItems.filter(i => favSet.has(String(i.id)) && i.isActive !== false);

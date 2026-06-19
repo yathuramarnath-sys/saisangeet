@@ -360,7 +360,8 @@ export function MenuPage() {
     const matchesSearch =
       !librarySearch ||
       item.name.toLowerCase().includes(librarySearch.toLowerCase()) ||
-      (item.categoryName || "").toLowerCase().includes(librarySearch.toLowerCase());
+      (item.categoryName || "").toLowerCase().includes(librarySearch.toLowerCase()) ||
+      (item.sku || "").toLowerCase().includes(librarySearch.toLowerCase());
     const matchesCategory = categoryFilter === "All" || item.categoryName === categoryFilter;
     const matchesStatus =
       statusFilter === "All" ||
