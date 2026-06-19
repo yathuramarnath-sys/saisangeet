@@ -1052,6 +1052,27 @@ export default function App() {
     ordersRef.current = orders; // keep ref in sync for socket callbacks
   }, [orders]);
 
+  // Restrict the menu shown at this terminal to its assigned work area.
+  // areaAvailability is an allowlist: empty = available everywhere.
+  const workArea = branchConfig?.workArea || "";
+  function availableInWorkArea(entity) {
+    const avail = entity.areaAvailability || [];
+    if (!workArea || avail.length === 0) return true;
+    return avail.some((a) => a.area === workArea && a.enabled !== false);
+  }
+  const visibleCategories = useMemo(
+    () => (workArea ? categories.filter(availableInWorkArea) : categories),
+    [categories, workArea]
+  );
+  const visibleMenuItems = useMemo(() => {
+    if (!workArea) return menuItems;
+    const visibleCatIds = new Set(visibleCategories.map((c) => c.id));
+    return menuItems.filter((item) =>
+      availableInWorkArea(item) &&
+      (!item.categoryId || visibleCatIds.has(item.categoryId))
+    );
+  }, [menuItems, visibleCategories, workArea]);
+
   // Keep barcode scanner refs in sync with latest state/functions
   useEffect(() => { selectedTableIdRef.current = selectedTableId; }, [selectedTableId]);
   useEffect(() => { outletRef.current = outlet; }, [outlet]);
@@ -2870,9 +2891,9 @@ export default function App() {
       {/* ── Left: Category Sidebar ───────────────────────────────────────── */}
       <div className="pos-left">
         <CategorySidebar
-          categories={categories}
-          menuItems={menuItems}
-          activeCategory={activeCategory || categories[0]?.name}
+          categories={visibleCategories}
+          menuItems={visibleMenuItems}
+          activeCategory={activeCategory || visibleCategories[0]?.name}
           onSelect={setActiveCategory}
           outletName={outlet?.name}
         />
@@ -2881,9 +2902,9 @@ export default function App() {
       {/* ── Center: Menu Items ───────────────────────────────────────────── */}
       <div className="pos-center">
         <MenuPanel
-          categories={categories}
-          menuItems={menuItems}
-          activeCategory={activeCategory || categories[0]?.name}
+          categories={visibleCategories}
+          menuItems={visibleMenuItems}
+          activeCategory={activeCategory || visibleCategories[0]?.name}
           onCategoryChange={setActiveCategory}
           onAddItem={handleAddItem}
           onToggleAvailability={handleToggleAvailability}
