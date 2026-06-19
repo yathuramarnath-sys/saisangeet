@@ -1053,22 +1053,34 @@ export default function App() {
   }, [orders]);
 
   // Restrict the menu shown at this terminal to its assigned work area.
-  // areaAvailability is an allowlist: empty = available everywhere.
+  // A "Full Access" terminal (no workArea) sees everything, as before.
+  // A work-area terminal only sees categories explicitly tagged with that
+  // area — categories with no area tag are NOT shown here (they only show
+  // on Full Access terminals), so assigning one category to "Sweet Counter"
+  // actually hides the rest of the menu instead of leaving it visible by default.
   const workArea = branchConfig?.workArea || "";
-  function availableInWorkArea(entity) {
-    const avail = entity.areaAvailability || [];
-    if (!workArea || avail.length === 0) return true;
+  function categoryVisibleInWorkArea(category) {
+    if (!workArea) return true;
+    const avail = category.areaAvailability || [];
+    return avail.some((a) => a.area === workArea && a.enabled !== false);
+  }
+  // Item-level area tags (if set) refine/override the category's scope.
+  // An item with no area tag of its own simply inherits its category's visibility.
+  function itemVisibleInWorkArea(item) {
+    if (!workArea) return true;
+    const avail = item.areaAvailability || [];
+    if (avail.length === 0) return true;
     return avail.some((a) => a.area === workArea && a.enabled !== false);
   }
   const visibleCategories = useMemo(
-    () => (workArea ? categories.filter(availableInWorkArea) : categories),
+    () => (workArea ? categories.filter(categoryVisibleInWorkArea) : categories),
     [categories, workArea]
   );
   const visibleMenuItems = useMemo(() => {
     if (!workArea) return menuItems;
     const visibleCatIds = new Set(visibleCategories.map((c) => c.id));
     return menuItems.filter((item) =>
-      availableInWorkArea(item) &&
+      itemVisibleInWorkArea(item) &&
       (!item.categoryId || visibleCatIds.has(item.categoryId))
     );
   }, [menuItems, visibleCategories, workArea]);
