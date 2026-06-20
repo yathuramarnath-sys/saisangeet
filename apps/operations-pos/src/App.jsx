@@ -1071,14 +1071,20 @@ export default function App() {
   // A work-area terminal with no physical tables assigned to it (a pure counter,
   // e.g. "Self Service" or "Bakery Counter") has nothing to pick a table from —
   // send it straight to the billing screen instead of showing an empty table picker.
+  // Takeaway/Delivery on a Full Access terminal are the same kind of counter —
+  // no table grid applies there either — so they get the identical auto-jump:
+  // one tap on the mode pill drops you straight into the menu/order screen,
+  // same as the Sweet Counter workflow. Recall other open tickets via Held Orders.
   useEffect(() => {
-    if (!branchConfig?.workArea) return;
+    const isPureCounterWorkArea = !!branchConfig?.workArea &&
+      !workAreaScopedTableAreas.some((a) => a.tables.length > 0);
+    const isCounterServiceMode = serviceMode === "takeaway" || serviceMode === "delivery";
+    if (!isPureCounterWorkArea && !isCounterServiceMode) return;
     if (selectedTableId) { autoCounterOpenedRef.current = false; return; }
-    if (workAreaScopedTableAreas.some((a) => a.tables.length > 0)) return;
     if (autoCounterOpenedRef.current) return;
     autoCounterOpenedRef.current = true;
     handleNewCounterOrder();
-  }, [branchConfig?.workArea, workAreaScopedTableAreas, selectedTableId]);
+  }, [branchConfig?.workArea, workAreaScopedTableAreas, selectedTableId, serviceMode]);
 
   // Auto-save every order change to localStorage — belt-and-suspenders
   useEffect(() => {
@@ -3091,6 +3097,7 @@ export default function App() {
         )}
 
         {!selectedTableId ? (
+          isCounterMode ? null : (
           <TablePickerPanel
             tableAreas={workAreaScopedTableAreas}
             orders={orders}
@@ -3100,6 +3107,7 @@ export default function App() {
             onDeleteCounterOrder={handleDeleteCounterOrder}
             gstTreatment={outlet?.gstTreatment || "exclusive"}
           />
+          )
         ) : selectedOrder?.isSplitBill && selectedOrder?.splitBills?.length > 0 ? (
           <SplitSettlementPanel
             order={selectedOrder}
