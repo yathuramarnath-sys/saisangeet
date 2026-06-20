@@ -177,6 +177,14 @@ function VoidPicker({ onVoid, onCancel }) {
   );
 }
 
+// ── Counter checkout — payment-method-first quick flow ─────────────────────────
+const METHODS_FOR_COUNTER = [
+  { id: "cash",   label: "Cash",   icon: "₹"  },
+  { id: "upi",    label: "UPI",    icon: "⚡" },
+  { id: "card",   label: "Card",   icon: "💳" },
+  { id: "credit", label: "Credit", icon: "📋" },
+];
+
 // ── Main OrderPanel ────────────────────────────────────────────────────────────
 export function OrderPanel({
   order,
@@ -200,6 +208,7 @@ export function OrderPanel({
   onCancelOrder,
   onReprintKOT,
   onPrintBill,
+  onCounterPrintBill,
   gstTreatment = "exclusive",
   discountRules = [],
   canApplyDiscount = false,
@@ -207,6 +216,8 @@ export function OrderPanel({
   cashierPin  = "",
 }) {
   const [showTransfer,    setShowTransfer]    = useState(false);
+  const [counterMethod,   setCounterMethod]   = useState("cash");
+  const [counterPrinting, setCounterPrinting] = useState(false);
   const [showNote,        setShowNote]        = useState(false);
   const [voidingIdx,      setVoidingIdx]      = useState(null);   // index of item being voided
   const [pinForVoidIdx,   setPinForVoidIdx]   = useState(null);   // waiting PIN before VoidPicker
@@ -508,7 +519,7 @@ export function OrderPanel({
                   Reprint
                 </button>
               ) : null}
-              {onPrintBill && (
+              {!order.isCounter && onPrintBill && (
                 <button
                   type="button"
                   className={`pos-btn print-bill${order.billRequested ? " bill-reprinted" : ""}`}
@@ -527,8 +538,42 @@ export function OrderPanel({
             </div>
           )}
 
-          {/* Row 2: Collect Payment + Print & Settle shortcut */}
-          {hasItems && (
+          {/* Row 2: Counter orders pick a method then Print+Settle in one tap.
+              Table orders keep the unchanged "Pay" button → PaymentSheet flow. */}
+          {hasItems && order.isCounter && onCounterPrintBill ? (
+            <div className="order-pay-row counter-checkout-row">
+              <div className="counter-method-picker">
+                {METHODS_FOR_COUNTER.map(m => (
+                  <button key={m.id} type="button"
+                    className={`counter-method-chip${counterMethod === m.id ? " active" : ""}`}
+                    onClick={() => setCounterMethod(m.id)}>
+                    {m.icon} {m.label}
+                  </button>
+                ))}
+              </div>
+              {counterMethod === "credit" ? (
+                <button type="button" className="pos-btn pay" onClick={onOpenPayment}>
+                  Enter Credit Details
+                </button>
+              ) : (
+                <button type="button" className="pos-btn pay counter-print-settle"
+                  disabled={counterPrinting}
+                  onClick={async () => {
+                    setCounterPrinting(true);
+                    try { await onCounterPrintBill(counterMethod); }
+                    finally { setCounterPrinting(false); }
+                  }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                  {counterPrinting ? "Printing…" : "Print Bill & Settle"}
+                </button>
+              )}
+            </div>
+          ) : hasItems ? (
             <div className="order-pay-row">
               <button type="button" className="pos-btn pay" onClick={onOpenPayment}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -539,7 +584,7 @@ export function OrderPanel({
                 Pay
               </button>
             </div>
-          )}
+          ) : null}
         </div>
       )}
 

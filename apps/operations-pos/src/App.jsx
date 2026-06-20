@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 
 import { UpdateBanner, APP_VERSION } from "./components/UpdateBanner";
 import { MenuPanel }          from "./components/MenuPanel";
-import { OrderPanel }         from "./components/OrderPanel";
+import { OrderPanel, getFinancials } from "./components/OrderPanel";
 import { PaymentSheet }       from "./components/PaymentSheet";
 import { SplitBillSheet }          from "./components/SplitBillSheet";
 import { SplitSettlementPanel }    from "./components/SplitSettlementPanel";
@@ -23,6 +23,7 @@ import { TablePickerPanel }   from "./components/TablePickerPanel";
 import { CustomerFormModal }  from "./components/CustomerFormModal";
 import { PosSettingsModal }   from "./components/PosSettingsModal";
 import { PastOrdersModal }    from "./components/PastOrdersModal";
+import { HeldOrdersModal, isHeldOrder } from "./components/HeldOrdersModal";
 import { LabelPrintModal }    from "./components/LabelPrintModal";
 import { BatchLabelModal }    from "./components/BatchLabelModal";
 import { CreditSettlePanel }  from "./components/CreditSettlePanel";
@@ -223,10 +224,14 @@ function loadSavedOrders(currentOutletId = null) {
       return {};
     }
     const raw = JSON.parse(localStorage.getItem(ORDERS_KEY) || "null") || {};
-    // Auto-clean ghost empty counter orders on startup
+    // Auto-clean ghost empty + closed counter orders on startup.
+    // Counter order IDs (counter-${Date.now()}) are never reused like table IDs,
+    // so a closed counter order that escapes the in-session cleanup timeout
+    // would otherwise resurrect forever across reloads/restarts.
     const cleaned = Object.fromEntries(
       Object.entries(raw).filter(([, o]) => {
         if (!o?.isCounter) return true; // keep all dine-in orders
+        if (o.isClosed) return false; // drop settled counter tickets
         const hasItems = (o.items || []).filter(i => !i.isVoided && !i.isComp).length > 0;
         return hasItems; // drop empty counter orders
       })
@@ -364,9 +369,14 @@ export default function App() {
     try { return parseInt(localStorage.getItem("pos_counter_ticket_num") || "1", 10); }
     catch { return 1; }
   });
+  // Ticket numbers freed by abandoned (never-paid, no-item) counter orders —
+  // reissued to the next new ticket before incrementing the running counter,
+  // so a cancelled ticket doesn't leave a permanent gap in the sequence.
+  const [recycledTicketNums, setRecycledTicketNums] = useState([]);
   const [showCustomerForm,   setShowCustomerForm]   = useState(false);
   const [showSettings,       setShowSettings]       = useState(false);
   const [showPastOrders,     setShowPastOrders]     = useState(false);
+  const [showHeldOrders,     setShowHeldOrders]     = useState(false);
   const [showLabelPrint,     setShowLabelPrint]     = useState(false);
   const [showBatchLabel,     setShowBatchLabel]     = useState(false);
   const [showCreditPanel,    setShowCreditPanel]    = useState(false);
@@ -1975,6 +1985,11 @@ export default function App() {
       if (!order?.isCounter) return prev;
       const hasItems = (order.items || []).filter(i => !i.isVoided && !i.isComp).length > 0;
       if (hasItems) return prev; // only delete truly empty tickets
+      // Abandoned before any items were rung up — recycle its ticket number
+      // back to the front of the queue instead of leaving a permanent gap.
+      if (order.ticketNumber != null) {
+        setRecycledTicketNums(nums => [order.ticketNumber, ...nums]);
+      }
       const next = { ...prev };
       delete next[tableId];
       return next;
@@ -1982,9 +1997,22 @@ export default function App() {
     setSelectedTableId(prev => prev === tableId ? null : prev);
   }
 
+  // Issues the next counter ticket number — reuses a recycled number (from an
+  // abandoned ticket) before advancing the running counter.
+  function nextCounterTicketNumber() {
+    if (recycledTicketNums.length > 0) {
+      const num = recycledTicketNums[0];
+      setRecycledTicketNums(nums => nums.slice(1));
+      return num;
+    }
+    const num = counterTicketNum;
+    setCounterTicketNum(n => n + 1);
+    return num;
+  }
+
   // ── Counter order ─────────────────────────────────────────────────────────
   function handleNewCounterOrder() {
-    const ticketNum = counterTicketNum;
+    const ticketNum = nextCounterTicketNumber();
     const ticketId  = `counter-${Date.now()}`;
     // If this terminal is dedicated to a work area (e.g. "Sweet Counter", "Self Service"),
     // every counter ticket rung here is priced using that area's price overrides.
@@ -2001,7 +2029,6 @@ export default function App() {
     };
 
     setOrders(prev => ({ ...prev, [ticketId]: newOrder }));
-    setCounterTicketNum(n => n + 1);
     setSelectedTableId(ticketId);
   }
 
@@ -2401,6 +2428,60 @@ export default function App() {
     }
   }
 
+  // ── Counter-only checkout shortcut ──────────────────────────────────────
+  // Takeaway/Delivery/Self-Service/Bakery/Sweet-Counter orders (order.isCounter)
+  // pick a payment method first, then this single action prints the bill AND
+  // settles + closes the order. Table-order billing (handlePrintBill +
+  // PaymentSheet) is untouched — this is an additive, counter-scoped shortcut.
+  async function handleCounterPrintAndSettle(method) {
+    if (!selectedTableId) return;
+    if (billPrintingRef.current) return;
+    const tableId = selectedTableId;
+    const order   = orders[tableId];
+    if (!order?.isCounter) return;
+    if (!order?.items?.length) { showToast("No items to print"); return; }
+    billPrintingRef.current = true;
+
+    let billNo = null, billNoMode = null, billNoFY = null;
+    try {
+      const result = await api.post("/operations/assign-bill-no", { outletId: outlet?.id, tableId });
+      if (result?.billNo != null) {
+        billNo     = result.billNo;
+        billNoMode = result.billNoMode;
+        billNoFY   = result.billNoFY;
+      }
+    } catch (err) {
+      console.warn("[POS] assign-bill-no failed:", err.message);
+    }
+
+    // Same race-condition guard as handlePrintBill — bail if settled meanwhile.
+    if (ordersRef.current[tableId]?.isClosed) { billPrintingRef.current = false; return; }
+
+    const fin     = getFinancials(order, { gstTreatment: outlet?.gstTreatment || "exclusive" });
+    const amount  = fin.balance > 0 ? fin.balance : fin.total;
+    const payment = { method, amount };
+    const printOrder = { ...order, billNo, billNoMode, billNoFY, payments: [...(order.payments || []), payment] };
+
+    printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
+      cashierName,
+      captainName: printOrder.captainName || null,
+      waiterName:  null,
+    });
+
+    api.post("/operations/reprint-log", {
+      source:      "pos",
+      cashier:     cashierName,
+      outletName:  outlet?.name,
+      tableLabel:  printOrder.tableNumber || printOrder.tableId,
+      orderNumber: printOrder.orderNumber,
+      billNo:      billNo || null,
+    }).catch(() => {});
+
+    setTimeout(() => { billPrintingRef.current = false; }, 3000);
+
+    await handleSettle(payment);
+  }
+
   // ── Waitlist auto-suggest ─────────────────────────────────────────────────
   // Called when a table frees — checks if any waiting party fits, shows popup.
   async function checkWaitlistSuggest(tableId) {
@@ -2643,6 +2724,20 @@ export default function App() {
   // ── Quick stats ───────────────────────────────────────────────────────────
   const openTables = Object.values(orders).filter(o => o.items?.length && !o.isClosed && !o.isOnHold).length;
   const pendingKOT = Object.values(orders).reduce((s, o) => s + (o.items || []).filter(i => !i.sentToKot && !i.isVoided).length, 0);
+  const heldCount  = Object.values(orders).filter(isHeldOrder).length;
+
+  // Jump straight to a held order — also flips serviceMode for counter
+  // tickets so the table/ticket label renders correctly after the jump.
+  function handleJumpToHeldOrder(tableId) {
+    const o = orders[tableId];
+    if (!o) return;
+    if (o.isCounter) {
+      setServiceMode(o.areaName === "Delivery" || o.onlinePlatform ? "delivery" : "takeaway");
+    } else {
+      setServiceMode("dine-in");
+    }
+    setSelectedTableId(tableId);
+  }
 
   // ─── Main POS UI ──────────────────────────────────────────────────────────
   return (
@@ -2743,6 +2838,12 @@ export default function App() {
           <button type="button" className="pab-btn blue"
             onClick={() => setShowPastOrders(true)}>
             <span className="pab-label">Past Orders</span>
+          </button>
+          <button type="button" className="pab-btn amber"
+            onClick={() => setShowHeldOrders(true)}
+            title="Orders with KOT sent that haven't been billed yet">
+            <span className="pab-label">⏳ Held</span>
+            {heldCount > 0 && <span className="pab-badge">{heldCount}</span>}
           </button>
           <button type="button" className="pab-btn indigo"
             onClick={() => setShowCreditPanel(true)}
@@ -2854,6 +2955,10 @@ export default function App() {
               </button>
               <button type="button" className="pos-drawer-item" onClick={() => { setShowPastOrders(true); setShowDrawer(false); }}>
                 <span className="pos-drawer-ico">📋</span><span>Past Orders</span>
+              </button>
+              <button type="button" className="pos-drawer-item" onClick={() => { setShowHeldOrders(true); setShowDrawer(false); }}>
+                <span className="pos-drawer-ico">⏳</span><span>Held Orders</span>
+                {heldCount > 0 && <span className="pab-badge">{heldCount}</span>}
               </button>
               <button type="button" className="pos-drawer-item" onClick={() => { setShowAdvancePanel(true); setShowDrawer(false); }}>
                 <span className="pos-drawer-ico">⏰</span><span>Advance Orders</span>
@@ -3030,6 +3135,7 @@ export default function App() {
           onCancelOrder={handleCancelOrder}
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
+          onCounterPrintBill={handleCounterPrintAndSettle}
           cashierName={cashierName}
           cashierPin={cashierPin}
         />
@@ -3108,7 +3214,7 @@ export default function App() {
             // ── Takeaway / Delivery → create a counter ticket ─────────────
             if (!tableId) {
               const orderType  = advOrder.orderType || "takeaway";
-              const ticketNum  = counterTicketNum;
+              const ticketNum  = nextCounterTicketNumber();
               const ticketId   = `counter-${Date.now()}`;
               const areaLabel  = orderType === "delivery" ? "Delivery" : "Takeaway";
               const areaObj    = { id: "counter", name: areaLabel };
@@ -3155,7 +3261,6 @@ export default function App() {
               counterOrder.items = enriched;
 
               setOrders((prev) => ({ ...prev, [ticketId]: counterOrder }));
-              setCounterTicketNum((n) => n + 1);
               setServiceMode(orderType === "delivery" ? "delivery" : "takeaway");
               setSelectedTableId(ticketId);
 
@@ -3352,6 +3457,16 @@ export default function App() {
           outletName={outlet?.name || branchConfig?.outletName}
           cashierName={cashierName}
           outletId={outlet?.id || branchConfig?.outletId}
+          gstTreatment={outlet?.gstTreatment || "exclusive"}
+        />
+      )}
+
+      {/* ── Held Orders modal ─────────────────────────────────────────────── */}
+      {showHeldOrders && (
+        <HeldOrdersModal
+          orders={orders}
+          onSelect={handleJumpToHeldOrder}
+          onClose={() => setShowHeldOrders(false)}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
         />
       )}
