@@ -209,6 +209,8 @@ export function OrderPanel({
   onReprintKOT,
   onPrintBill,
   onCounterPrintBill,
+  onShowHeld,
+  heldCount = 0,
   gstTreatment = "exclusive",
   discountRules = [],
   canApplyDiscount = false,
@@ -264,13 +266,25 @@ export function OrderPanel({
       {/* ── Header — compact single row: area/guests + icons ─────────────── */}
       <div className="order-panel-head">
         <p className="order-meta" style={{ flex: 1, minWidth: 0 }}>
-          {order.areaName} ·{" "}
-          <input className="guests-input" type="number" min="0" max="99"
-            value={order.guests || ""} placeholder="0"
-            onChange={e => onGuestsChange(Number(e.target.value))} />
-          {" "}guests
+          {order.areaName}
+          {!order.isCounter && (
+            <>
+              {" "}·{" "}
+              <input className="guests-input" type="number" min="0" max="99"
+                value={order.guests || ""} placeholder="0"
+                onChange={e => onGuestsChange(Number(e.target.value))} />
+              {" "}guests
+            </>
+          )}
         </p>
         <div className="order-head-right">
+          {!order.isClosed && order.isCounter && onShowHeld && (
+            <button type="button" className="oq-icon-btn held-recall-btn"
+              title="Held Orders — recall another parked order"
+              onClick={onShowHeld}>
+              ⏳{heldCount > 0 && <span className="oq-badge">{heldCount}</span>}
+            </button>
+          )}
           {!order.isClosed && (
             <>
               <button type="button"

@@ -3136,6 +3136,8 @@ export default function App() {
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
           onCounterPrintBill={handleCounterPrintAndSettle}
+          onShowHeld={() => setShowHeldOrders(true)}
+          heldCount={heldCount}
           cashierName={cashierName}
           cashierPin={cashierPin}
         />
