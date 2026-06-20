@@ -2841,7 +2841,7 @@ export default function App() {
           </button>
           <button type="button" className="pab-btn amber"
             onClick={() => setShowHeldOrders(true)}
-            title="Orders with KOT sent that haven't been billed yet">
+            title="Paused or KOT-sent orders not yet billed">
             <span className="pab-label">⏳ Held</span>
             {heldCount > 0 && <span className="pab-badge">{heldCount}</span>}
           </button>

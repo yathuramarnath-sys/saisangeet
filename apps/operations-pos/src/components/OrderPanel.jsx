@@ -279,9 +279,11 @@ export function OrderPanel({
                 onClick={() => onHoldToggle?.()}>
                 {order.isOnHold ? "▶" : "⏸"}
               </button>
-              <button type="button" className="oq-icon-btn"
-                title="Transfer Table"
-                onClick={() => setShowTransfer(true)}>⇄</button>
+              {!order.isCounter && (
+                <button type="button" className="oq-icon-btn"
+                  title="Transfer Table"
+                  onClick={() => setShowTransfer(true)}>⇄</button>
+              )}
               <button type="button"
                 className={`oq-icon-btn${showNote || order.orderNote ? " active-note" : ""}`}
                 title="Order Note"
