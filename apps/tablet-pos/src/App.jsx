@@ -271,6 +271,10 @@ export default function App() {
   const socketConnRef = useRef("connecting"); // "connecting" | "live" | "offline"
   const [serverConn,  setServerConn]  = useState("connecting"); // for UI banner
   const [localConn,   setLocalConn]   = useState(false);        // local WiFi server status
+  // Latest values for the barcode scanner keydown listener (avoids stale closures)
+  const selectedTableIdRef = useRef(null);
+  const outletRef          = useRef(null);
+  const handleAddItemRef   = useRef(null);
 
   // ── Shift state ───────────────────────────────────────────────────────────
   const [activeShift,      setActiveShift]      = useState(() => loadActiveShift());
@@ -994,6 +998,65 @@ export default function App() {
       console.warn("[POS] item-add to backend failed (offline?):", err.message);
     }
   }
+
+  useEffect(() => { selectedTableIdRef.current = selectedTableId; }, [selectedTableId]);
+  useEffect(() => { outletRef.current = outlet; }, [outlet]);
+  useEffect(() => { handleAddItemRef.current = handleAddItem; }); // no dep — always latest
+
+  // ── Barcode scanner listener ──────────────────────────────────────────────
+  // USB/Bluetooth scanners act like a keyboard — they type the barcode very fast
+  // (< 50 ms between characters) then press Enter. We buffer rapid keystrokes and
+  // on Enter call /menu/sku-lookup to find the item, then add it to the order.
+  // Ignored when an input/textarea/select is focused (staff is typing normally).
+  useEffect(() => {
+    let buffer = "";
+    let bufferTimer = null;
+    let scanLocked = false;
+
+    function resetBuffer() {
+      buffer = "";
+      if (bufferTimer) { clearTimeout(bufferTimer); bufferTimer = null; }
+    }
+
+    function onKeyDown(e) {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+      if (e.key === "Enter") {
+        if (scanLocked) { resetBuffer(); return; }
+        const scanned = buffer.trim();
+        resetBuffer();
+        if (scanned.length < 1) return;
+        if (!selectedTableIdRef.current) {
+          showToast("Select a table first, then scan");
+          return;
+        }
+
+        scanLocked = true;
+        setTimeout(() => { scanLocked = false; }, 600);
+
+        api.get(`/menu/sku-lookup?sku=${encodeURIComponent(scanned)}&outletId=${outletRef.current?.id || ""}`)
+          .then((item) => {
+            handleAddItemRef.current(item);
+            showToast(`✅ ${item.name} added via scanner`);
+          })
+          .catch((err) => {
+            const notFound = err?.message?.toLowerCase().includes("not found") || err?.message?.includes("SKU_NOT_FOUND");
+            showToast(notFound ? `❌ Barcode not found: ${scanned}` : `❌ Scanner error — try again`);
+          });
+        return;
+      }
+
+      if (e.key.length === 1) {
+        buffer += e.key;
+        if (bufferTimer) clearTimeout(bufferTimer);
+        bufferTimer = setTimeout(resetBuffer, 80);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => { window.removeEventListener("keydown", onKeyDown); resetBuffer(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleChangeQty(idx, qty) {
     if (!selectedTableId) return;
@@ -2025,6 +2088,15 @@ export default function App() {
           onToggleAvailability={handleToggleAvailability}
           quantities={menuQuantities}
           onDecrement={handleDecrementItem}
+          onSkuLookup={(sku) => {
+            if (!selectedTableId) { showToast("Select a table first"); return; }
+            api.get(`/menu/sku-lookup?sku=${encodeURIComponent(sku)}&outletId=${outlet?.id || ""}`)
+              .then(item => { handleAddItem(item); showToast(`✅ ${item.name} added`); })
+              .catch(err => {
+                const notFound = err?.message?.includes("SKU_NOT_FOUND") || err?.message?.toLowerCase().includes("not found");
+                showToast(notFound ? `❌ Item #${sku} not found` : `❌ Lookup error — try again`);
+              });
+          }}
         />
       </div>
 

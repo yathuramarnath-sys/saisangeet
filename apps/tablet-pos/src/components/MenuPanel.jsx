@@ -75,7 +75,7 @@ const PALETTE = [
   { bg: "#D35400", light: "#FDEBD0", grad: "linear-gradient(135deg,#E67E22,#9A3412)" },
 ];
 
-export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, quantities, onDecrement }) {
+export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, quantities, onDecrement, onSkuLookup }) {
   const [search,      setSearch]      = useState("");
   const [stockState,  setStockState]  = useState(() => getStockState());
 
@@ -98,7 +98,7 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const base = q
-      ? menuItems.filter(i => i.name.toLowerCase().includes(q))
+      ? menuItems.filter(i => i.name.toLowerCase().includes(q) || (i.sku || "").toLowerCase().includes(q))
       : menuItems.filter(
           i => i.category    === activeCategory
             || i.categoryName === activeCategory
@@ -128,9 +128,20 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
         <input
           className="menu-search"
           type="text"
-          placeholder="Search items…"
+          placeholder="Search or type item # + Enter"
           value={search}
           onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && search.trim()) {
+              const val = search.trim();
+              // Pure number → SKU lookup, clear search
+              if (/^\d+$/.test(val) && onSkuLookup) {
+                onSkuLookup(val);
+                setSearch("");
+                e.preventDefault();
+              }
+            }
+          }}
         />
         {search && (
           <button type="button" className="menu-search-clear"
