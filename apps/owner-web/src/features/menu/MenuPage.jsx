@@ -57,7 +57,7 @@ const MENU_FIELD_DESCRIPTIONS = {
 const DEFAULT_FIELD_SETTINGS = {
   description: false, shortCode: false, hsnCode: false, rank: false,
   packingCharges: false, exposeInCaptain: false, allowDecimalQty: false,
-  manufacturingDate: false, expiryDate: false, sku: false,
+  manufacturingDate: false, expiryDate: false, sku: true,
 };
 
 function statusClass(status) {
@@ -1424,7 +1424,7 @@ export function MenuPage() {
           <div className="menu-library-table">
             {/* ── Table header ───────────────────────────────────────────── */}
             <div className="menu-library-row head" style={{
-              gridTemplateColumns: "32px 1fr 160px 90px 80px 100px 120px 180px",
+              gridTemplateColumns: "32px 60px 1fr 160px 90px 80px 100px 120px 180px",
             }}>
               <span className="col-check">
                 <input
@@ -1434,6 +1434,7 @@ export function MenuPage() {
                   onChange={() => toggleSelectAll(pagedItems.map((item) => item.id))}
                 />
               </span>
+              <span>Item #</span>
               <span>Item</span>
               <span>Category</span>
               <span>Base ₹</span>
@@ -1456,7 +1457,7 @@ export function MenuPage() {
                   <div
                     className={`menu-library-row${selectedItems.has(item.id) ? " row-selected" : ""}${isEditing ? " row-editing" : ""}`}
                     style={{
-                      gridTemplateColumns: "32px 1fr 160px 90px 80px 100px 120px 180px",
+                      gridTemplateColumns: "32px 60px 1fr 160px 90px 80px 100px 120px 180px",
                       borderBottom: isEditing ? "none" : undefined,
                       background: isEditing ? "#fffdf5" : undefined,
                     }}
@@ -1467,6 +1468,11 @@ export function MenuPage() {
                         checked={selectedItems.has(item.id)}
                         onChange={() => toggleItemSelection(item.id)}
                       />
+                    </span>
+
+                    {/* Item # */}
+                    <span style={{ fontWeight: 600, fontSize: 13, color: item.sku ? "#111827" : "#f59e0b" }}>
+                      {item.sku || "—"}
                     </span>
 
                     {/* Name */}

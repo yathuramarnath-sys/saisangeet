@@ -390,11 +390,20 @@ export async function createCustomMenuItem(formValues) {
     const taPack = Number(formValues.takeawayPackingCharge || 0);
     const dlPack = Number(formValues.deliveryPackingCharge || 0);
     const areas  = formValues.availableAreas || [];
+    let sku = formValues.sku || "";
+    if (!sku) {
+      const maxNum = customState.items.reduce((max, i) => {
+        const n = parseInt(i.sku, 10);
+        return !isNaN(n) && n > max ? n : max;
+      }, 0);
+      sku = String(maxNum + 1);
+    }
     const newItem = {
       id: itemId,
       name: itemName,
       categoryId,
       categoryName,
+      sku,
       station: stationName,
       availableFrom: formValues.availableFrom || "",
       availableTo:   formValues.availableTo   || "",
