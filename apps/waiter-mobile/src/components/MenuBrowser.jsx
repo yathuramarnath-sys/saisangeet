@@ -35,7 +35,10 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
   const activeCatName  = catIdToName[activeLower] || activeLower; // resolved name of active cat
 
   const displayItems = search.trim()
-    ? menuItems.filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
+    ? menuItems.filter(i =>
+        i.name.toLowerCase().includes(search.toLowerCase()) ||
+        (i.sku || "").toLowerCase().includes(search.toLowerCase())
+      )
     : menuItems.filter(i => {
         const itemCatId   = (i.categoryId  || "").toLowerCase();
         const itemCatName = (i.category || i.categoryName || "").toLowerCase();
@@ -111,9 +114,19 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
         </svg>
         <input
           type="text"
-          placeholder="Search menu…"
+          placeholder="Search or type item # + Enter"
           value={search}
           onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && search.trim() && /^\d+$/.test(search.trim())) {
+              const match = menuItems.find(i => String(i.sku || "") === search.trim());
+              if (match) {
+                addItem(match);
+                setSearch("");
+              }
+              e.preventDefault();
+            }
+          }}
         />
         {search && (
           <button className="search-clear" onClick={() => setSearch("")}>
