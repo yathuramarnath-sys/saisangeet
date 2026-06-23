@@ -10,6 +10,7 @@ const { queryClosedOrders, listClosedOrders } = require("../../db/closed-orders.
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { getOwnerSetupData } = require("../../data/owner-setup-store");
 const { getActionLogs }    = require("../operations/action-log-store");
+const { getShifts }        = require("../operations/shifts-store");
 
 // Insights are generated from live sales data — empty until POS goes live
 const defaultInsights = [];
@@ -21,6 +22,24 @@ const defaultInsights = [];
 function _cap(str) {
   if (!str) return "Cash";
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+// Sums cash-drawer variance (counted vs expected) from shifts closed within the
+// given date range, grouped by outlet name (matches order.outletName).
+function _cashVarianceByOutlet(tenantId, dateFrom, dateTo) {
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const from = dateFrom || todayStr;
+  const to   = dateTo   || todayStr;
+  const { history } = getShifts(tenantId);
+  const map = {};
+  for (const shift of history) {
+    if (!shift.closedAt) continue;
+    const day = new Date(shift.closedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    if (day < from || day > to) continue;
+    const outlet = shift.outlet || "—";
+    map[outlet] = (map[outlet] || 0) + (shift.variance || 0);
+  }
+  return map;
 }
 
 function buildStaffSales(closedToday) {
@@ -96,7 +115,7 @@ function buildCaptainIncentives(closedToday, tenantId) {
   }));
 }
 
-function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 0, cancelledValue = 0 } = {}) {
+function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 0, cancelledValue = 0, tenantId = "default", dateFrom, dateTo } = {}) {
   const paymentMap = {};
   const itemMap    = {};
   let totalGross         = 0; // net (after discount) — used for avg order value & net-after-discount KPI
@@ -209,11 +228,15 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
   //   tax = lineAmount × rate / (100 + rate)
   // Items without taxRate fall back to 5% (the standard food rate).
   // 0% items (bread, roti, certain bakery) contribute zero tax.
-  const taxByRate = {};
+  const taxByRate   = {};
+  const taxByOutlet = {};
   for (const order of closedToday) {
     const items = order.items || [];
     const sub   = items.filter(i => !i.isVoided).reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
     const disc  = Math.min(order.discountAmount || 0, sub);
+    const outletKey = order.outletName || "—";
+    if (!taxByOutlet[outletKey]) taxByOutlet[outletKey] = { outlet: outletKey, bills: 0, taxable: 0, tax: 0 };
+    taxByOutlet[outletKey].bills += 1;
     for (const item of items) {
       if (item.isVoided) continue;
       const rate    = (item.taxRate != null && item.taxRate !== "") ? Number(item.taxRate) : 5;
@@ -222,6 +245,8 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
       if (!taxByRate[rate]) taxByRate[rate] = { taxable: 0, tax: 0 };
       taxByRate[rate].taxable += lineAmt - lineTax;
       taxByRate[rate].tax     += lineTax;
+      taxByOutlet[outletKey].taxable += lineAmt - lineTax;
+      taxByOutlet[outletKey].tax     += lineTax;
     }
   }
   let _taxableSum = 0, _taxSum = 0;
@@ -237,6 +262,21 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
     .map(([rate, s]) => {
       const t = Math.round(s.tax);
       return { rate: Number(rate), taxable: Math.round(s.taxable), cgst: Math.round(t / 2), sgst: t - Math.round(t / 2), total: t };
+    });
+
+  // Outlet-wise GST breakdown — only meaningful with multiple outlets, but always populated
+  const gstOutletBreakdown = Object.values(taxByOutlet)
+    .sort((a, b) => b.tax - a.tax)
+    .map(o => {
+      const t = Math.round(o.tax);
+      return {
+        outlet:  o.outlet,
+        bills:   o.bills,
+        taxable: Math.round(o.taxable),
+        cgst:    Math.round(t / 2),
+        sgst:    t - Math.round(t / 2),
+        total:   t,
+      };
     });
 
   // ── Order type breakdown (Dine-In / Takeaway / Online) ───────────────────────
@@ -277,6 +317,52 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
   const hourlySales = Object.values(hourlyMap)
     .sort((a, b) => a.hour.localeCompare(b.hour))
     .map(h => ({ ...h, amount: Math.round(h.amount) }));
+
+  // ── Hourly payment collection by mode (IST) — for the Payment Report ─────────
+  const hourlyPaymentMap = {};
+  // ── Outlet-wise payment reconciliation — for the Payment Report ──────────────
+  const outletPaymentMap = {};
+  for (const order of closedToday) {
+    const h = parseInt(
+      new Date(order.closedAt || order._receivedAt || 0)
+        .toLocaleString("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }),
+      10
+    ) || 0;
+    const label  = `${String(h).padStart(2, "0")}:00`;
+    const outlet = order.outletName || "—";
+    if (!hourlyPaymentMap[label]) hourlyPaymentMap[label] = { hour: label, cash: 0, upi: 0, card: 0, total: 0 };
+    if (!outletPaymentMap[outlet]) outletPaymentMap[outlet] = { outlet, cash: 0, upi: 0, card: 0, swiggy: 0, zomato: 0, total: 0 };
+    for (const p of (order.payments || [])) {
+      const m   = (p.method || "").toLowerCase();
+      const amt = p.amount || 0;
+      if (m === "cash" || m === "upi" || m === "card") {
+        hourlyPaymentMap[label][m] += amt;
+        hourlyPaymentMap[label].total += amt;
+        outletPaymentMap[outlet][m] += amt;
+        outletPaymentMap[outlet].total += amt;
+      } else {
+        // Unrecognised method (e.g. online platform settlement) — still counts toward totals
+        hourlyPaymentMap[label].total += amt;
+        outletPaymentMap[outlet].total += amt;
+      }
+    }
+  }
+  const hourlyPayments = Object.values(hourlyPaymentMap)
+    .sort((a, b) => a.hour.localeCompare(b.hour))
+    .map(h => ({ ...h, cash: Math.round(h.cash), upi: Math.round(h.upi), card: Math.round(h.card), total: Math.round(h.total) }));
+
+  // Cash variance per outlet, from shifts closed within this date range (counted vs expected cash).
+  const cashVarianceByOutlet = _cashVarianceByOutlet(tenantId, dateFrom, dateTo);
+  const outletReconciliation = Object.values(outletPaymentMap).map(o => ({
+    outlet:          o.outlet,
+    cash:            Math.round(o.cash),
+    upi:             Math.round(o.upi),
+    card:            Math.round(o.card),
+    swiggy:          Math.round(o.swiggy),
+    zomato:          Math.round(o.zomato),
+    total:           Math.round(o.total),
+    cashierVariance: Math.round(cashVarianceByOutlet[o.outlet] || 0),
+  }));
 
   const totalCollected = Object.values(paymentMap).reduce((s, p) => s + p.amount, 0);
   const paymentModes   = Object.values(paymentMap).map(p => ({
@@ -370,7 +456,7 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
         total:   Math.round(totalTax),
         slabs:   taxSlabs,
       }] : [],
-      outletBreakdown: [],
+      outletBreakdown: gstOutletBreakdown,
     },
     payment: {
       summary: {
@@ -380,11 +466,11 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
           ((paymentMap["Upi"]  || {}).amount || 0) +
           ((paymentMap["Card"] || {}).amount || 0)
         ),
-        variance: 0,
+        variance: Object.values(cashVarianceByOutlet).reduce((s, v) => s + v, 0),
       },
       modes:                paymentModes,
-      hourly:               [],
-      outletReconciliation: [],
+      hourly:               hourlyPayments,
+      outletReconciliation: outletReconciliation,
     },
     staffSales: buildStaffSales(closedToday),
     discountVoid: {
@@ -722,7 +808,7 @@ async function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) 
   }, 0);
 
   const salesData       = {
-    ...buildSalesData(closedToday, creditSettlements, { totalCancelled, cancelledValue }),
+    ...buildSalesData(closedToday, creditSettlements, { totalCancelled, cancelledValue, tenantId, dateFrom, dateTo }),
     captainIncentives: buildCaptainIncentives(closedToday, tenantId),
   };
 
