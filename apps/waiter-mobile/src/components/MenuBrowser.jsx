@@ -60,10 +60,15 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
   const activeLower    = activeCat.toLowerCase();
   const activeCatName  = catIdToName[activeLower] || activeLower; // resolved name of active cat
 
-  const displayItems = search.trim()
+  const searchTrimmed   = search.trim();
+  const isNumericSearch = /^\d+$/.test(searchTrimmed);
+
+  const displayItems = searchTrimmed
     ? captainMenuItems.filter(i =>
-        i.name.toLowerCase().includes(search.toLowerCase()) ||
-        (i.sku || "").toLowerCase().includes(search.toLowerCase())
+        isNumericSearch
+          ? (i.sku || "").toLowerCase().startsWith(searchTrimmed.toLowerCase())
+          : i.name.toLowerCase().includes(searchTrimmed.toLowerCase()) ||
+            (i.sku || "").toLowerCase().includes(searchTrimmed.toLowerCase())
       )
     : captainMenuItems.filter(i => {
         const itemCatId   = (i.categoryId  || "").toLowerCase();
