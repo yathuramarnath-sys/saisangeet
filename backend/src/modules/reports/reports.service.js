@@ -99,7 +99,8 @@ function buildCaptainIncentives(closedToday, tenantId) {
 function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 0, cancelledValue = 0 } = {}) {
   const paymentMap = {};
   const itemMap    = {};
-  let totalGross   = 0;
+  let totalGross         = 0; // net (after discount) — used for avg order value & net-after-discount KPI
+  let totalGrossBeforeDiscount = 0; // gross (before discount) — used for the "Total Sales" KPI
   let totalDiscount = 0;
 
   // Void tracking
@@ -107,14 +108,19 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
   let   totalVoids   = 0;
   let   totalVoidAmt = 0;
 
+  // Discount tracking
+  const discountLog       = [];
+  let   manualOverrides   = 0;
+
   for (const order of closedToday) {
     const items    = order.items || [];
     const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
     const disc     = Math.min(order.discountAmount || 0, subtotal);
     const net      = subtotal - disc;
 
-    totalGross    += net;
-    totalDiscount += disc;
+    totalGross             += net;
+    totalGrossBeforeDiscount += subtotal;
+    totalDiscount          += disc;
 
     for (const p of (order.payments || [])) {
       const mode = _cap(p.method || "cash");
@@ -142,6 +148,21 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
         amount:     Math.round(amt),
         reason:     item.voidReason || "No reason",
         approvedBy,
+        time:       closedTime,
+      });
+    }
+
+    // ── Discounts — order-level manual discount applied at billing ──
+    if (disc > 0) {
+      const discApproval = (order.auditTrail || []).find(e => e.label === "Discount approved");
+      if (discApproval) manualOverrides += 1;
+      discountLog.push({
+        bill:       order.billNo || order.orderNumber || "—",
+        outlet:     order.outletName || "—",
+        cashier:    order.cashierName || "—",
+        type:       "Manual Discount",
+        amount:     Math.round(disc),
+        approvedBy: discApproval?.actor || order.discountApprovedBy || "—",
         time:       closedTime,
       });
     }
@@ -304,7 +325,7 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
   return {
     dayEnd: {
       summary: {
-        totalSales:       Math.round(totalGross),
+        totalSales:       Math.round(totalGrossBeforeDiscount),
         totalOrders,
         avgOrderValue:    totalOrders > 0 ? Math.round(totalGross / totalOrders) : 0,
         netAfterDiscount: Math.round(totalGross),
@@ -372,9 +393,9 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
         totalDiscountBills: discountBills,
         totalVoids,
         totalVoidAmt:       Math.round(totalVoidAmt),
-        manualOverrides:    0,
+        manualOverrides,
       },
-      discountLog: [],
+      discountLog,
       voidLog,
     },
     categorySales: buildCategorySales(closedToday),
@@ -590,15 +611,21 @@ function buildClosingCenter(orders, closedToday, tenantId, { dateFrom, dateTo, o
   let orderCount = closedToday.length;
 
   for (const order of closedToday) {
-    const items    = order.items || [];
+    const items    = (order.items || []).filter(i => !i.isVoided);
     const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
     const disc     = Math.min(order.discountAmount || 0, subtotal);
-    const taxable  = subtotal - disc;
-    const tax      = Math.round(taxable * 0.05);
-    const total    = taxable + tax;
+
+    // GST-inclusive extraction per item's actual taxRate (same formula as buildOwnerSummary).
+    let orderTax = 0;
+    for (const item of items) {
+      const rate    = (item.taxRate != null && item.taxRate !== "") ? Number(item.taxRate) : 5;
+      const lineAmt = subtotal > 0 ? (item.price || 0) * (item.quantity || 1) * ((subtotal - disc) / subtotal) : 0;
+      orderTax += rate > 0 ? lineAmt * rate / (100 + rate) : 0;
+    }
+    const taxable = subtotal - disc - orderTax;
 
     netSales += taxable;
-    gstTotal += tax;
+    gstTotal += orderTax;
 
     for (const p of order.payments || []) {
       const m = (p.method || "").toLowerCase();
@@ -628,8 +655,8 @@ function buildClosingCenter(orders, closedToday, tenantId, { dateFrom, dateTo, o
       }
     ],
     ownerSummary: [
-      { id: "closing-sales",   label: "Net sales",          value: formatCurrency(netSales) },
-      { id: "closing-tax",     label: "GST total (5%)",     value: formatCurrency(gstTotal) },
+      { id: "closing-sales",   label: "Net sales",          value: formatCurrency(Math.round(netSales)) },
+      { id: "closing-tax",     label: "GST total",          value: formatCurrency(Math.round(gstTotal)) },
       { id: "closing-orders",  label: "Orders today",       value: `${orderCount}` },
       { id: "closing-cash",    label: "Cash collected",     value: formatCurrency(cashSales) },
       { id: "closing-upi",     label: "UPI collected",      value: formatCurrency(upiSales) },
