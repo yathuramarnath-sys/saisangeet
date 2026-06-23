@@ -1483,6 +1483,12 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   color: #888;
   margin-left: 1px;
 }
+.menu-item-sku {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6366F1;
+  margin-right: 5px;
+}
 
 .soldout-tag {
   display: inline-block;

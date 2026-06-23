@@ -5835,6 +5835,12 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.mfc-sku {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6366F1;
+  margin-right: 4px;
+}
 .mfc-bottom {
   display: flex;
   align-items: center;
