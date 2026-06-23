@@ -201,7 +201,7 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
 
               {/* Info */}
               <div className="mfc-info">
-                <span className="mfc-name">{item.name}</span>
+                <span className="mfc-name">{item.sku && <span className="mfc-sku">#{item.sku}</span>}{item.name}</span>
                 {soldOut ? (
                   <div className="mfc-soldout-label">SOLD OUT</div>
                 ) : (

@@ -238,7 +238,7 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
                 {item.isVeg !== undefined && !soldOut && (
                   <span className={`mfc-veg-dot ${item.isVeg ? "veg" : "nonveg"}`} />
                 )}
-                <span className="mfc-name">{item.name}</span>
+                <span className="mfc-name">{item.sku && <span className="mfc-sku">#{item.sku}</span>}{item.name}</span>
                 {soldOut ? (
                   <div className="mfc-soldout-label">SOLD OUT</div>
                 ) : stockOut ? (
