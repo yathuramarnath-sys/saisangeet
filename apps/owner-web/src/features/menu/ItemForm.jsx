@@ -325,6 +325,9 @@ export function ItemForm({
                     onChange={e => f("shortCode", e.target.value.toUpperCase())}
                     placeholder="e.g. PBM"
                   />
+                  <p style={{ margin:"4px 0 0", fontSize:"0.78rem", color:"#6b7280" }}>
+                    Short abbreviation printed on the kitchen ticket (KOT) instead of the full name.
+                  </p>
                 </label>
               )}
               {fs.hsnCode && (
@@ -339,12 +342,15 @@ export function ItemForm({
               )}
               {fs.sku && (
                 <label>
-                  SKU / Barcode
+                  Item # (SKU / Barcode)
                   <input type="text"
                     value={draft.sku || ""}
                     onChange={e => f("sku", e.target.value)}
                     placeholder="Scan or type"
                   />
+                  <p style={{ margin:"4px 0 0", fontSize:"0.78rem", color:"#6b7280" }}>
+                    The number staff type or scan at billing to find this item. Auto-assigned if left blank.
+                  </p>
                 </label>
               )}
               {fs.rank && (
@@ -355,6 +361,9 @@ export function ItemForm({
                     onChange={e => f("rank", e.target.value)}
                     placeholder="1 = first"
                   />
+                  <p style={{ margin:"4px 0 0", fontSize:"0.78rem", color:"#6b7280" }}>
+                    Sort order within the category on the POS grid and Captain App — lower shows first. Not used for billing search.
+                  </p>
                 </label>
               )}
               {fs.exposeInCaptain && (
