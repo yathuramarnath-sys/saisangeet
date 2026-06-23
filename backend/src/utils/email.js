@@ -66,7 +66,7 @@ async function sendWelcomeEmail({ to, name, restaurant, tempPassword }) {
       </div>
       <a href="${loginUrl}" class="btn">Sign In to DineXPOS →</a>
       <p class="note" style="margin-top:24px;">
-        Questions? Write to <a href="mailto:hello@dinexpos.in" style="color:#FF5A1F;">hello@dinexpos.in</a> — we're happy to help.
+        Questions? Write to <a href="mailto:info@dinexpos.in" style="color:#FF5A1F;">info@dinexpos.in</a> — we're happy to help.
       </p>
     </div>
     <div class="footer">
@@ -77,11 +77,25 @@ async function sendWelcomeEmail({ to, name, restaurant, tempPassword }) {
 </html>
   `.trim();
 
+  const text = [
+    `Welcome to DineXPOS, ${name}!`,
+    ``,
+    `Your DineXPOS account for ${restaurant} is ready.`,
+    ``,
+    `Login URL: ${loginUrl}`,
+    `Username (email): ${to}`,
+    `Temporary password: ${tempPassword}`,
+    ``,
+    `Please change your password after your first login.`,
+    `Questions? Write to info@dinexpos.in`,
+  ].join("\n");
+
   const { error } = await getResend().emails.send({
     from: env.emailFrom,
     to,
-    subject: `Your DineXPOS login credentials — ${restaurant}`,
-    html
+    subject: `Welcome to DineXPOS — your ${restaurant} account is ready`,
+    html,
+    text
   });
 
   if (error) {
@@ -147,11 +161,21 @@ async function sendPasswordResetEmail({ to, name, resetUrl }) {
 </html>
   `.trim();
 
+  const text = [
+    `Hi ${name || "there"},`,
+    ``,
+    `We received a request to reset your DineXPOS password. This link expires in 1 hour:`,
+    resetUrl,
+    ``,
+    `Didn't request this? You can safely ignore this email — your password won't change.`,
+  ].join("\n");
+
   const { error } = await getResend().emails.send({
     from: env.emailFrom,
     to,
     subject: "Reset your DineXPOS password",
-    html
+    html,
+    text
   });
 
   if (error) {

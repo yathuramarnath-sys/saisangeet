@@ -19,7 +19,7 @@ const env = {
 
   // Email (Resend)
   resendApiKey: process.env.RESEND_API_KEY || "",
-  emailFrom:    process.env.EMAIL_FROM || "DineXPOS <hello@dinexpos.in>",
+  emailFrom:    process.env.EMAIL_FROM || "DineXPOS <info@dinexpos.in>",
   appUrl:       process.env.APP_URL    || "https://app.dinexpos.in",
 
   // Daily backup — set this to the owner's email in Railway variables
