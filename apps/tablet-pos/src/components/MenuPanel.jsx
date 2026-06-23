@@ -97,8 +97,13 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const isNumeric = /^\d+$/.test(q);
     const base = q
-      ? menuItems.filter(i => i.name.toLowerCase().includes(q) || (i.sku || "").toLowerCase().includes(q))
+      ? menuItems.filter(i =>
+          isNumeric
+            ? (i.sku || "").toLowerCase().startsWith(q)
+            : i.name.toLowerCase().includes(q) || (i.sku || "").toLowerCase().includes(q)
+        )
       : menuItems.filter(
           i => i.category    === activeCategory
             || i.categoryName === activeCategory
