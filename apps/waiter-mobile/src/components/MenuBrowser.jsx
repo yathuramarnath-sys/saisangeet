@@ -7,27 +7,53 @@ function parsePriceNumber(v) {
 }
 
 export function MenuBrowser({ order, categories, menuItems, stockState = {}, onUpdateOrder, onBack }) {
-  const [activeCat, setActiveCat] = useState(categories[0]?.id || categories[0]?.name || "");
+  // Restrict the menu to the table's area, mirroring the POS work-area filter:
+  // a category only shows here if it's explicitly tagged for this area (categories with
+  // no area tag are reserved for full-access terminals/screens); an item with no area tag
+  // of its own simply inherits its category's visibility. Counter orders with no area
+  // (order.areaName empty) see everything, same as a "Full Access" POS terminal.
+  const workArea = order?.areaName || "";
+  function categoryVisibleInWorkArea(category) {
+    if (!workArea) return true;
+    const avail = category.areaAvailability || [];
+    return avail.some((a) => a.area === workArea && a.enabled !== false);
+  }
+  function itemVisibleInWorkArea(item) {
+    if (!workArea) return true;
+    const avail = item.areaAvailability || [];
+    if (avail.length === 0) return true;
+    return avail.some((a) => a.area === workArea && a.enabled !== false);
+  }
+  const visibleCategories = workArea ? categories.filter(categoryVisibleInWorkArea) : categories;
+  const visibleCatIds     = new Set(visibleCategories.map((c) => c.id));
+  // Items explicitly hidden from the Captain app (exposeInCaptain: false) never show here.
+  const captainMenuItems = menuItems.filter((item) =>
+    item.exposeInCaptain !== false &&
+    itemVisibleInWorkArea(item) &&
+    (!workArea || !item.categoryId || visibleCatIds.has(item.categoryId))
+  );
+
+  const [activeCat, setActiveCat] = useState(visibleCategories[0]?.id || visibleCategories[0]?.name || "");
   const [search,    setSearch]    = useState("");
 
   // When real categories load from API (seed → real transition), reset activeCat to the
   // first real category so a chip is always properly highlighted.
   useEffect(() => {
-    if (!categories.length) return;
-    const isValid = categories.some(c =>
+    if (!visibleCategories.length) return;
+    const isValid = visibleCategories.some(c =>
       String(c.id  || "").toLowerCase() === activeCat.toLowerCase() ||
       String(c.name|| "").toLowerCase() === activeCat.toLowerCase()
     );
     if (!isValid) {
-      setActiveCat(categories[0]?.id || categories[0]?.name || "");
+      setActiveCat(visibleCategories[0]?.id || visibleCategories[0]?.name || "");
     }
-  }, [categories]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visibleCategories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build robust category lookup maps so items match by BOTH id and name.
   // Handles seed categoryId ("cat-soups") vs real ID ("cat-17769…") mismatches.
   const catIdToName = {};
   const catNameToId = {};
-  categories.forEach(c => {
+  visibleCategories.forEach(c => {
     if (c.id) catIdToName[String(c.id).toLowerCase()] = (c.name || "").toLowerCase();
     catNameToId[(c.name || "").toLowerCase()] = String(c.id || c.name).toLowerCase();
   });
@@ -35,11 +61,11 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
   const activeCatName  = catIdToName[activeLower] || activeLower; // resolved name of active cat
 
   const displayItems = search.trim()
-    ? menuItems.filter(i =>
+    ? captainMenuItems.filter(i =>
         i.name.toLowerCase().includes(search.toLowerCase()) ||
         (i.sku || "").toLowerCase().includes(search.toLowerCase())
       )
-    : menuItems.filter(i => {
+    : captainMenuItems.filter(i => {
         const itemCatId   = (i.categoryId  || "").toLowerCase();
         const itemCatName = (i.category || i.categoryName || "").toLowerCase();
         return (
@@ -119,7 +145,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
           onChange={e => setSearch(e.target.value)}
           onKeyDown={e => {
             if (e.key === "Enter" && search.trim() && /^\d+$/.test(search.trim())) {
-              const match = menuItems.find(i => String(i.sku || "") === search.trim());
+              const match = captainMenuItems.find(i => String(i.sku || "") === search.trim());
               if (match) {
                 addItem(match);
                 setSearch("");
@@ -140,7 +166,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, onU
       {/* Category chips */}
       {!search && (
         <div className="cat-chips">
-          {categories.map(c => (
+          {visibleCategories.map(c => (
             <button
               key={c.id || c.name}
               className={`cat-chip${activeCat === (c.id || c.name) ? " cat-chip-active" : ""}`}
