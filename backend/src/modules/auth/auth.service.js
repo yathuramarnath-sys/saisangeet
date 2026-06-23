@@ -14,7 +14,7 @@ const {
 } = require("../../data/owner-setup-store");
 const { createBlankTenantData } = require("../../data/blank-tenant-data");
 const { registerUserInIndex }  = require("../../data/users-index");
-const { sendWelcomeEmail, sendPasswordResetEmail } = require("../../utils/email");
+const { sendWelcomeEmail, sendPasswordResetEmail, sendNewLeadNotification } = require("../../utils/email");
 const { runWithTenant } = require("../../data/tenant-context");
 const { seedTrial, slugify, saveSubdomain, updateRestaurantName } = require("../billing/billing.service");
 
@@ -208,6 +208,10 @@ async function saveSignupInterest({ name, restaurant, phone, email, outlets, mes
     restaurant: restaurant || "your restaurant",
     tempPassword
   }).catch((err) => console.error("[email] Failed to send welcome email:", err.message));
+
+  sendNewLeadNotification({
+    name, restaurant: restaurant || "your restaurant", phone: cleanPhone, email: cleanEmail, outlets, message
+  }).catch((err) => console.error("[email] Failed to send new-lead notification:", err.message));
 
   return { ok: true };
 }

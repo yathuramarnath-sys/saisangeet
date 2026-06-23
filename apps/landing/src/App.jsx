@@ -61,7 +61,7 @@ const FEATURES = [
 ];
 
 const HOW_IT_WORKS = [
-  { step: "1", title: "Talk to Us", desc: "Tell us about your restaurant and outlets — we set up your account for you." },
+  { step: "1", title: "Sign Up Free", desc: "Create your account in 2 minutes. No credit card needed." },
   { step: "2", title: "Set Up Your Restaurant", desc: "Add outlets, menu, staff and tax profiles from the Owner Console." },
   { step: "3", title: "Connect Your Devices", desc: "Scan the branch link code on your POS, Kitchen Display and Captain phones." },
   { step: "4", title: "Go Live", desc: "Start taking orders. Reports flow in automatically." }
@@ -81,9 +81,10 @@ const PLANS = [
       "Kitchen Display",
       "Menu & staff management",
       "Basic reports (CSV export)",
+      "30-day free trial",
     ],
     highlighted: false,
-    cta: "Request a Demo",
+    cta: "Start Free Trial",
   },
   {
     id: "pro",
@@ -102,7 +103,7 @@ const PLANS = [
     ],
     highlighted: true,
     badge: "Most Popular",
-    cta: "Request a Demo",
+    cta: "Start Free Trial",
   },
   {
     id: "enterprise",
@@ -213,11 +214,11 @@ export function App() {
             <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a>
             <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
             <a href="#testimonials" onClick={() => setMenuOpen(false)}>Reviews</a>
-            <a href="#enroll" onClick={() => setMenuOpen(false)}>Contact</a>
+            <a href="#enroll" onClick={() => setMenuOpen(false)}>Get Started</a>
           </div>
           <div className="lp-nav-actions">
             <a href={`${APP_URL}/login`} className="lp-nav-login">Sign In</a>
-            <a href="#enroll" className="lp-nav-cta">Request a Demo</a>
+            <a href="#enroll" className="lp-nav-cta">Get Started Free</a>
           </div>
           <button className="lp-hamburger" onClick={() => setMenuOpen(v => !v)} aria-label="Menu">
             <span /><span /><span />
@@ -236,11 +237,11 @@ export function App() {
               Everything your restaurant needs — one platform, one subscription.
             </p>
             <div className="lp-hero-btns">
-              <a href="#enroll" className="lp-btn-primary">Request a Demo</a>
+              <a href="#enroll" className="lp-btn-primary">Start Free Trial</a>
               <a href="#how-it-works" className="lp-btn-ghost">See how it works →</a>
             </div>
             <div className="lp-hero-trust">
-              <span>✓ Dedicated onboarding</span>
+              <span>✓ No credit card</span>
               <span>✓ Setup in 1 day</span>
               <span>✓ GST ready</span>
               <span>✓ Works offline</span>
@@ -392,7 +393,7 @@ export function App() {
         <div className="lp-section-inner">
           <p className="lp-eyebrow">Simple pricing</p>
           <h2>One flat monthly fee. No per-device charges.</h2>
-          <p className="lp-section-sub">Request a demo and our team will help you pick the right plan for your outlets.</p>
+          <p className="lp-section-sub">Every plan includes a 30-day free trial. No credit card needed to start.</p>
 
           <div className="lp-pricing-grid">
             {PLANS.map(plan => (
@@ -432,14 +433,14 @@ export function App() {
       <section className="lp-section lp-section-enroll" id="enroll">
         <div className="lp-enroll-inner">
           <div className="lp-enroll-left">
-            <p className="lp-eyebrow">Talk to us</p>
-            <h2>Request a demo</h2>
+            <p className="lp-eyebrow">Free trial</p>
+            <h2>Get started today</h2>
             <p className="lp-enroll-sub">
-              Tell us about your restaurant and our team will reach out to set up
-              your Plato account and walk you through the platform.
+              Fill in your details and we'll set up your Plato account.
+              No credit card. No commitment. Live in 24 hours.
             </p>
             <ul className="lp-enroll-perks">
-              <li>✓ Personalised walkthrough for your outlets</li>
+              <li>✓ Free 30-day trial — full features</li>
               <li>✓ Dedicated onboarding support</li>
               <li>✓ Works on Android, Windows & Web</li>
               <li>✓ GST-compliant billing out of the box</li>
@@ -455,15 +456,15 @@ export function App() {
             {submitted ? (
               <div className="lp-enroll-success">
                 <div className="lp-success-icon">🎉</div>
-                <h3>Thanks — we've got your request!</h3>
-                <p>Our team will reach out to you shortly to set up your Plato account.</p>
-                <a href="mailto:info@dinexpos.in" className="lp-btn-primary" style={{ marginTop: 16, display: "inline-block" }}>
-                  Email us directly →
+                <h3>Check your inbox!</h3>
+                <p>Your login credentials have been sent to your email. Sign in to get started.</p>
+                <a href={`${APP_URL}/login`} className="lp-btn-primary" style={{ marginTop: 16, display: "inline-block" }}>
+                  Sign in to Plato →
                 </a>
               </div>
             ) : (
               <form className="lp-enroll-form" onSubmit={handleEnroll} noValidate>
-                <h3>Request a demo</h3>
+                <h3>Create your free account</h3>
 
                 <label>
                   Your Name *
@@ -506,7 +507,7 @@ export function App() {
                   className="lp-btn-primary lp-btn-full"
                   disabled={submitting || !form.name || !form.restaurant || !form.phone || !form.email}
                 >
-                  {submitting ? "Submitting…" : "Request a Demo →"}
+                  {submitting ? "Submitting…" : "Start My Free Trial →"}
                 </button>
 
                 <p className="lp-form-note">
