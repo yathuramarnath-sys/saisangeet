@@ -159,4 +159,53 @@ async function sendPasswordResetEmail({ to, name, resetUrl }) {
   }
 }
 
-module.exports = { sendWelcomeEmail, sendPasswordResetEmail };
+/**
+ * Notify the owner (BACKUP_EMAIL) that a new signup/demo lead came in.
+ */
+async function sendNewLeadNotification({ name, restaurant, phone, email, outlets, message }) {
+  if (!env.backupEmail) {
+    console.log(`[email] BACKUP_EMAIL not configured. Skipping new-lead notification for ${restaurant} (${email})`);
+    return;
+  }
+  if (!env.resendApiKey) {
+    console.log(`[email] RESEND_API_KEY not configured. Skipping new-lead notification for ${restaurant} (${email})`);
+    return;
+  }
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8" /></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f7;margin:0;padding:0;">
+  <div style="max-width:540px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08);">
+    <div style="background:#FF5A1F;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:800;">New DineXPOS Signup</h1>
+    </div>
+    <div style="padding:28px 32px;">
+      <table style="width:100%;font-size:14px;color:#1A1D27;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;color:#8A91A8;">Name</td><td style="padding:6px 0;font-weight:600;">${name}</td></tr>
+        <tr><td style="padding:6px 0;color:#8A91A8;">Restaurant</td><td style="padding:6px 0;font-weight:600;">${restaurant}</td></tr>
+        <tr><td style="padding:6px 0;color:#8A91A8;">Phone</td><td style="padding:6px 0;font-weight:600;">${phone}</td></tr>
+        <tr><td style="padding:6px 0;color:#8A91A8;">Email</td><td style="padding:6px 0;font-weight:600;">${email}</td></tr>
+        <tr><td style="padding:6px 0;color:#8A91A8;">Outlets</td><td style="padding:6px 0;font-weight:600;">${outlets || "-"}</td></tr>
+        ${message ? `<tr><td style="padding:6px 0;color:#8A91A8;">Message</td><td style="padding:6px 0;font-weight:600;">${message}</td></tr>` : ""}
+      </table>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const { error } = await getResend().emails.send({
+    from: env.emailFrom,
+    to: env.backupEmail,
+    subject: `New signup — ${restaurant}`,
+    html
+  });
+
+  if (error) {
+    throw new Error(error.message || "Resend email failed");
+  }
+}
+
+module.exports = { sendWelcomeEmail, sendPasswordResetEmail, sendNewLeadNotification };
