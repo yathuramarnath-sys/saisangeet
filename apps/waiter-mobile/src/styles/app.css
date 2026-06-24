@@ -989,13 +989,41 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   letter-spacing: 0.06em;
 }
 
+.guests-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1.5px solid var(--border-md);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.guests-step-btn {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  border: none;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 800;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.guests-step-btn:active { transform: scale(0.92); }
+.guests-step-btn-add { background: var(--kot-bg); color: #fff; }
+
 .guests-input {
-  width: 40px;
+  width: 28px;
   text-align: center;
   font-weight: 800;
   font-size: 1rem;
-  border-bottom: 2px solid var(--border-md);
-  padding-bottom: 2px;
+  border: none;
+  background: none;
 }
 
 /* Items list */
@@ -1009,8 +1037,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 52px 0;
+  justify-content: flex-start;
+  padding: 40px 0 24px;
   gap: 8px;
   color: var(--text-3);
 }

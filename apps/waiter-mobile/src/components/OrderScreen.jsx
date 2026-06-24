@@ -18,9 +18,11 @@ export function OrderScreen({
   onBack, onSendKOT, onRequestBill, onPrintBill, onPrintSplitBill,
   onToggleHold, onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear,
-  autoOpen = null, // "transfer" | "merge" | "split" — open modal immediately on mount
+  autoOpen = null, // "menu" | "transfer" | "merge" | "split" — open screen/modal immediately on mount
 }) {
-  const [screen,          setScreen]          = useState(autoOpen === "split" ? "split" : "order");
+  const [screen,          setScreen]          = useState(
+    autoOpen === "split" ? "split" : autoOpen === "menu" ? "menu" : "order"
+  );
   const [noteItemIdx,     setNoteItemIdx]      = useState(null);
   const [showTransfer,    setShowTransfer]     = useState(autoOpen === "transfer");
   const [showMerge,       setShowMerge]        = useState(autoOpen === "merge");
@@ -138,20 +140,46 @@ export function OrderScreen({
             {/* Guests */}
             <div className="order-guests-block">
               <span className="guests-label">Guests</span>
-              <input
-                className="guests-input"
-                type="number"
-                min="0"
-                max="20"
-                value={guestVal}
-                placeholder="0"
-                onChange={e => setGuestVal(e.target.value)}
-                onBlur={e => {
-                  const n = Math.max(0, Number(e.target.value) || 0);
-                  setGuestVal(n || "");
-                  onUpdateGuests?.(order.tableId, n);
-                }}
-              />
+              <div className="guests-stepper">
+                <button
+                  type="button"
+                  className="guests-step-btn"
+                  onClick={() => {
+                    tapImpact();
+                    const n = Math.max(0, Number(guestVal || 0) - 1);
+                    setGuestVal(n || "");
+                    onUpdateGuests?.(order.tableId, n);
+                  }}
+                >
+                  −
+                </button>
+                <input
+                  className="guests-input"
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={guestVal}
+                  placeholder="0"
+                  onChange={e => setGuestVal(e.target.value)}
+                  onBlur={e => {
+                    const n = Math.max(0, Number(e.target.value) || 0);
+                    setGuestVal(n || "");
+                    onUpdateGuests?.(order.tableId, n);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="guests-step-btn guests-step-btn-add"
+                  onClick={() => {
+                    tapImpact();
+                    const n = Math.min(20, Number(guestVal || 0) + 1);
+                    setGuestVal(n || "");
+                    onUpdateGuests?.(order.tableId, n);
+                  }}
+                >
+                  +
+                </button>
+              </div>
             </div>
           </div>
         </div>
