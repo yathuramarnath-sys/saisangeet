@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { tapImpact } from "../lib/haptics";
 import { SettingsScreen } from "./SettingsScreen";
+import { KotDetailScreen } from "./KotDetailScreen";
 
 const APP_VERSION = "1.26";
 
@@ -32,6 +33,7 @@ export function SideDrawer({
 }) {
   const [syncing,      setSyncing]      = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showKotDetail, setShowKotDetail] = useState(false);
 
   async function handleSync() {
     tapImpact();
@@ -46,6 +48,18 @@ export function SideDrawer({
         serverUrl={serverUrl}
         localPosIp={localPosIp}
         onClose={() => setShowSettings(false)}
+      />
+    );
+  }
+
+  if (showKotDetail) {
+    return (
+      <KotDetailScreen
+        pendingKots={pendingKots}
+        onRetryKot={onRetryKot}
+        onRetryAll={onRetryAll}
+        onClearKot={onClearKot}
+        onClose={() => setShowKotDetail(false)}
       />
     );
   }
@@ -65,67 +79,6 @@ export function SideDrawer({
             </div>
           </div>
           <button className="drawer-close" onClick={onClose}>✕</button>
-        </div>
-
-        {/* ── Unsuccessful KOT ─────────────────────────────────────────── */}
-        <div className="drawer-section">
-          <div className="drawer-section-title">
-            <span>Unsuccessful KOT</span>
-            {pendingKots.length > 0 && (
-              <span className="drawer-badge drawer-badge-red">{pendingKots.length}</span>
-            )}
-          </div>
-
-          {pendingKots.length === 0 ? (
-            <div className="drawer-empty-row">
-              <span className="drawer-empty-icon">✅</span>
-              <span>All KOTs sent successfully</span>
-            </div>
-          ) : (
-            <>
-              {pendingKots.map((kot) => (
-                <div key={kot.id} className="drawer-kot-row">
-                  <div className="drawer-kot-info">
-                    <span className="drawer-kot-table">Table {kot.tableNumber}</span>
-                    <span className="drawer-kot-items">
-                      {kot.items?.length || 0} item{(kot.items?.length || 0) !== 1 ? "s" : ""}
-                      {" · "}
-                      {kot.areaName}
-                    </span>
-                    {kot.failedAt && (
-                      <span className="drawer-kot-time">
-                        Failed {timeSince(kot.failedAt)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="drawer-kot-actions">
-                    <button
-                      className="drawer-kot-retry"
-                      onClick={() => { tapImpact(); onRetryKot(kot); }}
-                    >
-                      Retry
-                    </button>
-                    <button
-                      className="drawer-kot-clear"
-                      onClick={() => { tapImpact(); onClearKot(kot.id); }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {pendingKots.length > 1 && (
-                <button
-                  className="drawer-action-btn drawer-action-warn"
-                  onClick={() => { tapImpact(); onRetryAll(); }}
-                >
-                  <span>🔄</span>
-                  <span>Retry All ({pendingKots.length})</span>
-                </button>
-              )}
-            </>
-          )}
         </div>
 
         {/* ── Sync failures ────────────────────────────────────────────── */}
@@ -179,6 +132,17 @@ export function SideDrawer({
         {/* ── Flat menu list (matches Petpooja's drawer layout) ──────────── */}
         <div className="drawer-section drawer-list">
           <button
+            className="drawer-list-row"
+            onClick={() => { tapImpact(); setShowKotDetail(true); }}
+          >
+            <span className="drawer-list-icon">📋</span>
+            <span className="drawer-list-label">Unsuccessful KOT</span>
+            {pendingKots.length > 0 && (
+              <span className="drawer-badge drawer-badge-red">{pendingKots.length}</span>
+            )}
+          </button>
+
+          <button
             className={`drawer-list-row${syncing ? " drawer-list-row-loading" : ""}`}
             onClick={handleSync}
             disabled={syncing}
@@ -212,14 +176,11 @@ export function SideDrawer({
             <span className="drawer-list-label">Logout</span>
           </button>
         </div>
+
+        <div className="drawer-footer">
+          Device IP: {localPosIp || "—"}
+        </div>
       </div>
     </>
   );
-}
-
-function timeSince(ts) {
-  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
-  if (mins < 1)  return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  return `${Math.floor(mins / 60)}h ago`;
 }
