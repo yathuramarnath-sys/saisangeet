@@ -238,9 +238,12 @@ async function settleCreditOrder(tenantId, orderId, settlementInfo) {
         order.creditSettledRef    = settlementInfo.reference  || null;
 
         _persist();
+        // Must be awaited — getCreditOrders() reads exclusively from Postgres when
+        // the DB is enabled, so the in-memory mutation above is invisible to the
+        // very next reload unless this write has actually landed first.
         const closedAt = order.closedAt || order._receivedAt;
         if (closedAt) {
-          updateClosedOrderData(tenantId, outletId, closedAt, order).catch(err =>
+          await updateClosedOrderData(tenantId, outletId, closedAt, order).catch(err =>
             console.error("[closed-orders-store] credit settle Postgres sync error:", err.message)
           );
         }
