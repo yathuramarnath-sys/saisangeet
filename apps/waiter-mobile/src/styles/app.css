@@ -31,9 +31,10 @@
   --hold-bg:     #F9FAFB;
   --hold-border: #E5E7EB;
 
-  /* Action colours */
-  --kot-bg:      #059669;
-  --kot-shadow:  rgba(5,150,105,0.28);
+  /* Action colours — Blinkit-style yellow/black brand */
+  --kot-bg:      #FFC900;
+  --kot-bg-dark: #E6B400;
+  --kot-shadow:  rgba(255,201,0,0.45);
 
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -941,7 +942,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 .assign-staff-row input[type="radio"] {
   width: 20px;
   height: 20px;
-  accent-color: #10b981;
+  accent-color: #E6B400;
   cursor: pointer;
 }
 
@@ -965,13 +966,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   flex: 2;
   padding: 13px;
   border-radius: 12px;
-  background: #10b981;
+  background: #FFC900;
   border: none;
   font-size: 0.9rem;
   font-weight: 800;
-  color: #fff;
+  color: #212121;
 }
-.assign-done-btn:active { background: #059669; }
+.assign-done-btn:active { background: #E6B400; }
 
 .order-guests-block {
   display: flex;
@@ -989,13 +990,41 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   letter-spacing: 0.06em;
 }
 
+.guests-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1.5px solid var(--border-md);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.guests-step-btn {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  border: none;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 800;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.guests-step-btn:active { transform: scale(0.92); }
+.guests-step-btn-add { background: var(--kot-bg); color: #212121; }
+
 .guests-input {
-  width: 40px;
+  width: 28px;
   text-align: center;
   font-weight: 800;
   font-size: 1rem;
-  border-bottom: 2px solid var(--border-md);
-  padding-bottom: 2px;
+  border: none;
+  background: none;
 }
 
 /* Items list */
@@ -1009,8 +1038,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 52px 0;
+  justify-content: flex-start;
+  padding: 40px 0 24px;
   gap: 8px;
   color: var(--text-3);
 }
@@ -2054,8 +2083,8 @@ html, body, #root {
 .status-hold .table-status-dot    { background: #9E9E9E !important; }
 
 /* ── 4. Area tabs, category chips ── */
-.area-tab-active  { background: #059669 !important; border-color: #047857 !important; color: #FFFFFF !important; }
-.cat-chip-active  { background: #059669 !important; border-color: #047857 !important; color: #FFFFFF !important; }
+.area-tab-active  { background: #FFC900 !important; border-color: #E6B400 !important; color: #212121 !important; }
+.cat-chip-active  { background: #FFC900 !important; border-color: #E6B400 !important; color: #212121 !important; }
 
 /* ── 5. Floor summary bar ── */
 .floor-summary { background: #FFFFFF !important; }
@@ -2063,13 +2092,13 @@ html, body, #root {
 
 /* ── 6. KOT button: yellow brand colour — larger + glow + pulse ── */
 .kot-btn {
-  background: #059669 !important;
+  background: #FFC900 !important;
   color: #212121 !important;
   padding: 20px !important;
   font-size: 1.05rem !important;
   font-weight: 800 !important;
   border-radius: 18px !important;
-  box-shadow: 0 6px 20px rgba(5,150,105,0.40) !important;
+  box-shadow: 0 6px 20px rgba(255,201,0,0.45) !important;
 }
 
 /* Pulse glow when there are pending (unsent) items */
@@ -2077,23 +2106,23 @@ html, body, #root {
   animation: kotPulse 2s ease-in-out infinite !important;
 }
 @keyframes kotPulse {
-  0%,100% { box-shadow: 0 4px 12px rgba(5,150,105,0.40); }
-  50%      { box-shadow: 0 6px 22px rgba(5,150,105,0.70); }
+  0%,100% { box-shadow: 0 4px 12px rgba(255,201,0,0.45); }
+  50%      { box-shadow: 0 6px 22px rgba(255,201,0,0.75); }
 }
 
 /* ── 7. Login page ── */
 .login-page { background: #F7F3EE !important; }
-.login-logo { background: #059669 !important; color: #212121 !important; }
-.staff-card:active { border-color: #059669 !important; }
+.login-logo { background: #FFC900 !important; color: #212121 !important; }
+.staff-card:active { border-color: #E6B400 !important; }
 
 /* ── 8. PIN numpad keys ── */
-.numpad-key:active { background: #059669 !important; border-color: #047857 !important; color: #FFFFFF !important; }
-.pin-dot.filled    { background: #059669 !important; border-color: #047857 !important; }
+.numpad-key:active { background: #FFC900 !important; border-color: #E6B400 !important; color: #212121 !important; }
+.pin-dot.filled    { background: #FFC900 !important; border-color: #E6B400 !important; }
 
 /* ── 9. Order screen ── */
 .order-page { background: #F7F3EE !important; }
 .order-header { background: #FFFFFF !important; }
-.add-items-btn { background: #059669 !important; color: #212121 !important; }
+.add-items-btn { background: #FFC900 !important; color: #212121 !important; }
 .order-actions { background: #F7F3EE !important; }
 
 /* ── 10. Menu items — 2-column box grid (faster browsing for captain) ── */
@@ -2179,7 +2208,7 @@ html, body, #root {
   color: #212121 !important;
   width: 34px !important;
   height: 34px !important;
-  background: #059669 !important;
+  background: #FFC900 !important;
   border-radius: 10px !important;
   flex-shrink: 0 !important;
 }
@@ -2191,21 +2220,21 @@ html, body, #root {
   height: 30px !important;
   font-size: 1rem !important;
 }
-.qty-btn.qty-btn-add { background: #059669 !important; border-color: #047857 !important; color: #212121 !important; }
+.qty-btn.qty-btn-add { background: #FFC900 !important; border-color: #E6B400 !important; color: #212121 !important; }
 .qty-num { font-size: 0.88rem !important; min-width: 18px !important; }
 
 /* Empty state spans full grid */
 .menu-empty { grid-column: 1 / -1 !important; }
 
 /* Cart bar */
-.cart-bar-btn { background: #059669 !important; color: #212121 !important; }
+.cart-bar-btn { background: #FFC900 !important; color: #212121 !important; }
 
 /* ── KOT sent badge — keep neutral green, not bill-red ── */
 .kot-badge { background: #E8F5E9 !important; color: #4CAF50 !important; border-color: rgba(76,175,80,0.3) !important; }
 
 /* ── 11. Quick-notes / modals ── */
-.quick-chip-active { background: #059669 !important; border-color: #047857 !important; color: #212121 !important; }
-.sheet-save-btn    { background: #059669 !important; color: #212121 !important; }
+.quick-chip-active { background: #FFC900 !important; border-color: #E6B400 !important; color: #212121 !important; }
+.sheet-save-btn    { background: #FFC900 !important; color: #212121 !important; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    TABLE CARD BADGES — timer (top-left) and unsent KOT count (top-right)
@@ -2558,9 +2587,9 @@ html, body, #root {
   outline:     none;
 }
 .cis-field input:focus {
-  border-color: #059669;
+  border-color: #E6B400;
   background:   #fff;
-  box-shadow:   0 0 0 3px rgba(5,150,105,0.15);
+  box-shadow:   0 0 0 3px rgba(255,201,0,0.25);
 }
 .cis-field-sm { max-width: 160px; }
 
@@ -2587,15 +2616,15 @@ html, body, #root {
   padding:       13px;
   border-radius: 11px;
   border:        none;
-  background:    #059669;
+  background:    #FFC900;
   font-family:   inherit;
   font-size:     15px;
   font-weight:   700;
   color:         #212121;
   cursor:        pointer;
-  box-shadow:    0 2px 8px rgba(5,150,105,0.35);
+  box-shadow:    0 2px 8px rgba(255,201,0,0.45);
 }
-.cis-btn-save:active   { background: #047857; }
+.cis-btn-save:active   { background: #E6B400; }
 .cis-btn-cancel:active { background: #EAEAE8; }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -2909,8 +2938,8 @@ html, body, #root {
 .drawer-update-icon { font-size: 20px; flex-shrink: 0; }
 .drawer-update-btn {
   display: block;
-  background: #059669;
-  color: #fff;
+  background: #FFC900;
+  color: #212121;
   text-align: center;
   padding: 9px 14px;
   border-radius: 8px;
@@ -2962,15 +2991,15 @@ html, body, #root {
 /* ── Incoming customer orders (QR ordering) ──────────────────────────────── */
 .captain-incoming-btn {
   position: relative;
-  background: #059669; border: none; border-radius: 10px;
-  color: #fff; padding: 7px 10px; font-size: 1.1rem;
+  background: #FFC900; border: none; border-radius: 10px;
+  color: #212121; padding: 7px 10px; font-size: 1.1rem;
   display: flex; align-items: center; gap: 4px;
-  box-shadow: 0 2px 8px rgba(5,150,105,0.35);
+  box-shadow: 0 2px 8px rgba(255,201,0,0.45);
   animation: pulse-green 2s ease-in-out infinite;
 }
 @keyframes pulse-green {
-  0%, 100% { box-shadow: 0 2px 8px rgba(5,150,105,0.35); }
-  50%       { box-shadow: 0 2px 16px rgba(5,150,105,0.6); }
+  0%, 100% { box-shadow: 0 2px 8px rgba(255,201,0,0.45); }
+  50%       { box-shadow: 0 2px 16px rgba(255,201,0,0.75); }
 }
 .captain-incoming-count {
   background: #f59e0b; color: #fff; border-radius: 10px;
@@ -2998,7 +3027,7 @@ html, body, #root {
   font-size: 1rem; font-weight: 800; color: #111827;
 }
 .ico-count-badge {
-  background: #059669; color: #fff; border-radius: 12px;
+  background: #FFC900; color: #212121; border-radius: 12px;
   font-size: 0.75rem; font-weight: 800; padding: 2px 8px;
 }
 .ico-close-btn {
@@ -3025,7 +3054,7 @@ html, body, #root {
   display: flex; align-items: flex-start; gap: 10px;
 }
 .ico-table-badge {
-  background: #059669; color: #fff; border-radius: 8px;
+  background: #FFC900; color: #212121; border-radius: 8px;
   padding: 5px 10px; font-size: 0.82rem; font-weight: 800;
   white-space: nowrap; flex-shrink: 0;
 }
@@ -3043,7 +3072,7 @@ html, body, #root {
 .ico-item-row {
   display: flex; align-items: center; gap: 6px; font-size: 0.85rem;
 }
-.ico-item-qty   { font-weight: 800; color: #059669; min-width: 22px; }
+.ico-item-qty   { font-weight: 800; color: #B8860B; min-width: 22px; }
 .ico-item-name  { flex: 1; color: #111827; }
 .ico-item-price { font-weight: 700; color: #374151; }
 .ico-notes      { font-size: 0.78rem; color: #9ca3af; margin-top: 4px; }
@@ -3052,7 +3081,7 @@ html, body, #root {
   padding: 6px 0; border-top: 1px solid #e5e7eb;
   font-size: 0.88rem; color: #374151;
 }
-.ico-total-row strong { font-size: 1rem; color: #059669; font-weight: 800; }
+.ico-total-row strong { font-size: 1rem; color: #B8860B; font-weight: 800; }
 .ico-actions    { display: flex; gap: 8px; }
 .ico-btn {
   flex: 1; padding: 12px; border-radius: 10px; border: none;
@@ -3061,6 +3090,6 @@ html, body, #root {
 }
 .ico-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .ico-reject  { background: #fee2e2; color: #dc2626; }
-.ico-accept  { background: #059669; color: #fff; }
+.ico-accept  { background: #FFC900; color: #212121; }
 .ico-reject:active { background: #fecaca; }
-.ico-accept:active { background: #047857; }
+.ico-accept:active { background: #E6B400; }

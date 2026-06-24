@@ -530,9 +530,12 @@ export function App() {
   }, []);
 
   // ── Select table ──────────────────────────────────────────────────────────
-  // TAP → always go straight to OrderScreen (occupied or free)
+  // TAP → free table skips straight to the menu (nothing to look at yet);
+  // occupied table opens the order screen so the existing items are visible.
   async function handleSelectTable(tableId, area) {
-    await openOrderScreen(tableId, area);
+    const existingOrder = orders[tableId];
+    const isOccupied = (existingOrder?.items || []).filter(i => !i.isVoided && !i.isComp).length > 0;
+    await openOrderScreen(tableId, area, isOccupied ? null : "menu");
   }
 
   // LONG PRESS on occupied table → show action sheet (Merge/Transfer/Split/Print Bill)
@@ -546,7 +549,7 @@ export function App() {
   }
 
   // Extracted so both direct-tap and "Edit Order" from action sheet call the same logic
-  // autoOpen: null | "transfer" | "merge" | "split" — immediately opens the relevant modal
+  // autoOpen: null | "menu" | "transfer" | "merge" | "split" — immediately opens the relevant screen/modal
   async function openOrderScreen(tableId, area, autoOpen = null) {
     // Capture the local items synchronously BEFORE the async server fetch.
     // A socket event may clear orders[tableId] while the fetch is in flight —
