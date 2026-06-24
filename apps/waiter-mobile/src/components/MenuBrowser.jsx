@@ -255,14 +255,12 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, out
           tap any chip to exit). Order is a captain-only display preference. */}
       {!search && (
         <div className="cat-chips">
-          {favoriteIds.length > 0 && (
-            <button
-              className={`cat-chip cat-chip-favorites${activeCat === FAVORITES_CHIP_ID ? " cat-chip-active" : ""}`}
-              onClick={() => { setActiveCat(FAVORITES_CHIP_ID); tapImpact(); }}
-            >
-              ★ Favourites
-            </button>
-          )}
+          <button
+            className={`cat-chip cat-chip-favorites${activeCat === FAVORITES_CHIP_ID ? " cat-chip-active" : ""}`}
+            onClick={() => { setActiveCat(FAVORITES_CHIP_ID); tapImpact(); }}
+          >
+            ★ Favourites
+          </button>
           {orderedCategories.map(c => {
             const id = c.id || c.name;
             const longPress = makeLongPress(() => { setReorderMode(true); tapImpact(); });
@@ -291,7 +289,9 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, out
       <div className="menu-items">
         {displayItems.length === 0 && (
           <div className="menu-empty">
-            <p>No items found</p>
+            <p>{activeCat === FAVORITES_CHIP_ID
+              ? "No favourites yet — tap the ☆ on any item to add one"
+              : "No items found"}</p>
           </div>
         )}
         {displayItems.map(item => {
@@ -301,17 +301,22 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, out
           const cartQty  = cartItem ? cartItem.quantity : 0;
 
           const isFavorite = favoriteIds.includes(item.id);
-          const longPress  = makeLongPress(() => toggleFavorite(item.id));
 
           return (
             <div key={item.id} className={`menu-item${soldOut ? " menu-item-soldout" : ""}${item.isVeg === false ? " item-nonveg" : item.isVeg === true ? " item-veg" : ""}`}>
-              <div className="menu-item-left" {...longPress}>
+              <div className="menu-item-left">
+                <button
+                  className={`menu-item-fav-btn${isFavorite ? " active" : ""}`}
+                  onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
+                  aria-label={isFavorite ? "Remove from favourites" : "Add to favourites"}
+                >
+                  {isFavorite ? "★" : "☆"}
+                </button>
                 {item.isVeg !== undefined && (
                   <span className={`veg-dot${item.isVeg ? " veg" : " nonveg"}`} />
                 )}
                 <div className="menu-item-info">
                   <span className="menu-item-name">
-                    {isFavorite && <span className="menu-item-fav-star">★</span>}
                     {item.sku && <span className="menu-item-sku">#{item.sku}</span>}
                     {item.name}{item.unit ? <span className="menu-item-unit">/{item.unit}</span> : null}
                   </span>

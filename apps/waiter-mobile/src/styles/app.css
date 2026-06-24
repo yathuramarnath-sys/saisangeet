@@ -1521,11 +1521,21 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   color: #6366F1;
   margin-right: 5px;
 }
-.menu-item-fav-star {
-  font-size: 0.78rem;
-  color: #F59E0B;
-  margin-right: 4px;
+.menu-item-fav-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: #C9CBD1;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
+.menu-item-fav-btn.active { color: #F59E0B; }
+.menu-item-fav-btn:active { transform: scale(0.9); }
 
 .soldout-tag {
   display: inline-block;
