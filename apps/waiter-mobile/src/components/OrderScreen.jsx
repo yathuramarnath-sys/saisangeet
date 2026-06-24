@@ -102,6 +102,8 @@ export function OrderScreen({
         categories={categories}
         menuItems={menuItems}
         stockState={stockState}
+        outletId={outletId}
+        socket={socket}
         onUpdateOrder={(next) => { onUpdateOrder(next); onAddItem?.(next.items?.at(-1)); }}
         onBack={() => setScreen("order")}
       />

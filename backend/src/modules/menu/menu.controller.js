@@ -23,6 +23,7 @@ const {
   bulkImportMenuItems,
   lookupItemBySku,
 } = require("./menu.service");
+const { loadRuntimeState, saveRuntimeState } = require("../../db/runtime-state.repository");
 
 async function listMenuCategoriesHandler(req, res) {
   const result = await fetchMenuCategories(req.query.outletId);
@@ -199,6 +200,60 @@ async function autoNumberItemsHandler(req, res) {
   res.json({ ok: true, assigned, message: `${assigned} items numbered starting from ${maxNum + 1}` });
 }
 
+// ── Captain-only Favourites + category order ──────────────────────────────────
+// Stored per outlet in app_runtime_state — never touches the shared menu item/
+// category objects, so POS and customer-web stay on their own default ordering.
+function captainFavoritesScope(tenantId, outletId) {
+  return `captain-favorites:${tenantId}:${outletId}`;
+}
+function captainCategoryOrderScope(tenantId, outletId) {
+  return `captain-category-order:${tenantId}:${outletId}`;
+}
+
+async function getCaptainFavoritesHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const { outletId } = req.query;
+  if (!outletId) return res.status(400).json({ error: { message: "outletId required" } });
+  const state = await loadRuntimeState(captainFavoritesScope(tenantId, outletId));
+  res.json({ itemIds: state?.itemIds || [] });
+}
+
+async function saveCaptainFavoritesHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const { outletId, itemIds } = req.body || {};
+  if (!outletId || !Array.isArray(itemIds)) {
+    return res.status(400).json({ error: { message: "outletId and itemIds[] required" } });
+  }
+  await saveRuntimeState(captainFavoritesScope(tenantId, outletId), { itemIds });
+
+  const io = req.app.locals.io;
+  if (io) io.to(`outlet:${tenantId}:${outletId}`).emit("captain:favorites", { outletId, itemIds });
+
+  res.json({ itemIds });
+}
+
+async function getCaptainCategoryOrderHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const { outletId } = req.query;
+  if (!outletId) return res.status(400).json({ error: { message: "outletId required" } });
+  const state = await loadRuntimeState(captainCategoryOrderScope(tenantId, outletId));
+  res.json({ categoryIds: state?.categoryIds || [] });
+}
+
+async function saveCaptainCategoryOrderHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const { outletId, categoryIds } = req.body || {};
+  if (!outletId || !Array.isArray(categoryIds)) {
+    return res.status(400).json({ error: { message: "outletId and categoryIds[] required" } });
+  }
+  await saveRuntimeState(captainCategoryOrderScope(tenantId, outletId), { categoryIds });
+
+  const io = req.app.locals.io;
+  if (io) io.to(`outlet:${tenantId}:${outletId}`).emit("captain:category-order", { outletId, categoryIds });
+
+  res.json({ categoryIds });
+}
+
 module.exports = {
   listMenuCategoriesHandler,
   listMenuItemsHandler,
@@ -224,4 +279,8 @@ module.exports = {
   bulkImportMenuItemsHandler,
   skuLookupHandler,
   autoNumberItemsHandler,
+  getCaptainFavoritesHandler,
+  saveCaptainFavoritesHandler,
+  getCaptainCategoryOrderHandler,
+  saveCaptainCategoryOrderHandler,
 };
