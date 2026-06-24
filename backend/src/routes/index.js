@@ -33,7 +33,7 @@ const { counterRouter }    = require("../modules/counter/counter.routes");
 const { onlineOrdersRouter } = require("../modules/online-orders/online-orders.routes");
 const { phonePeRouter }      = require("../modules/phonepe/phonepe.routes");
 const { borzoRouter }        = require("../modules/borzo/borzo.routes");
-const { zohoRouter }         = require("../modules/zoho/zoho.routes");
+const { zohoRouter, handleZohoCallback } = require("../modules/zoho/zoho.routes");
 const { settlementsRouter }  = require("../modules/settlements/settlements.routes");
 const { inventoryRouter }    = require("../modules/inventory/inventory.routes");
 const { advanceOrdersRouter } = require("../modules/advance-orders/advance-orders.routes");
@@ -89,6 +89,10 @@ apiRouter.use("/admin/clients", clientsRouter);
 // Public device route — POS terminal setup, no auth required.
 // Must be mounted before requireTenant so devices can link without a JWT.
 apiRouter.post("/devices/resolve-link-code", linkCodeLimiter, resolveLinkCodeRules, validate, asyncHandler(resolveLinkCodeHandler));
+
+// Public Zoho OAuth callback — Zoho redirects here with no JWT attached.
+// Must be mounted before requireTenant for the same reason as above.
+apiRouter.get("/integrations/zoho/callback", handleZohoCallback);
 
 // ── All data routes — MUST pass requireTenant ─────────────────────────────
 // requireTenant guarantees: valid JWT + tenantId present + not "default".
