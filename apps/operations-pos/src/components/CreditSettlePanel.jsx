@@ -111,7 +111,7 @@ export function CreditSettlePanel({ activeShift, outletId, onClose }) {
     setSaving(true);
     setSettleErr("");
     try {
-      const id = settling.id || settling.orderNumber;
+      const id = settling.billNo || settling.id || settling.orderNumber;
       await api.post(`/operations/credits/${id}/settle`, {
         method,
         reference: reference.trim() || null,
@@ -239,7 +239,7 @@ export function CreditSettlePanel({ activeShift, outletId, onClose }) {
                   </div>
 
                   {custBills.map(bill => (
-                    <div key={bill.id || bill.orderNumber} className="csp-bill-row">
+                    <div key={`${bill.billNo || bill.id || bill.orderNumber}-${bill.closedAt}`} className="csp-bill-row">
                       <div className="csp-bill-meta">
                         <span className="csp-bill-no">Bill #{bill.billNo || bill.orderNumber}</span>
                         {bill.creditCustomer?.poNumber &&

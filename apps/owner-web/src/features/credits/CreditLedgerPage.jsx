@@ -107,7 +107,7 @@ export function CreditLedgerPage() {
     setSettleLoad(true);
     setSettleErr("");
     try {
-      const id = settling.id || settling.orderNumber;
+      const id = settling.billNo || settling.id || settling.orderNumber;
       await api.post(`/operations/credits/${id}/settle`, {
         method:    settleForm.method,
         reference: settleForm.reference.trim() || null,
@@ -273,7 +273,9 @@ export function CreditLedgerPage() {
                   {custOrders.map(o => {
                     const amt       = creditAmount(o);
                     const isPaid    = o.creditStatus === "paid";
-                    const billKey   = o.id || o.orderNumber;
+                    // Combine with closedAt for the React key — orderNumber/billNo alone can repeat
+                    // (orderNumber is reused across unrelated bills; billNo resets in daily mode).
+                    const billKey   = `${o.billNo || o.id || o.orderNumber}-${o.closedAt}`;
                     const isExpanded = expandedId === billKey;
                     const billItems = o.items?.filter(i => !i.isVoided) || [];
                     return (

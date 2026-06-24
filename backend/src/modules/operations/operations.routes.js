@@ -261,7 +261,7 @@ operationsRouter.post("/credits/settle-customer", requireAuth, asyncHandler(asyn
 
   const settled = [];
   for (const order of unpaid) {
-    const id = order.id || order.orderNumber;
+    const id = order.billNo || order.id || order.orderNumber;
     const result = await settleCreditOrder(tenantId, id, { method, reference, settledBy });
     if (result) settled.push(id);
   }

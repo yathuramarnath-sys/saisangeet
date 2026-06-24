@@ -324,19 +324,33 @@ async function getClosedOrderByClosedAt(tenantId, outletId, closedAt) {
 async function findCreditOrderById(tenantId, orderId) {
   if (!isDatabaseEnabled()) return null;
   try {
-    // Use JSONB containment — matches either id or orderNumber field
-    const r = await query(
+    // billNo is the only globally-unique identifier for a closed order — orderNumber is
+    // derived from active-table position/count and gets reused across unrelated bills, so
+    // matching on it (picking "most recent by closed_at") can silently return the wrong order.
+    // Try billNo first; only fall back to the ambiguous id/orderNumber match if nothing matched.
+    let r = await query(
       `SELECT order_data, outlet_id FROM closed_orders
         WHERE tenant_id = $1
           AND order_data->>'isCreditSale' = 'true'
-          AND (
-            order_data->>'id' = $2
-            OR order_data->>'orderNumber' = $2
-          )
+          AND order_data->>'billNo' = $2
         ORDER BY closed_at DESC
         LIMIT 1`,
       [tenantId, String(orderId)]
     );
+    if (!r.rows.length) {
+      r = await query(
+        `SELECT order_data, outlet_id FROM closed_orders
+          WHERE tenant_id = $1
+            AND order_data->>'isCreditSale' = 'true'
+            AND (
+              order_data->>'id' = $2
+              OR order_data->>'orderNumber' = $2
+            )
+          ORDER BY closed_at DESC
+          LIMIT 1`,
+        [tenantId, String(orderId)]
+      );
+    }
     if (!r.rows.length) return null;
     const row = r.rows[0];
     const order = typeof row.order_data === "string" ? JSON.parse(row.order_data) : row.order_data;
