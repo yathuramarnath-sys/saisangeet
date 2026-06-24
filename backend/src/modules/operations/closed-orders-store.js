@@ -229,7 +229,14 @@ async function settleCreditOrder(tenantId, orderId, settlementInfo) {
   if (store.has(tenantId)) {
     const tenantMap = store.get(tenantId);
     for (const [outletId, orders] of tenantMap.entries()) {
-      const order = orders.find(o => String(o.id || o.orderNumber) === String(orderId) && o.isCreditSale);
+      // billNo is the only truly unique identifier for a closed order — orderNumber is
+      // derived from active-table position/count and gets reused across unrelated bills,
+      // so matching on it can silently settle the wrong order when numbers collide.
+      // Try billNo across the whole list first; only fall back to the legacy
+      // id/orderNumber match (ambiguous when numbers collide) if no billNo matches at all.
+      const order =
+        orders.find(o => o.isCreditSale && String(o.billNo) === String(orderId)) ||
+        orders.find(o => o.isCreditSale && String(o.id || o.orderNumber) === String(orderId));
       if (order) {
         order.creditStatus        = "paid";
         order.creditSettledAt     = now;
@@ -275,7 +282,9 @@ async function settleCreditOrder(tenantId, orderId, settlementInfo) {
 
   // Also re-add to in-memory store so subsequent reads in the same session work
   const list = _getOutletList(tenantId, outletId);
-  const existing = list.findIndex(o => String(o.id || o.orderNumber) === String(orderId));
+  const existing = list.findIndex(o =>
+    String(o.billNo) === String(orderId) || String(o.id || o.orderNumber) === String(orderId)
+  );
   if (existing >= 0) list[existing] = order;
   else list.unshift(order);
 
