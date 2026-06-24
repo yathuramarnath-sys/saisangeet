@@ -11,7 +11,8 @@ const APP_VERSION = "1.26";
  * Props:
  *   outletName      string
  *   serverUrl       string
- *   localPosIp      string | null
+ *   localPosIp      string | null  — LAN POS server this device connects to (Settings only)
+ *   deviceIp        string | null  — this device's own LAN IP, shown in the footer
  *   pendingKots     array   — failed KOT payloads queued for retry
  *   onClose         ()
  *   onSync          ()      — force-pull orders + menu from server
@@ -22,7 +23,7 @@ const APP_VERSION = "1.26";
  *   scanning        bool    — true while network scan is running
  */
 export function SideDrawer({
-  outletName, serverUrl, localPosIp,
+  outletName, serverUrl, localPosIp, deviceIp,
   pendingKots  = [],
   syncFailed   = 0,
   printFailed  = 0,
@@ -158,7 +159,7 @@ export function SideDrawer({
         </div>
 
         <div className="drawer-footer">
-          Device IP: {localPosIp || "—"}
+          Device IP: {deviceIp || "—"}
         </div>
       </div>
     </>
