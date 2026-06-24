@@ -35,6 +35,7 @@ const {
   getOrganizations,
   getOrCreateWalkInContact,
   fetchTaxMap,
+  fetchAccountIds,
 } = require("./zoho.service");
 
 const zohoRouter = express.Router();   // private routes only — see handleZohoCallback below
@@ -77,6 +78,7 @@ const handleZohoCallback = asyncHandler(async (req, res) => {
 
       // Fetch organization info
       let orgId = "", orgName = "", walkInContactId = "", taxMap = {};
+      let cashAccountId = null, bankAccountId = null, miscExpenseAccountId = null;
       try {
         const orgs = await getOrganizations(tokens.accessToken);
         if (orgs.length > 0) {
@@ -86,6 +88,8 @@ const handleZohoCallback = asyncHandler(async (req, res) => {
         if (orgId) {
           walkInContactId = await getOrCreateWalkInContact(orgId, tokens.accessToken);
           taxMap          = await fetchTaxMap(orgId, tokens.accessToken);
+          ({ cashAccountId, bankAccountId, miscExpenseAccountId } =
+            await fetchAccountIds(orgId, tokens.accessToken));
         }
       } catch (orgErr) {
         console.warn("[zoho callback] org/contact fetch failed:", orgErr.message);
@@ -104,6 +108,9 @@ const handleZohoCallback = asyncHandler(async (req, res) => {
             orgName,
             walkInContactId,
             taxMap,
+            cashAccountId,
+            bankAccountId,
+            miscExpenseAccountId,
             connectedAt:      new Date().toISOString(),
             lastSyncAt:       null,
             totalPushed:      d.zoho?.totalPushed || 0,

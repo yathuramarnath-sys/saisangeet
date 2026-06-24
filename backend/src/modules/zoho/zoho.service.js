@@ -239,6 +239,44 @@ function mapPaymentMode(methods) {
   return map[primary.toLowerCase()] || "cash";
 }
 
+/**
+ * Which Zoho ledger account a sale's payment should deposit into.
+ * Cash → cfg.cashAccountId. Everything else (card/upi/phonepe/etc.) → cfg.bankAccountId
+ * — both card and UPI settle into the same bank account for this tenant.
+ */
+function pickDepositAccountId(methods, cfg) {
+  const primary = (methods?.[0]?.method || "cash").toLowerCase();
+  return primary === "cash" ? cfg.cashAccountId : cfg.bankAccountId;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chart of Accounts — fetch once after connect, cache account IDs in zohoCfg
+// Matches by name so cashAccountId/bankAccountId/miscExpenseAccountId can be
+// passed as account_id on sales receipts and expenses.
+// Returns { cashAccountId, bankAccountId, miscExpenseAccountId }
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function fetchAccountIds(organizationId, accessToken) {
+  const result   = await booksGet("/chartofaccounts", organizationId, accessToken);
+  const accounts = result.body?.chartofaccounts || [];
+
+  const findByType = (type) =>
+    accounts.find(a => a.account_type === type);
+  const findByName = (needle) =>
+    accounts.find(a => a.account_name?.toLowerCase().includes(needle));
+
+  const cashAccount = findByName("cash") || findByType("cash");
+  const bankAccount = findByType("bank");
+  const miscExpenseAccount =
+    findByName("miscellaneous") || findByType("expense");
+
+  return {
+    cashAccountId:       cashAccount?.account_id       || null,
+    bankAccountId:       bankAccount?.account_id       || null,
+    miscExpenseAccountId: miscExpenseAccount?.account_id || null,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Push a closed POS order as a Zoho Books Sales Receipt
 // ─────────────────────────────────────────────────────────────────────────────
@@ -285,6 +323,8 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
   const subtotal   = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const discountAmt = Math.min(order.discountAmount || 0, subtotal);
 
+  const depositAccountId = pickDepositAccountId(order.payments, zohoCfg);
+
   const payload = {
     customer_id:      custId,
     receipt_number:   receiptNumber,
@@ -297,6 +337,7 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
       ? `${order.areaName || ""} — Table ${order.tableNumber || ""} | ${order.cashierName || "POS"}`
       : `Order #${order.orderNumber} | ${order.cashierName || "POS"}`,
     line_items,
+    ...(depositAccountId ? { account_id: depositAccountId } : {}),
     ...(discountAmt > 0 ? {
       discount:         discountAmt.toFixed(2),
       is_discount_before_tax: true,
@@ -326,6 +367,61 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Push a cash-out shift movement as a Zoho Books Expense
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @param {object} movement — cash-out movement (from shifts.controller)
+ * @param {object} zohoCfg  — tenant's zoho config from ownerSetupData
+ * @returns {{ expenseId, referenceNumber }}
+ */
+async function pushExpense(movement, zohoCfg) {
+  const { accessToken } = await getValidToken(zohoCfg);
+  const orgId = zohoCfg.organizationId;
+
+  if (!zohoCfg.miscExpenseAccountId || !zohoCfg.cashAccountId) {
+    throw new Error("Zoho expense/cash account not configured — reconnect Zoho Books.");
+  }
+
+  const referenceNumber = `CO-${movement.id}`;
+  const date = movement.time
+    ? movement.time.slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+
+  const descriptionParts = [
+    movement.reason || "Cash Out",
+    movement.notes,
+    movement.cashier && `Cashier: ${movement.cashier}`,
+    movement.outlet,
+  ].filter(Boolean);
+
+  const payload = {
+    account_id:             zohoCfg.miscExpenseAccountId,
+    date,
+    amount:                 Number(movement.amount),
+    paid_through_account_id: zohoCfg.cashAccountId,
+    reference_number:       referenceNumber,
+    description:            descriptionParts.join(" | "),
+  };
+
+  const result = await booksPost("/expenses", payload, orgId, accessToken);
+
+  if (result.body?.code !== 0) {
+    throw new Error(
+      result.body?.message ||
+      `Zoho expense push failed: ${JSON.stringify(result.body)}`
+    );
+  }
+
+  const expense = result.body.expense;
+  console.log(`[zoho] expense pushed | ref=${referenceNumber} | id=${expense.expense_id}`);
+  return {
+    expenseId:      expense.expense_id,
+    referenceNumber,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Fetch Zoho tax IDs — called once after connect, cached in zohoCfg.taxMap
 // Returns { "5": "taxId_5", "12": "taxId_12", "18": "taxId_18" }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -349,5 +445,7 @@ module.exports = {
   getOrganizations,
   getOrCreateWalkInContact,
   fetchTaxMap,
+  fetchAccountIds,
   pushSaleReceipt,
+  pushExpense,
 };
