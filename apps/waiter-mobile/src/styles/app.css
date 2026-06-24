@@ -1492,16 +1492,6 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   min-width: 0;
 }
 
-.veg-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  border: 2px solid currentColor;
-}
-.veg-dot.veg    { color: #16A34A; background: #16A34A; }
-.veg-dot.nonveg { color: #DC2626; background: #DC2626; }
-
 .menu-item-info { display: flex; flex-direction: column; gap: 3px; }
 
 .menu-item-name {
@@ -2187,10 +2177,7 @@ html, body, #root {
   gap: 7px !important;
   flex: 1 !important;
 }
-.veg-dot {
-  margin-top: 3px !important;
-  flex-shrink: 0 !important;
-}
+.menu-item-fav-btn { margin-top: 1px !important; }
 .menu-item-info { gap: 2px !important; }
 .menu-item-name {
   font-size: 0.82rem !important;

@@ -312,9 +312,6 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, out
                 >
                   {isFavorite ? "★" : "☆"}
                 </button>
-                {item.isVeg !== undefined && (
-                  <span className={`veg-dot${item.isVeg ? " veg" : " nonveg"}`} />
-                )}
                 <div className="menu-item-info">
                   <span className="menu-item-name">
                     {item.sku && <span className="menu-item-sku">#{item.sku}</span>}
