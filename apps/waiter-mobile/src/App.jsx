@@ -1402,6 +1402,7 @@ export function App() {
           serverUrl={(import.meta.env.VITE_API_BASE_URL || "").replace("/api/v1", "")}
           localPosIp={localStorage.getItem("captain_local_server_ip") || null}
           deviceIp={deviceIp}
+          serverId={branchConfig?.outletCode || null}
           pendingKots={pendingKots}
           syncFailed={syncFailed}
           printFailed={printFailed}
