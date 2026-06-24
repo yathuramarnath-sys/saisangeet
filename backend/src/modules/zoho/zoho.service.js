@@ -64,13 +64,9 @@ function httpsRequest(hostname, method, path, body, headers) {
 // OAuth helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SCOPES = [
-  "ZohoBooks.salesreceipts.CREATE",
-  "ZohoBooks.salesreceipts.READ",
-  "ZohoBooks.contacts.CREATE",
-  "ZohoBooks.contacts.READ",
-  "ZohoBooks.settings.READ",
-].join(",");
+// Zoho doesn't register a separate scope for the Sales Receipts module —
+// ZohoBooks.salesreceipts.* is rejected as "Invalid OAuth Scope" by accounts.zoho.in.
+const SCOPES = "ZohoBooks.fullaccess.all";
 
 /**
  * Build the Zoho OAuth authorization URL.
