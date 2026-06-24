@@ -10,7 +10,9 @@
  *
  * PUBLIC (no JWT):
  *   GET  /integrations/zoho/callback       — Zoho OAuth redirect handler
- *   (also mounted under /api/v1 so the full path is /api/v1/integrations/zoho/callback)
+ *   (exported as handleZohoCallback, mounted directly on apiRouter in
+ *    routes/index.js BEFORE requireTenant — not part of zohoRouter below,
+ *    since zohoRouter sits behind the global requireTenant gate)
  *
  * Per-tenant zoho config stored in ownerSetupData.zoho:
  *   { clientId, clientSecret, accessToken, refreshToken, expiresAt,
@@ -35,7 +37,7 @@ const {
   fetchTaxMap,
 } = require("./zoho.service");
 
-const zohoRouter = express.Router();   // private + public callback
+const zohoRouter = express.Router();   // private routes only — see handleZohoCallback below
 
 const PUBLIC_API_URL  = process.env.PUBLIC_API_URL  || "https://api.dinexpos.in";
 const OWNER_WEB_URL   = process.env.OWNER_WEB_URL   || "https://app.dinexpos.in";
@@ -45,11 +47,15 @@ const REDIRECT_URI    = `${PUBLIC_API_URL}/api/v1/integrations/zoho/callback`;
 // ─────────────────────────────────────────────────────────────────────────────
 // PUBLIC — OAuth callback (no JWT — Zoho redirects here)
 // GET /api/v1/integrations/zoho/callback?code=...&state=tenantId
+//
+// NOT mounted on zohoRouter — zohoRouter is mounted under apiRouter AFTER the
+// global requireTenant gate (routes/index.js), which would 401 this request
+// before it ever runs since Zoho's redirect carries no JWT. Exported instead
+// and mounted directly on apiRouter before requireTenant, same pattern as
+// POST /devices/resolve-link-code.
 // ─────────────────────────────────────────────────────────────────────────────
-zohoRouter.get(
-  "/callback",
-  asyncHandler(async (req, res) => {
-    const { code, state: tenantId, error } = req.query;
+const handleZohoCallback = asyncHandler(async (req, res) => {
+  const { code, state: tenantId, error } = req.query;
 
     const failRedirect = (msg) =>
       res.redirect(`${OWNER_WEB_URL}/integrations?zoho_error=${encodeURIComponent(msg)}`);
@@ -112,8 +118,7 @@ zohoRouter.get(
       console.error(`[zoho callback] error for tenant ${tenantId}:`, err.message);
       failRedirect(err.message || "OAuth failed");
     }
-  })
-);
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PRIVATE — Save client credentials
@@ -272,4 +277,4 @@ zohoRouter.post(
   })
 );
 
-module.exports = { zohoRouter };
+module.exports = { zohoRouter, handleZohoCallback };
