@@ -5,6 +5,7 @@ import { UpdateBanner } from "./components/UpdateBanner";
 
 import { api }        from "./lib/api";
 import { printBill }  from "./lib/printBill";
+import { getDeviceLocalIp } from "./lib/deviceIp";
 import {
   ACTION as SYNC_ACTION,
   enqueue       as syncEnqueue,
@@ -120,6 +121,7 @@ export function App() {
   const [autoOpenAction,  setAutoOpenAction]   = useState(null); // "transfer"|"merge"|"split"
   const [scanning,        setScanning]         = useState(false);
   const [updateInfo,      setUpdateInfo]       = useState(null); // update available for drawer badge
+  const [deviceIp,        setDeviceIp]         = useState(null); // this tablet's own LAN IP, for drawer footer
   // KOT queue — failed sends stored here so staff can retry from the drawer
   const [pendingKots, setPendingKots] = useState(() => {
     try { return JSON.parse(localStorage.getItem("captain_pending_kots") || "[]"); } catch { return []; }
@@ -149,6 +151,11 @@ export function App() {
   const waiterStaff = allStaff.filter(
     (s) => WAITER_ROLES.includes((s.role || "").toLowerCase())
   );
+
+  // ── Detect this device's own LAN IP for the drawer's Device IP footer ─────
+  useEffect(() => {
+    getDeviceLocalIp().then(setDeviceIp);
+  }, []);
 
   // ── Refresh staff from backend on every boot ──────────────────────────────
   // Also updates loggedInStaff so the printed name is always from owner console,
@@ -1394,6 +1401,8 @@ export function App() {
           outletName={outlet?.name || branchConfig?.outletName}
           serverUrl={(import.meta.env.VITE_API_BASE_URL || "").replace("/api/v1", "")}
           localPosIp={localStorage.getItem("captain_local_server_ip") || null}
+          deviceIp={deviceIp}
+          serverId={branchConfig?.outletCode || null}
           pendingKots={pendingKots}
           syncFailed={syncFailed}
           printFailed={printFailed}

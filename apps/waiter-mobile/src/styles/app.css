@@ -2766,6 +2766,9 @@ html, body, #root {
 
 /* Footer (matches Petpooja's "Device IP" footer line) */
 .drawer-footer {
+  display:     flex;
+  flex-direction: column;
+  gap:         3px;
   padding:     10px 16px;
   font-size:   11px;
   color:       var(--text-3);

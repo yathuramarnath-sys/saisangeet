@@ -41,7 +41,8 @@ export const menuItems = sharedMenuItems
     name: item.id === "sweet-lime" ? "Sweet Lime Soda" : item.name,
     price: item.price,
     station: item.stationName,
-    categoryId: item.categoryId === "mains" ? "biryani" : item.categoryId === "drinks" ? "beverages" : item.categoryId
+    categoryId: item.categoryId === "mains" ? "biryani" : item.categoryId === "drinks" ? "beverages" : item.categoryId,
+    sku: item.sku
   }));
 
 export const tableOrders = Object.fromEntries(
