@@ -14,12 +14,17 @@ function timeSince(ts) {
  *
  * Props:
  *   pendingKots  array
+ *   syncFailed   number  — failed order-sync mutations (also retrying automatically)
+ *   printFailed  number  — failed bill/KOT prints (also retrying automatically)
  *   onRetryKot   (kot)
  *   onRetryAll   ()
  *   onClearKot   (kotId)
  *   onClose      ()
  */
-export function KotDetailScreen({ pendingKots = [], onRetryKot, onRetryAll, onClearKot, onClose }) {
+export function KotDetailScreen({
+  pendingKots = [], syncFailed = 0, printFailed = 0,
+  onRetryKot, onRetryAll, onClearKot, onClose,
+}) {
   return (
     <div className="settings-screen">
       <div className="settings-header">
@@ -28,6 +33,27 @@ export function KotDetailScreen({ pendingKots = [], onRetryKot, onRetryAll, onCl
       </div>
 
       <div className="settings-body">
+        {(syncFailed > 0 || printFailed > 0) && (
+          <div className="drawer-section">
+            {syncFailed > 0 && (
+              <div className="drawer-empty-row" style={{ color: "#f59e0b", fontWeight: 600 }}>
+                <span>⚠️</span>
+                <span>
+                  {syncFailed} action{syncFailed !== 1 ? "s" : ""} failed to sync — retrying automatically
+                </span>
+              </div>
+            )}
+            {printFailed > 0 && (
+              <div className="drawer-empty-row" style={{ color: "#ef4444", fontWeight: 600 }}>
+                <span>🖨️</span>
+                <span>
+                  {printFailed} print{printFailed !== 1 ? "s" : ""} failed — check printer connection
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="drawer-section">
           {pendingKots.length === 0 ? (
             <div className="drawer-empty-row">

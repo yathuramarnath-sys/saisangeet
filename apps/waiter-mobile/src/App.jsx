@@ -420,7 +420,18 @@ export function App() {
         }
 
         const savedLocalIp = localStorage.getItem("captain_local_server_ip")?.trim();
-        if (savedLocalIp) connectLocalSocket(savedLocalIp);
+        if (savedLocalIp) {
+          connectLocalSocket(savedLocalIp);
+        } else {
+          // No POS IP saved yet (skipped during setup) — scan silently in the
+          // background so the drawer's Device IP footer populates on its own
+          // instead of staying blank until the captain finds "Find Server IP".
+          findPosOnNetwork().then(foundIp => {
+            if (!foundIp) return;
+            localStorage.setItem("captain_local_server_ip", foundIp);
+            connectLocalSocket(foundIp);
+          });
+        }
       } catch (err) {
         console.error("Captain App bootstrap failed (offline?) — loading from cache:", err.message);
         // Restore from offline cache so waiters can take orders even without internet
