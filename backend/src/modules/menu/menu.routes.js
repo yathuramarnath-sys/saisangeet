@@ -35,6 +35,10 @@ const {
   updatePricingProfileHandler,
   bulkImportMenuItemsHandler,
   skuLookupHandler,
+  getCaptainFavoritesHandler,
+  saveCaptainFavoritesHandler,
+  getCaptainCategoryOrderHandler,
+  saveCaptainCategoryOrderHandler,
 } = require("./menu.controller");
 
 const menuRouter = express.Router();
@@ -144,5 +148,13 @@ menuRouter.post(
   requireAuth, requirePermission("menu.manage"),
   asyncHandler(require("./menu.controller").autoNumberItemsHandler)
 );
+
+// ── Captain-only Favourites + category order ─────────────────────────────────
+// Any authenticated staff member (captain) can curate their own outlet's
+// Favourites/category order — no menu.manage permission required.
+menuRouter.get("/captain/favorites",       requireAuth, asyncHandler(getCaptainFavoritesHandler));
+menuRouter.put("/captain/favorites",       requireAuth, asyncHandler(saveCaptainFavoritesHandler));
+menuRouter.get("/captain/category-order",  requireAuth, asyncHandler(getCaptainCategoryOrderHandler));
+menuRouter.put("/captain/category-order",  requireAuth, asyncHandler(saveCaptainCategoryOrderHandler));
 
 module.exports = { menuRouter };
