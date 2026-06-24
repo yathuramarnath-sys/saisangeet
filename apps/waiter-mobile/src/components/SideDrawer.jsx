@@ -1,25 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { tapImpact } from "../lib/haptics";
-
-// ── Printer helpers ───────────────────────────────────────────────────────────
-function loadPrinterIp()   { return localStorage.getItem("captain_printer_ip")   || ""; }
-function loadPaperSize()   { return localStorage.getItem("captain_paper_size")   || "80mm"; }
-
-function savePrinterConfig(ip, paper) {
-  const ip2 = ip.trim();
-  localStorage.setItem("captain_printer_ip",  ip2);
-  localStorage.setItem("captain_paper_size",  paper);
-  // Write into captain_printers so kotPrint / printBill can read it
-  const printer = [{
-    name: "Thermal Printer",
-    type: "Both",
-    ip: ip2,
-    paper,
-    isDefault: true,
-    station: "",       // no station = waiter full copy + bill printer
-  }];
-  localStorage.setItem("captain_printers", JSON.stringify(printer));
-}
+import { SettingsScreen } from "./SettingsScreen";
 
 const APP_VERSION = "1.26";
 
@@ -49,36 +30,24 @@ export function SideDrawer({
   onRetryKot, onRetryAll, onClearKot,
   scanning = false,
 }) {
-  const [syncing,      setSyncing]    = useState(false);
-  const [printerIp,   setPrinterIp]  = useState(loadPrinterIp);
-  const [paperSize,   setPaperSize]  = useState(loadPaperSize);
-  const [testStatus,  setTestStatus] = useState(null); // null | "testing" | "ok" | "fail"
-  const [ipSaved,     setIpSaved]    = useState(false);
-
-  async function handleTestPrinter() {
-    const ip = printerIp.trim();
-    if (!ip) { setTestStatus("fail"); return; }
-    setTestStatus("testing");
-    try {
-      const { pingPrinter } = await import("../lib/thermalPrint.js");
-      const result = await pingPrinter(ip);
-      setTestStatus(result.ok ? "ok" : "fail");
-    } catch {
-      setTestStatus("fail");
-    }
-    setTimeout(() => setTestStatus(null), 3000);
-  }
-
-  function handleSavePrinter() {
-    savePrinterConfig(printerIp, paperSize);
-    setIpSaved(true);
-    setTimeout(() => setIpSaved(false), 2000);
-  }
+  const [syncing,      setSyncing]      = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   async function handleSync() {
     tapImpact();
     setSyncing(true);
     try { await onSync(); } finally { setSyncing(false); }
+  }
+
+  if (showSettings) {
+    return (
+      <SettingsScreen
+        outletName={outletName}
+        serverUrl={serverUrl}
+        localPosIp={localPosIp}
+        onClose={() => setShowSettings(false)}
+      />
+    );
   }
 
   return (
@@ -92,16 +61,16 @@ export function SideDrawer({
             <span className="drawer-brand-icon">🍽️</span>
             <div>
               <div className="drawer-brand-name">Plato Captain</div>
-              <div className="drawer-brand-outlet">{outletName || "Restaurant"}</div>
+              <div className="drawer-brand-version">v{APP_VERSION}</div>
             </div>
           </div>
           <button className="drawer-close" onClick={onClose}>✕</button>
         </div>
 
-        {/* ── Pending KOTs ─────────────────────────────────────────────── */}
+        {/* ── Unsuccessful KOT ─────────────────────────────────────────── */}
         <div className="drawer-section">
           <div className="drawer-section-title">
-            <span>Pending KOTs</span>
+            <span>Unsuccessful KOT</span>
             {pendingKots.length > 0 && (
               <span className="drawer-badge drawer-badge-red">{pendingKots.length}</span>
             )}
@@ -207,115 +176,44 @@ export function SideDrawer({
           </div>
         )}
 
-        {/* ── Sync & Tools ─────────────────────────────────────────────── */}
-        <div className="drawer-section">
-          <div className="drawer-section-title">Tools</div>
-
+        {/* ── Flat menu list (matches Petpooja's drawer layout) ──────────── */}
+        <div className="drawer-section drawer-list">
           <button
-            className={`drawer-action-btn${syncing ? " drawer-action-loading" : ""}`}
+            className={`drawer-list-row${syncing ? " drawer-list-row-loading" : ""}`}
             onClick={handleSync}
             disabled={syncing}
           >
-            <span>{syncing ? "⏳" : "🔄"}</span>
-            <span>{syncing ? "Syncing…" : "Sync Data"}</span>
-            <span className="drawer-action-hint">Refresh orders + menu</span>
+            <span className="drawer-list-icon">{syncing ? "⏳" : "🔄"}</span>
+            <span className="drawer-list-label">{syncing ? "Syncing…" : "Sync Data"}</span>
           </button>
 
           <button
-            className={`drawer-action-btn${scanning ? " drawer-action-loading" : ""}`}
+            className={`drawer-list-row${scanning ? " drawer-list-row-loading" : ""}`}
             onClick={() => { tapImpact(); onFindPOS(); }}
             disabled={scanning}
           >
-            <span>{scanning ? "⏳" : "📡"}</span>
-            <span>{scanning ? "Scanning network…" : "Find POS"}</span>
-            <span className="drawer-action-hint">
-              {localPosIp ? `Connected: ${localPosIp}` : "Scan Wi-Fi for POS machine"}
-            </span>
+            <span className="drawer-list-icon">{scanning ? "⏳" : "📡"}</span>
+            <span className="drawer-list-label">{scanning ? "Scanning…" : "Find Server IP"}</span>
           </button>
-        </div>
 
-        {/* ── Printer Settings ─────────────────────────────────────────── */}
-        <div className="drawer-section">
-          <div className="drawer-section-title">🖨️ Printer Settings</div>
-
-          <div className="drawer-printer-row">
-            <label className="drawer-printer-label">Printer IP</label>
-            <input
-              className="drawer-printer-input"
-              type="text"
-              inputMode="decimal"
-              placeholder="e.g. 192.168.1.200"
-              value={printerIp}
-              onChange={e => setPrinterIp(e.target.value)}
-            />
-          </div>
-
-          <div className="drawer-printer-row">
-            <label className="drawer-printer-label">Paper Size</label>
-            <select
-              className="drawer-printer-select"
-              value={paperSize}
-              onChange={e => setPaperSize(e.target.value)}
-            >
-              <option value="80mm">80mm</option>
-              <option value="76mm">76mm</option>
-              <option value="58mm">58mm</option>
-            </select>
-          </div>
-
-          <div className="drawer-printer-btns">
-            <button
-              className="drawer-printer-test-btn"
-              onClick={handleTestPrinter}
-              disabled={testStatus === "testing"}
-            >
-              {testStatus === "testing" ? "Testing…"
-                : testStatus === "ok"   ? "✅ Connected"
-                : testStatus === "fail" ? "❌ Not found"
-                : "Test Connection"}
-            </button>
-            <button
-              className={`drawer-printer-save-btn${ipSaved ? " saved" : ""}`}
-              onClick={handleSavePrinter}
-            >
-              {ipSaved ? "✅ Saved" : "Save"}
-            </button>
-          </div>
-        </div>
-
-        {/* ── Device Info ───────────────────────────────────────────────── */}
-        <div className="drawer-section drawer-device-section">
-          <div className="drawer-section-title">Device Info</div>
-          <div className="drawer-device-grid">
-            <DevRow label="App Version" value={`v${APP_VERSION}`} />
-            <DevRow label="Outlet"      value={outletName || "—"} />
-            <DevRow label="Server"      value={serverUrl  || "—"} mono />
-            <DevRow label="Local POS"   value={localPosIp ? `${localPosIp}:4001` : "Not connected"} mono />
-          </div>
-        </div>
-
-        {/* ── Sign Out ──────────────────────────────────────────────────── */}
-        <div className="drawer-section">
           <button
-            className="drawer-action-btn drawer-signout-btn"
+            className="drawer-list-row"
+            onClick={() => { tapImpact(); setShowSettings(true); }}
+          >
+            <span className="drawer-list-icon">⚙️</span>
+            <span className="drawer-list-label">Settings</span>
+          </button>
+
+          <button
+            className="drawer-list-row"
             onClick={() => { tapImpact(); onSignOut(); }}
           >
-            <span>🚪</span>
-            <span>Sign Out</span>
-            <span className="drawer-action-hint">Return to login screen</span>
+            <span className="drawer-list-icon">🚪</span>
+            <span className="drawer-list-label">Logout</span>
           </button>
         </div>
       </div>
     </>
-  );
-}
-
-function DevRow({ label, value, mono }) {
-  return (
-    <div className="drawer-dev-row">
-      <span className="drawer-dev-label">{label}</span>
-      <span className={`drawer-dev-value${mono ? " mono" : ""}`}>{value}</span>
-    </div>
   );
 }
 

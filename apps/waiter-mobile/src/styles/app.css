@@ -1492,16 +1492,6 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   min-width: 0;
 }
 
-.veg-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  border: 2px solid currentColor;
-}
-.veg-dot.veg    { color: #16A34A; background: #16A34A; }
-.veg-dot.nonveg { color: #DC2626; background: #DC2626; }
-
 .menu-item-info { display: flex; flex-direction: column; gap: 3px; }
 
 .menu-item-name {
@@ -1521,11 +1511,21 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   color: #6366F1;
   margin-right: 5px;
 }
-.menu-item-fav-star {
-  font-size: 0.78rem;
-  color: #F59E0B;
-  margin-right: 4px;
+.menu-item-fav-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: #C9CBD1;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
+.menu-item-fav-btn.active { color: #F59E0B; }
+.menu-item-fav-btn:active { transform: scale(0.9); }
 
 .soldout-tag {
   display: inline-block;
@@ -2177,10 +2177,7 @@ html, body, #root {
   gap: 7px !important;
   flex: 1 !important;
 }
-.veg-dot {
-  margin-top: 3px !important;
-  flex-shrink: 0 !important;
-}
+.menu-item-fav-btn { margin-top: 1px !important; }
 .menu-item-info { gap: 2px !important; }
 .menu-item-name {
   font-size: 0.82rem !important;
@@ -2694,11 +2691,36 @@ html, body, #root {
   font-weight: 700;
   color:       #1A1A1A;
 }
-.drawer-brand-outlet {
+.drawer-brand-version {
   font-size:  12px;
   color:      rgba(0,0,0,0.48);
   margin-top: 1px;
 }
+
+/* ── Flat list rows (matches Petpooja drawer layout) ─────────────────────── */
+.drawer-list-row {
+  display:         flex;
+  align-items:     center;
+  gap:             14px;
+  width:           100%;
+  padding:         13px 4px;
+  background:      transparent;
+  border:          none;
+  border-bottom:   1px solid var(--border);
+  cursor:          pointer;
+  text-align:      left;
+  font-family:     inherit;
+  font-size:       14px;
+  font-weight:     600;
+  color:           var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.drawer-list:last-child .drawer-list-row:last-child { border-bottom: none; }
+.drawer-list-row:active   { background: var(--surface-2); }
+.drawer-list-row:disabled { opacity: 0.6; }
+.drawer-list-icon  { font-size: 18px; flex-shrink: 0; width: 22px; text-align: center; }
+.drawer-list-label { flex: 1; }
+.drawer-list-row-loading { opacity: 0.7; }
 .drawer-close {
   background:   transparent;
   border:       none;
@@ -2955,12 +2977,35 @@ html, body, #root {
   font-weight: 700;
   text-decoration: none;
 }
-/* ── Drawer: Sign out ───────────────────────────────────────────────────── */
-.drawer-signout-btn {
-  color: #dc2626 !important;
-  border-color: #fee2e2 !important;
+/* ── Settings screen (printer config + device info, moved out of drawer) ── */
+.settings-screen {
+  position:   fixed;
+  inset:      0;
+  background: #FFFFFF;
+  z-index:    302;
+  display:    flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
-.drawer-signout-btn:active { background: #fee2e2 !important; }
+.settings-header {
+  display:       flex;
+  align-items:   center;
+  gap:           12px;
+  padding:       env(safe-area-inset-top, 14px) 16px 14px;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  flex-shrink:   0;
+}
+.settings-back {
+  background:  transparent;
+  border:      none;
+  font-size:   20px;
+  color:       var(--text);
+  cursor:      pointer;
+  padding:     4px 6px;
+  line-height: 1;
+}
+.settings-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.settings-body  { flex: 1; }
 
 /* ── Drawer: Printer Settings ───────────────────────────────────────────── */
 .drawer-printer-row {
