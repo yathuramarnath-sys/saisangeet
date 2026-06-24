@@ -56,6 +56,8 @@ export function SideDrawer({
     return (
       <KotDetailScreen
         pendingKots={pendingKots}
+        syncFailed={syncFailed}
+        printFailed={printFailed}
         onRetryKot={onRetryKot}
         onRetryAll={onRetryAll}
         onClearKot={onClearKot}
@@ -63,6 +65,8 @@ export function SideDrawer({
       />
     );
   }
+
+  const unsuccessfulCount = pendingKots.length + syncFailed + printFailed;
 
   return (
     <>
@@ -80,30 +84,6 @@ export function SideDrawer({
           </div>
           <button className="drawer-close" onClick={onClose}>✕</button>
         </div>
-
-        {/* ── Sync failures ────────────────────────────────────────────── */}
-        {syncFailed > 0 && (
-          <div className="drawer-section">
-            <div className="drawer-empty-row" style={{ color: "#f59e0b", fontWeight: 600 }}>
-              <span>⚠️</span>
-              <span>
-                {syncFailed} action{syncFailed !== 1 ? "s" : ""} failed to sync — retrying automatically
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* ── Print failures ────────────────────────────────────────────── */}
-        {printFailed > 0 && (
-          <div className="drawer-section">
-            <div className="drawer-empty-row" style={{ color: "#ef4444", fontWeight: 600 }}>
-              <span>🖨️</span>
-              <span>
-                {printFailed} print{printFailed !== 1 ? "s" : ""} failed — check printer connection
-              </span>
-            </div>
-          </div>
-        )}
 
         {/* ── Update available ─────────────────────────────────────────── */}
         {updateInfo && (
@@ -137,8 +117,8 @@ export function SideDrawer({
           >
             <span className="drawer-list-icon">📋</span>
             <span className="drawer-list-label">Unsuccessful KOT</span>
-            {pendingKots.length > 0 && (
-              <span className="drawer-badge drawer-badge-red">{pendingKots.length}</span>
+            {unsuccessfulCount > 0 && (
+              <span className="drawer-badge drawer-badge-red">{unsuccessfulCount}</span>
             )}
           </button>
 
