@@ -9,7 +9,8 @@ const {
 } = require("./shifts.service");
 
 const { sendShiftCloseSms }  = require("../../utils/sms");
-const { getOwnerSetupData }  = require("../../data/owner-setup-store");
+const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-setup-store");
+const { runWithTenant }      = require("../../data/tenant-context");
 const { getTodaySales }      = require("../operations/closed-orders-store");
 
 async function shiftSummaryHandler(req, res) {
@@ -37,6 +38,30 @@ async function recordMovementHandler(req, res) {
   const io = req.app.locals.io;
   if (io) io.to(`tenant:${tenantId}`).emit("shift:updated", { type: "movement", movement });
   res.json(result);
+
+  // ── Fire-and-forget: push cash-out movements to Zoho Books as an expense ──
+  // Never awaited — never blocks the POS response. Errors are logged only.
+  if (movement.type === "out") {
+    setImmediate(async () => {
+      try {
+        const { pushExpense, getValidToken } = require("../zoho/zoho.service");
+        const data = await runWithTenant(tenantId, () => getOwnerSetupData());
+        const cfg  = data?.zoho;
+        if (!cfg?.enabled || !cfg?.refreshToken || !cfg?.organizationId) return;
+
+        const { refreshed } = await getValidToken(cfg);
+        if (refreshed) {
+          await runWithTenant(tenantId, () =>
+            updateOwnerSetupData(d => ({ ...d, zoho: { ...d.zoho, accessToken: cfg.accessToken, expiresAt: cfg.expiresAt } }))
+          );
+        }
+
+        await pushExpense(movement, cfg);
+      } catch (err) {
+        console.warn(`[zoho] expense auto-push failed | tenant=${tenantId} | movement=${movement.id}:`, err.message);
+      }
+    });
+  }
 }
 
 async function closeShiftHandler(req, res) {
