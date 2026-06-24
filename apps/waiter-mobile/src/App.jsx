@@ -350,7 +350,9 @@ export function App() {
         // after router restart even if DHCP assigns a new IP to the POS machine.
 
         async function findPosOnNetwork() {
-          const subnets = ["192.168.1", "192.168.0", "10.0.0"];
+          const ownIp     = await getDeviceLocalIp();
+          const ownSubnet = ownIp ? ownIp.split(".").slice(0, 3).join(".") : null;
+          const subnets   = [...new Set([ownSubnet, "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
           for (const subnet of subnets) {
             for (let i = 1; i <= 50; i++) {
               const ip = `${subnet}.${i}`;
@@ -1108,7 +1110,9 @@ export function App() {
   async function handleFindPOS() {
     setScanning(true);
     try {
-      const subnets = ["192.168.1", "192.168.0", "10.0.0"];
+      const ownIp     = await getDeviceLocalIp();
+      const ownSubnet = ownIp ? ownIp.split(".").slice(0, 3).join(".") : null;
+      const subnets   = [...new Set([ownSubnet, "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
       for (const subnet of subnets) {
         for (let i = 1; i <= 50; i++) {
           const ip = `${subnet}.${i}`;
