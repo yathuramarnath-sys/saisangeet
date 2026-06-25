@@ -298,7 +298,8 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
   const stateCode = zohoCfg.stateCode || "TN"; // restaurant's state for place_of_supply
 
   // Invoice number — use orderId/billNo for idempotency
-  const invoiceNumber = `INV-${order.billNo || order.orderNumber}`;
+  // Zoho caps invoice_number at 16 characters (alphanumeric, hyphen, slash)
+  const invoiceNumber = `INV-${order.billNo || order.orderNumber}`.slice(0, 16);
 
   // Date — use closedAt or today
   const closedDate = order.closedAt
