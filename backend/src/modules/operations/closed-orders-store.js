@@ -8,7 +8,7 @@
 
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { loadRuntimeState, saveRuntimeState } = require("../../db/runtime-state.repository");
-const { insertClosedOrder, updateClosedOrderData, queryCreditOrders, findCreditOrderById } = require("../../db/closed-orders.repository");
+const { insertClosedOrder, updateClosedOrderData, queryCreditOrders, queryCreditSettlementsForRange, findCreditOrderById } = require("../../db/closed-orders.repository");
 
 const SCOPE = "closed-orders";
 
@@ -301,7 +301,7 @@ async function settleCreditOrder(tenantId, orderId, settlementInfo) {
  * @param {string}      dateTo    — "YYYY-MM-DD" (inclusive)
  * @param {string|null} outletId  — optional outlet filter
  */
-function getCreditSettlementsForRange(tenantId, dateFrom, dateTo, outletId = null) {
+function _getCreditSettlementsFromMemory(tenantId, dateFrom, dateTo, outletId = null) {
   if (!store.has(tenantId)) return [];
   const tenantMap = store.get(tenantId);
   const keys      = outletId ? [outletId] : [...tenantMap.keys()];
@@ -319,6 +319,23 @@ function getCreditSettlementsForRange(tenantId, dateFrom, dateTo, outletId = nul
     }
   }
   return result;
+}
+
+/**
+ * Credit settlements within a date range — merges in-memory (today, not-yet
+ * persisted) with Postgres (full history) so settlements survive server
+ * restarts, mirroring the pattern used for regular sales history.
+ */
+async function getCreditSettlementsForRange(tenantId, dateFrom, dateTo, outletId = null) {
+  const memResults = _getCreditSettlementsFromMemory(tenantId, dateFrom, dateTo, outletId);
+  if (!isDatabaseEnabled()) return memResults;
+
+  const pgResults = await queryCreditSettlementsForRange(tenantId, { dateFrom, dateTo, outletId });
+
+  // Dedup by order.id — in-memory may include orders not yet persisted to Postgres.
+  const pgIds = new Set(pgResults.map((o) => o.id).filter(Boolean));
+  const newFromMemory = memResults.filter((o) => !o.id || !pgIds.has(o.id));
+  return [...newFromMemory, ...pgResults];
 }
 
 module.exports = {
