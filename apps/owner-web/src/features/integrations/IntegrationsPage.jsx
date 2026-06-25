@@ -320,6 +320,7 @@ function ZohoConfigCard() {
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
   const [testing,  setTesting]  = useState(false);
+  const [syncing,  setSyncing]  = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [msg,      setMsg]      = useState({ text: "", ok: true });
   const [form,     setForm]     = useState({
@@ -397,6 +398,20 @@ function ZohoConfigCard() {
     } catch (err) {
       setMsg({ text: "✗ " + (err.message || "Test failed"), ok: false });
     } finally { setTesting(false); }
+  }
+
+  async function handleSyncAccounts() {
+    setSyncing(true); setMsg({ text: "", ok: true });
+    try {
+      const res = await api.post("/integrations/zoho/sync-accounts");
+      setMsg({
+        text: `✓ Account mapping refreshed — Cash: ${res.cashAccountName || "not found"} · Bank: ${res.bankAccountName || "not found"}`,
+        ok: !!(res.cashAccountName && res.bankAccountName),
+      });
+      loadConfig();
+    } catch (err) {
+      setMsg({ text: "✗ " + (err.message || "Sync failed"), ok: false });
+    } finally { setSyncing(false); }
   }
 
   const STATE_CODES = [
@@ -553,9 +568,22 @@ function ZohoConfigCard() {
                     </p>
                   </div>
                 </div>
+                <div style={{ fontSize:12, color:"#6b7280", background:"#f9fafb", borderRadius:8, padding:"8px 12px" }}>
+                  <strong style={{ color:"#374151" }}>Deposit accounts detected:</strong>{" "}
+                  Cash → {cfg.cashAccountName || <span style={{ color:"#dc2626" }}>not found</span>}
+                  {" · "}
+                  Bank/UPI/Card → {cfg.bankAccountName || <span style={{ color:"#dc2626" }}>not found</span>}
+                  <br />
+                  <span>
+                    If Bank isn't found, or you added your bank account in Zoho after connecting, click Re-sync below.
+                  </span>
+                </div>
                 <div style={{ display:"flex", gap:10, marginTop:4 }}>
                   <button type="button" className="btn-outline" onClick={handleTest} disabled={testing}>
                     {testing ? "Testing…" : "🧪 Test Connection"}
+                  </button>
+                  <button type="button" className="btn-outline" onClick={handleSyncAccounts} disabled={syncing}>
+                    {syncing ? "Syncing…" : "🏦 Re-sync Accounts"}
                   </button>
                   <button type="button" className="btn-outline" onClick={handleConnect}
                     style={{ color:"#f59e0b", borderColor:"#f59e0b" }}>
