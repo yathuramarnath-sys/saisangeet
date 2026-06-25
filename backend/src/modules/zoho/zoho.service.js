@@ -239,14 +239,27 @@ function mapPaymentMode(methods) {
   return map[primary.toLowerCase()] || "cash";
 }
 
+// Which payment bucket a POS payment method falls into, for account routing.
+function getPaymentBucket(method) {
+  const key = String(method || "cash").toLowerCase();
+  if (key.includes("cash")) return "cash";
+  if (key.includes("card")) return "card";
+  if (key.includes("upi") || key.includes("phonepe") || key.includes("paytm") || key.includes("qr")) return "upi";
+  return "other";
+}
+
 /**
  * Which Zoho ledger account a sale's payment should deposit into.
- * Cash → cfg.cashAccountId. Everything else (card/upi/phonepe/etc.) → cfg.bankAccountId
- * — both card and UPI settle into the same bank account for this tenant.
+ * Order of precedence per bucket (cash/card/upi/other):
+ *   1. Owner's explicit override (cfg.accountOverrides[bucket])
+ *   2. Auto-detected cash account (cash bucket only)
+ *   3. Auto-detected bank account (fallback for everything else)
  */
 function pickDepositAccountId(methods, cfg) {
-  const primary = (methods?.[0]?.method || "cash").toLowerCase();
-  return primary === "cash" ? cfg.cashAccountId : cfg.bankAccountId;
+  const bucket = getPaymentBucket(methods?.[0]?.method);
+  const override = cfg.accountOverrides?.[bucket]?.accountId;
+  if (override) return override;
+  return bucket === "cash" ? cfg.cashAccountId : cfg.bankAccountId;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -256,6 +269,16 @@ function pickDepositAccountId(methods, cfg) {
 // Returns { cashAccountId, bankAccountId, miscExpenseAccountId }
 // ─────────────────────────────────────────────────────────────────────────────
 
+async function listChartOfAccounts(organizationId, accessToken) {
+  const result = await booksGet("/chartofaccounts", organizationId, accessToken);
+  return (result.body?.chartofaccounts || []).map(a => ({
+    accountId:   a.account_id,
+    accountName: a.account_name,
+    accountType: a.account_type,
+    isPrimary:   !!a.is_primary_account,
+  }));
+}
+
 async function fetchAccountIds(organizationId, accessToken) {
   const result   = await booksGet("/chartofaccounts", organizationId, accessToken);
   const accounts = result.body?.chartofaccounts || [];
@@ -264,12 +287,18 @@ async function fetchAccountIds(organizationId, accessToken) {
     accounts.find(a => types.includes(a.account_type));
   const findByName = (needle) =>
     accounts.find(a => a.account_name?.toLowerCase().includes(needle));
+  // An account the owner has explicitly marked "default"/"primary" in Zoho
+  // Books (e.g. when adding a new Bank account) should win over name-matching
+  // — that's the whole point of marking it default.
+  const findPrimary = (...types) =>
+    accounts.find(a => a.is_primary_account && (!types.length || types.includes(a.account_type)));
 
-  const cashAccount = findByName("cash") || findByType("cash");
+  const cashAccount =
+    findPrimary("cash") || findByName("cash") || findByType("cash");
   // Some orgs categorize their bank account under "other_current_asset" instead
   // of literally "bank" — match by name first so a real Bank account isn't missed.
   const bankAccount =
-    findByName("bank") || findByType("bank", "other_current_asset");
+    findPrimary("bank", "other_current_asset") || findByName("bank") || findByType("bank", "other_current_asset");
   const miscExpenseAccount =
     findByName("miscellaneous") || findByType("expense");
 
@@ -431,7 +460,8 @@ async function pushExpense(movement, zohoCfg) {
   const { accessToken } = await getValidToken(zohoCfg);
   const orgId = zohoCfg.organizationId;
 
-  if (!zohoCfg.miscExpenseAccountId || !zohoCfg.cashAccountId) {
+  const expenseAccountId = zohoCfg.accountOverrides?.cashOutExpense?.accountId || zohoCfg.miscExpenseAccountId;
+  if (!expenseAccountId || !zohoCfg.cashAccountId) {
     throw new Error("Zoho expense/cash account not configured — reconnect Zoho Books.");
   }
 
@@ -448,7 +478,7 @@ async function pushExpense(movement, zohoCfg) {
   ].filter(Boolean);
 
   const payload = {
-    account_id:             zohoCfg.miscExpenseAccountId,
+    account_id:             expenseAccountId,
     date,
     amount:                 Number(movement.amount),
     paid_through_account_id: zohoCfg.cashAccountId,
@@ -498,6 +528,7 @@ module.exports = {
   getOrCreateWalkInContact,
   fetchTaxMap,
   fetchAccountIds,
+  listChartOfAccounts,
   pushSaleReceipt,
   pushExpense,
 };

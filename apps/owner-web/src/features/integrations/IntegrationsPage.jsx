@@ -326,6 +326,9 @@ function ZohoConfigCard() {
   const [form,     setForm]     = useState({
     clientId: "", clientSecret: "", stateCode: "TN", enabled: false, syncStartDate: "",
   });
+  const [accounts,   setAccounts]   = useState([]);
+  const [overrides,  setOverrides]  = useState({ cash: "", card: "", upi: "", other: "", cashOutExpense: "" });
+  const [savingRoute, setSavingRoute] = useState(false);
 
   // Check URL params for OAuth result
   useEffect(() => {
@@ -351,12 +354,43 @@ function ZohoConfigCard() {
           enabled:       d.enabled   || false,
           syncStartDate: d.syncStartDate || "",
         }));
+        const ov = d.accountOverrides || {};
+        setOverrides({
+          cash:           ov.cash?.accountId           || "",
+          card:           ov.card?.accountId           || "",
+          upi:            ov.upi?.accountId             || "",
+          other:          ov.other?.accountId           || "",
+          cashOutExpense: ov.cashOutExpense?.accountId || "",
+        });
+        if (d.connected) {
+          api.get("/integrations/zoho/accounts")
+            .then(r => setAccounts(r.accounts || []))
+            .catch(() => {});
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { loadConfig(); }, []);
+
+  async function handleSaveRouting() {
+    setSavingRoute(true); setMsg({ text: "", ok: true });
+    try {
+      const body = {};
+      for (const bucket of ["cash", "card", "upi", "other", "cashOutExpense"]) {
+        const accountId = overrides[bucket];
+        if (!accountId) { body[bucket] = null; continue; }
+        const acct = accounts.find(a => a.accountId === accountId);
+        body[bucket] = { accountId, accountName: acct?.accountName || "" };
+      }
+      await api.post("/integrations/zoho/account-overrides", body);
+      setMsg({ text: "✓ Account routing saved.", ok: true });
+      loadConfig();
+    } catch (err) {
+      setMsg({ text: "✗ " + (err.message || "Save failed"), ok: false });
+    } finally { setSavingRoute(false); }
+  }
 
   async function handleSave(e) {
     e.preventDefault();
@@ -607,6 +641,50 @@ function ZohoConfigCard() {
               </div>
             )}
           </div>
+
+          {/* Step 3: Account routing overrides */}
+          {cfg?.connected && (
+            <div style={{ background:"#f9fafb", borderRadius:10, padding:"12px 14px" }}>
+              <p style={{ fontSize:12, fontWeight:700, color:"#374151", margin:"0 0 6px" }}>
+                Step 3 — Account routing (optional)
+              </p>
+              <p style={{ fontSize:12, color:"#6b7280", margin:"0 0 10px" }}>
+                Pin exactly which Zoho account each payment method or cash-out expense should post to.
+                Leave a row on "Auto-detected" to keep using the Cash/Bank accounts detected above.
+              </p>
+              {accounts.length === 0 ? (
+                <p style={{ fontSize:12, color:"#9ca3af" }}>Loading chart of accounts…</p>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {[
+                    ["cash", "Cash sales →"],
+                    ["card", "Card sales →"],
+                    ["upi", "UPI sales →"],
+                    ["other", "Other (PhonePe/Swiggy/Zomato) →"],
+                    ["cashOutExpense", "Cash-out expenses →"],
+                  ].map(([bucket, label]) => (
+                    <div key={bucket} style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <span style={{ fontSize:12, color:"#374151", minWidth:220 }}>{label}</span>
+                      <select className="form-input" style={{ maxWidth:280 }}
+                        value={overrides[bucket]}
+                        onChange={e => setOverrides(o => ({ ...o, [bucket]: e.target.value }))}>
+                        <option value="">Auto-detected</option>
+                        {accounts.map(a => (
+                          <option key={a.accountId} value={a.accountId}>
+                            {a.accountName} ({a.accountType}{a.isPrimary ? ", default" : ""})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                  <button type="button" className="btn-primary" style={{ alignSelf:"flex-start", marginTop:4 }}
+                    onClick={handleSaveRouting} disabled={savingRoute}>
+                    {savingRoute ? "Saving…" : "Save Account Routing"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Setup guide */}
           <details style={{ fontSize:12, color:"#6b7280", cursor:"pointer" }}>

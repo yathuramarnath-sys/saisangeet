@@ -17,7 +17,14 @@
  * Per-tenant zoho config stored in ownerSetupData.zoho:
  *   { clientId, clientSecret, accessToken, refreshToken, expiresAt,
  *     organizationId, orgName, walkInContactId, taxMap, stateCode,
- *     syncStartDate, connectedAt, lastSyncAt, totalPushed }
+ *     syncStartDate, connectedAt, lastSyncAt, totalPushed,
+ *     cashAccountId, cashAccountName, bankAccountId, bankAccountName,
+ *     miscExpenseAccountId,
+ *     accountOverrides: { cash, card, upi, other, cashOutExpense } —
+ *       each either null or { accountId, accountName }, set via
+ *       POST /integrations/zoho/account-overrides. Takes precedence over
+ *       the auto-detected cashAccountId/bankAccountId/miscExpenseAccountId
+ *       above when routing a sale's deposit account or a cash-out expense. }
  *
  * syncStartDate (YYYY-MM-DD, optional): orders that closed before this date
  * are skipped by the auto-push (see operations.controller.js). Lets an owner
@@ -40,7 +47,10 @@ const {
   getOrCreateWalkInContact,
   fetchTaxMap,
   fetchAccountIds,
+  listChartOfAccounts,
 } = require("./zoho.service");
+
+const ACCOUNT_OVERRIDE_BUCKETS = ["cash", "card", "upi", "other", "cashOutExpense"];
 
 const zohoRouter = express.Router();   // private routes only — see handleZohoCallback below
 
@@ -215,8 +225,76 @@ zohoRouter.get(
       totalPushed:     cfg.totalPushed     || 0,
       cashAccountName: cfg.cashAccountName || null,
       bankAccountName: cfg.bankAccountName || null,
+      accountOverrides: cfg.accountOverrides || {},
       redirectUri:     REDIRECT_URI,
     });
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRIVATE — List live Chart of Accounts (for account-routing dropdowns)
+// GET /integrations/zoho/accounts
+// ─────────────────────────────────────────────────────────────────────────────
+zohoRouter.get(
+  "/accounts",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId || "default";
+    const data     = await runWithTenant(tenantId, () => getOwnerSetupData());
+    const cfg      = data?.zoho;
+
+    if (!cfg?.refreshToken || !cfg?.organizationId) {
+      return res.status(400).json({ error: "Not connected. Complete OAuth first." });
+    }
+
+    const { accessToken } = await getValidToken(cfg);
+    const accounts = await listChartOfAccounts(cfg.organizationId, accessToken);
+    res.json({ accounts });
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRIVATE — Save per-payment-method account routing overrides
+// POST /integrations/zoho/account-overrides
+// Body: { cash: {accountId, accountName} | null, card: ..., upi: ..., other: ...,
+//         cashOutExpense: ... }
+// Lets the owner pin Card/UPI/Cash-out Expense to a specific Zoho account
+// instead of relying on name-matching against the Chart of Accounts, which
+// can land on the wrong account (e.g. "Bank Fees and Charges") or miss an
+// account the owner just added and marked default in Zoho.
+// ─────────────────────────────────────────────────────────────────────────────
+zohoRouter.post(
+  "/account-overrides",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId || "default";
+    const body = req.body || {};
+
+    const overrides = {};
+    for (const bucket of ACCOUNT_OVERRIDE_BUCKETS) {
+      if (!(bucket in body)) continue;
+      const value = body[bucket];
+      if (value === null) {
+        overrides[bucket] = null;
+      } else if (value?.accountId) {
+        overrides[bucket] = { accountId: value.accountId, accountName: value.accountName || "" };
+      }
+    }
+
+    await runWithTenant(tenantId, () =>
+      updateOwnerSetupData(d => ({
+        ...d,
+        zoho: {
+          ...d.zoho,
+          accountOverrides: {
+            ...(d.zoho?.accountOverrides || {}),
+            ...overrides,
+          },
+        },
+      }))
+    );
+
+    res.json({ ok: true });
   })
 );
 
