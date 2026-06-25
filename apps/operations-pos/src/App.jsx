@@ -749,6 +749,10 @@ export default function App() {
         // ── Local WiFi socket (localhost:4001) ────────────────────────────────
         // Connects to the local server running in the Electron main process.
         // Tablets on the same WiFi connect to this directly — no internet needed.
+        // Electron-only: in a plain browser (web POS) there's no local server on
+        // localhost:4001, so skip this — otherwise it retries forever and floods
+        // the network/console with failed connection attempts.
+        if (window.electronAPI) {
         const localSock = io("http://localhost:4001", {
           reconnection:         true,
           reconnectionDelay:    500,
@@ -806,6 +810,7 @@ export default function App() {
           });
           showToast(`🖨 KOT-${String(kot.kotNumber).padStart(4, "0")} (local) → Kitchen`);
         });
+        } // end Electron-only local WiFi socket
 
         // ── New online order arrives from UrbanPiper webhook ──────────────────
         socket.on("online:order:new", () => {
@@ -939,7 +944,10 @@ export default function App() {
     }
 
     bootstrap();
-    return () => { socketRef.current?.disconnect(); };
+    return () => {
+      socketRef.current?.disconnect();
+      localSocketRef.current?.disconnect();
+    };
   }, [branchConfig]);
 
   // ── Menu + Tables sync (called by socket event OR manual Sync button) ─────
