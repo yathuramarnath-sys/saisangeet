@@ -3136,6 +3136,7 @@ export default function App() {
           onGuestsChange={handleGuestsChange}
           onDiscountChange={handleDiscountChange}
           onHoldToggle={handleHoldToggle}
+          onCustomerForm={() => setShowCustomerForm(true)}
           onTransferTable={handleTransferTable}
           onOrderNoteChange={handleOrderNoteChange}
           onCompToggle={handleCompToggle}
