@@ -148,7 +148,7 @@ export function PosLogin({ outletName, onLogin }) {
 
       <div className="poslogin-header">
         <div className="poslogin-logo">
-          <img src="/plato-pos-logo.svg" alt="Plato POS" className="poslogin-logo-img" />
+          <img src="/favicon.svg" alt="Plato" className="poslogin-logo-img" width="48" height="48" style={{ borderRadius: "10px" }} />
         </div>
         <h1 className="poslogin-title">{outletName || "Plato POS"}</h1>
         <p className="poslogin-meta">{today} &nbsp;·&nbsp; {time}</p>

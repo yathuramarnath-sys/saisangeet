@@ -120,13 +120,8 @@ export function Sidebar({ open, onClose }) {
     <aside className={`sidebar${open ? " mob-open" : ""}`}>
       {/* Close button — only visible on mobile */}
       <button type="button" className="mob-sidebar-close" onClick={onClose} aria-label="Close menu">✕</button>
-      <div className="brand-block">
-        <div className="brand-mark">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <circle cx="12" cy="12" r="9"/>
-            <path d="M8 12h8" strokeLinecap="round"/>
-          </svg>
-        </div>
+      <div className="brand-block" style={{ display: "flex", alignItems: "center" }}>
+        <img src="/favicon.svg" width="28" height="28" alt="Plato" style={{ borderRadius: 6 }} />
         <div>
           <h1 className="brand-title">Plato</h1>
           <p className="brand-sub">Owner Console</p>

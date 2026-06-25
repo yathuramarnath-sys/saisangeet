@@ -26,7 +26,7 @@ export function LoginScreen({ onLogin }) {
     <div className="login-shell">
       <div className="login-top">
         <div className="login-logo">
-          <span className="logo-icon">P</span>
+          <img src="/favicon.svg" width="48" height="48" alt="Plato" style={{ borderRadius: 6 }} />
         </div>
         <h1 className="login-title">Plato Owner</h1>
         <p className="login-sub">Monitor your restaurant from anywhere</p>

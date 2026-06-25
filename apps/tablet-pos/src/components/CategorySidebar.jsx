@@ -40,10 +40,7 @@ export function CategorySidebar({ categories, menuItems, activeCategory, onSelec
       {/* Brand */}
       <div className="cat-sidebar-brand">
         <div className="cat-sidebar-brand-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <circle cx="12" cy="12" r="9"/>
-            <path d="M8 12h8" strokeLinecap="round"/>
-          </svg>
+          <img src="/favicon.svg" alt="Plato" width="22" height="22" style={{ borderRadius: "6px" }} />
         </div>
         <div className="cat-sidebar-brand-text">
           <span className="cat-sidebar-brand-name">{outletName || "Plato POS"}</span>

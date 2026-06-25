@@ -78,10 +78,7 @@ export function BranchSetupScreen({ onComplete }) {
 
         {/* Logo */}
         <div className="branch-setup-logo">
-          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <circle cx="12" cy="12" r="9"/>
-            <path d="M8 12h8" strokeLinecap="round"/>
-          </svg>
+          <img src="/favicon.svg" alt="Plato" width="40" height="40" style={{ borderRadius: "8px" }} />
         </div>
         <h1 className="branch-setup-title">Plato</h1>
         <p className="branch-setup-subtitle">POS Terminal Setup</p>
