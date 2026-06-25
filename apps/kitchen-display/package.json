@@ -53,6 +53,7 @@
       ]
     },
     "win": {
+      "icon": "build/icon.ico",
       "signAndEditExecutable": false,
       "forceCodeSigning": false,
       "target": [
