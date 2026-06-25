@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { api } from "../../lib/api";
 import {
   dayEndSeed, itemSalesSeed, gstSeed, paymentSeed, discountVoidSeed, staffSalesSeed,
@@ -9,13 +12,46 @@ import {
 function fmt(n)     { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
 function pct(a, b)  { return b ? ((a / b) * 100).toFixed(1) + "%" : "0%"; }
 
+// Strip JSX elements (badges, <strong> etc.) down to plain text for non-HTML exports.
+function plainCell(c) {
+  if (c == null) return "";
+  if (typeof c === "object" && c.props) return plainCell(c.props.children);
+  if (Array.isArray(c)) return c.map(plainCell).join("");
+  return String(c);
+}
+function plainRows(rows) { return rows.map(r => r.map(plainCell)); }
+
 function downloadCSV(filename, headers, rows) {
-  const lines = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))];
+  const plain = plainRows(rows);
+  const lines = [headers.join(","), ...plain.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(","))];
   const blob  = new Blob([lines.join("\n")], { type: "text/csv" });
   const url   = URL.createObjectURL(blob);
   const a     = document.createElement("a");
   a.href = url; a.download = filename + ".csv"; a.click();
   URL.revokeObjectURL(url);
+}
+
+function downloadExcel(filename, headers, rows) {
+  const plain = plainRows(rows);
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...plain]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Report");
+  XLSX.writeFile(wb, filename + ".xlsx");
+}
+
+function downloadPDF(filename, title, headers, rows) {
+  const plain = plainRows(rows);
+  const doc = new jsPDF({ orientation: headers.length > 6 ? "landscape" : "portrait" });
+  doc.setFontSize(14);
+  doc.text(title || filename, 14, 16);
+  autoTable(doc, {
+    head: [headers],
+    body: plain,
+    startY: 22,
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [26, 122, 58] },
+  });
+  doc.save(filename + ".pdf");
 }
 
 function printReport() { window.print(); }
@@ -59,11 +95,12 @@ function BarRow({ label, value, total, amount, color }) {
   );
 }
 
-function ExportBar({ onPDF, onCSV }) {
+function ExportBar({ onCSV, onPDF, onExcel }) {
   return (
     <div className="rpt-export-bar">
+      <button className="rpt-export-btn" onClick={onCSV}>⬇ CSV</button>
       <button className="rpt-export-btn" onClick={onPDF}>⬇ PDF</button>
-      <button className="rpt-export-btn" onClick={onCSV}>⬇ Excel / CSV</button>
+      <button className="rpt-export-btn" onClick={onExcel}>⬇ Excel</button>
     </div>
   );
 }
@@ -121,14 +158,16 @@ function DayEndSummary({ outlet, date, data }) {
   const d = data || dayEndSeed;
   const totalPayAmt = d.paymentModes.reduce((s, p) => s + p.amount, 0);
 
-  function exportCSV() {
-    downloadCSV(`DayEndSummary_${date}`, ["Item", "Category", "Qty", "Rate", "Amount"],
-      d.items.map(i => [i.name, i.category, i.qty, i.rate, i.amount]));
-  }
+  const exportHeaders = ["Item", "Category", "Qty", "Rate", "Amount"];
+  const exportRows    = d.items.map(i => [i.name, i.category, i.qty, i.rate, i.amount]);
 
   return (
     <div className="rpt-body">
-      <ExportBar onPDF={printReport} onCSV={exportCSV} />
+      <ExportBar
+        onCSV={()   => downloadCSV(`DayEndSummary_${date}`, exportHeaders, exportRows)}
+        onPDF={()   => downloadPDF(`DayEndSummary_${date}`, "Day End Summary", exportHeaders, exportRows)}
+        onExcel={() => downloadExcel(`DayEndSummary_${date}`, exportHeaders, exportRows)}
+      />
 
       <div className="rpt-kpi-row">
         <KpiCard dark label="Total Sales"        value={fmt(d.summary.totalSales)}         sub={`${d.summary.totalOrders} orders`} />
@@ -253,17 +292,17 @@ function ItemSalesReport({ outlet, date, data }) {
   const mostSold   = data?.mostSoldItem;
   const topRevenue = data?.topRevenueItem;
 
-  function exportCSV() {
-    downloadCSV(`ItemSales_${date}`,
-      ["Rank", "Item", "Category", "Qty Sold", "Orders", "Rate", "Amount", "% of Sales"],
-      filtered.map(i => [i.rank, i.name, i.category, i.qty, i.orders, i.rate, i.amount,
-        pct(i.amount, totalAmt)])
-    );
-  }
+  const exportHeaders = ["Rank", "Item", "Category", "Qty Sold", "Orders", "Rate", "Amount", "% of Sales"];
+  const exportRows    = filtered.map(i => [i.rank, i.name, i.category, i.qty, i.orders, i.rate, i.amount,
+    pct(i.amount, totalAmt)]);
 
   return (
     <div className="rpt-body">
-      <ExportBar onPDF={printReport} onCSV={exportCSV} />
+      <ExportBar
+        onCSV={()   => downloadCSV(`ItemSales_${date}`, exportHeaders, exportRows)}
+        onPDF={()   => downloadPDF(`ItemSales_${date}`, "Item Sales Report", exportHeaders, exportRows)}
+        onExcel={() => downloadExcel(`ItemSales_${date}`, exportHeaders, exportRows)}
+      />
       <div className="rpt-kpi-row">
         <KpiCard dark label="Total Revenue"   value={fmt(totalAmt)}   sub={`${items.length} items`} />
         <KpiCard label="Most Sold Item"    value={mostSold   ? mostSold.name   : "—"} sub={mostSold   ? `${mostSold.qty} qty`       : "No sales yet"} />
@@ -300,16 +339,17 @@ function ItemSalesReport({ outlet, date, data }) {
 function GSTReport({ outlet, data }) {
   const d = (data?.gst?.summary?.totalBills > 0 ? data.gst : null) || gstSeed;
 
-  function exportCSV() {
-    downloadCSV(`GST_${d.month.replace(" ", "_")}`,
-      ["Date", "Bills", "Taxable Amount", "CGST", "SGST", "Total GST"],
-      d.daily.map(r => [r.date, r.bills, r.taxable, r.cgst, r.sgst, r.total])
-    );
-  }
+  const exportFilename = `GST_${d.month.replace(" ", "_")}`;
+  const exportHeaders  = ["Date", "Bills", "Taxable Amount", "CGST", "SGST", "Total GST"];
+  const exportRows     = d.daily.map(r => [r.date, r.bills, r.taxable, r.cgst, r.sgst, r.total]);
 
   return (
     <div className="rpt-body">
-      <ExportBar onPDF={printReport} onCSV={exportCSV} />
+      <ExportBar
+        onCSV={()   => downloadCSV(exportFilename, exportHeaders, exportRows)}
+        onPDF={()   => downloadPDF(exportFilename, "GST Report", exportHeaders, exportRows)}
+        onExcel={() => downloadExcel(exportFilename, exportHeaders, exportRows)}
+      />
       <div className="rpt-kpi-row">
         <KpiCard dark label="Total GST Collected" value={fmt(d.summary.totalGst)}       sub={d.month} />
         <KpiCard      label="Taxable Amount"       value={fmt(d.summary.taxableAmount)}  sub="before tax" />
@@ -354,16 +394,16 @@ function PaymentReport({ outlet, date, data }) {
   const d = (data?.payment?.summary?.totalCollected > 0 ? data.payment : null) || paymentSeed;
   const maxHourly = Math.max(...d.hourly.map(h => h.total));
 
-  function exportCSV() {
-    downloadCSV(`PaymentReport_${date}`,
-      ["Outlet", "Cash", "UPI", "Card", "Swiggy", "Zomato", "Total", "Variance"],
-      d.outletReconciliation.map(r => [r.outlet, r.cash, r.upi, r.card, r.swiggy, r.zomato, r.total, r.cashierVariance])
-    );
-  }
+  const exportHeaders = ["Outlet", "Cash", "UPI", "Card", "Swiggy", "Zomato", "Total", "Variance"];
+  const exportRows    = d.outletReconciliation.map(r => [r.outlet, r.cash, r.upi, r.card, r.swiggy, r.zomato, r.total, r.cashierVariance]);
 
   return (
     <div className="rpt-body">
-      <ExportBar onPDF={printReport} onCSV={exportCSV} />
+      <ExportBar
+        onCSV={()   => downloadCSV(`PaymentReport_${date}`, exportHeaders, exportRows)}
+        onPDF={()   => downloadPDF(`PaymentReport_${date}`, "Payment Report", exportHeaders, exportRows)}
+        onExcel={() => downloadExcel(`PaymentReport_${date}`, exportHeaders, exportRows)}
+      />
       <div className="rpt-kpi-row">
         <KpiCard dark label="Total Collected"  value={fmt(d.summary.totalCollected)} sub="all modes" />
         <KpiCard      label="Cash"             value={fmt(d.summary.cashAmount)}     sub={pct(d.summary.cashAmount, d.summary.totalCollected) + " of total"} />
@@ -443,16 +483,16 @@ function PaymentReport({ outlet, date, data }) {
 function DiscountVoidReport({ date, data }) {
   const d = data?.discountVoid || discountVoidSeed;
 
-  function exportCSV() {
-    downloadCSV(`DiscountVoid_${date}`,
-      ["Bill", "Outlet", "Cashier", "Type", "Amount", "Approved By", "Time"],
-      d.discountLog.map(r => [r.bill, r.outlet, r.cashier, r.type, r.amount, r.approved, r.time])
-    );
-  }
+  const exportHeaders = ["Bill", "Outlet", "Cashier", "Type", "Amount", "Approved By", "Time"];
+  const exportRows    = d.discountLog.map(r => [r.bill, r.outlet, r.cashier, r.type, r.amount, r.approved, r.time]);
 
   return (
     <div className="rpt-body">
-      <ExportBar onPDF={printReport} onCSV={exportCSV} />
+      <ExportBar
+        onCSV={()   => downloadCSV(`DiscountVoid_${date}`, exportHeaders, exportRows)}
+        onPDF={()   => downloadPDF(`DiscountVoid_${date}`, "Discount & Void Report", exportHeaders, exportRows)}
+        onExcel={() => downloadExcel(`DiscountVoid_${date}`, exportHeaders, exportRows)}
+      />
       <div className="rpt-kpi-row">
         <KpiCard dark label="Total Discounts"   value={fmt(d.summary.totalDiscountAmt)}   sub={`${d.summary.totalDiscountBills} bills`} />
         <KpiCard      label="Manual Overrides"  value={d.summary.manualOverrides}          sub="need review" />
@@ -496,16 +536,16 @@ function StaffSalesReport({ date, data }) {
   if (data && !data.staffSales?.length) return <NoDataState date={date} />;
   const d = (data?.staffSales?.length ? data.staffSales : null) || staffSalesSeed;
 
-  function exportCSV() {
-    downloadCSV(`StaffSales_${date}`,
-      ["Cashier", "Outlet", "Session", "Orders", "Sales", "Discounts", "Voids", "Opening Cash", "Closing Cash", "Variance"],
-      d.map(r => [r.cashier, r.outlet, r.session, r.orders, r.sales, r.discounts, r.voids, r.openingCash, r.closingCash, r.variance])
-    );
-  }
+  const exportHeaders = ["Cashier", "Outlet", "Session", "Orders", "Sales", "Discounts", "Voids", "Opening Cash", "Closing Cash", "Variance"];
+  const exportRows    = d.map(r => [r.cashier, r.outlet, r.session, r.orders, r.sales, r.discounts, r.voids, r.openingCash, r.closingCash, r.variance]);
 
   return (
     <div className="rpt-body">
-      <ExportBar onPDF={printReport} onCSV={exportCSV} />
+      <ExportBar
+        onCSV={()   => downloadCSV(`StaffSales_${date}`, exportHeaders, exportRows)}
+        onPDF={()   => downloadPDF(`StaffSales_${date}`, "Staff Sales Report", exportHeaders, exportRows)}
+        onExcel={() => downloadExcel(`StaffSales_${date}`, exportHeaders, exportRows)}
+      />
       <div className="rpt-kpi-row">
         <KpiCard dark label="Total Staff Sales"  value={fmt(d.reduce((s, r) => s + r.sales, 0))} sub={`${d.length} cashiers`} />
         <KpiCard      label="Total Orders"       value={d.reduce((s, r) => s + r.orders, 0)}     sub="across all shifts" />
@@ -545,12 +585,8 @@ function CaptainIncentivesReport({ date, data }) {
   const totalOrders  = rows.reduce((s, r) => s + r.orders, 0);
   const totalPayable = rows.reduce((s, r) => s + r.incentiveAmt, 0);
 
-  function exportCSV() {
-    downloadCSV(`CaptainIncentives_${date}`,
-      ["Captain", "Outlet", "Orders", "Sales (₹)", "Incentive %", "Payable (₹)"],
-      rows.map(r => [r.captain, r.outlet, r.orders, r.sales, r.incentivePct, r.incentiveAmt])
-    );
-  }
+  const exportHeaders = ["Captain", "Outlet", "Orders", "Sales (₹)", "Incentive %", "Payable (₹)"];
+  const exportRows    = rows.map(r => [r.captain, r.outlet, r.orders, r.sales, r.incentivePct, r.incentiveAmt]);
 
   if (!hasData) {
     return (
@@ -574,7 +610,11 @@ function CaptainIncentivesReport({ date, data }) {
 
   return (
     <div className="rpt-body">
-      <ExportBar onPDF={printReport} onCSV={exportCSV} />
+      <ExportBar
+        onCSV={()   => downloadCSV(`CaptainIncentives_${date}`, exportHeaders, exportRows)}
+        onPDF={()   => downloadPDF(`CaptainIncentives_${date}`, "Captain Incentives Report", exportHeaders, exportRows)}
+        onExcel={() => downloadExcel(`CaptainIncentives_${date}`, exportHeaders, exportRows)}
+      />
 
       {/* KPI strip */}
       <div className="rpt-kpi-row">
@@ -749,16 +789,16 @@ function CategoryReport({ date, data }) {
     ? (view === "revenue" ? sorted[0].amount : view === "qty" ? sorted[0].qty : sorted[0].orders)
     : 1;
 
-  function exportCSV() {
-    downloadCSV(`CategorySales_${date}`,
-      ["Category", "Items", "Qty Sold", "Orders", "Avg Rate (₹)", "Amount (₹)", "% of Sales"],
-      d.categories.map(c => [c.name, c.itemCount, c.qty, c.orders, c.avgRate, c.amount, pct(c.amount, totalAmt)])
-    );
-  }
+  const exportHeaders = ["Category", "Items", "Qty Sold", "Orders", "Avg Rate (₹)", "Amount (₹)", "% of Sales"];
+  const exportRows    = d.categories.map(c => [c.name, c.itemCount, c.qty, c.orders, c.avgRate, c.amount, pct(c.amount, totalAmt)]);
 
   return (
     <div className="rpt-body">
-      <ExportBar onPDF={printReport} onCSV={exportCSV} />
+      <ExportBar
+        onCSV={()   => downloadCSV(`CategorySales_${date}`, exportHeaders, exportRows)}
+        onPDF={()   => downloadPDF(`CategorySales_${date}`, "Category Sales Report", exportHeaders, exportRows)}
+        onExcel={() => downloadExcel(`CategorySales_${date}`, exportHeaders, exportRows)}
+      />
 
       {/* KPIs */}
       <div className="rpt-kpi-row">
@@ -939,17 +979,12 @@ function WastageReport({ dateFrom, dateTo, outletId }) {
     return acc;
   }, {});
 
-  function handleCSV() {
-    if (!entries.length) return;
-    downloadCSV(
-      `wastage_${dateFrom}_${dateTo}`,
-      ["Timestamp", "Item", "Qty", "Unit", "Reason", "Note", "Cashier"],
-      entries.map(e => [
-        new Date(e.timestamp).toLocaleString("en-IN"),
-        e.itemName, e.quantity, e.unit || "", e.reason, e.note || "", e.cashierName || ""
-      ])
-    );
-  }
+  const wastageHeaders = ["Timestamp", "Item", "Qty", "Unit", "Reason", "Note", "Cashier"];
+  const wastageRows    = entries.map(e => [
+    new Date(e.timestamp).toLocaleString("en-IN"),
+    e.itemName, e.quantity, e.unit || "", e.reason, e.note || "", e.cashierName || ""
+  ]);
+  const wastageFilename = `wastage_${dateFrom}_${dateTo}`;
 
   return (
     <div className="rpt-body">
@@ -997,7 +1032,11 @@ function WastageReport({ dateFrom, dateTo, outletId }) {
           {/* Full log */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>Full Log</p>
-            <button className="rpt-export-btn" onClick={handleCSV}>⬇ CSV</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="rpt-export-btn" onClick={() => entries.length && downloadCSV(wastageFilename, wastageHeaders, wastageRows)}>⬇ CSV</button>
+              <button className="rpt-export-btn" onClick={() => entries.length && downloadPDF(wastageFilename, "Wastage Report", wastageHeaders, wastageRows)}>⬇ PDF</button>
+              <button className="rpt-export-btn" onClick={() => entries.length && downloadExcel(wastageFilename, wastageHeaders, wastageRows)}>⬇ Excel</button>
+            </div>
           </div>
           <RptTable
             cols={["Date & Time", "Item", "Qty", "Reason", "Note", "Cashier"]}
@@ -1038,15 +1077,10 @@ function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
 
   useEffect(() => { load(1); }, [load]);
 
-  function handleCSV() {
-    if (!data?.orders?.length) return;
-    downloadCSV(
-      `bills_${dateFrom}_${dateTo}`,
-      ["Bill No", "Date", "Time", "Table", "Outlet", "Items", "Net (₹)", "Paid (₹)", "Method", "Cashier"],
-      data.orders.map(o => [o.billNo, o.date, o.time, o.tableNumber, o.outletName,
-        o.items, o.net, o.totalPaid, o.paymentMethods, o.cashierName])
-    );
-  }
+  const ohHeaders  = ["Bill No", "Date", "Time", "Table", "Outlet", "Items", "Net (₹)", "Paid (₹)", "Method", "Cashier"];
+  const ohRows     = (data?.orders || []).map(o => [o.billNo, o.date, o.time, o.tableNumber, o.outletName,
+    o.items, o.net, o.totalPaid, o.paymentMethods, o.cashierName]);
+  const ohFilename = `bills_${dateFrom}_${dateTo}`;
 
   const orders = data?.orders || [];
   const total  = data?.total  || 0;
@@ -1058,7 +1092,9 @@ function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
       <div className="rpt-oh-toolbar">
         <span className="rpt-oh-count">{total} bills found</span>
         <span className="rpt-oh-src">{data?.source === "postgres" ? "🗄 Postgres" : "⚡ Live"}</span>
-        <button className="rpt-export-btn" onClick={handleCSV} disabled={!orders.length}>⬇ CSV</button>
+        <button className="rpt-export-btn" onClick={() => downloadCSV(ohFilename, ohHeaders, ohRows)} disabled={!orders.length}>⬇ CSV</button>
+        <button className="rpt-export-btn" onClick={() => downloadPDF(ohFilename, "Order History", ohHeaders, ohRows)} disabled={!orders.length}>⬇ PDF</button>
+        <button className="rpt-export-btn" onClick={() => downloadExcel(ohFilename, ohHeaders, ohRows)} disabled={!orders.length}>⬇ Excel</button>
       </div>
 
       {loading && <p className="rpt-empty">Loading…</p>}
@@ -1183,28 +1219,23 @@ function VoidsReprintsReport({ dateFrom, dateTo, outletId }) {
   const posReprints  = entries.filter(e => e.type === "bill_reprint" && e.source !== "captain").length;
   const captReprints = entries.filter(e => e.type === "bill_reprint" && e.source === "captain").length;
 
-  function handleCSV() {
-    if (!entries.length) return;
-    downloadCSV(
-      `voids_reprints_${dateFrom}_${dateTo}`,
-      ["Date & Time", "Type", "Cashier", "Table", "Order #", "Bill #", "Details", "Source"],
-      entries.map(e => {
-        const details = e.type === "bill_reprint"
-          ? `Bill ${e.billNo || "—"}`
-          : (e.items || []).map(i => `${i.name} x${i.qty}`).join("; ");
-        return [
-          new Date(e.timestamp).toLocaleString("en-IN"),
-          e.type === "void_item" ? "Void Item" : e.type === "cancel_order" ? "Cancel Order" : "Bill Reprint",
-          e.cashier || "—",
-          e.tableLabel || e.tableId || "—",
-          e.orderNumber || "—",
-          e.billNo || "—",
-          details,
-          e.source || "pos",
-        ];
-      })
-    );
-  }
+  const vrHeaders  = ["Date & Time", "Type", "Cashier", "Table", "Order #", "Bill #", "Details", "Source"];
+  const vrRows     = entries.map(e => {
+    const details = e.type === "bill_reprint"
+      ? `Bill ${e.billNo || "—"}`
+      : (e.items || []).map(i => `${i.name} x${i.qty}`).join("; ");
+    return [
+      new Date(e.timestamp).toLocaleString("en-IN"),
+      e.type === "void_item" ? "Void Item" : e.type === "cancel_order" ? "Cancel Order" : "Bill Reprint",
+      e.cashier || "—",
+      e.tableLabel || e.tableId || "—",
+      e.orderNumber || "—",
+      e.billNo || "—",
+      details,
+      e.source || "pos",
+    ];
+  });
+  const vrFilename = `voids_reprints_${dateFrom}_${dateTo}`;
 
   const typeLabel = t => t === "void_item" ? "Void Item" : t === "cancel_order" ? "Cancel Order" : "Bill Reprint";
   const typeIcon  = t => t === "void_item" ? "🚫" : t === "cancel_order" ? "❌" : "🖨️";
@@ -1278,7 +1309,11 @@ function VoidsReprintsReport({ dateFrom, dateTo, outletId }) {
             <p style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>
               {filtered.length} {typeFilter === "all" ? "entries" : typeLabel(typeFilter) + " entries"}
             </p>
-            <button className="rpt-export-btn" onClick={handleCSV}>⬇ CSV</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="rpt-export-btn" onClick={() => entries.length && downloadCSV(vrFilename, vrHeaders, vrRows)}>⬇ CSV</button>
+              <button className="rpt-export-btn" onClick={() => entries.length && downloadPDF(vrFilename, "Voids & Reprints", vrHeaders, vrRows)}>⬇ PDF</button>
+              <button className="rpt-export-btn" onClick={() => entries.length && downloadExcel(vrFilename, vrHeaders, vrRows)}>⬇ Excel</button>
+            </div>
           </div>
           <RptTable
             cols={["Date & Time", "Type", "Cashier", "Table", "Order #", "Details", "Source"]}
@@ -1381,17 +1416,12 @@ function CustomersTab() {
       )
     : customers;
 
-  function handleCSV() {
-    if (!filtered.length) return;
-    downloadCSV("customers_list",
-      ["Name", "Phone", "Email", "GSTIN", "Address", "Company", "Notes", "Saved On"],
-      filtered.map(c => [
-        c.name, c.phone || "", c.email || "", c.gstin || "",
-        c.address || "", c.company || "", c.notes || "",
-        c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : ""
-      ])
-    );
-  }
+  const custHeaders = ["Name", "Phone", "Email", "GSTIN", "Address", "Company", "Notes", "Saved On"];
+  const custRows    = filtered.map(c => [
+    c.name, c.phone || "", c.email || "", c.gstin || "",
+    c.address || "", c.company || "", c.notes || "",
+    c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : ""
+  ]);
 
   const withPhone = customers.filter(c => c.phone).length;
   const withEmail = customers.filter(c => c.email).length;
@@ -1422,7 +1452,9 @@ function CustomersTab() {
             fontFamily: "Manrope, sans-serif",
           }}
         />
-        <button className="rpt-export-btn" onClick={handleCSV} disabled={!filtered.length}>⬇ CSV</button>
+        <button className="rpt-export-btn" onClick={() => downloadCSV("customers_list", custHeaders, custRows)} disabled={!filtered.length}>⬇ CSV</button>
+        <button className="rpt-export-btn" onClick={() => downloadPDF("customers_list", "Customer List", custHeaders, custRows)} disabled={!filtered.length}>⬇ PDF</button>
+        <button className="rpt-export-btn" onClick={() => downloadExcel("customers_list", custHeaders, custRows)} disabled={!filtered.length}>⬇ Excel</button>
       </div>
 
       {loading && <p style={{ color: "#6b7280", padding: "1rem 0" }}>Loading…</p>}
@@ -1525,22 +1557,18 @@ function WaitlistReport({ dateFrom, dateTo, outletId }) {
       }, 0) / seated.length)
     : 0;
 
-  function handleCSV() {
-    if (!entries.length) return;
-    downloadCSV(`waitlist_${dateFrom}_${dateTo}`,
-      ["Date & Time", "Name", "Phone", "Party Size", "Status", "Wait (mins)", "Table"],
-      entries.map(e => {
-        const wait = e.seatedAt && e.joinedAt
-          ? Math.round((new Date(e.seatedAt) - new Date(e.joinedAt)) / 60000)
-          : "—";
-        return [
-          new Date(e.joinedAt).toLocaleString("en-IN"),
-          e.name, e.phone || "—", e.partySize,
-          e.status, wait, e.assignedTableLabel || "—",
-        ];
-      })
-    );
-  }
+  const waitlistHeaders = ["Date & Time", "Name", "Phone", "Party Size", "Status", "Wait (mins)", "Table"];
+  const waitlistRows    = entries.map(e => {
+    const wait = e.seatedAt && e.joinedAt
+      ? Math.round((new Date(e.seatedAt) - new Date(e.joinedAt)) / 60000)
+      : "—";
+    return [
+      new Date(e.joinedAt).toLocaleString("en-IN"),
+      e.name, e.phone || "—", e.partySize,
+      e.status, wait, e.assignedTableLabel || "—",
+    ];
+  });
+  const waitlistFilename = `waitlist_${dateFrom}_${dateTo}`;
 
   return (
     <div className="rpt-body">
@@ -1561,7 +1589,11 @@ function WaitlistReport({ dateFrom, dateTo, outletId }) {
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{entries.length} entries</p>
-            <button className="rpt-export-btn" onClick={handleCSV}>⬇ CSV</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="rpt-export-btn" onClick={() => downloadCSV(waitlistFilename, waitlistHeaders, waitlistRows)}>⬇ CSV</button>
+              <button className="rpt-export-btn" onClick={() => downloadPDF(waitlistFilename, "Waitlist Report", waitlistHeaders, waitlistRows)}>⬇ PDF</button>
+              <button className="rpt-export-btn" onClick={() => downloadExcel(waitlistFilename, waitlistHeaders, waitlistRows)}>⬇ Excel</button>
+            </div>
           </div>
           <RptTable
             cols={["Time", "Name", "Party", "Status", "Wait", "Table"]}
