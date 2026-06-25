@@ -288,7 +288,7 @@ zohoRouter.post(
     try {
       await getValidToken(cfg);
       const result = await pushSaleReceipt(testOrder, cfg, cfg.taxMap || {});
-      res.json({ ok: true, receiptNumber: result.receiptNumber });
+      res.json({ ok: true, receiptNumber: result.invoiceNumber });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
