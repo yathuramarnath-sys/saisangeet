@@ -46,7 +46,8 @@ async function request(path, options = {}) {
     let message = `Request failed: ${response.status}`;
     try {
       const body = await response.json();
-      message = body?.error?.message || body?.message || message;
+      const errField = body?.error;
+      message = (typeof errField === "string" ? errField : errField?.message) || body?.message || message;
     } catch (_) { /* ignore parse error */ }
     throw new Error(message);
   }
