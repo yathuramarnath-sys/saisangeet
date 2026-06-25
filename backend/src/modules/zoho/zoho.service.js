@@ -167,10 +167,10 @@ async function booksGet(path, organizationId, accessToken) {
   );
 }
 
-async function booksPost(path, body, organizationId, accessToken) {
+async function booksPost(path, body, organizationId, accessToken, extraQuery = "") {
   return httpsRequest(
     ZOHO_API_BASE, "POST",
-    `${BOOKS_PATH}${path}?organization_id=${organizationId}`,
+    `${BOOKS_PATH}${path}?organization_id=${organizationId}${extraQuery}`,
     body,
     { Authorization: `Zoho-oauthtoken ${accessToken}` }
   );
@@ -333,10 +333,6 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
   const invoicePayload = {
     customer_id:      custId,
     invoice_number:   invoiceNumber,
-    // Org may have auto-invoice-numbering enabled — without this flag Zoho
-    // rejects our custom invoice_number with "Number entered does not
-    // match the auto-generated number."
-    ignore_auto_number_generation: true,
     date:             closedDate,
     place_of_supply:  stateCode,
     gst_treatment:    "consumer",
@@ -349,7 +345,13 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
     } : {}),
   };
 
-  const result = await booksPost("/invoices", invoicePayload, orgId, accessToken);
+  // Org may have auto-invoice-numbering enabled — without this query param
+  // Zoho rejects our custom invoice_number with "Number entered does not
+  // match the auto-generated number." It's a query param, not a body field.
+  const result = await booksPost(
+    "/invoices", invoicePayload, orgId, accessToken,
+    "&ignore_auto_number_generation=true"
+  );
 
   let invoice = result.body?.invoice;
   if (!invoice) {
