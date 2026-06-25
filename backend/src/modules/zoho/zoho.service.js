@@ -278,7 +278,10 @@ async function fetchAccountIds(organizationId, accessToken) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Push a closed POS order as a Zoho Books Sales Receipt
+// Push a closed POS order as a Zoho Books Invoice, fully paid via a
+// Customer Payment. Invoices + Payments are core Zoho Books objects
+// available on every plan — unlike the Sales Receipts module, which is
+// gated to higher-tier plans and isn't available to all tenants.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -286,7 +289,7 @@ async function fetchAccountIds(organizationId, accessToken) {
  * @param {object} zohoCfg   — tenant's zoho config from ownerSetupData
  * @param {object} taxMap    — { "5": zohoTaxId, "12": zohoTaxId, "18": zohoTaxId }
  *                             (pre-fetched once, cached in zohoCfg.taxMap)
- * @returns {{ receiptId, receiptNumber }}
+ * @returns {{ invoiceId, invoiceNumber }}
  */
 async function pushSaleReceipt(order, zohoCfg, taxMap) {
   const { accessToken } = await getValidToken(zohoCfg);
@@ -294,8 +297,8 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
   const custId  = zohoCfg.walkInContactId;
   const stateCode = zohoCfg.stateCode || "TN"; // restaurant's state for place_of_supply
 
-  // Receipt number — use orderId/billNo for idempotency
-  const receiptNumber = `SR-${order.billNo || order.orderNumber}`;
+  // Invoice number — use orderId/billNo for idempotency
+  const invoiceNumber = `INV-${order.billNo || order.orderNumber}`;
 
   // Date — use closedAt or today
   const closedDate = order.closedAt
@@ -319,50 +322,83 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
     return lineItem;
   });
 
-  // Discount — Zoho supports discount at receipt level
+  // Discount — Zoho supports discount at invoice level
   const subtotal   = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const discountAmt = Math.min(order.discountAmount || 0, subtotal);
 
-  const depositAccountId = pickDepositAccountId(order.payments, zohoCfg);
+  const notes = order.tableLabel || order.areaName
+    ? `${order.areaName || ""} — Table ${order.tableNumber || ""} | ${order.cashierName || "POS"}`
+    : `Order #${order.orderNumber} | ${order.cashierName || "POS"}`;
 
-  const payload = {
+  const invoicePayload = {
     customer_id:      custId,
-    receipt_number:   receiptNumber,
+    invoice_number:   invoiceNumber,
     date:             closedDate,
-    payment_mode:     mapPaymentMode(order.payments),
     place_of_supply:  stateCode,
     gst_treatment:    "consumer",
     is_inclusive_tax: false,
-    notes:            order.tableLabel || order.areaName
-      ? `${order.areaName || ""} — Table ${order.tableNumber || ""} | ${order.cashierName || "POS"}`
-      : `Order #${order.orderNumber} | ${order.cashierName || "POS"}`,
+    notes,
     line_items,
-    ...(depositAccountId ? { account_id: depositAccountId } : {}),
     ...(discountAmt > 0 ? {
       discount:         discountAmt.toFixed(2),
       is_discount_before_tax: true,
     } : {}),
   };
 
-  const result = await booksPost("/salesreceipts", payload, orgId, accessToken);
+  const result = await booksPost("/invoices", invoicePayload, orgId, accessToken);
 
-  // code 0 = success, code 1004 = duplicate (already pushed) — both are OK
-  if (result.body?.code === 1004) {
-    console.log(`[zoho] already pushed | receipt=${receiptNumber}`);
-    return { receiptNumber, alreadyExists: true };
+  let invoice = result.body?.invoice;
+  if (!invoice) {
+    const msg = (result.body?.message || "").toLowerCase();
+    const isDuplicate = result.body?.code === 1004 || msg.includes("already") || msg.includes("exist");
+    if (!isDuplicate) {
+      throw new Error(
+        result.body?.message ||
+        `Zoho invoice push failed: ${JSON.stringify(result.body)}`
+      );
+    }
+    // Already pushed on a previous attempt — look it up so we can also
+    // check/record the payment below (idempotent on retries).
+    const existing = await booksGet(
+      `/invoices?invoice_number=${encodeURIComponent(invoiceNumber)}`,
+      orgId, accessToken
+    );
+    invoice = existing.body?.invoices?.[0];
+    if (!invoice) {
+      console.log(`[zoho] already pushed | invoice=${invoiceNumber}`);
+      return { invoiceNumber, alreadyExists: true };
+    }
   }
-  if (result.body?.code !== 0) {
+
+  // Already fully paid from a previous attempt — nothing left to do.
+  if (Number(invoice.balance) <= 0) {
+    console.log(`[zoho] pushed (already paid) | invoice=${invoiceNumber} | id=${invoice.invoice_id}`);
+    return { invoiceId: invoice.invoice_id, invoiceNumber: invoice.invoice_number, alreadyExists: true };
+  }
+
+  const depositAccountId = pickDepositAccountId(order.payments, zohoCfg);
+  const paymentPayload = {
+    customer_id:      custId,
+    payment_mode:     mapPaymentMode(order.payments),
+    amount:           Number(invoice.total),
+    date:             closedDate,
+    reference_number: invoiceNumber,
+    invoices:         [{ invoice_id: invoice.invoice_id, amount_applied: Number(invoice.total) }],
+    ...(depositAccountId ? { account_id: depositAccountId } : {}),
+  };
+
+  const payResult = await booksPost("/customerpayments", paymentPayload, orgId, accessToken);
+  if (payResult.body?.code !== 0) {
     throw new Error(
-      result.body?.message ||
-      `Zoho push failed: ${JSON.stringify(result.body)}`
+      payResult.body?.message ||
+      `Zoho payment push failed: ${JSON.stringify(payResult.body)}`
     );
   }
 
-  const receipt = result.body.salesreceipt;
-  console.log(`[zoho] pushed | receipt=${receiptNumber} | id=${receipt.sales_receipt_id}`);
+  console.log(`[zoho] pushed | invoice=${invoiceNumber} | id=${invoice.invoice_id}`);
   return {
-    receiptId:     receipt.sales_receipt_id,
-    receiptNumber: receipt.receipt_number,
+    invoiceId:     invoice.invoice_id,
+    invoiceNumber: invoice.invoice_number,
   };
 }
 
