@@ -201,6 +201,7 @@ export function OrderPanel({
   onGuestsChange,
   onDiscountChange,
   onHoldToggle,
+  onCustomerForm,
   onTransferTable,
   onOrderNoteChange,
   onCompToggle,
@@ -287,6 +288,9 @@ export function OrderPanel({
           )}
           {!order.isClosed && (
             <>
+              <button type="button" className="oq-icon-btn"
+                title="Customer Details (optional)"
+                onClick={() => onCustomerForm?.()}>👤</button>
               <button type="button"
                 className={`oq-icon-btn${order.isOnHold ? " active-hold" : ""}`}
                 title={order.isOnHold ? "Resume Order" : "Hold Order"}

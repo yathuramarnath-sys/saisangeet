@@ -17,7 +17,7 @@ export function OrderScreen({
   orders, outletId, socket, staff = [],
   onBack, onSendKOT, onRequestBill, onPrintBill, onPrintSplitBill,
   onToggleHold, onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
-  onTransfer, onMerge, onForceClear,
+  onTransfer, onMerge, onForceClear, onCustomerInfo,
   autoOpen = null, // "menu" | "transfer" | "merge" | "split" — open screen/modal immediately on mount
 }) {
   const [screen,          setScreen]          = useState(
@@ -139,6 +139,12 @@ export function OrderScreen({
             </p>
           </div>
           <div className="order-header-right">
+            {/* Customer details — optional, available before KOT too */}
+            <button type="button" className="icon-back-btn"
+              title="Customer Details (optional)"
+              onClick={() => { tapImpact(); onCustomerInfo?.(); }}>
+              👤
+            </button>
             {/* Guests */}
             <div className="order-guests-block">
               <span className="guests-label">Guests</span>

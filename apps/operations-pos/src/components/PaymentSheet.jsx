@@ -103,6 +103,14 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
           poNumber: creditForm.poNumber.trim() || null,
         },
       }]);
+      // Persist to customer master so this credit customer shows up in
+      // future autocomplete (the generic Customer form already does this).
+      api.post("/customers", {
+        name:    creditForm.name.trim(),
+        phone:   creditForm.phone.trim()   || "",
+        gstin:   creditForm.gstin.trim().toUpperCase() || "",
+        address: creditForm.address.trim() || "",
+      }).catch(() => {});
     } finally { setLoading(false); }
   }
 

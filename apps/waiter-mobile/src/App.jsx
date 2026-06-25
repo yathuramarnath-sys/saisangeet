@@ -1395,6 +1395,7 @@ export function App() {
             onTransfer={handleTableTransfer}
             onMerge={handleTableMerge}
             onForceClear={() => handleForceClearTable(selectedTableId)}
+            onCustomerInfo={() => setShowCustomerInfo(true)}
           />
         )}
       </main>
@@ -1443,14 +1444,16 @@ export function App() {
         );
       })()}
 
-      {/* Customer Info Sheet — optional, layered on top of action sheet */}
-      {showCustomerInfo && actionTableId && (() => {
-        const actionOrder = orders[actionTableId];
+      {/* Customer Info Sheet — optional; reachable from the action sheet (occupied
+          tables, long-press) or directly from the order screen (before KOT too) */}
+      {showCustomerInfo && (actionTableId || selectedTableId) && (() => {
+        const infoTableId = actionTableId || selectedTableId;
+        const infoOrder   = orders[infoTableId];
         return (
           <CustomerInfoSheet
-            tableNumber={actionOrder?.tableNumber || actionTableId}
-            guestInfo={actionOrder?.guestInfo || {}}
-            onSave={(info) => handleCustomerInfoSave(actionTableId, info)}
+            tableNumber={infoOrder?.tableNumber || infoTableId}
+            guestInfo={infoOrder?.guestInfo || {}}
+            onSave={(info) => handleCustomerInfoSave(infoTableId, info)}
             onClose={() => setShowCustomerInfo(false)}
           />
         );
