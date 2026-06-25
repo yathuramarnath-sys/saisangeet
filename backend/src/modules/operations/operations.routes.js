@@ -285,6 +285,17 @@ operationsRouter.get("/action-logs",   requireAuth, asyncHandler(async (req, res
   res.json(logs);
 }));
 
+// GET /operations/today-orders?outletId=xxx
+// Returns today's full closed-order list for an outlet, from the shared
+// server-side store — lets Past Orders show bills closed on ANY device
+// (POS .exe, web POS, etc.), not just the device's own localStorage.
+operationsRouter.get("/today-orders", requireAuth, asyncHandler(async (req, res) => {
+  const { getTodaySalesByOutlet } = require("./closed-orders-store");
+  const tenantId = req.user?.tenantId || "default";
+  const { outletId } = req.query;
+  res.json(getTodaySalesByOutlet(tenantId, outletId));
+}));
+
 // ── Day End Report ────────────────────────────────────────────────────────────
 // GET /operations/day-end?outletId=xxx
 // Returns today's sales summary: totals, payment breakdown, top 5 items, category sales

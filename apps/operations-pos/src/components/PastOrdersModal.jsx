@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getFinancials } from "./OrderPanel";
 import { printBill } from "../lib/printBill";
+import { api } from "../lib/api";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Zomato Pay", "Swiggy Pay"];
 
@@ -98,15 +99,27 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
   const [search,    setSearch]    = useState("");
   const [editOrder, setEditOrder] = useState(null);
   const [expanded,  setExpanded]  = useState(null);
+  const [serverOrders, setServerOrders] = useState([]);
 
   // Today-only: cashier should only see today's bills, not historical data.
   // We filter by closedAt matching today's IST date string (YYYY-MM-DD).
   const todayIST = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
+  // Pull today's orders from the shared server store too, so bills closed on
+  // a different device (e.g. web POS vs the desktop .exe) also show up here —
+  // localStorage alone only knows about orders closed on THIS device.
+  useEffect(() => {
+    if (!outletId) return;
+    api.get(`/operations/today-orders?outletId=${encodeURIComponent(outletId)}`)
+      .then(list => setServerOrders(Array.isArray(list) ? list : []))
+      .catch(() => {}); // offline/server-unreachable — fall back to localStorage only
+  }, [outletId]);
+
   const closedOrders = useMemo(() => {
+    let local = [];
     try {
       const stored = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-      const todayOrders = stored.filter(o => {
+      local = stored.filter(o => {
         if (!o.closedAt) return false;
         const d = new Date(o.closedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
         if (d !== todayIST) return false;
@@ -114,13 +127,27 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
         if (outletId && o._outletId && String(o._outletId) !== String(outletId)) return false;
         return true;
       });
-      if (todayOrders.length > 0) return todayOrders;
     } catch {}
-    // Fallback: in-memory closed orders from this session (today only)
-    return Object.values(orders || {})
-      .filter(o => o.isClosed && o.items?.length)
-      .sort((a, b) => new Date(b.closedAt || 0) - new Date(a.closedAt || 0));
-  }, [orders, todayIST, outletId]);
+
+    if (!local.length) {
+      // Fallback: in-memory closed orders from this session (today only)
+      local = Object.values(orders || {})
+        .filter(o => o.isClosed && o.items?.length)
+        .sort((a, b) => new Date(b.closedAt || 0) - new Date(a.closedAt || 0));
+    }
+
+    // Merge with server's view of today's orders for this outlet, deduping by billNo
+    // (falling back to orderNumber+closedAt) so orders closed on other devices appear too.
+    const merged = [...local];
+    const seenKeys = new Set(local.map(o => String(o.billNo ?? `${o.orderNumber}-${o.closedAt}`)));
+    for (const o of serverOrders) {
+      const key = String(o.billNo ?? `${o.orderNumber}-${o.closedAt}`);
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      merged.push(o);
+    }
+    return merged.sort((a, b) => new Date(b.closedAt || 0) - new Date(a.closedAt || 0));
+  }, [orders, todayIST, outletId, serverOrders]);
 
   const filtered = useMemo(() => {
     let list = closedOrders;
