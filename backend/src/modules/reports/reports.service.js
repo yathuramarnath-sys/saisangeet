@@ -523,6 +523,8 @@ function buildCategorySales(closedToday) {
     const outlet  = (order.outletName || "All Outlets").trim();
 
     for (const item of items) {
+      if (item.isVoided) continue;   // exclude voided items from sales totals
+
       // Priority: item.category (set by POS) → catalog lookup by id → catalog lookup by name → station → "General"
       const catKey = (
         (item.category || item.categoryName || "").trim() ||
@@ -797,7 +799,7 @@ async function buildOwnerSummary(tenantId, { dateFrom, dateTo, outletId } = {}) 
   const todayStr         = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const creditFrom       = dateFrom || todayStr;
   const creditTo         = dateTo   || todayStr;
-  const creditSettlements = getCreditSettlementsForRange(tenantId, creditFrom, creditTo, outletId || null);
+  const creditSettlements = await getCreditSettlementsForRange(tenantId, creditFrom, creditTo, outletId || null);
 
   // Cancelled orders logged by POS today
   const cancelLogs     = getActionLogs(tenantId, { types: ["cancel_order"], dateFrom: creditFrom, dateTo: creditTo });

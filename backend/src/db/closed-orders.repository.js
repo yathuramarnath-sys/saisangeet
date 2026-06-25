@@ -333,6 +333,53 @@ async function getClosedOrderByClosedAt(tenantId, outletId, closedAt) {
 }
 
 /**
+ * Query Postgres for credit orders settled (paid) within a date range —
+ * filtered on order_data->>'creditSettledAt', not closed_date, since a bill
+ * can be closed on one day and settled days later.
+ *
+ * @param {string}      tenantId
+ * @param {object}      opts
+ * @param {string}      opts.dateFrom   "YYYY-MM-DD" (inclusive)
+ * @param {string}      opts.dateTo     "YYYY-MM-DD" (inclusive)
+ * @param {string|null} opts.outletId   outlet filter, or null = all
+ * @returns {Promise<object[]>}
+ */
+async function queryCreditSettlementsForRange(tenantId, { dateFrom, dateTo, outletId = null } = {}) {
+  if (!isDatabaseEnabled()) return [];
+
+  const params = [tenantId, dateFrom, dateTo];
+  const conditions = [
+    "tenant_id = $1",
+    "order_data->>'isCreditSale' = 'true'",
+    "order_data->>'creditSettledAt' IS NOT NULL",
+    "(order_data->>'creditSettledAt')::date >= $2::date",
+    "(order_data->>'creditSettledAt')::date <= $3::date",
+  ];
+
+  if (outletId) {
+    params.push(outletId);
+    conditions.push(`outlet_id = $${params.length}`);
+  }
+
+  try {
+    const r = await query(
+      `SELECT order_data, outlet_id
+         FROM closed_orders
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY closed_at DESC`,
+      params
+    );
+    return r.rows.map((row) => {
+      const order = typeof row.order_data === "string" ? JSON.parse(row.order_data) : row.order_data;
+      return { ...order, _outletId: row.outlet_id };
+    });
+  } catch (err) {
+    console.error("[closed-orders.repo] queryCreditSettlementsForRange error:", err.message);
+    return [];
+  }
+}
+
+/**
  * Find a credit order from Postgres by orderId (id or orderNumber).
  * Searches across all outlets for the tenant.
  */
@@ -379,5 +426,5 @@ async function findCreditOrderById(tenantId, orderId) {
 module.exports = {
   ensureClosedOrdersTable,
   insertClosedOrder, queryClosedOrders, listClosedOrders, updateClosedOrderData,
-  queryCreditOrders, getClosedOrderByClosedAt, findCreditOrderById,
+  queryCreditOrders, queryCreditSettlementsForRange, getClosedOrderByClosedAt, findCreditOrderById,
 };

@@ -14,37 +14,26 @@ const SALES_REPORT_EMAIL = process.env.SALES_REPORT_EMAIL || "info@dinexpos.in";
 function fmt(n)   { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
 function pct(a,b) { return b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "—"; }
 
-function todayIST() {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
-}
-
-function getTodayOrders(store) {
-  // store is the closed-orders Map structure
-  const today   = todayIST();
-  const result  = [];
-  for (const outletMap of store.values()) {
-    for (const orders of outletMap.values()) {
-      for (const o of orders) {
-        const d = new Date(o.closedAt || o._receivedAt || 0)
-          .toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-        if (d === today) result.push(o);
-      }
-    }
-  }
-  return result;
-}
-
 /* ── Build summary numbers ────────────────────────────────────────────────── */
 function buildSummary(orders, shifts) {
   let net = 0, gst = 0, cash = 0, upi = 0, card = 0, other = 0;
 
   for (const o of orders) {
-    const items    = o.items || [];
+    const items    = (o.items || []).filter(i => !i.isVoided);
     const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
     const disc     = Math.min(o.discountAmount || 0, subtotal);
-    const taxable  = subtotal - disc;
+
+    // GST-inclusive extraction per item's actual taxRate (same formula as the live Reports page).
+    let orderTax = 0;
+    for (const item of items) {
+      const rate    = (item.taxRate != null && item.taxRate !== "") ? Number(item.taxRate) : 5;
+      const lineAmt = subtotal > 0 ? (item.price || 0) * (item.quantity || 1) * ((subtotal - disc) / subtotal) : 0;
+      orderTax += rate > 0 ? lineAmt * rate / (100 + rate) : 0;
+    }
+    const taxable = subtotal - disc - orderTax;
+
     net += taxable;
-    gst += Math.round(taxable * 0.05);
+    gst += orderTax;
 
     for (const p of o.payments || []) {
       const m = (p.method || "").toLowerCase();
@@ -181,7 +170,7 @@ async function runDailySalesReport() {
     });
 
     // ── Get all tenants from DB (or fallback to "default" tenant) ────────────
-    let tenants = []; // [{ tenantId, ownerEmail, restaurantName }]
+    let tenants = []; // [{ tenantId, ownerEmail, restaurantName, outlets }]
 
     if (isDatabaseEnabled()) {
       try {
@@ -193,7 +182,8 @@ async function runDailySalesReport() {
           const ownerEmail  = data?.businessProfile?.email;
           const restName    = data?.businessProfile?.tradeName || data?.businessProfile?.legalName || "Restaurant";
           const ownerName   = (data?.users || []).find(u => (u.roles || []).includes("Owner"))?.fullName || "Owner";
-          if (ownerEmail) tenants.push({ tenantId: row.tenant_id, ownerEmail, restName, ownerName });
+          const outlets     = data?.outlets || [];
+          if (ownerEmail) tenants.push({ tenantId: row.tenant_id, ownerEmail, restName, ownerName, outlets });
         }
       } catch (err) {
         console.error("[sales-report] Could not query tenants:", err.message);
@@ -203,11 +193,12 @@ async function runDailySalesReport() {
     // Fallback: always also send to SALES_REPORT_EMAIL (your own email)
     const hasDefault = tenants.some(t => t.tenantId === "default");
     if (!hasDefault) {
-      tenants.push({ tenantId: "default", ownerEmail: SALES_REPORT_EMAIL, restName: "Restaurant", ownerName: "Owner" });
+      tenants.push({ tenantId: "default", ownerEmail: SALES_REPORT_EMAIL, restName: "Restaurant", ownerName: "Owner", outlets: [] });
     }
 
-    // ── Send one report per tenant ───────────────────────────────────────────
-    for (const { tenantId, ownerEmail, restName, ownerName } of tenants) {
+    // ── Send one consolidated report per tenant, plus one per outlet that has
+    //    its own reportEmail configured (Owner Console → Outlets page) ───────
+    for (const { tenantId, ownerEmail, restName, ownerName, outlets } of tenants) {
       try {
         const orders  = cosModule.getTodaySales(tenantId);
         const shifts  = ssModule.getShifts(tenantId);
@@ -228,6 +219,34 @@ async function runDailySalesReport() {
         console.log(`[sales-report] ✅ Sent to ${ownerEmail} (${restName}) — ${summary.orderCount} orders, ${fmt(summary.total)}`);
       } catch (err) {
         console.error(`[sales-report] ❌ Failed for tenant ${tenantId}:`, err.message);
+      }
+
+      // Per-outlet reports — shifts have no outlet attribution, so the shift
+      // section is simply omitted (buildHtml already hides it when empty).
+      for (const outlet of outlets) {
+        const outletEmail = outlet?.reportEmail;
+        if (!outletEmail || outletEmail === ownerEmail) continue;
+        try {
+          const outletOrders  = cosModule.getTodaySalesByOutlet(tenantId, outlet.id);
+          const outletSummary = buildSummary(outletOrders, { active: [], history: [] });
+          const outletName    = outlet.name || restName;
+
+          const subject = outletSummary.orderCount > 0
+            ? `📊 ${outletSummary.orderCount} orders · ${fmt(outletSummary.total)} — ${outletName} Daily Report`
+            : `📊 ${outletName} Daily Report — ${dateStr}`;
+
+          const { error } = await resend.emails.send({
+            from:    env.emailFrom,
+            to:      outletEmail,
+            subject,
+            html:    buildHtml(outletSummary, dateStr, outletName, ownerName)
+          });
+
+          if (error) throw new Error(error.message);
+          console.log(`[sales-report] ✅ Sent to ${outletEmail} (${outletName}) — ${outletSummary.orderCount} orders, ${fmt(outletSummary.total)}`);
+        } catch (err) {
+          console.error(`[sales-report] ❌ Failed for outlet ${outlet.id} (tenant ${tenantId}):`, err.message);
+        }
       }
     }
 
