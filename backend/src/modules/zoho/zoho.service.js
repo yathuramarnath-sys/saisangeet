@@ -333,6 +333,10 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
   const invoicePayload = {
     customer_id:      custId,
     invoice_number:   invoiceNumber,
+    // Org may have auto-invoice-numbering enabled — without this flag Zoho
+    // rejects our custom invoice_number with "Number entered does not
+    // match the auto-generated number."
+    ignore_auto_number_generation: true,
     date:             closedDate,
     place_of_supply:  stateCode,
     gst_treatment:    "consumer",
