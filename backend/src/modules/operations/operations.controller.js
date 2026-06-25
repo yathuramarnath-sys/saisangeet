@@ -956,6 +956,12 @@ async function deviceCloseOrderHandler(req, res) {
       const cfg  = data?.zoho;
       if (!cfg?.enabled || !cfg?.refreshToken || !cfg?.organizationId) return;
 
+      // Skip orders closed before the configured sync start date
+      if (cfg.syncStartDate) {
+        const closedDate = (order.closedAt || new Date().toISOString()).slice(0, 10);
+        if (closedDate < cfg.syncStartDate) return;
+      }
+
       // Refresh token if needed and persist updated expiry
       const { refreshed } = await getValidToken(cfg);
       if (refreshed) {
