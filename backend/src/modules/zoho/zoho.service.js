@@ -388,7 +388,8 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
     payment_mode:     mapPaymentMode(order.payments),
     amount:           Number(invoice.total),
     date:             closedDate,
-    reference_number: invoiceNumber,
+    // Zoho caps customer payment reference_number at 16 characters
+    reference_number: invoiceNumber.slice(0, 16),
     invoices:         [{ invoice_id: invoice.invoice_id, amount_applied: Number(invoice.total) }],
     ...(depositAccountId ? { account_id: depositAccountId } : {}),
   };
