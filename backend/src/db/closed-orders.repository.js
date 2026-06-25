@@ -100,49 +100,64 @@ async function insertClosedOrder(tenantId, outletId, order) {
 /**
  * Query closed orders from Postgres for a date range.
  *
+ * Paginates internally so report aggregation (e.g. "All Outlets", which has more
+ * rows in the same range than any single outlet) never silently truncates — a
+ * single capped query here previously caused all-outlets totals to undercount
+ * vs. the sum of each outlet's own (smaller, under-the-cap) totals.
+ *
  * @param {string}      tenantId
  * @param {object}      opts
  * @param {string}      opts.dateFrom   "YYYY-MM-DD" (inclusive) — defaults to today
  * @param {string}      opts.dateTo     "YYYY-MM-DD" (inclusive) — defaults to today
  * @param {string|null} opts.outletId   filter to one outlet, or null for all
- * @param {number}      opts.limit      max rows returned (default 1000)
+ * @param {number}      opts.limit      hard ceiling on total rows returned (default 50000)
  * @returns {Promise<object[]>}  array of order objects (parsed from JSONB)
  */
-async function queryClosedOrders(tenantId, { dateFrom, dateTo, outletId, limit = 1000 } = {}) {
+async function queryClosedOrders(tenantId, { dateFrom, dateTo, outletId, limit = 50000 } = {}) {
   if (!isDatabaseEnabled()) return [];
 
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const from  = dateFrom || today;
   const to    = dateTo   || today;
 
-  const params = [tenantId, from, to];
-  let extra    = "";
-
-  if (outletId) {
-    params.push(outletId);
-    extra = ` AND outlet_id = $${params.length}`;
-  }
-
-  params.push(limit);
+  const PAGE_SIZE = 1000;
+  const results   = [];
 
   try {
-    const r = await query(
-      `SELECT order_data
-         FROM closed_orders
-        WHERE tenant_id   = $1
-          AND closed_date >= $2
-          AND closed_date <= $3
-          ${extra}
-        ORDER BY closed_at DESC
-        LIMIT $${params.length}`,
-      params
-    );
-    return r.rows.map((row) =>
-      typeof row.order_data === "string" ? JSON.parse(row.order_data) : row.order_data
-    );
+    for (let offset = 0; offset < limit; offset += PAGE_SIZE) {
+      const pageLimit = Math.min(PAGE_SIZE, limit - offset);
+      const params     = [tenantId, from, to];
+      let   extra      = "";
+
+      if (outletId) {
+        params.push(outletId);
+        extra = ` AND outlet_id = $${params.length}`;
+      }
+      params.push(pageLimit, offset);
+
+      const r = await query(
+        `SELECT order_data
+           FROM closed_orders
+          WHERE tenant_id   = $1
+            AND closed_date >= $2
+            AND closed_date <= $3
+            ${extra}
+          ORDER BY closed_at DESC
+          LIMIT  $${params.length - 1}
+          OFFSET $${params.length}`,
+        params
+      );
+
+      for (const row of r.rows) {
+        results.push(typeof row.order_data === "string" ? JSON.parse(row.order_data) : row.order_data);
+      }
+
+      if (r.rows.length < pageLimit) break; // fetched fewer than asked — no more rows
+    }
+    return results;
   } catch (err) {
     console.error("[closed-orders.repo] SELECT error:", err.message);
-    return [];
+    return results;
   }
 }
 
