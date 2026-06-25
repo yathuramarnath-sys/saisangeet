@@ -17,7 +17,11 @@
  * Per-tenant zoho config stored in ownerSetupData.zoho:
  *   { clientId, clientSecret, accessToken, refreshToken, expiresAt,
  *     organizationId, orgName, walkInContactId, taxMap, stateCode,
- *     connectedAt, lastSyncAt, totalPushed }
+ *     syncStartDate, connectedAt, lastSyncAt, totalPushed }
+ *
+ * syncStartDate (YYYY-MM-DD, optional): orders that closed before this date
+ * are skipped by the auto-push (see operations.controller.js). Lets an owner
+ * who connects mid-month avoid bulk-pushing/backfilling older sales.
  */
 
 const express       = require("express");
@@ -130,14 +134,18 @@ const handleZohoCallback = asyncHandler(async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // PRIVATE — Save client credentials
 // POST /integrations/zoho/config
-// Body: { clientId, clientSecret, stateCode, enabled }
+// Body: { clientId, clientSecret, stateCode, enabled, syncStartDate }
 // ─────────────────────────────────────────────────────────────────────────────
 zohoRouter.post(
   "/config",
   requireAuth,
   asyncHandler(async (req, res) => {
     const tenantId = req.user?.tenantId || "default";
-    const { clientId, clientSecret, stateCode, enabled } = req.body;
+    const { clientId, clientSecret, stateCode, enabled, syncStartDate } = req.body;
+
+    if (syncStartDate && !/^\d{4}-\d{2}-\d{2}$/.test(syncStartDate)) {
+      return res.status(400).json({ error: "syncStartDate must be YYYY-MM-DD." });
+    }
 
     await runWithTenant(tenantId, () =>
       updateOwnerSetupData(d => ({
@@ -148,6 +156,7 @@ zohoRouter.post(
           clientSecret: clientSecret ?? d.zoho?.clientSecret ?? "",
           stateCode:   stateCode   ?? d.zoho?.stateCode   ?? "TN",
           enabled:     enabled     ?? d.zoho?.enabled     ?? false,
+          syncStartDate: syncStartDate !== undefined ? (syncStartDate || null) : (d.zoho?.syncStartDate ?? null),
         },
       }))
     );
@@ -196,6 +205,7 @@ zohoRouter.get(
       organizationId:  cfg.organizationId  || "",
       stateCode:       cfg.stateCode       || "TN",
       enabled:         !!cfg.enabled,
+      syncStartDate:   cfg.syncStartDate   || null,
       connectedAt:     cfg.connectedAt     || null,
       lastSyncAt:      cfg.lastSyncAt      || null,
       totalPushed:     cfg.totalPushed     || 0,
@@ -220,6 +230,7 @@ zohoRouter.delete(
           clientId:     d.zoho?.clientId     || "",
           clientSecret: d.zoho?.clientSecret || "",
           stateCode:    d.zoho?.stateCode    || "TN",
+          syncStartDate: d.zoho?.syncStartDate ?? null,
           enabled:      false,
           // Clear all OAuth tokens and org info
           accessToken:      null,

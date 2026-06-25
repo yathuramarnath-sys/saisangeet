@@ -323,7 +323,7 @@ function ZohoConfigCard() {
   const [expanded, setExpanded] = useState(false);
   const [msg,      setMsg]      = useState({ text: "", ok: true });
   const [form,     setForm]     = useState({
-    clientId: "", clientSecret: "", stateCode: "TN", enabled: false,
+    clientId: "", clientSecret: "", stateCode: "TN", enabled: false, syncStartDate: "",
   });
 
   // Check URL params for OAuth result
@@ -346,8 +346,9 @@ function ZohoConfigCard() {
         setCfg(d);
         setForm(f => ({
           ...f,
-          stateCode: d.stateCode || "TN",
-          enabled:   d.enabled   || false,
+          stateCode:     d.stateCode || "TN",
+          enabled:       d.enabled   || false,
+          syncStartDate: d.syncStartDate || "",
         }));
       })
       .catch(() => {})
@@ -440,10 +441,11 @@ function ZohoConfigCard() {
       </div>
 
       {/* Stats row when connected */}
-      {!expanded && cfg?.connected && (cfg.lastSyncAt || cfg.totalPushed > 0) && (
+      {!expanded && cfg?.connected && (cfg.lastSyncAt || cfg.totalPushed > 0 || cfg.syncStartDate) && (
         <div style={{ display:"flex", gap:24, marginTop:10, padding:"8px 0 0", borderTop:"1px solid #f3f4f6", fontSize:12, color:"#6b7280" }}>
           <span>📅 Last sync: {cfg.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString("en-IN") : "—"}</span>
           <span>📋 Total receipts: {cfg.totalPushed || 0}</span>
+          {cfg.syncStartDate && <span>⏳ Pushing from: {cfg.syncStartDate}</span>}
         </div>
       )}
 
@@ -508,6 +510,18 @@ function ZohoConfigCard() {
                     </span>
                   </div>
                 </div>
+              </div>
+              <div className="form-row">
+                <label className="form-label">
+                  Push sales starting from{" "}
+                  <span style={{ fontWeight:400, color:"#6b7280" }}>(optional — leave blank to push every bill)</span>
+                </label>
+                <input className="form-input" type="date" style={{ maxWidth: 200 }}
+                  value={form.syncStartDate}
+                  onChange={e => setForm(f => ({ ...f, syncStartDate: e.target.value }))} />
+                <span className="integration-field-hint">
+                  Bills closed before this date won't be pushed to Zoho Books. Bills closed on/after it will.
+                </span>
               </div>
               <button type="submit" className="btn-primary" style={{ alignSelf:"flex-start" }} disabled={saving}>
                 {saving ? "Saving…" : "Save Credentials"}
