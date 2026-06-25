@@ -260,19 +260,24 @@ async function fetchAccountIds(organizationId, accessToken) {
   const result   = await booksGet("/chartofaccounts", organizationId, accessToken);
   const accounts = result.body?.chartofaccounts || [];
 
-  const findByType = (type) =>
-    accounts.find(a => a.account_type === type);
+  const findByType = (...types) =>
+    accounts.find(a => types.includes(a.account_type));
   const findByName = (needle) =>
     accounts.find(a => a.account_name?.toLowerCase().includes(needle));
 
   const cashAccount = findByName("cash") || findByType("cash");
-  const bankAccount = findByType("bank");
+  // Some orgs categorize their bank account under "other_current_asset" instead
+  // of literally "bank" — match by name first so a real Bank account isn't missed.
+  const bankAccount =
+    findByName("bank") || findByType("bank", "other_current_asset");
   const miscExpenseAccount =
     findByName("miscellaneous") || findByType("expense");
 
   return {
-    cashAccountId:       cashAccount?.account_id       || null,
-    bankAccountId:       bankAccount?.account_id       || null,
+    cashAccountId:        cashAccount?.account_id        || null,
+    cashAccountName:      cashAccount?.account_name       || null,
+    bankAccountId:        bankAccount?.account_id        || null,
+    bankAccountName:      bankAccount?.account_name       || null,
     miscExpenseAccountId: miscExpenseAccount?.account_id || null,
   };
 }
@@ -384,6 +389,9 @@ async function pushSaleReceipt(order, zohoCfg, taxMap) {
   }
 
   const depositAccountId = pickDepositAccountId(order.payments, zohoCfg);
+  if (!depositAccountId) {
+    console.warn(`[zoho] no deposit account_id resolved for invoice=${invoiceNumber} | method=${order.payments?.[0]?.method || "cash"} | cashAccountId=${zohoCfg.cashAccountId} | bankAccountId=${zohoCfg.bankAccountId} — Zoho will use its own default deposit account.`);
+  }
   const paymentPayload = {
     customer_id:      custId,
     payment_mode:     mapPaymentMode(order.payments),
