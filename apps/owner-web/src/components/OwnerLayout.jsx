@@ -58,7 +58,10 @@ export function OwnerLayout({ children }) {
         >
           <span /><span /><span />
         </button>
-        <span className="mob-topbar-title">Plato</span>
+        <span className="mob-topbar-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <img src="/favicon.svg" width="28" height="28" alt="Plato" style={{ borderRadius: 6 }} />
+          Plato
+        </span>
       </div>
 
       {/* Backdrop — closes sidebar when tapped */}

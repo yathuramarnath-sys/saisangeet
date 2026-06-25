@@ -484,6 +484,11 @@ export function App() {
           onAddMore={() => setStep("menu")}
         />
       )}
+
+      <div className="cw-powered-by">
+        <img src="/favicon.svg" alt="" className="cw-powered-by-icon" />
+        <span>Powered by Plato</span>
+      </div>
     </div>
   );
 }

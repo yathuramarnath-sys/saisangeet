@@ -1951,10 +1951,7 @@ export default function App() {
         {/* Brand */}
         <div className="pbb-brand">
           <span className="pbb-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <circle cx="12" cy="12" r="9"/>
-              <path d="M8 12h8" strokeLinecap="round"/>
-            </svg>
+            <img src="/favicon.svg" alt="Plato" width="20" height="20" style={{ borderRadius: "6px" }} />
           </span>
           <div>
             <div className="pbb-name">{outlet?.name || "Plato POS"}</div>
