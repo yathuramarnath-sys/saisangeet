@@ -48,7 +48,11 @@ const {
   fetchTaxMap,
   fetchAccountIds,
   listChartOfAccounts,
+  pushSaleReceipt,
 } = require("./zoho.service");
+const { isDatabaseEnabled } = require("../../db/database-mode");
+const { queryClosedOrders } = require("../../db/closed-orders.repository");
+const { getSalesForRange } = require("../operations/closed-orders-store");
 
 const ACCOUNT_OVERRIDE_BUCKETS = ["cash", "card", "upi", "other", "cashOutExpense"];
 
@@ -344,6 +348,94 @@ zohoRouter.post(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PRIVATE — Backfill already-closed sales since a date into Zoho
+// POST /integrations/zoho/backfill-sales
+// Body: { dateFrom?, dateTo? } — both "YYYY-MM-DD", optional.
+// syncStartDate only stops orders from being skipped going forward (see
+// operations.controller.js) — it never pushes orders that closed before the
+// owner connected/configured it. This walks closed orders for the given
+// range (defaults to syncStartDate-or-month-start through today) and pushes
+// any that aren't already in Zoho. Safe to re-run: pushSaleReceipt looks up
+// the invoice by number before creating, so already-pushed orders are skipped.
+// ─────────────────────────────────────────────────────────────────────────────
+zohoRouter.post(
+  "/backfill-sales",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId || "default";
+    const data      = await runWithTenant(tenantId, () => getOwnerSetupData());
+    const cfg       = data?.zoho;
+
+    if (!cfg?.enabled || !cfg?.refreshToken || !cfg?.organizationId) {
+      return res.status(400).json({ error: "Zoho is not connected/enabled." });
+    }
+
+    let { dateFrom, dateTo } = req.body || {};
+    if (dateFrom && !/^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
+      return res.status(400).json({ error: "dateFrom must be YYYY-MM-DD." });
+    }
+    if (dateTo && !/^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+      return res.status(400).json({ error: "dateTo must be YYYY-MM-DD." });
+    }
+
+    const todayIST = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const monthStart = `${todayIST.slice(0, 7)}-01`;
+    dateFrom = dateFrom || cfg.syncStartDate || monthStart;
+    dateTo   = dateTo   || todayIST;
+
+    const orders = isDatabaseEnabled()
+      ? await queryClosedOrders(tenantId, { dateFrom, dateTo })
+      : getSalesForRange(tenantId, dateFrom, dateTo, null);
+
+    const billable = orders.filter(o => o.items?.length && !o.isOnHold);
+
+    const { refreshed } = await getValidToken(cfg);
+    if (refreshed) {
+      await runWithTenant(tenantId, () =>
+        updateOwnerSetupData(d => ({ ...d, zoho: { ...d.zoho, accessToken: cfg.accessToken, expiresAt: cfg.expiresAt } }))
+      );
+    }
+
+    let pushed = 0, skipped = 0;
+    const failures = [];
+    for (const order of billable) {
+      try {
+        const result = await pushSaleReceipt(order, cfg, cfg.taxMap || {});
+        if (result.alreadyExists) skipped++;
+        else pushed++;
+      } catch (err) {
+        failures.push({ billNo: order.billNo || order.orderNumber, error: err.message });
+      }
+      // Light pacing to stay under Zoho Books' API rate limit on larger backfills.
+      await new Promise(r => setTimeout(r, 250));
+    }
+
+    if (pushed > 0) {
+      await runWithTenant(tenantId, () =>
+        updateOwnerSetupData(d => ({
+          ...d,
+          zoho: {
+            ...d.zoho,
+            lastSyncAt:  new Date().toISOString(),
+            totalPushed: (d.zoho?.totalPushed || 0) + pushed,
+          },
+        }))
+      );
+    }
+
+    console.log(`[zoho] backfill complete | tenant=${tenantId} | range=${dateFrom}..${dateTo} | total=${billable.length} | pushed=${pushed} | skipped=${skipped} | failed=${failures.length}`);
+    res.json({
+      ok: true,
+      dateFrom, dateTo,
+      totalOrders: billable.length,
+      pushed, skipped,
+      failed: failures.length,
+      failures,
+    });
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PRIVATE — Disconnect (clear tokens)
 // DELETE /integrations/zoho/disconnect
 // ─────────────────────────────────────────────────────────────────────────────
@@ -397,7 +489,6 @@ zohoRouter.post(
     }
 
     // Verify token works
-    const { pushSaleReceipt } = require("./zoho.service");
     const testOrder = {
       orderNumber:  `TEST-${Date.now()}`,
       billNo:       `TEST-${Date.now()}`,

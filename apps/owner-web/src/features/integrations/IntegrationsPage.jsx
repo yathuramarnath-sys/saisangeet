@@ -321,6 +321,7 @@ function ZohoConfigCard() {
   const [saving,   setSaving]   = useState(false);
   const [testing,  setTesting]  = useState(false);
   const [syncing,  setSyncing]  = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [msg,      setMsg]      = useState({ text: "", ok: true });
   const [form,     setForm]     = useState({
@@ -446,6 +447,21 @@ function ZohoConfigCard() {
     } catch (err) {
       setMsg({ text: "✗ " + (err.message || "Sync failed"), ok: false });
     } finally { setSyncing(false); }
+  }
+
+  async function handleBackfillSales() {
+    setBackfilling(true); setMsg({ text: "", ok: true });
+    try {
+      const res = await api.post("/integrations/zoho/backfill-sales");
+      setMsg({
+        text: `✓ Backfill ${res.dateFrom} → ${res.dateTo}: ${res.pushed} pushed, ${res.skipped} already in Zoho` +
+          (res.failed ? `, ${res.failed} failed` : ""),
+        ok: res.failed === 0,
+      });
+      loadConfig();
+    } catch (err) {
+      setMsg({ text: "✗ " + (err.message || "Backfill failed"), ok: false });
+    } finally { setBackfilling(false); }
   }
 
   const STATE_CODES = [
@@ -615,12 +631,19 @@ function ZohoConfigCard() {
                     — then check Step 3 to pin the exact account each one should use.
                   </span>
                 </div>
-                <div style={{ display:"flex", gap:10, marginTop:4 }}>
+                <div style={{ fontSize:12, color:"#6b7280", background:"#fffbeb", border:"1px solid #fde68a", borderRadius:8, padding:"8px 12px" }}>
+                  <strong style={{ color:"#92400e" }}>Pushing from {cfg.syncStartDate || "month start"} only covers bills closed from now on.</strong>{" "}
+                  Bills already closed since that date won't sync on their own — use Backfill below to push them once.
+                </div>
+                <div style={{ display:"flex", gap:10, marginTop:4, flexWrap:"wrap" }}>
                   <button type="button" className="btn-outline" onClick={handleTest} disabled={testing}>
                     {testing ? "Testing…" : "🧪 Test Connection"}
                   </button>
                   <button type="button" className="btn-outline" onClick={handleSyncAccounts} disabled={syncing}>
                     {syncing ? "Syncing…" : "🏦 Re-sync Accounts"}
+                  </button>
+                  <button type="button" className="btn-outline" onClick={handleBackfillSales} disabled={backfilling}>
+                    {backfilling ? "Pushing past bills…" : "📤 Backfill Past Bills"}
                   </button>
                   <button type="button" className="btn-outline" onClick={handleConnect}
                     style={{ color:"#f59e0b", borderColor:"#f59e0b" }}>
