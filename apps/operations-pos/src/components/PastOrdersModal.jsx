@@ -3,7 +3,7 @@ import { getFinancials } from "./OrderPanel";
 import { printBill } from "../lib/printBill";
 import { api } from "../lib/api";
 
-const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Zomato Pay", "Swiggy Pay"];
+const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Credit", "Zomato Pay", "Swiggy Pay"];
 
 /* ── Edit Payment Modal ───────────────────────────────────────────────────── */
 function EditPaymentModal({ order, fin, onSave, onClose, saving }) {
