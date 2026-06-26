@@ -8,7 +8,7 @@
 
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { loadRuntimeState, saveRuntimeState } = require("../../db/runtime-state.repository");
-const { insertClosedOrder, updateClosedOrderData, queryCreditOrders, queryCreditSettlementsForRange, findCreditOrderById } = require("../../db/closed-orders.repository");
+const { insertClosedOrder, updateClosedOrderData, queryCreditOrders, queryCreditSettlementsForRange, findCreditOrderById, getClosedOrderByClosedAt } = require("../../db/closed-orders.repository");
 
 const SCOPE = "closed-orders";
 
@@ -145,7 +145,7 @@ function getSalesForRange(tenantId, dateFrom, dateTo, outletId) {
     for (const order of orders) {
       const closedStr = new Date(order.closedAt || order._receivedAt || 0)
         .toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-      if (closedStr >= dateFrom && closedStr <= dateTo) result.push(order);
+      if (closedStr >= dateFrom && closedStr <= dateTo) result.push({ ...order, _outletId: oid });
     }
   }
   return result;
@@ -338,9 +338,59 @@ async function getCreditSettlementsForRange(tenantId, dateFrom, dateTo, outletId
   return [...newFromMemory, ...pgResults];
 }
 
+/**
+ * Correct the payment method/split on an already-closed order.
+ * Matched by (outletId, closedAt) — both reliably present on the client's
+ * copy of a closed order, unlike tableId/orderNumber which get recycled
+ * once the table moves on to its next order.
+ *
+ * @param {string} tenantId
+ * @param {string} outletId
+ * @param {string} closedAt    — ISO timestamp identifying the closed order
+ * @param {Array}  payments    — new payments array [{ method, amount }]
+ * @param {string} [correctedBy]
+ * @returns {Promise<object|null>} the updated order, or null if not found
+ */
+async function updateOrderPayments(tenantId, outletId, closedAt, payments, correctedBy = null) {
+  const now = new Date().toISOString();
+
+  // ── In-memory store first ──────────────────────────────────────────────────
+  const list  = _getOutletList(tenantId, outletId);
+  const order = list.find(o => (o.closedAt || o._receivedAt) === closedAt);
+  if (order) {
+    order.payments           = payments;
+    order.paymentCorrectedAt = now;
+    order.paymentCorrectedBy = correctedBy;
+
+    _persist();
+    await updateClosedOrderData(tenantId, outletId, closedAt, order).catch(err =>
+      console.error("[closed-orders-store] payment correction Postgres sync error:", err.message)
+    );
+    return order;
+  }
+
+  // ── DB fallback: order not in memory (server restarted) ───────────────────
+  if (!isDatabaseEnabled()) return null;
+
+  const found = await getClosedOrderByClosedAt(tenantId, outletId, closedAt);
+  if (!found) return null;
+
+  found.payments           = payments;
+  found.paymentCorrectedAt = now;
+  found.paymentCorrectedBy = correctedBy;
+
+  await updateClosedOrderData(tenantId, outletId, closedAt, found).catch(err =>
+    console.error("[closed-orders-store] DB-fallback payment correction sync error:", err.message)
+  );
+
+  list.unshift(found);   // re-add to in-memory so subsequent reads this session work
+  return found;
+}
+
 module.exports = {
   addClosedOrder,
   getTodaySales, getTodaySalesByOutlet, getSalesForRange,
   hydrateClosedOrders, getOrderById,
   getCreditOrders, settleCreditOrder, getCreditSettlementsForRange,
+  updateOrderPayments,
 };

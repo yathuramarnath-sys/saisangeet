@@ -206,7 +206,7 @@ async function listClosedOrders(tenantId, { dateFrom, dateTo, outletId, page = 1
     // Data query
     params.push(pageSize, offset);
     const dataResult = await query(
-      `SELECT order_data
+      `SELECT order_data, outlet_id
          FROM closed_orders
         WHERE tenant_id   = $1
           AND closed_date >= $2
@@ -217,9 +217,11 @@ async function listClosedOrders(tenantId, { dateFrom, dateTo, outletId, page = 1
         OFFSET $${params.length}`,
       params
     );
-    const orders = dataResult.rows.map((row) =>
-      typeof row.order_data === "string" ? JSON.parse(row.order_data) : row.order_data
-    );
+    const orders = dataResult.rows.map((row) => {
+      const order = typeof row.order_data === "string" ? JSON.parse(row.order_data) : row.order_data;
+      if (!order._outletId) order._outletId = row.outlet_id;
+      return order;
+    });
 
     return { orders, total, page, pageSize };
   } catch (err) {

@@ -1055,6 +1055,98 @@ function WastageReport({ dateFrom, dateTo, outletId }) {
   );
 }
 
+const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Zomato Pay", "Swiggy Pay"];
+
+// ── Edit Payment Modal — corrects the method/split on an already-closed bill ──
+function EditPaymentModal({ order, onClose, onSaved }) {
+  const total = (order._order?.payments || []).reduce((s, p) => s + (p.amount || 0), 0) || order.totalPaid || 0;
+  const existing = order._order?.payments || [];
+  const [payments, setPayments] = useState(
+    existing.length
+      ? existing.map(p => ({ method: p.method, amount: p.amount }))
+      : [{ method: "Cash", amount: total }]
+  );
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState(null);
+
+  function updateMethod(idx, method) { setPayments(prev => prev.map((p, i) => i === idx ? { ...p, method } : p)); }
+  function updateAmount(idx, val)     { setPayments(prev => prev.map((p, i) => i === idx ? { ...p, amount: Number(val) || 0 } : p)); }
+  function addSplit()  { setPayments(prev => [...prev, { method: "Card", amount: 0 }]); }
+  function removeRow(idx) { if (payments.length > 1) setPayments(prev => prev.filter((_, i) => i !== idx)); }
+
+  const paidTotal = payments.reduce((s, p) => s + p.amount, 0);
+  const isValid   = paidTotal >= total;
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.post("/operations/closed-order/payments", {
+        outletId: order.outletId,
+        closedAt: order.closedAt,
+        payments,
+      });
+      onSaved(payments);
+    } catch (err) {
+      setError(err?.message || "Failed to save — check connection and try again");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !saving && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 420 }}>
+        <div className="modal-head">
+          <h3>✏️ Edit Payment — Bill #{order.billNo}</h3>
+          <button type="button" className="modal-close" onClick={onClose} disabled={saving}>✕</button>
+        </div>
+
+        <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: 0 }}>
+            ⚠️ Correcting a payment method updates the billing record. Use for genuine errors only.
+          </p>
+
+          {payments.map((p, idx) => (
+            <div key={idx} style={{ display: "flex", gap: 8 }}>
+              <select style={{ flex: 1 }} value={p.method} onChange={e => updateMethod(idx, e.target.value)}>
+                {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
+              </select>
+              <input
+                type="number"
+                style={{ width: 110, padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line-strong)" }}
+                value={p.amount}
+                onChange={e => updateAmount(idx, e.target.value)}
+              />
+              {payments.length > 1 && (
+                <button type="button" onClick={() => removeRow(idx)} style={{ border: "none", background: "none", cursor: "pointer" }}>🗑</button>
+              )}
+            </div>
+          ))}
+
+          <button type="button" onClick={addSplit} style={{ alignSelf: "flex-start", border: "none", background: "none", color: "var(--primary, #1849a9)", cursor: "pointer", fontWeight: 600 }}>
+            + Add Split Payment
+          </button>
+
+          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, color: isValid ? "#16a34a" : "#dc2626" }}>
+            <span>Paid: {fmt(paidTotal)}</span>
+            <span>{isValid ? `✓ Covers ${fmt(total)}` : `${fmt(total - paidTotal)} still short`}</span>
+          </div>
+
+          {error && <p style={{ color: "#dc2626", fontSize: "0.85rem", margin: 0 }}>{error}</p>}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <button type="button" className="rpt-export-btn" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="rpt-export-btn" onClick={handleSave} disabled={!isValid || saving}>
+            {saving ? "Saving…" : "Save Correction"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Order History Tab ─────────────────────────────────────────────────────────
 // Paginated bill list backed by GET /reports/orders (Postgres for history,
 // in-memory for today).  One row per closed bill.
@@ -1063,6 +1155,8 @@ function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
   const [loading, setLoading] = useState(false);
   const [page,    setPage]    = useState(1);
   const [detail,  setDetail]  = useState(null);  // expanded order detail
+  const [editOrder, setEditOrder] = useState(null); // order being payment-corrected
+  const [overrides, setOverrides] = useState({});    // billNo → corrected payments
   const PAGE_SIZE = 50;
 
   const load = useCallback((pg = 1) => {
@@ -1119,10 +1213,16 @@ function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
                 <th>Method</th>
                 <th>Cashier</th>
                 <th></th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((o, i) => (
+              {orders.map((o, i) => {
+                const override = overrides[o.billNo];
+                const methodsLabel = override
+                  ? [...new Set(override.map(p => p.method))].join(", ")
+                  : o.paymentMethods;
+                return (
                 <tr key={i}>
                   <td><strong>{o.billNo}</strong></td>
                   <td>{o.date}</td>
@@ -1132,7 +1232,7 @@ function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
                   <td>{o.items}</td>
                   <td>{fmt(o.net)}</td>
                   <td>{fmt(o.totalPaid)}</td>
-                  <td><span className="rpt-method-pill">{o.paymentMethods}</span></td>
+                  <td><span className="rpt-method-pill">{methodsLabel}</span></td>
                   <td>{o.cashierName}</td>
                   <td>
                     <button className="rpt-oh-detail-btn"
@@ -1140,8 +1240,16 @@ function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
                       {detail?.closedAt === o.closedAt ? "▲" : "▼"}
                     </button>
                   </td>
+                  <td>
+                    <button className="rpt-oh-detail-btn" title="Edit payment method"
+                      disabled={!o.outletId || !o.closedAt}
+                      onClick={() => setEditOrder(o)}>
+                      ✏️
+                    </button>
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1171,7 +1279,7 @@ function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
             />
           )}
           <div className="rpt-oh-detail-footer">
-            {(detail._order?.payments || []).map((p, i) => (
+            {(overrides[detail.billNo] || detail._order?.payments || []).map((p, i) => (
               <span key={i} className="rpt-method-pill">
                 {p.method?.toUpperCase() || "CASH"}: {fmt(p.amount)}
               </span>
@@ -1187,6 +1295,17 @@ function OrderHistoryTab({ dateFrom, dateTo, outletId }) {
           <span className="rpt-page-info">Page {page} of {pages}</span>
           <button className="rpt-page-btn" onClick={() => load(page + 1)} disabled={page >= pages}>Next →</button>
         </div>
+      )}
+
+      {editOrder && (
+        <EditPaymentModal
+          order={editOrder}
+          onClose={() => setEditOrder(null)}
+          onSaved={(payments) => {
+            setOverrides(prev => ({ ...prev, [editOrder.billNo]: payments }));
+            setEditOrder(null);
+          }}
+        />
       )}
     </div>
   );
