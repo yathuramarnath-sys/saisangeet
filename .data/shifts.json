@@ -28,6 +28,42 @@
   "test-owner-auth-stability": {
     "active": [
       {
+        "id": "shift-1782459174218",
+        "cashier": "Test Cashier",
+        "outlet": "Main Outlet",
+        "session": "Full Day",
+        "openingCash": 1000,
+        "cashIn": 0,
+        "cashOut": 0,
+        "sales": 0,
+        "startedAt": "2026-06-26T07:32:54.218Z",
+        "status": "open"
+      },
+      {
+        "id": "shift-1782459112420",
+        "cashier": "Test Cashier",
+        "outlet": "Main Outlet",
+        "session": "Full Day",
+        "openingCash": 1000,
+        "cashIn": 0,
+        "cashOut": 0,
+        "sales": 0,
+        "startedAt": "2026-06-26T07:31:52.420Z",
+        "status": "open"
+      },
+      {
+        "id": "shift-1782459050106",
+        "cashier": "Test Cashier",
+        "outlet": "Main Outlet",
+        "session": "Full Day",
+        "openingCash": 1000,
+        "cashIn": 0,
+        "cashOut": 0,
+        "sales": 0,
+        "startedAt": "2026-06-26T07:30:50.106Z",
+        "status": "open"
+      },
+      {
         "id": "shift-1782458988708",
         "cashier": "Test Cashier",
         "outlet": "Main Outlet",
