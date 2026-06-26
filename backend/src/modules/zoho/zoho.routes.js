@@ -92,7 +92,7 @@ const handleZohoCallback = asyncHandler(async (req, res) => {
 
       // Fetch organization info
       let orgId = "", orgName = "", walkInContactId = "", taxMap = {};
-      let cashAccountId = null, bankAccountId = null, miscExpenseAccountId = null;
+      let cashAccountId = null, bankAccountId = null, miscExpenseAccountId = null, miscExpenseAccountName = null;
       let cashAccountName = null, bankAccountName = null;
       try {
         const orgs = await getOrganizations(tokens.accessToken);
@@ -103,9 +103,9 @@ const handleZohoCallback = asyncHandler(async (req, res) => {
         if (orgId) {
           walkInContactId = await getOrCreateWalkInContact(orgId, tokens.accessToken);
           taxMap          = await fetchTaxMap(orgId, tokens.accessToken);
-          ({ cashAccountId, cashAccountName, bankAccountId, bankAccountName, miscExpenseAccountId } =
+          ({ cashAccountId, cashAccountName, bankAccountId, bankAccountName, miscExpenseAccountId, miscExpenseAccountName } =
             await fetchAccountIds(orgId, tokens.accessToken));
-          console.log(`[zoho] account mapping | cash=${cashAccountName || "none"} (${cashAccountId}) | bank=${bankAccountName || "none"} (${bankAccountId})`);
+          console.log(`[zoho] account mapping | cash=${cashAccountName || "none"} (${cashAccountId}) | bank=${bankAccountName || "none"} (${bankAccountId}) | expense=${miscExpenseAccountName || "none"} (${miscExpenseAccountId})`);
         }
       } catch (orgErr) {
         console.warn("[zoho callback] org/contact fetch failed:", orgErr.message);
@@ -129,6 +129,7 @@ const handleZohoCallback = asyncHandler(async (req, res) => {
             bankAccountId,
             bankAccountName,
             miscExpenseAccountId,
+            miscExpenseAccountName,
             connectedAt:      new Date().toISOString(),
             lastSyncAt:       null,
             totalPushed:      d.zoho?.totalPushed || 0,
@@ -225,6 +226,7 @@ zohoRouter.get(
       totalPushed:     cfg.totalPushed     || 0,
       cashAccountName: cfg.cashAccountName || null,
       bankAccountName: cfg.bankAccountName || null,
+      miscExpenseAccountName: cfg.miscExpenseAccountName || null,
       accountOverrides: cfg.accountOverrides || {},
       redirectUri:     REDIRECT_URI,
     });
@@ -318,7 +320,7 @@ zohoRouter.post(
     }
 
     const { accessToken } = await getValidToken(cfg);
-    const { cashAccountId, cashAccountName, bankAccountId, bankAccountName, miscExpenseAccountId } =
+    const { cashAccountId, cashAccountName, bankAccountId, bankAccountName, miscExpenseAccountId, miscExpenseAccountName } =
       await fetchAccountIds(cfg.organizationId, accessToken);
 
     await runWithTenant(tenantId, () =>
@@ -331,12 +333,13 @@ zohoRouter.post(
           bankAccountId,
           bankAccountName,
           miscExpenseAccountId,
+          miscExpenseAccountName,
         },
       }))
     );
 
-    console.log(`[zoho] account mapping re-synced | tenant=${tenantId} | cash=${cashAccountName || "none"} | bank=${bankAccountName || "none"}`);
-    res.json({ ok: true, cashAccountName, bankAccountName });
+    console.log(`[zoho] account mapping re-synced | tenant=${tenantId} | cash=${cashAccountName || "none"} | bank=${bankAccountName || "none"} | expense=${miscExpenseAccountName || "none"}`);
+    res.json({ ok: true, cashAccountName, bankAccountName, miscExpenseAccountName });
   })
 );
 
