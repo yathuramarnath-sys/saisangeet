@@ -1,0 +1,354 @@
+{
+  "closingState": {
+    "approved": false,
+    "approvedAt": null,
+    "approvedBy": null,
+    "approvedRole": null,
+    "status": "Pending review"
+  },
+  "cashShifts": {
+    "shifts": [
+      {
+        "id": "arjun-koramangala",
+        "cashier": "Arjun",
+        "outlet": "Koramangala",
+        "openingCash": "Rs 5,000",
+        "expectedClose": "Rs 21,450",
+        "varianceAmount": 0,
+        "status": "Open"
+      },
+      {
+        "id": "priya-indiranagar",
+        "cashier": "Priya",
+        "outlet": "Indiranagar",
+        "openingCash": "Rs 8,000",
+        "expectedClose": "Rs 32,200",
+        "varianceAmount": 0,
+        "status": "Open"
+      },
+      {
+        "id": "ramesh-hsr",
+        "cashier": "Ramesh",
+        "outlet": "HSR Layout",
+        "openingCash": "Rs 7,000",
+        "expectedClose": "Rs 26,300",
+        "varianceAmount": -1200,
+        "status": "Mismatch",
+        "warning": true
+      },
+      {
+        "id": "manoj-whitefield",
+        "cashier": "Manoj",
+        "outlet": "Whitefield",
+        "openingCash": "Rs 8,000",
+        "expectedClose": "Rs 28,110",
+        "varianceAmount": 0,
+        "status": "Closed"
+      }
+    ],
+    "movements": [
+      {
+        "id": "cash-in-1",
+        "cashier": "Arjun",
+        "type": "Cash In",
+        "amount": "Rs 500",
+        "reason": "Change refill",
+        "status": "Approved"
+      },
+      {
+        "id": "cash-out-1",
+        "cashier": "Priya",
+        "type": "Cash Out",
+        "amount": "Rs 850",
+        "reason": "Petty expense",
+        "status": "Manager check",
+        "warning": true
+      },
+      {
+        "id": "cash-out-2",
+        "cashier": "Ramesh",
+        "type": "Cash Out",
+        "amount": "Rs 300",
+        "reason": "Courier payout",
+        "status": "Approved"
+      }
+    ],
+    "alerts": [
+      {
+        "id": "hsr-short",
+        "title": "HSR Layout shift short by Rs 1,200",
+        "description": "Manager must review before final closing"
+      },
+      {
+        "id": "petty-range",
+        "title": "2 cash-out entries exceed normal petty range",
+        "description": "Check approval and reason entries"
+      },
+      {
+        "id": "not-closed",
+        "title": "One cashier has not closed shift",
+        "description": "Prompt closing before end-of-day report generation"
+      }
+    ]
+  },
+  "permissionPolicies": {
+    "cashier-discount-limit-percent": 5,
+    "cashier-void-limit-amount": 200
+  },
+  "orders": {
+    "t1": {
+      "tableId": "t1",
+      "tableNumber": "T1",
+      "orderNumber": 10031,
+      "kotNumber": "KOT-10031",
+      "outletName": "Indiranagar",
+      "areaName": "AC Hall 1",
+      "captain": "Captain Karthik",
+      "assignedWaiter": "",
+      "guests": 3,
+      "pickupStatus": "ready",
+      "payments": [],
+      "billSplitCount": 1,
+      "printCount": 0,
+      "lastPrintLabel": "Not printed yet",
+      "isClosed": false,
+      "closedAt": null,
+      "serviceChargeEnabled": false,
+      "serviceChargeRate": 0.1,
+      "billRequested": false,
+      "billRequestedAt": null,
+      "notes": "Ready for pickup",
+      "discountAmount": 0,
+      "discountOverrideRequested": false,
+      "discountApprovalStatus": "Within cashier 5% limit",
+      "discountApprovedBy": "Not needed",
+      "voidRequested": false,
+      "voidReason": "Not requested",
+      "voidApprovedBy": "Pending",
+      "reprintReason": "Not requested",
+      "reprintApprovedBy": "Not needed",
+      "reprintLog": [],
+      "deletedBillLog": [],
+      "controlAlerts": [],
+      "auditTrail": [
+        {
+          "id": "kot-sent-1782458864185-d49a95",
+          "label": "KOT sent",
+          "actor": "Captain Karthik",
+          "time": "7:28 PM"
+        },
+        {
+          "id": "marked-ready-1782458864185-b882c2",
+          "label": "Marked ready",
+          "actor": "Chef Manoj",
+          "time": "7:31 PM"
+        }
+      ],
+      "items": [
+        {
+          "id": "line-1",
+          "name": "Paneer Tikka",
+          "quantity": 1,
+          "price": 220,
+          "sentToKot": true
+        }
+      ]
+    },
+    "t2": {
+      "tableId": "t2",
+      "tableNumber": "T2",
+      "orderNumber": 10032,
+      "kotNumber": "KOT-10032",
+      "outletName": "Koramangala",
+      "areaName": "AC Hall 1",
+      "captain": "Captain Karthik",
+      "assignedWaiter": "",
+      "guests": 4,
+      "pickupStatus": "preparing",
+      "payments": [],
+      "billSplitCount": 1,
+      "printCount": 0,
+      "lastPrintLabel": "Not printed yet",
+      "isClosed": false,
+      "closedAt": null,
+      "serviceChargeEnabled": false,
+      "serviceChargeRate": 0.1,
+      "billRequested": false,
+      "billRequestedAt": null,
+      "notes": "Discount above cashier limit needs manager approval",
+      "discountAmount": 25,
+      "discountOverrideRequested": true,
+      "discountApprovalStatus": "Manager/Owner approval pending",
+      "discountApprovedBy": "Pending manager",
+      "voidRequested": false,
+      "voidReason": "Not requested",
+      "voidApprovedBy": "Pending",
+      "reprintReason": "Not requested",
+      "reprintApprovedBy": "Not needed",
+      "reprintLog": [],
+      "deletedBillLog": [],
+      "controlAlerts": [
+        "Discount above 5% requested"
+      ],
+      "auditTrail": [
+        {
+          "id": "discount-override-requested-1782458864186-4a9ae8",
+          "label": "Discount override requested",
+          "actor": "Cashier Anita",
+          "time": "7:42 PM"
+        }
+      ],
+      "items": [
+        {
+          "id": "line-2",
+          "name": "Veg Biryani",
+          "quantity": 1,
+          "price": 240,
+          "sentToKot": true
+        }
+      ]
+    },
+    "t3": {
+      "tableId": "t3",
+      "tableNumber": "T3",
+      "orderNumber": 10033,
+      "kotNumber": "KOT-10033",
+      "outletName": "HSR Layout",
+      "areaName": "Non-AC Hall",
+      "captain": "Captain Karthik",
+      "assignedWaiter": "",
+      "guests": 2,
+      "pickupStatus": "delivered",
+      "payments": [],
+      "billSplitCount": 1,
+      "printCount": 0,
+      "lastPrintLabel": "Not printed yet",
+      "isClosed": false,
+      "closedAt": null,
+      "serviceChargeEnabled": false,
+      "serviceChargeRate": 0.1,
+      "billRequested": true,
+      "billRequestedAt": "7:48 PM",
+      "notes": "Void above cashier limit needs manager/owner OTP approval",
+      "discountAmount": 0,
+      "discountOverrideRequested": false,
+      "discountApprovalStatus": "Within cashier 5% limit",
+      "discountApprovedBy": "Not needed",
+      "voidRequested": true,
+      "voidReason": "Duplicate bill",
+      "voidApprovedBy": "Pending OTP",
+      "reprintReason": "Not requested",
+      "reprintApprovedBy": "Not needed",
+      "reprintLog": [],
+      "deletedBillLog": [],
+      "controlAlerts": [
+        "Void above Rs 200 requested"
+      ],
+      "auditTrail": [
+        {
+          "id": "void-requested-1782458864186-3df277",
+          "label": "Void requested",
+          "actor": "Cashier Anita",
+          "time": "7:51 PM"
+        }
+      ],
+      "items": [
+        {
+          "id": "line-3",
+          "name": "Paneer Tikka",
+          "quantity": 2,
+          "price": 220,
+          "sentToKot": true
+        }
+      ]
+    },
+    "table-1": {
+      "tableId": "table-1",
+      "tableNumber": "T1",
+      "orderNumber": 10040,
+      "kotNumber": "KOT-10040",
+      "outletName": "Main Outlet",
+      "areaName": "AC",
+      "captain": "Open",
+      "seatLabels": [
+        "T1S1",
+        "T1S2",
+        "T1S3",
+        "T1S4"
+      ],
+      "assignedWaiter": "",
+      "guests": 0,
+      "pickupStatus": "new",
+      "payments": [],
+      "billSplitCount": 1,
+      "printCount": 0,
+      "lastPrintLabel": "Not printed yet",
+      "isClosed": false,
+      "closedAt": null,
+      "serviceChargeEnabled": false,
+      "serviceChargeRate": 0.1,
+      "billRequested": false,
+      "billRequestedAt": null,
+      "notes": "Ready for new guests",
+      "discountAmount": 0,
+      "discountOverrideRequested": false,
+      "discountApprovalStatus": "Within cashier 5% limit",
+      "discountApprovedBy": "Not needed",
+      "voidRequested": false,
+      "voidReason": "Not requested",
+      "voidApprovedBy": "Pending",
+      "reprintReason": "Not requested",
+      "reprintApprovedBy": "Not needed",
+      "reprintLog": [],
+      "deletedBillLog": [],
+      "controlAlerts": [],
+      "auditTrail": [],
+      "items": [],
+      "updatedAt": 1782458864186,
+      "_deletedItemIds": []
+    },
+    "table-2": {
+      "tableId": "table-2",
+      "tableNumber": "T2",
+      "orderNumber": 10041,
+      "kotNumber": "KOT-10041",
+      "outletName": "Main Outlet",
+      "areaName": "Non-AC",
+      "captain": "Open",
+      "seatLabels": [
+        "T2S1",
+        "T2S2"
+      ],
+      "assignedWaiter": "",
+      "guests": 0,
+      "pickupStatus": "new",
+      "payments": [],
+      "billSplitCount": 1,
+      "printCount": 0,
+      "lastPrintLabel": "Not printed yet",
+      "isClosed": false,
+      "closedAt": null,
+      "serviceChargeEnabled": false,
+      "serviceChargeRate": 0.1,
+      "billRequested": false,
+      "billRequestedAt": null,
+      "notes": "Ready for new guests",
+      "discountAmount": 0,
+      "discountOverrideRequested": false,
+      "discountApprovalStatus": "Within cashier 5% limit",
+      "discountApprovedBy": "Not needed",
+      "voidRequested": false,
+      "voidReason": "Not requested",
+      "voidApprovedBy": "Pending",
+      "reprintReason": "Not requested",
+      "reprintApprovedBy": "Not needed",
+      "reprintLog": [],
+      "deletedBillLog": [],
+      "controlAlerts": [],
+      "auditTrail": [],
+      "items": [],
+      "updatedAt": 1782458864186,
+      "_deletedItemIds": []
+    }
+  }
+}
