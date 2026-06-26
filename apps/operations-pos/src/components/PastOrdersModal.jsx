@@ -6,7 +6,7 @@ import { api } from "../lib/api";
 const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Zomato Pay", "Swiggy Pay"];
 
 /* ── Edit Payment Modal ───────────────────────────────────────────────────── */
-function EditPaymentModal({ order, fin, onSave, onClose }) {
+function EditPaymentModal({ order, fin, onSave, onClose, saving }) {
   const existing = (order.payments || []);
   const [payments, setPayments] = useState(
     existing.length
@@ -81,11 +81,11 @@ function EditPaymentModal({ order, fin, onSave, onClose }) {
         </div>
 
         <div className="sm-footer">
-          <button type="button" className="sm-btn-cancel" onClick={onClose}>Cancel</button>
+          <button type="button" className="sm-btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
           <button type="button" className="sm-btn-action close-ok"
-            disabled={!isValid}
+            disabled={!isValid || saving}
             onClick={() => onSave(payments)}>
-            Save Correction
+            {saving ? "Saving…" : "Save Correction"}
           </button>
         </div>
       </div>
@@ -100,6 +100,10 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
   const [editOrder, setEditOrder] = useState(null);
   const [expanded,  setExpanded]  = useState(null);
   const [serverOrders, setServerOrders] = useState([]);
+  // Optimistic local override of an order's payments, applied immediately after
+  // a successful Edit Payment save so the corrected method shows without a reload.
+  const [paymentOverrides, setPaymentOverrides] = useState({});
+  const [savingPayment, setSavingPayment] = useState(false);
 
   // Today-only: cashier should only see today's bills, not historical data.
   // We filter by closedAt matching today's IST date string (YYYY-MM-DD).
@@ -224,10 +228,12 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
               </div>
             )}
             {filtered.map(order => {
+              const overrideKey = String(order.billNo ?? `${order.orderNumber}-${order.closedAt}`);
+              const payments    = paymentOverrides[overrideKey] || order.payments;
               const fin        = getFinancials(order, { gstTreatment });
               const billLabel  = order.billNo != null ? `#${order.billNo}` : `#${order.orderNumber}`;
               const isExpanded = expanded === (order.billNo ?? order.orderNumber);
-              const payMethods = [...new Set((order.payments || []).map(p => p.method))].join(" + ");
+              const payMethods = [...new Set((payments || []).map(p => p.method))].join(" + ");
               const label      = order.isCounter
                 ? `Ticket #${String(order.ticketNumber || "").padStart(3, "0")}`
                 : `Table ${order.tableNumber}`;
@@ -276,7 +282,7 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
                         <div className="past-fin-row bold"><span>Total</span><span>₹{fin.total}</span></div>
                       </div>
                       <div className="past-payments">
-                        {(order.payments || []).map((p, i) => (
+                        {(payments || []).map((p, i) => (
                           <span key={i} className="past-pay-pill">{p.method} · ₹{p.amount}</span>
                         ))}
                       </div>
@@ -291,7 +297,7 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
                           🖨 Reprint Bill
                         </button>
                         <button type="button" className="past-action-btn warn"
-                          onClick={() => setEditOrder(order)}>
+                          onClick={() => setEditOrder({ ...order, payments })}>
                           ✏️ Edit Payment
                         </button>
                       </div>
@@ -310,9 +316,15 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
         <EditPaymentModal
           order={editOrder}
           fin={getFinancials(editOrder, { gstTreatment })}
-          onClose={() => setEditOrder(null)}
-          onSave={(payments) => {
-            onEditPayment(editOrder, payments);
+          saving={savingPayment}
+          onClose={() => !savingPayment && setEditOrder(null)}
+          onSave={async (payments) => {
+            setSavingPayment(true);
+            const ok = await onEditPayment(editOrder, payments);
+            setSavingPayment(false);
+            if (ok === false) return; // keep modal open so the user can retry
+            const key = String(editOrder.billNo ?? `${editOrder.orderNumber}-${editOrder.closedAt}`);
+            setPaymentOverrides(prev => ({ ...prev, [key]: payments }));
             setEditOrder(null);
             setExpanded(null);
           }}

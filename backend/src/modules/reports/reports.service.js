@@ -980,6 +980,7 @@ function _formatBillRow(order) {
     billNoFY:    order.billNoFY   || null,
     tableNumber: order.tableNumber || order.tableId || "—",
     outletName:  order.outletName  || "—",
+    outletId:    order._outletId   || order.outletId || null,
     items:       items.length,
     subtotal:    Math.round(subtotal),
     discount:    Math.round(discount),

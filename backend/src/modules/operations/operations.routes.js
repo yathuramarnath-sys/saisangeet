@@ -42,6 +42,7 @@ const {
   deviceVoidOrderItemHandler,
   deviceCloseOrderHandler,
   clearAllOrdersHandler,
+  correctClosedOrderPaymentsHandler,
 } = require("./operations.controller");
 
 const operationsRouter = express.Router();
@@ -189,6 +190,9 @@ operationsRouter.post("/order/item",   requireAuth, asyncHandler(deviceAddOrderI
 operationsRouter.delete("/order/item", requireAuth, asyncHandler(deviceRemoveOrderItemHandler));
 operationsRouter.patch("/order/item",  requireAuth, asyncHandler(deviceVoidOrderItemHandler));
 operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
+// Correct the payment method/split on an already-closed order — used by POS
+// Past Orders and Owner Console Order History "Edit Payment" actions.
+operationsRouter.post("/closed-order/payments", requireAuth, asyncHandler(correctClosedOrderPaymentsHandler));
 
 // ── Action logs (void / cancel-order / bill-reprint) ─────────────────────────
 // POST /operations/void-log     — called by POS after PIN-confirmed void or cancel

@@ -2162,19 +2162,35 @@ export default function App() {
   }
 
   // ── Edit payment on closed order ─────────────────────────────────────────
-  function handleEditPayment(order, newPayments) {
-    setOrders(prev => {
-      const updated = { ...prev };
-      const key = Object.keys(updated).find(k => updated[k]?.orderNumber === order.orderNumber);
-      if (!key) return prev;
-      updated[key] = {
-        ...updated[key],
-        payments: newPayments.map(p => ({ method: p.method, amount: p.amount })),
-        paymentCorrectedAt: new Date().toISOString()
-      };
-      return updated;
-    });
-    showToast("Payment method corrected ✓");
+  // The order's table has usually already been recycled into a new order by
+  // the time this runs, so tableId/orderNumber are no longer valid lookup
+  // keys — closedAt + outletId is the only reliable match. Persists to
+  // localStorage (so Past Orders reflects it immediately on this device) and
+  // to the backend (so it syncs cross-device and into Owner Console).
+  async function handleEditPayment(order, newPayments) {
+    const cleanPayments = newPayments.map(p => ({ method: p.method, amount: p.amount }));
+
+    try {
+      const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+      const idx  = prev.findIndex(o => o.closedAt === order.closedAt);
+      if (idx >= 0) {
+        prev[idx] = { ...prev[idx], payments: cleanPayments, paymentCorrectedAt: new Date().toISOString() };
+        localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
+      }
+    } catch {}
+
+    try {
+      await api.post("/operations/closed-order/payments", {
+        outletId: outlet?.id || branchConfig?.outletId,
+        closedAt: order.closedAt,
+        payments: cleanPayments,
+      });
+      showToast("Payment method corrected ✓");
+      return true;
+    } catch (err) {
+      showToast("Payment correction failed to sync — check connection");
+      return false;
+    }
   }
 
   // ── Accept online order → auto-create order + KOT ─────────────────────────

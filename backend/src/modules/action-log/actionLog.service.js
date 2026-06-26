@@ -35,6 +35,7 @@ const ACTION = {
   BILL_NO_ASSIGNED:  "BILL_NO_ASSIGNED",
   PAYMENT_RECORDED:  "PAYMENT_RECORDED",
   ORDER_SETTLED:     "ORDER_SETTLED",
+  PAYMENT_CORRECTED: "PAYMENT_CORRECTED",
 };
 
 // ── Public API ────────────────────────────────────────────────────────────────

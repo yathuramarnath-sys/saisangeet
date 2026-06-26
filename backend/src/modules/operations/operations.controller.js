@@ -1000,6 +1000,42 @@ async function deviceCloseOrderHandler(req, res) {
   });
 }
 
+/**
+ * POST /operations/closed-order/payments
+ * Body: { outletId, closedAt, payments }
+ * Corrects the payment method/split on an already-closed order — used by
+ * Past Orders (POS) and Order History (Owner Console) "Edit Payment" actions.
+ * Matched by (outletId, closedAt) since the order's table/orderNumber may
+ * already have been recycled by the time the correction is made.
+ */
+async function correctClosedOrderPaymentsHandler(req, res) {
+  const { outletId, closedAt, payments } = req.body;
+  if (!outletId || !closedAt || !Array.isArray(payments) || !payments.length) {
+    return res.status(400).json({ error: "outletId, closedAt and a non-empty payments array are required" });
+  }
+  const tenantId = req.user?.tenantId || "default";
+
+  const { updateOrderPayments } = require("./closed-orders-store");
+  const cleanPayments = payments.map(p => ({ method: p.method, amount: Number(p.amount) || 0 }));
+  const updated = await updateOrderPayments(tenantId, outletId, closedAt, cleanPayments, req.user?.name || null);
+  if (!updated) return res.status(404).json({ error: "Closed order not found" });
+
+  logAction({
+    tenantId,
+    outletId,
+    tableId:   updated.tableId || null,
+    action:    ACTION.PAYMENT_CORRECTED,
+    actorName: req.user?.name || null,
+    device:    req.body.source || "pos",
+    details:   { billNo: updated.billNo, payments: cleanPayments },
+  });
+
+  const io = req.app.locals.io;
+  if (io) io.to(`tenant:${tenantId}`).emit("sales:updated", { outletId });
+
+  res.json({ ok: true, order: updated });
+}
+
 async function clearTableOrderHandler(req, res) {
   await clearTableAfterSettle(req.params.tableId);
   res.json({ ok: true, tableId: req.params.tableId, message: "Table cleared." });
@@ -1065,4 +1101,5 @@ module.exports = {
   deviceRemoveOrderItemHandler,
   deviceVoidOrderItemHandler,
   deviceCloseOrderHandler,
+  correctClosedOrderPaymentsHandler,
 };
