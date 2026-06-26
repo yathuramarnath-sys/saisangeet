@@ -1055,7 +1055,7 @@ function WastageReport({ dateFrom, dateTo, outletId }) {
   );
 }
 
-const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Zomato Pay", "Swiggy Pay"];
+const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Credit", "Zomato Pay", "Swiggy Pay"];
 
 // ── Edit Payment Modal — corrects the method/split on an already-closed bill ──
 function EditPaymentModal({ order, onClose, onSaved }) {
