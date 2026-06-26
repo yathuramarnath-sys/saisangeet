@@ -439,8 +439,8 @@ function ZohoConfigCard() {
     try {
       const res = await api.post("/integrations/zoho/sync-accounts");
       setMsg({
-        text: `✓ Account mapping refreshed — Cash: ${res.cashAccountName || "not found"} · Bank: ${res.bankAccountName || "not found"}`,
-        ok: !!(res.cashAccountName && res.bankAccountName),
+        text: `✓ Account mapping refreshed — Cash: ${res.cashAccountName || "not found"} · Bank: ${res.bankAccountName || "not found"} · Cash-out expense: ${res.miscExpenseAccountName || "not found"}`,
+        ok: !!(res.cashAccountName && res.bankAccountName && res.miscExpenseAccountName),
       });
       loadConfig();
     } catch (err) {
@@ -607,9 +607,12 @@ function ZohoConfigCard() {
                   Cash → {cfg.cashAccountName || <span style={{ color:"#dc2626" }}>not found</span>}
                   {" · "}
                   Bank/UPI/Card → {cfg.bankAccountName || <span style={{ color:"#dc2626" }}>not found</span>}
+                  {" · "}
+                  Cash-out expense → {cfg.miscExpenseAccountName || <span style={{ color:"#dc2626" }}>not found</span>}
                   <br />
                   <span>
-                    If Bank isn't found, or you added your bank account in Zoho after connecting, click Re-sync below.
+                    If any of these look wrong, or you added/renamed an account in Zoho after connecting, click Re-sync below
+                    — then check Step 3 to pin the exact account each one should use.
                   </span>
                 </div>
                 <div style={{ display:"flex", gap:10, marginTop:4 }}>

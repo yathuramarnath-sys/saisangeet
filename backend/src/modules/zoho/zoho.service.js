@@ -279,9 +279,30 @@ async function listChartOfAccounts(organizationId, accessToken) {
   }));
 }
 
+// "Undeposited Funds" is Zoho's internal holding account for payments that
+// haven't been routed anywhere yet — it is itself "other_current_asset"
+// type and is frequently the org's primary/first account of that type, so
+// a naive type/primary match can pick IT as "the bank account" and then
+// explicitly route every card/UPI payment straight back into it. Exclude
+// it by name from ever being auto-detected as a real cash/bank account.
+const isUndeposited = (a) => (a.account_name || "").toLowerCase().includes("undeposited");
+
+// Generic expense-category names that should never be picked as the
+// catch-all "misc/cash-out expense" fallback — they're specific categories
+// (e.g. literal bank charges), not a true miscellaneous bucket, and picking
+// them blindly mis-files every cash-out as if it were a real bank fee.
+const BLOCKED_MISC_EXPENSE_PATTERNS = [
+  "bank fee", "bank charge", "merchant", "credit card charge",
+  "bad debt", "depreciation", "interest", "penalty", "fine",
+];
+const isBlockedMiscExpense = (a) => {
+  const name = (a.account_name || "").toLowerCase();
+  return BLOCKED_MISC_EXPENSE_PATTERNS.some(p => name.includes(p));
+};
+
 async function fetchAccountIds(organizationId, accessToken) {
   const result   = await booksGet("/chartofaccounts", organizationId, accessToken);
-  const accounts = result.body?.chartofaccounts || [];
+  const accounts = (result.body?.chartofaccounts || []).filter(a => a.is_active !== false);
 
   const findByType = (...types) =>
     accounts.find(a => types.includes(a.account_type));
@@ -295,19 +316,34 @@ async function fetchAccountIds(organizationId, accessToken) {
 
   const cashAccount =
     findPrimary("cash") || findByName("cash") || findByType("cash");
+
   // Some orgs categorize their bank account under "other_current_asset" instead
   // of literally "bank" — match by name first so a real Bank account isn't missed.
-  const bankAccount =
-    findPrimary("bank", "other_current_asset") || findByName("bank") || findByType("bank", "other_current_asset");
+  // Every candidate is filtered against isUndeposited so "Undeposited Funds"
+  // can never win this search, however it's tagged in a given org.
+  const bankAccount = [
+    findPrimary("bank", "other_current_asset"),
+    findByName("bank"),
+    findByType("bank", "other_current_asset"),
+  ].find(a => a && !isUndeposited(a)) ||
+    accounts.find(a => ["bank", "other_current_asset"].includes(a.account_type) && !isUndeposited(a));
+
+  // Avoid blindly grabbing the first "expense"-type account in API order —
+  // prefer a clearly-generic catch-all by name first, and never fall back to
+  // a specific/blocked category like "Bank Fees and Charges".
   const miscExpenseAccount =
-    findByName("miscellaneous") || findByType("expense");
+    findByName("uncategorized") ||
+    findByName("miscellaneous") ||
+    findByName("other expense") ||
+    accounts.find(a => ["expense", "other_expense"].includes(a.account_type) && !isBlockedMiscExpense(a));
 
   return {
-    cashAccountId:        cashAccount?.account_id        || null,
-    cashAccountName:      cashAccount?.account_name       || null,
-    bankAccountId:        bankAccount?.account_id        || null,
-    bankAccountName:      bankAccount?.account_name       || null,
-    miscExpenseAccountId: miscExpenseAccount?.account_id || null,
+    cashAccountId:          cashAccount?.account_id          || null,
+    cashAccountName:        cashAccount?.account_name         || null,
+    bankAccountId:          bankAccount?.account_id          || null,
+    bankAccountName:        bankAccount?.account_name         || null,
+    miscExpenseAccountId:   miscExpenseAccount?.account_id   || null,
+    miscExpenseAccountName: miscExpenseAccount?.account_name || null,
   };
 }
 
