@@ -24,5 +24,35 @@
         "recordedAt": "2026-05-13T11:54:00.413Z"
       }
     ]
+  },
+  "test-owner-auth-stability": {
+    "active": [
+      {
+        "id": "shift-1782458988708",
+        "cashier": "Test Cashier",
+        "outlet": "Main Outlet",
+        "session": "Full Day",
+        "openingCash": 1000,
+        "cashIn": 0,
+        "cashOut": 0,
+        "sales": 0,
+        "startedAt": "2026-06-26T07:29:48.708Z",
+        "status": "open"
+      },
+      {
+        "id": "shift-1782458929595",
+        "cashier": "Test Cashier",
+        "outlet": "Main Outlet",
+        "session": "Full Day",
+        "openingCash": 1000,
+        "cashIn": 0,
+        "cashOut": 0,
+        "sales": 0,
+        "startedAt": "2026-06-26T07:28:49.595Z",
+        "status": "open"
+      }
+    ],
+    "history": [],
+    "movements": []
   }
 }

@@ -1,274 +1,200 @@
 {
-  "users": [
-    {
-      "id": "user-owner-1778673240328",
-      "fullName": "Smoke Test Owner",
-      "name": "Smoke Test Owner",
-      "email": "smoke+1778673240218@test.dinexpos.in",
-      "phone": "9999999999",
-      "passwordHash": "$2b$10$VEUEIzkR.2zaHpsTAk8eauqIXq/bl71/QGG7MAYcUixbGLpvTaDkm",
-      "roles": [
-        "Owner"
-      ],
-      "outletName": "All Outlets",
-      "isActive": true,
-      "pin": "0000"
-    },
-    {
-      "id": "staff-demo-c-AULT",
-      "fullName": "Demo Cashier",
-      "name": "Demo Cashier",
-      "email": null,
-      "phone": null,
-      "passwordHash": null,
-      "roles": [
-        "Cashier"
-      ],
-      "pin": "1234",
-      "outletName": "Main Branch",
-      "isActive": true,
-      "_demo": true
-    },
-    {
-      "id": "staff-demo-k-AULT",
-      "fullName": "Demo Captain",
-      "name": "Demo Captain",
-      "email": null,
-      "phone": null,
-      "passwordHash": null,
-      "roles": [
-        "Captain"
-      ],
-      "pin": "5678",
-      "outletName": "Main Branch",
-      "isActive": true,
-      "_demo": true
-    }
-  ],
-  "outlets": [
-    {
-      "id": "outlet-demo-AULT",
-      "code": "DEMOAULT",
-      "name": "Main Branch",
-      "city": "",
-      "state": "",
-      "gstin": "",
-      "reportEmail": "",
-      "isActive": true,
-      "_demo": true,
-      "createdAt": "2026-05-13T11:54:00.222Z"
-    }
-  ],
   "menu": {
-    "categories": [
-      {
-        "id": "cat-demo-starter",
-        "name": "Starters",
-        "_demo": true
-      },
-      {
-        "id": "cat-demo-main",
-        "name": "Main Course",
-        "_demo": true
-      },
-      {
-        "id": "cat-demo-bread",
-        "name": "Breads",
-        "_demo": true
-      },
-      {
-        "id": "cat-demo-beverage",
-        "name": "Beverages",
-        "_demo": true
-      }
-    ],
     "items": [
       {
         "id": "item-d-01",
         "name": "Paneer Tikka",
-        "categoryId": "cat-demo-starter",
-        "price": 220,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 220,
+        "categoryId": "cat-demo-starter"
       },
       {
         "id": "item-d-02",
         "name": "Veg Spring Roll",
-        "categoryId": "cat-demo-starter",
-        "price": 160,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 160,
+        "categoryId": "cat-demo-starter"
       },
       {
         "id": "item-d-03",
         "name": "Chicken 65",
-        "categoryId": "cat-demo-starter",
-        "price": 260,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 260,
+        "categoryId": "cat-demo-starter"
       },
       {
         "id": "item-d-04",
         "name": "Soup of the Day",
-        "categoryId": "cat-demo-starter",
-        "price": 100,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 100,
+        "categoryId": "cat-demo-starter"
       },
       {
         "id": "item-d-05",
         "name": "Dal Makhani",
-        "categoryId": "cat-demo-main",
-        "price": 200,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 200,
+        "categoryId": "cat-demo-main"
       },
       {
         "id": "item-d-06",
         "name": "Paneer Butter Masala",
-        "categoryId": "cat-demo-main",
-        "price": 240,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 240,
+        "categoryId": "cat-demo-main"
       },
       {
         "id": "item-d-07",
         "name": "Chicken Curry",
-        "categoryId": "cat-demo-main",
-        "price": 280,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 280,
+        "categoryId": "cat-demo-main"
       },
       {
         "id": "item-d-08",
         "name": "Veg Biryani",
-        "categoryId": "cat-demo-main",
-        "price": 220,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 220,
+        "categoryId": "cat-demo-main"
       },
       {
         "id": "item-d-09",
         "name": "Chicken Biryani",
-        "categoryId": "cat-demo-main",
-        "price": 300,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 300,
+        "categoryId": "cat-demo-main"
       },
       {
         "id": "item-d-10",
         "name": "Butter Naan",
-        "categoryId": "cat-demo-bread",
-        "price": 40,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 40,
+        "categoryId": "cat-demo-bread"
       },
       {
         "id": "item-d-11",
         "name": "Tandoori Roti",
-        "categoryId": "cat-demo-bread",
-        "price": 30,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 30,
+        "categoryId": "cat-demo-bread"
       },
       {
         "id": "item-d-12",
         "name": "Garlic Naan",
-        "categoryId": "cat-demo-bread",
-        "price": 50,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 50,
+        "categoryId": "cat-demo-bread"
       },
       {
         "id": "item-d-13",
         "name": "Paratha",
-        "categoryId": "cat-demo-bread",
-        "price": 60,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 60,
+        "categoryId": "cat-demo-bread"
       },
       {
         "id": "item-d-14",
         "name": "Lassi (Sweet)",
-        "categoryId": "cat-demo-beverage",
-        "price": 80,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 80,
+        "categoryId": "cat-demo-beverage"
       },
       {
         "id": "item-d-15",
         "name": "Mango Shake",
-        "categoryId": "cat-demo-beverage",
-        "price": 100,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 100,
+        "categoryId": "cat-demo-beverage"
       },
       {
         "id": "item-d-16",
         "name": "Masala Chai",
-        "categoryId": "cat-demo-beverage",
-        "price": 40,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 40,
+        "categoryId": "cat-demo-beverage"
       },
       {
         "id": "item-d-17",
         "name": "Cold Coffee",
-        "categoryId": "cat-demo-beverage",
-        "price": 120,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 120,
+        "categoryId": "cat-demo-beverage"
       },
       {
         "id": "item-d-18",
         "name": "Fresh Lime Soda",
-        "categoryId": "cat-demo-beverage",
-        "price": 60,
         "unit": "PCS",
-        "_demo": true
+        "_demo": true,
+        "price": 60,
+        "categoryId": "cat-demo-beverage"
       }
     ],
-    "stations": [],
     "config": {
-      "defaultPricingMode": "Area + order type",
-      "pricingZones": [
-        "AC",
-        "Non-AC",
-        "Self Service"
-      ],
       "orderTypes": [
         "Dine-In",
         "Takeaway",
         "Delivery"
       ],
+      "pricingZones": [
+        "AC",
+        "Non-AC",
+        "Self Service"
+      ],
+      "menuStructureNote": "One page, simple assignment",
+      "defaultPricingMode": "Area + order type",
       "defaultTaxProfileId": "tax-5",
-      "defaultPricingProfileId": "pricing-standard",
-      "menuStructureNote": "One page, simple assignment"
+      "defaultPricingProfileId": "pricing-standard"
     },
-    "pricingProfiles": [
+    "stations": [],
+    "categories": [
       {
-        "id": "pricing-standard",
-        "name": "Standard Service Pricing",
-        "dineInMode": "Area wise",
-        "takeawayMode": "Single price",
-        "deliveryMode": "Single price",
-        "takeawayParcelChargeType": "None",
-        "takeawayParcelChargeValue": 0,
-        "deliveryParcelChargeType": "Fixed",
-        "deliveryParcelChargeValue": 25,
-        "isActive": true
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-demo-starter",
+        "name": "Starters",
+        "_demo": true,
+        "station": ""
       },
       {
-        "id": "pricing-premium",
-        "name": "Premium Delivery Pricing",
-        "dineInMode": "Area wise",
-        "takeawayMode": "Single price",
-        "deliveryMode": "Single price",
-        "takeawayParcelChargeType": "Fixed",
-        "takeawayParcelChargeValue": 10,
-        "deliveryParcelChargeType": "Percentage",
-        "deliveryParcelChargeValue": 5,
-        "isActive": false
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-demo-main",
+        "name": "Main Course",
+        "_demo": true,
+        "station": ""
+      },
+      {
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-demo-bread",
+        "name": "Breads",
+        "_demo": true,
+        "station": ""
+      },
+      {
+        "printerTarget": "Kitchen Printer 1",
+        "displayTarget": "Hot Kitchen Display",
+        "id": "cat-demo-beverage",
+        "name": "Beverages",
+        "_demo": true,
+        "station": ""
       }
     ],
     "menuGroups": [],
@@ -278,20 +204,202 @@
         "availability": "Always on",
         "status": "Ready",
         "id": "assign-1",
-        "menuGroupId": "all-day",
-        "outletId": "outlet-indiranagar"
+        "outletId": "outlet-indiranagar",
+        "menuGroupId": "all-day"
       },
       {
         "channels": "Dine-In, Takeaway",
         "availability": "7:00 AM - 11:00 AM",
         "status": "Scheduled",
         "id": "assign-2",
-        "menuGroupId": "breakfast",
-        "outletId": "outlet-koramangala"
+        "outletId": "outlet-koramangala",
+        "menuGroupId": "breakfast"
+      }
+    ],
+    "pricingProfiles": [
+      {
+        "id": "pricing-standard",
+        "name": "Standard Service Pricing",
+        "isActive": true,
+        "dineInMode": "Area wise",
+        "deliveryMode": "Single price",
+        "takeawayMode": "Single price",
+        "deliveryParcelChargeType": "Fixed",
+        "takeawayParcelChargeType": "None",
+        "deliveryParcelChargeValue": 25,
+        "takeawayParcelChargeValue": 0
+      },
+      {
+        "id": "pricing-premium",
+        "name": "Premium Delivery Pricing",
+        "isActive": false,
+        "dineInMode": "Area wise",
+        "deliveryMode": "Single price",
+        "takeawayMode": "Single price",
+        "deliveryParcelChargeType": "Percentage",
+        "takeawayParcelChargeType": "Fixed",
+        "deliveryParcelChargeValue": 5,
+        "takeawayParcelChargeValue": 10
       }
     ]
   },
+  "roles": [
+    {
+      "id": "role-owner",
+      "name": "Owner",
+      "description": "Full business access across all outlets",
+      "permissions": [
+        "business.manage",
+        "outlets.manage",
+        "menu.manage",
+        "roles.manage",
+        "users.manage",
+        "tax.manage",
+        "receipt_templates.manage",
+        "devices.manage",
+        "reports.view",
+        "operations.discount.approve",
+        "operations.table.create",
+        "operations.bill.split",
+        "operations.bill.edit",
+        "operations.bill.cancel",
+        "operations.table.move",
+        "floor.area.manage",
+        "floor.table.seats.manage",
+        "operations.kot.send",
+        "operations.kot.status.update"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "role-manager",
+      "name": "Manager",
+      "description": "Outlet operations and approval access",
+      "permissions": [
+        "menu.manage",
+        "users.manage",
+        "reports.view",
+        "operations.discount.approve",
+        "operations.bill.cancel",
+        "floor.area.manage"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "role-cashier",
+      "name": "Cashier",
+      "description": "Billing, edits, cancellations, and optional table setup",
+      "permissions": [
+        "operations.table.create",
+        "operations.bill.edit",
+        "floor.table.seats.manage"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "role-captain",
+      "name": "Captain",
+      "description": "Floor service, KOT, table movement, and split bill request",
+      "permissions": [
+        "operations.kot.send",
+        "operations.bill.split",
+        "operations.table.move"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "role-waiter",
+      "name": "Waiter",
+      "description": "Service support and billing request access",
+      "permissions": [
+        "operations.bill.request"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "role-kitchen",
+      "name": "Kitchen",
+      "description": "Kitchen ticket status updates only",
+      "permissions": [
+        "operations.kot.status.update"
+      ],
+      "isActive": true
+    }
+  ],
   "taxes": [],
+  "users": [
+    {
+      "id": "user-owner-1778673240328",
+      "pin": "0000",
+      "name": "Smoke Test Owner",
+      "email": "smoke+1778673240218@test.dinexpos.in",
+      "phone": "9999999999",
+      "roles": [
+        "Owner"
+      ],
+      "fullName": "Smoke Test Owner",
+      "isActive": true,
+      "outletName": "All Outlets",
+      "passwordHash": "$2b$10$VEUEIzkR.2zaHpsTAk8eauqIXq/bl71/QGG7MAYcUixbGLpvTaDkm"
+    },
+    {
+      "id": "staff-demo-c-AULT",
+      "pin": "1234",
+      "name": "Demo Cashier",
+      "_demo": true,
+      "email": null,
+      "phone": null,
+      "roles": [
+        "Cashier"
+      ],
+      "fullName": "Demo Cashier",
+      "isActive": true,
+      "outletName": "Main Branch",
+      "passwordHash": null
+    },
+    {
+      "id": "staff-demo-k-AULT",
+      "pin": "5678",
+      "name": "Demo Captain",
+      "_demo": true,
+      "email": null,
+      "phone": null,
+      "roles": [
+        "Captain"
+      ],
+      "fullName": "Demo Captain",
+      "isActive": true,
+      "outletName": "Main Branch",
+      "passwordHash": null
+    }
+  ],
+  "devices": [],
+  "outlets": [
+    {
+      "hours": "9:00 AM - 11:00 PM",
+      "services": [
+        "Dine-in",
+        "Takeaway"
+      ],
+      "workAreas": [],
+      "tables": [],
+      "reportEmail": "",
+      "id": "outlet-demo-AULT",
+      "city": "",
+      "code": "DEMOAULT",
+      "name": "Main Branch",
+      "_demo": true,
+      "gstin": "",
+      "state": "",
+      "isActive": true,
+      "syncCode": "JU4R-AM62",
+      "createdAt": "2026-05-13T11:54:00.222Z"
+    }
+  ],
+  "security": {
+    "managerPin": ""
+  },
+  "settings": {},
   "discounts": [],
   "permissions": [
     {
@@ -415,92 +523,8 @@
       "scope": "kitchen"
     }
   ],
-  "settings": {},
-  "businessProfile": {
-    "tradeName": "Smoke Café 1778673240218",
-    "legalName": "Smoke Café 1778673240218",
-    "email": "smoke+1778673240218@test.dinexpos.in",
-    "phone": "9999999999"
-  },
-  "devices": [],
-  "roles": [
-    {
-      "id": "role-owner",
-      "name": "Owner",
-      "description": "Full business access across all outlets",
-      "permissions": [
-        "business.manage",
-        "outlets.manage",
-        "menu.manage",
-        "roles.manage",
-        "users.manage",
-        "tax.manage",
-        "receipt_templates.manage",
-        "devices.manage",
-        "reports.view",
-        "operations.discount.approve",
-        "operations.table.create",
-        "operations.bill.split",
-        "operations.bill.edit",
-        "operations.bill.cancel",
-        "operations.table.move",
-        "floor.area.manage",
-        "floor.table.seats.manage",
-        "operations.kot.send",
-        "operations.kot.status.update"
-      ]
-    },
-    {
-      "id": "role-manager",
-      "name": "Manager",
-      "description": "Outlet operations and approval access",
-      "permissions": [
-        "menu.manage",
-        "users.manage",
-        "reports.view",
-        "operations.discount.approve",
-        "operations.bill.cancel",
-        "floor.area.manage"
-      ]
-    },
-    {
-      "id": "role-cashier",
-      "name": "Cashier",
-      "description": "Billing, edits, cancellations, and optional table setup",
-      "permissions": [
-        "operations.table.create",
-        "operations.bill.edit",
-        "floor.table.seats.manage"
-      ]
-    },
-    {
-      "id": "role-captain",
-      "name": "Captain",
-      "description": "Floor service, KOT, table movement, and split bill request",
-      "permissions": [
-        "operations.kot.send",
-        "operations.bill.split",
-        "operations.table.move"
-      ]
-    },
-    {
-      "id": "role-waiter",
-      "name": "Waiter",
-      "description": "Service support and billing request access",
-      "permissions": [
-        "operations.bill.request"
-      ]
-    },
-    {
-      "id": "role-kitchen",
-      "name": "Kitchen",
-      "description": "Kitchen ticket status updates only",
-      "permissions": [
-        "operations.kot.status.update"
-      ]
-    }
-  ],
   "integrations": {
+    "syncLog": [],
     "zohoBooks": {
       "enabled": true,
       "organizationId": "",
@@ -528,43 +552,45 @@
     "vendorMappings": [
       {
         "id": "vendor-a1",
+        "isActive": true,
         "vendorName": "A1 Traders",
         "zohoContactName": "A1 Traders",
-        "purchaseCategory": "Vegetables",
-        "isActive": true
+        "purchaseCategory": "Vegetables"
       }
     ],
     "purchaseEntries": [
       {
         "id": "purchase-entry-1",
-        "outletId": "outlet-indiranagar",
-        "vendorName": "A1 Traders",
-        "itemName": "Vegetable Purchase",
         "amount": 3200,
-        "expenseAccount": "Kitchen Purchase",
         "status": "Queued",
-        "createdAt": "Today"
+        "itemName": "Vegetable Purchase",
+        "outletId": "outlet-indiranagar",
+        "createdAt": "Today",
+        "vendorName": "A1 Traders",
+        "expenseAccount": "Kitchen Purchase"
       }
-    ],
-    "syncLog": []
+    ]
   },
-  "security": {
-    "managerPin": ""
-  },
-  "pendingLinkTokens": [],
   "counterConfig": {
-    "billMode": "fy",
+    "kot": {
+      "date": "2026-05-13",
+      "last": 1
+    },
     "fyBill": {
       "fy": "2026-27",
       "last": 1
     },
+    "billMode": "fy",
     "dailyBill": {
       "date": "2026-05-13",
       "last": 0
-    },
-    "kot": {
-      "date": "2026-05-13",
-      "last": 1
     }
-  }
+  },
+  "businessProfile": {
+    "email": "smoke+1778673240218@test.dinexpos.in",
+    "phone": "9999999999",
+    "legalName": "Smoke Café 1778673240218",
+    "tradeName": "Smoke Café 1778673240218"
+  },
+  "pendingLinkTokens": []
 }
