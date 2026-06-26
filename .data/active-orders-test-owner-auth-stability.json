@@ -289,7 +289,7 @@
       "serviceChargeRate": 0.1,
       "billRequested": false,
       "billRequestedAt": null,
-      "notes": "Ready for new guests",
+      "notes": "Items added",
       "discountAmount": 0,
       "discountOverrideRequested": false,
       "discountApprovalStatus": "Within cashier 5% limit",
@@ -302,10 +302,50 @@
       "reprintLog": [],
       "deletedBillLog": [],
       "controlAlerts": [],
-      "auditTrail": [],
-      "items": [],
-      "updatedAt": 1782458864186,
-      "_deletedItemIds": []
+      "auditTrail": [
+        {
+          "id": "item-added-1782459178429-61538a",
+          "label": "Item added",
+          "actor": "Captain",
+          "time": "Now"
+        },
+        {
+          "id": "item-added-1782459117433-2ea41b",
+          "label": "Item added",
+          "actor": "Captain",
+          "time": "Now"
+        },
+        {
+          "id": "item-added-1782459116600-a9fc5d",
+          "label": "Item added",
+          "actor": "Captain",
+          "time": "Now"
+        }
+      ],
+      "items": [
+        {
+          "id": "item-1782459116593-fd74",
+          "menuItemId": "item-d-01",
+          "name": "Paneer Tikka",
+          "quantity": 3,
+          "price": 220,
+          "seatLabel": "",
+          "note": "",
+          "sentToKot": false,
+          "stationId": "main",
+          "stationName": "",
+          "categoryId": "cat-demo-starter",
+          "categoryName": "",
+          "category": "Starters",
+          "taxRate": null
+        }
+      ],
+      "updatedAt": 1782459178429,
+      "_deletedItemIds": [
+        "item-1782459117429-577e",
+        "item-1782459178424-8d25"
+      ],
+      "occupiedAt": 1782459116600
     },
     "table-2": {
       "tableId": "table-2",

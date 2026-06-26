@@ -179,9 +179,12 @@ async function runDailySalesReport() {
         );
         for (const row of rows.rows) {
           const data        = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
-          const ownerEmail  = data?.businessProfile?.email;
+          // Same lookup as backup.service.js — businessProfile.email is rarely set;
+          // the owner's real address lives on their login user record.
+          const ownerUser   = (data?.users || []).find(u => u.passwordHash && u.email);
+          const ownerEmail  = ownerUser?.email || data?.businessProfile?.email;
           const restName    = data?.businessProfile?.tradeName || data?.businessProfile?.legalName || "Restaurant";
-          const ownerName   = (data?.users || []).find(u => (u.roles || []).includes("Owner"))?.fullName || "Owner";
+          const ownerName   = ownerUser?.fullName || (data?.users || []).find(u => (u.roles || []).includes("Owner"))?.fullName || "Owner";
           const outlets     = data?.outlets || [];
           if (ownerEmail) tenants.push({ tenantId: row.tenant_id, ownerEmail, restName, ownerName, outlets });
         }
