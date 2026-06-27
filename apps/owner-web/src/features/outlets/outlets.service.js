@@ -21,6 +21,7 @@ function normalizeOutlet(outlet, appConfig) {
     gstin: outlet.gstin || "",
     fssaiNo: outlet.fssaiNo || "",
     upiId: outlet.upiId || "",
+    dynoResId: outlet.dynoResId || "",
     phone: outlet.phone || "",
     addressLine1: outlet.addressLine1 || "",
     addressLine2: outlet.addressLine2 || "",

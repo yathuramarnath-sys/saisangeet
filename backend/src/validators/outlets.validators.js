@@ -62,6 +62,11 @@ const updateOutletRules = [
     .optional({ checkFalsy: true })
     .trim()
     .isLength({ max: 100 }).withMessage("UPI ID too long"),
+
+  body("dynoResId")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 50 }).withMessage("Dyno restaurant ID too long"),
 ];
 
 module.exports = { createOutletRules, updateOutletRules };

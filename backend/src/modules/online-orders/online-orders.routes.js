@@ -336,6 +336,15 @@ onlineOrdersRouter.get(
         apiKeySet:     !!upCfg.apiKey,
         callbacksLive: !!(upCfg.enabled && upCfg.bizId && upCfg.apiKey),
       },
+      // Aggregator-partner webhook (single URL — resId in the payload routes to the right outlet)
+      aggregator: {
+        webhookUrl: `${baseUrl}/webhooks/dynoapis/orders`,
+        outlets: outlets.map(o => ({
+          outletId:   o.id,
+          outletName: o.name,
+          idSet:      !!o.dynoResId,
+        })),
+      },
     });
   })
 );
