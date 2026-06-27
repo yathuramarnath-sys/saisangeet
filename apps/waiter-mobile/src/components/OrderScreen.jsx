@@ -11,6 +11,11 @@ import {
   subscribeStock,
   setItemAvailability,
 } from "../../../../packages/shared-types/src/stockAvailability.js";
+import {
+  getCategoryStockState,
+  subscribeCategoryStock,
+  setCategoryAvailability,
+} from "../../../../packages/shared-types/src/categoryAvailability.js";
 
 export function OrderScreen({
   order, tableLabel, areas, categories, menuItems, outletName,
@@ -33,9 +38,15 @@ export function OrderScreen({
   // Only show Waiter/Server/Steward roles in the assign modal (not Captains)
   const waiterStaff = staff.filter(s => /waiter|server|steward/i.test(s.role || ""));
   const [stockState,      setStockState]       = useState(() => getStockState());
+  const [categoryStockState, setCategoryStockState] = useState(() => getCategoryStockState());
 
   useEffect(() => {
     const unsub = subscribeStock((s) => setStockState({ ...s }));
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeCategoryStock((s) => setCategoryStockState({ ...s }));
     return unsub;
   }, []);
 
@@ -58,6 +69,25 @@ export function OrderScreen({
     return () => {
       socket.off("item:availability", onAvail);
       socket.off("item:availability:state", onAvailState);
+    };
+  }, [socket]);
+
+  // Sync category availability from POS via socket
+  useEffect(() => {
+    if (!socket) return;
+    function onCatAvail(data) {
+      setCategoryAvailability(data.categoryId, data.available !== false, data.availableAt || null);
+    }
+    function onCatAvailState(state) {
+      Object.entries(state || {}).forEach(([id, entry]) =>
+        setCategoryAvailability(id, entry.available !== false, entry.availableAt || null)
+      );
+    }
+    socket.on("category:availability", onCatAvail);
+    socket.on("category:availability:state", onCatAvailState);
+    return () => {
+      socket.off("category:availability", onCatAvail);
+      socket.off("category:availability:state", onCatAvailState);
     };
   }, [socket]);
 
@@ -102,6 +132,7 @@ export function OrderScreen({
         categories={categories}
         menuItems={menuItems}
         stockState={stockState}
+        categoryStockState={categoryStockState}
         outletId={outletId}
         socket={socket}
         onUpdateOrder={(next) => { onUpdateOrder(next); onAddItem?.(next.items?.at(-1)); }}

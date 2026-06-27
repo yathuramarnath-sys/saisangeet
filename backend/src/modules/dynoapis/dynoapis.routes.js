@@ -215,7 +215,7 @@ dynoWebhookRouter.get("/:resId/items", async (req, res) => {
       getAllItems: true,
       categories: categories.map(c => ({
         id: String(c.id),
-        stockStatus: true,
+        stockStatus: req.app.locals.outletCategoryAvailability?.[target.outletId]?.[c.id]?.available !== false,
         aggregator: target.aggregator,
       })),
       items: items.map(i => ({
