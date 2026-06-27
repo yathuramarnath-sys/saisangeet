@@ -211,6 +211,7 @@ export function MenuPage() {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [inventoryFilter, setInventoryFilter] = useState("Any");
   const [foodTypeFilter, setFoodTypeFilter] = useState("Any");
+  const [soldInFilter, setSoldInFilter] = useState([]); // [] = Any; otherwise list of selected areas
   const [taxFilter, setTaxFilter] = useState("Any"); // "Any" | "Missing"
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [outletFilter, setOutletFilter] = useState("all"); // "all" | outlet name
@@ -390,6 +391,11 @@ export function MenuPage() {
       (inventoryFilter === "Tracked" && item.inventoryTracking.enabled) ||
       (inventoryFilter === "Not tracked" && !item.inventoryTracking.enabled);
     const matchesFoodType = foodTypeFilter === "Any" || item.foodType === foodTypeFilter;
+    const itemSoldInAreas = (item.areaAvailability || []).filter((e) => e.enabled).map((e) => e.area);
+    const matchesSoldIn =
+      soldInFilter.length === 0 ||
+      itemSoldInAreas.length === 0 || // empty = sold in all areas
+      soldInFilter.some((area) => itemSoldInAreas.includes(area));
     const matchesTax = taxFilter === "Any" || (taxFilter === "Missing" && (item.taxRate === null || item.taxRate === undefined || item.taxRate === ""));
     // Outlet filter: "all" shows everything; specific outlet shows only enabled items
     const matchesOutlet =
@@ -399,11 +405,11 @@ export function MenuPage() {
         (entry) => entry.outlet === outletFilter && entry.enabled
       );
 
-    return matchesSearch && matchesCategory && matchesStatus && matchesInventory && matchesFoodType && matchesTax && matchesOutlet;
+    return matchesSearch && matchesCategory && matchesStatus && matchesInventory && matchesFoodType && matchesSoldIn && matchesTax && matchesOutlet;
   });
 
   // Reset to page 1 whenever filters change
-  useEffect(() => { setItemPage(1); }, [librarySearch, categoryFilter, statusFilter, inventoryFilter, foodTypeFilter, taxFilter, outletFilter]);
+  useEffect(() => { setItemPage(1); }, [librarySearch, categoryFilter, statusFilter, inventoryFilter, foodTypeFilter, soldInFilter, taxFilter, outletFilter]);
 
   const totalPages   = Math.max(1, Math.ceil(filteredLibraryItems.length / ITEMS_PER_PAGE));
   const pagedItems   = filteredLibraryItems.slice((itemPage - 1) * ITEMS_PER_PAGE, itemPage * ITEMS_PER_PAGE);
@@ -1709,6 +1715,7 @@ export function MenuPage() {
                     setStatusFilter("Active");
                     setInventoryFilter("Any");
                     setFoodTypeFilter("Any");
+                    setSoldInFilter([]);
                     setOutletFilter("all");
                   }}
                 >
@@ -1724,7 +1731,7 @@ export function MenuPage() {
               {availableOutlets.length > 1 && (
                 <label>
                   Branch / Outlet
-                  <select value={outletFilter} onChange={(event) => { setOutletFilter(event.target.value); setCategoryFilter("All"); }}>
+                  <select value={outletFilter} onChange={(event) => { setOutletFilter(event.target.value); setCategoryFilter("All"); setSoldInFilter([]); }}>
                     <option value="all">All Outlets</option>
                     {availableOutlets.map((o) => (
                       <option key={o.id} value={o.name}>
@@ -1773,6 +1780,34 @@ export function MenuPage() {
                   <option>Veg</option>
                   <option>Non-Veg</option>
                 </select>
+              </label>
+              <label>
+                Sold In
+                {availableAreas.length === 0 ? (
+                  <span style={{ fontSize: 12, color: "#6b7280" }}>No areas configured for this branch</span>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    {availableAreas.map((area) => {
+                      const checked = soldInFilter.includes(area);
+                      return (
+                        <label key={area} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => {
+                              setSoldInFilter((current) =>
+                                event.target.checked
+                                  ? [...current, area]
+                                  : current.filter((a) => a !== area)
+                              );
+                            }}
+                          />
+                          <span>{area}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </label>
             </div>
           </aside>
