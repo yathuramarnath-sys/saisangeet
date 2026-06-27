@@ -36,7 +36,16 @@ async function fetchMenuCategories(outletId) {
       .map(item => item.categoryId)
   );
 
-  return categories.filter(c => availCategoryIds.has(c.id));
+  return categories.filter(c => {
+    const catAvail = c.outletAvailability || [];
+    // Category has an explicit branch assignment — that's now the source of truth.
+    if (catAvail.length > 0) {
+      const entry = catAvail.find(a => a.outlet === outletName);
+      return entry ? entry.enabled !== false : false;
+    }
+    // No explicit assignment (legacy categories) — fall back to inferring from items.
+    return availCategoryIds.has(c.id);
+  });
 }
 
 async function fetchMenuStations() {
@@ -159,7 +168,9 @@ async function createMenuCategory(payload) {
     printerTarget: payload.printerTarget || "",
     displayTarget: payload.displayTarget || "Hot Kitchen Display",
     // Areas this category is sold in — empty array = all areas (no restriction)
-    areaAvailability: payload.areaAvailability || []
+    areaAvailability: payload.areaAvailability || [],
+    // Branches this category is assigned to — empty array = all branches (no restriction)
+    outletAvailability: payload.outletAvailability || []
   };
 
   updateOwnerSetupData((current) => ({

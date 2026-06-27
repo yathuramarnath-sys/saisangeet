@@ -320,6 +320,7 @@ export async function fetchMenuData() {
         availableFrom: category.availableFrom || "",
         availableTo: category.availableTo || "",
         areaAvailability: category.areaAvailability || [],
+        outletAvailability: category.outletAvailability || [],
         station: category.station,
         printerTarget: category.printerTarget,
         displayTarget: category.displayTarget
@@ -354,6 +355,7 @@ export async function createMenuCategory(name, options = {}) {
     availableFrom: options.availableFrom || "",
     availableTo: options.availableTo || "",
     areaAvailability: Array.isArray(options.areaAvailability) ? options.areaAvailability : [],
+    outletAvailability: Array.isArray(options.outletAvailability) ? options.outletAvailability : [],
     station: "Main kitchen",
     printerTarget: "Kitchen Printer 1",
     displayTarget: "Hot Kitchen Display"
