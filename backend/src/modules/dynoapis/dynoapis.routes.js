@@ -118,23 +118,24 @@ dynoWebhookRouter.post("/orders", async (req, res) => {
 
   if (orders.length === 0) {
     console.warn("[dynoapis] /orders called with no orders array — ignoring:", JSON.stringify(body).slice(0, 500));
-    return res.status(400).json({ status: "error", message: "orders array required" });
+    return res.status(400).json([{ status: 400, orderId: null, message: "orders array required" }]);
   }
 
+  // Dyno's InsertOrderStatus contract wants a bare array response, one entry per order.
   const results = [];
   for (const order of orders) {
     const resId = order?.resId;
 
     if (!order?.orderId || !resId) {
       console.error("[dynoapis] Rejected malformed order (missing orderId/resId):", JSON.stringify(order).slice(0, 500));
-      results.push({ orderId: order?.orderId || null, status: "rejected", message: "Missing orderId/resId" });
+      results.push({ orderId: order?.orderId || null, status: 400, message: "Missing orderId/resId" });
       continue;
     }
 
     const target = resolveOutletByResId(resId);
     if (!target) {
       console.error(`[dynoapis] Rejected order ${order.orderId} — unknown resId "${resId}" (no outlet has this dynoResId configured)`);
-      results.push({ orderId: order.orderId, status: "rejected", message: "Unknown resId" });
+      results.push({ orderId: order.orderId, status: 400, message: "Unknown resId" });
       continue;
     }
 
@@ -155,14 +156,14 @@ dynoWebhookRouter.post("/orders", async (req, res) => {
       }
 
       console.log(`[dynoapis] order received | tenant=${target.tenantId} | outlet=${target.outletId} | platform=${stored.platform} | id=${stored.id}`);
-      results.push({ orderId: order.orderId, status: "accepted", message: "Stored" });
+      results.push({ orderId: order.orderId, status: 200, message: `Order No. ${order.orderId} Inserted Successfully` });
     } catch (err) {
       console.error(`[dynoapis] Failed to process order ${order.orderId}:`, err.message);
-      results.push({ orderId: order.orderId, status: "rejected", message: "Processing error" });
+      results.push({ orderId: order.orderId, status: 500, message: "Processing error" });
     }
   }
 
-  res.json({ status: "ok", results });
+  res.json(results);
 });
 
 /**
@@ -207,7 +208,7 @@ dynoWebhookRouter.get("/:resId/orders/status", (req, res) => {
 dynoWebhookRouter.post("/orders/:orderId/status", (req, res) => {
   const { statusCode, statusResponse } = req.body || {};
   console.log(`[dynoapis] order status confirmation | orderId=${req.params.orderId} | statusCode=${statusCode}`, statusResponse || "");
-  res.json({ status: "ok", message: "Recorded" });
+  res.json({ status: statusCode, message: `Updated the status to ${statusCode} for order Id ${req.params.orderId}` });
 });
 
 /** POST /:resId/orders/history — Dyno pushes historical orders. */
@@ -276,7 +277,11 @@ dynoWebhookRouter.post("/:resId/items", (req, res) => {
   res.json({ status: 200, message: "Items received" });
 });
 
-/** POST /:resId/items/status — Dyno confirms an item stock-status push completed on Swiggy/Zomato. */
+/**
+ * POST /:resId/items/status — Dyno confirms an item stock-status push completed
+ * on Swiggy/Zomato. Body is Dyno's Item model: {aggregator, entityId, isProcessed,
+ * statusResponse, stockStatus} — a single object, not an array.
+ */
 dynoWebhookRouter.post("/:resId/items/status", (req, res) => {
   const target = resolveOutletByResId(req.params.resId);
   if (!target) {
@@ -284,13 +289,15 @@ dynoWebhookRouter.post("/:resId/items/status", (req, res) => {
     return res.status(404).json({ status: 404, message: "Unknown resId" });
   }
 
-  const body   = req.body || {};
-  const status = Array.isArray(body.items) ? body.items : [body];
-  console.log(`[dynoapis] item status confirmation | tenant=${target.tenantId} | outlet=${target.outletId}`, JSON.stringify(status).slice(0, 500));
-  res.json({ status: 200, message: "Recorded" });
+  const item = req.body || {};
+  console.log(`[dynoapis] item status confirmation | tenant=${target.tenantId} | outlet=${target.outletId}`, JSON.stringify(item).slice(0, 500));
+  res.json({ status: 200, message: `Stock for ID ${item.entityId} Updated Successfully` });
 });
 
-/** POST /:resId/categories/status — Dyno confirms a category stock-status push completed on Swiggy/Zomato. */
+/**
+ * POST /:resId/categories/status — Dyno confirms a category stock-status push
+ * completed on Swiggy/Zomato. Body is Dyno's Item model, same shape as items/status.
+ */
 dynoWebhookRouter.post("/:resId/categories/status", (req, res) => {
   const target = resolveOutletByResId(req.params.resId);
   if (!target) {
@@ -298,10 +305,9 @@ dynoWebhookRouter.post("/:resId/categories/status", (req, res) => {
     return res.status(404).json({ status: 404, message: "Unknown resId" });
   }
 
-  const body   = req.body || {};
-  const status = Array.isArray(body.categories) ? body.categories : [body];
-  console.log(`[dynoapis] category status confirmation | tenant=${target.tenantId} | outlet=${target.outletId}`, JSON.stringify(status).slice(0, 500));
-  res.json({ status: 200, message: "Recorded" });
+  const item = req.body || {};
+  console.log(`[dynoapis] category status confirmation | tenant=${target.tenantId} | outlet=${target.outletId}`, JSON.stringify(item).slice(0, 500));
+  res.json({ status: 200, message: "Request is Successful" });
 });
 
 module.exports = { dynoWebhookRouter };
