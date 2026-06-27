@@ -353,9 +353,11 @@ export function MenuPage() {
   const availableStationNames = menuData.stations.map((station) => station.name);
   const availableOutlets = menuData.outlets || [];
 
-  // Unique work areas across all outlets — used for dynamic area price overrides
+  // Work areas for the currently selected branch only — "all" falls back to the union across outlets
   const availableAreas = [...new Set(
-    (menuData.outlets || []).flatMap(o => o.workAreas || []).filter(Boolean)
+    outletFilter === "all"
+      ? (menuData.outlets || []).flatMap(o => o.workAreas || []).filter(Boolean)
+      : (availableOutlets.find(o => o.name === outletFilter)?.workAreas || []).filter(Boolean)
   )];
   const availableTaxProfiles = menuData.taxProfiles || [];
   const availablePricingProfiles = menuData.pricingProfiles || [];
@@ -1446,7 +1448,7 @@ export function MenuPage() {
           <div className="menu-library-table">
             {/* ── Table header ───────────────────────────────────────────── */}
             <div className="menu-library-row head" style={{
-              gridTemplateColumns: "32px 60px 1fr 160px 90px 80px 100px 120px 180px",
+              gridTemplateColumns: "32px 60px 1fr 160px 130px 90px 80px 100px 120px 180px",
             }}>
               <span className="col-check">
                 <input
@@ -1459,6 +1461,7 @@ export function MenuPage() {
               <span>Item #</span>
               <span>Item</span>
               <span>Category</span>
+              <span>Sold In</span>
               <span>Base ₹</span>
               <span>Online ₹</span>
               <span>GST %</span>
@@ -1479,7 +1482,7 @@ export function MenuPage() {
                   <div
                     className={`menu-library-row${selectedItems.has(item.id) ? " row-selected" : ""}${isEditing ? " row-editing" : ""}`}
                     style={{
-                      gridTemplateColumns: "32px 60px 1fr 160px 90px 80px 100px 120px 180px",
+                      gridTemplateColumns: "32px 60px 1fr 160px 130px 90px 80px 100px 120px 180px",
                       borderBottom: isEditing ? "none" : undefined,
                       background: isEditing ? "#fffdf5" : undefined,
                     }}
@@ -1524,6 +1527,22 @@ export function MenuPage() {
                     {/* Category */}
                     <span style={{ color: "#6b7280", fontSize: 13 }}>
                       {item.categoryName || "Unassigned"}
+                    </span>
+
+                    {/* Sold In — read-only; use Edit to change */}
+                    <span style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                      {(() => {
+                        const enabledAreas = (item.areaAvailability || []).filter((e) => e.enabled).map((e) => e.area);
+                        const labels = enabledAreas.length ? enabledAreas : ["All"];
+                        return labels.map((label) => (
+                          <span key={label} style={{
+                            fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 10,
+                            background: "#eef2ff", color: "#4338ca",
+                          }}>
+                            {label}
+                          </span>
+                        ));
+                      })()}
                     </span>
 
                     {/* Base price */}
@@ -1821,17 +1840,11 @@ export function MenuPage() {
                   <span>✓ All branches</span>
                 </label>
                 {availableOutlets.map((outlet) => {
-                  const checked = categorySelectedOutlets.includes(outlet.name);
+                  const checked = categorySelectedOutlets.length === 1 && categorySelectedOutlets[0] === outlet.name;
                   return (
                     <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
-                      <input type="checkbox" checked={checked}
-                        onChange={(e) => {
-                          setCategorySelectedOutlets((cur) => {
-                            const next = e.target.checked ? [...cur, outlet.name] : cur.filter((n) => n !== outlet.name);
-                            setOutletFilter(next.length === 1 ? next[0] : "all");
-                            return next;
-                          });
-                        }} />
+                      <input type="radio" name="newCategoryOutletScope" checked={checked}
+                        onChange={() => { setCategorySelectedOutlets([outlet.name]); setOutletFilter(outlet.name); }} />
                       <span>{outlet.name}</span>
                     </label>
                   );
@@ -1906,13 +1919,11 @@ export function MenuPage() {
                           <span>✓ All branches</span>
                         </label>
                         {availableOutlets.map((outlet) => {
-                          const checked = editingCategorySelectedOutlets.includes(outlet.name);
+                          const checked = editingCategorySelectedOutlets.length === 1 && editingCategorySelectedOutlets[0] === outlet.name;
                           return (
                             <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
-                              <input type="checkbox" checked={checked}
-                                onChange={(e) => setEditingCategorySelectedOutlets((cur) =>
-                                  e.target.checked ? [...cur, outlet.name] : cur.filter((n) => n !== outlet.name)
-                                )} />
+                              <input type="radio" name="editCategoryOutletScope" checked={checked}
+                                onChange={() => setEditingCategorySelectedOutlets([outlet.name])} />
                               <span>{outlet.name}</span>
                             </label>
                           );
