@@ -34,6 +34,9 @@ function addOnlineOrder(tenantId, outletId, raw) {
     total:      Number(raw.total) || 0,
     etaMin:     Number(raw.etaMin) || null,
     notes:      raw.notes || "",
+    source:     raw.source || "urbanpiper",   // "dyno" | "urbanpiper"
+    resId:      raw.resId || null,
+    aggregator: raw.aggregator || null,
     status:     "pending",
     receivedAt: new Date().toISOString(),
   };

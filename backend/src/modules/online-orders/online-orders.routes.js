@@ -39,6 +39,7 @@ const {
   saveOnlineOrder,
   updateOnlineOrderInDB,
 } = require("./online-orders.repository");
+const { queueDynoOrderAction } = require("../dynoapis/dynoapis.actions");
 
 const onlineOrdersRouter  = express.Router();   // private (JWT)
 const webhooksRouter      = express.Router();   // public (no JWT, no rate-limit override)
@@ -108,6 +109,7 @@ function normaliseUrbanPiper(body) {
     total:    Number(order.total || order.order_total || 0),
     etaMin:   Number(order.eta_in_secs ? Math.ceil(order.eta_in_secs / 60) : (order.eta_minutes || 30)),
     notes:    order.instructions || order.notes || "",
+    source:   "urbanpiper",
   };
 }
 
@@ -221,11 +223,26 @@ onlineOrdersRouter.post(
       acceptedBy: updated.acceptedBy,
     }).catch(() => {});
 
-    // ── Fire UrbanPiper callback (non-blocking) ────────────────────────────
-    const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
-    upAccept(updated.id, tenantData, { prepMins: prepMins || 20 }).catch(() => {});
+    let upCallbackFired = false;
+    let dynoQueued = false;
 
-    res.json({ ok: true, order: updated, upCallbackFired: !!getUpCreds(tenantData) });
+    if (updated.source === "dyno") {
+      // Dyno is a poll model — queue the action for its next /orders/status poll.
+      queueDynoOrderAction(tenantId, outletId, {
+        orderId: updated.orderId,
+        resId: updated.resId,
+        status: "accepted",
+        prepTime: prepMins || 20,
+      });
+      dynoQueued = true;
+    } else {
+      // ── Fire UrbanPiper callback (non-blocking) ──────────────────────────
+      const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
+      upAccept(updated.id, tenantData, { prepMins: prepMins || 20 }).catch(() => {});
+      upCallbackFired = !!getUpCreds(tenantData);
+    }
+
+    res.json({ ok: true, order: updated, upCallbackFired, dynoQueued });
   })
 );
 
@@ -251,11 +268,25 @@ onlineOrdersRouter.post(
       rejectReason: updated.rejectReason,
     }).catch(() => {});
 
-    // ── Fire UrbanPiper callback (non-blocking) ────────────────────────────
-    const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
-    upReject(updated.id, tenantData, { reason: reason || "Restaurant busy" }).catch(() => {});
+    let upCallbackFired = false;
+    let dynoQueued = false;
 
-    res.json({ ok: true, order: updated, upCallbackFired: !!getUpCreds(tenantData) });
+    if (updated.source === "dyno") {
+      queueDynoOrderAction(tenantId, outletId, {
+        orderId: updated.orderId,
+        resId: updated.resId,
+        status: "rejected",
+        rejectReason: reason || "Restaurant busy",
+      });
+      dynoQueued = true;
+    } else {
+      // ── Fire UrbanPiper callback (non-blocking) ──────────────────────────
+      const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
+      upReject(updated.id, tenantData, { reason: reason || "Restaurant busy" }).catch(() => {});
+      upCallbackFired = !!getUpCreds(tenantData);
+    }
+
+    res.json({ ok: true, order: updated, upCallbackFired, dynoQueued });
   })
 );
 
@@ -279,11 +310,24 @@ onlineOrdersRouter.post(
       foodReadyAt: updated.foodReadyAt,
     }).catch(() => {});
 
-    // Notify UrbanPiper to dispatch the rider (non-blocking)
-    const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
-    upMarkFoodReady(updated.id, tenantData).catch(() => {});
+    let upCallbackFired = false;
+    let dynoQueued = false;
 
-    res.json({ ok: true, order: updated, upCallbackFired: !!getUpCreds(tenantData) });
+    if (updated.source === "dyno") {
+      queueDynoOrderAction(tenantId, outletId, {
+        orderId: updated.orderId,
+        resId: updated.resId,
+        status: "food_ready",
+      });
+      dynoQueued = true;
+    } else {
+      // Notify UrbanPiper to dispatch the rider (non-blocking)
+      const tenantData = await runWithTenant(tenantId, () => getOwnerSetupData());
+      upMarkFoodReady(updated.id, tenantData).catch(() => {});
+      upCallbackFired = !!getUpCreds(tenantData);
+    }
+
+    res.json({ ok: true, order: updated, upCallbackFired, dynoQueued });
   })
 );
 
