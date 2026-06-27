@@ -48,6 +48,7 @@ function buildEditDraft(outlet) {
     gstin:               outlet.gstin,
     fssaiNo:             outlet.fssaiNo || "",
     upiId:               outlet.upiId   || "",
+    dynoResId:           outlet.dynoResId || "",
     defaultTaxProfileId: outlet.defaultTaxProfileId || "",
     receiptTemplateId:   outlet.receiptTemplateId || "",
     reportEmail:         outlet.reportEmail || "",
@@ -61,7 +62,7 @@ function buildEditDraft(outlet) {
 
 function buildCreateDraft(pageData) {
   return {
-    name: "", city: "", state: "", gstin: "", fssaiNo: "",
+    name: "", city: "", state: "", gstin: "", fssaiNo: "", dynoResId: "",
     openingTime: "09:00", closingTime: "23:00", reportEmail: "",
     defaultTaxProfileId: pageData.taxProfiles?.[0]?.id  || "",
     receiptTemplateId:   pageData.receiptTemplates?.[0]?.id || "",
@@ -168,6 +169,7 @@ function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave
         </label>
         <label>FSSAI No.<input type="text" placeholder="e.g. 10012345678901" value={draft.fssaiNo} onChange={e => setDraft(d => ({ ...d, fssaiNo: e.target.value }))} /></label>
         <label>UPI ID <small style={{fontWeight:400,color:"#6b7280"}}>(bill QR code)</small><input type="text" placeholder="e.g. restaurant@okhdfc" value={draft.upiId || ""} onChange={e => setDraft(d => ({ ...d, upiId: e.target.value.trim() }))} /></label>
+        <label>Online Ordering ID <small style={{fontWeight:400,color:"#6b7280"}}>(Swiggy/Zomato restaurant ID, for online orders)</small><input type="text" placeholder="e.g. 728958" value={draft.dynoResId || ""} onChange={e => setDraft(d => ({ ...d, dynoResId: e.target.value.trim() }))} /></label>
         <label>Report email<input type="email" value={draft.reportEmail} onChange={e => setDraft(d => ({ ...d, reportEmail: e.target.value }))} /></label>
         <label>Opening<input type="time" value={draft.openingTime} onChange={e => setDraft(d => ({ ...d, openingTime: e.target.value }))} /></label>
         <label>Closing<input type="time" value={draft.closingTime} onChange={e => setDraft(d => ({ ...d, closingTime: e.target.value }))} /></label>
@@ -411,7 +413,7 @@ export function OutletsPage() {
     try {
       await createOutlet({
         name: createDraft.name, city: createDraft.city, state: createDraft.state,
-        gstin: createDraft.gstin, fssaiNo: createDraft.fssaiNo,
+        gstin: createDraft.gstin, fssaiNo: createDraft.fssaiNo, dynoResId: createDraft.dynoResId,
         defaultTaxProfileId: createDraft.defaultTaxProfileId,
         receiptTemplateId:   createDraft.receiptTemplateId,
         reportEmail:  createDraft.reportEmail,
@@ -440,6 +442,7 @@ export function OutletsPage() {
         name: editDraft.name, city: editDraft.city, state: editDraft.state,
         phone: editDraft.phone || "", addressLine1: editDraft.addressLine1 || "", addressLine2: editDraft.addressLine2 || "",
         gstin: editDraft.gstin, fssaiNo: editDraft.fssaiNo, upiId: editDraft.upiId || "",
+        dynoResId: editDraft.dynoResId || "",
         defaultTaxProfileId: editDraft.defaultTaxProfileId,
         receiptTemplateId:   editDraft.receiptTemplateId,
         reportEmail:  editDraft.reportEmail,

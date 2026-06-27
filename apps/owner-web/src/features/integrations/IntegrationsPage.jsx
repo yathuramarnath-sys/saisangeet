@@ -983,70 +983,18 @@ function PhonePeConfigCard() {
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
-// ── UrbanPiper / Online Orders webhook card ───────────────────────────────────
+// ── Online Orders (Swiggy & Zomato) webhook card ──────────────────────────────
 function OnlineOrdersWebhookCard() {
   const [config,      setConfig]      = useState(null);
   const [loading,     setLoading]     = useState(true);
-  const [generating,  setGenerating]  = useState(false);
   const [copied,      setCopied]      = useState("");
-  const [showSecret,  setShowSecret]  = useState(false);
   const [expandGuide, setExpandGuide] = useState(false);
-
-  // UrbanPiper credentials form
-  const [upDraft,   setUpDraft]   = useState({ bizId: "", apiKey: "", enabled: false });
-  const [upSaving,  setUpSaving]  = useState(false);
-  const [upMsg,     setUpMsg]     = useState("");
-  const [showCreds, setShowCreds] = useState(false);
 
   useEffect(() => {
     api.get("/online-orders/config")
-      .then(d => {
-        setConfig(d);
-        setUpDraft(prev => ({
-          ...prev,
-          bizId:   d.urbanPiper?.bizId || "",
-          enabled: d.urbanPiper?.enabled || false,
-        }));
-        setLoading(false);
-      })
+      .then(d => { setConfig(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
-
-  async function regenerateSecret() {
-    if (!window.confirm("Regenerate webhook secret? Your current UrbanPiper webhook will stop working until you update it there too.")) return;
-    setGenerating(true);
-    try {
-      await api.post("/online-orders/webhook-secret/regenerate");
-      const updated = await api.get("/online-orders/config");
-      setConfig(updated);
-    } catch (e) {
-      alert("Failed: " + e.message);
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  async function saveUpCreds(e) {
-    e.preventDefault();
-    if (!upDraft.bizId.trim()) { setUpMsg("Business ID is required."); return; }
-    setUpSaving(true); setUpMsg("");
-    try {
-      await api.post("/online-orders/urbanpiper-config", {
-        bizId:   upDraft.bizId.trim(),
-        apiKey:  upDraft.apiKey.trim() || undefined,
-        enabled: upDraft.enabled,
-      });
-      const updated = await api.get("/online-orders/config");
-      setConfig(updated);
-      setUpDraft(d => ({ ...d, apiKey: "" })); // clear apiKey field after save
-      setUpMsg("✓ UrbanPiper credentials saved — callbacks are now live.");
-      setTimeout(() => setUpMsg(""), 4000);
-    } catch (err) {
-      setUpMsg("Save failed: " + err.message);
-    } finally {
-      setUpSaving(false);
-    }
-  }
 
   function copyText(text, key) {
     navigator.clipboard.writeText(text).then(() => {
@@ -1057,7 +1005,9 @@ function OnlineOrdersWebhookCard() {
 
   if (loading) return <div className="int-webhook-card"><p style={{padding:16,color:"#888"}}>Loading…</p></div>;
 
-  const callbacksLive = config?.urbanPiper?.callbacksLive;
+  const outlets    = config?.aggregator?.outlets || [];
+  const readyCount  = outlets.filter(o => o.idSet).length;
+  const allReady    = outlets.length > 0 && readyCount === outlets.length;
 
   return (
     <div className="int-webhook-card">
@@ -1066,146 +1016,61 @@ function OnlineOrdersWebhookCard() {
         <div className="int-webhook-logos">
           <span className="int-webhook-platform-badge swiggy">🟠 Swiggy</span>
           <span className="int-webhook-platform-badge zomato">🔴 Zomato</span>
-          <span className="int-webhook-platform-badge urbanpiper">🔗 UrbanPiper</span>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <span className={`status ${config?.secretConfigured ? "online" : "offline"}`}>
-            {config?.secretConfigured ? "Webhook ready" : "Webhook not set up"}
-          </span>
-          <span className={`status ${callbacksLive ? "online" : "offline"}`}>
-            {callbacksLive ? "Callbacks live" : "Callbacks off"}
+          <span className={`status ${allReady ? "online" : "offline"}`}>
+            {outlets.length === 0
+              ? "No outlets"
+              : allReady
+                ? "All outlets ready"
+                : `${readyCount}/${outlets.length} outlets ready`}
           </span>
         </div>
       </div>
 
       <h3 className="int-webhook-title">Online Orders — Swiggy &amp; Zomato</h3>
       <p className="int-webhook-desc">
-        Orders from Swiggy and Zomato appear instantly on your POS screen via UrbanPiper.
-        Paste the webhook URL into UrbanPiper, then add your UrbanPiper API credentials
-        so the POS can send accept/reject callbacks back to Swiggy/Zomato automatically.
+        Orders placed on Swiggy and Zomato appear instantly on your POS screen.
+        Set the Online Ordering ID for each outlet (Outlets page), then share the
+        webhook URL below with your Swiggy/Zomato integration partner to go live.
       </p>
 
       {/* Webhook URL */}
-      {config?.webhookUrl && (
+      {config?.aggregator?.webhookUrl && (
         <div className="int-webhook-field-group">
           <label className="int-webhook-field-label">Your Webhook URL</label>
           <div className="int-webhook-field-row">
-            <code className="int-webhook-url">{config.webhookUrl}</code>
+            <code className="int-webhook-url">{config.aggregator.webhookUrl}</code>
             <button
               className="int-copy-btn"
-              onClick={() => copyText(config.webhookUrl, "url")}
+              onClick={() => copyText(config.aggregator.webhookUrl, "agg-url")}
             >
-              {copied === "url" ? "✓ Copied" : "Copy"}
+              {copied === "agg-url" ? "✓ Copied" : "Copy"}
             </button>
           </div>
-          <p className="int-webhook-hint">Paste this in UrbanPiper → Settings → POS Integration → Webhook URL</p>
-        </div>
-      )}
-
-      {/* Secret key */}
-      <div className="int-webhook-field-group">
-        <label className="int-webhook-field-label">Webhook Secret Key</label>
-        {config?.secretConfigured ? (
-          <div className="int-webhook-field-row">
-            <code className="int-webhook-url">
-              {showSecret ? config.secretMasked : "wh_live_••••••••••••••••••••••••••••••"}
-            </code>
-            <button className="int-copy-btn ghost" onClick={() => setShowSecret(s => !s)}>
-              {showSecret ? "Hide" : "Show"}
-            </button>
-            <button className="int-copy-btn danger" onClick={regenerateSecret} disabled={generating}>
-              {generating ? "…" : "Regenerate"}
-            </button>
-          </div>
-        ) : (
-          <div>
-            <p className="int-webhook-hint" style={{marginBottom:8}}>No secret configured yet. Generate one to secure your webhook.</p>
-            <button className="primary-btn" style={{fontSize:13,padding:"8px 16px"}} onClick={regenerateSecret} disabled={generating}>
-              {generating ? "Generating…" : "Generate Secret Key"}
-            </button>
-          </div>
-        )}
-        <p className="int-webhook-hint">Paste this in UrbanPiper → Settings → POS Integration → Secret Key</p>
-      </div>
-
-      {/* Per-outlet URLs */}
-      {config?.outletUrls?.length > 1 && (
-        <div className="int-webhook-field-group">
-          <label className="int-webhook-field-label">Per-Outlet Webhook URLs</label>
-          {config.outletUrls.map(o => (
-            <div key={o.outletId} className="int-webhook-field-row" style={{marginBottom:6}}>
-              <span className="int-outlet-label">{o.outletName}</span>
-              <code className="int-webhook-url" style={{flex:1,fontSize:11}}>{o.url}</code>
-              <button className="int-copy-btn" onClick={() => copyText(o.url, o.outletId)}>
-                {copied === o.outletId ? "✓" : "Copy"}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── UrbanPiper API Credentials ─────────────────────────────────────── */}
-      <div className="int-webhook-divider" />
-      <div className="int-creds-head">
-        <div>
-          <h4 className="int-creds-title">
-            UrbanPiper API Credentials
-            {callbacksLive && <span className="int-creds-live-badge">● Callbacks live</span>}
-          </h4>
-          <p className="int-webhook-hint" style={{margin:"2px 0 0"}}>
-            Required so POS can send accept/reject signals back to Swiggy &amp; Zomato.
-            Find these in UrbanPiper → Settings → API Access.
+          <p className="int-webhook-hint">
+            One URL covers all your outlets — orders are routed automatically using
+            each outlet's Online Ordering ID.
           </p>
         </div>
-        <button className="int-guide-toggle" onClick={() => setShowCreds(s => !s)}>
-          {showCreds ? "▲ Hide" : "▼ Configure"}
-        </button>
-      </div>
+      )}
 
-      {showCreds && (
-        <form className="int-creds-form" onSubmit={saveUpCreds}>
-          <div className="int-creds-row">
-            <div className="int-creds-field">
-              <label>Business ID (biz_id)</label>
-              <input
-                type="text"
-                placeholder="e.g. my-restaurant-chain"
-                value={upDraft.bizId}
-                onChange={e => setUpDraft(d => ({ ...d, bizId: e.target.value }))}
-              />
+      {/* Per-outlet readiness */}
+      {outlets.length > 0 && (
+        <div className="int-webhook-field-group">
+          <label className="int-webhook-field-label">Outlet Readiness</label>
+          {outlets.map(o => (
+            <div key={o.outletId} className="int-webhook-field-row" style={{marginBottom:6}}>
+              <span className="int-outlet-label">{o.outletName}</span>
+              <span className={`status ${o.idSet ? "online" : "offline"}`} style={{marginLeft:"auto"}}>
+                {o.idSet ? "✓ Online Ordering ID set" : "Not set"}
+              </span>
             </div>
-            <div className="int-creds-field">
-              <label>API Key {config?.urbanPiper?.apiKeySet && <span className="int-key-set">● set</span>}</label>
-              <input
-                type="password"
-                placeholder={config?.urbanPiper?.apiKeySet ? "Leave blank to keep existing" : "Paste API key"}
-                value={upDraft.apiKey}
-                onChange={e => setUpDraft(d => ({ ...d, apiKey: e.target.value }))}
-                autoComplete="new-password"
-              />
-            </div>
-          </div>
-          <div className="int-creds-enable-row">
-            <label className="int-creds-enable-label">
-              <input
-                type="checkbox"
-                checked={upDraft.enabled}
-                onChange={e => setUpDraft(d => ({ ...d, enabled: e.target.checked }))}
-              />
-              Enable UrbanPiper callbacks (accept/reject sent to Swiggy &amp; Zomato)
-            </label>
-          </div>
-          {upMsg && (
-            <p style={{fontSize:12, color: upMsg.startsWith("✓") ? "#16a34a" : "#dc2626", margin:"6px 0 0"}}>
-              {upMsg}
-            </p>
-          )}
-          <div style={{marginTop:10}}>
-            <button type="submit" className="primary-btn" style={{fontSize:13,padding:"8px 18px"}} disabled={upSaving}>
-              {upSaving ? "Saving…" : "Save Credentials"}
-            </button>
-          </div>
-        </form>
+          ))}
+          <p className="int-webhook-hint">
+            Set or update an outlet's Online Ordering ID from the Outlets page.
+          </p>
+        </div>
       )}
 
       {/* Setup guide toggle */}
@@ -1217,37 +1082,25 @@ function OnlineOrdersWebhookCard() {
       {expandGuide && (
         <ol className="int-setup-guide">
           <li>
-            <strong>Create UrbanPiper account</strong> — go to{" "}
-            <a href="https://urbanpiper.com" target="_blank" rel="noreferrer">urbanpiper.com</a>{" "}
-            and sign up as a restaurant.
+            <strong>Get your Online Ordering ID</strong> — this is the restaurant ID
+            Swiggy/Zomato use to identify your outlet (shown in your Swiggy Partner /
+            Zomato Partner dashboard).
           </li>
           <li>
-            <strong>Link Swiggy &amp; Zomato</strong> — inside{" "}
-            <a href="https://dashboard.urbanpiper.com" target="_blank" rel="noreferrer">UrbanPiper dashboard</a>,
-            connect your{" "}
-            <a href="https://partner.swiggy.com" target="_blank" rel="noreferrer">Swiggy Partner</a>{" "}
-            and{" "}
-            <a href="https://www.zomato.com/partners" target="_blank" rel="noreferrer">Zomato Partner</a>{" "}
-            accounts (~24h approval for first time).
+            <strong>Set it on each outlet</strong> — go to Outlets → edit the outlet →
+            paste the ID into "Online Ordering ID".
           </li>
           <li>
-            <strong>Add Plato POS webhook</strong> — in{" "}
-            <a href="https://dashboard.urbanpiper.com/settings" target="_blank" rel="noreferrer">UrbanPiper Settings</a>{" "}
-            → POS Integration → Custom Webhook.
-            Paste the Webhook URL and Secret Key from above.
+            <strong>Share the webhook URL</strong> — give the Webhook URL above to your
+            Swiggy/Zomato integration partner so they can route orders to it.
           </li>
           <li>
-            <strong>Add API credentials</strong> — in{" "}
-            <a href="https://dashboard.urbanpiper.com/settings" target="_blank" rel="noreferrer">UrbanPiper Settings</a>{" "}
-            → API Access, copy your Business ID and API Key,
-            paste them in the credentials section above and enable callbacks.
+            <strong>Test it</strong> — ask your integration partner to send a test order.
+            It should appear on the POS within a few seconds.
           </li>
           <li>
-            <strong>Test it</strong> — use UrbanPiper's "Send Test Order" button.
-            Order appears on POS within 2 seconds. Cashier accepts → UrbanPiper confirms back to Swiggy/Zomato.
-          </li>
-          <li>
-            <strong>Go live</strong> — all real orders flow automatically from this point.
+            <strong>Go live</strong> — once a test order is accepted on the POS,
+            all real orders will flow automatically from that point.
           </li>
         </ol>
       )}
@@ -1355,13 +1208,13 @@ export function IntegrationsPage() {
         <PhonePeConfigCard />
       </section>
 
-      {/* ── Online Orders (Swiggy / Zomato via UrbanPiper) ─────────────────── */}
+      {/* ── Online Orders (Swiggy / Zomato) ────────────────────────────────── */}
       <section className="integrations-section">
         <div className="integrations-section-head">
           <div>
             <h3 className="integrations-category-title">Online Ordering Platforms</h3>
             <p className="integrations-category-desc">
-              Receive Swiggy and Zomato orders directly on your POS in real-time via UrbanPiper.
+              Receive Swiggy and Zomato orders directly on your POS in real-time.
             </p>
           </div>
         </div>
