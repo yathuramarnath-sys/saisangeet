@@ -8,9 +8,10 @@
  * every resId must map to a known outlet, and malformed payloads are
  * rejected and logged rather than silently accepted.
  *
- * Order-receiving phase only (per scope decision) — accept/ready/reject
- * actions taken in the POS are not yet reported back to Dyno's polling
- * endpoint; that's the next phase once this is verified live.
+ * Accept/ready/reject actions taken in the POS are reported back via Dyno's
+ * poll model: queued in dynoapis.actions.js, handed off on the next
+ * GET /:resId/orders/status call, confirmed by Dyno via
+ * POST /orders/:orderId/status.
  *
  * Mounted at /webhooks/dynoapis in app.js:
  *   GET  /webhooks/dynoapis/status
@@ -35,6 +36,7 @@ const { addOnlineOrder } = require("../online-orders/online-orders.store");
 const { saveOnlineOrder } = require("../online-orders/online-orders.repository");
 const { runWithTenant } = require("../../data/tenant-context");
 const { fetchMenuItems, fetchMenuCategories } = require("../menu/menu.service");
+const { drainDynoOrderActions } = require("./dynoapis.actions");
 
 const dynoWebhookRouter = express.Router();
 
@@ -66,7 +68,7 @@ function isItemInStock(item) {
 }
 
 /** Best-effort mapper from Dyno's Order.data (raw Swiggy/Zomato payload) to our internal shape. */
-function normaliseDynoOrder(order) {
+function normaliseDynoOrder(order, target) {
   const raw = order.data || {};
 
   const platform = (() => {
@@ -98,6 +100,9 @@ function normaliseDynoOrder(order) {
     total:   Number(raw.total || raw.order_total || raw.grand_total || 0),
     etaMin:  Number(raw.eta_minutes || raw.eta || 30),
     notes:   raw.instructions || raw.notes || "",
+    source:  "dyno",
+    resId:   String(order.resId),
+    aggregator: target?.aggregator || null,
   };
 }
 
@@ -134,7 +139,7 @@ dynoWebhookRouter.post("/orders", async (req, res) => {
     }
 
     try {
-      const normalised = normaliseDynoOrder(order);
+      const normalised = normaliseDynoOrder(order, target);
       const stored = addOnlineOrder(target.tenantId, target.outletId, normalised);
 
       saveOnlineOrder(target.tenantId, target.outletId, stored).catch(err =>
@@ -162,9 +167,9 @@ dynoWebhookRouter.post("/orders", async (req, res) => {
 
 /**
  * GET /:resId/orders/status — Dyno polls this to discover accept/ready/reject
- * actions it should perform against Swiggy/Zomato. We always report none for
- * now (order-receiving phase only) — wire this up once we report POS actions
- * back to Dyno.
+ * actions it should perform against Swiggy/Zomato. Returns whatever the POS
+ * has queued since the last poll (see dynoapis.actions.js) and clears the
+ * queue — Dyno is expected to act on every entry returned here.
  */
 dynoWebhookRouter.get("/:resId/orders/status", (req, res) => {
   const target = resolveOutletByResId(req.params.resId);
@@ -172,7 +177,12 @@ dynoWebhookRouter.get("/:resId/orders/status", (req, res) => {
     console.error(`[dynoapis] /orders/status polled for unknown resId "${req.params.resId}"`);
     return res.status(404).json({ orderHistory: false, orders: [] });
   }
-  res.json({ orderHistory: false, orders: [] });
+
+  const orders = drainDynoOrderActions(target.tenantId, target.outletId);
+  if (orders.length) {
+    console.log(`[dynoapis] handing off ${orders.length} order action(s) | tenant=${target.tenantId} | outlet=${target.outletId}`);
+  }
+  return res.json({ orderHistory: false, orders });
 });
 
 /** POST /orders/:orderId/status — Dyno confirms an accept/ready/reject action completed on Swiggy/Zomato. */
