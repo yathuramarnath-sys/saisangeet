@@ -973,75 +973,6 @@ export function MenuPage() {
     }
   }
 
-  // Bulk-assign the selected "Sold In" areas to a category and every item inside it —
-  // triggered from the Filter panel when a specific Category + Sold In areas are picked.
-  async function handleAssignSoldInToCategory() {
-    if (categoryFilter === "All" || soldInFilter.length === 0) return;
-    const category = menuData.categories.find((c) => c.name === categoryFilter);
-    if (!category) return;
-
-    const categoryItems = menuData.items.filter((item) => item.categoryId === category.id);
-    if (!window.confirm(
-      `Set "Sold In" to ${soldInFilter.join(", ")} for "${categoryFilter}" and its ${categoryItems.length} item(s)?\n\n` +
-      `This overwrites each item's current Sold In areas.`
-    )) {
-      return;
-    }
-
-    const areaAvailability = soldInFilter.map((name) => ({ area: name, enabled: true }));
-
-    try {
-      setSaveError("");
-      setSaveMessage("");
-
-      await updateMenuCategory(category.id, {
-        name: category.name,
-        availableFrom: category.availableFrom || "",
-        availableTo: category.availableTo || "",
-        areaAvailability,
-        outletAvailability: category.outletAvailability || [],
-      });
-
-      for (const item of categoryItems) {
-        const base = item.price || item.basePrice || 0;
-        await updateCustomMenuItem(item.id, {
-          itemName: item.name,
-          categoryName: category.name,
-          station: item.station !== "Station pending" ? (item.station || "") : "",
-          availableFrom: item.availableFrom || "",
-          availableTo: item.availableTo || "",
-          foodType: item.foodType || "Veg",
-          unit: item.unit || "",
-          trackInventory: item.inventoryTracking?.enabled ? "Enabled" : "Disabled",
-          selectedAreas: soldInFilter,
-          areaAvailability,
-          availableAreas,
-          outletAvailability: item.outletAvailability || [],
-          basePrice: String(base),
-          onlinePrice: String(item.onlinePrice || 0),
-          areaOverrides: item.areaOverrides || {},
-          takeawayPackingCharge: String(item.takeawayPackingCharge ?? item.parcelCharges?.takeaway?.value ?? 0),
-          deliveryPackingCharge: String(item.deliveryPackingCharge ?? item.parcelCharges?.delivery?.value ?? 0),
-          taxRate: String(item.taxRate ?? 5),
-          description: item.description || "",
-          shortCode: item.shortCode || "",
-          hsnCode: item.hsnCode || "",
-          sku: item.sku || "",
-          rank: String(item.rank ?? 999),
-          exposeInCaptain: item.exposeInCaptain !== false,
-          allowDecimalQty: item.allowDecimalQty === true,
-          manufacturingDate: item.manufacturingDate || "",
-          expiryDate: item.expiryDate || "",
-        });
-      }
-
-      await reloadMenu();
-      setSaveMessage(`Sold In set to ${soldInFilter.join(", ")} for "${categoryFilter}" and ${categoryItems.length} item(s).`);
-    } catch (error) {
-      setSaveError(error.message || "Unable to save Sold In for this category.");
-    }
-  }
-
   async function handleDeleteItem(item) {
     if (!window.confirm(
       `Delete "${item.name}"?\n\n` +
@@ -1853,19 +1784,9 @@ export function MenuPage() {
               <label>
                 Sold In
                 {availableAreas.length === 0 ? (
-                  <span style={{
-                    fontSize: 13, color: "#6b7280", padding: "14px 14px",
-                    border: "1px solid var(--line-strong)", borderRadius: 14,
-                    background: "rgba(255,255,255,0.96)",
-                  }}>
-                    No areas configured for this branch
-                  </span>
+                  <span style={{ fontSize: 12, color: "#6b7280" }}>No areas configured for this branch</span>
                 ) : (
-                  <div style={{
-                    display: "flex", flexWrap: "wrap", gap: 6,
-                    padding: "10px 12px", border: "1px solid var(--line-strong)",
-                    borderRadius: 14, background: "rgba(255,255,255,0.96)",
-                  }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
                     {availableAreas.map((area) => {
                       const checked = soldInFilter.includes(area);
                       return (
@@ -1888,13 +1809,6 @@ export function MenuPage() {
                   </div>
                 )}
               </label>
-              {categoryFilter !== "All" && soldInFilter.length > 0 && (
-                <button type="button" className="primary-btn" onClick={handleAssignSoldInToCategory}>
-                  Save Sold In to "{categoryFilter}"
-                </button>
-              )}
-              {saveMessage && <p style={{ fontSize: 13, color: "#059669", fontWeight: 600 }}>{saveMessage}</p>}
-              {saveError && <p style={{ fontSize: 13, color: "#dc2626", fontWeight: 600 }}>{saveError}</p>}
             </div>
           </aside>
         ) : null}
