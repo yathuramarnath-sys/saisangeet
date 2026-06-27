@@ -5,9 +5,10 @@ const helmet = require("helmet");
 const { Sentry } = require("./config/sentry");
 
 const { apiRouter } = require("./routes");
-const { webhooksRouter }  = require("./modules/online-orders/online-orders.routes");
-const { phonePeWebhook }  = require("./modules/phonepe/phonepe.routes");
-const { borzoWebhook }    = require("./modules/borzo/borzo.routes");
+const { webhooksRouter }     = require("./modules/online-orders/online-orders.routes");
+const { phonePeWebhook }     = require("./modules/phonepe/phonepe.routes");
+const { borzoWebhook }       = require("./modules/borzo/borzo.routes");
+const { dynoWebhookRouter }  = require("./modules/dynoapis/dynoapis.routes");
 const { errorHandler } = require("./middleware/error-handler");
 const { notFoundHandler } = require("./middleware/not-found");
 const { generalLimiter } = require("./middleware/rate-limit");
@@ -99,6 +100,7 @@ function createApp() {
   app.use("/webhooks", webhooksRouter);
   app.use("/webhooks", phonePeWebhook);
   app.use("/webhooks", borzoWebhook);
+  app.use("/webhooks/dynoapis", dynoWebhookRouter);
 
   app.use("/api/v1", generalLimiter, apiRouter);
   app.use(notFoundHandler);
