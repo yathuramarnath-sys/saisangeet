@@ -1006,7 +1006,7 @@ function OnlineOrdersWebhookCard() {
   if (loading) return <div className="int-webhook-card"><p style={{padding:16,color:"#888"}}>Loading…</p></div>;
 
   const outlets    = config?.aggregator?.outlets || [];
-  const readyCount  = outlets.filter(o => o.idSet).length;
+  const readyCount  = outlets.filter(o => o.swiggySet && o.zomatoSet).length;
   const allReady    = outlets.length > 0 && readyCount === outlets.length;
 
   return (
@@ -1031,8 +1031,8 @@ function OnlineOrdersWebhookCard() {
       <h3 className="int-webhook-title">Online Orders — Swiggy &amp; Zomato</h3>
       <p className="int-webhook-desc">
         Orders placed on Swiggy and Zomato appear instantly on your POS screen.
-        Set the Online Ordering ID for each outlet (Outlets page), then share the
-        webhook URL below with your Swiggy/Zomato integration partner to go live.
+        Set the Swiggy ID and Zomato ID for each outlet (Outlets page), then share
+        the webhook URL below with your Swiggy/Zomato integration partner to go live.
       </p>
 
       {/* Webhook URL */}
@@ -1050,7 +1050,7 @@ function OnlineOrdersWebhookCard() {
           </div>
           <p className="int-webhook-hint">
             One URL covers all your outlets — orders are routed automatically using
-            each outlet's Online Ordering ID.
+            each outlet's Swiggy/Zomato ID.
           </p>
         </div>
       )}
@@ -1062,13 +1062,16 @@ function OnlineOrdersWebhookCard() {
           {outlets.map(o => (
             <div key={o.outletId} className="int-webhook-field-row" style={{marginBottom:6}}>
               <span className="int-outlet-label">{o.outletName}</span>
-              <span className={`status ${o.idSet ? "online" : "offline"}`} style={{marginLeft:"auto"}}>
-                {o.idSet ? "✓ Online Ordering ID set" : "Not set"}
+              <span className={`status ${o.swiggySet ? "online" : "offline"}`} style={{marginLeft:"auto"}}>
+                {o.swiggySet ? "✓ Swiggy ID set" : "Swiggy ID not set"}
+              </span>
+              <span className={`status ${o.zomatoSet ? "online" : "offline"}`}>
+                {o.zomatoSet ? "✓ Zomato ID set" : "Zomato ID not set"}
               </span>
             </div>
           ))}
           <p className="int-webhook-hint">
-            Set or update an outlet's Online Ordering ID from the Outlets page.
+            Set or update an outlet's Swiggy/Zomato IDs from the Outlets page.
           </p>
         </div>
       )}
@@ -1082,13 +1085,13 @@ function OnlineOrdersWebhookCard() {
       {expandGuide && (
         <ol className="int-setup-guide">
           <li>
-            <strong>Get your Online Ordering ID</strong> — this is the restaurant ID
-            Swiggy/Zomato use to identify your outlet (shown in your Swiggy Partner /
-            Zomato Partner dashboard).
+            <strong>Get your Swiggy &amp; Zomato IDs</strong> — these are the restaurant
+            IDs each platform uses to identify your outlet (shown in your Swiggy Partner
+            and Zomato Partner dashboards).
           </li>
           <li>
-            <strong>Set it on each outlet</strong> — go to Outlets → edit the outlet →
-            paste the ID into "Online Ordering ID".
+            <strong>Set them on each outlet</strong> — go to Outlets → edit the outlet →
+            paste the IDs into "Swiggy ID" and "Zomato ID".
           </li>
           <li>
             <strong>Share the webhook URL</strong> — give the Webhook URL above to your

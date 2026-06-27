@@ -42,7 +42,8 @@ async function fetchOutlets() {
       gstTreatment:   o.gstTreatment  || "exclusive",
       invoiceHeader:  o.invoiceHeader || bp.invoiceHeader || "",
       invoiceFooter:  o.invoiceFooter || bp.invoiceFooter || "",
-      dynoResId:      o.dynoResId     || "",   // ← Dyno APIs restaurant id (Swiggy/Zomato aggregator partner)
+      dynoSwiggyId:   o.dynoSwiggyId  || "",   // ← Dyno APIs Swiggy restaurant id
+      dynoZomatoId:   o.dynoZomatoId  || "",   // ← Dyno APIs Zomato restaurant id
       defaultTaxRate,   // ← resolved numeric rate (e.g. 5 for GST 5%), used as bill fallback
     };
   });
@@ -84,7 +85,8 @@ async function createOutlet(payload) {
     reportEmail: payload.reportEmail || "",
     fssaiNo:     payload.fssaiNo    || "",
     upiId:       payload.upiId      || "",
-    dynoResId:   payload.dynoResId  || "",
+    dynoSwiggyId: payload.dynoSwiggyId || "",
+    dynoZomatoId: payload.dynoZomatoId || "",
     defaultTaxProfileId: payload.defaultTaxProfileId || null,
     receiptTemplateId: payload.receiptTemplateId || null
   };

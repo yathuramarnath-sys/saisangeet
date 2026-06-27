@@ -63,10 +63,15 @@ const updateOutletRules = [
     .trim()
     .isLength({ max: 100 }).withMessage("UPI ID too long"),
 
-  body("dynoResId")
+  body("dynoSwiggyId")
     .optional({ checkFalsy: true })
     .trim()
-    .isLength({ max: 50 }).withMessage("Dyno restaurant ID too long"),
+    .isLength({ max: 50 }).withMessage("Swiggy ID too long"),
+
+  body("dynoZomatoId")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 50 }).withMessage("Zomato ID too long"),
 ];
 
 module.exports = { createOutletRules, updateOutletRules };
