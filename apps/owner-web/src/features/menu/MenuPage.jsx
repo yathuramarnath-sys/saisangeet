@@ -181,11 +181,13 @@ export function MenuPage() {
   const [categoryAvailableFrom, setCategoryAvailableFrom] = useState("10:00");
   const [categoryAvailableTo, setCategoryAvailableTo] = useState("16:00");
   const [categorySelectedAreas, setCategorySelectedAreas] = useState([]);
+  const [categorySelectedOutlets, setCategorySelectedOutlets] = useState([]);
   const [editingCategoryId, setEditingCategoryId] = useState("");
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [editingCategoryAvailableFrom, setEditingCategoryAvailableFrom] = useState("");
   const [editingCategoryAvailableTo, setEditingCategoryAvailableTo] = useState("");
   const [editingCategorySelectedAreas, setEditingCategorySelectedAreas] = useState([]);
+  const [editingCategorySelectedOutlets, setEditingCategorySelectedOutlets] = useState([]);
   const [stationName, setStationName] = useState("");
   const [itemDraft, setItemDraft] = useState({ categoryName: "", station: "" });
   const [editingItemId, setEditingItemId] = useState("");
@@ -334,6 +336,19 @@ export function MenuPage() {
           .map(item => item.categoryName)
           .filter(Boolean)
       )];
+
+  // Categories shown in the "Category List" panel for the selected branch.
+  // A category with an explicit outletAvailability is restricted to exactly
+  // those branches; one without it falls back to the item-derived inference
+  // above, so existing single-outlet tenants see no change.
+  const filteredCategoryGroups = categoryGroups.filter((category) => {
+    if (outletFilter === "all") return true;
+    const oa = category.outletAvailability || [];
+    if (oa.length > 0) {
+      return oa.some((e) => e.outlet === outletFilter && e.enabled);
+    }
+    return filteredCategoryNames.includes(category.name);
+  });
 
   const availableStationNames = menuData.stations.map((station) => station.name);
   const availableOutlets = menuData.outlets || [];
@@ -522,12 +537,14 @@ export function MenuPage() {
       await createMenuCategory(categoryName.trim(), {
         availableFrom: categoryAvailableFrom,
         availableTo: categoryAvailableTo,
-        areaAvailability: categorySelectedAreas.map((name) => ({ area: name, enabled: true }))
+        areaAvailability: categorySelectedAreas.map((name) => ({ area: name, enabled: true })),
+        outletAvailability: categorySelectedOutlets.map((name) => ({ outlet: name, enabled: true }))
       });
       setCategoryName("");
       setCategoryAvailableFrom("10:00");
       setCategoryAvailableTo("16:00");
       setCategorySelectedAreas([]);
+      setCategorySelectedOutlets([]);
       await reloadMenu();
       form.reset();
       setSaveMessage("New category created.");
@@ -544,6 +561,9 @@ export function MenuPage() {
     setEditingCategorySelectedAreas(
       (category.areaAvailability || []).filter((e) => e.enabled).map((e) => e.area)
     );
+    setEditingCategorySelectedOutlets(
+      (category.outletAvailability || []).filter((e) => e.enabled).map((e) => e.outlet)
+    );
     setSaveError("");
     setSaveMessage("");
   }
@@ -554,6 +574,7 @@ export function MenuPage() {
     setEditingCategoryAvailableFrom("");
     setEditingCategoryAvailableTo("");
     setEditingCategorySelectedAreas([]);
+    setEditingCategorySelectedOutlets([]);
   }
 
   async function handleSaveCategoryEdit(category) {
@@ -569,7 +590,8 @@ export function MenuPage() {
         name: editingCategoryName.trim(),
         availableFrom: editingCategoryAvailableFrom,
         availableTo: editingCategoryAvailableTo,
-        areaAvailability: editingCategorySelectedAreas.map((name) => ({ area: name, enabled: true }))
+        areaAvailability: editingCategorySelectedAreas.map((name) => ({ area: name, enabled: true })),
+        outletAvailability: editingCategorySelectedOutlets.map((name) => ({ outlet: name, enabled: true }))
       });
       await reloadMenu();
       cancelEditingCategory();
@@ -1790,6 +1812,28 @@ export function MenuPage() {
                 })}
               </div>
             )}
+            {availableOutlets.length > 1 && (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>Branches:</span>
+                <label className={`menu-outlet-chip${!categorySelectedOutlets.length ? " selected" : ""}`}>
+                  <input type="radio" name="newCategoryOutletScope" checked={!categorySelectedOutlets.length}
+                    onChange={() => setCategorySelectedOutlets([])} />
+                  <span>✓ All branches</span>
+                </label>
+                {availableOutlets.map((outlet) => {
+                  const checked = categorySelectedOutlets.includes(outlet.name);
+                  return (
+                    <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
+                      <input type="checkbox" checked={checked}
+                        onChange={(e) => setCategorySelectedOutlets((cur) =>
+                          e.target.checked ? [...cur, outlet.name] : cur.filter((n) => n !== outlet.name)
+                        )} />
+                      <span>{outlet.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </form>
 
           {/* ── Scrollable category list ── */}
@@ -1797,7 +1841,12 @@ export function MenuPage() {
             {categoryGroups.length === 0 && (
               <p style={{ color: "#9ca3af", fontSize: 13, padding: "8px 0" }}>No categories yet — add one above.</p>
             )}
-            {categoryGroups.map((category) => (
+            {categoryGroups.length > 0 && filteredCategoryGroups.length === 0 && (
+              <p style={{ color: "#9ca3af", fontSize: 13, padding: "8px 0" }}>
+                No categories assigned to <strong>{outletFilter}</strong> yet.
+              </p>
+            )}
+            {filteredCategoryGroups.map((category) => (
               <div key={category.id} style={{
                 background: editingCategoryId === category.id ? "#fffbeb" : "#f9f9f7",
                 border: editingCategoryId === category.id ? "1.5px solid #fde68a" : "1.5px solid #e5e7eb",
@@ -1844,6 +1893,28 @@ export function MenuPage() {
                         })}
                       </div>
                     )}
+                    {availableOutlets.length > 1 && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, color: "#9ca3af" }}>Branches:</span>
+                        <label className={`menu-outlet-chip${!editingCategorySelectedOutlets.length ? " selected" : ""}`}>
+                          <input type="radio" name="editCategoryOutletScope" checked={!editingCategorySelectedOutlets.length}
+                            onChange={() => setEditingCategorySelectedOutlets([])} />
+                          <span>✓ All branches</span>
+                        </label>
+                        {availableOutlets.map((outlet) => {
+                          const checked = editingCategorySelectedOutlets.includes(outlet.name);
+                          return (
+                            <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
+                              <input type="checkbox" checked={checked}
+                                onChange={(e) => setEditingCategorySelectedOutlets((cur) =>
+                                  e.target.checked ? [...cur, outlet.name] : cur.filter((n) => n !== outlet.name)
+                                )} />
+                              <span>{outlet.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
                     <div style={{ display: "flex", gap: 6 }}>
                       <button type="button" className="primary-btn" style={{ padding: "4px 12px", fontSize: 12 }}
                         onClick={() => handleSaveCategoryEdit(category)}>
@@ -1872,6 +1943,13 @@ export function MenuPage() {
                           · {(category.areaAvailability || []).filter((e) => e.enabled).length
                             ? (category.areaAvailability || []).filter((e) => e.enabled).map((e) => e.area).join(", ")
                             : "All areas"}
+                        </span>
+                      )}
+                      {availableOutlets.length > 1 && (
+                        <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>
+                          · {(category.outletAvailability || []).filter((e) => e.enabled).length
+                            ? (category.outletAvailability || []).filter((e) => e.enabled).map((e) => e.outlet).join(", ")
+                            : "All branches"}
                         </span>
                       )}
                     </div>
