@@ -166,6 +166,24 @@ dynoWebhookRouter.post("/orders", async (req, res) => {
 });
 
 /**
+ * Dyno's polling protocol uses numeric status codes, not our internal status
+ * strings — per Dyno's webhook docs: status 1 tells Dyno's client to accept
+ * the order, status 3 tells it to mark the order ready (Dyno then confirms
+ * completion via POST /orders/:orderId/status with statusCode 2 "Accepted" /
+ * 4 "Marked Ready"). The numeric code for reject is not yet confirmed —
+ * unmapped statuses are passed through unchanged rather than guessed.
+ */
+const DYNO_ACTION_STATUS_CODE = {
+  accepted:   1,
+  food_ready: 3,
+};
+
+function toDynoOrderAction(action) {
+  const code = DYNO_ACTION_STATUS_CODE[action.status];
+  return code != null ? { ...action, status: code } : action;
+}
+
+/**
  * GET /:resId/orders/status — Dyno polls this to discover accept/ready/reject
  * actions it should perform against Swiggy/Zomato. Returns whatever the POS
  * has queued since the last poll (see dynoapis.actions.js) and clears the
@@ -178,7 +196,7 @@ dynoWebhookRouter.get("/:resId/orders/status", (req, res) => {
     return res.status(404).json({ orderHistory: false, orders: [] });
   }
 
-  const orders = drainDynoOrderActions(target.tenantId, target.outletId);
+  const orders = drainDynoOrderActions(target.tenantId, target.outletId).map(toDynoOrderAction);
   if (orders.length) {
     console.log(`[dynoapis] handing off ${orders.length} order action(s) | tenant=${target.tenantId} | outlet=${target.outletId}`);
   }
