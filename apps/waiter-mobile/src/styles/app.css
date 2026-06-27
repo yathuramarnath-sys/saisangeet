@@ -3157,4 +3157,6 @@ html, body, #root {
 .ico-reject  { background: #fee2e2; color: #dc2626; }
 .ico-accept  { background: #FFC900; color: #212121; }
 .ico-reject:active { background: #fecaca; }
+
+.cat-chip-disabled { opacity: 0.55; }
 .ico-accept:active { background: #E6B400; }

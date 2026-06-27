@@ -31,7 +31,8 @@ const { scheduleDailySalesReport }   = require("./jobs/daily-sales-report");
 const { getAllCachedTenants,
         getOwnerSetupData }           = require("./data/owner-setup-store");
 const { runWithTenant }               = require("./data/tenant-context");
-const { toggleItemAvailability }      = require("./modules/online-orders/urbanpiper.service");
+const { toggleItemAvailability,
+        toggleCategoryAvailability }   = require("./modules/online-orders/urbanpiper.service");
 const jwt                             = require("jsonwebtoken");
 
 // Resolve which tenant owns an outletId by searching the in-memory cache.
@@ -236,6 +237,41 @@ io.on("connection", (socket) => {
       socket.to(`outlet:${tid}:${data.outletId}`).emit("online:orders:toggle", data);
     } catch (err) { console.error("[socket] online:orders:toggle error:", err.message); }
   });
+
+  // ── Category availability toggle (POS → Captain + KDS + online orders) ───
+  // Independent of item-level salesAvailability — a category can be disabled
+  // (e.g. "Beverages" out of CO2) without touching each item's own state.
+  // `availableAt` (ISO string, optional) is when the cashier expects to
+  // re-stock — the server auto re-enables the category at that time.
+  socket.on("category:availability", (data) => {
+    try {
+      if (!data.outletId || !data.categoryId) return;
+      const tid = resolveTenantByOutlet(data.outletId);
+      if (!outletCategoryAvailability[data.outletId]) outletCategoryAvailability[data.outletId] = {};
+      if (data.available) {
+        delete outletCategoryAvailability[data.outletId][data.categoryId];
+      } else {
+        outletCategoryAvailability[data.outletId][data.categoryId] = {
+          available: false,
+          availableAt: data.availableAt || null,
+        };
+      }
+      socket.to(`outlet:${tid}:${data.outletId}`).emit("category:availability", data);
+      if (tid !== "default") {
+        runWithTenant(tid, async () => {
+          const tenantData = getOwnerSetupData();
+          await toggleCategoryAvailability(data.categoryId, data.available !== false, tenantData);
+        }).catch(() => {});
+      }
+    } catch (err) { console.error("[socket] category:availability error:", err.message); }
+  });
+
+  // On connect, send the current category availability state so new devices are in sync
+  try {
+    if (outletId && outletCategoryAvailability[outletId]) {
+      socket.emit("category:availability:state", outletCategoryAvailability[outletId]);
+    }
+  } catch (err) { console.error("[socket] category-availability:state emit error:", err.message); }
 });
 
 // ── Per-outlet item availability cache ──────────────────────────────────────
@@ -243,12 +279,41 @@ io.on("connection", (socket) => {
 // Lost on server restart (devices re-broadcast their state on reconnect).
 const outletAvailability = {};
 
+// ── Per-outlet category availability cache ───────────────────────────────────
+// Keyed by outletId, then categoryId. Value: { available: false, availableAt }
+// — only stores disabled categories. Lost on server restart (same caveat as
+// outletAvailability above; devices re-broadcast their state on reconnect).
+const outletCategoryAvailability = {};
+
 // ── Online-orders enabled state per outlet ───────────────────────────────────
 const outletOnlineEnabled = {};
 
 // Expose caches to REST route handlers (inventory routes need to update + read these)
-app.locals.outletAvailability  = outletAvailability;
-app.locals.outletOnlineEnabled = outletOnlineEnabled;
+app.locals.outletAvailability         = outletAvailability;
+app.locals.outletCategoryAvailability = outletCategoryAvailability;
+app.locals.outletOnlineEnabled        = outletOnlineEnabled;
+
+// Every minute, auto re-enable any category whose cashier-chosen "next
+// availability" time has passed — e.g. "out of CO2, back in 1 hour".
+setInterval(() => {
+  const now = Date.now();
+  for (const [outletId, categories] of Object.entries(outletCategoryAvailability)) {
+    for (const [categoryId, state] of Object.entries(categories)) {
+      if (!state.availableAt || new Date(state.availableAt).getTime() > now) continue;
+      delete categories[categoryId];
+      const tid = resolveTenantByOutlet(outletId);
+      const data = { outletId, categoryId, available: true };
+      io.to(`outlet:${tid}:${outletId}`).emit("category:availability", data);
+      if (tid !== "default") {
+        runWithTenant(tid, async () => {
+          const tenantData = getOwnerSetupData();
+          await toggleCategoryAvailability(categoryId, true, tenantData);
+        }).catch(() => {});
+      }
+      console.log(`[category-availability] auto re-enabled | outlet=${outletId} | category=${categoryId}`);
+    }
+  }
+}, 60_000);
 
 // Bind the port FIRST so Railway's healthcheck passes immediately,
 // then run migrations + hydration in the background.

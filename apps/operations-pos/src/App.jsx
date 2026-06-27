@@ -39,6 +39,7 @@ import { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } 
 import { printBill } from "./lib/printBill";
 import { openCashDrawer, hasCashPayment } from "./lib/cashDrawer";
 import { setItemAvailability } from "../../../packages/shared-types/src/stockAvailability.js";
+import { setCategoryAvailability } from "../../../packages/shared-types/src/categoryAvailability.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -730,6 +731,19 @@ export default function App() {
           }
         });
 
+        // ── Category availability — same pattern as items, independent flag ───
+        socket.on("category:availability:state", (state) => {
+          Object.entries(state || {}).forEach(([id, entry]) => {
+            setCategoryAvailability(id, entry.available !== false, entry.availableAt || null);
+          });
+        });
+
+        socket.on("category:availability", (data) => {
+          if (data?.categoryId != null) {
+            setCategoryAvailability(data.categoryId, data.available !== false, data.availableAt || null);
+          }
+        });
+
         // ── When a new device (Captain App / KDS) joins the outlet room,
         //    broadcast all current active orders so they get correct table state ──
         socket.on("request:order-sync", () => {
@@ -1355,6 +1369,18 @@ export default function App() {
       outletId: outlet?.id,
       itemId,
       available: nowAvailable,
+    });
+  }
+
+  // available=false requires availableAt (ISO timestamp the cashier expects to restock).
+  // Independent of item-level salesAvailability — disables the whole category.
+  function handleToggleCategoryAvailability(categoryId, available, availableAt = null) {
+    setCategoryAvailability(categoryId, available, availableAt);
+    socketRef.current?.emit("category:availability", {
+      outletId: outlet?.id,
+      categoryId,
+      available,
+      availableAt,
     });
   }
 
@@ -3079,6 +3105,7 @@ export default function App() {
           onCategoryChange={setActiveCategory}
           onAddItem={handleAddItem}
           onToggleAvailability={handleToggleAvailability}
+          onToggleCategoryAvailability={handleToggleCategoryAvailability}
           quantities={menuQuantities}
           onDecrement={handleDecrementItem}
           stockSnapshot={stockSnapshot}

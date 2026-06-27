@@ -9,6 +9,9 @@ import {
   resetAllToAvailable,
 } from "../../../packages/shared-types/src/stockAvailability.js";
 import {
+  setCategoryAvailability,
+} from "../../../packages/shared-types/src/categoryAvailability.js";
+import {
   sharedCategories,
   sharedMenuItems,
 } from "../../../packages/shared-types/src/restaurantFlow.js";
@@ -1039,6 +1042,16 @@ export function App() {
     });
     socket.on("item:availability:state", (state) => {
       Object.entries(state || {}).forEach(([id, val]) => setItemAvailability(id, val !== false));
+    });
+
+    // ── Category availability sync from POS (display only — KDS has no toggle) ──
+    socket.on("category:availability", (data) => {
+      setCategoryAvailability(data.categoryId, data.available !== false, data.availableAt || null);
+    });
+    socket.on("category:availability:state", (state) => {
+      Object.entries(state || {}).forEach(([id, entry]) =>
+        setCategoryAvailability(id, entry.available !== false, entry.availableAt || null)
+      );
     });
 
     // ── kot:new is registered in a SEPARATE effect (fresh-closure pattern) ──

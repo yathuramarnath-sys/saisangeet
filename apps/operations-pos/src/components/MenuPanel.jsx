@@ -3,6 +3,10 @@ import {
   getStockState,
   subscribeStock,
 } from "../../../../packages/shared-types/src/stockAvailability.js";
+import {
+  getCategoryStockState,
+  subscribeCategoryStock,
+} from "../../../../packages/shared-types/src/categoryAvailability.js";
 
 // Category → emoji mapping
 const CAT_EMOJI = {
@@ -77,15 +81,48 @@ const PALETTE = [
 
 const FAVOURITES_CAT = "⭐ Favourites";
 
-export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, quantities, onDecrement, stockSnapshot, onSkuLookup, onCategoryChange, favouriteItemIds = [] }) {
+export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, onToggleCategoryAvailability, quantities, onDecrement, stockSnapshot, onSkuLookup, onCategoryChange, favouriteItemIds = [] }) {
   const [search,      setSearch]      = useState("");
   const [stockState,  setStockState]  = useState(() => getStockState());
+  const [categoryStockState, setCategoryStockState] = useState(() => getCategoryStockState());
+  const [pendingDisableCat,  setPendingDisableCat]   = useState(null); // { id, name } | null
+  const [customTime,         setCustomTime]          = useState("");
 
   // Keep stock state in sync with other tabs / windows
   useEffect(() => {
     const unsub = subscribeStock((s) => setStockState({ ...s }));
     return unsub;
   }, []);
+
+  useEffect(() => {
+    const unsub = subscribeCategoryStock((s) => setCategoryStockState({ ...s }));
+    return unsub;
+  }, []);
+
+  function categoryEta(entry) {
+    if (!entry?.availableAt) return "until re-enabled";
+    const d = new Date(entry.availableAt);
+    return `until ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  function confirmDisableCategory(minutesFromNow) {
+    if (!pendingDisableCat) return;
+    const availableAt = new Date(Date.now() + minutesFromNow * 60_000).toISOString();
+    onToggleCategoryAvailability?.(pendingDisableCat.id, false, availableAt);
+    setPendingDisableCat(null);
+    setCustomTime("");
+  }
+
+  function confirmDisableCategoryCustomTime() {
+    if (!pendingDisableCat || !customTime) return;
+    const [h, m] = customTime.split(":").map(Number);
+    const at = new Date();
+    at.setHours(h, m, 0, 0);
+    if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1); // time already passed today → tomorrow
+    onToggleCategoryAvailability?.(pendingDisableCat.id, false, at.toISOString());
+    setPendingDisableCat(null);
+    setCustomTime("");
+  }
 
   const catColors = useMemo(() => {
     const map = {};
@@ -96,6 +133,9 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
   const activeCategory = activeCategoryProp || categories[0]?.name;
   const activeCatId    = categories.find(c => c.name === activeCategory)?.id || activeCategory?.toLowerCase();
   const activeColor    = catColors[activeCategory] || PALETTE[0];
+  const activeCatDisabledEntry = categoryStockState[activeCatId]?.available === false
+    ? categoryStockState[activeCatId]
+    : null;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -172,17 +212,66 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
             ⭐ Favourites
           </button>
         )}
-        {categories.map((cat) => (
-          <button
-            key={cat.name}
-            type="button"
-            className={`menu-cat-btn${activeCategory === cat.name ? " active" : ""}`}
-            onClick={() => onCategoryChange?.(cat.name)}
-          >
-            {cat.name}
-          </button>
-        ))}
+        {categories.map((cat) => {
+          const catEntry    = categoryStockState[cat.id];
+          const catDisabled = catEntry?.available === false;
+          return (
+            <div key={cat.name} className="menu-cat-chip-wrap">
+              <button
+                type="button"
+                className={`menu-cat-btn${activeCategory === cat.name ? " active" : ""}${catDisabled ? " cat-disabled" : ""}`}
+                onClick={() => onCategoryChange?.(cat.name)}
+                title={catDisabled ? `Unavailable ${categoryEta(catEntry)}` : undefined}
+              >
+                {catDisabled && <span className="menu-cat-pause">⏸ </span>}{cat.name}
+              </button>
+              {onToggleCategoryAvailability && (
+                <button
+                  type="button"
+                  className={`menu-cat-avail-toggle${catDisabled ? " off" : " on"}`}
+                  title={catDisabled ? "Mark category available" : "Mark category unavailable"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (catDisabled) {
+                      onToggleCategoryAvailability(cat.id, true, null);
+                    } else {
+                      setPendingDisableCat({ id: cat.id, name: cat.name });
+                    }
+                  }}
+                >
+                  {catDisabled ? "✕" : "✓"}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {/* ── Disable-category modal — pick next-availability time ──────────── */}
+      {pendingDisableCat && (
+        <div className="cat-avail-modal-backdrop" onClick={() => setPendingDisableCat(null)}>
+          <div className="cat-avail-modal" onClick={(e) => e.stopPropagation()}>
+            <h4>Disable "{pendingDisableCat.name}" — when will it be available again?</h4>
+            <div className="cat-avail-presets">
+              <button type="button" onClick={() => confirmDisableCategory(60)}>+1 hour</button>
+              <button type="button" onClick={() => confirmDisableCategory(120)}>+2 hours</button>
+              <button type="button" onClick={() => confirmDisableCategory(240)}>+4 hours</button>
+            </div>
+            <div className="cat-avail-custom">
+              <label>Or pick a time today:</label>
+              <input type="time" value={customTime} onChange={(e) => setCustomTime(e.target.value)} />
+              <button type="button" disabled={!customTime} onClick={confirmDisableCategoryCustomTime}>Set</button>
+            </div>
+            <button type="button" className="cat-avail-cancel" onClick={() => setPendingDisableCat(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {activeCatDisabledEntry && (
+        <div className="menu-cat-disabled-banner">
+          🚫 "{activeCategory}" is unavailable {categoryEta(activeCatDisabledEntry)}
+        </div>
+      )}
 
       {/* ── Food card grid ───────────────────────────────────────────────── */}
       <div className="menu-cards-grid">
@@ -198,7 +287,10 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
             : Number(String(item.price || item.basePrice || "").replace(/[^\d.]/g, "")) || 0;
           const color   = search ? PALETTE[0] : itemCatColor(item);
           const emoji   = getItemEmoji(item.name);
-          const soldOut  = stockState[item.id]?.available === false;
+          const soldOut     = stockState[item.id]?.available === false;
+          const catEntry    = categoryStockState[item.categoryId];
+          const catDisabled = catEntry?.available === false;
+          const unavailable = soldOut || catDisabled;
           const qty      = (quantities && quantities[item.id]) || 0;
           const snap     = stockSnapshot?.[item.id];
           const stockOut = snap && snap.currentStock <= 0 && snap.allowNegative === false;
@@ -208,8 +300,8 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
             /* Use <div> not <button> so inner <button> elements are valid HTML */
             <div
               key={item.id}
-              className={`menu-food-card${soldOut ? " sold-out" : stockOut ? " stock-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}${qty > 0 ? " in-cart" : ""}`}
-              title={soldOut ? "Sold Out — tap toggle to re-enable" : undefined}
+              className={`menu-food-card${unavailable ? " sold-out" : stockOut ? " stock-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}${qty > 0 ? " in-cart" : ""}`}
+              title={soldOut ? "Sold Out — tap toggle to re-enable" : catDisabled ? `Category unavailable ${categoryEta(catEntry)}` : undefined}
             >
               {/* Availability toggle */}
               {onToggleAvailability && (
@@ -224,9 +316,9 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
               )}
 
               {/* Emoji icon area */}
-              <div className="mfc-icon-area" style={{ background: soldOut ? "#e5e7eb" : color.grad }}>
-                <span className="mfc-emoji">{soldOut ? "🚫" : emoji}</span>
-                {item.isVeg !== undefined && !soldOut && (
+              <div className="mfc-icon-area" style={{ background: unavailable ? "#e5e7eb" : color.grad }}>
+                <span className="mfc-emoji">{unavailable ? "🚫" : emoji}</span>
+                {item.isVeg !== undefined && !unavailable && (
                   <span className={`mfc-veg-badge ${item.isVeg ? "veg" : "nonveg"}`}>
                     {item.isVeg ? "●" : "●"}
                   </span>
@@ -235,12 +327,14 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
 
               {/* Info */}
               <div className="mfc-info">
-                {item.isVeg !== undefined && !soldOut && (
+                {item.isVeg !== undefined && !unavailable && (
                   <span className={`mfc-veg-dot ${item.isVeg ? "veg" : "nonveg"}`} />
                 )}
                 <span className="mfc-name">{item.sku && <span className="mfc-sku">#{item.sku}</span>}{item.name}</span>
                 {soldOut ? (
                   <div className="mfc-soldout-label">SOLD OUT</div>
+                ) : catDisabled ? (
+                  <div className="mfc-soldout-label">CATEGORY UNAVAILABLE</div>
                 ) : stockOut ? (
                   <div className="mfc-soldout-label mfc-stockout-label">OUT OF STOCK</div>
                 ) : (

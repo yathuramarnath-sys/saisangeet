@@ -21,7 +21,7 @@ function makeLongPress(callback, ms = 550) {
   };
 }
 
-export function MenuBrowser({ order, categories, menuItems, stockState = {}, outletId, socket, onUpdateOrder, onBack }) {
+export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, onUpdateOrder, onBack }) {
   // Restrict the menu to the table's area, mirroring the POS work-area filter:
   // a category only shows here if it's explicitly tagged for this area (categories with
   // no area tag are reserved for full-access terminals/screens); an item with no area tag
@@ -264,6 +264,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, out
           {orderedCategories.map(c => {
             const id = c.id || c.name;
             const longPress = makeLongPress(() => { setReorderMode(true); tapImpact(); });
+            const catDisabled = categoryStockState[c.id]?.available === false;
             return (
               <button
                 key={id}
@@ -271,14 +272,14 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, out
                 onDragStart={reorderMode ? (e) => e.dataTransfer.setData("text/plain", id) : undefined}
                 onDragOver={reorderMode ? (e) => e.preventDefault() : undefined}
                 onDrop={reorderMode ? (e) => { e.preventDefault(); reorderCategory(e.dataTransfer.getData("text/plain"), id); } : undefined}
-                className={`cat-chip${activeCat === id ? " cat-chip-active" : ""}${reorderMode ? " cat-chip-reorder" : ""}`}
+                className={`cat-chip${activeCat === id ? " cat-chip-active" : ""}${reorderMode ? " cat-chip-reorder" : ""}${catDisabled ? " cat-chip-disabled" : ""}`}
                 onClick={() => {
                   if (reorderMode) { setReorderMode(false); return; }
                   setActiveCat(id); tapImpact();
                 }}
                 {...(!reorderMode ? longPress : {})}
               >
-                {c.name}
+                {catDisabled && "⏸ "}{c.name}
               </button>
             );
           })}
@@ -297,13 +298,15 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, out
         {displayItems.map(item => {
           const price   = parsePriceNumber(item.price || item.basePrice);
           const soldOut = stockState[item.id]?.available === false;
+          const catDisabled = categoryStockState[item.categoryId]?.available === false;
+          const unavailable = soldOut || catDisabled;
           const cartItem = (order.items || []).find(i => i.menuItemId === item.id && !i.sentToKot);
           const cartQty  = cartItem ? cartItem.quantity : 0;
 
           const isFavorite = favoriteIds.includes(item.id);
 
           return (
-            <div key={item.id} className={`menu-item${soldOut ? " menu-item-soldout" : ""}${item.isVeg === false ? " item-nonveg" : item.isVeg === true ? " item-veg" : ""}`}>
+            <div key={item.id} className={`menu-item${unavailable ? " menu-item-soldout" : ""}${item.isVeg === false ? " item-nonveg" : item.isVeg === true ? " item-veg" : ""}`}>
               <div className="menu-item-left">
                 <button
                   className={`menu-item-fav-btn${isFavorite ? " active" : ""}`}
@@ -318,11 +321,12 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, out
                     {item.name}{item.unit ? <span className="menu-item-unit">/{item.unit}</span> : null}
                   </span>
                   {soldOut && <span className="soldout-tag">Sold out</span>}
+                  {!soldOut && catDisabled && <span className="soldout-tag">Category unavailable</span>}
                 </div>
               </div>
               <div className="menu-item-right">
                 <span className="menu-item-price">₹{price}</span>
-                {!soldOut && (
+                {!unavailable && (
                   cartQty > 0 ? (
                     <div className="menu-qty-ctrl">
                       <button className="qty-btn" onClick={() => removeItem(item.id)}>−</button>

@@ -169,6 +169,34 @@ async function toggleItemAvailability(itemId, available, tenantData) {
 }
 
 /**
+ * Toggle category availability on UrbanPiper (Swiggy/Zomato) when cashier
+ * disables/re-enables a whole category in the POS (independent of any
+ * individual item's own availability).
+ *
+ * UrbanPiper: PUT /api/v2/categories/{category_ref_id}/
+ * Body: { "available": false } or { "available": true }
+ *
+ * NOTE: category_ref_id in UrbanPiper must match Plato's menu category UUID —
+ * confirm this mapping when UrbanPiper credentials go live.
+ */
+async function toggleCategoryAvailability(categoryId, available, tenantData) {
+  const creds = getUpCreds(tenantData);
+  if (!creds) return { ok: true, skipped: true };
+  try {
+    const result = await upPost(
+      `/api/v2/categories/${categoryId}/`,
+      { available },
+      creds
+    );
+    console.log(`[urbanpiper] category ${categoryId} availability → ${available}`);
+    return result;
+  } catch (err) {
+    console.error(`[urbanpiper] toggleCategoryAvailability failed for ${categoryId}:`, err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
  * Push an updated online price for a menu item to UrbanPiper.
  * Fire-and-forget — caller should .catch(() => {}) this.
  *
@@ -188,4 +216,4 @@ async function updateItemPrice(itemId, onlinePrice, tenantData) {
   }
 }
 
-module.exports = { acceptOrder, rejectOrder, markFoodReady, toggleItemAvailability, updateItemPrice, getUpCreds };
+module.exports = { acceptOrder, rejectOrder, markFoodReady, toggleItemAvailability, toggleCategoryAvailability, updateItemPrice, getUpCreds };
