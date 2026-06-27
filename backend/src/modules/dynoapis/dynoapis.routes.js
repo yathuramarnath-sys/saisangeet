@@ -27,12 +27,20 @@ const { saveOnlineOrder } = require("../online-orders/online-orders.repository")
 
 const dynoWebhookRouter = express.Router();
 
-/** Find the tenant + outlet whose dynoResId matches the incoming resId. */
+/**
+ * Find the tenant + outlet whose Swiggy or Zomato restaurant id matches the
+ * incoming resId. Dyno sends the platform-native id as resId — a Swiggy
+ * order's resId is the outlet's Swiggy id, a Zomato order's resId is the
+ * outlet's Zomato id — so each outlet needs both ids checked, not just one.
+ */
 function resolveOutletByResId(resId) {
   if (!resId) return null;
   const key = String(resId);
   for (const [tenantId, data] of getAllCachedTenants()) {
-    const outlet = (data?.outlets || []).find(o => o.dynoResId && String(o.dynoResId) === key);
+    const outlet = (data?.outlets || []).find(o =>
+      (o.dynoSwiggyId && String(o.dynoSwiggyId) === key) ||
+      (o.dynoZomatoId && String(o.dynoZomatoId) === key)
+    );
     if (outlet) return { tenantId, outletId: outlet.id, outletName: outlet.name };
   }
   return null;
