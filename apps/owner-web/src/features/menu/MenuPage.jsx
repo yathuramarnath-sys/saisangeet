@@ -1354,7 +1354,7 @@ export function MenuPage() {
                 <button
                   type="button"
                   className={`outlet-filter-chip${outletFilter === "all" ? " active" : ""}`}
-                  onClick={() => { setOutletFilter("all"); setCategoryFilter("All"); }}
+                  onClick={() => { setOutletFilter("all"); setCategoryFilter("All"); setCategorySelectedOutlets([]); }}
                 >
                   All Outlets
                   <span className="outlet-filter-count">{menuData.items.length}</span>
@@ -1364,7 +1364,7 @@ export function MenuPage() {
                     key={o.id}
                     type="button"
                     className={`outlet-filter-chip${outletFilter === o.name ? " active" : ""}`}
-                    onClick={() => { setOutletFilter(o.name); setCategoryFilter("All"); }}
+                    onClick={() => { setOutletFilter(o.name); setCategoryFilter("All"); setCategorySelectedOutlets([o.name]); }}
                   >
                     {o.name}
                     <span className="outlet-filter-count">{outletItemCounts[o.name] ?? 0}</span>
@@ -1817,7 +1817,7 @@ export function MenuPage() {
                 <span style={{ fontSize: 11, color: "#9ca3af" }}>Branches:</span>
                 <label className={`menu-outlet-chip${!categorySelectedOutlets.length ? " selected" : ""}`}>
                   <input type="radio" name="newCategoryOutletScope" checked={!categorySelectedOutlets.length}
-                    onChange={() => setCategorySelectedOutlets([])} />
+                    onChange={() => { setCategorySelectedOutlets([]); setOutletFilter("all"); }} />
                   <span>✓ All branches</span>
                 </label>
                 {availableOutlets.map((outlet) => {
@@ -1825,9 +1825,13 @@ export function MenuPage() {
                   return (
                     <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
                       <input type="checkbox" checked={checked}
-                        onChange={(e) => setCategorySelectedOutlets((cur) =>
-                          e.target.checked ? [...cur, outlet.name] : cur.filter((n) => n !== outlet.name)
-                        )} />
+                        onChange={(e) => {
+                          setCategorySelectedOutlets((cur) => {
+                            const next = e.target.checked ? [...cur, outlet.name] : cur.filter((n) => n !== outlet.name);
+                            setOutletFilter(next.length === 1 ? next[0] : "all");
+                            return next;
+                          });
+                        }} />
                       <span>{outlet.name}</span>
                     </label>
                   );
