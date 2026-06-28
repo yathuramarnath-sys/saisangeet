@@ -350,6 +350,9 @@ export function MenuPage() {
     return filteredCategoryNames.includes(category.name);
   });
 
+  const availableStationNames = menuData.stations.map((station) => station.name);
+  const availableOutlets = menuData.outlets || [];
+
   // Category List panel groups categories under a header for each branch.
   // A category with no outletAvailability is sold at every branch, so it
   // appears under every branch's header rather than a separate catch-all section.
@@ -366,9 +369,6 @@ export function MenuPage() {
         })
       }))
     : [{ outlet: { id: "__none__", name: "All categories" }, categories: filteredCategoryGroups }];
-
-  const availableStationNames = menuData.stations.map((station) => station.name);
-  const availableOutlets = menuData.outlets || [];
 
   // Work areas for the currently selected branch only — "all" falls back to the union across outlets
   const availableAreas = [...new Set(
