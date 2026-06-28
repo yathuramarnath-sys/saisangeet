@@ -103,11 +103,11 @@ function getTodaySales(tenantId) {
   if (!store.has(tenantId)) return [];
   const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const result = [];
-  for (const outletOrders of store.get(tenantId).values()) {
+  for (const [outletId, outletOrders] of store.get(tenantId).entries()) {
     for (const order of outletOrders) {
       const closedStr = new Date(order.closedAt || order._receivedAt || 0)
         .toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-      if (closedStr === todayStr) result.push(order);
+      if (closedStr === todayStr) result.push({ ...order, _outletId: outletId });
     }
   }
   return result;
