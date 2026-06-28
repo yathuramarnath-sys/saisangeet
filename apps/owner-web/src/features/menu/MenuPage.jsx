@@ -350,6 +350,23 @@ export function MenuPage() {
     return filteredCategoryNames.includes(category.name);
   });
 
+  // Category List panel groups categories under a header for each branch.
+  // A category with no outletAvailability is sold at every branch, so it
+  // appears under every branch's header rather than a separate catch-all section.
+  const outletsForCategoryList = outletFilter === "all"
+    ? availableOutlets
+    : availableOutlets.filter((o) => o.name === outletFilter);
+  const categoryGroupsByOutlet = outletsForCategoryList.length > 0
+    ? outletsForCategoryList.map((outlet) => ({
+        outlet,
+        categories: filteredCategoryGroups.filter((category) => {
+          const oa = category.outletAvailability || [];
+          if (oa.length === 0) return true;
+          return oa.some((e) => e.enabled && e.outlet === outlet.name);
+        })
+      }))
+    : [{ outlet: { id: "__none__", name: "All categories" }, categories: filteredCategoryGroups }];
+
   const availableStationNames = menuData.stations.map((station) => station.name);
   const availableOutlets = menuData.outlets || [];
 
@@ -1881,7 +1898,18 @@ export function MenuPage() {
                 No categories assigned to <strong>{outletFilter}</strong> yet.
               </p>
             )}
-            {filteredCategoryGroups.map((category) => (
+            {categoryGroupsByOutlet.map(({ outlet, categories: outletCategories }) => (
+              <div key={outlet.id || outlet.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase",
+                  letterSpacing: "0.04em", padding: "6px 2px 2px"
+                }}>
+                  {outlet.name} <span style={{ fontWeight: 400, color: "#9ca3af", textTransform: "none" }}>({outletCategories.length})</span>
+                </div>
+                {outletCategories.length === 0 && (
+                  <p style={{ color: "#9ca3af", fontSize: 12, padding: "0 2px 4px" }}>No categories at this branch yet.</p>
+                )}
+                {outletCategories.map((category) => (
               <div key={category.id} style={{
                 background: editingCategoryId === category.id ? "#fffbeb" : "#f9f9f7",
                 border: editingCategoryId === category.id ? "1.5px solid #fde68a" : "1.5px solid #e5e7eb",
@@ -1932,9 +1960,11 @@ export function MenuPage() {
                         })}
                       </div>
                     )}
-                    {editingCategorySelectedOutlets.length === 1 && workAreasForOutlet(editingCategorySelectedOutlets[0]).length > 0 && (
+                    {workAreasForOutlet(editingCategorySelectedOutlets[0]).length > 0 && (
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 11, color: "#9ca3af" }}>Sold in ({editingCategorySelectedOutlets[0]}):</span>
+                        <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                          Sold in ({editingCategorySelectedOutlets[0] || "All branches"}):
+                        </span>
                         <label className={`menu-outlet-chip${!editingCategorySelectedAreas.length ? " selected" : ""}`}>
                           <input type="radio" name="editCategoryAreaScope" checked={!editingCategorySelectedAreas.length}
                             onChange={() => setEditingCategorySelectedAreas([])} />
@@ -1998,6 +2028,8 @@ export function MenuPage() {
                     </div>
                   </div>
                 )}
+              </div>
+                ))}
               </div>
             ))}
           </div>
