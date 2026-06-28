@@ -359,6 +359,16 @@ export function MenuPage() {
       ? (menuData.outlets || []).flatMap(o => o.workAreas || []).filter(Boolean)
       : (availableOutlets.find(o => o.name === outletFilter)?.workAreas || []).filter(Boolean)
   )];
+
+  // Areas for ONE specific branch, regardless of the page-level outlet filter —
+  // used by the category Add/Edit forms so area options always match the
+  // branch picked in that form, not whatever branch the page happens to be browsing.
+  function workAreasForOutlet(outletName) {
+    if (!outletName) {
+      return [...new Set(availableOutlets.flatMap((o) => o.workAreas || []).filter(Boolean))];
+    }
+    return (availableOutlets.find((o) => o.name === outletName)?.workAreas || []).filter(Boolean);
+  }
   const availableTaxProfiles = menuData.taxProfiles || [];
   const availablePricingProfiles = menuData.pricingProfiles || [];
   const availableMenuGroups = menuData.menuGroups || [];
@@ -1809,15 +1819,43 @@ export function MenuPage() {
                 + Add
               </button>
             </div>
-            {availableAreas.length > 1 && (
+            {availableOutlets.length > 1 && (
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11, color: "#9ca3af" }}>Sold in:</span>
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>Branch:</span>
+                <label className={`menu-outlet-chip${!categorySelectedOutlets.length ? " selected" : ""}`}>
+                  <input type="radio" name="newCategoryOutletScope" checked={!categorySelectedOutlets.length}
+                    onChange={() => {
+                      setCategorySelectedOutlets([]);
+                      setCategorySelectedAreas([]);
+                      setOutletFilter("all");
+                    }} />
+                  <span>✓ All branches</span>
+                </label>
+                {availableOutlets.map((outlet) => {
+                  const checked = categorySelectedOutlets.length === 1 && categorySelectedOutlets[0] === outlet.name;
+                  return (
+                    <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
+                      <input type="radio" name="newCategoryOutletScope" checked={checked}
+                        onChange={() => {
+                          setCategorySelectedOutlets([outlet.name]);
+                          setCategorySelectedAreas([]);
+                          setOutletFilter(outlet.name);
+                        }} />
+                      <span>{outlet.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            {categorySelectedOutlets.length === 1 && workAreasForOutlet(categorySelectedOutlets[0]).length > 0 && (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>Sold in ({categorySelectedOutlets[0]}):</span>
                 <label className={`menu-outlet-chip${!categorySelectedAreas.length ? " selected" : ""}`}>
                   <input type="radio" name="newCategoryAreaScope" checked={!categorySelectedAreas.length}
                     onChange={() => setCategorySelectedAreas([])} />
                   <span>✓ All areas</span>
                 </label>
-                {availableAreas.map((area) => {
+                {workAreasForOutlet(categorySelectedOutlets[0]).map((area) => {
                   const checked = categorySelectedAreas.includes(area);
                   return (
                     <label key={area} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
@@ -1826,26 +1864,6 @@ export function MenuPage() {
                           e.target.checked ? [...cur, area] : cur.filter((a) => a !== area)
                         )} />
                       <span>{area}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-            {availableOutlets.length > 1 && (
-              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11, color: "#9ca3af" }}>Branches:</span>
-                <label className={`menu-outlet-chip${!categorySelectedOutlets.length ? " selected" : ""}`}>
-                  <input type="radio" name="newCategoryOutletScope" checked={!categorySelectedOutlets.length}
-                    onChange={() => { setCategorySelectedOutlets([]); setOutletFilter("all"); }} />
-                  <span>✓ All branches</span>
-                </label>
-                {availableOutlets.map((outlet) => {
-                  const checked = categorySelectedOutlets.length === 1 && categorySelectedOutlets[0] === outlet.name;
-                  return (
-                    <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
-                      <input type="radio" name="newCategoryOutletScope" checked={checked}
-                        onChange={() => { setCategorySelectedOutlets([outlet.name]); setOutletFilter(outlet.name); }} />
-                      <span>{outlet.name}</span>
                     </label>
                   );
                 })}
@@ -1888,15 +1906,41 @@ export function MenuPage() {
                         onChange={(e) => setEditingCategoryAvailableTo(e.target.value)}
                         style={{ fontSize: 12, padding: "3px 6px", borderRadius: 5, border: "1px solid #d1d5db" }} />
                     </div>
-                    {availableAreas.length > 1 && (
+                    {availableOutlets.length > 1 && (
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 11, color: "#9ca3af" }}>Sold in:</span>
+                        <span style={{ fontSize: 11, color: "#9ca3af" }}>Branch:</span>
+                        <label className={`menu-outlet-chip${!editingCategorySelectedOutlets.length ? " selected" : ""}`}>
+                          <input type="radio" name="editCategoryOutletScope" checked={!editingCategorySelectedOutlets.length}
+                            onChange={() => {
+                              setEditingCategorySelectedOutlets([]);
+                              setEditingCategorySelectedAreas([]);
+                            }} />
+                          <span>✓ All branches</span>
+                        </label>
+                        {availableOutlets.map((outlet) => {
+                          const checked = editingCategorySelectedOutlets.length === 1 && editingCategorySelectedOutlets[0] === outlet.name;
+                          return (
+                            <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
+                              <input type="radio" name="editCategoryOutletScope" checked={checked}
+                                onChange={() => {
+                                  setEditingCategorySelectedOutlets([outlet.name]);
+                                  setEditingCategorySelectedAreas([]);
+                                }} />
+                              <span>{outlet.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {editingCategorySelectedOutlets.length === 1 && workAreasForOutlet(editingCategorySelectedOutlets[0]).length > 0 && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, color: "#9ca3af" }}>Sold in ({editingCategorySelectedOutlets[0]}):</span>
                         <label className={`menu-outlet-chip${!editingCategorySelectedAreas.length ? " selected" : ""}`}>
                           <input type="radio" name="editCategoryAreaScope" checked={!editingCategorySelectedAreas.length}
                             onChange={() => setEditingCategorySelectedAreas([])} />
                           <span>✓ All areas</span>
                         </label>
-                        {availableAreas.map((area) => {
+                        {workAreasForOutlet(editingCategorySelectedOutlets[0]).map((area) => {
                           const checked = editingCategorySelectedAreas.includes(area);
                           return (
                             <label key={area} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
@@ -1905,26 +1949,6 @@ export function MenuPage() {
                                   e.target.checked ? [...cur, area] : cur.filter((a) => a !== area)
                                 )} />
                               <span>{area}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {availableOutlets.length > 1 && (
-                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 11, color: "#9ca3af" }}>Branches:</span>
-                        <label className={`menu-outlet-chip${!editingCategorySelectedOutlets.length ? " selected" : ""}`}>
-                          <input type="radio" name="editCategoryOutletScope" checked={!editingCategorySelectedOutlets.length}
-                            onChange={() => setEditingCategorySelectedOutlets([])} />
-                          <span>✓ All branches</span>
-                        </label>
-                        {availableOutlets.map((outlet) => {
-                          const checked = editingCategorySelectedOutlets.length === 1 && editingCategorySelectedOutlets[0] === outlet.name;
-                          return (
-                            <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
-                              <input type="radio" name="editCategoryOutletScope" checked={checked}
-                                onChange={() => setEditingCategorySelectedOutlets([outlet.name])} />
-                              <span>{outlet.name}</span>
                             </label>
                           );
                         })}
