@@ -187,6 +187,7 @@ export function MenuPage() {
   const [editingCategoryAvailableTo, setEditingCategoryAvailableTo] = useState("");
   const [editingCategorySelectedAreas, setEditingCategorySelectedAreas] = useState([]);
   const [editingCategoryOutletName, setEditingCategoryOutletName] = useState("");
+  const [editingCategoryOnline, setEditingCategoryOnline] = useState(false);
   const [stationName, setStationName] = useState("");
   const [itemDraft, setItemDraft] = useState({ categoryName: "", station: "" });
   const [editingItemId, setEditingItemId] = useState("");
@@ -609,6 +610,11 @@ export function MenuPage() {
     const perOutletAreas = outletName ? category.areaByOutlet?.[outletName] : null;
     const areasSource = perOutletAreas || category.areaAvailability || [];
     setEditingCategorySelectedAreas(areasSource.filter((e) => e.enabled).map((e) => e.area));
+    // Swiggy/Zomato listing is a category-wide flag, not scoped per branch — it
+    // always reads/writes category.areaAvailability regardless of which branch
+    // header this edit was opened from (that's the field dynoapis.routes.js checks).
+    const onlineTag = (category.areaAvailability || []).find((e) => e.area === "Online");
+    setEditingCategoryOnline(!!(onlineTag && onlineTag.enabled));
     setSaveError("");
     setSaveMessage("");
   }
@@ -620,6 +626,7 @@ export function MenuPage() {
     setEditingCategoryAvailableTo("");
     setEditingCategorySelectedAreas([]);
     setEditingCategoryOutletName("");
+    setEditingCategoryOnline(false);
   }
 
   async function handleSaveCategoryEdit(category) {
@@ -632,6 +639,10 @@ export function MenuPage() {
       setSaveError("");
       setSaveMessage("");
       const newAreaEntries = editingCategorySelectedAreas.map((name) => ({ area: name, enabled: true }));
+      // "Online" always lives in areaAvailability (never areaByOutlet) — Swiggy/
+      // Zomato listing isn't scoped per dine-in branch, and dynoapis.routes.js
+      // only ever reads category.areaAvailability for its gating check.
+      const onlineEntries = editingCategoryOnline ? [{ area: "Online", enabled: true }] : [];
       const payload = {
         name: editingCategoryName.trim(),
         availableFrom: editingCategoryAvailableFrom,
@@ -642,8 +653,12 @@ export function MenuPage() {
           ...(category.areaByOutlet || {}),
           [editingCategoryOutletName]: newAreaEntries
         };
+        payload.areaAvailability = [
+          ...(category.areaAvailability || []).filter((e) => e.area !== "Online"),
+          ...onlineEntries
+        ];
       } else {
-        payload.areaAvailability = newAreaEntries;
+        payload.areaAvailability = [...newAreaEntries, ...onlineEntries];
       }
       await updateMenuCategory(category.id, payload);
       await reloadMenu();
@@ -1962,6 +1977,11 @@ export function MenuPage() {
                         })}
                       </div>
                     )}
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#374151" }}>
+                      <input type="checkbox" checked={editingCategoryOnline}
+                        onChange={(e) => setEditingCategoryOnline(e.target.checked)} />
+                      List on Swiggy/Zomato
+                    </label>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button type="button" className="primary-btn" style={{ padding: "4px 12px", fontSize: 12 }}
                         onClick={() => handleSaveCategoryEdit(category)}>
@@ -1985,6 +2005,14 @@ export function MenuPage() {
                       <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>
                         {category.items?.length || 0} items
                       </span>
+                      {(category.areaAvailability || []).find((e) => e.area === "Online" && e.enabled) && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 10,
+                          background: "#fef3c7", color: "#92400e", marginLeft: 8,
+                        }} title="Visible on Swiggy/Zomato">
+                          🛵 Online
+                        </span>
+                      )}
                       {availableAreas.length > 1 && (() => {
                         const perOutletAreas = headerOutletName ? category.areaByOutlet?.[headerOutletName] : null;
                         const displayAreas = perOutletAreas || category.areaAvailability || [];
