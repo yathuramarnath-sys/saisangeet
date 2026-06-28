@@ -212,7 +212,8 @@ export function MenuPage() {
   const [foodTypeFilter, setFoodTypeFilter] = useState("Any");
   const [taxFilter, setTaxFilter] = useState("Any"); // "Any" | "Missing"
   const [showImportPanel, setShowImportPanel] = useState(false);
-  const [outletFilter, setOutletFilter] = useState("all"); // "all" | outlet name
+  const [outletFilter, setOutletFilter] = useState("all"); // "all" | outlet name — Item Library tab's branch filter
+  const [categoryListOutletFilter, setCategoryListOutletFilter] = useState("all"); // "all" | outlet name — Category List panel's own branch filter, independent of the Item Library one
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [itemPage, setItemPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
@@ -336,17 +337,33 @@ export function MenuPage() {
           .filter(Boolean)
       )];
 
+  // Category names derived from items at the Category List panel's own
+  // branch filter — kept separate from filteredCategoryNames (Item Library
+  // tab) so the two branch filters don't affect each other.
+  const categoryListFilteredNames = categoryListOutletFilter === "all"
+    ? availableCategoryNames
+    : [...new Set(
+        menuData.items
+          .filter(item => {
+            const oa = item.outletAvailability || [];
+            if (oa.length === 0) return true;
+            return oa.some(e => e.outlet === categoryListOutletFilter && e.enabled);
+          })
+          .map(item => item.categoryName)
+          .filter(Boolean)
+      )];
+
   // Categories shown in the "Category List" panel for the selected branch.
   // A category with an explicit outletAvailability is restricted to exactly
   // those branches; one without it falls back to the item-derived inference
   // above, so existing single-outlet tenants see no change.
   const filteredCategoryGroups = categoryGroups.filter((category) => {
-    if (outletFilter === "all") return true;
+    if (categoryListOutletFilter === "all") return true;
     const oa = category.outletAvailability || [];
     if (oa.length > 0) {
-      return oa.some((e) => e.outlet === outletFilter && e.enabled);
+      return oa.some((e) => e.outlet === categoryListOutletFilter && e.enabled);
     }
-    return filteredCategoryNames.includes(category.name);
+    return categoryListFilteredNames.includes(category.name);
   });
 
   const availableStationNames = menuData.stations.map((station) => station.name);
@@ -355,9 +372,9 @@ export function MenuPage() {
   // Category List panel groups categories under a header for each branch.
   // A category with no outletAvailability is sold at every branch, so it
   // appears under every branch's header rather than a separate catch-all section.
-  const outletsForCategoryList = outletFilter === "all"
+  const outletsForCategoryList = categoryListOutletFilter === "all"
     ? availableOutlets
-    : availableOutlets.filter((o) => o.name === outletFilter);
+    : availableOutlets.filter((o) => o.name === categoryListOutletFilter);
   const categoryGroupsByOutlet = outletsForCategoryList.length > 0
     ? outletsForCategoryList.map((outlet) => ({
         outlet,
@@ -1850,8 +1867,7 @@ export function MenuPage() {
                   <input type="radio" name="newCategoryOutletScope" checked={!categorySelectedOutlets.length}
                     onChange={() => {
                       setCategorySelectedOutlets([]);
-                      setCategorySelectedAreas([]);
-                      setOutletFilter("all");
+                      setCategoryListOutletFilter("all");
                     }} />
                   <span>✓ All branches</span>
                 </label>
@@ -1862,8 +1878,7 @@ export function MenuPage() {
                       <input type="radio" name="newCategoryOutletScope" checked={checked}
                         onChange={() => {
                           setCategorySelectedOutlets([outlet.name]);
-                          setCategorySelectedAreas([]);
-                          setOutletFilter(outlet.name);
+                          setCategoryListOutletFilter(outlet.name);
                         }} />
                       <span>{outlet.name}</span>
                     </label>
@@ -1880,7 +1895,7 @@ export function MenuPage() {
             )}
             {categoryGroups.length > 0 && filteredCategoryGroups.length === 0 && (
               <p style={{ color: "#9ca3af", fontSize: 13, padding: "8px 0" }}>
-                No categories assigned to <strong>{outletFilter}</strong> yet.
+                No categories assigned to <strong>{categoryListOutletFilter}</strong> yet.
               </p>
             )}
             {categoryGroupsByOutlet.map(({ outlet, categories: outletCategories }) => (
