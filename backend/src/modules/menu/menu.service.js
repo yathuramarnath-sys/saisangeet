@@ -170,7 +170,10 @@ async function createMenuCategory(payload) {
     // Areas this category is sold in — empty array = all areas (no restriction)
     areaAvailability: payload.areaAvailability || [],
     // Branches this category is assigned to — empty array = all branches (no restriction)
-    outletAvailability: payload.outletAvailability || []
+    outletAvailability: payload.outletAvailability || [],
+    // Per-branch area overrides, e.g. { "Branch A": [{area: "AC", enabled: true}] } —
+    // lets a shared category have different work areas at different branches.
+    areaByOutlet: payload.areaByOutlet || {}
   };
 
   updateOwnerSetupData((current) => ({

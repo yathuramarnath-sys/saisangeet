@@ -187,7 +187,7 @@ export function MenuPage() {
   const [editingCategoryAvailableFrom, setEditingCategoryAvailableFrom] = useState("");
   const [editingCategoryAvailableTo, setEditingCategoryAvailableTo] = useState("");
   const [editingCategorySelectedAreas, setEditingCategorySelectedAreas] = useState([]);
-  const [editingCategorySelectedOutlets, setEditingCategorySelectedOutlets] = useState([]);
+  const [editingCategoryOutletName, setEditingCategoryOutletName] = useState("");
   const [stationName, setStationName] = useState("");
   const [itemDraft, setItemDraft] = useState({ categoryName: "", station: "" });
   const [editingItemId, setEditingItemId] = useState("");
@@ -582,17 +582,19 @@ export function MenuPage() {
     }
   }
 
-  function startEditingCategory(category) {
+  // outletName is the branch header this edit was opened from — "" for the
+  // single-section fallback when the tenant has no outlets configured yet.
+  // Areas are scoped per branch (category.areaByOutlet[outletName]), since the
+  // same shared category can have different work areas at different branches.
+  function startEditingCategory(category, outletName = "") {
     setEditingCategoryId(category.id);
     setEditingCategoryName(category.name);
     setEditingCategoryAvailableFrom(category.availableFrom || "");
     setEditingCategoryAvailableTo(category.availableTo || "");
-    setEditingCategorySelectedAreas(
-      (category.areaAvailability || []).filter((e) => e.enabled).map((e) => e.area)
-    );
-    setEditingCategorySelectedOutlets(
-      (category.outletAvailability || []).filter((e) => e.enabled).map((e) => e.outlet)
-    );
+    setEditingCategoryOutletName(outletName);
+    const perOutletAreas = outletName ? category.areaByOutlet?.[outletName] : null;
+    const areasSource = perOutletAreas || category.areaAvailability || [];
+    setEditingCategorySelectedAreas(areasSource.filter((e) => e.enabled).map((e) => e.area));
     setSaveError("");
     setSaveMessage("");
   }
@@ -603,7 +605,7 @@ export function MenuPage() {
     setEditingCategoryAvailableFrom("");
     setEditingCategoryAvailableTo("");
     setEditingCategorySelectedAreas([]);
-    setEditingCategorySelectedOutlets([]);
+    setEditingCategoryOutletName("");
   }
 
   async function handleSaveCategoryEdit(category) {
@@ -615,13 +617,21 @@ export function MenuPage() {
     try {
       setSaveError("");
       setSaveMessage("");
-      await updateMenuCategory(category.id, {
+      const newAreaEntries = editingCategorySelectedAreas.map((name) => ({ area: name, enabled: true }));
+      const payload = {
         name: editingCategoryName.trim(),
         availableFrom: editingCategoryAvailableFrom,
         availableTo: editingCategoryAvailableTo,
-        areaAvailability: editingCategorySelectedAreas.map((name) => ({ area: name, enabled: true })),
-        outletAvailability: editingCategorySelectedOutlets.map((name) => ({ outlet: name, enabled: true }))
-      });
+      };
+      if (editingCategoryOutletName) {
+        payload.areaByOutlet = {
+          ...(category.areaByOutlet || {}),
+          [editingCategoryOutletName]: newAreaEntries
+        };
+      } else {
+        payload.areaAvailability = newAreaEntries;
+      }
+      await updateMenuCategory(category.id, payload);
       await reloadMenu();
       cancelEditingCategory();
       setSaveMessage("Category updated.");
@@ -1909,13 +1919,17 @@ export function MenuPage() {
                 {outletCategories.length === 0 && (
                   <p style={{ color: "#9ca3af", fontSize: 12, padding: "0 2px 4px" }}>No categories at this branch yet.</p>
                 )}
-                {outletCategories.map((category) => (
+                {outletCategories.map((category) => {
+              const headerOutletName = outlet.id === "__none__" ? "" : outlet.name;
+              const isEditingHere = editingCategoryId === category.id && editingCategoryOutletName === headerOutletName;
+              const areasForThisOutlet = workAreasForOutlet(headerOutletName);
+              return (
               <div key={category.id} style={{
-                background: editingCategoryId === category.id ? "#fffbeb" : "#f9f9f7",
-                border: editingCategoryId === category.id ? "1.5px solid #fde68a" : "1.5px solid #e5e7eb",
+                background: isEditingHere ? "#fffbeb" : "#f9f9f7",
+                border: isEditingHere ? "1.5px solid #fde68a" : "1.5px solid #e5e7eb",
                 borderRadius: 8, padding: "8px 12px"
               }}>
-                {editingCategoryId === category.id ? (
+                {isEditingHere ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <input
                       type="text"
@@ -1934,43 +1948,17 @@ export function MenuPage() {
                         onChange={(e) => setEditingCategoryAvailableTo(e.target.value)}
                         style={{ fontSize: 12, padding: "3px 6px", borderRadius: 5, border: "1px solid #d1d5db" }} />
                     </div>
-                    {availableOutlets.length > 1 && (
-                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 11, color: "#9ca3af" }}>Branch:</span>
-                        <label className={`menu-outlet-chip${!editingCategorySelectedOutlets.length ? " selected" : ""}`}>
-                          <input type="radio" name="editCategoryOutletScope" checked={!editingCategorySelectedOutlets.length}
-                            onChange={() => {
-                              setEditingCategorySelectedOutlets([]);
-                              setEditingCategorySelectedAreas([]);
-                            }} />
-                          <span>✓ All branches</span>
-                        </label>
-                        {availableOutlets.map((outlet) => {
-                          const checked = editingCategorySelectedOutlets.length === 1 && editingCategorySelectedOutlets[0] === outlet.name;
-                          return (
-                            <label key={outlet.id || outlet.name} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
-                              <input type="radio" name="editCategoryOutletScope" checked={checked}
-                                onChange={() => {
-                                  setEditingCategorySelectedOutlets([outlet.name]);
-                                  setEditingCategorySelectedAreas([]);
-                                }} />
-                              <span>{outlet.name}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {workAreasForOutlet(editingCategorySelectedOutlets[0]).length > 0 && (
+                    {areasForThisOutlet.length > 0 && (
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <span style={{ fontSize: 11, color: "#9ca3af" }}>
-                          Sold in ({editingCategorySelectedOutlets[0] || "All branches"}):
+                          Sold in{headerOutletName ? ` (${headerOutletName})` : ""}:
                         </span>
                         <label className={`menu-outlet-chip${!editingCategorySelectedAreas.length ? " selected" : ""}`}>
                           <input type="radio" name="editCategoryAreaScope" checked={!editingCategorySelectedAreas.length}
                             onChange={() => setEditingCategorySelectedAreas([])} />
                           <span>✓ All areas</span>
                         </label>
-                        {workAreasForOutlet(editingCategorySelectedOutlets[0]).map((area) => {
+                        {areasForThisOutlet.map((area) => {
                           const checked = editingCategorySelectedAreas.includes(area);
                           return (
                             <label key={area} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
@@ -2007,29 +1995,26 @@ export function MenuPage() {
                       <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>
                         {category.items?.length || 0} items
                       </span>
-                      {availableAreas.length > 1 && (
-                        <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>
-                          · {(category.areaAvailability || []).filter((e) => e.enabled).length
-                            ? (category.areaAvailability || []).filter((e) => e.enabled).map((e) => e.area).join(", ")
-                            : "All areas"}
-                        </span>
-                      )}
-                      {availableOutlets.length > 1 && (
-                        <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>
-                          · {(category.outletAvailability || []).filter((e) => e.enabled).length
-                            ? (category.outletAvailability || []).filter((e) => e.enabled).map((e) => e.outlet).join(", ")
-                            : "All branches"}
-                        </span>
-                      )}
+                      {availableAreas.length > 1 && (() => {
+                        const perOutletAreas = headerOutletName ? category.areaByOutlet?.[headerOutletName] : null;
+                        const displayAreas = perOutletAreas || category.areaAvailability || [];
+                        const enabledAreas = displayAreas.filter((e) => e.enabled).map((e) => e.area);
+                        return (
+                          <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>
+                            · {enabledAreas.length ? enabledAreas.join(", ") : "All areas"}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div style={{ display: "flex", gap: 4 }}>
-                      <button type="button" className="ghost-chip" onClick={() => startEditingCategory(category)}>Edit</button>
+                      <button type="button" className="ghost-chip" onClick={() => startEditingCategory(category, headerOutletName)}>Edit</button>
                       <button type="button" className="ghost-chip" onClick={() => handleDeleteCategory(category)}>Delete</button>
                     </div>
                   </div>
                 )}
               </div>
-                ))}
+              );
+                })}
               </div>
             ))}
           </div>
