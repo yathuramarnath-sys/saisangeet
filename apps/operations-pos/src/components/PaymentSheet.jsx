@@ -8,13 +8,19 @@ const METHODS = [
   { id: "card", label: "Card",  icon: "💳" }
 ];
 
+// Swiggy/Zomato already collected payment from the customer — the cashier never
+// handles cash/card/upi for these, so settlement must record method "online"
+// instead of letting them pick a counter payment method that would miscount it.
+const ONLINE_METHOD = { id: "online", label: "Online (Swiggy/Zomato)", icon: "🛵" };
+
 const BLANK_CREDIT = { name: "", gstin: "", address: "", phone: "", poNumber: "" };
 
 export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR, gstTreatment = "exclusive", outletId }) {
   const fin = getFinancials(order, { gstTreatment });
+  const isOnlineOrder = !!order.isOnlineOrder;
 
   const [localPayments, setLocalPayments] = useState([]);
-  const [currentMethod, setCurrentMethod] = useState("cash");
+  const [currentMethod, setCurrentMethod] = useState(isOnlineOrder ? "online" : "cash");
   const [showCredit,   setShowCredit]   = useState(false);
   const [creditForm,   setCreditForm]   = useState(BLANK_CREDIT);
   const [creditError,  setCreditError]  = useState("");
@@ -117,9 +123,13 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
   async function handleCollect() {
     if (loading) return;
     if (isFullyPaid) { await handleSettle(); return; }
-    const effectiveAmount = amountNum > 0 ? Math.min(amountNum, remaining) : remaining;
+    // Online orders are prepaid by the customer via Swiggy/Zomato — always settle
+    // the full remaining amount as "online", never a manually-picked counter method.
+    const effectiveAmount = isOnlineOrder ? remaining : (amountNum > 0 ? Math.min(amountNum, remaining) : remaining);
     if (effectiveAmount <= 0) return;
-    const payment = { method: currentMethod, amount: effectiveAmount, reference: currentRef.trim() || undefined };
+    const payment = isOnlineOrder
+      ? { method: "online", amount: effectiveAmount, reference: order.onlineOrderId || undefined }
+      : { method: currentMethod, amount: effectiveAmount, reference: currentRef.trim() || undefined };
     const nextPayments = [...localPayments, payment];
     setLocalPayments(nextPayments);
     const newRemaining = Math.max(remaining - effectiveAmount, 0);
@@ -133,7 +143,7 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
     }
   }
 
-  const methodLabel = { cash: "Cash", upi: "UPI", card: "Card", phonepe: "PhonePe QR", credit: "Credit" };
+  const methodLabel = { cash: "Cash", upi: "UPI", card: "Card", phonepe: "PhonePe QR", credit: "Credit", online: ONLINE_METHOD.label };
 
   return (
     <div className="pay2-overlay" role="dialog" aria-modal="true">
@@ -169,8 +179,16 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
           </div>
         )}
 
-        {/* Method tabs */}
-        {!showCredit && !isFullyPaid && (
+        {/* Method tabs — online orders are prepaid via Swiggy/Zomato, so there's
+            no cash/card/upi/credit choice to make; just show the fixed method. */}
+        {isOnlineOrder && !isFullyPaid && (
+          <div className="pay2-methods">
+            <button type="button" className="pay2-method-tab active" disabled>
+              {ONLINE_METHOD.icon} {ONLINE_METHOD.label}
+            </button>
+          </div>
+        )}
+        {!isOnlineOrder && !showCredit && !isFullyPaid && (
           <div className="pay2-methods">
             {METHODS.map(m => (
               <button key={m.id} type="button"
@@ -316,8 +334,8 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
           </div>
         )}
 
-        {/* Amount Received / Change to Return */}
-        {!showCredit && (
+        {/* Amount Received / Change to Return — not relevant for prepaid online orders */}
+        {!showCredit && !isOnlineOrder && (
           <div className="pay2-summary-rows">
             <div className="pay2-summary-row">
               <span>Amount Received</span>
@@ -328,6 +346,9 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
               <span>{changeToReturn > 0 ? `₹${Math.round(changeToReturn)}` : "—"}</span>
             </div>
           </div>
+        )}
+        {!showCredit && isOnlineOrder && !isFullyPaid && (
+          <p className="pay2-partial-note">Prepaid by customer via {order.onlinePlatform || "Swiggy/Zomato"} — no cash/card/UPI to collect.</p>
         )}
 
       </div>
