@@ -67,6 +67,31 @@ function isItemInStock(item) {
   return item.salesAvailability !== "Unavailable";
 }
 
+/**
+ * True when a category is tagged "Online" in areaAvailability — the master switch for
+ * Swiggy/Zomato visibility. No explicit "Online" tag (the default for every category
+ * today) means NOT online — this is opt-in, unlike dine-in areas where an empty
+ * areaAvailability means "visible everywhere."
+ */
+function isCategoryOnline(category) {
+  const onlineTag = (category.areaAvailability || []).find(a => a.area === "Online");
+  return !!(onlineTag && onlineTag.enabled);
+}
+
+/**
+ * True when an item is visible online: requires its category to be online first
+ * (a non-Online category hides every item under it regardless of item-level tags),
+ * then the item either has no areaAvailability of its own (inherits the category's
+ * Online status) or has its own explicit "Online" tag enabled.
+ */
+function isItemOnline(item, categoryOnline) {
+  if (!categoryOnline) return false;
+  const areas = item.areaAvailability || [];
+  if (!areas.length) return true;
+  const onlineTag = areas.find(a => a.area === "Online");
+  return !!(onlineTag && onlineTag.enabled);
+}
+
 /** Best-effort mapper from Dyno's Order.data (raw Swiggy/Zomato payload) to our internal shape. */
 function normaliseDynoOrder(order, target) {
   const raw = order.data || {};
@@ -239,17 +264,20 @@ dynoWebhookRouter.get("/:resId/items", async (req, res) => {
       Promise.all([fetchMenuItems(target.outletId), fetchMenuCategories(target.outletId)])
     );
 
+    const categoryOnlineById = new Map(categories.map(c => [String(c.id), isCategoryOnline(c)]));
+
     res.json({
       restaurantId: req.params.resId,
       getAllItems: true,
       categories: categories.map(c => ({
         id: String(c.id),
-        stockStatus: req.app.locals.outletCategoryAvailability?.[target.outletId]?.[c.id]?.available !== false,
+        stockStatus: categoryOnlineById.get(String(c.id)) &&
+          req.app.locals.outletCategoryAvailability?.[target.outletId]?.[c.id]?.available !== false,
         aggregator: target.aggregator,
       })),
       items: items.map(i => ({
         id: String(i.id),
-        stockStatus: isItemInStock(i),
+        stockStatus: isItemInStock(i) && isItemOnline(i, categoryOnlineById.get(String(i.categoryId))),
         aggregator: target.aggregator,
       })),
     });
