@@ -180,7 +180,6 @@ export function MenuPage() {
   const [categoryName, setCategoryName] = useState("");
   const [categoryAvailableFrom, setCategoryAvailableFrom] = useState("10:00");
   const [categoryAvailableTo, setCategoryAvailableTo] = useState("16:00");
-  const [categorySelectedAreas, setCategorySelectedAreas] = useState([]);
   const [categorySelectedOutlets, setCategorySelectedOutlets] = useState([]);
   const [editingCategoryId, setEditingCategoryId] = useState("");
   const [editingCategoryName, setEditingCategoryName] = useState("");
@@ -566,13 +565,11 @@ export function MenuPage() {
       await createMenuCategory(categoryName.trim(), {
         availableFrom: categoryAvailableFrom,
         availableTo: categoryAvailableTo,
-        areaAvailability: categorySelectedAreas.map((name) => ({ area: name, enabled: true })),
         outletAvailability: categorySelectedOutlets.map((name) => ({ outlet: name, enabled: true }))
       });
       setCategoryName("");
       setCategoryAvailableFrom("10:00");
       setCategoryAvailableTo("16:00");
-      setCategorySelectedAreas([]);
       setCategorySelectedOutlets([]);
       await reloadMenu();
       form.reset();
@@ -1869,28 +1866,6 @@ export function MenuPage() {
                           setOutletFilter(outlet.name);
                         }} />
                       <span>{outlet.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-            {categorySelectedOutlets.length === 1 && workAreasForOutlet(categorySelectedOutlets[0]).length > 0 && (
-              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11, color: "#9ca3af" }}>Sold in ({categorySelectedOutlets[0]}):</span>
-                <label className={`menu-outlet-chip${!categorySelectedAreas.length ? " selected" : ""}`}>
-                  <input type="radio" name="newCategoryAreaScope" checked={!categorySelectedAreas.length}
-                    onChange={() => setCategorySelectedAreas([])} />
-                  <span>✓ All areas</span>
-                </label>
-                {workAreasForOutlet(categorySelectedOutlets[0]).map((area) => {
-                  const checked = categorySelectedAreas.includes(area);
-                  return (
-                    <label key={area} className={`menu-outlet-chip${checked ? " selected" : ""}`}>
-                      <input type="checkbox" checked={checked}
-                        onChange={(e) => setCategorySelectedAreas((cur) =>
-                          e.target.checked ? [...cur, area] : cur.filter((a) => a !== area)
-                        )} />
-                      <span>{area}</span>
                     </label>
                   );
                 })}
