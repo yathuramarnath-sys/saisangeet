@@ -338,33 +338,24 @@ export function MenuPage() {
           .filter(Boolean)
       )];
 
-  // Category names derived from items at the Category List panel's own
-  // branch filter — kept separate from filteredCategoryNames (Item Library
-  // tab) so the two branch filters don't affect each other.
-  const categoryListFilteredNames = categoryListOutletFilter === "all"
-    ? availableCategoryNames
-    : [...new Set(
-        menuData.items
-          .filter(item => {
-            const oa = item.outletAvailability || [];
-            if (oa.length === 0) return true;
-            return oa.some(e => e.outlet === categoryListOutletFilter && e.enabled);
-          })
-          .map(item => item.categoryName)
-          .filter(Boolean)
-      )];
-
   // Categories shown in the "Category List" panel for the selected branch.
   // A category with an explicit outletAvailability is restricted to exactly
-  // those branches; one without it falls back to the item-derived inference
-  // above, so existing single-outlet tenants see no change.
+  // those branches; one without it falls back to inferring from THIS
+  // category's own items (category.items, scoped by categoryId) — never by
+  // category name, since two unrelated categories at different branches can
+  // share the same name (e.g. "Fries"), and a name-based fallback would leak
+  // one branch's item availability onto the other branch's same-named category.
   const filteredCategoryGroups = categoryGroups.filter((category) => {
     if (categoryListOutletFilter === "all") return true;
     const oa = category.outletAvailability || [];
     if (oa.length > 0) {
       return oa.some((e) => e.outlet === categoryListOutletFilter && e.enabled);
     }
-    return categoryListFilteredNames.includes(category.name);
+    return category.items.some((item) => {
+      const itemOa = item.outletAvailability || [];
+      if (itemOa.length === 0) return true;
+      return itemOa.some((e) => e.outlet === categoryListOutletFilter && e.enabled);
+    });
   });
 
   const availableStationNames = menuData.stations.map((station) => station.name);
