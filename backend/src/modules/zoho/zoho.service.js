@@ -524,14 +524,30 @@ async function pushExpense(movement, zohoCfg) {
 
   const result = await booksPost("/expenses", payload, orgId, accessToken);
 
-  if (result.body?.code !== 0) {
-    throw new Error(
-      result.body?.message ||
-      `Zoho expense push failed: ${JSON.stringify(result.body)}`
+  let expense = result.body?.expense;
+  if (!expense) {
+    const msg = (result.body?.message || "").toLowerCase();
+    const isDuplicate = result.body?.code === 1004 || msg.includes("already") || msg.includes("exist");
+    if (!isDuplicate) {
+      throw new Error(
+        result.body?.message ||
+        `Zoho expense push failed: ${JSON.stringify(result.body)}`
+      );
+    }
+    // Already pushed on a previous attempt — safe to no-op on retries/backfill.
+    const existing = await booksGet(
+      `/expenses?reference_number=${encodeURIComponent(referenceNumber)}`,
+      orgId, accessToken
     );
+    expense = existing.body?.expenses?.[0];
+    if (!expense) {
+      console.log(`[zoho] expense already pushed | ref=${referenceNumber}`);
+      return { referenceNumber, alreadyExists: true };
+    }
+    console.log(`[zoho] expense already pushed | ref=${referenceNumber} | id=${expense.expense_id}`);
+    return { expenseId: expense.expense_id, referenceNumber, alreadyExists: true };
   }
 
-  const expense = result.body.expense;
   console.log(`[zoho] expense pushed | ref=${referenceNumber} | id=${expense.expense_id}`);
   return {
     expenseId:      expense.expense_id,

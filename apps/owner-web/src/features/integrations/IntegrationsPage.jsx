@@ -322,6 +322,7 @@ function ZohoConfigCard() {
   const [testing,  setTesting]  = useState(false);
   const [syncing,  setSyncing]  = useState(false);
   const [backfilling, setBackfilling] = useState(false);
+  const [backfillingExpenses, setBackfillingExpenses] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [msg,      setMsg]      = useState({ text: "", ok: true });
   const [form,     setForm]     = useState({
@@ -462,6 +463,21 @@ function ZohoConfigCard() {
     } catch (err) {
       setMsg({ text: "✗ " + (err.message || "Backfill failed"), ok: false });
     } finally { setBackfilling(false); }
+  }
+
+  async function handleBackfillExpenses() {
+    setBackfillingExpenses(true); setMsg({ text: "", ok: true });
+    try {
+      const res = await api.post("/integrations/zoho/backfill-expenses");
+      setMsg({
+        text: `✓ Expense backfill ${res.dateFrom} → ${res.dateTo}: ${res.pushed} pushed, ${res.skipped} already in Zoho` +
+          (res.failed ? `, ${res.failed} failed` : ""),
+        ok: res.failed === 0,
+      });
+      loadConfig();
+    } catch (err) {
+      setMsg({ text: "✗ " + (err.message || "Expense backfill failed"), ok: false });
+    } finally { setBackfillingExpenses(false); }
   }
 
   const STATE_CODES = [
@@ -644,6 +660,9 @@ function ZohoConfigCard() {
                   </button>
                   <button type="button" className="btn-outline" onClick={handleBackfillSales} disabled={backfilling}>
                     {backfilling ? "Pushing past bills…" : "📤 Backfill Past Bills"}
+                  </button>
+                  <button type="button" className="btn-outline" onClick={handleBackfillExpenses} disabled={backfillingExpenses}>
+                    {backfillingExpenses ? "Pushing past cash-outs…" : "📤 Backfill Cash-Out Expenses"}
                   </button>
                   <button type="button" className="btn-outline" onClick={handleConnect}
                     style={{ color:"#f59e0b", borderColor:"#f59e0b" }}>

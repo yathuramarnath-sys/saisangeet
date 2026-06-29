@@ -49,6 +49,12 @@ async function recordMovementHandler(req, res) {
         const cfg  = data?.zoho;
         if (!cfg?.enabled || !cfg?.refreshToken || !cfg?.organizationId) return;
 
+        // Skip movements before the configured sync start date
+        if (cfg.syncStartDate) {
+          const movementDate = (movement.time || new Date().toISOString()).slice(0, 10);
+          if (movementDate < cfg.syncStartDate) return;
+        }
+
         const { refreshed } = await getValidToken(cfg);
         if (refreshed) {
           await runWithTenant(tenantId, () =>
