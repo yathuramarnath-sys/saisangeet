@@ -50,7 +50,7 @@ jobs:
         run: |
           mkdir -p .vercel/output/static
           echo "{\"projectId\":\"${VERCEL_PROJECT_ID}\",\"orgId\":\"${VERCEL_ORG_ID}\"}" > .vercel/project.json
-          echo '{"version":3}' > .vercel/output/config.json
+          echo '{"version":3,"routes":[{"handle":"filesystem"},{"src":"/(.*)","dest":"/index.html"}]}' > .vercel/output/config.json
           cp -r dist/. .vercel/output/static/
           npx vercel deploy --prebuilt --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
         env:
