@@ -497,6 +497,50 @@ input, textarea { font-family: inherit; }
   border-color: var(--brand);
 }
 
+/* ── Custom date range ─────────────────────────────────────────────────────── */
+.custom-range-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+.custom-date-input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.custom-range-sep {
+  color: var(--text3);
+  font-weight: 700;
+}
+
+/* ── Export bar ────────────────────────────────────────────────────────────── */
+.export-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.export-btn {
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand);
+  background: var(--surface);
+  border: 1.5px solid var(--brand);
+}
+.export-btn:disabled {
+  color: var(--text3);
+  border-color: var(--border);
+  opacity: 0.6;
+}
+
 .summary-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { ExportBar } from "../components/ExportBar";
 
 function fmt(n) {
   return "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 const RANGES = [
@@ -10,6 +15,7 @@ const RANGES = [
   { label: "Yesterday", days: 1 },
   { label: "7 Days",    days: 7 },
   { label: "30 Days",   days: 30 },
+  { label: "Custom",    days: null },
 ];
 
 const REPORT_TABS = ["Sales", "Items", "Payments", "Staff"];
@@ -29,18 +35,24 @@ function getDateRange(days) {
 }
 
 export function ReportsScreen() {
-  const [rangeIdx, setRangeIdx]   = useState(0);
-  const [reportTab, setReportTab] = useState("Sales");
-  const [data, setData]           = useState(null);
-  const [loading, setLoading]     = useState(true);
+  const [rangeIdx, setRangeIdx]     = useState(0);
+  const [customFrom, setCustomFrom] = useState(todayStr());
+  const [customTo, setCustomTo]     = useState(todayStr());
+  const [reportTab, setReportTab]   = useState("Sales");
+  const [data, setData]             = useState(null);
+  const [loading, setLoading]       = useState(true);
+
+  const isCustom = RANGES[rangeIdx].days === null;
 
   useEffect(() => {
+    const { dateFrom, dateTo } = isCustom
+      ? { dateFrom: customFrom, dateTo: customTo }
+      : getDateRange(RANGES[rangeIdx].days);
     setLoading(true);
-    const { dateFrom, dateTo } = getDateRange(RANGES[rangeIdx].days);
     api.get(`/reports/owner-summary?dateFrom=${dateFrom}&dateTo=${dateTo}`)
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [rangeIdx]);
+  }, [rangeIdx, isCustom, customFrom, customTo]);
 
   const sd         = data?.salesData || {};
   const daySummary = sd?.dayEnd?.summary || {};
@@ -54,6 +66,26 @@ export function ReportsScreen() {
   const avgBill     = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0;
   const totalTax    = daySummary.totalTax    ?? 0;
   const totalDisc   = daySummary.totalDiscount ?? 0;
+
+  const rangeLabel = isCustom ? `${customFrom}_to_${customTo}` : RANGES[rangeIdx].label.replace(/\s+/g, "");
+
+  const salesExportHeaders = ["Metric", "Value"];
+  const salesExportRows = [
+    ["Total Sales", totalSales], ["Orders", totalOrders], ["Avg Bill", avgBill],
+    ["GST", totalTax], ["Discounts", totalDisc], ["Net Sales", totalSales - totalDisc],
+    ...(sd?.dayEnd?.orderTypes || []).map(t => [`${t.type} (${t.orders} orders)`, t.amount]),
+  ];
+
+  const itemsExportHeaders = ["Item", "Category", "Qty Sold", "Revenue"];
+  const itemsExportRows = [...itemSales]
+    .sort((a, b) => (b.amount || 0) - (a.amount || 0))
+    .map(i => [i.name, i.category || "", i.qty || 0, i.amount || 0]);
+
+  const paymentsExportHeaders = ["Mode", "Amount"];
+  const paymentsExportRows = payModes.map(m => [m.mode, m.amount]);
+
+  const staffExportHeaders = ["Cashier", "Outlet", "Orders", "Sales", "Discounts"];
+  const staffExportRows = staffSales.map(s => [s.cashier, s.outlet, s.orders, s.sales, s.discounts || 0]);
 
   return (
     <div className="screen">
@@ -69,6 +101,16 @@ export function ReportsScreen() {
         ))}
       </div>
 
+      {isCustom && (
+        <div className="custom-range-row">
+          <input type="date" className="custom-date-input" value={customFrom}
+            max={customTo} onChange={e => setCustomFrom(e.target.value)} />
+          <span className="custom-range-sep">→</span>
+          <input type="date" className="custom-date-input" value={customTo}
+            min={customFrom} max={todayStr()} onChange={e => setCustomTo(e.target.value)} />
+        </div>
+      )}
+
       {/* Report type tabs */}
       <div className="report-tabs">
         {REPORT_TABS.map(t => (
@@ -83,6 +125,8 @@ export function ReportsScreen() {
           {/* ── SALES TAB ── */}
           {reportTab === "Sales" && (
             <div style={{ padding: "0 16px" }}>
+              <ExportBar filename={`SalesReport_${rangeLabel}`} title="Sales Report"
+                headers={salesExportHeaders} rows={salesExportRows} />
               <div className="report-summary-grid">
                 <div className="rscard green">
                   <p className="rsc-val">{fmt(totalSales)}</p>
@@ -129,6 +173,8 @@ export function ReportsScreen() {
           {/* ── ITEMS TAB ── */}
           {reportTab === "Items" && (
             <div style={{ padding: "0 16px" }}>
+              <ExportBar filename={`ItemSales_${rangeLabel}`} title="Item Sales Report"
+                headers={itemsExportHeaders} rows={itemsExportRows} />
               {itemSales.length === 0 ? (
                 <div className="empty-state"><p>No item sales for this period.</p></div>
               ) : (
@@ -154,6 +200,8 @@ export function ReportsScreen() {
           {/* ── PAYMENTS TAB ── */}
           {reportTab === "Payments" && (
             <div style={{ padding: "0 16px" }}>
+              <ExportBar filename={`PaymentReport_${rangeLabel}`} title="Payment Report"
+                headers={paymentsExportHeaders} rows={paymentsExportRows} />
               <div className="section-card">
                 <h3 className="section-title">Payment Modes</h3>
                 {payModes.length === 0 ? (
@@ -193,6 +241,8 @@ export function ReportsScreen() {
           {/* ── STAFF TAB ── */}
           {reportTab === "Staff" && (
             <div style={{ padding: "0 16px" }}>
+              <ExportBar filename={`StaffSales_${rangeLabel}`} title="Cashier Performance Report"
+                headers={staffExportHeaders} rows={staffExportRows} />
               {staffSales.length === 0 ? (
                 <div className="empty-state"><p>No staff sales data for this period.</p></div>
               ) : (
