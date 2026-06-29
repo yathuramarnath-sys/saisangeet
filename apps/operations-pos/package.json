@@ -70,7 +70,7 @@
     },
     "win": {
       "icon": "build/icon.ico",
-      "signAndEditExecutable": false,
+      "signAndEditExecutable": true,
       "forceCodeSigning": false,
       "artifactName": "Plato-POS-Setup.exe",
       "target": [
