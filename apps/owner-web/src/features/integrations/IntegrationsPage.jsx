@@ -469,9 +469,10 @@ function ZohoConfigCard() {
     setBackfillingExpenses(true); setMsg({ text: "", ok: true });
     try {
       const res = await api.post("/integrations/zoho/backfill-expenses");
+      if (res.failures?.length) console.warn("[zoho] expense backfill failures:", res.failures);
       setMsg({
         text: `✓ Expense backfill ${res.dateFrom} → ${res.dateTo}: ${res.pushed} pushed, ${res.skipped} already in Zoho` +
-          (res.failed ? `, ${res.failed} failed` : ""),
+          (res.failed ? `, ${res.failed} failed — first error: ${res.failures?.[0]?.error || "unknown"}` : ""),
         ok: res.failed === 0,
       });
       loadConfig();
