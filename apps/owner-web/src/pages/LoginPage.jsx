@@ -97,7 +97,7 @@ export function LoginPage() {
         {canShowGoogle && (
           <>
             <a
-              href={`${API_BASE.replace("/api/v1", "")}/auth/google`}
+              href={`${API_BASE}/auth/google`}
               className="lp2-google-btn"
             >
               <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
