@@ -49,10 +49,12 @@ const {
   fetchAccountIds,
   listChartOfAccounts,
   pushSaleReceipt,
+  pushExpense,
 } = require("./zoho.service");
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { queryClosedOrders } = require("../../db/closed-orders.repository");
 const { getSalesForRange } = require("../operations/closed-orders-store");
+const { getShifts } = require("../operations/shifts-store");
 
 const ACCOUNT_OVERRIDE_BUCKETS = ["cash", "card", "upi", "other", "cashOutExpense"];
 
@@ -428,6 +430,100 @@ zohoRouter.post(
       ok: true,
       dateFrom, dateTo,
       totalOrders: billable.length,
+      pushed, skipped,
+      failed: failures.length,
+      failures,
+    });
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRIVATE — Backfill cash-out movements (expenses) since a date into Zoho
+// POST /integrations/zoho/backfill-expenses
+// Body: { dateFrom?, dateTo? } — both "YYYY-MM-DD", optional.
+// Mirrors backfill-sales above. syncStartDate only stops new cash-outs from
+// being skipped going forward (see shifts.controller.js) — this walks
+// historical cash-out movements for the given range (defaults to
+// syncStartDate-or-month-start through today) and pushes any that aren't
+// already in Zoho. Safe to re-run: pushExpense looks up the expense by
+// reference_number before creating, so already-pushed movements are skipped.
+//
+// NOTE: movements are sourced from the in-memory/JSON-backed shifts store
+// (shifts-store.js), which only retains the 1000 most-recent cash
+// movements per tenant (across cash-in AND cash-out). Movements older than
+// that cap are no longer available and cannot be backfilled.
+// ─────────────────────────────────────────────────────────────────────────────
+zohoRouter.post(
+  "/backfill-expenses",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId || "default";
+    const data      = await runWithTenant(tenantId, () => getOwnerSetupData());
+    const cfg       = data?.zoho;
+
+    if (!cfg?.enabled || !cfg?.refreshToken || !cfg?.organizationId) {
+      return res.status(400).json({ error: "Zoho is not connected/enabled." });
+    }
+
+    let { dateFrom, dateTo } = req.body || {};
+    if (dateFrom && !/^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
+      return res.status(400).json({ error: "dateFrom must be YYYY-MM-DD." });
+    }
+    if (dateTo && !/^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+      return res.status(400).json({ error: "dateTo must be YYYY-MM-DD." });
+    }
+
+    const todayIST = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const monthStart = `${todayIST.slice(0, 7)}-01`;
+    dateFrom = dateFrom || cfg.syncStartDate || monthStart;
+    dateTo   = dateTo   || todayIST;
+
+    const { movements } = getShifts(tenantId);
+    const cashOuts = movements.filter(m => {
+      if (m.type !== "out") return false;
+      const d = (m.time || "").slice(0, 10);
+      return d >= dateFrom && d <= dateTo;
+    });
+
+    const { refreshed } = await getValidToken(cfg);
+    if (refreshed) {
+      await runWithTenant(tenantId, () =>
+        updateOwnerSetupData(d => ({ ...d, zoho: { ...d.zoho, accessToken: cfg.accessToken, expiresAt: cfg.expiresAt } }))
+      );
+    }
+
+    let pushed = 0, skipped = 0;
+    const failures = [];
+    for (const movement of cashOuts) {
+      try {
+        const result = await pushExpense(movement, cfg);
+        if (result.alreadyExists) skipped++;
+        else pushed++;
+      } catch (err) {
+        failures.push({ movementId: movement.id, error: err.message });
+      }
+      // Light pacing to stay under Zoho Books' API rate limit on larger backfills.
+      await new Promise(r => setTimeout(r, 250));
+    }
+
+    if (pushed > 0) {
+      await runWithTenant(tenantId, () =>
+        updateOwnerSetupData(d => ({
+          ...d,
+          zoho: {
+            ...d.zoho,
+            lastSyncAt:  new Date().toISOString(),
+            totalPushed: (d.zoho?.totalPushed || 0) + pushed,
+          },
+        }))
+      );
+    }
+
+    console.log(`[zoho] expense backfill complete | tenant=${tenantId} | range=${dateFrom}..${dateTo} | total=${cashOuts.length} | pushed=${pushed} | skipped=${skipped} | failed=${failures.length}`);
+    res.json({
+      ok: true,
+      dateFrom, dateTo,
+      totalMovements: cashOuts.length,
       pushed, skipped,
       failed: failures.length,
       failures,
