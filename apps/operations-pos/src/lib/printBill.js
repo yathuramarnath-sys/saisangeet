@@ -89,12 +89,16 @@ export async function printBill(order, items, outletOrName, options = {}) {
   }));
   const taxTotal = taxRows.reduce((s, r) => s + r.cgst + r.sgst, 0);
   // Inclusive: tax already inside prices — total = afterDisc; Exclusive: add tax on top
-  const total    = inclusive ? afterDisc : afterDisc + taxTotal;
+  const total        = inclusive ? afterDisc : afterDisc + taxTotal;
+  // Round off to nearest rupee (enabled by default; set outlet.roundOff = false to disable)
+  const showRoundOff = outlet?.roundOff !== false;
+  const roundOff     = showRoundOff ? Math.round(total) - total : 0;
+  const roundedTotal = total + roundOff;
 
   // ── UPI QR code ────────────────────────────────────────────────────────────
   let upiQrDataUrl = null;
   if (outlet?.upiId && outlet?.showQR !== false) {
-    const upiUri = `upi://pay?pa=${encodeURIComponent(outlet.upiId)}&pn=${encodeURIComponent(outletName)}&am=${total.toFixed(2)}&cu=INR&tn=Bill%20%23${order.billNo || order.orderNumber || ""}`;
+    const upiUri = `upi://pay?pa=${encodeURIComponent(outlet.upiId)}&pn=${encodeURIComponent(outletName)}&am=${roundedTotal.toFixed(2)}&cu=INR&tn=Bill%20%23${order.billNo || order.orderNumber || ""}`;
     try {
       upiQrDataUrl = await QRCode.toDataURL(upiUri, { width: 160, margin: 1, color: { dark: "#111111", light: "#ffffff" } });
     } catch (_) {}
@@ -284,10 +288,12 @@ export async function printBill(order, items, outletOrName, options = {}) {
         : taxRows.map(t => `
       <tr><td colspan="3" class="sum-lbl">GST (${t.rate}%)</td><td class="col-amt sum-val">&#8377;${(t.cgst + t.sgst).toFixed(2)}</td></tr>`).join("")
       }
+      ${showRoundOff && Math.abs(roundOff) >= 0.01 ? `
+      <tr><td colspan="3" class="sum-lbl">Round Off</td><td class="col-amt sum-val">${roundOff > 0 ? "+" : ""}&#8377;${roundOff.toFixed(2)}</td></tr>` : ""}
     </tbody>
   </table>
   <hr class="div-dash">
-  <div class="total-row"><span>TOTAL</span><span>&#8377;${total.toFixed(2)}</span></div>
+  <div class="total-row"><span>TOTAL</span><span>&#8377;${roundedTotal.toFixed(2)}</span></div>
 
   <!-- UPI QR -->
   ${upiQrDataUrl ? `
