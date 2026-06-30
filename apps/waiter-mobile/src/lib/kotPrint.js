@@ -42,7 +42,7 @@ export function getKotPrinterForStation(stationName) {
   if (stationName) {
     const match = printers.find(
       p => p.station && p.station.toLowerCase() === stationName.toLowerCase()
-        && (p.type === "KOT Printer" || p.type === "Both")
+        && (p.type === "KOT Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)")
     );
     if (match) return match;
   }
@@ -52,7 +52,7 @@ export function getKotPrinterForStation(stationName) {
 /** Find the best KOT printer — prefers isDefault, falls back to first KOT/Both printer */
 export function getKotPrinter() {
   const printers = loadPrinters();
-  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both");
+  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)");
   if (!kotPrinters.length) return printers.find(p => p.isDefault) || null;
   return kotPrinters.find(p => p.isDefault) || kotPrinters[0];
 }
@@ -65,7 +65,7 @@ export function getKotPrinter() {
  */
 export function getWaiterKotPrinter() {
   const printers = loadPrinters();
-  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both");
+  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)");
   // First choice: KOT printer with no station (pure default/waiter printer)
   const noStation = kotPrinters.filter(p => !p.station || p.station.trim() === "");
   if (noStation.length) return noStation.find(p => p.isDefault) || noStation[0];
