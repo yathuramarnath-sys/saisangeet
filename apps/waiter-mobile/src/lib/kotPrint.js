@@ -42,7 +42,7 @@ export function getKotPrinterForStation(stationName) {
   if (stationName) {
     const match = printers.find(
       p => p.station && p.station.toLowerCase() === stationName.toLowerCase()
-        && (p.type === "KOT Printer" || p.type === "Both")
+        && (p.type === "KOT Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)")
     );
     if (match) return match;
   }
@@ -52,7 +52,7 @@ export function getKotPrinterForStation(stationName) {
 /** Find the best KOT printer — prefers isDefault, falls back to first KOT/Both printer */
 export function getKotPrinter() {
   const printers = loadPrinters();
-  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both");
+  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)");
   if (!kotPrinters.length) return printers.find(p => p.isDefault) || null;
   return kotPrinters.find(p => p.isDefault) || kotPrinters[0];
 }
@@ -65,7 +65,7 @@ export function getKotPrinter() {
  */
 export function getWaiterKotPrinter() {
   const printers = loadPrinters();
-  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both");
+  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)");
   // First choice: KOT printer with no station (pure default/waiter printer)
   const noStation = kotPrinters.filter(p => !p.station || p.station.trim() === "");
   if (noStation.length) return noStation.find(p => p.isDefault) || noStation[0];
@@ -82,10 +82,10 @@ export function getBillPrinter() {
   // Prefer printer on "Bills & KOTs" station
   const billingStation = printers.find(
     p => p.station && /bill|kot/i.test(p.station)
-      && (p.type === "Bill Printer" || p.type === "Both")
+      && (p.type === "Bill Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)")
   );
   if (billingStation) return billingStation;
-  const billPrinters = printers.filter(p => p.type === "Bill Printer" || p.type === "Both");
+  const billPrinters = printers.filter(p => p.type === "Bill Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)");
   if (billPrinters.length) return billPrinters.find(p => p.isDefault) || billPrinters[0];
   // No dedicated bill printer — fall back to the waiter KOT printer (same physical printer)
   return getWaiterKotPrinter();
@@ -162,8 +162,9 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   if (!window.electronAPI?.printHTML) return;
 
   const resolvedPrinter = printer || getKotPrinter();
-  const paper   = resolvedPrinter?.paper || "80mm";
-  const width   = paper === "58mm" ? "200px" : "280px";
+  const paper    = resolvedPrinter?.paper || "80mm";
+  const paperMm  = parseInt(paper) || 80;
+  const width    = `${paperMm}mm`;
   const outletName = order.outletName || "Restaurant";
   const tableLabel = order.isCounter
     ? `${order.areaName || "Counter"} #${String(order.ticketNumber || "").padStart(3, "0")}`
@@ -172,9 +173,10 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   const now     = new Date();
   const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-  const kotNum      = kotSeq ? `KOT-${String(kotSeq).padStart(4, "0")}` : (order.kotNumber || `KOT-${order.orderNumber}`);
-  const printerName = resolvedPrinter?.name || "Kitchen";
-  const sentBy      = options.sentBy || order.cashierName || null;
+  const kotNum         = kotSeq ? `KOT-${String(kotSeq).padStart(4, "0")}` : (order.kotNumber || `KOT-${order.orderNumber}`);
+  const printerName    = resolvedPrinter?.name || "Kitchen";
+  const sentBy         = options.sentBy || order.cashierName || null;
+  const assignedWaiter = options.waiter || order.assignedWaiter || null;
 
   const itemsHTML = items.map(item => `
     <div class="kot-item">
@@ -336,7 +338,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
 
     @media print {
       @page {
-        size: ${paper} auto;
+        size: ${width} auto;
         margin: 0;
       }
       body { padding: 6px 8px 32px; }
@@ -381,6 +383,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       <span>${items.reduce((s, i) => s + i.quantity, 0)}</span>
     </div>
     ${sentBy ? `<div class="kot-footer-row"><span>Sent by:</span><span style="font-weight:900">${sentBy}</span></div>` : ""}
+    ${assignedWaiter ? `<div class="kot-footer-row"><span>Waiter:</span><span style="font-weight:900">${assignedWaiter}</span></div>` : ""}
     <div class="kot-printer-tag">→ ${printerName}</div>
   </div>
 </body>
