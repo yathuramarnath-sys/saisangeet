@@ -36,6 +36,30 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
   const [printers,   setPrinters]   = useState(loadPrinters);
   const [saved,      setSaved]      = useState(false);
   const [testStatus, setTestStatus] = useState({}); // { [index]: "testing"|"ok"|"fail" }
+  const [posIp,      setPosIp]      = useState(() => localStorage.getItem("captain_local_server_ip") || "");
+  const [posIpSaved, setPosIpSaved] = useState(false);
+  const [posTestSt,  setPosTestSt]  = useState(""); // "testing"|"ok"|"fail"
+
+  async function testPosConnection() {
+    const ip = posIp.trim();
+    if (!ip) { setPosTestSt("fail"); return; }
+    setPosTestSt("testing");
+    try {
+      const res = await fetch(`http://${ip}:4001`, { signal: AbortSignal.timeout(3000) });
+      setPosTestSt(res.ok ? "ok" : "fail");
+    } catch {
+      setPosTestSt("fail");
+    }
+    setTimeout(() => setPosTestSt(""), 3000);
+  }
+
+  function savePosIp() {
+    const ip = posIp.trim();
+    if (ip) localStorage.setItem("captain_local_server_ip", ip);
+    else    localStorage.removeItem("captain_local_server_ip");
+    setPosIpSaved(true);
+    setTimeout(() => setPosIpSaved(false), 2000);
+  }
 
   function update(idx, field, value) {
     setPrinters(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
@@ -202,6 +226,45 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
           </p>
         </div>
 
+        {/* ── POS Server IP ── */}
+        <div className="drawer-section">
+          <div className="drawer-section-title" style={{ marginBottom: 12 }}>POS Server IP</div>
+          <p style={{ fontSize: 12, color: "#888", marginBottom: 10, lineHeight: 1.5 }}>
+            Enter the Windows POS machine's local IP. All printing is handled by the POS.
+          </p>
+          <div className="drawer-printer-row">
+            <label className="drawer-printer-label">POS IP</label>
+            <input
+              className="drawer-printer-input"
+              type="text"
+              inputMode="decimal"
+              placeholder="192.168.1.100"
+              value={posIp}
+              onChange={e => setPosIp(e.target.value)}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button
+              className="drawer-printer-test-btn"
+              onClick={testPosConnection}
+              disabled={posTestSt === "testing"}
+              style={{ flex: 1 }}
+            >
+              {posTestSt === "testing" ? "Testing…"
+                : posTestSt === "ok"   ? "✅ Connected"
+                : posTestSt === "fail" ? "❌ Not reached"
+                : "Test"}
+            </button>
+            <button
+              className={`drawer-printer-save-btn${posIpSaved ? " saved" : ""}`}
+              onClick={savePosIp}
+              style={{ flex: 2, padding: "10px" }}
+            >
+              {posIpSaved ? "✅ Saved" : "Save POS IP"}
+            </button>
+          </div>
+        </div>
+
         {/* ── Device info ── */}
         <div className="drawer-section drawer-device-section">
           <div className="drawer-section-title">Device Info</div>
@@ -209,7 +272,7 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
             <DevRow label="App Version" value={`v${APP_VERSION}`} />
             <DevRow label="Outlet"      value={outletName || "—"} />
             <DevRow label="Server"      value={serverUrl  || "—"} mono />
-            <DevRow label="Local POS"   value={localPosIp ? `${localPosIp}:4001` : "Not connected"} mono />
+            <DevRow label="Local POS"   value={posIp ? `${posIp}:4001` : "Not set"} mono />
           </div>
         </div>
 
