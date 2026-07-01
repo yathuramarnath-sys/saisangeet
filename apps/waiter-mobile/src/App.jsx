@@ -846,13 +846,24 @@ export function App() {
 
     // ── Local WiFi path: emit kot:send to POS directly ────────────────────
     // POS relays to KDS via local socket. Works even when cloud is unreachable.
+    // Include stationGroups so POS's local handler can route to kitchen printers.
     localSocketRef.current?.emit("kot:send", {
-      outletId:    effectiveOutletId,
-      tableId:     order.tableId,
-      tableNumber: order.tableNumber,
-      areaName:    order.areaName,
-      items:       unsent,
-      actorName:   actorName,
+      outletId:     effectiveOutletId,
+      tableId:      order.tableId,
+      tableNumber:  order.tableNumber,
+      areaName:     order.areaName,
+      items:        unsent,
+      stationGroups: serverKots
+        .filter(k => {
+          const st = (k.station || "").trim();
+          return st && st.toLowerCase() !== "main kitchen" && st.toLowerCase() !== "unassigned";
+        })
+        .map(k => {
+          const kotItemIds = new Set((k.items || []).map(i => i.id));
+          const stItems = unsent.filter(i => kotItemIds.has(i.id));
+          return { station: k.station, items: stItems.length ? stItems : (k.items || []) };
+        }),
+      actorName:    actorName,
     });
 
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
