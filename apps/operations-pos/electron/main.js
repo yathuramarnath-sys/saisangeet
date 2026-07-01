@@ -1167,20 +1167,44 @@ ipcMain.handle("scan-printers", async () => {
   const { execSync } = require("child_process");
 
   if (process.platform === "win32") {
-    // Windows: use wmic to list installed printers
+    // Windows: use wmic to list installed printers with their port names so we
+    // can distinguish true USB printers from network printers installed via TCP/IP
+    // ports (those show up in the OS spooler but should be treated as Network).
     let wmicOk = false;
     try {
-      const out = execSync("wmic printer get name /format:list", { timeout: 3000 }).toString();
-      out.split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter((l) => l.startsWith("Name="))
-        .map((l) => l.slice(5).trim())
-        .filter(Boolean)
-        .forEach((name) => {
-          // Skip Microsoft virtual printers that ship with Windows
-          if (/Microsoft|OneNote|PDF|XPS|Fax/i.test(name)) return;
+      const out = execSync("wmic printer get name,PortName /format:list", { timeout: 3000 }).toString();
+      // wmic /format:list groups each printer as a block of "Key=Value" lines separated by blank lines
+      const blocks = out.split(/\r?\n\r?\n/);
+      for (const block of blocks) {
+        const nameMatch    = block.match(/^Name=(.+)$/m);
+        const portMatch    = block.match(/^PortName=(.+)$/m);
+        if (!nameMatch) continue;
+        const name = nameMatch[1].trim();
+        const port = portMatch ? portMatch[1].trim() : "";
+        if (!name) continue;
+        if (/Microsoft|OneNote|PDF|XPS|Fax/i.test(name)) continue;
+
+        // Detect TCP/IP-based ports: standard IP_ prefix, our PlatoTCP_ prefix,
+        // or a port name that is itself an IP address (e.g. "192.168.1.200").
+        const ipFromPort = (() => {
+          if (/^IP_/i.test(port)) return port.replace(/^IP_/i, "").replace(/_/g, ".").replace(/:\d+$/, "");
+          if (/^PlatoTCP_/i.test(port)) return port.replace(/^PlatoTCP_/i, "").replace(/_/g, ".");
+          const directIp = port.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+          if (directIp) return directIp[1];
+          return null;
+        })();
+
+        if (ipFromPort) {
+          // This is a Windows-managed network printer — mark as Network (IP)
+          // and skip if we already found the same IP via TCP probe.
+          const alreadyFound = found.some(f => f.ip === ipFromPort);
+          if (!alreadyFound) {
+            found.push({ name, ip: ipFromPort, conn: "Network (IP)", usb: false, source: "windows-tcp" });
+          }
+        } else {
           found.push({ name, ip: "", conn: "USB", usb: true, source: "windows" });
-        });
+        }
+      }
       wmicOk = true;
     } catch (err) {
       console.warn("[scan-printers] wmic failed:", err.message);
@@ -1190,16 +1214,35 @@ ipcMain.handle("scan-printers", async () => {
     if (!wmicOk) {
       try {
         const out = execSync(
-          'powershell -NoProfile -Command "Get-Printer | Select-Object -ExpandProperty Name"',
+          'powershell -NoProfile -Command "Get-Printer | Select-Object Name,PortName | ConvertTo-Json -Compress"',
           { timeout: 4000 }
-        ).toString();
-        out.split(/\r?\n/)
-          .map((l) => l.trim())
-          .filter(Boolean)
-          .forEach((name) => {
-            if (/Microsoft|OneNote|PDF|XPS|Fax/i.test(name)) return;
+        ).toString().trim();
+        let printers = [];
+        try { printers = JSON.parse(out); } catch { /* ignore */ }
+        if (!Array.isArray(printers)) printers = printers ? [printers] : [];
+        for (const p of printers) {
+          const name = (p.Name || "").trim();
+          const port = (p.PortName || "").trim();
+          if (!name) continue;
+          if (/Microsoft|OneNote|PDF|XPS|Fax/i.test(name)) continue;
+
+          const ipFromPort = (() => {
+            if (/^IP_/i.test(port)) return port.replace(/^IP_/i, "").replace(/_/g, ".").replace(/:\d+$/, "");
+            if (/^PlatoTCP_/i.test(port)) return port.replace(/^PlatoTCP_/i, "").replace(/_/g, ".");
+            const directIp = port.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+            if (directIp) return directIp[1];
+            return null;
+          })();
+
+          if (ipFromPort) {
+            const alreadyFound = found.some(f => f.ip === ipFromPort);
+            if (!alreadyFound) {
+              found.push({ name, ip: ipFromPort, conn: "Network (IP)", usb: false, source: "powershell-tcp" });
+            }
+          } else {
             found.push({ name, ip: "", conn: "USB", usb: true, source: "powershell" });
-          });
+          }
+        }
       } catch (psErr) {
         console.warn("[scan-printers] PowerShell fallback also failed:", psErr.message);
       }

@@ -187,7 +187,9 @@ function PrinterTab() {
 
   function pickWindowsPrinter(p) {
     // Fills winName with the exact Windows printer name required by webContents.print()
-    setForm(f => ({ ...f, winName: p.name, name: f.name || p.name, conn: "USB" }));
+    // Don't overwrite conn — network printers installed via TCP/IP show in the OS spooler
+    // but should keep their Network (IP) conn type, not be forced to USB.
+    setForm(f => ({ ...f, winName: p.name, name: f.name || p.name }));
     setWinPrinterList(null);
   }
 
