@@ -34,7 +34,7 @@ export function saveTabletPrinters(printers) {
 
 function getBillPrinter() {
   const printers = loadTabletPrinters();
-  const bill = printers.find(p => p.type === "Bill Printer" || p.type === "Both");
+  const bill = printers.find(p => p.type === "Bill Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)");
   return bill || printers[0] || null;
 }
 
@@ -43,11 +43,11 @@ function getKotPrinterForStation(stationName) {
   if (stationName) {
     const match = printers.find(
       p => p.station?.toLowerCase() === stationName.toLowerCase() &&
-           (p.type === "KOT Printer" || p.type === "Both")
+           (p.type === "KOT Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)")
     );
     if (match) return match;
   }
-  return printers.find(p => p.type === "KOT Printer" || p.type === "Both") || printers[0] || null;
+  return printers.find(p => p.type === "KOT Printer" || p.type === "Both" || p.type === "Both (KOT + Bill)") || printers[0] || null;
 }
 
 /**

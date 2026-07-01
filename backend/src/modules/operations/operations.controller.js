@@ -429,17 +429,24 @@ async function deviceSendKotHandler(req, res) {
   const io = req.app.locals.io;
   const kots = [];
 
-  for (const [station, stationItems] of Object.entries(stationGroups)) {
+  const stationEntries = Object.entries(stationGroups);
+  for (let stIdx = 0; stIdx < stationEntries.length; stIdx++) {
+    const [station, stationItems] = stationEntries[stIdx];
     const kot = {
-      id:          `kot-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
-      kotNumber:   kotNo,   // same number for all station splits from this send
+      id:            `kot-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+      kotNumber:     kotNo,   // same number for all station splits from this send
       kotTime,
       kotDate,
-      tableNumber: tableNumber || "—",
+      tableNumber:   tableNumber || "—",
       station,
-      areaName:    areaName || tableNumber || "—",
-      source:       req.body.source || "pos",
-      operatorName: req.body.actorName || "",   // cashier/captain name shown on KDS card
+      areaName:      areaName || tableNumber || "—",
+      source:        req.body.source || "pos",
+      operatorName:  req.body.actorName  || "",  // captain/cashier who tapped Send
+      waiterName:    req.body.waiterName || "",  // waiter assigned to serve the table
+      isFirstStation: stIdx === 0,               // only first station event prints waiter copy on POS
+      allItems:      items.map((i, idx) => ({    // full item list for waiter copy (all stations combined)
+        id: i.id || `item-${idx}`, name: i.name, quantity: i.quantity, note: i.note || "",
+      })),
       status:       "new",
       createdAt:   new Date().toISOString(),
       items:       stationItems.map((i, idx) => ({

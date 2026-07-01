@@ -702,25 +702,22 @@ export default function App() {
           const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
           const kotSt = (kot.station || "").trim();
           const waiterPrinter = getKotPrinter();
+          const printOpts = { sentBy: kot.operatorName || "", waiter: kot.waiterName || "" };
 
-          if (kotSt && kotSt.toLowerCase() !== "unassigned" && kotSt.toLowerCase() !== "main kitchen") {
-            // Station KOT → route items to the correct kitchen printer
-            const stPrinter = getKotPrinterForStation(kotSt);
+          // Waiter copy: ALL items, only on the FIRST station event.
+          // Backend emits one kot:new per station — isFirstStation prevents N partial waiter slips.
+          if (kot.isFirstStation !== false) {
+            const waiterItems = kot.allItems || kot.items || [];
+            if (waiterItems.length) printKOT(order, waiterItems, waiterPrinter, kot.kotNumber, printOpts);
+          }
+
+          // Station copy: this event's items on its dedicated kitchen printer.
+          if (kot.station && (kot.items || []).length) {
+            const stPrinter = getKotPrinterForStation(kot.station);
             if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
-              printKOT(order, kot.items || [], stPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
-              // Print waiter copy alongside each station slip so captain sees all items
-              printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
-              return;
+              printKOT(order, kot.items, stPrinter, kot.kotNumber, printOpts);
             }
           }
-          // Unassigned / same as waiter printer / main kitchen → waiter printer only
-          printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
-          (kot.stationGroups || []).forEach(sg => {
-            const stPrinter = getKotPrinterForStation(sg.station);
-            if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
-              printKOT(order, sg.items, stPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
-            }
-          });
         });
 
         // ── Auto-sync when Owner Web changes menu / stations ──────────────────
@@ -815,15 +812,16 @@ export default function App() {
           // Skip printing when Captain already delegated to /print-kot (prevents double prints)
           if (!kot.skipPrint) {
             const waiterPrinter = getKotPrinter();
-            printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.actorName });
+            const localPrintOpts = { sentBy: kot.actorName, waiter: kot.waiterName || "" };
+            printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, localPrintOpts);
             (kot.stationGroups || []).forEach(sg => {
               const stPrinter = getKotPrinterForStation(sg.station);
               if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
-                printKOT(order, sg.items, stPrinter, kot.kotNumber, { sentBy: kot.actorName });
+                printKOT(order, sg.items, stPrinter, kot.kotNumber, localPrintOpts);
               }
             });
           }
-          // Always mark items as sent on POS table
+          // Mark items as sent on POS table
           const kotItemIds = new Set((kot.items || []).map(i => i.id));
           setOrders(prev => {
             const o = prev[kot.tableId];
