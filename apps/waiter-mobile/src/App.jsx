@@ -817,6 +817,7 @@ export function App() {
         items:       unsent,
         orderId:     order.id,
         actorName:   actorName,
+        waiterName:  waiterToShow || "",
         source:      "captain",
       });
       if (result?.kots?.length)  serverKots = result.kots;
@@ -918,6 +919,7 @@ export function App() {
           return { station: k.station, items: stItems.length ? stItems : (k.items || []) };
         }),
       actorName:    actorName,
+      waiterName:   waiterToShow || "",
       skipPrint:    posDelegated,
     });
 
