@@ -1,3 +1,5 @@
+import { isNativeAndroid } from "./thermalPrint";
+
 /**
  * wifiPrint.js — Network printing for Android tablet
  *
@@ -10,7 +12,7 @@
  *   Option A — Direct mode: tablet POSTs to http://[printerIp]:9100 if printer supports HTTP
  *   Option B — Proxy mode:  tablet POSTs to http://[posLocalIp]:4001/print
  *                           (if Windows POS is on same network — it forwards to printer)
- *   Option C — Fallback:    Android system print dialog (PDF / network print)
+ *   Option C — Fallback:    system print dialog (web browser only — never on Android APK)
  *
  * In practice, most ESC/POS network printers respond to raw TCP on port 9100.
  * We send the ESC/POS bytes via a WebSocket-style raw connection.
@@ -94,7 +96,12 @@ async function wifiPrint(html, printerIp, paperWidthMm = 80) {
     console.warn("[wifiPrint] Proxy failed, falling back to system print:", err.message);
   }
 
-  // Fallback: Android system print dialog
+  // On native Android APK the popup path is never correct — proxy IS the only path.
+  if (isNativeAndroid()) {
+    return { ok: false, error: "Proxy print failed. Check POS IP in Settings." };
+  }
+
+  // Web browser fallback: open system print dialog
   const w = window.open("", "_blank", "width=420,height=700");
   if (!w) {
     window.dispatchEvent(new CustomEvent("dinex:print-error", {

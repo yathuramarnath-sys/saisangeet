@@ -5,6 +5,7 @@ import { UpdateBanner } from "./components/UpdateBanner";
 
 import { api }        from "./lib/api";
 import { printBill }  from "./lib/printBill";
+import { isNativeAndroid } from "./lib/thermalPrint";
 import { getDeviceLocalIp } from "./lib/deviceIp";
 import {
   ACTION as SYNC_ACTION,
@@ -1018,6 +1019,15 @@ export function App() {
     }
 
     if (!posBillDelegated) {
+      if (isNativeAndroid()) {
+        // On Android APK, printing is always delegated to POS — never open HTML fallback.
+        toast.error(
+          localPosIp
+            ? "Could not reach POS printer. Check POS IP in Settings."
+            : "Set POS Server IP in Settings to enable bill printing."
+        );
+        return;
+      }
       printBill(
         printOrder,
         printOrder.items,
