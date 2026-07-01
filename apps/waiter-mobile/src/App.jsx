@@ -355,13 +355,19 @@ export function App() {
           const ownSubnet = ownIp ? ownIp.split(".").slice(0, 3).join(".") : null;
           const subnets   = [...new Set([ownSubnet, "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
           for (const subnet of subnets) {
-            for (let i = 1; i <= 50; i++) {
-              const ip = `${subnet}.${i}`;
-              try {
-                const r = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(400) });
-                if (r.ok) return ip;
-              } catch (_) {}
-            }
+            // Scan all 254 hosts in parallel — first responder wins.
+            // Takes ~1.5 s max regardless of where the POS sits in the subnet.
+            const ips  = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
+            const found = await new Promise(resolve => {
+              let done = false, remaining = ips.length;
+              ips.forEach(ip => {
+                fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(1500) })
+                  .then(r => { if (r.ok && !done) { done = true; resolve(ip); } })
+                  .catch(() => {})
+                  .finally(() => { remaining--; if (remaining === 0 && !done) resolve(null); });
+              });
+            });
+            if (found) return found;
           }
           return null;
         }
