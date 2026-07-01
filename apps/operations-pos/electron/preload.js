@@ -90,4 +90,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Push current order state to main process local store (keeps tablets in sync)
   pushOrdersToLocal: (orders) => ipcRenderer.send("local:push-orders", orders),
+
+  // Captain → POS print delegation: POS calls this when Captain sends /print-kot.
+  // Returns a cleanup function — call from useEffect cleanup to prevent listener leaks.
+  onPrintKot: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on("do:print-kot", handler);
+    return () => ipcRenderer.removeListener("do:print-kot", handler);
+  },
 });

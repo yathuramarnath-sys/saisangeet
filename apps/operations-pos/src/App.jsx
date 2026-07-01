@@ -1211,6 +1211,29 @@ export default function App() {
     return () => window.removeEventListener("dinex:print-error", onPrintError);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Captain → POS print delegation ───────────────────────────────────────
+  // Captain sends { order, kots, allItems, kotSeq, sentBy, waiter } via HTTP
+  // POST /print-kot on the local server. Main process relays via IPC. POS uses
+  // its own pos_printers config to print waiter copy + per-station copies.
+  useEffect(() => {
+    if (!window.electronAPI?.onPrintKot) return;
+    const cleanup = window.electronAPI.onPrintKot(({ order, kots, allItems, kotSeq, sentBy, waiter }) => {
+      const waiterPrinter = getKotPrinter();
+      if (allItems?.length) {
+        printKOT(order, allItems, waiterPrinter, kotSeq, { sentBy, waiter });
+      }
+      (kots || []).forEach(kot => {
+        const st = (kot.station || "").trim();
+        if (!st || st.toLowerCase() === "main kitchen") return;
+        const stPrinter = getKotPrinterForStation(st);
+        if (stPrinter && stPrinter.name !== waiterPrinter?.name && (kot.items || []).length) {
+          printKOT(order, kot.items, stPrinter, kotSeq, { sentBy, waiter });
+        }
+      });
+    });
+    return cleanup;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Barcode scanner listener ──────────────────────────────────────────────
   // USB/Bluetooth scanners act like a keyboard — they type the barcode very fast
   // (< 50 ms between characters) then press Enter. We buffer rapid keystrokes and
