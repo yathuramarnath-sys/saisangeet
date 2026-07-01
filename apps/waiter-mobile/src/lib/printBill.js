@@ -68,6 +68,10 @@ export function printBill(order, items, outletData, options = {}) {
   // Inclusive: tax is already inside the price — total = afterDisc (no extra)
   // Exclusive: tax is added on top — total = afterDisc + tax
   const total    = inclusive ? afterDisc : afterDisc + taxTotal;
+  // Round off to nearest rupee (matches POS behavior; disabled if outlet.roundOff === false)
+  const showRoundOff = outletObj?.roundOff !== false;
+  const roundOff     = showRoundOff ? Math.round(total) - total : 0;
+  const roundedTotal = total + roundOff;
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -104,6 +108,8 @@ export function printBill(order, items, outletData, options = {}) {
         summaryRows.push({ label: `CGST (${t.cgstPct}%)`, value: `${t.cgst.toFixed(2)}` });
         summaryRows.push({ label: `SGST (${t.cgstPct}%)`, value: `${t.sgst.toFixed(2)}` });
       });
+      if (Math.abs(roundOff) >= 0.01)
+        summaryRows.push({ label: "Round Off", value: `${roundOff > 0 ? "+" : ""}${roundOff.toFixed(2)}` });
 
       const escPosData = buildBillEscPos({
         outlet:        outletName,
@@ -129,7 +135,7 @@ export function printBill(order, items, outletData, options = {}) {
           amt:  (i.price * i.quantity).toFixed(2),
         })),
         summary: summaryRows,
-        total:   total.toFixed(2),
+        total:   roundedTotal.toFixed(2),
         footer:  outletObj.invoiceFooter || "Thank you for dining with us!",
       });
 
@@ -265,10 +271,11 @@ export function printBill(order, items, outletData, options = {}) {
       ${taxRows.map(t => `
       <tr><td colspan="3" class="sum-lbl">CGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.cgst.toFixed(2)}</td></tr>
       <tr><td colspan="3" class="sum-lbl">SGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.sgst.toFixed(2)}</td></tr>`).join("")}
+      ${Math.abs(roundOff) >= 0.01 ? `<tr><td colspan="3" class="sum-lbl">Round Off</td><td class="col-amt sum-val">${roundOff > 0 ? "+" : ""}&#8377;${roundOff.toFixed(2)}</td></tr>` : ""}
     </tbody>
   </table>
   <hr class="div-dash">
-  <div class="total-row"><span>TOTAL</span><span>&#8377;${total.toFixed(2)}</span></div>
+  <div class="total-row"><span>TOTAL</span><span>&#8377;${roundedTotal.toFixed(2)}</span></div>
   <div class="footer">
     <p>Please pay at the counter</p>
     <p>${outletObj.invoiceFooter || "Thank you for dining with us!"}</p>
