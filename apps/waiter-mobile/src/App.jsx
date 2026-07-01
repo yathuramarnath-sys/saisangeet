@@ -1018,9 +1018,23 @@ export function App() {
       }
     }
 
+    // Socket delegation — works when Captain is connected to POS via local WiFi
+    // but /print-bill HTTP endpoint is not reachable (old POS exe or no POS IP saved).
+    // POS handles printing with its own printer config — Captain needs zero printer setup.
+    if (!posBillDelegated && localSocketRef.current?.connected) {
+      localSocketRef.current.emit("bill:print", {
+        order:       printOrder,
+        items:       printOrder.items,
+        outletData:  outlet || { name: branchConfig?.outletName || "Restaurant" },
+        cashierName: printOrder.cashierName    || null,
+        captainName: printOrder.captainName    || null,
+        waiterName:  printOrder.assignedWaiter || null,
+      });
+      posBillDelegated = true;
+    }
+
     if (!posBillDelegated) {
-      // /print-bill not available (old POS exe) — fall back to printBill() which on Android
-      // with POS proxy configured sends HTML to /print (supported on all POS exe versions).
+      // Last resort: local printBill() — needs captain_printers[0].ip set in Settings
       printBill(
         printOrder,
         printOrder.items,
