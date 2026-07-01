@@ -45,7 +45,7 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
     if (!ip) { setPosTestSt("fail"); return; }
     setPosTestSt("testing");
     try {
-      const res = await fetch(`http://${ip}:4001`, { signal: AbortSignal.timeout(3000) });
+      const res = await fetch(`http://${ip}:4001/health`, { signal: AbortSignal.timeout(3000) });
       setPosTestSt(res.ok ? "ok" : "fail");
     } catch {
       setPosTestSt("fail");
