@@ -759,9 +759,8 @@ export function App() {
     if (!unsent.length) return;
     // Pre-select the order's current waiter if they're still in the waiter list,
     // otherwise start with no selection (captain is NOT a default waiter)
-    const currentWaiter  = order.assignedWaiter || null;
-    const pickerStaff    = waiterStaff.length ? waiterStaff : branchStaff;
-    const stillValid     = pickerStaff.some((s) => s.name === currentWaiter);
+    const currentWaiter = order.assignedWaiter || null;
+    const stillValid = waiterStaff.some((s) => s.name === currentWaiter);
     setPickedWaiter(stillValid ? currentWaiter : null);
     setKotPendingTableId(tid);
     setShowWaiterPick(true);
@@ -1541,7 +1540,7 @@ export function App() {
                   onChange={() => setPickedWaiter(null)}
                 />
               </label>
-              {(waiterStaff.length ? waiterStaff : branchStaff).map((s) => (
+              {waiterStaff.map((s) => (
                 <label key={s.id} className="assign-staff-row" onClick={() => setPickedWaiter(s.name)}>
                   <span className="assign-staff-name">
                     {s.name}
