@@ -48,7 +48,7 @@ export function SetupScreen({ onComplete }) {
     setScanning(true);
     // Try common POS machine IPs on the local subnet — probe port 4001
     const subnet = "192.168.1";
-    const candidates = Array.from({ length: 20 }, (_, i) => `${subnet}.${i + 1}`);
+    const candidates = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
     for (const ip of candidates) {
       try {
         const res = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(600) });

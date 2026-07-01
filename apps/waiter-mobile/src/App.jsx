@@ -1182,7 +1182,7 @@ export function App() {
       const ownSubnet = ownIp ? ownIp.split(".").slice(0, 3).join(".") : null;
       const subnets   = [...new Set([ownSubnet, "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
       for (const subnet of subnets) {
-        for (let i = 1; i <= 50; i++) {
+        for (let i = 1; i <= 254; i++) {
           const ip = `${subnet}.${i}`;
           try {
             const r = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(400) });
