@@ -812,17 +812,18 @@ export default function App() {
         localSock.on("kot:new", (kot) => {
           if (!kot.localMode) return; // cloud KOTs handled by the cloud socket path
           const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
-          // Print on default KOT printer
-          const waiterPrinter = getKotPrinter();
-          printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.actorName });
-          // Per-station printers
-          (kot.stationGroups || []).forEach(sg => {
-            const stPrinter = getKotPrinterForStation(sg.station);
-            if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
-              printKOT(order, sg.items, stPrinter, kot.kotNumber, { sentBy: kot.actorName });
-            }
-          });
-          // Mark items as sent on POS table
+          // Skip printing when Captain already delegated to /print-kot (prevents double prints)
+          if (!kot.skipPrint) {
+            const waiterPrinter = getKotPrinter();
+            printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.actorName });
+            (kot.stationGroups || []).forEach(sg => {
+              const stPrinter = getKotPrinterForStation(sg.station);
+              if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
+                printKOT(order, sg.items, stPrinter, kot.kotNumber, { sentBy: kot.actorName });
+              }
+            });
+          }
+          // Always mark items as sent on POS table
           const kotItemIds = new Set((kot.items || []).map(i => i.id));
           setOrders(prev => {
             const o = prev[kot.tableId];

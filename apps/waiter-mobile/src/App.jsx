@@ -844,29 +844,8 @@ export function App() {
       toast.error("KOT queued — retry from menu when back online");
     }
 
-    // ── Local WiFi path: emit kot:send to POS directly ────────────────────
-    // POS relays to KDS via local socket. Works even when cloud is unreachable.
-    // Include stationGroups so POS's local handler can route to kitchen printers.
-    localSocketRef.current?.emit("kot:send", {
-      outletId:     effectiveOutletId,
-      tableId:      order.tableId,
-      tableNumber:  order.tableNumber,
-      areaName:     order.areaName,
-      items:        unsent,
-      stationGroups: serverKots
-        .filter(k => {
-          const st = (k.station || "").trim();
-          return st && st.toLowerCase() !== "main kitchen" && st.toLowerCase() !== "unassigned";
-        })
-        .map(k => {
-          const kotItemIds = new Set((k.items || []).map(i => i.id));
-          const stItems = unsent.filter(i => kotItemIds.has(i.id));
-          return { station: k.station, items: stItems.length ? stItems : (k.items || []) };
-        }),
-      actorName:    actorName,
-    });
-
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
+    let posDelegated = false;
 
     // ── Print KOT slips ────────────────────────────────────────────────────
     // POS-as-Server mode: when Captain knows the local POS IP, delegate ALL
@@ -878,7 +857,6 @@ export function App() {
         await import("./lib/kotPrint.js");
       if (kotAutoSendEnabled()) {
         const localPosIp = localStorage.getItem("captain_local_server_ip");
-        let posDelegated = false;
 
         if (localPosIp) {
           try {
@@ -918,6 +896,30 @@ export function App() {
         }
       }
     } catch (_) { /* printer not configured — KDS still receives it */ }
+
+    // ── Local WiFi path: emit kot:send to POS/KDS ─────────────────────────
+    // POS relays to KDS via local socket. Works even when cloud is unreachable.
+    // skipPrint tells POS local handler not to double-print when /print-kot
+    // already handled printing.
+    localSocketRef.current?.emit("kot:send", {
+      outletId:     effectiveOutletId,
+      tableId:      order.tableId,
+      tableNumber:  order.tableNumber,
+      areaName:     order.areaName,
+      items:        unsent,
+      stationGroups: serverKots
+        .filter(k => {
+          const st = (k.station || "").trim();
+          return st && st.toLowerCase() !== "main kitchen" && st.toLowerCase() !== "unassigned";
+        })
+        .map(k => {
+          const kotItemIds = new Set((k.items || []).map(i => i.id));
+          const stItems = unsent.filter(i => kotItemIds.has(i.id));
+          return { station: k.station, items: stItems.length ? stItems : (k.items || []) };
+        }),
+      actorName:    actorName,
+      skipPrint:    posDelegated,
+    });
 
     // Show the server-assigned KOT number — same number on all station slips
     toast.success(
