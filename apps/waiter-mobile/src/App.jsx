@@ -1019,15 +1019,8 @@ export function App() {
     }
 
     if (!posBillDelegated) {
-      if (isNativeAndroid()) {
-        // On Android APK, printing is always delegated to POS — never open HTML fallback.
-        toast.error(
-          localPosIp
-            ? "Could not reach POS printer. Check POS IP in Settings."
-            : "Set POS Server IP in Settings to enable bill printing."
-        );
-        return;
-      }
+      // /print-bill not available (old POS exe) — fall back to printBill() which on Android
+      // with POS proxy configured sends HTML to /print (supported on all POS exe versions).
       printBill(
         printOrder,
         printOrder.items,
