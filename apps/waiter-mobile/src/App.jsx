@@ -355,13 +355,19 @@ export function App() {
           const ownSubnet = ownIp ? ownIp.split(".").slice(0, 3).join(".") : null;
           const subnets   = [...new Set([ownSubnet, "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
           for (const subnet of subnets) {
-            for (let i = 1; i <= 50; i++) {
-              const ip = `${subnet}.${i}`;
-              try {
-                const r = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(400) });
-                if (r.ok) return ip;
-              } catch (_) {}
-            }
+            // Scan all 254 hosts in parallel — first responder wins.
+            // Takes ~1.5 s max regardless of where the POS sits in the subnet.
+            const ips  = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
+            const found = await new Promise(resolve => {
+              let done = false, remaining = ips.length;
+              ips.forEach(ip => {
+                fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(1500) })
+                  .then(r => { if (r.ok && !done) { done = true; resolve(ip); } })
+                  .catch(() => {})
+                  .finally(() => { remaining--; if (remaining === 0 && !done) resolve(null); });
+              });
+            });
+            if (found) return found;
           }
           return null;
         }
@@ -1018,9 +1024,23 @@ export function App() {
       }
     }
 
+    // Socket delegation — works when Captain is connected to POS via local WiFi
+    // but /print-bill HTTP endpoint is not reachable (old POS exe or no POS IP saved).
+    // POS handles printing with its own printer config — Captain needs zero printer setup.
+    if (!posBillDelegated && localSocketRef.current?.connected) {
+      localSocketRef.current.emit("bill:print", {
+        order:       printOrder,
+        items:       printOrder.items,
+        outletData:  outlet || { name: branchConfig?.outletName || "Restaurant" },
+        cashierName: printOrder.cashierName    || null,
+        captainName: printOrder.captainName    || null,
+        waiterName:  printOrder.assignedWaiter || null,
+      });
+      posBillDelegated = true;
+    }
+
     if (!posBillDelegated) {
-      // /print-bill not available (old POS exe) — fall back to printBill() which on Android
-      // with POS proxy configured sends HTML to /print (supported on all POS exe versions).
+      // Last resort: local printBill() — needs captain_printers[0].ip set in Settings
       printBill(
         printOrder,
         printOrder.items,

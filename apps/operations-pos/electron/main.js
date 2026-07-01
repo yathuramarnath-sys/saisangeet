@@ -347,6 +347,12 @@ function startLocalServer() {
         );
       });
 
+      // ── Bill print from Captain via socket → POS prints with own printer config ─
+      // Captain needs zero printer config — POS uses pos_printers (same as KOT path).
+      socket.on("bill:print", (billData) => {
+        mainWindow?.webContents.send("do:print-bill", billData);
+      });
+
       socket.on("disconnect", () => {
         console.log("[local] device disconnected:", socket.id);
       });
