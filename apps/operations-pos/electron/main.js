@@ -249,6 +249,39 @@ function startLocalServer() {
         return;
       }
 
+      // POST /print-bill — Captain delegates bill printing to POS.
+      // POS uses its own pos_printers config. Captain needs no printer config.
+      // Body: { order, items, outletData, cashierName, captainName, waiterName }
+      if (req.method === "POST" && req.url === "/print-bill") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        let body = "";
+        req.on("data", chunk => { body += chunk; });
+        req.on("end", () => {
+          try {
+            const data = JSON.parse(body);
+            mainWindow?.webContents.send("do:print-bill", data);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+          }
+        });
+        return;
+      }
+
+      // CORS preflight for /print-bill
+      if (req.method === "OPTIONS" && req.url === "/print-bill") {
+        res.writeHead(204, {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        });
+        res.end();
+        return;
+      }
+
       res.writeHead(404); res.end();
     });
 

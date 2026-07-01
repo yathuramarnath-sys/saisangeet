@@ -98,4 +98,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("do:print-kot", handler);
     return () => ipcRenderer.removeListener("do:print-kot", handler);
   },
+
+  // Captain → POS bill print delegation: POS calls this when Captain sends /print-bill.
+  onPrintBill: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on("do:print-bill", handler);
+    return () => ipcRenderer.removeListener("do:print-bill", handler);
+  },
 });

@@ -1246,6 +1246,19 @@ export default function App() {
     return cleanup;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Bill print delegated from Captain via POST /print-bill ────────────────
+  useEffect(() => {
+    if (!window.electronAPI?.onPrintBill) return;
+    const cleanup = window.electronAPI.onPrintBill(({ order, items, outletData, cashierName, captainName, waiterName }) => {
+      printBill(order, items, outletData || outlet || branchConfig?.outletName, {
+        cashierName: cashierName || null,
+        captainName: captainName || null,
+        waiterName:  waiterName  || null,
+      });
+    });
+    return cleanup;
+  }, [outlet, branchConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Barcode scanner listener ──────────────────────────────────────────────
   // USB/Bluetooth scanners act like a keyboard — they type the barcode very fast
   // (< 50 ms between characters) then press Enter. We buffer rapid keystrokes and

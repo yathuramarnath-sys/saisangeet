@@ -992,16 +992,43 @@ export function App() {
       console.warn("[captain] assign-bill-no failed:", err.message);
     }
 
-    printBill(
-      printOrder,
-      printOrder.items,
-      outlet || { name: branchConfig?.outletName || "Restaurant" },
-      {
-        cashierName: printOrder.cashierName    || null,   // POS shift cashier, not the captain
-        captainName: printOrder.captainName    || null,
-        waiterName:  printOrder.assignedWaiter || null,
+    // Delegate bill printing to POS (POS has the printer config).
+    // Falls back to local printBill() if POS is unreachable.
+    const localPosIp = localStorage.getItem("captain_local_server_ip")?.trim();
+    let posBillDelegated = false;
+    if (localPosIp) {
+      try {
+        const res = await fetch(`http://${localPosIp}:4001/print-bill`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order:       printOrder,
+            items:       printOrder.items,
+            outletData:  outlet || { name: branchConfig?.outletName || "Restaurant" },
+            cashierName: printOrder.cashierName    || null,
+            captainName: printOrder.captainName    || null,
+            waiterName:  printOrder.assignedWaiter || null,
+          }),
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) posBillDelegated = true;
+      } catch (err) {
+        console.warn("[captain] POS /print-bill failed, falling back to local print:", err.message);
       }
-    );
+    }
+
+    if (!posBillDelegated) {
+      printBill(
+        printOrder,
+        printOrder.items,
+        outlet || { name: branchConfig?.outletName || "Restaurant" },
+        {
+          cashierName: printOrder.cashierName    || null,
+          captainName: printOrder.captainName    || null,
+          waiterName:  printOrder.assignedWaiter || null,
+        }
+      );
+    }
 
     // Log every bill print from Captain App for Owner Console audit trail
     api.post("/operations/reprint-log", {
