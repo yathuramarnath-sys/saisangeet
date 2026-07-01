@@ -215,6 +215,40 @@ function startLocalServer() {
         return;
       }
 
+      // POST /print-kot — Captain delegates all KOT printing to POS.
+      // POS uses its own pos_printers config to split by station and print.
+      // Body: { order, kots: [{station, items}], allItems, kotSeq, sentBy, waiter }
+      // Returns immediately with { ok: true } — printing is fire-and-forget via IPC.
+      if (req.method === "POST" && req.url === "/print-kot") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        let body = "";
+        req.on("data", chunk => { body += chunk; });
+        req.on("end", () => {
+          try {
+            const data = JSON.parse(body);
+            mainWindow?.webContents.send("do:print-kot", data);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+          }
+        });
+        return;
+      }
+
+      // CORS preflight for /print-kot
+      if (req.method === "OPTIONS" && req.url === "/print-kot") {
+        res.writeHead(204, {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        });
+        res.end();
+        return;
+      }
+
       res.writeHead(404); res.end();
     });
 

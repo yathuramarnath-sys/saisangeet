@@ -858,37 +858,53 @@ export function App() {
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
 
     // ── Print KOT slips ────────────────────────────────────────────────────
-    // Printer logic:
-    //   • Waiter KOT printer  → prints ALL items (1 full slip, always)
-    //   • Kitchen station printer → prints only that station's items
-    //                               (only if a DEDICATED printer is configured for that station)
+    // POS-as-Server mode: when Captain knows the local POS IP, delegate ALL
+    // KOT printing to POS. POS uses its own pos_printers config (single source
+    // of truth) to print waiter copy + per-station copies. Falls back to local
+    // printing if POS is unreachable.
     try {
       const { printKOT, getWaiterKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } =
         await import("./lib/kotPrint.js");
       if (kotAutoSendEnabled()) {
-        // Waiter printer = printer with NO station assignment (full copy for waiter)
-        // Distinct from station printers so full copy always prints separately
-        const waiterPrinter = getWaiterKotPrinter();
-        const kotNumber     = serverKotNumber;
+        const localPosIp = localStorage.getItem("captain_local_server_ip");
+        let posDelegated = false;
 
-        // 1. Waiter slip — ALL items on the waiter/default KOT printer (no station)
-        // waiterToShow = assigned waiter from picker; sentBy = captain who tapped Send
-        printKOT(order, unsent, waiterPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
-
-        // 2. Kitchen station slips — one per station, only if a dedicated printer is configured
-        serverKots.forEach(kot => {
-          const st = (kot.station || "").trim();
-          if (!st || st.toLowerCase() === "main kitchen") return;
-          const stPrinter = getKotPrinterForStation(st);
-          // Only print if the station printer is DIFFERENT from the waiter printer
-          // (avoids printing the same physical printer twice)
-          if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
-            // Use original unsent items (have price/note) matched by id; fall back to kot.items
-            const kotItemIds = new Set((kot.items || []).map(i => i.id));
-            const stItems    = unsent.filter(i => kotItemIds.has(i.id));
-            printKOT(order, stItems.length ? stItems : kot.items, stPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
+        if (localPosIp) {
+          try {
+            const res = await fetch(`http://${localPosIp}:4001/print-kot`, {
+              method:  "POST",
+              headers: { "Content-Type": "application/json" },
+              body:    JSON.stringify({
+                order,
+                kots:     serverKots,
+                allItems: unsent,
+                kotSeq:   serverKotNumber,
+                sentBy:   actorName,
+                waiter:   waiterToShow,
+              }),
+            });
+            if (res.ok) posDelegated = true;
+          } catch (err) {
+            console.warn("[captain] POS /print-kot failed, falling back to local print:", err.message);
           }
-        });
+        }
+
+        if (!posDelegated) {
+          // Fallback: print locally (Electron desktop or Android direct TCP)
+          const waiterPrinter = getWaiterKotPrinter();
+          const kotNumber     = serverKotNumber;
+          printKOT(order, unsent, waiterPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
+          serverKots.forEach(kot => {
+            const st = (kot.station || "").trim();
+            if (!st || st.toLowerCase() === "main kitchen") return;
+            const stPrinter = getKotPrinterForStation(st);
+            if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
+              const kotItemIds = new Set((kot.items || []).map(i => i.id));
+              const stItems    = unsent.filter(i => kotItemIds.has(i.id));
+              printKOT(order, stItems.length ? stItems : kot.items, stPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
+            }
+          });
+        }
       }
     } catch (_) { /* printer not configured — KDS still receives it */ }
 
