@@ -1,61 +1,72 @@
 import { useState } from "react";
 
-function loadPrinterIp() { return localStorage.getItem("captain_printer_ip") || ""; }
-function loadPaperSize() { return localStorage.getItem("captain_paper_size") || "80mm"; }
+const PAPER_OPTIONS = ["80mm", "76mm", "58mm"];
 
-function savePrinterConfig(ip, paper) {
-  const ip2 = ip.trim();
-  localStorage.setItem("captain_printer_ip", ip2);
-  localStorage.setItem("captain_paper_size", paper);
-  // Write into captain_printers so kotPrint / printBill can read it
-  const printer = [{
-    name: "Thermal Printer",
-    type: "Both",
-    ip: ip2,
-    paper,
-    isDefault: true,
-    station: "",       // no station = waiter full copy + bill printer
-  }];
-  localStorage.setItem("captain_printers", JSON.stringify(printer));
+function loadPrinters() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("captain_printers") || "[]");
+    if (saved.length) return saved;
+    // Migrate legacy single-IP config to new multi-printer format
+    const ip    = localStorage.getItem("captain_printer_ip") || "";
+    const paper = localStorage.getItem("captain_paper_size") || "80mm";
+    return [{ name: "Thermal Printer", type: "Both (KOT + Bill)", ip, paper, isDefault: true, station: "" }];
+  } catch {
+    return [{ name: "Thermal Printer", type: "Both (KOT + Bill)", ip: "", paper: "80mm", isDefault: true, station: "" }];
+  }
 }
 
-const APP_VERSION = "1.26";
+function persistPrinters(printers) {
+  // type auto-assigned: station="" → waiter/bill printer, station set → KOT-only
+  const updated = printers.map((p, i) => ({
+    ...p,
+    type:      p.station.trim() ? "KOT Printer" : "Both (KOT + Bill)",
+    isDefault: i === 0,
+  }));
+  localStorage.setItem("captain_printers", JSON.stringify(updated));
+  // Keep legacy keys pointing to first printer for any old code paths
+  if (updated.length > 0) {
+    localStorage.setItem("captain_printer_ip",  updated[0].ip);
+    localStorage.setItem("captain_paper_size", updated[0].paper);
+  }
+}
 
-/**
- * SettingsScreen — local device printer config + diagnostics.
- * Only relevant to outlets where the Captain device prints bills/KOTs
- * directly via its own attached/networked thermal printer.
- *
- * Props:
- *   outletName   string
- *   serverUrl    string
- *   localPosIp   string | null
- *   onClose      ()
- */
+const APP_VERSION = "1.27";
+
 export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
-  const [printerIp,  setPrinterIp]  = useState(loadPrinterIp);
-  const [paperSize,  setPaperSize]  = useState(loadPaperSize);
-  const [testStatus, setTestStatus] = useState(null); // null | "testing" | "ok" | "fail"
-  const [ipSaved,    setIpSaved]    = useState(false);
+  const [printers,   setPrinters]   = useState(loadPrinters);
+  const [saved,      setSaved]      = useState(false);
+  const [testStatus, setTestStatus] = useState({}); // { [index]: "testing"|"ok"|"fail" }
 
-  async function handleTestPrinter() {
-    const ip = printerIp.trim();
-    if (!ip) { setTestStatus("fail"); return; }
-    setTestStatus("testing");
+  function update(idx, field, value) {
+    setPrinters(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
+  }
+
+  function addPrinter() {
+    setPrinters(prev => [...prev, { name: "", type: "KOT Printer", ip: "", paper: "80mm", isDefault: false, station: "" }]);
+  }
+
+  function removePrinter(idx) {
+    setPrinters(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  async function testPrinter(idx) {
+    const ip = printers[idx].ip.trim();
+    if (!ip) { setTestStatus(s => ({ ...s, [idx]: "fail" })); return; }
+    setTestStatus(s => ({ ...s, [idx]: "testing" }));
     try {
       const { pingPrinter } = await import("../lib/thermalPrint.js");
       const result = await pingPrinter(ip);
-      setTestStatus(result.ok ? "ok" : "fail");
+      setTestStatus(s => ({ ...s, [idx]: result.ok ? "ok" : "fail" }));
     } catch {
-      setTestStatus("fail");
+      setTestStatus(s => ({ ...s, [idx]: "fail" }));
     }
-    setTimeout(() => setTestStatus(null), 3000);
+    setTimeout(() => setTestStatus(s => { const n = { ...s }; delete n[idx]; return n; }), 3000);
   }
 
-  function handleSavePrinter() {
-    savePrinterConfig(printerIp, paperSize);
-    setIpSaved(true);
-    setTimeout(() => setIpSaved(false), 2000);
+  function handleSave() {
+    persistPrinters(printers);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
   return (
@@ -65,55 +76,133 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
         <span className="settings-title">Settings</span>
       </div>
 
-      <div className="settings-body">
+      <div className="settings-body" style={{ padding: "12px 16px 32px" }}>
+
+        {/* ── Printer list ── */}
         <div className="drawer-section">
-          <div className="drawer-section-title">🖨️ Printer Settings</div>
+          <div className="drawer-section-title" style={{ marginBottom: 12 }}>Printer Settings</div>
 
-          <div className="drawer-printer-row">
-            <label className="drawer-printer-label">Printer IP</label>
-            <input
-              className="drawer-printer-input"
-              type="text"
-              inputMode="decimal"
-              placeholder="e.g. 192.168.1.200"
-              value={printerIp}
-              onChange={e => setPrinterIp(e.target.value)}
-            />
-          </div>
+          {printers.map((printer, idx) => (
+            <div
+              key={idx}
+              style={{
+                border: "1px solid #e5e7eb", borderRadius: 10,
+                padding: "12px 12px 8px", marginBottom: 12,
+                background: idx === 0 ? "#fffbeb" : "#fafafa",
+              }}
+            >
+              {/* Card header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: idx === 0 ? "#b45309" : "#6366f1", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  {idx === 0 ? "Waiter / Default Printer" : `Kitchen Printer ${idx}`}
+                </span>
+                {idx > 0 && (
+                  <button
+                    onClick={() => removePrinter(idx)}
+                    style={{ background: "none", border: "none", color: "#e53e3e", fontSize: 18, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
+                  >✕</button>
+                )}
+              </div>
 
-          <div className="drawer-printer-row">
-            <label className="drawer-printer-label">Paper Size</label>
-            <select
-              className="drawer-printer-select"
-              value={paperSize}
-              onChange={e => setPaperSize(e.target.value)}
-            >
-              <option value="80mm">80mm</option>
-              <option value="76mm">76mm</option>
-              <option value="58mm">58mm</option>
-            </select>
-          </div>
+              {/* Name */}
+              <div className="drawer-printer-row">
+                <label className="drawer-printer-label">Name</label>
+                <input
+                  className="drawer-printer-input"
+                  type="text"
+                  placeholder={idx === 0 ? "e.g. Waiter Printer" : "e.g. South Indian"}
+                  value={printer.name}
+                  onChange={e => update(idx, "name", e.target.value)}
+                />
+              </div>
 
-          <div className="drawer-printer-btns">
-            <button
-              className="drawer-printer-test-btn"
-              onClick={handleTestPrinter}
-              disabled={testStatus === "testing"}
-            >
-              {testStatus === "testing" ? "Testing…"
-                : testStatus === "ok"   ? "✅ Connected"
-                : testStatus === "fail" ? "❌ Not found"
-                : "Test Connection"}
-            </button>
-            <button
-              className={`drawer-printer-save-btn${ipSaved ? " saved" : ""}`}
-              onClick={handleSavePrinter}
-            >
-              {ipSaved ? "✅ Saved" : "Save"}
-            </button>
-          </div>
+              {/* IP */}
+              <div className="drawer-printer-row">
+                <label className="drawer-printer-label">Printer IP</label>
+                <input
+                  className="drawer-printer-input"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="192.168.1.200"
+                  value={printer.ip}
+                  onChange={e => update(idx, "ip", e.target.value)}
+                />
+              </div>
+
+              {/* Station — only for kitchen printers (idx > 0) */}
+              {idx > 0 && (
+                <div className="drawer-printer-row">
+                  <label className="drawer-printer-label">Station</label>
+                  <input
+                    className="drawer-printer-input"
+                    type="text"
+                    placeholder="e.g. SOUTH INDIAN"
+                    value={printer.station}
+                    onChange={e => update(idx, "station", e.target.value)}
+                    autoCapitalize="characters"
+                  />
+                </div>
+              )}
+
+              {/* Paper size */}
+              <div className="drawer-printer-row">
+                <label className="drawer-printer-label">Paper</label>
+                <select
+                  className="drawer-printer-select"
+                  value={printer.paper}
+                  onChange={e => update(idx, "paper", e.target.value)}
+                >
+                  {PAPER_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              {/* Test button */}
+              <div className="drawer-printer-btns">
+                <button
+                  className="drawer-printer-test-btn"
+                  onClick={() => testPrinter(idx)}
+                  disabled={testStatus[idx] === "testing"}
+                >
+                  {testStatus[idx] === "testing" ? "Testing…"
+                    : testStatus[idx] === "ok"   ? "✅ Connected"
+                    : testStatus[idx] === "fail" ? "❌ Not found"
+                    : "Test Connection"}
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Add kitchen printer */}
+          <button
+            onClick={addPrinter}
+            style={{
+              width: "100%", padding: "10px", borderRadius: 8,
+              border: "1px dashed #6366f1", background: "#f0f0ff",
+              color: "#6366f1", fontWeight: 700, fontSize: 14,
+              cursor: "pointer", marginBottom: 12,
+            }}
+          >
+            + Add Kitchen Printer
+          </button>
+
+          {/* Save */}
+          <button
+            className={`drawer-printer-save-btn${saved ? " saved" : ""}`}
+            onClick={handleSave}
+            style={{ width: "100%", padding: "12px" }}
+          >
+            {saved ? "✅ Saved" : "Save All Printers"}
+          </button>
+
+          {/* Helper note */}
+          <p style={{ fontSize: 11, color: "#888", marginTop: 10, lineHeight: 1.5 }}>
+            The first printer (yellow) receives the full KOT copy for the waiter and all bills.
+            Kitchen printers receive only their station's items — enter the station name exactly as
+            configured in your menu (e.g. SOUTH INDIAN, NORTH INDIAN).
+          </p>
         </div>
 
+        {/* ── Device info ── */}
         <div className="drawer-section drawer-device-section">
           <div className="drawer-section-title">Device Info</div>
           <div className="drawer-device-grid">
@@ -123,6 +212,7 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
             <DevRow label="Local POS"   value={localPosIp ? `${localPosIp}:4001` : "Not connected"} mono />
           </div>
         </div>
+
       </div>
     </div>
   );
