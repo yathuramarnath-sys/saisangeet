@@ -695,12 +695,25 @@ export default function App() {
         });
 
         // ── KOT from Captain app (cloud path) → print on KOT printer ──────────
-        // Backend emits kot:new to ALL devices when Captain sends a KOT.
-        // POS must print it — but skip KOTs it sent itself (source === "pos").
+        // Backend emits one kot:new PER STATION when Captain sends a KOT.
+        // Route each event to the correct printer using kot.station.
         socket.on("kot:new", (kot) => {
           if (kot.source === "pos") return; // POS already printed this itself
           const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
+          const kotSt = (kot.station || "").trim();
           const waiterPrinter = getKotPrinter();
+
+          if (kotSt && kotSt.toLowerCase() !== "unassigned" && kotSt.toLowerCase() !== "main kitchen") {
+            // Station KOT → route items to the correct kitchen printer
+            const stPrinter = getKotPrinterForStation(kotSt);
+            if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
+              printKOT(order, kot.items || [], stPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
+              // Print waiter copy alongside each station slip so captain sees all items
+              printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
+              return;
+            }
+          }
+          // Unassigned / same as waiter printer / main kitchen → waiter printer only
           printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
           (kot.stationGroups || []).forEach(sg => {
             const stPrinter = getKotPrinterForStation(sg.station);
