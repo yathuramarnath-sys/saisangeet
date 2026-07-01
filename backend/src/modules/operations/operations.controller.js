@@ -442,7 +442,13 @@ async function deviceSendKotHandler(req, res) {
       areaName:      areaName || tableNumber || "—",
       source:        req.body.source || "pos",
       operatorName:  req.body.actorName  || "",  // captain/cashier who tapped Send
-      waiterName:    req.body.waiterName || "",  // waiter assigned to serve the table
+      waiterName:    (() => {
+        if (req.body.waiterName) return req.body.waiterName;
+        try {
+          const { getOrder: _getOrder } = require("./operations.memory-store");
+          return _getOrder(tableId)?.assignedWaiter || "";
+        } catch { return ""; }
+      })(),  // old APKs don't send waiterName — fall back to order's stored assignedWaiter
       isFirstStation: stIdx === 0,               // only first station event prints waiter copy on POS
       allItems:      items.map((i, idx) => ({    // full item list for waiter copy (all stations combined)
         id: i.id || `item-${idx}`, name: i.name, quantity: i.quantity, note: i.note || "",
