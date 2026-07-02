@@ -875,20 +875,6 @@ export function App() {
 
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
 
-    // ── Local WiFi path: emit kot:send to POS directly ────────────────────
-    // POS relays to KDS via local socket. Works even when cloud is unreachable.
-    // backendKotNumber: lets POS register this in its dedup Set so the cloud
-    // kot:new handler (500ms delay) skips printing and avoids double-printing.
-    localSocketRef.current?.emit("kot:send", {
-      outletId:          effectiveOutletId,
-      tableId:           order.tableId,
-      tableNumber:       order.tableNumber,
-      areaName:          order.areaName,
-      items:             unsent,
-      actorName:         actorName,
-      backendKotNumber:  serverKotNumber,
-    });
-
     // ── Print KOT slips ────────────────────────────────────────────────────
     // POS-as-Server mode: when Captain knows the local POS IP, delegate ALL
     // KOT printing to POS. POS uses its own pos_printers config (single source
@@ -959,9 +945,10 @@ export function App() {
           const stItems = unsent.filter(i => kotItemIds.has(i.id));
           return { station: k.station, items: stItems.length ? stItems : (k.items || []) };
         }),
-      actorName:    actorName,
-      waiterName:   waiterToShow || "",
-      skipPrint:    posDelegated,
+      actorName:         actorName,
+      waiterName:        waiterToShow || "",
+      skipPrint:         posDelegated,
+      backendKotNumber:  serverKotNumber,
     });
 
     // Show the server-assigned KOT number — same number on all station slips
