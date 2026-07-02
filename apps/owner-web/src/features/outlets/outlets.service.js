@@ -83,8 +83,12 @@ export async function toggleOutletActive(id, isActive) {
   return api.patch(`/outlets/${id}/settings`, { isActive });
 }
 
-export async function deleteOutlet(id) {
-  return api.delete(`/outlets/${id}`);
+export async function requestDeleteOtp(id) {
+  return api.post(`/outlets/${id}/request-delete-otp`, {});
+}
+
+export async function deleteOutlet(id, otp) {
+  return api.delete(`/outlets/${id}`, { otp });
 }
 
 export async function regenerateOutletSyncCode(id) {

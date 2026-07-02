@@ -1,4 +1,13 @@
+const { Resend } = require("resend");
+const { env } = require("../../config/env");
 const { getOwnerSetupData, updateOwnerSetupData, updateOwnerSetupDataNow } = require("../../data/owner-setup-store");
+
+// OTP store for outlet deletion confirmations: outletId → { otp, expiresAt }
+const _deleteOtps = new Map();
+
+function _makeOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
 
 /**
  * Generate a permanent, human-readable sync code for an outlet.
@@ -138,9 +147,12 @@ async function updateOutletSettings(id, payload) {
       u.outletName === oldName ? { ...u, outletName: payload.name } : u
     );
 
-    const discounts = (current.discounts || []).map(disc =>
-      disc.outletScope === oldName ? { ...disc, outletScope: payload.name } : disc
-    );
+    const discounts = {
+      ...current.discounts,
+      rules: (current.discounts?.rules || []).map(disc =>
+        disc.outletScope === oldName ? { ...disc, outletScope: payload.name } : disc
+      )
+    };
 
     return {
       ...current,
@@ -155,7 +167,46 @@ async function updateOutletSettings(id, payload) {
   return updatedOutlet || null;
 }
 
-async function deleteOutlet(id) {
+async function requestDeleteOtp(outletId) {
+  const data = getOwnerSetupData();
+  const outlet = (data.outlets || []).find(o => o.id === outletId);
+  if (!outlet) throw new Error("Outlet not found");
+
+  const ownerEmail =
+    (data.users || []).find(u => u.passwordHash && u.email)?.email ||
+    data.businessProfile?.email;
+  if (!ownerEmail) throw new Error("Owner email not configured — set an email in Business Profile first.");
+
+  const otp = _makeOtp();
+  _deleteOtps.set(outletId, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
+
+  const resend = new Resend(env.resendApiKey);
+  await resend.emails.send({
+    from: env.emailFrom,
+    to: ownerEmail,
+    subject: `Plato — Confirm deletion of outlet: ${outlet.name}`,
+    html: `
+      <p>You requested to <strong>permanently delete</strong> the outlet <strong>${outlet.name}</strong>.</p>
+      <p>Your one-time password is:</p>
+      <h2 style="font-size:2rem;letter-spacing:6px;font-family:monospace">${otp}</h2>
+      <p>This code expires in <strong>10 minutes</strong>.</p>
+      <p style="color:#6b7280">If you did not request this, ignore this email — the outlet will not be deleted.</p>
+    `
+  });
+
+  return { sent: true, to: ownerEmail };
+}
+
+async function deleteOutlet(id, otp) {
+  const entry = _deleteOtps.get(id);
+  if (!entry) throw new Error("No OTP requested for this outlet. Click 'Send OTP' first.");
+  if (Date.now() > entry.expiresAt) {
+    _deleteOtps.delete(id);
+    throw new Error("OTP has expired. Please request a new one.");
+  }
+  if (entry.otp !== String(otp)) throw new Error("Invalid OTP — please check your email and try again.");
+  _deleteOtps.delete(id);
+
   await updateOwnerSetupDataNow((current) => ({
     ...current,
     outlets: current.outlets.filter((outlet) => outlet.id !== id)
@@ -187,6 +238,7 @@ module.exports = {
   fetchOutlets,
   createOutlet,
   updateOutletSettings,
+  requestDeleteOtp,
   deleteOutlet,
   regenerateOutletSyncCode,
   generateOutletCode,
