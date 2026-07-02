@@ -30,7 +30,7 @@ function persistPrinters(printers) {
   }
 }
 
-const APP_VERSION = "1.28";
+const APP_VERSION = "1.29";
 
 export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
   const [printers,   setPrinters]   = useState(loadPrinters);
@@ -122,12 +122,10 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
                 <span style={{ fontSize: 12, fontWeight: 800, color: idx === 0 ? "#b45309" : "#6366f1", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                   {idx === 0 ? "Waiter / Default Printer" : `Kitchen Printer ${idx}`}
                 </span>
-                {idx > 0 && (
-                  <button
-                    onClick={() => removePrinter(idx)}
-                    style={{ background: "none", border: "none", color: "#e53e3e", fontSize: 18, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
-                  >✕</button>
-                )}
+                <button
+                  onClick={() => removePrinter(idx)}
+                  style={{ background: "none", border: "none", color: "#e53e3e", fontSize: 18, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
+                >✕</button>
               </div>
 
               {/* Name */}

@@ -6,8 +6,6 @@ export function SetupScreen({ onComplete }) {
   const [status,   setStatus]   = useState("idle"); // idle | loading | success | error
   const [result,   setResult]   = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [localIp,  setLocalIp]  = useState(() => localStorage.getItem("captain_local_server_ip") || "");
-  const [scanning, setScanning] = useState(false);
 
   async function handleVerify(e) {
     e.preventDefault();
@@ -38,41 +36,7 @@ export function SetupScreen({ onComplete }) {
     };
     localStorage.setItem("captain_branch_config", JSON.stringify(config));
     if (result.deviceToken) localStorage.setItem("captain_token", result.deviceToken);
-    const ip = localIp.trim();
-    if (ip) localStorage.setItem("captain_local_server_ip", ip);
-    else    localStorage.removeItem("captain_local_server_ip");
     onComplete(config);
-  }
-
-  async function handleScanForPOS() {
-    setScanning(true);
-    try {
-      // Detect the device's own subnet first, then fall back to common subnets.
-      // All IPs are probed in parallel so the scan finishes in ~1.5s regardless of subnet size.
-      let ownSubnet = null;
-      try {
-        const { getDeviceLocalIp } = await import("../lib/deviceIp.js");
-        const ownIp = await getDeviceLocalIp();
-        if (ownIp) ownSubnet = ownIp.split(".").slice(0, 3).join(".");
-      } catch (_) {}
-      const subnets = [...new Set([ownSubnet, "192.168.68", "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
-      for (const subnet of subnets) {
-        const ips = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
-        const found = await new Promise(resolve => {
-          let done = false, remaining = ips.length;
-          ips.forEach(ip => {
-            fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(1500) })
-              .then(r => { if (r.ok && !done) { done = true; resolve(ip); } })
-              .catch(() => {})
-              .finally(() => { remaining--; if (remaining === 0 && !done) resolve(null); });
-          });
-        });
-        if (found) { setLocalIp(found); return; }
-      }
-      alert("POS not found — enter IP manually from POS Settings → Devices tab.");
-    } finally {
-      setScanning(false);
-    }
   }
 
   return (
@@ -140,30 +104,6 @@ export function SetupScreen({ onComplete }) {
               {result.tables?.length || 0} tables
               {result.staff?.length ? ` · ${result.staff.length} staff` : ""}
             </p>
-
-            {/* Local POS IP — optional, for direct WiFi connection */}
-            <div className="setup-local-section">
-              <p className="setup-local-label">POS Local IP (optional)</p>
-              <p className="setup-local-hint">Enter the Windows PC IP shown in POS → Settings. Enables offline floor operations when internet is down.</p>
-              <div className="setup-local-row">
-                <input
-                  className="setup-input setup-local-input"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="e.g. 192.168.1.10"
-                  value={localIp}
-                  onChange={e => setLocalIp(e.target.value)}
-                />
-                <button
-                  className="setup-scan-btn"
-                  type="button"
-                  disabled={scanning}
-                  onClick={handleScanForPOS}
-                >
-                  {scanning ? "Scanning…" : "Find POS"}
-                </button>
-              </div>
-            </div>
 
             <button className="setup-btn success-btn" onClick={handleConfirm}>
               Open Plato Captain →
