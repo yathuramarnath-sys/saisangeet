@@ -30,7 +30,7 @@ function persistPrinters(printers) {
   }
 }
 
-const APP_VERSION = "1.29";
+const APP_VERSION = "1.30";
 
 export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
   const [printers,   setPrinters]   = useState(loadPrinters);
