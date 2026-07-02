@@ -127,8 +127,9 @@ export function App() {
   const [pendingKots, setPendingKots] = useState(() => {
     try { return JSON.parse(localStorage.getItem("captain_pending_kots") || "[]"); } catch { return []; }
   });
-  const socketRef      = useRef(null);
-  const localSocketRef = useRef(null);
+  const socketRef             = useRef(null);
+  const localSocketRef        = useRef(null);
+  const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
   const [localConn,    setLocalConn]    = useState(false);
   const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
   const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
@@ -373,6 +374,7 @@ export function App() {
         }
 
         function connectLocalSocket(ip) {
+          connectLocalSocketRef.current = connectLocalSocket; // expose for handleFindPOS
           if (localSocketRef.current) {
             localSocketRef.current.removeAllListeners();
             localSocketRef.current.disconnect();
@@ -792,9 +794,10 @@ export function App() {
     }
 
     const actorName    = loggedInStaff?.name || "Captain";
-    // waiterName is explicitly selected from the waiter picker (waiter role only).
-    // Never fall back to captain name — a captain is not a waiter.
-    const waiterToShow = waiterName || null;
+    // waiterName comes from the picker. If picker returned null (e.g. "None" selected or
+    // no waiter-role staff configured), fall back to the order's already-assigned waiter
+    // so the name persists across multiple KOTs on the same table.
+    const waiterToShow = waiterName || order.assignedWaiter || null;
 
     // Stamp assignedWaiter on the order so it persists until the next KOT
     handleUpdateOrder({ ...order, assignedWaiter: waiterToShow || "",
@@ -1195,17 +1198,24 @@ export function App() {
       const ownSubnet = ownIp ? ownIp.split(".").slice(0, 3).join(".") : null;
       const subnets   = [...new Set([ownSubnet, "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
       for (const subnet of subnets) {
-        for (let i = 1; i <= 254; i++) {
-          const ip = `${subnet}.${i}`;
-          try {
-            const r = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(400) });
-            if (r.ok) {
-              localStorage.setItem("captain_local_server_ip", ip);
-              toast.success(`POS found at ${ip}`);
-              setScanning(false);
-              return;
-            }
-          } catch (_) {}
+        // Parallel scan — all 254 IPs fire at once, first OK response wins (~1.5s max).
+        // Previous sequential scan with 400ms timeout could take up to 100s and
+        // would never find the POS if getDeviceLocalIp() returned null or wrong subnet.
+        const ips   = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
+        const found = await new Promise(resolve => {
+          let done = false, remaining = ips.length;
+          ips.forEach(ip => {
+            fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(1500) })
+              .then(r => { if (r.ok && !done) { done = true; resolve(ip); } })
+              .catch(() => {})
+              .finally(() => { remaining--; if (remaining === 0 && !done) resolve(null); });
+          });
+        });
+        if (found) {
+          localStorage.setItem("captain_local_server_ip", found);
+          connectLocalSocketRef.current?.(found); // reconnect local socket immediately
+          toast.success(`POS found at ${found}`);
+          return;
         }
       }
       toast("POS not found on this network", { icon: "📡" });
