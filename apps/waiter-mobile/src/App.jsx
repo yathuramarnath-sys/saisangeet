@@ -874,7 +874,20 @@ export function App() {
     }
 
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
-    let posDelegated = false;
+
+    // ── Local WiFi path: emit kot:send to POS directly ────────────────────
+    // POS relays to KDS via local socket. Works even when cloud is unreachable.
+    // backendKotNumber: lets POS register this in its dedup Set so the cloud
+    // kot:new handler (500ms delay) skips printing and avoids double-printing.
+    localSocketRef.current?.emit("kot:send", {
+      outletId:          effectiveOutletId,
+      tableId:           order.tableId,
+      tableNumber:       order.tableNumber,
+      areaName:          order.areaName,
+      items:             unsent,
+      actorName:         actorName,
+      backendKotNumber:  serverKotNumber,
+    });
 
     // ── Print KOT slips ────────────────────────────────────────────────────
     // POS-as-Server mode: when Captain knows the local POS IP, delegate ALL
