@@ -346,6 +346,8 @@ export default function App() {
   const menuItemsRef       = useRef([]);   // latest menuItems for scale PLU lookup
   // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
   const billPrintingRef = useRef(false);
+  // KOT numbers printed via HTTP /print-kot — used to skip cloud kot:new double-print
+  const printedViaHttpRef = useRef(new Set());
   // Guard: only auto-open a counter ticket once per "no table selected" episode,
   // so clearing back to null (e.g. order cancelled) doesn't loop us straight back in.
   const autoCounterOpenedRef = useRef(false);
@@ -699,6 +701,8 @@ export default function App() {
         // Route each event to the correct printer using kot.station.
         socket.on("kot:new", (kot) => {
           if (kot.source === "pos") return; // POS already printed this itself
+          // Skip if Captain already delegated printing via HTTP /print-kot (LAN path ~5ms faster than cloud)
+          if (printedViaHttpRef.current.has(kot.kotNumber)) return;
           const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
           const kotSt = (kot.station || "").trim();
           const waiterPrinter = getKotPrinter();
@@ -1230,6 +1234,11 @@ export default function App() {
   useEffect(() => {
     if (!window.electronAPI?.onPrintKot) return;
     const cleanup = window.electronAPI.onPrintKot(({ order, kots, allItems, kotSeq, sentBy, waiter }) => {
+      // Record this KOT number so the cloud kot:new handler skips it (prevents double-print)
+      if (kotSeq != null) {
+        printedViaHttpRef.current.add(kotSeq);
+        setTimeout(() => printedViaHttpRef.current.delete(kotSeq), 30_000);
+      }
       const waiterPrinter = getKotPrinter();
       if (allItems?.length) {
         printKOT(order, allItems, waiterPrinter, kotSeq, { sentBy, waiter });
