@@ -616,7 +616,12 @@ export function App() {
         );
         return {
           ...prev,
-          [tableId]: { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] },
+          [tableId]: {
+            ...serverOrder,
+            // Preserve local assignedWaiter if server response doesn't include one
+            assignedWaiter: serverOrder.assignedWaiter || prev[tableId]?.assignedWaiter || null,
+            items: [...(serverOrder.items || []), ...localOnlyUnsent],
+          },
         };
       });
     } catch (err) {
@@ -734,7 +739,12 @@ export function App() {
         );
         return {
           ...prev,
-          [tableId]: { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] },
+          [tableId]: {
+            ...serverOrder,
+            // Preserve local assignedWaiter if server response doesn't include one
+            assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
+            items: [...(serverOrder.items || []), ...localOnlyUnsent],
+          },
         };
       });
     } catch (err) {
