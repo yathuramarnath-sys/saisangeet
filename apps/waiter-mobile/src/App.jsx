@@ -120,7 +120,6 @@ export function App() {
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
   const [showDrawer,      setShowDrawer]       = useState(false);
   const [autoOpenAction,  setAutoOpenAction]   = useState(null); // "transfer"|"merge"|"split"
-  const [scanning,        setScanning]         = useState(false);
   const [updateInfo,      setUpdateInfo]       = useState(null); // update available for drawer badge
   const [deviceIp,        setDeviceIp]         = useState(null); // this tablet's own LAN IP, for drawer footer
   // KOT queue — failed sends stored here so staff can retry from the drawer
@@ -547,7 +546,7 @@ export function App() {
 
   // ── Check for Captain app updates (shown in drawer, not top banner) ──────
   useEffect(() => {
-    const APP_VERSION_CAPTAIN = "1.28";
+    const APP_VERSION_CAPTAIN = "1.29";
     const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1");
     function checkUpdate() {
       fetch(`${API_BASE}/app-versions`, { cache: "no-store" })
@@ -1199,40 +1198,6 @@ export function App() {
     }
   }
 
-  // ── Drawer: Find POS on network ──────────────────────────────────────────
-  async function handleFindPOS() {
-    setScanning(true);
-    try {
-      const ownIp     = await getDeviceLocalIp();
-      const ownSubnet = ownIp ? ownIp.split(".").slice(0, 3).join(".") : null;
-      const subnets   = [...new Set([ownSubnet, "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
-      for (const subnet of subnets) {
-        // Parallel scan — all 254 IPs fire at once, first OK response wins (~1.5s max).
-        // Previous sequential scan with 400ms timeout could take up to 100s and
-        // would never find the POS if getDeviceLocalIp() returned null or wrong subnet.
-        const ips   = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
-        const found = await new Promise(resolve => {
-          let done = false, remaining = ips.length;
-          ips.forEach(ip => {
-            fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(1500) })
-              .then(r => { if (r.ok && !done) { done = true; resolve(ip); } })
-              .catch(() => {})
-              .finally(() => { remaining--; if (remaining === 0 && !done) resolve(null); });
-          });
-        });
-        if (found) {
-          localStorage.setItem("captain_local_server_ip", found);
-          connectLocalSocketRef.current?.(found); // reconnect local socket immediately
-          toast.success(`POS found at ${found}`);
-          return;
-        }
-      }
-      toast("POS not found on this network", { icon: "📡" });
-    } finally {
-      setScanning(false);
-    }
-  }
-
   // ── Drawer: Retry a pending KOT ──────────────────────────────────────────
   async function handleRetryKot(kot) {
     try {
@@ -1512,10 +1477,8 @@ export function App() {
           syncFailed={syncFailed}
           printFailed={printFailed}
           updateInfo={updateInfo}
-          scanning={scanning}
           onClose={() => setShowDrawer(false)}
           onSync={async () => { setShowDrawer(false); await handleSync(); }}
-          onFindPOS={() => { setShowDrawer(false); handleFindPOS(); }}
           onSignOut={handleSignOut}
           onRetryKot={handleRetryKot}
           onRetryAll={handleRetryAllKots}

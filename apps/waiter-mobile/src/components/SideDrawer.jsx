@@ -3,7 +3,7 @@ import { tapImpact } from "../lib/haptics";
 import { SettingsScreen } from "./SettingsScreen";
 import { KotDetailScreen } from "./KotDetailScreen";
 
-const APP_VERSION = "1.28";
+const APP_VERSION = "1.29";
 
 /**
  * SideDrawer — Captain App utility menu
@@ -29,9 +29,8 @@ export function SideDrawer({
   syncFailed   = 0,
   printFailed  = 0,
   updateInfo   = null,
-  onClose, onSync, onFindPOS, onSignOut,
+  onClose, onSync, onSignOut,
   onRetryKot, onRetryAll, onClearKot,
-  scanning = false,
 }) {
   const [syncing,      setSyncing]      = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -131,15 +130,6 @@ export function SideDrawer({
           >
             <span className="drawer-list-icon">{syncing ? "⏳" : "🔄"}</span>
             <span className="drawer-list-label">{syncing ? "Syncing…" : "Sync Data"}</span>
-          </button>
-
-          <button
-            className={`drawer-list-row${scanning ? " drawer-list-row-loading" : ""}`}
-            onClick={() => { tapImpact(); onFindPOS(); }}
-            disabled={scanning}
-          >
-            <span className="drawer-list-icon">{scanning ? "⏳" : "📡"}</span>
-            <span className="drawer-list-label">{scanning ? "Scanning…" : "Find Server IP"}</span>
           </button>
 
           <button
