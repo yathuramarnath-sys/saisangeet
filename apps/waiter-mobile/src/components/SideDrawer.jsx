@@ -3,7 +3,7 @@ import { tapImpact } from "../lib/haptics";
 import { SettingsScreen } from "./SettingsScreen";
 import { KotDetailScreen } from "./KotDetailScreen";
 
-const APP_VERSION = "1.27";
+const APP_VERSION = "1.28";
 
 /**
  * SideDrawer — Captain App utility menu

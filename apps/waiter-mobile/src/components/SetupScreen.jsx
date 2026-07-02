@@ -46,21 +46,33 @@ export function SetupScreen({ onComplete }) {
 
   async function handleScanForPOS() {
     setScanning(true);
-    // Try common POS machine IPs on the local subnet — probe port 4001
-    const subnet = "192.168.1";
-    const candidates = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
-    for (const ip of candidates) {
+    try {
+      // Detect the device's own subnet first, then fall back to common subnets.
+      // All IPs are probed in parallel so the scan finishes in ~1.5s regardless of subnet size.
+      let ownSubnet = null;
       try {
-        const res = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(600) });
-        if (res.ok) {
-          setLocalIp(ip);
-          setScanning(false);
-          return;
-        }
+        const { getDeviceLocalIp } = await import("../lib/deviceIp.js");
+        const ownIp = await getDeviceLocalIp();
+        if (ownIp) ownSubnet = ownIp.split(".").slice(0, 3).join(".");
       } catch (_) {}
+      const subnets = [...new Set([ownSubnet, "192.168.68", "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
+      for (const subnet of subnets) {
+        const ips = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
+        const found = await new Promise(resolve => {
+          let done = false, remaining = ips.length;
+          ips.forEach(ip => {
+            fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(1500) })
+              .then(r => { if (r.ok && !done) { done = true; resolve(ip); } })
+              .catch(() => {})
+              .finally(() => { remaining--; if (remaining === 0 && !done) resolve(null); });
+          });
+        });
+        if (found) { setLocalIp(found); return; }
+      }
+      alert("POS not found — enter IP manually from POS Settings → Devices tab.");
+    } finally {
+      setScanning(false);
     }
-    setScanning(false);
-    alert("POS not found on 192.168.1.x — enter IP manually from POS Settings.");
   }
 
   return (
