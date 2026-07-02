@@ -308,15 +308,7 @@ function startLocalServer() {
 
       // ── Order update (from POS or Captain) → relay to all other devices ────
       socket.on("order:update", ({ order }) => {
-        if (order?.tableId) {
-          if (order.billRequested || order.isClosed) {
-            // Billed/closed orders are no longer active — remove from local store
-            // so Captain reconnects don't restore "BILL DUE" tables as occupied
-            delete localOrderStore[order.tableId];
-          } else {
-            localOrderStore[order.tableId] = order;
-          }
-        }
+        if (order?.tableId) localOrderStore[order.tableId] = order;
         socket.broadcast.emit("order:updated", order);
       });
 

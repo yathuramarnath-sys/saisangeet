@@ -153,13 +153,6 @@ export function App() {
     (s) => WAITER_ROLES.includes((s.role || "").toLowerCase())
   );
 
-  // ── Close order screen if the viewed table's order is removed (bill printed from POS) ─
-  useEffect(() => {
-    if (selectedTableId && !orders[selectedTableId]) {
-      setSelectedTableId(null);
-    }
-  }, [orders]);
-
   // ── Detect this device's own LAN IP for the drawer's Device IP footer ─────
   useEffect(() => {
     getDeviceLocalIp().then(setDeviceIp);
@@ -252,8 +245,7 @@ export function App() {
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         if (liveOrders.length) {
-          // Exclude billed orders — Captain shows them as FREE so waiters can start new orders
-          setOrders(Object.fromEntries(liveOrders.filter(o => !o.billRequested).map((o) => [o.tableId, o])));
+          setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
         }
 
         // Open socket
@@ -275,7 +267,7 @@ export function App() {
           if (wasOffline) {
             api.get(`/operations/orders?outletId=${target.id}`)
               .then((orders) => {
-                if (orders.length) setOrders(Object.fromEntries(orders.filter(o => !o.billRequested).map((o) => [o.tableId, o])));
+                if (orders.length) setOrders(Object.fromEntries(orders.map((o) => [o.tableId, o])));
               })
               .catch(() => {});
             flushSyncQueue();  // replay queued ADD_ITEM / REMOVE_ITEM / BILL_REQUEST
@@ -287,8 +279,7 @@ export function App() {
         socket.on("connect_error", () => { wasOffline = true; });
 
         socket.on("order:updated", (o) => setOrders((p) => {
-          // Bill printed from POS → Captain drops the order so the table appears free for next order
-          if (!o.items?.length || o.isClosed || o.billRequested) {
+          if (!o.items?.length || o.isClosed) {
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
           }
@@ -424,7 +415,7 @@ export function App() {
             }
           });
           lSock.on("order:updated", (o) => setOrders((p) => {
-            if (!o.items?.length || o.isClosed || o.billRequested) {
+            if (!o.items?.length || o.isClosed) {
               const { [o.tableId]: _r, ...rest } = p;
               return rest;
             }
@@ -1208,7 +1199,7 @@ export function App() {
         api.get(`/menu/categories?outletId=${outlet.id}`).catch(() => null),
         api.get(`/menu/items?outletId=${outlet.id}`).catch(() => null),
       ]);
-      if (liveOrders) setOrders(Object.fromEntries(liveOrders.filter(o => !o.billRequested).map((o) => [o.tableId, o])));
+      if (liveOrders) setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
       if (cats)  setCategories(cats);
       if (items) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
       toast.success("Data synced");
