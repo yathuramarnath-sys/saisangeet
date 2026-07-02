@@ -57,6 +57,8 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
     const ip = posIp.trim();
     if (ip) localStorage.setItem("captain_local_server_ip", ip);
     else    localStorage.removeItem("captain_local_server_ip");
+    // Signal App.jsx to reconnect the local socket to the new IP immediately
+    window.dispatchEvent(new CustomEvent("dinex:pos-ip-changed", { detail: { ip: ip || null } }));
     setPosIpSaved(true);
     setTimeout(() => setPosIpSaved(false), 2000);
   }

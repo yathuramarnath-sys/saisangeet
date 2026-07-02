@@ -527,18 +527,27 @@ export function App() {
     // 10 s worker only handles retries after failure.
     window.addEventListener("dinex:flush-prints", flushPrints);
 
+    // When user manually saves POS IP in Settings, reconnect the local socket immediately
+    // so live order sync works without an app restart.
+    function onPosIpChanged(e) {
+      const ip = e.detail?.ip;
+      if (ip) connectLocalSocketRef.current?.(ip);
+    }
+    window.addEventListener("dinex:pos-ip-changed", onPosIpChanged);
+
     return () => {
       socketRef.current?.disconnect();
       localSocketRef.current?.disconnect();
       stopWorker();
       stopPrintWorker();
       window.removeEventListener("dinex:flush-prints", flushPrints);
+      window.removeEventListener("dinex:pos-ip-changed", onPosIpChanged);
     };
   }, [branchConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Check for Captain app updates (shown in drawer, not top banner) ──────
   useEffect(() => {
-    const APP_VERSION_CAPTAIN = "1.26";
+    const APP_VERSION_CAPTAIN = "1.27";
     const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1");
     function checkUpdate() {
       fetch(`${API_BASE}/app-versions`, { cache: "no-store" })
