@@ -824,17 +824,19 @@ export default function App() {
             printedViaHttpRef.current.add(kot.backendKotNumber);
             setTimeout(() => printedViaHttpRef.current.delete(kot.backendKotNumber), 30_000);
           }
-          // Print on default KOT printer
-          const waiterPrinter = getKotPrinter();
-          const localPrintOpts = { sentBy: kot.actorName, waiter: kot.waiterName || "" };
-          printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, localPrintOpts);
-          // Per-station printers
-          (kot.stationGroups || []).forEach(sg => {
-            const stPrinter = getKotPrinterForStation(sg.station);
-            if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
-              printKOT(order, sg.items, stPrinter, kot.kotNumber, localPrintOpts);
-            }
-          });
+          // skipPrint is set when Captain already delegated printing to POS via /print-kot HTTP.
+          // In that case we still relay to KDS but skip thermal printing here.
+          if (!kot.skipPrint) {
+            const waiterPrinter = getKotPrinter();
+            const localPrintOpts = { sentBy: kot.actorName, waiter: kot.waiterName || "" };
+            printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, localPrintOpts);
+            (kot.stationGroups || []).forEach(sg => {
+              const stPrinter = getKotPrinterForStation(sg.station);
+              if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
+                printKOT(order, sg.items, stPrinter, kot.kotNumber, localPrintOpts);
+              }
+            });
+          }
           // Mark items as sent on POS table
           const kotItemIds = new Set((kot.items || []).map(i => i.id));
           setOrders(prev => {
