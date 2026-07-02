@@ -5,6 +5,7 @@ import {
   createOutlet,
   deleteOutlet,
   fetchOutletPageData,
+  requestDeleteOtp,
   toggleOutletActive,
   updateOutlet
 } from "./outlets.service";
@@ -349,6 +350,100 @@ function QRCodeModal({ outlet, tenantId, onClose }) {
   );
 }
 
+// ── Delete Outlet OTP Modal ───────────────────────────────────────────────────
+function DeleteOtpModal({ outlet, onClose, onDeleted }) {
+  const [step,    setStep]    = useState("confirm"); // "confirm" | "otp"
+  const [otp,     setOtp]     = useState("");
+  const [busy,    setBusy]    = useState(false);
+  const [error,   setError]   = useState("");
+  const [sentTo,  setSentTo]  = useState("");
+
+  async function handleSendOtp() {
+    setBusy(true); setError("");
+    try {
+      const res = await requestDeleteOtp(outlet.id);
+      setSentTo(res.to || "");
+      setStep("otp");
+    } catch (err) {
+      setError(err.message || "Failed to send OTP.");
+    } finally { setBusy(false); }
+  }
+
+  async function handleConfirmDelete() {
+    if (!otp.trim()) { setError("Enter the OTP from your email."); return; }
+    setBusy(true); setError("");
+    try {
+      await deleteOutlet(outlet.id, otp.trim());
+      onDeleted();
+    } catch (err) {
+      setError(err.message || "Failed to delete outlet.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="qr-backdrop" onClick={onClose}>
+      <div className="qr-modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+        <div className="qr-modal-header">
+          <h3>Remove Outlet</h3>
+          <button className="qr-close-btn" onClick={onClose}>✕</button>
+        </div>
+
+        {step === "confirm" ? (
+          <div style={{ padding: "20px 24px 24px" }}>
+            <p style={{ marginBottom: 16 }}>
+              You are about to permanently delete <strong>{outlet.name}</strong>.<br />
+              All settings and data for this outlet will be lost.
+            </p>
+            <p style={{ color: "#ef4444", fontSize: "0.85rem", marginBottom: 20 }}>
+              An OTP will be sent to the owner email address to confirm this action.
+            </p>
+            {error && <p className="form-error" style={{ marginBottom: 12 }}>{error}</p>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="primary-btn" style={{ background: "#ef4444", borderColor: "#ef4444" }}
+                onClick={handleSendOtp} disabled={busy}>
+                {busy ? "Sending OTP…" : "Send OTP to Email"}
+              </button>
+              <button className="ghost-btn" onClick={onClose}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: "20px 24px 24px" }}>
+            <p style={{ marginBottom: 8 }}>
+              A 6-digit OTP was sent to <strong>{sentTo}</strong>.
+            </p>
+            <p style={{ color: "#6b7280", fontSize: "0.83rem", marginBottom: 16 }}>
+              Enter it below to confirm deletion of <strong>{outlet.name}</strong>. The code expires in 10 minutes.
+            </p>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="Enter 6-digit OTP"
+              value={otp}
+              autoFocus
+              onChange={e => setOtp(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={e => e.key === "Enter" && handleConfirmDelete()}
+              style={{ width: "100%", padding: "10px 14px", fontSize: "1.2rem", letterSpacing: 6, border: "1px solid var(--line-strong)", borderRadius: 8, marginBottom: 16, boxSizing: "border-box", textAlign: "center" }}
+            />
+            {error && <p className="form-error" style={{ marginBottom: 12 }}>{error}</p>}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button className="primary-btn" style={{ background: "#ef4444", borderColor: "#ef4444" }}
+                onClick={handleConfirmDelete} disabled={busy || otp.length < 6}>
+                {busy ? "Deleting…" : "Confirm Delete"}
+              </button>
+              <button className="ghost-btn" onClick={() => { setStep("confirm"); setOtp(""); setError(""); }}>
+                Resend OTP
+              </button>
+              <button className="ghost-btn" onClick={onClose}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export function OutletsPage() {
   const { user } = useAuth();
@@ -364,6 +459,7 @@ export function OutletsPage() {
   const [createDraft,   setCreateDraft]   = useState(buildCreateDraft({ taxProfiles: [], receiptTemplates: [] }));
   const [createSaving,  setCreateSaving]  = useState(false);
   const [qrOutlet,      setQrOutlet]      = useState(null); // outlet shown in QR modal
+  const [deleteTarget,  setDeleteTarget]  = useState(null); // outlet pending OTP deletion
   const formRef = useRef(null);
 
   useEffect(() => {
@@ -483,15 +579,16 @@ export function OutletsPage() {
     } catch (err) { setStatusError(err.message || "Unable to update outlet status."); }
   }
 
-  async function handleDeleteOutlet(outlet) {
-    if (!window.confirm(`Remove "${outlet.name}"?\n\nThis cannot be undone.`)) return;
-    try {
-      setStatusError("");
-      await deleteOutlet(outlet.id);
-      if (editingOutletId === outlet.id) cancelEditingOutlet();
-      await reloadOutlets();
-      setStatusMessage(`${outlet.name} removed.`);
-    } catch (err) { setStatusError(err.message || "Unable to remove outlet."); }
+  function handleDeleteOutlet(outlet) {
+    setDeleteTarget(outlet);
+  }
+
+  async function handleDeleteConfirmed() {
+    const outlet = deleteTarget;
+    setDeleteTarget(null);
+    if (editingOutletId === outlet.id) cancelEditingOutlet();
+    await reloadOutlets();
+    setStatusMessage(`${outlet.name} removed.`);
   }
 
   return (
@@ -658,6 +755,15 @@ export function OutletsPage() {
           outlet={qrOutlet}
           tenantId={tenantId}
           onClose={() => setQrOutlet(null)}
+        />
+      )}
+
+      {/* Delete Outlet OTP Modal */}
+      {deleteTarget && (
+        <DeleteOtpModal
+          outlet={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={handleDeleteConfirmed}
         />
       )}
     </>
