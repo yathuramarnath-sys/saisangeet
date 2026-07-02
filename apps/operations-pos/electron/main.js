@@ -571,6 +571,7 @@ async function buildEscPosFromHtml(html) {
                 })),
                 total:   footRows.find(r => r.innerText.includes('Total'))?.querySelector(':last-child')?.innerText?.trim() || '',
                 sentBy:  footRows.find(r => r.innerText.includes('Sent'))?.querySelector(':last-child')?.innerText?.trim()  || '',
+                waiter:  footRows.find(r => r.innerText.includes('Waiter'))?.querySelector(':last-child')?.innerText?.trim() || '',
                 printer: q('.kot-printer-tag')?.innerText || '',
               };
             }
@@ -749,6 +750,7 @@ async function buildEscPosFromHtml(html) {
           // Footer
           if (data.total) cmd += 'Total Items : ' + data.total + LF;
           if (data.sentBy) cmd += BOLD1 + 'Sent by : ' + data.sentBy + BOLD0 + LF;
+          if (data.waiter) cmd += 'Waiter  : ' + data.waiter + LF;
           if (data.printer) cmd += data.printer + LF;
         } else if (data.type === 'DAYEND') {
           // ── Day End Report ────────────────────────────────────────────────────
