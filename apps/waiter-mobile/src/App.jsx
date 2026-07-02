@@ -252,7 +252,8 @@ export function App() {
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         if (liveOrders.length) {
-          setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
+          // Exclude billed orders — Captain shows them as FREE so waiters can start new orders
+          setOrders(Object.fromEntries(liveOrders.filter(o => !o.billRequested).map((o) => [o.tableId, o])));
         }
 
         // Open socket
@@ -274,7 +275,7 @@ export function App() {
           if (wasOffline) {
             api.get(`/operations/orders?outletId=${target.id}`)
               .then((orders) => {
-                if (orders.length) setOrders(Object.fromEntries(orders.map((o) => [o.tableId, o])));
+                if (orders.length) setOrders(Object.fromEntries(orders.filter(o => !o.billRequested).map((o) => [o.tableId, o])));
               })
               .catch(() => {});
             flushSyncQueue();  // replay queued ADD_ITEM / REMOVE_ITEM / BILL_REQUEST
@@ -1207,7 +1208,7 @@ export function App() {
         api.get(`/menu/categories?outletId=${outlet.id}`).catch(() => null),
         api.get(`/menu/items?outletId=${outlet.id}`).catch(() => null),
       ]);
-      if (liveOrders) setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
+      if (liveOrders) setOrders(Object.fromEntries(liveOrders.filter(o => !o.billRequested).map((o) => [o.tableId, o])));
       if (cats)  setCategories(cats);
       if (items) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
       toast.success("Data synced");
