@@ -701,27 +701,32 @@ export default function App() {
         // Route each event to the correct printer using kot.station.
         socket.on("kot:new", (kot) => {
           if (kot.source === "pos") return; // POS already printed this itself
-          // Skip if Captain already delegated printing via HTTP /print-kot (LAN path ~5ms faster than cloud)
-          if (printedViaHttpRef.current.has(kot.kotNumber)) return;
-          const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
-          const kotSt = (kot.station || "").trim();
-          const waiterPrinter = getKotPrinter();
-          const printOpts = { sentBy: kot.operatorName || "", waiter: kot.waiterName || "" };
 
-          // Waiter copy: ALL items, only on the FIRST station event.
-          // Backend emits one kot:new per station — isFirstStation prevents N partial waiter slips.
-          if (kot.isFirstStation !== false) {
-            const waiterItems = kot.allItems || kot.items || [];
-            if (waiterItems.length) printKOT(order, waiterItems, waiterPrinter, kot.kotNumber, printOpts);
-          }
+          // Delay 500 ms before printing so the faster HTTP /print-kot path (Captain → LAN)
+          // has time to arrive, run onPrintKot, and register in printedViaHttpRef.
+          // If it did, we skip here to prevent double-printing.
+          // If Captain has no LAN link the HTTP request never arrives and we print as normal.
+          setTimeout(() => {
+            if (printedViaHttpRef.current.has(kot.kotNumber)) return;
+            const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
+            const waiterPrinter = getKotPrinter();
+            const printOpts = { sentBy: kot.operatorName || "", waiter: kot.waiterName || "" };
 
-          // Station copy: this event's items on its dedicated kitchen printer.
-          if (kot.station && (kot.items || []).length) {
-            const stPrinter = getKotPrinterForStation(kot.station);
-            if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
-              printKOT(order, kot.items, stPrinter, kot.kotNumber, printOpts);
+            // Waiter copy: ALL items, only on the FIRST station event.
+            // Backend emits one kot:new per station — isFirstStation prevents N partial waiter slips.
+            if (kot.isFirstStation !== false) {
+              const waiterItems = kot.allItems || kot.items || [];
+              if (waiterItems.length) printKOT(order, waiterItems, waiterPrinter, kot.kotNumber, printOpts);
             }
-          }
+
+            // Station copy: this event's items on its dedicated kitchen printer.
+            if (kot.station && (kot.items || []).length) {
+              const stPrinter = getKotPrinterForStation(kot.station);
+              if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
+                printKOT(order, kot.items, stPrinter, kot.kotNumber, printOpts);
+              }
+            }
+          }, 500);
         });
 
         // ── Auto-sync when Owner Web changes menu / stations ──────────────────
