@@ -153,6 +153,13 @@ export function App() {
     (s) => WAITER_ROLES.includes((s.role || "").toLowerCase())
   );
 
+  // ── Close order screen if the viewed table's order is removed (bill printed from POS) ─
+  useEffect(() => {
+    if (selectedTableId && !orders[selectedTableId]) {
+      setSelectedTableId(null);
+    }
+  }, [orders]);
+
   // ── Detect this device's own LAN IP for the drawer's Device IP footer ─────
   useEffect(() => {
     getDeviceLocalIp().then(setDeviceIp);
@@ -279,7 +286,8 @@ export function App() {
         socket.on("connect_error", () => { wasOffline = true; });
 
         socket.on("order:updated", (o) => setOrders((p) => {
-          if (!o.items?.length || o.isClosed) {
+          // Bill printed from POS → Captain drops the order so the table appears free for next order
+          if (!o.items?.length || o.isClosed || o.billRequested) {
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
           }
@@ -415,7 +423,7 @@ export function App() {
             }
           });
           lSock.on("order:updated", (o) => setOrders((p) => {
-            if (!o.items?.length || o.isClosed) {
+            if (!o.items?.length || o.isClosed || o.billRequested) {
               const { [o.tableId]: _r, ...rest } = p;
               return rest;
             }
