@@ -190,53 +190,88 @@ export function LoginScreen({ outletName, outletCode, staff = [], onLogin, onFor
   }
 
   // ── PIN entry ──────────────────────────────────────────────────────────────
+  const hasError = !!error;
   return (
-    <div className="login-page">
-      <button
-        className="pin-back-btn"
-        onClick={() => { setSelected(null); setPin(""); setError(""); }}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <polyline points="15 18 9 12 15 6"/>
-        </svg>
-        Back
-      </button>
-
-      <div className="pin-profile">
-        <span className="pin-avatar" style={{ background: avatarBg(selected.name) }}>
-          {selected.avatar || selected.name?.[0]?.toUpperCase()}
-        </span>
-        <p className="pin-name">{selected.name}</p>
-        <p className="pin-role">{selected.role}</p>
+    <div className="login-page pin-page-v2">
+      {/* Connection pill */}
+      <div className="lv2-conn-row">
+        <div className="lv2-conn-pill">
+          <span className="lv2-conn-dot" />
+          <span className="lv2-conn-label">{outletCode || outletName || "Connected"}</span>
+        </div>
       </div>
 
-      <div className={`pin-dots${shake ? " shake" : ""}`}>
+      {/* App branding */}
+      <div className="pin-brand">
+        <div className="pin-brand-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#212121" strokeWidth="2" strokeLinecap="round">
+            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
+            <path d="M7 2v20"/>
+            <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+          </svg>
+        </div>
+        <div className="pin-brand-text">
+          <span className="pin-brand-plato">PLATO</span>
+          <span className="pin-brand-captain">Captain</span>
+        </div>
+      </div>
+      <p className="pin-brand-sub">Sign in to start taking orders on the floor.</p>
+
+      {/* User card with Switch */}
+      <div className="pin-user-card">
+        <span className="pin-user-avatar" style={{ background: avatarBg(selected.name) }}>
+          {selected.name?.[0]?.toUpperCase()}
+        </span>
+        <div className="pin-user-info">
+          <span className="pin-user-name">{selected.name}</span>
+          <span className="pin-user-role">{selected.role}</span>
+        </div>
+        <button
+          className="pin-switch-btn"
+          onClick={() => { setSelected(null); setPin(""); setError(""); }}
+        >
+          Switch
+        </button>
+      </div>
+
+      {/* PIN label + dots */}
+      <p className={`pin-v2-label${hasError ? " pin-v2-label-error" : ""}`}>
+        {hasError ? error : "ENTER YOUR 4-DIGIT PIN"}
+      </p>
+      <div className={`pin-v2-dots${shake ? " shake" : ""}`}>
         {[0,1,2,3].map((i) => (
-          <span key={i} className={`pin-dot${pin.length > i ? " filled" : ""}`} />
+          <span
+            key={i}
+            className={`pin-v2-dot${
+              hasError ? " pin-v2-dot-error" :
+              pin.length > i ? (i === pin.length - 1 ? " pin-v2-dot-current" : " pin-v2-dot-filled") :
+              ""
+            }`}
+          />
         ))}
       </div>
 
-      <p className={`pin-label${error ? " pin-label-error" : ""}`}>
-        {error || "Enter your 4-digit PIN"}
-      </p>
-
-      <div className="numpad">
-        {NUMPAD_KEYS.map((k, i) => (
-          <button
-            key={i}
-            className={`numpad-key${k === "" ? " numpad-empty" : ""}${k === "⌫" ? " numpad-del" : ""}`}
-            onClick={() => k === "⌫" ? handleDel() : k && handleDigit(k)}
-            disabled={k === ""}
-          >
-            {k === "⌫" ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      {/* Numpad */}
+      <div className="numpad-v2">
+        {["1","2","3","4","5","6","7","8","9","help","0","del"].map((k, i) => {
+          if (k === "help") return (
+            <button key={i} className="numpad-v2-help">Help</button>
+          );
+          if (k === "del") return (
+            <button key={i} className="numpad-v2-key numpad-v2-del" onClick={handleDel}>
+              <svg width="22" height="18" viewBox="0 0 24 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/>
                 <line x1="18" y1="9" x2="12" y2="15"/>
                 <line x1="12" y1="9" x2="18" y2="15"/>
               </svg>
-            ) : k}
-          </button>
-        ))}
+            </button>
+          );
+          return (
+            <button key={i} className="numpad-v2-key" onClick={() => handleDigit(k)}>
+              {k}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

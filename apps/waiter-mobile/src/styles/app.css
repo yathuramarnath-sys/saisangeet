@@ -3405,3 +3405,203 @@ html, body, #root {
   font-size: 0.88rem;
   font-weight: 600;
 }
+
+/* ─── PIN Screen v2 — Designer Layout ───────────────────────────────────────
+   Prefixed pin-v2- / pin-brand- / pin-user- / numpad-v2- to avoid conflicts.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.pin-page-v2 {
+  align-items: stretch;
+  padding: calc(env(safe-area-inset-top) + 10px) 24px 24px;
+  justify-content: flex-start;
+  gap: 0;
+}
+
+/* App branding block */
+.pin-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 28px;
+  margin-bottom: 10px;
+}
+.pin-brand-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: #FFC900;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.pin-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pin-brand-plato {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #D97706;
+  letter-spacing: 0.08em;
+}
+.pin-brand-captain {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.pin-brand-sub {
+  font-size: 0.95rem;
+  color: var(--text-2);
+  font-weight: 400;
+  margin-bottom: 28px;
+  line-height: 1.4;
+}
+
+/* User card */
+.pin-user-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #FFFFFF;
+  border: 1px solid #EDEBE5;
+  border-radius: 18px;
+  padding: 16px 18px;
+  margin-bottom: 32px;
+  box-shadow: 0 2px 8px rgba(28,28,28,0.06);
+}
+.pin-user-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #E8E0D5;
+  color: #D97706;
+  font-size: 1rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.pin-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.pin-user-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.pin-user-role {
+  font-size: 0.82rem;
+  color: var(--text-2);
+  font-weight: 500;
+}
+.pin-switch-btn {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #D97706;
+  padding: 6px 2px;
+  flex-shrink: 0;
+}
+
+/* PIN label */
+.pin-v2-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: var(--text-2);
+  text-align: center;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+.pin-v2-label-error {
+  color: #DC2626;
+}
+
+/* PIN dots */
+.pin-v2-dots {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 36px;
+}
+.pin-v2-dots.shake { animation: pinShake 0.45s ease; }
+
+.pin-v2-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border-md);
+  background: transparent;
+  transition: all 0.12s;
+}
+.pin-v2-dot-filled {
+  background: var(--text);
+  border-color: var(--text);
+}
+.pin-v2-dot-current {
+  background: #FFC900;
+  border-color: #E6B400;
+  transform: scale(1.1);
+}
+.pin-v2-dot-error {
+  background: transparent;
+  border-color: #DC2626;
+}
+
+/* Numpad v2 — rectangular keys */
+.numpad-v2 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+.numpad-v2-key {
+  height: 68px;
+  border-radius: 14px;
+  background: #FFFFFF;
+  border: 1px solid rgba(0,0,0,0.07);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  transition: all 0.08s;
+  touch-action: manipulation;
+  user-select: none;
+}
+.numpad-v2-key:active {
+  background: #FFC900;
+  border-color: #E6B400;
+  color: #212121;
+  transform: scale(0.95);
+  box-shadow: none;
+}
+.numpad-v2-del {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+}
+.numpad-v2-del:active {
+  background: rgba(0,0,0,0.06);
+  border-color: transparent;
+  color: var(--text);
+  transform: scale(0.95);
+  box-shadow: none;
+}
+.numpad-v2-help {
+  height: 68px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-3);
+  background: transparent;
+  border: none;
+  display: grid;
+  place-items: center;
+}
