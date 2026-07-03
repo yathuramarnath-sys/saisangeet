@@ -5,6 +5,7 @@ import { UpdateBanner } from "./components/UpdateBanner";
 
 import { api }        from "./lib/api";
 import { printBill }  from "./lib/printBill";
+import { isNativeAndroid } from "./lib/thermalPrint";
 import { getDeviceLocalIp } from "./lib/deviceIp";
 import {
   ACTION as SYNC_ACTION,
@@ -123,15 +124,15 @@ export function App() {
   const [activeTab,       setActiveTab]        = useState("floor"); // "floor"|"kots"|"more"
   const [showLogout,      setShowLogout]       = useState(false);
   const [autoOpenAction,  setAutoOpenAction]   = useState(null); // "transfer"|"merge"|"split"
-  const [scanning,        setScanning]         = useState(false);
   const [updateInfo,      setUpdateInfo]       = useState(null); // update available for drawer badge
   const [deviceIp,        setDeviceIp]         = useState(null); // this tablet's own LAN IP, for drawer footer
   // KOT queue — failed sends stored here so staff can retry from the drawer
   const [pendingKots, setPendingKots] = useState(() => {
     try { return JSON.parse(localStorage.getItem("captain_pending_kots") || "[]"); } catch { return []; }
   });
-  const socketRef      = useRef(null);
-  const localSocketRef = useRef(null);
+  const socketRef             = useRef(null);
+  const localSocketRef        = useRef(null);
+  const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
   const [localConn,    setLocalConn]    = useState(false);
   const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
   const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
@@ -363,18 +364,25 @@ export function App() {
           const ownSubnet = ownIp ? ownIp.split(".").slice(0, 3).join(".") : null;
           const subnets   = [...new Set([ownSubnet, "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
           for (const subnet of subnets) {
-            for (let i = 1; i <= 50; i++) {
-              const ip = `${subnet}.${i}`;
-              try {
-                const r = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(400) });
-                if (r.ok) return ip;
-              } catch (_) {}
-            }
+            // Scan all 254 hosts in parallel — first responder wins.
+            // Takes ~1.5 s max regardless of where the POS sits in the subnet.
+            const ips  = Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
+            const found = await new Promise(resolve => {
+              let done = false, remaining = ips.length;
+              ips.forEach(ip => {
+                fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(1500) })
+                  .then(r => { if (r.ok && !done) { done = true; resolve(ip); } })
+                  .catch(() => {})
+                  .finally(() => { remaining--; if (remaining === 0 && !done) resolve(null); });
+              });
+            });
+            if (found) return found;
           }
           return null;
         }
 
         function connectLocalSocket(ip) {
+          connectLocalSocketRef.current = connectLocalSocket; // expose for handleFindPOS
           if (localSocketRef.current) {
             localSocketRef.current.removeAllListeners();
             localSocketRef.current.disconnect();
@@ -527,18 +535,27 @@ export function App() {
     // 10 s worker only handles retries after failure.
     window.addEventListener("dinex:flush-prints", flushPrints);
 
+    // When user manually saves POS IP in Settings, reconnect the local socket immediately
+    // so live order sync works without an app restart.
+    function onPosIpChanged(e) {
+      const ip = e.detail?.ip;
+      if (ip) connectLocalSocketRef.current?.(ip);
+    }
+    window.addEventListener("dinex:pos-ip-changed", onPosIpChanged);
+
     return () => {
       socketRef.current?.disconnect();
       localSocketRef.current?.disconnect();
       stopWorker();
       stopPrintWorker();
       window.removeEventListener("dinex:flush-prints", flushPrints);
+      window.removeEventListener("dinex:pos-ip-changed", onPosIpChanged);
     };
   }, [branchConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Check for Captain app updates (shown in drawer, not top banner) ──────
   useEffect(() => {
-    const APP_VERSION_CAPTAIN = "1.26";
+    const APP_VERSION_CAPTAIN = "1.30";
     const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1");
     function checkUpdate() {
       fetch(`${API_BASE}/app-versions`, { cache: "no-store" })
@@ -608,7 +625,12 @@ export function App() {
         );
         return {
           ...prev,
-          [tableId]: { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] },
+          [tableId]: {
+            ...serverOrder,
+            // Preserve local assignedWaiter if server response doesn't include one
+            assignedWaiter: serverOrder.assignedWaiter || prev[tableId]?.assignedWaiter || null,
+            items: [...(serverOrder.items || []), ...localOnlyUnsent],
+          },
         };
       });
     } catch (err) {
@@ -726,7 +748,12 @@ export function App() {
         );
         return {
           ...prev,
-          [tableId]: { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] },
+          [tableId]: {
+            ...serverOrder,
+            // Preserve local assignedWaiter if server response doesn't include one
+            assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
+            items: [...(serverOrder.items || []), ...localOnlyUnsent],
+          },
         };
       });
     } catch (err) {
@@ -794,9 +821,10 @@ export function App() {
     }
 
     const actorName    = loggedInStaff?.name || "Captain";
-    // waiterName is explicitly selected from the waiter picker (waiter role only).
-    // Never fall back to captain name — a captain is not a waiter.
-    const waiterToShow = waiterName || null;
+    // waiterName comes from the picker. If picker returned null (e.g. "None" selected or
+    // no waiter-role staff configured), fall back to the order's already-assigned waiter
+    // so the name persists across multiple KOTs on the same table.
+    const waiterToShow = waiterName || order.assignedWaiter || null;
 
     // Stamp assignedWaiter on the order so it persists until the next KOT
     handleUpdateOrder({ ...order, assignedWaiter: waiterToShow || "",
@@ -828,6 +856,7 @@ export function App() {
         items:       unsent,
         orderId:     order.id,
         actorName:   actorName,
+        waiterName:  waiterToShow || "",
         source:      "captain",
       });
       if (result?.kots?.length)  serverKots = result.kots;
@@ -855,53 +884,80 @@ export function App() {
       toast.error("KOT queued — retry from menu when back online");
     }
 
-    // ── Local WiFi path: emit kot:send to POS directly ────────────────────
-    // POS relays to KDS via local socket. Works even when cloud is unreachable.
-    localSocketRef.current?.emit("kot:send", {
-      outletId:    effectiveOutletId,
-      tableId:     order.tableId,
-      tableNumber: order.tableNumber,
-      areaName:    order.areaName,
-      items:       unsent,
-      actorName:   actorName,
-    });
-
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
 
     // ── Print KOT slips ────────────────────────────────────────────────────
-    // Printer logic:
-    //   • Waiter KOT printer  → prints ALL items (1 full slip, always)
-    //   • Kitchen station printer → prints only that station's items
-    //                               (only if a DEDICATED printer is configured for that station)
+    // POS-as-Server mode: when Captain knows the local POS IP, delegate ALL
+    // KOT printing to POS. POS uses its own pos_printers config (single source
+    // of truth) to print waiter copy + per-station copies. Falls back to local
+    // printing if POS is unreachable.
     try {
       const { printKOT, getWaiterKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } =
         await import("./lib/kotPrint.js");
       if (kotAutoSendEnabled()) {
-        // Waiter printer = printer with NO station assignment (full copy for waiter)
-        // Distinct from station printers so full copy always prints separately
-        const waiterPrinter = getWaiterKotPrinter();
-        const kotNumber     = serverKotNumber;
+        const localPosIp = localStorage.getItem("captain_local_server_ip");
 
-        // 1. Waiter slip — ALL items on the waiter/default KOT printer (no station)
-        // waiterToShow = assigned waiter from picker; sentBy = captain who tapped Send
-        printKOT(order, unsent, waiterPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
-
-        // 2. Kitchen station slips — one per station, only if a dedicated printer is configured
-        serverKots.forEach(kot => {
-          const st = (kot.station || "").trim();
-          if (!st || st.toLowerCase() === "main kitchen") return;
-          const stPrinter = getKotPrinterForStation(st);
-          // Only print if the station printer is DIFFERENT from the waiter printer
-          // (avoids printing the same physical printer twice)
-          if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
-            // Use original unsent items (have price/note) matched by id; fall back to kot.items
-            const kotItemIds = new Set((kot.items || []).map(i => i.id));
-            const stItems    = unsent.filter(i => kotItemIds.has(i.id));
-            printKOT(order, stItems.length ? stItems : kot.items, stPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
+        if (localPosIp) {
+          try {
+            const res = await fetch(`http://${localPosIp}:4001/print-kot`, {
+              method:  "POST",
+              headers: { "Content-Type": "application/json" },
+              body:    JSON.stringify({
+                order,
+                kots:     serverKots,
+                allItems: unsent,
+                kotSeq:   serverKotNumber,
+                sentBy:   actorName,
+                waiter:   waiterToShow,
+              }),
+            });
+            if (res.ok) posDelegated = true;
+          } catch (err) {
+            console.warn("[captain] POS /print-kot failed, falling back to local print:", err.message);
           }
-        });
+        }
+
+        if (!posDelegated) {
+          // Fallback: print locally (Electron desktop or Android direct TCP)
+          const waiterPrinter = getWaiterKotPrinter();
+          const kotNumber     = serverKotNumber;
+          printKOT(order, unsent, waiterPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
+          serverKots.forEach(kot => {
+            const st = (kot.station || "").trim();
+            if (!st || st.toLowerCase() === "main kitchen") return;
+            const stPrinter = getKotPrinterForStation(st);
+            if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
+              const kotItemIds = new Set((kot.items || []).map(i => i.id));
+              const stItems    = unsent.filter(i => kotItemIds.has(i.id));
+              printKOT(order, stItems.length ? stItems : kot.items, stPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
+            }
+          });
+        }
       }
     } catch (_) { /* printer not configured — KDS still receives it */ }
+
+    // ── Local WiFi path: emit kot:send to POS/KDS ─────────────────────────
+    localSocketRef.current?.emit("kot:send", {
+      outletId:     effectiveOutletId,
+      tableId:      order.tableId,
+      tableNumber:  order.tableNumber,
+      areaName:     order.areaName,
+      items:        unsent,
+      stationGroups: serverKots
+        .filter(k => {
+          const st = (k.station || "").trim();
+          return st && st.toLowerCase() !== "main kitchen" && st.toLowerCase() !== "unassigned";
+        })
+        .map(k => {
+          const kotItemIds = new Set((k.items || []).map(i => i.id));
+          const stItems = unsent.filter(i => kotItemIds.has(i.id));
+          return { station: k.station, items: stItems.length ? stItems : (k.items || []) };
+        }),
+      actorName:         actorName,
+      waiterName:        waiterToShow || "",
+      skipPrint:         posDelegated,
+      backendKotNumber:  serverKotNumber,
+    });
 
     // Show KOT success screen — replaces toast, gives captain a clean confirmation
     setKotState({
@@ -973,16 +1029,59 @@ export function App() {
       console.warn("[captain] assign-bill-no failed:", err.message);
     }
 
-    printBill(
-      printOrder,
-      printOrder.items,
-      outlet || { name: branchConfig?.outletName || "Restaurant" },
-      {
-        cashierName: printOrder.cashierName    || null,   // POS shift cashier, not the captain
+    // Delegate bill printing to POS (POS has the printer config).
+    // Falls back to local printBill() if POS is unreachable.
+    const localPosIp = localStorage.getItem("captain_local_server_ip")?.trim();
+    let posBillDelegated = false;
+    if (localPosIp) {
+      try {
+        const res = await fetch(`http://${localPosIp}:4001/print-bill`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order:       printOrder,
+            items:       printOrder.items,
+            outletData:  outlet || { name: branchConfig?.outletName || "Restaurant" },
+            cashierName: printOrder.cashierName    || null,
+            captainName: printOrder.captainName    || null,
+            waiterName:  printOrder.assignedWaiter || null,
+          }),
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) posBillDelegated = true;
+      } catch (err) {
+        console.warn("[captain] POS /print-bill failed, falling back to local print:", err.message);
+      }
+    }
+
+    // Socket delegation — works when Captain is connected to POS via local WiFi
+    // but /print-bill HTTP endpoint is not reachable (old POS exe or no POS IP saved).
+    // POS handles printing with its own printer config — Captain needs zero printer setup.
+    if (!posBillDelegated && localSocketRef.current?.connected) {
+      localSocketRef.current.emit("bill:print", {
+        order:       printOrder,
+        items:       printOrder.items,
+        outletData:  outlet || { name: branchConfig?.outletName || "Restaurant" },
+        cashierName: printOrder.cashierName    || null,
         captainName: printOrder.captainName    || null,
         waiterName:  printOrder.assignedWaiter || null,
-      }
-    );
+      });
+      posBillDelegated = true;
+    }
+
+    if (!posBillDelegated) {
+      // Last resort: local printBill() — needs captain_printers[0].ip set in Settings
+      printBill(
+        printOrder,
+        printOrder.items,
+        outlet || { name: branchConfig?.outletName || "Restaurant" },
+        {
+          cashierName: printOrder.cashierName    || null,
+          captainName: printOrder.captainName    || null,
+          waiterName:  printOrder.assignedWaiter || null,
+        }
+      );
+    }
 
     // Log every bill print from Captain App for Owner Console audit trail
     api.post("/operations/reprint-log", {
@@ -1113,33 +1212,6 @@ export function App() {
       if (items) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
     } catch (_) {
       toast.error("Sync failed — check connection");
-    }
-  }
-
-  // ── Drawer: Find POS on network ──────────────────────────────────────────
-  async function handleFindPOS() {
-    setScanning(true);
-    try {
-      const ownIp     = await getDeviceLocalIp();
-      const ownSubnet = ownIp ? ownIp.split(".").slice(0, 3).join(".") : null;
-      const subnets   = [...new Set([ownSubnet, "192.168.1", "192.168.0", "10.0.0"].filter(Boolean))];
-      for (const subnet of subnets) {
-        for (let i = 1; i <= 50; i++) {
-          const ip = `${subnet}.${i}`;
-          try {
-            const r = await fetch(`http://${ip}:4001/plato-pos`, { signal: AbortSignal.timeout(400) });
-            if (r.ok) {
-              localStorage.setItem("captain_local_server_ip", ip);
-              toast.success(`POS found at ${ip}`);
-              setScanning(false);
-              return;
-            }
-          } catch (_) {}
-        }
-      }
-      toast("POS not found on this network", { icon: "📡" });
-    } finally {
-      setScanning(false);
     }
   }
 

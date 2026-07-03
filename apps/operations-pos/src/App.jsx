@@ -346,6 +346,8 @@ export default function App() {
   const menuItemsRef       = useRef([]);   // latest menuItems for scale PLU lookup
   // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
   const billPrintingRef = useRef(false);
+  // KOT numbers printed via HTTP /print-kot — used to skip cloud kot:new double-print
+  const printedViaHttpRef = useRef(new Set());
   // Guard: only auto-open a counter ticket once per "no table selected" episode,
   // so clearing back to null (e.g. order cancelled) doesn't loop us straight back in.
   const autoCounterOpenedRef = useRef(false);
@@ -695,19 +697,36 @@ export default function App() {
         });
 
         // ── KOT from Captain app (cloud path) → print on KOT printer ──────────
-        // Backend emits kot:new to ALL devices when Captain sends a KOT.
-        // POS must print it — but skip KOTs it sent itself (source === "pos").
+        // Backend emits one kot:new PER STATION when Captain sends a KOT.
+        // Route each event to the correct printer using kot.station.
         socket.on("kot:new", (kot) => {
           if (kot.source === "pos") return; // POS already printed this itself
-          const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
-          const waiterPrinter = getKotPrinter();
-          printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
-          (kot.stationGroups || []).forEach(sg => {
-            const stPrinter = getKotPrinterForStation(sg.station);
-            if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
-              printKOT(order, sg.items, stPrinter, kot.kotNumber, { sentBy: kot.operatorName || "" });
+
+          // Delay 500 ms before printing so the faster HTTP /print-kot path (Captain → LAN)
+          // has time to arrive, run onPrintKot, and register in printedViaHttpRef.
+          // If it did, we skip here to prevent double-printing.
+          // If Captain has no LAN link the HTTP request never arrives and we print as normal.
+          setTimeout(() => {
+            if (printedViaHttpRef.current.has(kot.kotNumber)) return;
+            const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
+            const waiterPrinter = getKotPrinter();
+            const printOpts = { sentBy: kot.operatorName || "", waiter: kot.waiterName || "" };
+
+            // Waiter copy: ALL items, only on the FIRST station event.
+            // Backend emits one kot:new per station — isFirstStation prevents N partial waiter slips.
+            if (kot.isFirstStation !== false) {
+              const waiterItems = kot.allItems || kot.items || [];
+              if (waiterItems.length) printKOT(order, waiterItems, waiterPrinter, kot.kotNumber, printOpts);
             }
-          });
+
+            // Station copy: this event's items on its dedicated kitchen printer.
+            if (kot.station && (kot.items || []).length) {
+              const stPrinter = getKotPrinterForStation(kot.station);
+              if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
+                printKOT(order, kot.items, stPrinter, kot.kotNumber, printOpts);
+              }
+            }
+          }, 500);
         });
 
         // ── Auto-sync when Owner Web changes menu / stations ──────────────────
@@ -799,16 +818,25 @@ export default function App() {
         localSock.on("kot:new", (kot) => {
           if (!kot.localMode) return; // cloud KOTs handled by the cloud socket path
           const order = ordersRef.current[kot.tableId] || { ...kot, outletName: outlet?.name || "" };
-          // Print on default KOT printer
-          const waiterPrinter = getKotPrinter();
-          printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, { sentBy: kot.actorName });
-          // Per-station printers
-          (kot.stationGroups || []).forEach(sg => {
-            const stPrinter = getKotPrinterForStation(sg.station);
-            if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
-              printKOT(order, sg.items, stPrinter, kot.kotNumber, { sentBy: kot.actorName });
-            }
-          });
+          // Register the backend KOT number in the dedup Set so the cloud socket.on("kot:new")
+          // handler (which fires 500ms later) sees it and skips printing — prevents double-print.
+          if (kot.backendKotNumber != null) {
+            printedViaHttpRef.current.add(kot.backendKotNumber);
+            setTimeout(() => printedViaHttpRef.current.delete(kot.backendKotNumber), 30_000);
+          }
+          // skipPrint is set when Captain already delegated printing to POS via /print-kot HTTP.
+          // In that case we still relay to KDS but skip thermal printing here.
+          if (!kot.skipPrint) {
+            const waiterPrinter = getKotPrinter();
+            const localPrintOpts = { sentBy: kot.actorName, waiter: kot.waiterName || "" };
+            printKOT(order, kot.items || [], waiterPrinter, kot.kotNumber, localPrintOpts);
+            (kot.stationGroups || []).forEach(sg => {
+              const stPrinter = getKotPrinterForStation(sg.station);
+              if (stPrinter && stPrinter.name !== waiterPrinter?.name && sg.items?.length) {
+                printKOT(order, sg.items, stPrinter, kot.kotNumber, localPrintOpts);
+              }
+            });
+          }
           // Mark items as sent on POS table
           const kotItemIds = new Set((kot.items || []).map(i => i.id));
           setOrders(prev => {
@@ -1210,6 +1238,47 @@ export default function App() {
     window.addEventListener("dinex:print-error", onPrintError);
     return () => window.removeEventListener("dinex:print-error", onPrintError);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Captain → POS print delegation ───────────────────────────────────────
+  // Captain sends { order, kots, allItems, kotSeq, sentBy, waiter } via HTTP
+  // POST /print-kot on the local server. Main process relays via IPC. POS uses
+  // its own pos_printers config to print waiter copy + per-station copies.
+  useEffect(() => {
+    if (!window.electronAPI?.onPrintKot) return;
+    const cleanup = window.electronAPI.onPrintKot(({ order, kots, allItems, kotSeq, sentBy, waiter }) => {
+      // Record this KOT number so the cloud kot:new handler skips it (prevents double-print)
+      if (kotSeq != null) {
+        printedViaHttpRef.current.add(kotSeq);
+        setTimeout(() => printedViaHttpRef.current.delete(kotSeq), 30_000);
+      }
+      const waiterPrinter = getKotPrinter();
+      if (allItems?.length) {
+        printKOT(order, allItems, waiterPrinter, kotSeq, { sentBy, waiter });
+      }
+      (kots || []).forEach(kot => {
+        const st = (kot.station || "").trim();
+        if (!st || st.toLowerCase() === "main kitchen") return;
+        const stPrinter = getKotPrinterForStation(st);
+        if (stPrinter && stPrinter.name !== waiterPrinter?.name && (kot.items || []).length) {
+          printKOT(order, kot.items, stPrinter, kotSeq, { sentBy, waiter });
+        }
+      });
+    });
+    return cleanup;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Bill print delegated from Captain via POST /print-bill ────────────────
+  useEffect(() => {
+    if (!window.electronAPI?.onPrintBill) return;
+    const cleanup = window.electronAPI.onPrintBill(({ order, items, outletData, cashierName, captainName, waiterName }) => {
+      printBill(order, items, outletData || outlet || branchConfig?.outletName, {
+        cashierName: cashierName || null,
+        captainName: captainName || null,
+        waiterName:  waiterName  || null,
+      });
+    });
+    return cleanup;
+  }, [outlet, branchConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Barcode scanner listener ──────────────────────────────────────────────
   // USB/Bluetooth scanners act like a keyboard — they type the barcode very fast

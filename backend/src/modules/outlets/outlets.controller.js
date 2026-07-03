@@ -2,6 +2,7 @@ const {
   fetchOutlets,
   createOutlet,
   updateOutletSettings,
+  requestDeleteOtp,
   deleteOutlet,
   regenerateOutletSyncCode,
 } = require("./outlets.service");
@@ -41,8 +42,15 @@ async function updateOutletTablesHandler(req, res) {
   res.json(result);
 }
 
+async function requestDeleteOtpHandler(req, res) {
+  const result = await requestDeleteOtp(req.params.id);
+  res.json(result);
+}
+
 async function deleteOutletHandler(req, res) {
-  const result = await deleteOutlet(req.params.id);
+  const { otp } = req.body || {};
+  if (!otp) return res.status(400).json({ error: "OTP is required to delete an outlet." });
+  const result = await deleteOutlet(req.params.id, otp);
   pushSync(req);
   res.json(result);
 }
@@ -59,6 +67,7 @@ module.exports = {
   createOutletHandler,
   updateOutletSettingsHandler,
   updateOutletTablesHandler,
+  requestDeleteOtpHandler,
   deleteOutletHandler,
   regenerateSyncCodeHandler,
 };

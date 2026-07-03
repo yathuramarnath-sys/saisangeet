@@ -42,17 +42,25 @@ export function getKotPrinterForStation(stationName) {
   if (stationName) {
     const match = printers.find(
       p => p.station && p.station.toLowerCase() === stationName.toLowerCase()
-        && (p.type === "KOT Printer" || p.type === "Both")
+        && isKotType(p.type)
     );
     if (match) return match;
   }
   return getKotPrinter();
 }
 
+function isKotType(t) {
+  return t === "KOT Printer" || t === "Both" || t === "Both (KOT + Bill)";
+}
+
+function isBillType(t) {
+  return t === "Bill Printer" || t === "Both" || t === "Both (KOT + Bill)";
+}
+
 /** Find the best KOT printer — prefers isDefault, falls back to first KOT/Both printer */
 export function getKotPrinter() {
   const printers = loadPrinters();
-  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both");
+  const kotPrinters = printers.filter(p => isKotType(p.type));
   if (!kotPrinters.length) return printers.find(p => p.isDefault) || null;
   return kotPrinters.find(p => p.isDefault) || kotPrinters[0];
 }
@@ -61,11 +69,10 @@ export function getKotPrinter() {
  * Get the waiter/full-copy KOT printer.
  * Prefers a printer with NO station assignment (dedicated waiter copy printer).
  * Falls back to getKotPrinter() if all printers have stations.
- * Falls back to getBillPrinter() if that has an IP (bill printer also prints KOTs).
  */
 export function getWaiterKotPrinter() {
   const printers = loadPrinters();
-  const kotPrinters = printers.filter(p => p.type === "KOT Printer" || p.type === "Both");
+  const kotPrinters = printers.filter(p => isKotType(p.type));
   // First choice: KOT printer with no station (pure default/waiter printer)
   const noStation = kotPrinters.filter(p => !p.station || p.station.trim() === "");
   if (noStation.length) return noStation.find(p => p.isDefault) || noStation[0];
@@ -81,11 +88,10 @@ export function getBillPrinter() {
   const printers = loadPrinters();
   // Prefer printer on "Bills & KOTs" station
   const billingStation = printers.find(
-    p => p.station && /bill|kot/i.test(p.station)
-      && (p.type === "Bill Printer" || p.type === "Both")
+    p => p.station && /bill|kot/i.test(p.station) && isBillType(p.type)
   );
   if (billingStation) return billingStation;
-  const billPrinters = printers.filter(p => p.type === "Bill Printer" || p.type === "Both");
+  const billPrinters = printers.filter(p => isBillType(p.type));
   if (billPrinters.length) return billPrinters.find(p => p.isDefault) || billPrinters[0];
   // No dedicated bill printer — fall back to the waiter KOT printer (same physical printer)
   return getWaiterKotPrinter();
@@ -175,6 +181,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   const kotNum      = kotSeq ? `KOT-${String(kotSeq).padStart(4, "0")}` : (order.kotNumber || `KOT-${order.orderNumber}`);
   const printerName = resolvedPrinter?.name || "Kitchen";
   const sentBy      = options.sentBy || order.cashierName || null;
+  const waiterName  = options.waiter || null;
 
   const itemsHTML = items.map(item => `
     <div class="kot-item">
@@ -381,6 +388,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       <span>${items.reduce((s, i) => s + i.quantity, 0)}</span>
     </div>
     ${sentBy ? `<div class="kot-footer-row"><span>Sent by:</span><span style="font-weight:900">${sentBy}</span></div>` : ""}
+    ${waiterName ? `<div class="kot-footer-row"><span>Waiter:</span><span style="font-weight:900">${waiterName}</span></div>` : ""}
     <div class="kot-printer-tag">→ ${printerName}</div>
   </div>
 </body>

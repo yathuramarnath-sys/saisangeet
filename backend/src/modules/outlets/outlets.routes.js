@@ -10,6 +10,7 @@ const {
   createOutletHandler,
   updateOutletSettingsHandler,
   updateOutletTablesHandler,
+  requestDeleteOtpHandler,
   deleteOutletHandler,
   regenerateSyncCodeHandler,
 } = require("./outlets.controller");
@@ -36,6 +37,11 @@ outletsRouter.patch(
   "/:id/tables",
   requireAuth,
   asyncHandler(updateOutletTablesHandler)
+);
+outletsRouter.post(
+  "/:id/request-delete-otp",
+  requireAuth, requirePermission("outlets.manage"),
+  asyncHandler(requestDeleteOtpHandler)
 );
 outletsRouter.delete(
   "/:id",

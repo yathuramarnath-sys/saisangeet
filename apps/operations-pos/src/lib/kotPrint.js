@@ -100,7 +100,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   const kotNum      = kotSeq ? `KOT-${String(kotSeq).padStart(4, "0")}` : (order.kotNumber || `KOT-${order.orderNumber}`);
   const printerName = resolvedPrinter?.name || "Kitchen";
   const sentBy         = options.sentBy || order.cashierName || null;
-  const assignedWaiter = order.assignedWaiter || null;
+  const assignedWaiter = options.waiter || order.assignedWaiter || null;
 
   const itemsHTML = items.map(item => `
     <tr class="kot-item-row">

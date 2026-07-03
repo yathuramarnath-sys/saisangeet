@@ -215,6 +215,73 @@ function startLocalServer() {
         return;
       }
 
+      // POST /print-kot — Captain delegates all KOT printing to POS.
+      // POS uses its own pos_printers config to split by station and print.
+      // Body: { order, kots: [{station, items}], allItems, kotSeq, sentBy, waiter }
+      // Returns immediately with { ok: true } — printing is fire-and-forget via IPC.
+      if (req.method === "POST" && req.url === "/print-kot") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        let body = "";
+        req.on("data", chunk => { body += chunk; });
+        req.on("end", () => {
+          try {
+            const data = JSON.parse(body);
+            mainWindow?.webContents.send("do:print-kot", data);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+          }
+        });
+        return;
+      }
+
+      // CORS preflight for /print-kot
+      if (req.method === "OPTIONS" && req.url === "/print-kot") {
+        res.writeHead(204, {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        });
+        res.end();
+        return;
+      }
+
+      // POST /print-bill — Captain delegates bill printing to POS.
+      // POS uses its own pos_printers config. Captain needs no printer config.
+      // Body: { order, items, outletData, cashierName, captainName, waiterName }
+      if (req.method === "POST" && req.url === "/print-bill") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        let body = "";
+        req.on("data", chunk => { body += chunk; });
+        req.on("end", () => {
+          try {
+            const data = JSON.parse(body);
+            mainWindow?.webContents.send("do:print-bill", data);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+          }
+        });
+        return;
+      }
+
+      // CORS preflight for /print-bill
+      if (req.method === "OPTIONS" && req.url === "/print-bill") {
+        res.writeHead(204, {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        });
+        res.end();
+        return;
+      }
+
       res.writeHead(404); res.end();
     });
 
@@ -278,6 +345,12 @@ function startLocalServer() {
         socket.broadcast.emit("order:updated",
           localOrderStore[tableId] || { tableId, billRequested: true }
         );
+      });
+
+      // ── Bill print from Captain via socket → POS prints with own printer config ─
+      // Captain needs zero printer config — POS uses pos_printers (same as KOT path).
+      socket.on("bill:print", (billData) => {
+        mainWindow?.webContents.send("do:print-bill", billData);
       });
 
       socket.on("disconnect", () => {
@@ -498,6 +571,7 @@ async function buildEscPosFromHtml(html) {
                 })),
                 total:   footRows.find(r => r.innerText.includes('Total'))?.querySelector(':last-child')?.innerText?.trim() || '',
                 sentBy:  footRows.find(r => r.innerText.includes('Sent'))?.querySelector(':last-child')?.innerText?.trim()  || '',
+                waiter:  footRows.find(r => r.innerText.includes('Waiter'))?.querySelector(':last-child')?.innerText?.trim() || '',
                 printer: q('.kot-printer-tag')?.innerText || '',
               };
             }
@@ -676,6 +750,7 @@ async function buildEscPosFromHtml(html) {
           // Footer
           if (data.total) cmd += 'Total Items : ' + data.total + LF;
           if (data.sentBy) cmd += BOLD1 + 'Sent by : ' + data.sentBy + BOLD0 + LF;
+          if (data.waiter) cmd += 'Waiter  : ' + data.waiter + LF;
           if (data.printer) cmd += data.printer + LF;
         } else if (data.type === 'DAYEND') {
           // ── Day End Report ────────────────────────────────────────────────────
@@ -1133,20 +1208,44 @@ ipcMain.handle("scan-printers", async () => {
   const { execSync } = require("child_process");
 
   if (process.platform === "win32") {
-    // Windows: use wmic to list installed printers
+    // Windows: use wmic to list installed printers with their port names so we
+    // can distinguish true USB printers from network printers installed via TCP/IP
+    // ports (those show up in the OS spooler but should be treated as Network).
     let wmicOk = false;
     try {
-      const out = execSync("wmic printer get name /format:list", { timeout: 3000 }).toString();
-      out.split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter((l) => l.startsWith("Name="))
-        .map((l) => l.slice(5).trim())
-        .filter(Boolean)
-        .forEach((name) => {
-          // Skip Microsoft virtual printers that ship with Windows
-          if (/Microsoft|OneNote|PDF|XPS|Fax/i.test(name)) return;
+      const out = execSync("wmic printer get name,PortName /format:list", { timeout: 3000 }).toString();
+      // wmic /format:list groups each printer as a block of "Key=Value" lines separated by blank lines
+      const blocks = out.split(/\r?\n\r?\n/);
+      for (const block of blocks) {
+        const nameMatch    = block.match(/^Name=(.+)$/m);
+        const portMatch    = block.match(/^PortName=(.+)$/m);
+        if (!nameMatch) continue;
+        const name = nameMatch[1].trim();
+        const port = portMatch ? portMatch[1].trim() : "";
+        if (!name) continue;
+        if (/Microsoft|OneNote|PDF|XPS|Fax/i.test(name)) continue;
+
+        // Detect TCP/IP-based ports: standard IP_ prefix, our PlatoTCP_ prefix,
+        // or a port name that is itself an IP address (e.g. "192.168.1.200").
+        const ipFromPort = (() => {
+          if (/^IP_/i.test(port)) return port.replace(/^IP_/i, "").replace(/_/g, ".").replace(/:\d+$/, "");
+          if (/^PlatoTCP_/i.test(port)) return port.replace(/^PlatoTCP_/i, "").replace(/_/g, ".");
+          const directIp = port.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+          if (directIp) return directIp[1];
+          return null;
+        })();
+
+        if (ipFromPort) {
+          // This is a Windows-managed network printer — mark as Network (IP)
+          // and skip if we already found the same IP via TCP probe.
+          const alreadyFound = found.some(f => f.ip === ipFromPort);
+          if (!alreadyFound) {
+            found.push({ name, ip: ipFromPort, conn: "Network (IP)", usb: false, source: "windows-tcp" });
+          }
+        } else {
           found.push({ name, ip: "", conn: "USB", usb: true, source: "windows" });
-        });
+        }
+      }
       wmicOk = true;
     } catch (err) {
       console.warn("[scan-printers] wmic failed:", err.message);
@@ -1156,16 +1255,35 @@ ipcMain.handle("scan-printers", async () => {
     if (!wmicOk) {
       try {
         const out = execSync(
-          'powershell -NoProfile -Command "Get-Printer | Select-Object -ExpandProperty Name"',
+          'powershell -NoProfile -Command "Get-Printer | Select-Object Name,PortName | ConvertTo-Json -Compress"',
           { timeout: 4000 }
-        ).toString();
-        out.split(/\r?\n/)
-          .map((l) => l.trim())
-          .filter(Boolean)
-          .forEach((name) => {
-            if (/Microsoft|OneNote|PDF|XPS|Fax/i.test(name)) return;
+        ).toString().trim();
+        let printers = [];
+        try { printers = JSON.parse(out); } catch { /* ignore */ }
+        if (!Array.isArray(printers)) printers = printers ? [printers] : [];
+        for (const p of printers) {
+          const name = (p.Name || "").trim();
+          const port = (p.PortName || "").trim();
+          if (!name) continue;
+          if (/Microsoft|OneNote|PDF|XPS|Fax/i.test(name)) continue;
+
+          const ipFromPort = (() => {
+            if (/^IP_/i.test(port)) return port.replace(/^IP_/i, "").replace(/_/g, ".").replace(/:\d+$/, "");
+            if (/^PlatoTCP_/i.test(port)) return port.replace(/^PlatoTCP_/i, "").replace(/_/g, ".");
+            const directIp = port.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+            if (directIp) return directIp[1];
+            return null;
+          })();
+
+          if (ipFromPort) {
+            const alreadyFound = found.some(f => f.ip === ipFromPort);
+            if (!alreadyFound) {
+              found.push({ name, ip: ipFromPort, conn: "Network (IP)", usb: false, source: "powershell-tcp" });
+            }
+          } else {
             found.push({ name, ip: "", conn: "USB", usb: true, source: "powershell" });
-          });
+          }
+        }
       } catch (psErr) {
         console.warn("[scan-printers] PowerShell fallback also failed:", psErr.message);
       }

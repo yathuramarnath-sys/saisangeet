@@ -68,6 +68,10 @@ export function printBill(order, items, outletData, options = {}) {
   // Inclusive: tax is already inside the price — total = afterDisc (no extra)
   // Exclusive: tax is added on top — total = afterDisc + tax
   const total    = inclusive ? afterDisc : afterDisc + taxTotal;
+  // Round off to nearest rupee (matches POS behavior; disabled if outlet.roundOff === false)
+  const showRoundOff = outletObj?.roundOff !== false;
+  const roundOff     = showRoundOff ? Math.round(total) - total : 0;
+  const roundedTotal = total + roundOff;
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -83,63 +87,66 @@ export function printBill(order, items, outletData, options = {}) {
         : `Token #${order.ticketNumber}`)
     : `${order.tableNumber}${order.areaName ? " · " + order.areaName : ""}`;
 
-  // ── Android: direct TCP — no POS proxy needed ─────────────────────────────
+  // ── Android: if POS proxy is configured, fall through to HTML→proxy path below.
+  // If no POS proxy, use direct TCP (requires captain_printers to be configured).
   if (isNativeAndroid()) {
-    if (!printerIp) {
-      window.dispatchEvent(new CustomEvent("dinex:print-error", {
-        detail: { source: "Bill", error: "No printer IP set. Go to Settings → Printers." },
-      }));
+    const _localPosIp = localStorage.getItem("captain_local_server_ip")?.trim();
+    if (!_localPosIp) {
+      // No POS proxy — use native TCP direct to printer
+      if (!printerIp) {
+        window.dispatchEvent(new CustomEvent("dinex:print-error", {
+          detail: { source: "Bill", error: "No printer IP set. Configure POS IP in Settings or add a printer." },
+        }));
+        return;
+      }
+
+      const summaryRows = [];
+      summaryRows.push({ label: "Subtotal", value: `${subtotal.toFixed(2)}` });
+      if (discount > 0)
+        summaryRows.push({ label: `Discount (${discountPct}%)`, value: `-${discount.toFixed(2)}` });
+      taxRows.forEach(t => {
+        summaryRows.push({ label: `CGST (${t.cgstPct}%)`, value: `${t.cgst.toFixed(2)}` });
+        summaryRows.push({ label: `SGST (${t.cgstPct}%)`, value: `${t.sgst.toFixed(2)}` });
+      });
+      if (Math.abs(roundOff) >= 0.01)
+        summaryRows.push({ label: "Round Off", value: `${roundOff > 0 ? "+" : ""}${roundOff.toFixed(2)}` });
+
+      const escPosData = buildBillEscPos({
+        outlet:        outletName,
+        invoiceHeader: outletObj.invoiceHeader || "",
+        addr:          addrStr,
+        phone:         outletObj.phone   || "",
+        gstin:         outletObj.gstin   || "",
+        fssai:         outletObj.fssaiNo || "",
+        seatLabel:     seatLabel  || "",
+        date:          dateStr,
+        time:          timeStr,
+        table:         tableLabel,
+        orderType:     orderType,
+        cashier:       servedBy,
+        billNo:        String(order.billNo || order.orderNumber || "-"),
+        captain:       captainStr,
+        waiter:        waiterStr,
+        items: billableItems.map(i => ({
+          name: i.name,
+          note: i.note || "",
+          qty:  String(i.quantity),
+          rate: i.price.toFixed(2),
+          amt:  (i.price * i.quantity).toFixed(2),
+        })),
+        summary: summaryRows,
+        total:   roundedTotal.toFixed(2),
+        footer:  outletObj.invoiceFooter || "Thank you for dining with us!",
+      });
+
+      printEnqueue(PRINT_TYPE.BILL, printerIp, escPosData, {
+        table:  tableLabel,
+        billNo: order.billNo || "",
+      });
+      window.dispatchEvent(new CustomEvent("dinex:flush-prints"));
       return;
     }
-
-    // Build structured data for ESC/POS builder
-    const summaryRows = [];
-    summaryRows.push({ label: "Subtotal", value: `${subtotal.toFixed(2)}` });
-    if (discount > 0)
-      summaryRows.push({ label: `Discount (${discountPct}%)`, value: `-${discount.toFixed(2)}` });
-    taxRows.forEach(t => {
-      summaryRows.push({ label: `CGST (${t.cgstPct}%)`, value: `${t.cgst.toFixed(2)}` });
-      summaryRows.push({ label: `SGST (${t.cgstPct}%)`, value: `${t.sgst.toFixed(2)}` });
-    });
-
-    const escPosData = buildBillEscPos({
-      outlet:        outletName,
-      invoiceHeader: outletObj.invoiceHeader || "",
-      addr:          addrStr,
-      phone:         outletObj.phone   || "",
-      gstin:         outletObj.gstin   || "",
-      fssai:         outletObj.fssaiNo || "",
-      seatLabel:     seatLabel  || "",
-      date:          dateStr,
-      time:          timeStr,
-      table:         tableLabel,
-      orderType:     orderType,
-      cashier:       servedBy,
-      billNo:        String(order.billNo || order.orderNumber || "-"),
-      captain:       captainStr,
-      waiter:        waiterStr,
-      items: billableItems.map(i => ({
-        name: i.name,
-        note: i.note || "",
-        qty:  String(i.quantity),
-        rate: i.price.toFixed(2),
-        amt:  (i.price * i.quantity).toFixed(2),
-      })),
-      summary: summaryRows,
-      total:   total.toFixed(2),
-      footer:  outletObj.invoiceFooter || "Thank you for dining with us!",
-    });
-
-    // ── Enqueue then flush immediately (same timing as before, + auto-retry) ──
-    printEnqueue(PRINT_TYPE.BILL, printerIp, escPosData, {
-      table:  tableLabel,
-      billNo: order.billNo || "",
-    });
-    // Signal App.jsx to flush right now — printer fires immediately,
-    // retry worker only kicks in if this first attempt fails.
-    window.dispatchEvent(new CustomEvent("dinex:flush-prints"));
-
-    return;
+    // POS proxy configured → fall through to HTML path below
   }
 
   // ── Web fallback: HTML → POS proxy → printer ──────────────────────────────
@@ -264,10 +271,11 @@ export function printBill(order, items, outletData, options = {}) {
       ${taxRows.map(t => `
       <tr><td colspan="3" class="sum-lbl">CGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.cgst.toFixed(2)}</td></tr>
       <tr><td colspan="3" class="sum-lbl">SGST (${t.cgstPct}%)</td><td class="col-amt sum-val">&#8377;${t.sgst.toFixed(2)}</td></tr>`).join("")}
+      ${Math.abs(roundOff) >= 0.01 ? `<tr><td colspan="3" class="sum-lbl">Round Off</td><td class="col-amt sum-val">${roundOff > 0 ? "+" : ""}&#8377;${roundOff.toFixed(2)}</td></tr>` : ""}
     </tbody>
   </table>
   <hr class="div-dash">
-  <div class="total-row"><span>TOTAL</span><span>&#8377;${total.toFixed(2)}</span></div>
+  <div class="total-row"><span>TOTAL</span><span>&#8377;${roundedTotal.toFixed(2)}</span></div>
   <div class="footer">
     <p>Please pay at the counter</p>
     <p>${outletObj.invoiceFooter || "Thank you for dining with us!"}</p>

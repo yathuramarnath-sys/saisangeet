@@ -6050,3 +6050,18 @@ html, body, #root {
 .lgm-cancel-btn:active { background: #E5E7EB; }
 .lgm-confirm-btn { background: #DC2626; color: #fff; }
 .lgm-confirm-btn:active { background: #B91C1C; }
+
+/* ── set2 multi-printer additions ── */
+.set2-printer-card { border: 1px solid #E5E2D9; border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+.set2-printer-default { border-color: #FFC900; background: #FFFBEB; }
+.set2-printer-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.set2-printer-card-label { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: #D97706; }
+.set2-printer-card:not(.set2-printer-default) .set2-printer-card-label { color: #6366F1; }
+.set2-printer-remove { background: none; border: none; color: #EF4444; font-size: 1rem; cursor: pointer; padding: 2px 4px; line-height: 1; }
+.set2-printer-btns { display: flex; gap: 8px; margin-top: 12px; }
+.set2-add-printer-btn {
+  width: 100%; padding: 11px; border-radius: 10px;
+  border: 1.5px dashed #6366F1; background: #F5F3FF;
+  color: #6366F1; font-size: 0.82rem; font-weight: 700; cursor: pointer; margin-bottom: 10px;
+}
+.set2-printer-note { font-size: 0.72rem; color: #9CA3AF; line-height: 1.55; margin: 4px 0 20px; }
