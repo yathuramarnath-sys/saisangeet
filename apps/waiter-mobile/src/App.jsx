@@ -142,7 +142,7 @@ export function App() {
 
   // Staff lists — filtered by role
   const WAITER_ROLES  = ["waiter", "server", "steward"];
-  const CAPTAIN_ROLES = ["captain", "waiter", "server", "steward"];
+  const CAPTAIN_ROLES = ["captain"];
   const allStaff    = branchConfig?.staff?.length ? branchConfig.staff : FALLBACK_STAFF;
   const branchStaff = allStaff.filter(
     (s) => CAPTAIN_ROLES.includes((s.role || "").toLowerCase())
@@ -1306,11 +1306,6 @@ export function App() {
   return (
     <div className="captain-app">
       {/* UpdateBanner removed — update notification now lives inside the ☰ drawer */}
-      {localConn && (
-        <div className="captain-local-banner">
-          &#x1F4F6; Local · Connected to POS directly
-        </div>
-      )}
       {/* App header */}
       <header className="app-header">
         <div className="app-header-inner">
