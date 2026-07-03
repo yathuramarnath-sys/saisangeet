@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { tapImpact, errorVibrate } from "../lib/haptics";
 
 const NUMPAD_KEYS = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
@@ -8,11 +8,52 @@ export function avatarBg(name = "") {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
-export function LoginScreen({ outletName, staff = [], onLogin, onForgetDevice }) {
-  const [selected, setSelected] = useState(null);
-  const [pin,      setPin]      = useState("");
-  const [error,    setError]    = useState("");
-  const [shake,    setShake]    = useState(false);
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function getLastUsedId() {
+  try { return localStorage.getItem("captain_last_used_id") || null; }
+  catch { return null; }
+}
+
+function saveLastUsedId(id) {
+  try { localStorage.setItem("captain_last_used_id", id); } catch {}
+}
+
+export function LoginScreen({ outletName, outletCode, staff = [], onLogin, onForgetDevice }) {
+  const [selected,   setSelected]   = useState(null);
+  const [pin,        setPin]        = useState("");
+  const [error,      setError]      = useState("");
+  const [shake,      setShake]      = useState(false);
+  const [search,     setSearch]     = useState("");
+  const [lastUsedId] = useState(getLastUsedId);
+
+  const lastUsed  = staff.find(s => s.id === lastUsedId) || null;
+  const filtered  = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return q ? staff.filter(s => s.name.toLowerCase().includes(q)) : staff;
+  }, [staff, search]);
+  const listStaff = search ? filtered : filtered.filter(s => s.id !== lastUsedId);
+
+  function doLogin(s) {
+    saveLastUsedId(s.id);
+    onLogin(s);
+  }
+
+  function selectStaff(s) {
+    tapImpact();
+    if (!s.pin || s.pin === "0000") {
+      doLogin(s);
+    } else {
+      setSelected(s);
+      setPin("");
+      setError("");
+    }
+  }
 
   function triggerShake() {
     setShake(true);
@@ -22,15 +63,14 @@ export function LoginScreen({ outletName, staff = [], onLogin, onForgetDevice })
 
   function handleDigit(d) {
     if (pin.length >= 4) return;
-    tapImpact(); // fire-and-forget — never block PIN state on haptics
+    tapImpact();
     const next = pin + d;
     setPin(next);
     setError("");
     if (next.length === 4) {
       setTimeout(() => {
-        // Auto-login if pin is 0000 (not set)
         if (selected.pin === "0000" || next === selected.pin) {
-          onLogin(selected);
+          doLogin(selected);
         } else {
           triggerShake();
           setError("Wrong PIN — try again");
@@ -43,53 +83,102 @@ export function LoginScreen({ outletName, staff = [], onLogin, onForgetDevice })
   function handleDel() {
     setPin(p => p.slice(0, -1));
     setError("");
-    tapImpact(); // fire-and-forget
+    tapImpact();
   }
 
-  // ── Staff selection grid ───────────────────────────────────────────────────
+  // ── Staff selection ────────────────────────────────────────────────────────
   if (!selected) {
     return (
-      <div className="login-page">
-        <div className="login-header">
-          <div className="login-logo">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <circle cx="12" cy="12" r="9"/>
-              <path d="M8 12h8" strokeLinecap="round"/>
-            </svg>
+      <div className="login-page login-page-v2">
+        {/* Connection status pill */}
+        {(outletCode || outletName) && (
+          <div className="lv2-conn-row">
+            <div className="lv2-conn-pill">
+              <span className="lv2-conn-dot" />
+              <span className="lv2-conn-label">{outletCode || outletName} · Connected</span>
+            </div>
           </div>
-          <div>
-            <h1 className="login-app-name">Plato Captain</h1>
-            <p className="login-outlet-name">{outletName || "Select your profile"}</p>
-          </div>
+        )}
+
+        {/* Greeting */}
+        <div className="lv2-greeting">
+          <p className="lv2-greeting-sub">{getGreeting()}</p>
+          <h1 className="lv2-greeting-head">Who's on shift?</h1>
         </div>
 
-        <p className="login-prompt">Who's working today?</p>
-
-        <div className="staff-grid">
-          {staff.map((s) => (
-            <button
-              key={s.id}
-              className="staff-card"
-              onClick={() => {
-                tapImpact();
-                // Auto-login if no pin set
-                if (!s.pin || s.pin === "0000") {
-                  onLogin(s);
-                } else {
-                  setSelected(s);
-                  setPin("");
-                  setError("");
-                }
-              }}
-            >
-              <span className="staff-avatar" style={{ background: avatarBg(s.name) }}>
-                {s.avatar || s.name?.[0]?.toUpperCase() || "?"}
+        {/* Last used hero card */}
+        {lastUsed && (
+          <div className="lv2-last-card">
+            <div className="lv2-last-profile">
+              <span className="lv2-last-avatar" style={{ background: avatarBg(lastUsed.name) }}>
+                {lastUsed.name?.[0]?.toUpperCase()}
               </span>
-              <span className="staff-name">{s.name}</span>
-              <span className="staff-role">{s.role}</span>
+              <div className="lv2-last-info">
+                <div className="lv2-last-name-row">
+                  <span className="lv2-last-name">{lastUsed.name}</span>
+                  <span className="lv2-last-badge">LAST USED</span>
+                </div>
+                <span className="lv2-last-role">{lastUsed.role}</span>
+              </div>
+            </div>
+            <button className="lv2-continue-btn" onClick={() => selectStaff(lastUsed)}>
+              Continue as {lastUsed.name.split(" ")[0]}
+              <span className="lv2-continue-arrow">→</span>
             </button>
-          ))}
+          </div>
+        )}
+
+        {/* Divider */}
+        <div className="lv2-divider">
+          <span className="lv2-divider-label">
+            {lastUsed ? "OR SWITCH CAPTAIN" : "SELECT CAPTAIN"}
+          </span>
+          <span className="lv2-divider-line" />
         </div>
+
+        {/* Search */}
+        <div className="lv2-search">
+          <svg className="lv2-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35" strokeLinecap="round"/>
+          </svg>
+          <input
+            className="lv2-search-input"
+            placeholder="Search captains"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="lv2-search-clear" onClick={() => setSearch("")}>✕</button>
+          )}
+        </div>
+
+        {/* Staff list */}
+        {listStaff.length > 0 && (
+          <div className="lv2-staff-list">
+            {listStaff.map((s, i) => (
+              <button
+                key={s.id}
+                className={`lv2-staff-row${i < listStaff.length - 1 ? " lv2-staff-row-border" : ""}`}
+                onClick={() => selectStaff(s)}
+              >
+                <span className="lv2-staff-avatar" style={{ background: avatarBg(s.name) }}>
+                  {s.name?.[0]?.toUpperCase()}
+                </span>
+                <span className="lv2-staff-info">
+                  <span className="lv2-staff-name">{s.name}</span>
+                  <span className="lv2-staff-role">{s.role}</span>
+                </span>
+                <svg className="lv2-staff-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {search && filtered.length === 0 && (
+          <p className="lv2-no-results">No captains found for "{search}"</p>
+        )}
 
         {onForgetDevice && (
           <button className="forget-device-btn" onClick={onForgetDevice}>

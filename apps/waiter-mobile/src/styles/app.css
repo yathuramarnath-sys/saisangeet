@@ -3160,3 +3160,248 @@ html, body, #root {
 
 .cat-chip-disabled { opacity: 0.55; }
 .ico-accept:active { background: #E6B400; }
+
+/* ─── Login Screen v2 — Designer Layout ─────────────────────────────────────
+   All new classes prefixed with lv2- so they never clash with the old grid.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.login-page-v2 {
+  align-items: stretch;
+  padding: calc(env(safe-area-inset-top) + 10px) 20px 32px;
+  gap: 0;
+  overflow-y: auto;
+}
+
+/* Connection pill */
+.lv2-conn-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 22px;
+}
+.lv2-conn-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #ECFDF5;
+}
+.lv2-conn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #059669;
+  flex-shrink: 0;
+}
+.lv2-conn-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #059669;
+  letter-spacing: 0.01em;
+}
+
+/* Greeting */
+.lv2-greeting {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.lv2-greeting-sub {
+  font-size: 0.95rem;
+  color: var(--text-2);
+  font-weight: 500;
+}
+.lv2-greeting-head {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+/* Last used hero card */
+.lv2-last-card {
+  background: #FFFFFF;
+  border: 1px solid #EDEBE5;
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 22px;
+  box-shadow: 0 6px 22px rgba(28,28,28,0.07);
+}
+.lv2-last-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.lv2-last-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.lv2-last-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lv2-last-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lv2-last-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.lv2-last-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #FFF8E7;
+  color: #B87914;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+.lv2-last-role {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-2);
+}
+.lv2-continue-btn {
+  height: 52px;
+  width: 100%;
+  border-radius: 14px;
+  background: #FFC900;
+  color: #212121;
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.1s, transform 0.1s;
+}
+.lv2-continue-btn:active { opacity: 0.85; transform: scale(0.98); }
+.lv2-continue-arrow {
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+
+/* Divider */
+.lv2-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.lv2-divider-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-3);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.lv2-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Search bar */
+.lv2-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: #FFFFFF;
+  border: 1px solid #EDEBE5;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.lv2-search-icon { color: var(--text-3); flex-shrink: 0; }
+.lv2-search-input {
+  flex: 1;
+  font-size: 0.95rem;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+.lv2-search-input::placeholder { color: var(--text-3); }
+.lv2-search-clear {
+  color: var(--text-3);
+  font-size: 0.75rem;
+  padding: 4px;
+}
+
+/* Staff list */
+.lv2-staff-list {
+  background: #FFFFFF;
+  border: 1px solid #EDEBE5;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(28,28,28,0.05);
+}
+.lv2-staff-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  width: 100%;
+  text-align: left;
+  transition: background 0.1s;
+}
+.lv2-staff-row:active { background: #F7F5F1; }
+.lv2-staff-row-border {
+  border-bottom: 1px solid #F1EFE9;
+}
+.lv2-staff-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.lv2-staff-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.lv2-staff-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.lv2-staff-role {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-2);
+}
+.lv2-staff-chevron { color: #C4C0B6; flex-shrink: 0; }
+
+.lv2-no-results {
+  text-align: center;
+  padding: 24px 0;
+  color: var(--text-3);
+  font-size: 0.88rem;
+  font-weight: 600;
+}

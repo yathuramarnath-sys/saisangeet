@@ -1290,6 +1290,7 @@ export function App() {
       <>
         <LoginScreen
           outletName={outlet?.name || branchConfig.outletName}
+          outletCode={outlet?.code || ""}
           staff={branchStaff}
           onLogin={setLoggedInStaff}
           onForgetDevice={() => {
