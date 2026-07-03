@@ -1361,6 +1361,7 @@ export function App() {
             orders={orders}
             onSelectTable={handleSelectTable}
             onLongPressTable={handleLongPressTable}
+            loggedInStaff={loggedInStaff}
           />
         ) : (
           <OrderScreen

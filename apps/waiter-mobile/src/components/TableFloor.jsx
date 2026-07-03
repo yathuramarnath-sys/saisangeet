@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { tapImpact } from "../lib/haptics";
+import { avatarBg } from "./LoginScreen";
 
 // Calculates "25 min" or "1h 10m" from a timestamp
 function elapsedLabel(ts) {
@@ -10,9 +11,6 @@ function elapsedLabel(ts) {
   const h = Math.floor(mins / 60), m = mins % 60;
   return `${h}h${m > 0 ? ` ${m}m` : ""}`;
 }
-
-const STATUS_LABEL = { open: "Free", hold: "Hold", bill: "Bill Due", running: "Occupied" };
-const STATUS_CLASS = { open: "status-free", hold: "status-hold", bill: "status-bill", running: "status-running" };
 
 export function tableStatusOf(orders, tableId) {
   const o = orders[tableId];
@@ -59,47 +57,108 @@ function useLongPress(onLongPress, onPress, ms = 500) {
   };
 }
 
+const TF2_LABEL = {
+  open:     "Free",
+  hold:     "Hold",
+  bill:     "Bill ready",
+  running:  "Dining",
+  ordering: "Ordering",
+};
+const TF2_COLOR = {
+  open:     "#16A34A",
+  hold:     "#6B7280",
+  bill:     "#0891B2",
+  running:  "#2563EB",
+  ordering: "#D97706",
+};
+const TF2_BADGE_BG = {
+  open:     "#16A34A",
+  hold:     "#6B7280",
+  bill:     "#0891B2",
+  running:  "#2563EB",
+  ordering: "#D97706",
+};
+
 // Each table card is its own component so useLongPress (which calls useRef)
 // is always called at the top level — never inside a .map() loop.
 function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
-  const st         = tableStatusOf(orders, table.id);
-  const order      = orders[table.id];
-  const _items     = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
-  const count      = _items.length;
-  const _sub       = _items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
-  const _tax       = _items.reduce((s, i) => {
+  const st          = tableStatusOf(orders, table.id);
+  const order       = orders[table.id];
+  const _items      = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
+  const _sub        = _items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+  const _tax        = _items.reduce((s, i) => {
     const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
     return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
   }, 0);
-  const amount     = _sub + _tax;
+  const amount      = _sub + _tax;
   const unsentCount = (order?.items || []).filter(i => !i.sentToKot && !i.isVoided).length;
-  const seatedTs   = order?.seatedAt || order?.createdAt || order?.openedAt;
-  const timer      = (st !== "open") ? elapsedLabel(seatedTs) : null;
-  const isOccupied = st !== "open";
+  const seatedTs    = order?.seatedAt || order?.createdAt || order?.openedAt;
+  const timer       = (st !== "open") ? elapsedLabel(seatedTs) : null;
+  const isOccupied  = st !== "open";
+  const displaySt   = (st === "running" && unsentCount > 0) ? "ordering" : st;
+  const guests      = order?.covers || order?.guests || null;
 
   const pressHandlers = useLongPress(
     () => isOccupied && onLongPressTable?.(table.id, area),
     () => onSelectTable(table.id, area)
   );
 
+  const badgeBg    = TF2_BADGE_BG[displaySt];
+  const statusColor = TF2_COLOR[displaySt];
+
+  const infoLine = st === "open"
+    ? (table.seats > 0 ? `${table.seats} seats` : "")
+    : [
+        guests ? `${guests} guests` : null,
+        timer,
+      ].filter(Boolean).join(" · ");
+
   return (
-    <button
-      className={`table-card ${STATUS_CLASS[st]}`}
-      {...pressHandlers}
-    >
-      {timer && <span className="tc-timer">{timer}</span>}
-      {unsentCount > 0 && <span className="tc-unsent">{unsentCount}</span>}
-      <span className="table-number">{table.number}</span>
-      <span className={`table-status-dot dot-${st}`} />
-      <span className="table-status-text">{STATUS_LABEL[st]}</span>
-      {table.seats > 0 && <span className="tc-seats">👤 {table.seats}</span>}
-      {count > 0 && <span className="table-items-count">{count} items</span>}
-      {amount > 0 && <span className="table-amount">₹{amount.toLocaleString("en-IN")}</span>}
+    <button className={`tf2-card`} {...pressHandlers}>
+      {/* Top row: badge + status */}
+      <div className="tf2-card-top">
+        <span className="tf2-badge" style={{ background: badgeBg }}>
+          {table.number}
+        </span>
+        {displaySt === "bill" ? (
+          <span className="tf2-bill-tag">Bill ready</span>
+        ) : (
+          <span className="tf2-status-text" style={{ color: statusColor }}>
+            {TF2_LABEL[displaySt]}
+          </span>
+        )}
+      </div>
+
+      {/* Info row: guests·time or seats */}
+      {infoLine ? (
+        <span className="tf2-info-line">{infoLine}</span>
+      ) : (
+        <span className="tf2-info-line" />
+      )}
+
+      {/* Bottom row: amount + chevron */}
+      <div className="tf2-card-bottom">
+        {amount > 0 ? (
+          <span className="tf2-amount">₹{amount.toLocaleString("en-IN")}</span>
+        ) : (
+          <span />
+        )}
+        <svg className="tf2-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </div>
     </button>
   );
 }
 
-export function TableFloor({ areas, orders, onSelectTable, onLongPressTable }) {
+function getHeaderTime() {
+  const now  = new Date();
+  const day  = now.toLocaleDateString("en-US", { weekday: "long" });
+  const time = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  return `${day} · ${time}`;
+}
+
+export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, loggedInStaff }) {
   const [activeArea, setActiveArea] = useState(null);
   const [tick, setTick] = useState(0); // triggers re-render every minute for timers
   const visible = activeArea ? areas.filter((a) => a.id === activeArea) : areas;
@@ -110,60 +169,79 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable }) {
     return () => clearInterval(t);
   }, []);
 
-  // Count tables by status for summary bar
-  const totalTables  = areas.flatMap(a => a.tables).length;
-  const freeTables   = areas.flatMap(a => a.tables).filter(t => tableStatusOf(orders, t.id) === "open").length;
+  const allTables    = areas.flatMap(a => a.tables);
+  const totalTables  = allTables.length;
+  const freeTables   = allTables.filter(t => tableStatusOf(orders, t.id) === "open").length;
   const activeTables = totalTables - freeTables;
+  const billTables   = allTables.filter(t => tableStatusOf(orders, t.id) === "bill").length;
+  const pct          = totalTables ? Math.round((activeTables / totalTables) * 100) : 0;
 
   return (
-    <div className="floor-page">
-      {/* Summary bar */}
-      <div className="floor-summary">
-        <div className="summary-stat">
-          <span className="summary-num">{freeTables}</span>
-          <span className="summary-label">Free</span>
+    <div className="floor-page tf2-page">
+      {/* Header */}
+      <div className="tf2-header">
+        <div className="tf2-header-left">
+          <span className="tf2-header-datetime">{getHeaderTime()}</span>
+          <h1 className="tf2-title">Floor</h1>
         </div>
-        <div className="summary-divider" />
-        <div className="summary-stat">
-          <span className="summary-num active-num">{activeTables}</span>
-          <span className="summary-label">Occupied</span>
-        </div>
-        <div className="summary-divider" />
-        <div className="summary-stat">
-          <span className="summary-num">{totalTables}</span>
-          <span className="summary-label">Total</span>
+        <div className="tf2-header-right">
+          <div className="tf2-synced-pill">
+            <span className="tf2-synced-dot" />
+            <span className="tf2-synced-label">Synced</span>
+          </div>
+          {loggedInStaff && (
+            <div className="tf2-user-avatar" style={{ background: avatarBg(loggedInStaff.name) }}>
+              {loggedInStaff.name?.[0]?.toUpperCase()}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Area tabs */}
+      {/* Occupancy card */}
+      <div className="tf2-occ-card">
+        <div className="tf2-occ-top">
+          <span className="tf2-occ-label">Floor occupancy</span>
+          <span className="tf2-occ-count">{activeTables} of {totalTables} seated</span>
+        </div>
+        <div className="tf2-occ-bar-track">
+          <div className="tf2-occ-bar-fill" style={{ width: `${pct}%` }} />
+        </div>
+        {billTables > 0 && (
+          <div className="tf2-occ-alert">
+            <span className="tf2-occ-alert-dot" />
+            <span className="tf2-occ-alert-text">
+              {billTables} table{billTables > 1 ? "s" : ""} need attention
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Area tabs — pill style */}
       {areas.length > 1 && (
-        <div className="area-tabs">
+        <div className="tf2-area-tabs">
           <button
-            className={`area-tab${!activeArea ? " area-tab-active" : ""}`}
+            className={`tf2-area-tab${!activeArea ? " tf2-area-tab-active" : ""}`}
             onClick={() => { setActiveArea(null); tapImpact(); }}
-          >
-            All
-          </button>
+          >All</button>
           {areas.map((a) => (
             <button
               key={a.id}
-              className={`area-tab${activeArea === a.id ? " area-tab-active" : ""}`}
+              className={`tf2-area-tab${activeArea === a.id ? " tf2-area-tab-active" : ""}`}
               onClick={() => { setActiveArea(a.id); tapImpact(); }}
-            >
-              {a.name}
-            </button>
+            >{a.name}</button>
           ))}
         </div>
       )}
 
-      {/* Tables grid */}
-      <div className="tables-scroll">
+      {/* Tables */}
+      <div className="tf2-scroll">
         {visible.map((area) => (
-          <div key={area.id} className="area-section">
-            {(areas.length > 1) && (
-              <h3 className="area-heading">{area.name}</h3>
-            )}
-            <div className="tables-grid">
+          <div key={area.id} className="tf2-area-section">
+            <div className="tf2-area-heading">
+              <span className="tf2-area-name">{area.name.toUpperCase()}</span>
+              <span className="tf2-area-count">{area.tables.length} tables</span>
+            </div>
+            <div className="tf2-tables-grid">
               {area.tables.map((table) => (
                 <TableCard
                   key={table.id}
