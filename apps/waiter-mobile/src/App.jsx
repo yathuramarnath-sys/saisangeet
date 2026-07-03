@@ -30,7 +30,8 @@ import { TableFloor }          from "./components/TableFloor";
 import { OrderScreen }         from "./components/OrderScreen";
 import { TableActionsSheet }   from "./components/TableActionsSheet";
 import { CustomerInfoSheet }   from "./components/CustomerInfoSheet";
-import { SideDrawer }         from "./components/SideDrawer";
+import { MoreScreen }          from "./components/MoreScreen";
+import { LogoutModal }         from "./components/LogoutModal";
 import { IncomingOrdersSheet } from "./components/IncomingOrdersSheet";
 import { KotProgressOverlay }  from "./components/KotProgressOverlay";
 import { FailedKotsScreen }    from "./components/FailedKotsScreen";
@@ -119,7 +120,8 @@ export function App() {
   const [actionTableId,   setActionTableId]   = useState(null);
   const [actionArea,      setActionArea]       = useState(null);
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
-  const [showDrawer,      setShowDrawer]       = useState(false);
+  const [activeTab,       setActiveTab]        = useState("floor"); // "floor"|"kots"|"more"
+  const [showLogout,      setShowLogout]       = useState(false);
   const [autoOpenAction,  setAutoOpenAction]   = useState(null); // "transfer"|"merge"|"split"
   const [scanning,        setScanning]         = useState(false);
   const [updateInfo,      setUpdateInfo]       = useState(null); // update available for drawer badge
@@ -142,7 +144,6 @@ export function App() {
   // null | { phase: 'sending'|'success', tableLabel, itemCount, kotNumber }
   const [transferSuccess, setTransferSuccess] = useState(null);
   // null | { fromNum, toNum }
-  const [showFailedKots,  setShowFailedKots]  = useState(false);
 
   // Incoming customer (QR) orders
   const [customerOrders,     setCustomerOrders]    = useState([]);
@@ -1095,11 +1096,10 @@ export function App() {
   // ── Sign out — clear staff login only, keep branch config (device stays linked)
   // Returns to the staff PIN selection screen, not the setup/sync code screen.
   function handleSignOut() {
-    setShowDrawer(false);
     setLoggedInStaff(null);   // goes back to PIN login (branchConfig stays intact)
   }
 
-  // ── Drawer: Sync data ────────────────────────────────────────────────────
+  // ── Sync data (called from MoreScreen) ──────────────────────────────────
   async function handleSync() {
     if (!outlet?.id) return;
     try {
@@ -1111,7 +1111,6 @@ export function App() {
       if (liveOrders) setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
       if (cats)  setCategories(cats);
       if (items) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
-      toast.success("Data synced");
     } catch (_) {
       toast.error("Sync failed — check connection");
     }
@@ -1318,71 +1317,38 @@ export function App() {
   // 3. Main app
   return (
     <div className="captain-app">
-      {/* UpdateBanner removed — update notification now lives inside the ☰ drawer */}
-      {/* App header */}
-      <header className="app-header">
-        <div className="app-header-inner">
-          <div className="header-brand">
-            <span className="header-avatar" style={{ background: avatarBg(loggedInStaff.name) }}>
-              {loggedInStaff.avatar || loggedInStaff.name?.[0]?.toUpperCase()}
-            </span>
-            <div>
-              <p className="header-name">{loggedInStaff.name}</p>
-              <p className="header-sub">{loggedInStaff.role} · {outlet?.name || branchConfig.outletName || "Restaurant"}</p>
+      {/* App header — visible on floor + order screen */}
+      {activeTab === "floor" && (
+        <header className="app-header">
+          <div className="app-header-inner">
+            <div className="header-brand">
+              <span className="header-avatar" style={{ background: avatarBg(loggedInStaff.name) }}>
+                {loggedInStaff.avatar || loggedInStaff.name?.[0]?.toUpperCase()}
+              </span>
+              <div>
+                <p className="header-name">{loggedInStaff.name}</p>
+                <p className="header-sub">{loggedInStaff.role} · {outlet?.name || branchConfig.outletName || "Restaurant"}</p>
+              </div>
+            </div>
+            <div className="header-right">
+              {customerOrders.length > 0 && (
+                <button
+                  className="captain-incoming-btn"
+                  onClick={() => setShowIncoming(true)}
+                  aria-label="Incoming orders"
+                >
+                  📲
+                  <span className="captain-incoming-count">{customerOrders.length}</span>
+                </button>
+              )}
             </div>
           </div>
-          <div className="header-right">
-            {/* Incoming QR orders badge */}
-            {customerOrders.length > 0 && (
-              <button
-                className="captain-incoming-btn"
-                onClick={() => setShowIncoming(true)}
-                aria-label="Incoming orders"
-              >
-                📲
-                <span className="captain-incoming-count">{customerOrders.length}</span>
-              </button>
-            )}
-            {pendingKots.length > 0 && (
-              <button
-                className="header-kot-dot"
-                onClick={() => setShowFailedKots(true)}
-                aria-label="Pending KOTs"
-                style={{ border: "none", cursor: "pointer", background: "transparent", padding: 0 }}
-              >
-                {pendingKots.length}
-              </button>
-            )}
-            <button
-              className="drawer-open-btn"
-              onClick={() => setShowDrawer(true)}
-              aria-label="Menu"
-              style={{ position: "relative" }}
-            >
-              <span className="drawer-open-icon">☰</span>
-              {updateInfo && (
-                <span style={{
-                  position: "absolute", top: 2, right: 2,
-                  width: 8, height: 8, borderRadius: "50%",
-                  background: "#ef4444", border: "1.5px solid #fff"
-                }} />
-              )}
-            </button>
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* Main content */}
       <main className="app-main">
-        {!selectedTableId ? (
-          <TableFloor
-            areas={areas}
-            orders={orders}
-            onSelectTable={handleSelectTable}
-            onLongPressTable={handleLongPressTable}
-            loggedInStaff={loggedInStaff}
-          />
-        ) : (
+        {selectedTableId ? (
           <OrderScreen
             order={selectedOrder || buildBlankOrder(
               { id: selectedTableId, number: selectedTableId },
@@ -1413,30 +1379,83 @@ export function App() {
             onForceClear={() => handleForceClearTable(selectedTableId)}
             onCustomerInfo={() => setShowCustomerInfo(true)}
           />
+        ) : activeTab === "floor" ? (
+          <TableFloor
+            areas={areas}
+            orders={orders}
+            onSelectTable={handleSelectTable}
+            onLongPressTable={handleLongPressTable}
+            loggedInStaff={loggedInStaff}
+          />
+        ) : activeTab === "kots" ? (
+          <FailedKotsScreen
+            pendingKots={pendingKots}
+            onRetry={handleRetryKot}
+            onRetryAll={handleRetryAllKots}
+            onClear={handleClearKot}
+            onClose={() => setActiveTab("floor")}
+          />
+        ) : (
+          <MoreScreen
+            loggedInStaff={loggedInStaff}
+            outletName={outlet?.name || branchConfig?.outletName}
+            serverId={branchConfig?.outletCode || null}
+            localPosIp={localStorage.getItem("captain_local_server_ip") || null}
+            deviceIp={deviceIp}
+            serverUrl={(import.meta.env.VITE_API_BASE_URL || "").replace("/api/v1", "")}
+            updateInfo={updateInfo}
+            onSync={handleSync}
+            onSignOut={() => setShowLogout(true)}
+          />
         )}
       </main>
 
-      {/* Side Drawer */}
-      {showDrawer && (
-        <SideDrawer
-          outletName={outlet?.name || branchConfig?.outletName}
-          serverUrl={(import.meta.env.VITE_API_BASE_URL || "").replace("/api/v1", "")}
-          localPosIp={localStorage.getItem("captain_local_server_ip") || null}
-          deviceIp={deviceIp}
-          serverId={branchConfig?.outletCode || null}
-          pendingKots={pendingKots}
-          syncFailed={syncFailed}
-          printFailed={printFailed}
-          updateInfo={updateInfo}
-          scanning={scanning}
-          onClose={() => setShowDrawer(false)}
-          onSync={async () => { setShowDrawer(false); await handleSync(); }}
-          onFindPOS={() => { setShowDrawer(false); handleFindPOS(); }}
-          onSignOut={handleSignOut}
-          onRetryKot={handleRetryKot}
-          onRetryAll={handleRetryAllKots}
-          onClearKot={handleClearKot}
-        />
+      {/* Bottom tab bar — hidden when order screen is open or overlay active */}
+      {!selectedTableId && !kotState && (
+        <nav className="btab-bar">
+          <button
+            className={`btab-item${activeTab === "floor" ? " btab-active" : ""}`}
+            onClick={() => setActiveTab("floor")}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            <span className="btab-label">Floor</span>
+          </button>
+          <button
+            className={`btab-item btab-kots-item${activeTab === "kots" ? " btab-active" : ""}`}
+            onClick={() => setActiveTab("kots")}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="8" y1="13" x2="16" y2="13"/>
+              <line x1="8" y1="17" x2="16" y2="17"/>
+            </svg>
+            {pendingKots.length > 0 && (
+              <span className="btab-badge">{pendingKots.length}</span>
+            )}
+            <span className="btab-label">KOTs</span>
+          </button>
+          <button
+            className={`btab-item${activeTab === "more" ? " btab-active" : ""}`}
+            onClick={() => setActiveTab("more")}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="5"  r="1" fill="currentColor"/>
+              <circle cx="12" cy="12" r="1" fill="currentColor"/>
+              <circle cx="12" cy="19" r="1" fill="currentColor"/>
+            </svg>
+            {updateInfo && <span className="btab-update-dot" />}
+            <span className="btab-label">More</span>
+          </button>
+        </nav>
       )}
 
       {/* Table Action Sheet — slides up when captain taps an OCCUPIED table */}
@@ -1534,14 +1553,11 @@ export function App() {
         </div>
       )}
 
-      {/* Failed KOTs full-page screen */}
-      {showFailedKots && (
-        <FailedKotsScreen
-          pendingKots={pendingKots}
-          onRetry={handleRetryKot}
-          onRetryAll={handleRetryAllKots}
-          onClear={handleClearKot}
-          onClose={() => setShowFailedKots(false)}
+      {/* Logout confirmation modal */}
+      {showLogout && (
+        <LogoutModal
+          onConfirm={() => { setShowLogout(false); handleSignOut(); }}
+          onCancel={() => setShowLogout(false)}
         />
       )}
 
