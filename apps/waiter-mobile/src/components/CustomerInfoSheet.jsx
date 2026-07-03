@@ -1,21 +1,11 @@
 import { useState } from "react";
 import { tapImpact } from "../lib/haptics";
 
-/**
- * CustomerInfoSheet — optional guest info capture
- * Saves to order.guestInfo — never blocks the workflow.
- *
- * Props:
- *   tableNumber  string | number
- *   guestInfo    object  — existing saved info (if any)
- *   onSave       (info) => void
- *   onClose      () => void
- */
 export function CustomerInfoSheet({ tableNumber, guestInfo = {}, onSave, onClose }) {
-  const [name,    setName]    = useState(guestInfo.name    || "");
-  const [phone,   setPhone]   = useState(guestInfo.phone   || "");
-  const [pax,     setPax]     = useState(guestInfo.pax     || "");
-  const [note,    setNote]    = useState(guestInfo.note    || "");
+  const [name,  setName]  = useState(guestInfo.name  || "");
+  const [phone, setPhone] = useState(guestInfo.phone || "");
+  const [pax,   setPax]   = useState(guestInfo.pax   || "");
+  const [note,  setNote]  = useState(guestInfo.note  || "");
 
   function handleSave() {
     const info = {
@@ -31,43 +21,51 @@ export function CustomerInfoSheet({ tableNumber, guestInfo = {}, onSave, onClose
 
   return (
     <>
-      <div className="tas-backdrop" onClick={onClose} />
-      <div className="tas-sheet cis-sheet">
-        <div className="tas-handle" />
+      <div className="cis2-backdrop" onClick={onClose} />
+      <div className="cis2-sheet">
+        <div className="cis2-handle" />
 
-        <div className="cis-header">
-          <span className="cis-header-icon">👤</span>
+        <div className="cis2-header">
+          <div className="cis2-header-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
           <div>
-            <div className="cis-header-title">Guest Info</div>
-            <div className="cis-header-sub">Table {tableNumber} · optional</div>
+            <div className="cis2-title">Guest Info</div>
+            <div className="cis2-sub">Table {tableNumber} · optional</div>
           </div>
         </div>
 
-        <div className="cis-form">
-          <label className="cis-field">
-            <span>Name</span>
+        <div className="cis2-form">
+          <div className="cis2-field">
+            <label className="cis2-label">Name</label>
             <input
+              className="cis2-input"
               type="text"
               placeholder="Guest name"
               value={name}
               onChange={e => setName(e.target.value)}
             />
-          </label>
+          </div>
 
-          <label className="cis-field">
-            <span>Phone</span>
+          <div className="cis2-field">
+            <label className="cis2-label">Phone</label>
             <input
+              className="cis2-input"
               type="tel"
               placeholder="10-digit number"
               value={phone}
               maxLength={10}
               onChange={e => setPhone(e.target.value.replace(/\D/g, ""))}
             />
-          </label>
+          </div>
 
-          <label className="cis-field cis-field-sm">
-            <span>Guests (PAX)</span>
+          <div className="cis2-field cis2-field-sm">
+            <label className="cis2-label">Guests (PAX)</label>
             <input
+              className="cis2-input"
               type="number"
               placeholder="0"
               min="1"
@@ -75,22 +73,23 @@ export function CustomerInfoSheet({ tableNumber, guestInfo = {}, onSave, onClose
               value={pax}
               onChange={e => setPax(e.target.value)}
             />
-          </label>
+          </div>
 
-          <label className="cis-field">
-            <span>Note</span>
+          <div className="cis2-field">
+            <label className="cis2-label">Note</label>
             <input
+              className="cis2-input"
               type="text"
               placeholder="e.g. Window seat, no onion…"
               value={note}
               onChange={e => setNote(e.target.value)}
             />
-          </label>
+          </div>
         </div>
 
-        <div className="cis-footer">
-          <button className="cis-btn-cancel" onClick={onClose}>Skip</button>
-          <button className="cis-btn-save" onClick={handleSave}>Save Info</button>
+        <div className="cis2-footer">
+          <button className="cis2-cancel" onClick={onClose}>Skip</button>
+          <button className="cis2-save" onClick={handleSave}>Save Info</button>
         </div>
       </div>
     </>
