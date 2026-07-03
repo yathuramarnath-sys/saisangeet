@@ -660,8 +660,11 @@ export function App() {
   function handleMarkFree(tableId) {
     setOrders(prev => { const { [tableId]: _, ...rest } = prev; return rest; });
     socketRef.current?.emit("order:update", {
-      tableId, outletId: outlet?.id, items: [], cleared: true,
+      outletId: outlet?.id,
+      order: { tableId, items: [], isClosed: false },
     });
+    localSocketRef.current?.emit("order:update", { order: { tableId, items: [], isClosed: false } });
+    setActionTableId(null);
     setConfirmFreeTable(null);
   }
 
