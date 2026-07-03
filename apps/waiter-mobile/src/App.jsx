@@ -32,6 +32,8 @@ import { TableActionsSheet }   from "./components/TableActionsSheet";
 import { CustomerInfoSheet }   from "./components/CustomerInfoSheet";
 import { SideDrawer }         from "./components/SideDrawer";
 import { IncomingOrdersSheet } from "./components/IncomingOrdersSheet";
+import { KotProgressOverlay }  from "./components/KotProgressOverlay";
+import { FailedKotsScreen }    from "./components/FailedKotsScreen";
 
 // ─── Build areas from outlet tables ──────────────────────────────────────────
 
@@ -135,6 +137,12 @@ export function App() {
   const [showWaiterPick,    setShowWaiterPick]    = useState(false);
   const [kotPendingTableId, setKotPendingTableId] = useState(null);
   const [pickedWaiter,      setPickedWaiter]      = useState(null);
+  // KOT progress overlay (sending → success) and transfer success modal
+  const [kotState,        setKotState]        = useState(null);
+  // null | { phase: 'sending'|'success', tableLabel, itemCount, kotNumber }
+  const [transferSuccess, setTransferSuccess] = useState(null);
+  // null | { fromNum, toNum }
+  const [showFailedKots,  setShowFailedKots]  = useState(false);
 
   // Incoming customer (QR) orders
   const [customerOrders,     setCustomerOrders]    = useState([]);
@@ -805,6 +813,8 @@ export function App() {
     // to all station-splits. This guarantees the printed slip and every KDS ticket share
     // the same KOT number. (Previous approach sent one request per station → each got a
     // different sequential number → print said #36 but North Indian KDS showed #35.)
+    const kotTableLabel = `Table ${order.tableNumber}`;
+    setKotState({ phase: "sending", tableLabel: kotTableLabel, itemCount: unsent.length });
     let serverKots = [];
     let lastServerOrder;
     try {
@@ -892,12 +902,13 @@ export function App() {
       }
     } catch (_) { /* printer not configured — KDS still receives it */ }
 
-    // Show the server-assigned KOT number — same number on all station slips
-    toast.success(
-      serverKotNumber != null
-        ? `KOT-${String(serverKotNumber).padStart(4, "0")} sent to kitchen`
-        : "KOT sent to kitchen"
-    );
+    // Show KOT success screen — replaces toast, gives captain a clean confirmation
+    setKotState({
+      phase:      "success",
+      kotNumber:  serverKotNumber,
+      tableLabel: kotTableLabel,
+      itemCount:  unsent.length,
+    });
 
     if (lastServerOrder) {
       setOrders((prev) => {
@@ -919,7 +930,7 @@ export function App() {
     }
 
     setActionTableId(null);    // close action sheet if it was open
-    setSelectedTableId(null);
+    // Note: setSelectedTableId(null) is deferred to KotProgressOverlay onClose / onAddMore
   }
 
   // ── Request bill ──────────────────────────────────────────────────────────
@@ -1213,7 +1224,8 @@ export function App() {
 
     setSelectedTableId(toId);
     setSelectedArea(toArea);
-    toast.success(`Order moved to Table ${toTable.number}`, { id: tid });
+    toast.dismiss(tid);
+    setTransferSuccess({ fromNum: fromTable?.number, toNum: toTable.number });
   }
 
   // ── Table merge ───────────────────────────────────────────────────────────
@@ -1332,7 +1344,14 @@ export function App() {
               </button>
             )}
             {pendingKots.length > 0 && (
-              <span className="header-kot-dot">{pendingKots.length}</span>
+              <button
+                className="header-kot-dot"
+                onClick={() => setShowFailedKots(true)}
+                aria-label="Pending KOTs"
+                style={{ border: "none", cursor: "pointer", background: "transparent", padding: 0 }}
+              >
+                {pendingKots.length}
+              </button>
             )}
             <button
               className="drawer-open-btn"
@@ -1511,6 +1530,59 @@ export function App() {
                 Send to Kitchen
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Failed KOTs full-page screen */}
+      {showFailedKots && (
+        <FailedKotsScreen
+          pendingKots={pendingKots}
+          onRetry={handleRetryKot}
+          onRetryAll={handleRetryAllKots}
+          onClear={handleClearKot}
+          onClose={() => setShowFailedKots(false)}
+        />
+      )}
+
+      {/* KOT progress overlay — sending spinner + success screen */}
+      {kotState && (
+        <KotProgressOverlay
+          kotState={kotState}
+          onClose={() => { setKotState(null); setSelectedTableId(null); }}
+          onAddMore={() => setKotState(null)}
+        />
+      )}
+
+      {/* Transfer success modal */}
+      {transferSuccess && (
+        <div className="tsm-overlay">
+          <div className="tsm-card">
+            <div className="tsm-icon-wrap">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+                stroke="#16A34A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="17 1 21 5 17 9"/>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                <polyline points="7 23 3 19 7 15"/>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+              </svg>
+            </div>
+            <h2 className="tsm-title">Table moved</h2>
+            <div className="tsm-summary">
+              <span className="tsm-table-chip">T{transferSuccess.fromNum}</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+              <span className="tsm-table-chip">T{transferSuccess.toNum}</span>
+            </div>
+            <button
+              className="tsm-done-btn"
+              onClick={() => setTransferSuccess(null)}
+            >
+              Done
+            </button>
           </div>
         </div>
       )}

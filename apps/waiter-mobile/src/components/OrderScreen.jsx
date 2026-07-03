@@ -4,7 +4,6 @@ import { MenuBrowser } from "./MenuBrowser";
 import { NoteModal }   from "./NoteModal";
 import { SplitBill }   from "./SplitBill";
 import { TransferModal } from "./TransferModal";
-import { MergeModal }    from "./MergeModal";
 import { PhonePeQRModal } from "./PhonePeQRModal";
 import {
   getStockState,
@@ -370,32 +369,24 @@ export function OrderScreen({
         />
       )}
 
-      {/* Transfer modal */}
-      {showTransfer && (
+      {/* Move Table — combined transfer + merge full-screen */}
+      {(showTransfer || showMerge) && (
         <TransferModal
-          currentTableId={order.tableId}
-          areas={areas}
-          orders={orders}
-          onTransfer={(from, to) => {
-            setShowTransfer(false);
-            onTransfer?.(from, to);
-          }}
-          onClose={() => setShowTransfer(false)}
-        />
-      )}
-
-      {/* Merge modal */}
-      {showMerge && (
-        <MergeModal
           currentTableId={order.tableId}
           currentOrder={order}
           areas={areas}
           orders={orders}
+          onTransfer={(from, to) => {
+            setShowTransfer(false);
+            setShowMerge(false);
+            onTransfer?.(from, to);
+          }}
           onMerge={(cur, from) => {
+            setShowTransfer(false);
             setShowMerge(false);
             onMerge?.(cur, from);
           }}
-          onClose={() => setShowMerge(false)}
+          onClose={() => { setShowTransfer(false); setShowMerge(false); }}
         />
       )}
 
