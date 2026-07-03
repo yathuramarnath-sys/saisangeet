@@ -1381,11 +1381,6 @@ export function App() {
   return (
     <div className="captain-app">
       {/* UpdateBanner removed — update notification now lives inside the ☰ drawer */}
-      {localConn && (
-        <div className="captain-local-banner">
-          &#x1F4F6; Local · Connected to POS directly
-        </div>
-      )}
       {/* App header */}
       <header className="app-header">
         <div className="app-header-inner">

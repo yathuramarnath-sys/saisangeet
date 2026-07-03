@@ -59,6 +59,46 @@ function useLongPress(onLongPress, onPress, ms = 500) {
   };
 }
 
+// Each table card is its own component so useLongPress (which calls useRef)
+// is always called at the top level — never inside a .map() loop.
+function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
+  const st         = tableStatusOf(orders, table.id);
+  const order      = orders[table.id];
+  const _items     = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
+  const count      = _items.length;
+  const _sub       = _items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+  const _tax       = _items.reduce((s, i) => {
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
+  }, 0);
+  const amount     = _sub + _tax;
+  const unsentCount = (order?.items || []).filter(i => !i.sentToKot && !i.isVoided).length;
+  const seatedTs   = order?.seatedAt || order?.createdAt || order?.openedAt;
+  const timer      = (st !== "open") ? elapsedLabel(seatedTs) : null;
+  const isOccupied = st !== "open";
+
+  const pressHandlers = useLongPress(
+    () => isOccupied && onLongPressTable?.(table.id, area),
+    () => onSelectTable(table.id, area)
+  );
+
+  return (
+    <button
+      className={`table-card ${STATUS_CLASS[st]}`}
+      {...pressHandlers}
+    >
+      {timer && <span className="tc-timer">{timer}</span>}
+      {unsentCount > 0 && <span className="tc-unsent">{unsentCount}</span>}
+      <span className="table-number">{table.number}</span>
+      <span className={`table-status-dot dot-${st}`} />
+      <span className="table-status-text">{STATUS_LABEL[st]}</span>
+      {table.seats > 0 && <span className="tc-seats">👤 {table.seats}</span>}
+      {count > 0 && <span className="table-items-count">{count} items</span>}
+      {amount > 0 && <span className="table-amount">₹{amount.toLocaleString("en-IN")}</span>}
+    </button>
+  );
+}
+
 export function TableFloor({ areas, orders, onSelectTable, onLongPressTable }) {
   const [activeArea, setActiveArea] = useState(null);
   const [tick, setTick] = useState(0); // triggers re-render every minute for timers
@@ -120,65 +160,20 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable }) {
       <div className="tables-scroll">
         {visible.map((area) => (
           <div key={area.id} className="area-section">
-            {areas.length > 1 && !activeArea && (
-              <h3 className="area-heading">{area.name}</h3>
-            )}
-            {activeArea && (
+            {(areas.length > 1) && (
               <h3 className="area-heading">{area.name}</h3>
             )}
             <div className="tables-grid">
-              {area.tables.map((table) => {
-                const st     = tableStatusOf(orders, table.id);
-                const order  = orders[table.id];
-                const _items  = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
-                const count  = _items.length;
-                const _sub    = _items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
-                const _tax    = _items.reduce((s, i) => {
-                  const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
-                  return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
-                }, 0);
-                const amount  = _sub + _tax;
-                const unsentCount = (order?.items || []).filter(i => !i.sentToKot && !i.isVoided).length;
-                const seatedTs = order?.seatedAt || order?.createdAt || order?.openedAt;
-                const timer   = (st !== "open") ? elapsedLabel(seatedTs) : null;
-                const isOccupied = st !== "open";
-
-                // Tap → open order directly
-                // Long press → show action sheet (Merge/Transfer/Split/Print Bill)
-                const pressHandlers = useLongPress(
-                  () => isOccupied && onLongPressTable?.(table.id, area),
-                  () => onSelectTable(table.id, area)
-                );
-
-                return (
-                  <button
-                    key={table.id}
-                    className={`table-card ${STATUS_CLASS[st]}`}
-                    {...pressHandlers}
-                  >
-                    {/* Timer badge — top left */}
-                    {timer && (
-                      <span className="tc-timer">{timer}</span>
-                    )}
-                    {/* Unsent KOT badge — top right */}
-                    {unsentCount > 0 && (
-                      <span className="tc-unsent">{unsentCount}</span>
-                    )}
-                    <span className="table-number">{table.number}</span>
-                    <span className={`table-status-dot dot-${st}`} />
-                    <span className="table-status-text">{STATUS_LABEL[st]}</span>
-                    {table.seats > 0 && (
-                      <span className="tc-seats">👤 {table.seats}</span>
-                    )}
-                    {count > 0 && (
-                      <span className="table-items-count">{count} items</span>
-                    )}
-                    {amount > 0 && (
-                      <span className="table-amount">₹{amount.toLocaleString("en-IN")}</span>
-                    )}
-                  </button>
-                );
-              })}
+              {area.tables.map((table) => (
+                <TableCard
+                  key={table.id}
+                  table={table}
+                  area={area}
+                  orders={orders}
+                  onSelectTable={onSelectTable}
+                  onLongPressTable={onLongPressTable}
+                />
+              ))}
             </div>
           </div>
         ))}
