@@ -143,7 +143,7 @@ export function App() {
 
   // Staff lists — filtered by role
   const WAITER_ROLES  = ["waiter", "server", "steward"];
-  const CAPTAIN_ROLES = ["captain", "waiter", "server", "steward"];
+  const CAPTAIN_ROLES = ["captain"];
   const allStaff    = branchConfig?.staff?.length ? branchConfig.staff : FALLBACK_STAFF;
   const branchStaff = allStaff.filter(
     (s) => CAPTAIN_ROLES.includes((s.role || "").toLowerCase())
