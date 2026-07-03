@@ -12,6 +12,18 @@ function elapsedLabel(ts) {
   return `${h}h${m > 0 ? ` ${m}m` : ""}`;
 }
 
+function elapsedMinutes(ts) {
+  if (!ts) return 0;
+  return Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+}
+
+function waiterInitials(name) {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
 export function tableStatusOf(orders, tableId) {
   const o = orders[tableId];
   const activeItems = o?.items?.filter(i => !i.isVoided && !i.isComp);
@@ -98,6 +110,15 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
   const displaySt   = (st === "running" && unsentCount > 0) ? "ordering" : st;
   const guests      = order?.covers || order?.guests || null;
 
+  // "No order Xm" alert: table open > 20 min but no KOT sent
+  const seatedMins  = isOccupied ? elapsedMinutes(seatedTs) : 0;
+  const hasSentItems = (order?.items || []).some(i => i.sentToKot && !i.isVoided);
+  const isNoOrderAlert = isOccupied && !hasSentItems && seatedMins > 20;
+
+  // Waiter avatar
+  const waiterName = order?.assignedWaiter || null;
+  const waiterInitialsStr = waiterName ? waiterInitials(waiterName) : null;
+
   const pressHandlers = useLongPress(
     () => isOccupied && onLongPressTable?.(table.id, area),
     () => onSelectTable(table.id, area)
@@ -106,15 +127,41 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
   const badgeBg    = TF2_BADGE_BG[displaySt];
   const statusColor = TF2_COLOR[displaySt];
 
-  const infoLine = st === "open"
-    ? (table.seats > 0 ? `${table.seats} seats` : "")
-    : [
-        guests ? `${guests} guests` : null,
-        timer,
-      ].filter(Boolean).join(" · ");
+  // Build the info line
+  let infoText, infoDanger;
+  if (isNoOrderAlert) {
+    infoText = `No order ${timer || ""}`;
+    infoDanger = true;
+  } else if (st === "open") {
+    infoText = table.seats > 0 ? `${table.seats} seats` : "";
+    infoDanger = false;
+  } else {
+    infoText = [guests ? `${guests} guests` : null, timer].filter(Boolean).join(" · ");
+    infoDanger = false;
+  }
+
+  // Info row: text + optional waiter avatar chip
+  const infoRow = isOccupied ? (
+    <div className="tf2-info-row">
+      <span className={`tf2-info-line${infoDanger ? " tf2-info-danger" : ""}`}>
+        {infoText}
+      </span>
+      {waiterInitialsStr && (
+        <span
+          className="tf2-avatar-chip"
+          style={{ background: avatarBg(waiterName) }}
+          title={waiterName}
+        >
+          {waiterInitialsStr}
+        </span>
+      )}
+    </div>
+  ) : (
+    <span className="tf2-info-line">{infoText}</span>
+  );
 
   return (
-    <button className={`tf2-card`} {...pressHandlers}>
+    <button className="tf2-card" {...pressHandlers}>
       {/* Top row: badge + status */}
       <div className="tf2-card-top">
         <span className="tf2-badge" style={{ background: badgeBg }}>
@@ -129,12 +176,8 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
         )}
       </div>
 
-      {/* Info row: guests·time or seats */}
-      {infoLine ? (
-        <span className="tf2-info-line">{infoLine}</span>
-      ) : (
-        <span className="tf2-info-line" />
-      )}
+      {/* Info row: guests·time (or seats for free), optional waiter chip */}
+      {infoRow}
 
       {/* Bottom row: amount + chevron */}
       <div className="tf2-card-bottom">
@@ -143,7 +186,8 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
         ) : (
           <span />
         )}
-        <svg className="tf2-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+        <svg className="tf2-chevron" width="16" height="16" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="2.2">
           <polyline points="9 18 15 12 9 6"/>
         </svg>
       </div>
@@ -158,7 +202,7 @@ function getHeaderTime() {
   return `${day} · ${time}`;
 }
 
-export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, loggedInStaff }) {
+export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, loggedInStaff, isOffline }) {
   const [activeArea, setActiveArea] = useState(null);
   const [tick, setTick] = useState(0); // triggers re-render every minute for timers
   const visible = activeArea ? areas.filter((a) => a.id === activeArea) : areas;
@@ -185,10 +229,17 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, log
           <h1 className="tf2-title">Floor</h1>
         </div>
         <div className="tf2-header-right">
-          <div className="tf2-synced-pill">
-            <span className="tf2-synced-dot" />
-            <span className="tf2-synced-label">Synced</span>
-          </div>
+          {isOffline ? (
+            <div className="tf2-offline-pill">
+              <span className="tf2-offline-dot" />
+              <span className="tf2-offline-label">Offline</span>
+            </div>
+          ) : (
+            <div className="tf2-synced-pill">
+              <span className="tf2-synced-dot" />
+              <span className="tf2-synced-label">Synced</span>
+            </div>
+          )}
           {loggedInStaff && (
             <div className="tf2-user-avatar" style={{ background: avatarBg(loggedInStaff.name) }}>
               {loggedInStaff.name?.[0]?.toUpperCase()}
@@ -196,6 +247,23 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, log
           )}
         </div>
       </div>
+
+      {/* Offline banner */}
+      {isOffline && (
+        <div className="tf2-offline-banner">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="1" y1="1" x2="23" y2="23"/>
+            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+            <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+            <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+            <line x1="12" y1="20" x2="12.01" y2="20"/>
+          </svg>
+          <span>Working offline · KOTs will queue and send on reconnect</span>
+        </div>
+      )}
 
       {/* Occupancy card */}
       <div className="tf2-occ-card">

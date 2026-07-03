@@ -31,6 +31,7 @@ export function OrderScreen({
   onBack, onSendKOT, onRequestBill, onPrintBill, onPrintSplitBill,
   onToggleHold, onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear, onCustomerInfo,
+  onRequestRemoveItem,
   autoOpen = null, // "menu" | "transfer" | "merge" | "split" — open screen/modal immediately on mount
 }) {
   const [screen,          setScreen]          = useState(
@@ -117,10 +118,17 @@ export function OrderScreen({
     const item  = next[idx];
     const newQty = (item?.quantity || 1) + delta;
     if (newQty <= 0) {
-      // Use dedicated remove handler so backend memory store is updated too
-      // (socket order:update alone doesn't update backend — causes stuck item bug)
-      if (onRemoveItem && item?.id) onRemoveItem(item.id);
-      else { next.splice(idx, 1); onUpdateOrder({ ...order, items: next }); }
+      // Show confirm dialog if available; otherwise remove directly
+      if (onRequestRemoveItem && item?.id) {
+        onRequestRemoveItem({ itemId: item.id, itemName: item.name, isSent: !!item.sentToKot });
+      } else if (onRemoveItem && item?.id) {
+        // Use dedicated remove handler so backend memory store is updated too
+        // (socket order:update alone doesn't update backend — causes stuck item bug)
+        onRemoveItem(item.id);
+      } else {
+        next.splice(idx, 1);
+        onUpdateOrder({ ...order, items: next });
+      }
     } else {
       next[idx] = { ...item, quantity: newQty };
       onUpdateOrder({ ...order, items: next });

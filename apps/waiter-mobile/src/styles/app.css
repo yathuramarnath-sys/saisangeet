@@ -6597,3 +6597,254 @@ html, body, #root {
   transition: background 0.1s;
 }
 .wp2-done:active { background: #E6B400; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BATCH 3 ADDITIONS — Phase 1
+   Prefixes: cdlg-* | tas2 extensions | tf2-offline-* tf2-avatar-chip | mt2 extensions
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── cdlg · ConfirmDialog ──────────────────────────────────────────────────── */
+
+.cdlg-backdrop {
+  position: fixed; inset: 0; z-index: 1100;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.cdlg-backdrop-dark {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.cdlg-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+  animation: cdlgIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes cdlgIn {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.cdlg-icon-wrap {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.cdlg-title {
+  font-size: 1.1rem; font-weight: 800; color: #1C1C1E;
+  letter-spacing: -0.02em; text-align: center; margin: 0;
+}
+
+.cdlg-body {
+  font-size: 0.88rem; font-weight: 500; color: #4B5563;
+  line-height: 1.55; text-align: center; margin: 0;
+}
+
+.cdlg-btns {
+  display: flex; gap: 10px; width: 100%; margin-top: 4px;
+}
+
+.cdlg-cancel {
+  flex: 1; padding: 13px;
+  border-radius: 12px;
+  border: 1.5px solid #E5E7EB;
+  background: #fff;
+  font-size: 0.9rem; font-weight: 700; color: #4B5563;
+  cursor: pointer; touch-action: manipulation;
+  transition: background 0.1s;
+}
+.cdlg-cancel:active { background: #F9FAFB; }
+
+.cdlg-confirm {
+  flex: 1; padding: 13px;
+  border-radius: 12px; border: none;
+  background: #FFC900; color: #1C1C1E;
+  font-size: 0.9rem; font-weight: 800;
+  cursor: pointer; touch-action: manipulation;
+  transition: background 0.1s;
+}
+.cdlg-confirm:active { background: #E6B400; }
+
+.cdlg-confirm-danger {
+  background: #DC2626; color: #fff;
+}
+.cdlg-confirm-danger:active { background: #B91C1C; }
+
+/* ── tas2 extensions — new card layout ────────────────────────────────────── */
+
+.tas2-subtitle {
+  font-size: 0.78rem; font-weight: 500; color: #9CA3AF;
+  margin: 2px 0 0;
+}
+
+.tas2-body {
+  padding: 12px 14px 0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.tas2-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #E5E2D9;
+  overflow: hidden;
+}
+
+.tas2-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 14px;
+  border: none; background: none;
+  cursor: pointer; width: 100%; text-align: left;
+  transition: background 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.tas2-row:active { background: #F7F6F2; }
+
+.tas2-row-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: #F3F4F6;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: #374151;
+}
+
+.tas2-row-label {
+  flex: 1; font-size: 0.95rem; font-weight: 600; color: #1C1C1E;
+}
+
+.tas2-row-chevron {
+  color: #D1D5DB; flex-shrink: 0;
+}
+
+.tas2-divider {
+  height: 1px; background: #F3F4F6; margin: 0 14px;
+}
+
+/* Danger row variant */
+.tas2-row-icon-danger {
+  background: #FEE2E2; color: #DC2626;
+}
+.tas2-row-label-danger {
+  color: #DC2626;
+}
+
+.tas2-cancel {
+  margin: 12px 14px 16px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #E5E2D9;
+  background: #fff;
+  font-size: 0.92rem; font-weight: 700; color: #4B5563;
+  cursor: pointer; width: calc(100% - 28px);
+  text-align: center; touch-action: manipulation;
+  transition: background 0.1s;
+}
+.tas2-cancel:active { background: #F7F6F2; }
+
+/* ── tf2 offline additions ─────────────────────────────────────────────────── */
+
+.tf2-offline-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 16px;
+  background: #FFFBEB; border-bottom: 1px solid #FDE68A;
+  font-size: 0.78rem; font-weight: 600; color: #92400E;
+  flex-shrink: 0;
+}
+
+.tf2-offline-pill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  background: #FFFBEB; border: 1px solid #FDE68A;
+}
+
+.tf2-offline-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #D97706;
+  animation: tf2OfflinePulse 1.6s ease-in-out infinite;
+}
+@keyframes tf2OfflinePulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.tf2-offline-label {
+  font-size: 0.72rem; font-weight: 700; color: #92400E;
+}
+
+/* Waiter avatar chip on occupied table cards */
+.tf2-info-row {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; gap: 4px;
+}
+
+.tf2-info-danger {
+  color: #DC2626 !important;
+  font-weight: 700 !important;
+}
+
+.tf2-avatar-chip {
+  width: 20px; height: 20px; border-radius: 50%;
+  font-size: 0.55rem; font-weight: 800; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; letter-spacing: 0;
+}
+
+/* ── mt2 extensions — list layout ─────────────────────────────────────────── */
+
+.mt2-header-text {
+  flex: 1; min-width: 0;
+}
+
+.mt2-subtitle {
+  font-size: 0.75rem; font-weight: 500; color: #9CA3AF;
+  margin: 2px 0 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.mt2-list-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #E5E7EB;
+  overflow: hidden;
+}
+
+.mt2-list-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border: none; background: none;
+  cursor: pointer; width: 100%; text-align: left;
+  transition: background 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  gap: 12px;
+}
+.mt2-list-row:active { background: #F9F8F5; }
+
+.mt2-list-row-bordered {
+  border-top: 1px solid #F3F4F6;
+}
+
+.mt2-list-row-sel {
+  background: #FFF9E0;
+}
+.mt2-list-row-sel:active { background: #FFF3C0; }
+
+.mt2-list-info {
+  display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;
+}
+
+.mt2-list-num {
+  font-size: 15px; font-weight: 700; color: #1C1C1E;
+}
+
+.mt2-list-sub {
+  font-size: 12px; color: #9CA3AF;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}

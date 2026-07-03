@@ -2,12 +2,35 @@ import { useState } from "react";
 import { tapImpact } from "../lib/haptics";
 import { tableStatusOf } from "./TableFloor";
 
+const OCCUPIED_STATUS_LABEL = {
+  running: "Dining",
+  hold:    "On hold",
+  bill:    "Bill ready",
+};
+
 export function TransferModal({
   currentTableId, currentOrder, areas, orders,
   onTransfer, onMerge, onClose,
 }) {
   const [selected, setSelected] = useState(null);
   // { type: 'transfer'|'merge', tableId, tableNumber }
+
+  // Header subtitle: "From Table T{num} · {area} · ₹{amount}"
+  const fromTableNum = currentOrder?.tableNumber;
+  const fromArea = currentOrder?.areaName ||
+    areas.find(a => a.tables.some(t => t.id === currentTableId))?.name || "";
+  const fromItems = (currentOrder?.items || []).filter(i => !i.isVoided && !i.isComp);
+  const fromSub = fromItems.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+  const fromTax = fromItems.reduce((s, i) => {
+    const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    return s + Math.round((i.price || 0) * (i.quantity || 0) * r / 100);
+  }, 0);
+  const fromTotal = fromSub + fromTax;
+  const headerSubtitle = [
+    fromTableNum ? `From Table T${fromTableNum}` : null,
+    fromArea || null,
+    fromTotal > 0 ? `₹${fromTotal.toLocaleString("en-IN")}` : null,
+  ].filter(Boolean).join(" · ");
 
   const freeTables = [];
   const occupiedTables = [];
@@ -26,7 +49,8 @@ export function TransferModal({
           const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
           return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
         }, 0);
-        occupiedTables.push({ table: t, area, order: o, total: sub + tax });
+        const guests = o?.covers || o?.guests || 0;
+        occupiedTables.push({ table: t, area, order: o, total: sub + tax, st, guests });
       }
     });
   });
@@ -43,9 +67,7 @@ export function TransferModal({
 
   const btnLabel = !selected
     ? "Select a table"
-    : selected.type === "transfer"
-    ? `Move to Table ${selected.tableNumber}`
-    : `Merge with Table ${selected.tableNumber}`;
+    : `↔ Move to T${selected.tableNumber}`;
 
   return (
     <div className="mt2-page">
@@ -56,9 +78,10 @@ export function TransferModal({
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
-        <h2 className="mt2-title">
-          Move {currentOrder?.tableNumber ? `Table ${currentOrder.tableNumber}` : "Table"}
-        </h2>
+        <div className="mt2-header-text">
+          <h2 className="mt2-title">Move table</h2>
+          {headerSubtitle && <p className="mt2-subtitle">{headerSubtitle}</p>}
+        </div>
       </div>
 
       <div className="mt2-scroll">
@@ -70,20 +93,25 @@ export function TransferModal({
           {freeTables.length === 0 ? (
             <p className="mt2-empty-hint">No free tables available</p>
           ) : (
-            <div className="mt2-table-grid">
-              {freeTables.map(({ table, area }) => {
+            <div className="mt2-list-card">
+              {freeTables.map(({ table, area }, idx) => {
                 const sel = selected?.tableId === table.id && selected?.type === "transfer";
                 return (
                   <button
                     key={table.id}
-                    className={`mt2-table-chip${sel ? " mt2-table-chip-sel" : ""}`}
+                    className={`mt2-list-row${sel ? " mt2-list-row-sel" : ""}${idx > 0 ? " mt2-list-row-bordered" : ""}`}
                     onClick={() => {
                       tapImpact();
                       setSelected({ type: "transfer", tableId: table.id, tableNumber: table.number });
                     }}
                   >
-                    <span className="mt2-chip-num">T{table.number}</span>
-                    <span className="mt2-chip-area">{area.name}</span>
+                    <div className="mt2-list-info">
+                      <span className="mt2-list-num">T{table.number}</span>
+                      <span className="mt2-list-sub">
+                        {[area.name, table.seats > 0 ? `${table.seats} seats` : null].filter(Boolean).join(" · ")}
+                      </span>
+                    </div>
+                    <span className={`mt2-radio${sel ? " mt2-radio-sel" : ""}`} />
                   </button>
                 );
               })}
@@ -97,30 +125,33 @@ export function TransferModal({
             <div className="mt2-section-head">
               <span className="mt2-section-label">OR MERGE WITH OCCUPIED</span>
             </div>
-            {occupiedTables.map(({ table, area, total }) => {
-              const sel = selected?.tableId === table.id && selected?.type === "merge";
-              return (
-                <button
-                  key={table.id}
-                  className={`mt2-merge-row${sel ? " mt2-merge-row-sel" : ""}`}
-                  onClick={() => {
-                    tapImpact();
-                    setSelected({ type: "merge", tableId: table.id, tableNumber: table.number });
-                  }}
-                >
-                  <div className="mt2-merge-info">
-                    <span className="mt2-merge-num">Table {table.number}</span>
-                    <span className="mt2-merge-area">{area.name}</span>
-                  </div>
-                  <div className="mt2-merge-right">
-                    {total > 0 && (
-                      <span className="mt2-merge-amount">₹{total.toLocaleString("en-IN")}</span>
-                    )}
+            <div className="mt2-list-card">
+              {occupiedTables.map(({ table, area, total, st, guests }, idx) => {
+                const sel = selected?.tableId === table.id && selected?.type === "merge";
+                const stLabel = OCCUPIED_STATUS_LABEL[st] || "Occupied";
+                const subParts = [
+                  stLabel,
+                  guests ? `${guests} guests` : null,
+                  total > 0 ? `₹${total.toLocaleString("en-IN")}` : null,
+                ].filter(Boolean);
+                return (
+                  <button
+                    key={table.id}
+                    className={`mt2-list-row${sel ? " mt2-list-row-sel" : ""}${idx > 0 ? " mt2-list-row-bordered" : ""}`}
+                    onClick={() => {
+                      tapImpact();
+                      setSelected({ type: "merge", tableId: table.id, tableNumber: table.number });
+                    }}
+                  >
+                    <div className="mt2-list-info">
+                      <span className="mt2-list-num">T{table.number}</span>
+                      <span className="mt2-list-sub">{subParts.join(" · ")}</span>
+                    </div>
                     <span className={`mt2-radio${sel ? " mt2-radio-sel" : ""}`} />
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
