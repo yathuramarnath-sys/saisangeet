@@ -144,7 +144,8 @@ export function App() {
   // KOT progress overlay (sending → success) and transfer success modal
   const [kotState,        setKotState]        = useState(null);
   // null | { phase: 'sending'|'success', tableLabel, itemCount, kotNumber }
-  const [transferSuccess, setTransferSuccess] = useState(null);
+  const [transferSuccess,    setTransferSuccess]    = useState(null);
+  const [billRequestedLabel, setBillRequestedLabel] = useState(null);
   // null | { fromNum, toNum }
 
   // Incoming customer (QR) orders
@@ -999,8 +1000,12 @@ export function App() {
     const order = orders[tid];
     if (!order) return;
     handleUpdateOrder({ ...order, billRequested: true });
-    toast.success("Bill requested — cashier notified");
     if (tableId) setActionTableId(null);   // close action sheet when called from it
+    // Compute short label, e.g. "Table 5" from "TABLE 5"
+    const tNum = order.tableNumber || "";
+    const tMatch = String(tNum).trim().match(/(\d+)\s*$/);
+    const tLabel = tMatch ? `Table ${tMatch[1]}` : (String(tNum) || "the table");
+    setBillRequestedLabel(tLabel);
     const billReqPayload = { outletId: outlet?.id, tableId: tid };
     try {
       await api.post("/operations/bill-request", billReqPayload);
@@ -1703,6 +1708,27 @@ export function App() {
               </div>
             </div>
             <button className="tsm-done-btn" onClick={() => setTransferSuccess(null)}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bill requested success modal */}
+      {billRequestedLabel && (
+        <div className="brm-overlay">
+          <div className="brm-card">
+            <div className="brm-icon-wrap">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                stroke="#0C831F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <h2 className="brm-title">Bill requested</h2>
+            <p className="brm-body">
+              The cashier has been notified to prepare the bill for {billRequestedLabel}.
+            </p>
+            <button className="brm-done-btn" onClick={() => setBillRequestedLabel(null)}>
               Done
             </button>
           </div>
