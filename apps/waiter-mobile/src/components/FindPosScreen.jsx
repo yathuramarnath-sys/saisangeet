@@ -57,90 +57,103 @@ export function FindPosScreen({ localPosIp, onClose }) {
     ? discovered
     : savedIp ? [{ ip: savedIp, port: 4001, name: "Plato POS" }] : [];
 
+  const sectionLabel = discovered.length > 0 ? "SERVERS ON THIS NETWORK" : "SAVED SERVER";
+
   return (
-    <div className="fps-page">
-      <div className="fps-header">
-        <button className="fps-back-btn" onClick={onClose} aria-label="Back">
+    <div className="fps2-page">
+      <div className="fps2-header">
+        <button className="fps2-back-btn" onClick={onClose} aria-label="Back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
-        <h2 className="fps-title">Find Server IP</h2>
+        <h2 className="fps2-title">Find server IP</h2>
       </div>
 
-      {/* Connection status */}
-      <div className="fps-status-card">
-        <div className={`fps-status-dot${savedIp ? " fps-status-dot-on" : ""}`} />
-        <div>
-          <div className="fps-status-label">
-            {savedIp ? "Connected to local POS" : "Not connected"}
-          </div>
-          {savedIp && <div className="fps-status-ip">{savedIp}:4001</div>}
+      {/* Status card — centered wifi icon */}
+      <div className="fps2-status-card">
+        <div className={`fps2-status-icon-wrap${!selected ? " fps2-offline" : ""}`}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+            <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+            <line x1="12" y1="20" x2="12.01" y2="20"/>
+          </svg>
         </div>
+        <div className="fps2-status-title">
+          {selected ? "Connected to local POS" : "Not connected"}
+        </div>
+        {selected && (
+          <div className="fps2-status-addr">Plato POS · {selected}</div>
+        )}
       </div>
 
-      <div className="fps-scroll">
+      <div className="fps2-scroll">
         {listEntries.length > 0 && (
-          <div className="fps-section">
-            <div className="fps-section-head">
-              {discovered.length > 0 ? "DISCOVERED ON NETWORK" : "SAVED SERVER"}
+          <>
+            <div className="fps2-section-label">{sectionLabel}</div>
+            <div className="fps2-list-card">
+              {listEntries.map((entry) => {
+                const sel = selected === entry.ip;
+                return (
+                  <button
+                    key={entry.ip}
+                    className={`fps2-server-row${sel ? " fps2-server-row-sel" : ""}`}
+                    onClick={() => handleSelect(entry.ip)}
+                  >
+                    <div className="fps2-server-info">
+                      <span className="fps2-server-name">{entry.name}</span>
+                      <span className="fps2-server-addr">{entry.ip} · port {entry.port}</span>
+                    </div>
+                    <div className={`fps2-radio${sel ? " fps2-radio-sel" : ""}`}>
+                      {sel && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                          stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            {listEntries.map((entry) => {
-              const sel = selected === entry.ip;
-              return (
-                <button
-                  key={entry.ip}
-                  className={`fps-server-row${sel ? " fps-server-row-sel" : ""}`}
-                  onClick={() => handleSelect(entry.ip)}
-                >
-                  <div className="fps-server-info">
-                    <span className="fps-server-name">{entry.name}</span>
-                    <span className="fps-server-addr">{entry.ip}:{entry.port}</span>
-                  </div>
-                  <span className={`fps-radio${sel ? " fps-radio-sel" : ""}`} />
-                </button>
-              );
-            })}
-          </div>
+          </>
         )}
 
-        <div className="fps-section">
-          <div className="fps-section-head">ENTER MANUALLY</div>
-          <div className="fps-manual-row">
-            <input
-              className="fps-manual-input"
-              type="text"
-              inputMode="decimal"
-              placeholder="192.168.1.xxx"
-              value={manualIp}
-              onChange={(e) => setManualIp(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddManual()}
-            />
-            <button className="fps-manual-add-btn" onClick={handleAddManual}>
-              Add
-            </button>
-          </div>
+        {/* Manual IP entry */}
+        <div className="fps2-manual-card">
+          <input
+            className="fps2-manual-input"
+            type="text"
+            inputMode="decimal"
+            placeholder="Enter IP address manually"
+            value={manualIp}
+            onChange={(e) => setManualIp(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAddManual()}
+          />
+          <button className="fps2-manual-add-btn" onClick={handleAddManual}>Add</button>
         </div>
       </div>
 
-      <div className="fps-bottom">
+      <div className="fps2-bottom">
         <button
-          className={`fps-rescan-btn${scanning ? " fps-rescan-scanning" : ""}`}
+          className="fps2-rescan-btn"
           onClick={handleRescan}
           disabled={scanning}
         >
           {scanning ? (
             <>
-              <div className="fps-scan-spinner" />
+              <div className="fps2-scan-spinner" />
               Scanning network…
             </>
           ) : (
             <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="2"/>
-                <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/>
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
               </svg>
               Rescan network
             </>

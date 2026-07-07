@@ -6828,3 +6828,210 @@ html, body, #root {
   gap: 8px; touch-action: manipulation;
 }
 .kotdr-retry-btn:active { background: #EBBA2A; }
+
+/* ─── ss4 Settings Screen (Screen 17) ─── */
+.ss4-page {
+  position: absolute; inset: 0; background: #F7F6F2;
+  display: flex; flex-direction: column; overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.ss4-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 20px 14px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  background: #F7F6F2; flex-shrink: 0;
+}
+.ss4-back-btn {
+  width: 44px; height: 44px; border-radius: 50%; border: none;
+  background: #FFFFFF; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; touch-action: manipulation;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+.ss4-back-btn:active { background: #F0EFEC; }
+.ss4-title { font-size: 22px; font-weight: 700; color: #1C1C1C; }
+.ss4-scroll {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 8px 20px calc(32px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 10px;
+}
+.ss4-section-label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 700; color: #6B6B6B;
+  letter-spacing: 0.08em; padding: 0 2px; margin-top: 4px;
+}
+.ss4-card {
+  background: #FFFFFF; border-radius: 18px; padding: 16px;
+  border: 1px solid #ECEAE3; display: flex; flex-direction: column; gap: 12px;
+}
+.ss4-card-header {
+  display: flex; align-items: center; justify-content: space-between; padding-bottom: 4px;
+}
+.ss4-card-title { font-size: 13px; font-weight: 700; color: #6B6B6B; }
+.ss4-card-remove {
+  background: none; border: none; cursor: pointer;
+  font-size: 18px; color: #D92D20; padding: 4px; touch-action: manipulation;
+}
+.ss4-field { display: flex; flex-direction: column; gap: 7px; }
+.ss4-field-label { font-size: 14px; font-weight: 700; color: #1C1C1C; }
+.ss4-field-box {
+  background: #F7F6F2; border-radius: 12px; padding: 13px 14px;
+  display: flex; align-items: center;
+}
+.ss4-field-input {
+  font-size: 14px; color: #1C1C1C; border: none; outline: none;
+  background: transparent; width: 100%; font-family: inherit;
+}
+.ss4-field-input::placeholder { color: #C3C0B8; }
+.ss4-field-select-box {
+  background: #F7F6F2; border-radius: 12px; padding: 13px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ss4-field-select {
+  font-size: 14px; color: #1C1C1C; border: none; outline: none;
+  background: transparent; font-family: inherit; flex: 1;
+  cursor: pointer; -webkit-appearance: none; appearance: none;
+}
+.ss4-card-actions { display: flex; gap: 8px; }
+.ss4-test-btn-sm {
+  flex: 1; height: 40px; border-radius: 10px; border: 1.5px solid #ECEAE3;
+  background: transparent; font-size: 13px; font-weight: 600; color: #6B6B6B;
+  cursor: pointer; touch-action: manipulation;
+}
+.ss4-test-btn-sm.ss4-test-ok { border-color: #0C831F; color: #0C831F; background: #E7F3E9; }
+.ss4-test-btn-sm.ss4-test-fail { border-color: #D92D20; color: #D92D20; background: #FBE9E7; }
+.ss4-test-btn-sm:disabled { opacity: 0.5; }
+.ss4-add-link {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: none; border: none; cursor: pointer;
+  font-size: 14px; font-weight: 600; color: #2E6F9E;
+  padding: 8px 0; touch-action: manipulation;
+}
+.ss4-action-row { display: flex; gap: 10px; }
+.ss4-test-btn {
+  flex: 1; height: 52px; border-radius: 14px; border: 1.5px solid #ECEAE3;
+  background: #FFFFFF; font-size: 14px; font-weight: 600; color: #1C1C1C;
+  cursor: pointer; touch-action: manipulation;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.ss4-test-btn.ss4-test-ok { border-color: #0C831F; color: #0C831F; background: #E7F3E9; }
+.ss4-test-btn.ss4-test-fail { border-color: #D92D20; color: #D92D20; background: #FBE9E7; }
+.ss4-test-btn:disabled { opacity: 0.5; }
+.ss4-save-btn {
+  flex: 0 0 112px; height: 52px; border-radius: 14px; border: none;
+  background: #F8CB46; color: #1C1C1C; font-size: 16px; font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
+  display: flex; align-items: center; justify-content: center;
+}
+.ss4-save-btn:active { background: #EBBA2A; }
+.ss4-save-btn.ss4-save-ok { background: #E7F3E9; color: #0C831F; }
+.ss4-info-card {
+  background: #FFFFFF; border-radius: 18px; overflow: hidden;
+  border: 1px solid #ECEAE3;
+}
+.ss4-info-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid #ECEAE3;
+}
+.ss4-info-row:last-child { border-bottom: none; }
+.ss4-info-label { font-size: 14px; color: #9CA3AF; }
+.ss4-info-value { font-size: 14px; font-weight: 600; color: #1C1C1C; text-align: right; max-width: 60%; word-break: break-all; }
+.ss4-info-value.ss4-mono { font-size: 12px; font-family: "SF Mono","Courier New",monospace; }
+.ss4-info-connected { color: #0C831F; display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 14px; }
+.ss4-info-dot { width: 8px; height: 8px; border-radius: 50%; background: #0C831F; flex-shrink: 0; }
+.ss4-info-notset { color: #9CA3AF; font-size: 14px; font-weight: 500; }
+
+/* ─── fps2 Find Server IP Screen (Screen 16) ─── */
+.fps2-page {
+  position: absolute; inset: 0; background: #F7F6F2;
+  display: flex; flex-direction: column; overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.fps2-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 20px 14px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  background: #F7F6F2; flex-shrink: 0;
+}
+.fps2-back-btn {
+  width: 44px; height: 44px; border-radius: 50%; border: none;
+  background: #FFFFFF; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; touch-action: manipulation;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+.fps2-back-btn:active { background: #F0EFEC; }
+.fps2-title { font-size: 22px; font-weight: 700; color: #1C1C1C; }
+.fps2-status-card {
+  margin: 0 20px;
+  background: #FFFFFF; border-radius: 18px; border: 1px solid #ECEAE3;
+  padding: 28px 20px 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  flex-shrink: 0; text-align: center;
+}
+.fps2-status-icon-wrap {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: #E7F3E9; display: flex; align-items: center; justify-content: center;
+  color: #0C831F;
+}
+.fps2-status-icon-wrap.fps2-offline { background: #F3F4F6; color: #9CA3AF; }
+.fps2-status-title { font-size: 17px; font-weight: 700; color: #1C1C1C; }
+.fps2-status-addr { font-size: 13px; color: #9CA3AF; }
+.fps2-scroll {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 16px 20px 0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.fps2-section-label {
+  font-size: 11px; font-weight: 700; color: #6B6B6B;
+  letter-spacing: 0.08em; padding: 0 2px;
+}
+.fps2-list-card {
+  background: #FFFFFF; border-radius: 18px; overflow: hidden;
+  border: 1px solid #ECEAE3;
+}
+.fps2-server-row {
+  display: flex; align-items: center; padding: 16px;
+  border-bottom: 1px solid #ECEAE3; gap: 12px;
+  background: none; border-left: none; border-right: none; border-top: none;
+  width: 100%; cursor: pointer; touch-action: manipulation; text-align: left;
+}
+.fps2-server-row:last-child { border-bottom: none; }
+.fps2-server-info { flex: 1; min-width: 0; }
+.fps2-server-name { font-size: 15px; font-weight: 700; color: #1C1C1C; display: block; }
+.fps2-server-addr { font-size: 13px; color: #9CA3AF; margin-top: 2px; display: block; }
+.fps2-radio {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid #ECEAE3;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  background: #fff;
+}
+.fps2-radio-sel { border-color: #0C831F; background: #0C831F; border-width: 0; }
+.fps2-manual-card {
+  background: #FFFFFF; border-radius: 18px; border: 1px solid #ECEAE3;
+  display: flex; align-items: center; overflow: hidden;
+}
+.fps2-manual-input {
+  flex: 1; border: none; outline: none; padding: 16px;
+  font-size: 14px; color: #1C1C1C; background: transparent; font-family: inherit;
+}
+.fps2-manual-input::placeholder { color: #C3C0B8; }
+.fps2-manual-add-btn {
+  border: none; background: none; padding: 16px;
+  font-size: 15px; font-weight: 700; color: #2E6F9E;
+  cursor: pointer; touch-action: manipulation; flex-shrink: 0;
+}
+.fps2-bottom {
+  padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: #F7F6F2; border-top: 1px solid #ECEAE3; flex-shrink: 0;
+}
+.fps2-rescan-btn {
+  width: 100%; height: 56px; border-radius: 18px; border: none;
+  background: #F8CB46; color: #1C1C1C; font-size: 16px; font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+}
+.fps2-rescan-btn:active { background: #EBBA2A; }
+.fps2-rescan-btn:disabled { opacity: 0.5; }
+.fps2-scan-spinner {
+  width: 18px; height: 18px; border: 2.5px solid rgba(28,28,28,0.2);
+  border-top-color: #1C1C1C; border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}

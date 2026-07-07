@@ -33,32 +33,8 @@ const APP_VERSION = "1.30";
 export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
   const [printers,   setPrinters]   = useState(loadPrinters);
   const [saved,      setSaved]      = useState(false);
-  const [testStatus, setTestStatus] = useState({}); // { [index]: "testing"|"ok"|"fail" }
-  const [posIp,      setPosIp]      = useState(() => localStorage.getItem("captain_local_server_ip") || "");
-  const [posIpSaved, setPosIpSaved] = useState(false);
-  const [posTestSt,  setPosTestSt]  = useState(""); // "testing"|"ok"|"fail"
-
-  async function testPosConnection() {
-    const ip = posIp.trim();
-    if (!ip) { setPosTestSt("fail"); return; }
-    setPosTestSt("testing");
-    try {
-      const res = await fetch(`http://${ip}:4001/health`, { signal: AbortSignal.timeout(3000) });
-      setPosTestSt(res.ok ? "ok" : "fail");
-    } catch {
-      setPosTestSt("fail");
-    }
-    setTimeout(() => setPosTestSt(""), 3000);
-  }
-
-  function savePosIp() {
-    const ip = posIp.trim();
-    if (ip) localStorage.setItem("captain_local_server_ip", ip);
-    else    localStorage.removeItem("captain_local_server_ip");
-    window.dispatchEvent(new CustomEvent("dinex:pos-ip-changed", { detail: { ip: ip || null } }));
-    setPosIpSaved(true);
-    setTimeout(() => setPosIpSaved(false), 2000);
-  }
+  const [testStatus, setTestStatus] = useState({});
+  const [posIp] = useState(() => localStorage.getItem("captain_local_server_ip") || "");
 
   function update(idx, field, value) {
     setPrinters(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
@@ -94,196 +70,181 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
     setTimeout(() => setSaved(false), 2000);
   }
 
+  const ts0 = testStatus[0];
+
   return (
-    <div className="set2-page">
-      <div className="set2-header">
-        <button className="set2-back-btn" onClick={onClose} aria-label="Back">
+    <div className="ss4-page">
+      <div className="ss4-header">
+        <button className="ss4-back-btn" onClick={onClose} aria-label="Back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
-        <h2 className="set2-title">Settings</h2>
+        <h2 className="ss4-title">Settings</h2>
       </div>
 
-      <div className="set2-scroll">
+      <div className="ss4-scroll">
 
-        {/* ── Printers ── */}
-        <div className="set2-section-head">PRINTER SETTINGS</div>
+        {/* PRINTER SETTINGS */}
+        <div className="ss4-section-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          PRINTER SETTINGS
+        </div>
 
-        {printers.map((printer, idx) => (
-          <div key={idx} className={`set2-card set2-printer-card${idx === 0 ? " set2-printer-default" : ""}`}>
-            <div className="set2-printer-card-header">
-              <span className="set2-printer-card-label">
-                {idx === 0 ? "Waiter / Default Printer" : `Kitchen Printer ${idx}`}
-              </span>
-              {idx > 0 && (
-                <button className="set2-printer-remove" onClick={() => removePrinter(idx)}>✕</button>
-              )}
-            </div>
-
-            <div className="set2-field">
-              <label className="set2-field-label">Name</label>
+        {/* Default printer card — IP + Paper only */}
+        <div className="ss4-card">
+          <div className="ss4-field">
+            <span className="ss4-field-label">Printer IP</span>
+            <div className="ss4-field-box">
               <input
-                className="set2-field-input"
-                type="text"
-                placeholder={idx === 0 ? "e.g. Waiter Printer" : "e.g. South Indian"}
-                value={printer.name}
-                onChange={e => update(idx, "name", e.target.value)}
-              />
-            </div>
-
-            <div className="set2-divider" />
-
-            <div className="set2-field">
-              <label className="set2-field-label">Printer IP</label>
-              <input
-                className="set2-field-input"
+                className="ss4-field-input"
                 type="text"
                 inputMode="decimal"
-                placeholder="192.168.1.200"
-                value={printer.ip}
-                onChange={e => update(idx, "ip", e.target.value)}
+                placeholder="e.g. 192.168.1.200"
+                value={printers[0]?.ip || ""}
+                onChange={e => update(0, "ip", e.target.value)}
               />
             </div>
-
-            {idx > 0 && (
-              <>
-                <div className="set2-divider" />
-                <div className="set2-field">
-                  <label className="set2-field-label">Station</label>
-                  <input
-                    className="set2-field-input"
-                    type="text"
-                    placeholder="e.g. SOUTH INDIAN"
-                    value={printer.station}
-                    onChange={e => update(idx, "station", e.target.value)}
-                    autoCapitalize="characters"
-                  />
-                </div>
-              </>
-            )}
-
-            <div className="set2-divider" />
-
-            <div className="set2-field">
-              <label className="set2-field-label">Paper size</label>
+          </div>
+          <div className="ss4-field">
+            <span className="ss4-field-label">Paper size</span>
+            <div className="ss4-field-select-box">
               <select
-                className="set2-field-select"
-                value={printer.paper}
-                onChange={e => update(idx, "paper", e.target.value)}
+                className="ss4-field-select"
+                value={printers[0]?.paper || "80mm"}
+                onChange={e => update(0, "paper", e.target.value)}
               >
                 {PAPER_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
             </div>
-
-            <div className="set2-printer-btns">
-              <button
-                className={`set2-test-btn${
-                  testStatus[idx] === "ok"   ? " set2-test-ok"   :
-                  testStatus[idx] === "fail" ? " set2-test-fail" : ""}`}
-                onClick={() => testPrinter(idx)}
-                disabled={testStatus[idx] === "testing"}
-              >
-                {testStatus[idx] === "testing" ? "Testing…"
-                  : testStatus[idx] === "ok"   ? "Connected ✓"
-                  : testStatus[idx] === "fail" ? "Not found ✗"
-                  : "Test connection"}
-              </button>
-            </div>
-          </div>
-        ))}
-
-        <button className="set2-add-printer-btn" onClick={addPrinter}>
-          + Add Kitchen Printer
-        </button>
-
-        <button
-          className={`set2-save-btn${saved ? " set2-save-ok" : ""}`}
-          onClick={handleSave}
-        >
-          {saved ? "Saved ✓" : "Save All Printers"}
-        </button>
-
-        <p className="set2-printer-note">
-          The first printer receives the full KOT copy for the waiter and all bills.
-          Kitchen printers receive only their station's items — enter the station name
-          exactly as configured in your menu (e.g. SOUTH INDIAN, NORTH INDIAN).
-        </p>
-
-        {/* ── POS Server IP ── */}
-        <div className="set2-section-head">POS SERVER</div>
-        <div className="set2-card">
-          <div className="set2-field">
-            <label className="set2-field-label">POS IP address</label>
-            <input
-              className="set2-field-input"
-              type="text"
-              inputMode="decimal"
-              placeholder="192.168.1.100"
-              value={posIp}
-              onChange={e => setPosIp(e.target.value)}
-            />
-          </div>
-          <div className="set2-printer-btns">
-            <button
-              className={`set2-test-btn${
-                posTestSt === "ok"   ? " set2-test-ok"   :
-                posTestSt === "fail" ? " set2-test-fail" : ""}`}
-              onClick={testPosConnection}
-              disabled={posTestSt === "testing"}
-            >
-              {posTestSt === "testing" ? "Testing…"
-                : posTestSt === "ok"   ? "Connected ✓"
-                : posTestSt === "fail" ? "Not reached ✗"
-                : "Test"}
-            </button>
-            <button
-              className={`set2-save-btn${posIpSaved ? " set2-save-ok" : ""}`}
-              onClick={savePosIp}
-            >
-              {posIpSaved ? "Saved ✓" : "Save POS IP"}
-            </button>
           </div>
         </div>
 
-        {/* ── Device info ── */}
-        <div className="set2-section-head">DEVICE INFO</div>
-        <div className="set2-card">
-          <Set2Row label="App version" value={`v${APP_VERSION}`} />
-          <div className="set2-divider" />
-          <Set2Row label="Outlet"    value={outletName || "—"} />
-          <div className="set2-divider" />
-          <Set2Row label="Server"    value={serverUrl  || "—"} mono />
-          <div className="set2-divider" />
-          <div className="set2-row">
-            <span className="set2-row-label">Local POS</span>
-            <span className="set2-row-value">
-              {posIp ? (
-                <>
-                  <span className="set2-status-dot set2-status-dot-on" />
-                  {posIp}:4001
-                </>
-              ) : (
-                <>
-                  <span className="set2-status-dot" />
-                  Not set
-                </>
-              )}
-            </span>
+        {/* Additional kitchen printers */}
+        {printers.slice(1).map((printer, i) => {
+          const idx = i + 1;
+          const ts  = testStatus[idx];
+          return (
+            <div key={idx} className="ss4-card">
+              <div className="ss4-card-header">
+                <span className="ss4-card-title">Kitchen Printer {idx}</span>
+                <button className="ss4-card-remove" onClick={() => removePrinter(idx)}>✕</button>
+              </div>
+              <div className="ss4-field">
+                <span className="ss4-field-label">Name</span>
+                <div className="ss4-field-box">
+                  <input className="ss4-field-input" type="text" placeholder="e.g. South Indian"
+                    value={printer.name} onChange={e => update(idx, "name", e.target.value)} />
+                </div>
+              </div>
+              <div className="ss4-field">
+                <span className="ss4-field-label">Printer IP</span>
+                <div className="ss4-field-box">
+                  <input className="ss4-field-input" type="text" inputMode="decimal"
+                    placeholder="192.168.1.200" value={printer.ip}
+                    onChange={e => update(idx, "ip", e.target.value)} />
+                </div>
+              </div>
+              <div className="ss4-field">
+                <span className="ss4-field-label">Station</span>
+                <div className="ss4-field-box">
+                  <input className="ss4-field-input" type="text" placeholder="e.g. SOUTH INDIAN"
+                    value={printer.station} onChange={e => update(idx, "station", e.target.value)}
+                    autoCapitalize="characters" />
+                </div>
+              </div>
+              <div className="ss4-field">
+                <span className="ss4-field-label">Paper size</span>
+                <div className="ss4-field-select-box">
+                  <select className="ss4-field-select" value={printer.paper}
+                    onChange={e => update(idx, "paper", e.target.value)}>
+                    {PAPER_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </div>
+              </div>
+              <div className="ss4-card-actions">
+                <button
+                  className={`ss4-test-btn-sm${ts === "ok" ? " ss4-test-ok" : ts === "fail" ? " ss4-test-fail" : ""}`}
+                  onClick={() => testPrinter(idx)}
+                  disabled={ts === "testing"}
+                >
+                  {ts === "testing" ? "Testing…" : ts === "ok" ? "Connected ✓" : ts === "fail" ? "Not found ✗" : "Test connection"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        <button className="ss4-add-link" onClick={addPrinter}>
+          + Add Kitchen Printer
+        </button>
+
+        {/* Test + Save action row */}
+        <div className="ss4-action-row">
+          <button
+            className={`ss4-test-btn${ts0 === "ok" ? " ss4-test-ok" : ts0 === "fail" ? " ss4-test-fail" : ""}`}
+            onClick={() => testPrinter(0)}
+            disabled={ts0 === "testing"}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2"/>
+              <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+            </svg>
+            {ts0 === "testing" ? "Testing…" : ts0 === "ok" ? "Connected ✓" : ts0 === "fail" ? "Not found ✗" : "Test connection"}
+          </button>
+          <button
+            className={`ss4-save-btn${saved ? " ss4-save-ok" : ""}`}
+            onClick={handleSave}
+          >
+            {saved ? "Saved ✓" : "Save"}
+          </button>
+        </div>
+
+        {/* DEVICE INFO */}
+        <div className="ss4-section-label">DEVICE INFO</div>
+        <div className="ss4-info-card">
+          <div className="ss4-info-row">
+            <span className="ss4-info-label">App version</span>
+            <span className="ss4-info-value">v{APP_VERSION}</span>
+          </div>
+          <div className="ss4-info-row">
+            <span className="ss4-info-label">Outlet</span>
+            <span className="ss4-info-value">{outletName || "—"}</span>
+          </div>
+          <div className="ss4-info-row">
+            <span className="ss4-info-label">Server</span>
+            <span className="ss4-info-value ss4-mono">{serverUrl || "—"}</span>
+          </div>
+          <div className="ss4-info-row">
+            <span className="ss4-info-label">Local POS</span>
+            {posIp ? (
+              <span className="ss4-info-connected">
+                <span className="ss4-info-dot" />
+                Connected
+              </span>
+            ) : (
+              <span className="ss4-info-notset">Not set</span>
+            )}
           </div>
         </div>
 
       </div>
-    </div>
-  );
-}
-
-function Set2Row({ label, value, mono }) {
-  return (
-    <div className="set2-row">
-      <span className="set2-row-label">{label}</span>
-      <span className={`set2-row-value${mono ? " set2-mono" : ""}`}>{value}</span>
     </div>
   );
 }
