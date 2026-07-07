@@ -65,19 +65,31 @@ const TF2_LABEL = {
   ordering: "Ordering",
 };
 const TF2_COLOR = {
-  open:     "#16A34A",
+  open:     "#0C831F",
   hold:     "#6B7280",
-  bill:     "#0891B2",
-  running:  "#2563EB",
-  ordering: "#D97706",
+  bill:     "#2E6F9E",
+  running:  "#2E6F9E",
+  ordering: "#E07A1F",
 };
 const TF2_BADGE_BG = {
-  open:     "#16A34A",
+  open:     "#0C831F",
   hold:     "#6B7280",
-  bill:     "#0891B2",
-  running:  "#2563EB",
-  ordering: "#D97706",
+  bill:     "#2E6F9E",
+  running:  "#2E6F9E",
+  ordering: "#E07A1F",
 };
+
+// "TABLE 1" → "T1", "AC TABLE 2" → "T2", "F1" → "F1", "1" → "1"
+function badgeLabel(num) {
+  const s = String(num || "").trim();
+  const m = s.match(/(\d+)\s*$/);
+  if (!m) return s.slice(0, 3);
+  const digit = m[1];
+  const prefix = s.slice(0, s.length - m[0].length).trim();
+  if (!prefix) return digit;
+  const abbrev = prefix.replace(/TABLE\s*/i, "T").replace(/\s+/g, "").slice(0, 1).toUpperCase();
+  return abbrev + digit;
+}
 
 // Each table card is its own component so useLongPress (which calls useRef)
 // is always called at the top level — never inside a .map() loop.
@@ -118,7 +130,7 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
       {/* Top row: badge + status */}
       <div className="tf2-card-top">
         <span className="tf2-badge" style={{ background: badgeBg }}>
-          {table.number}
+          {badgeLabel(table.number)}
         </span>
         {displaySt === "bill" ? (
           <span className="tf2-bill-tag">Bill ready</span>
