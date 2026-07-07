@@ -1298,7 +1298,21 @@ export function App() {
     setSelectedTableId(toId);
     setSelectedArea(toArea);
     toast.dismiss(tid);
-    setTransferSuccess({ fromNum: fromTable?.number, toNum: toTable.number });
+
+    const activeItems = (fromOrder.items || []).filter(i => !i.isVoided && !i.isComp);
+    const sub   = activeItems.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+    const tax   = activeItems.reduce((s, i) => {
+      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
+    }, 0);
+    const tsmLabel = (num) => { const m = String(num || "").trim().match(/(\d+)\s*$/); return m ? `Table ${m[1]}` : String(num || ""); };
+    setTransferSuccess({
+      fromLabel: tsmLabel(fromTable?.number),
+      toLabel:   tsmLabel(toTable.number),
+      itemCount: activeItems.length,
+      total:     sub + tax,
+      areaName:  toArea.name,
+    });
   }
 
   // ── Table merge ───────────────────────────────────────────────────────────
@@ -1658,28 +1672,37 @@ export function App() {
         <div className="tsm-overlay">
           <div className="tsm-card">
             <div className="tsm-icon-wrap">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
-                stroke="#16A34A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="17 1 21 5 17 9"/>
-                <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-                <polyline points="7 23 3 19 7 15"/>
-                <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none"
+                stroke="#0C831F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 4l4 4-4 4"/>
+                <path d="M3 12V8a4 4 0 0 1 4-4h14"/>
+                <path d="M7 20l-4-4 4-4"/>
+                <path d="M21 12v4a4 4 0 0 1-4 4H3"/>
               </svg>
             </div>
             <h2 className="tsm-title">Table moved</h2>
-            <div className="tsm-summary">
-              <span className="tsm-table-chip">T{transferSuccess.fromNum}</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"/>
-                <polyline points="12 5 19 12 12 19"/>
-              </svg>
-              <span className="tsm-table-chip">T{transferSuccess.toNum}</span>
+            <p className="tsm-subtitle">
+              {transferSuccess.fromLabel}'s running order has been moved to {transferSuccess.toLabel}.
+            </p>
+            <div className="tsm-info-box">
+              <div className="tsm-transfer-row">
+                <span>{transferSuccess.fromLabel}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="#6B6B6B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+                <span>{transferSuccess.toLabel}</span>
+              </div>
+              <div className="tsm-transfer-meta">
+                {[
+                  transferSuccess.itemCount > 0 ? `${transferSuccess.itemCount} item${transferSuccess.itemCount !== 1 ? "s" : ""}` : null,
+                  transferSuccess.total > 0 ? `₹${transferSuccess.total.toLocaleString("en-IN")}` : null,
+                  transferSuccess.areaName,
+                ].filter(Boolean).join(" · ")}
+              </div>
             </div>
-            <button
-              className="tsm-done-btn"
-              onClick={() => setTransferSuccess(null)}
-            >
+            <button className="tsm-done-btn" onClick={() => setTransferSuccess(null)}>
               Done
             </button>
           </div>
