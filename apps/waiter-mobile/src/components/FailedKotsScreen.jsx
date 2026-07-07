@@ -1,3 +1,7 @@
+import { useState } from "react";
+import { tapImpact } from "../lib/haptics";
+import { KotReprintScreen } from "./KotReprintScreen";
+
 function failedAgo(isoTs) {
   if (!isoTs) return "";
   const mins = Math.floor((Date.now() - new Date(isoTs).getTime()) / 60000);
@@ -8,6 +12,18 @@ function failedAgo(isoTs) {
 }
 
 export function FailedKotsScreen({ pendingKots, onRetry, onRetryAll, onClear, onClose }) {
+  const [selectedKot, setSelectedKot] = useState(null);
+
+  if (selectedKot) {
+    return (
+      <KotReprintScreen
+        kot={selectedKot}
+        onRetry={(kot) => { onRetry(kot); setSelectedKot(null); }}
+        onClose={() => setSelectedKot(null)}
+      />
+    );
+  }
+
   return (
     <div className="fkot-page">
       <div className="fkot-header">
@@ -47,7 +63,12 @@ export function FailedKotsScreen({ pendingKots, onRetry, onRetryAll, onClear, on
 
           <div className="fkot-scroll">
             {pendingKots.map((kot) => (
-              <div key={kot.id} className="fkot-card">
+              <button
+                key={kot.id}
+                className="fkot-card"
+                style={{ textAlign: "left", width: "100%", cursor: "pointer" }}
+                onClick={() => { tapImpact(); setSelectedKot(kot); }}
+              >
                 <div className="fkot-card-header">
                   <span className="fkot-table">Table {kot.tableNumber}</span>
                   <span className="fkot-area">{kot.areaName}</span>
@@ -66,14 +87,20 @@ export function FailedKotsScreen({ pendingKots, onRetry, onRetryAll, onClear, on
                   )}
                 </div>
                 <div className="fkot-card-actions">
-                  <button className="fkot-clear-btn" onClick={() => onClear(kot.id)}>
+                  <button
+                    className="fkot-clear-btn"
+                    onClick={(e) => { e.stopPropagation(); onClear(kot.id); }}
+                  >
                     Dismiss
                   </button>
-                  <button className="fkot-retry-btn" onClick={() => onRetry(kot)}>
+                  <button
+                    className="fkot-retry-btn"
+                    onClick={(e) => { e.stopPropagation(); onRetry(kot); }}
+                  >
                     Retry
                   </button>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
 

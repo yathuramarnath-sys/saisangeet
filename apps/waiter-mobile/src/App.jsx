@@ -133,7 +133,8 @@ export function App() {
   const socketRef             = useRef(null);
   const localSocketRef        = useRef(null);
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
-  const [localConn,    setLocalConn]    = useState(false);
+  const [localConn,      setLocalConn]      = useState(false);
+  const [serverConnected, setServerConnected] = useState(true);
   const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
   const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
   // Waiter assignment picker — shown before every KOT send
@@ -273,6 +274,7 @@ export function App() {
         // Also flush the sync queue immediately — server is reachable again.
         let wasOffline = false;
         socket.on("connect", () => {
+          setServerConnected(true);
           if (wasOffline) {
             api.get(`/operations/orders?outletId=${target.id}`)
               .then((orders) => {
@@ -284,8 +286,8 @@ export function App() {
           }
           wasOffline = false;
         });
-        socket.on("disconnect",    () => { wasOffline = true; });
-        socket.on("connect_error", () => { wasOffline = true; });
+        socket.on("disconnect",    () => { wasOffline = true; setServerConnected(false); });
+        socket.on("connect_error", () => { wasOffline = true; setServerConnected(false); });
 
         socket.on("order:updated", (o) => setOrders((p) => {
           if (!o.items?.length || o.isClosed) {
@@ -1458,6 +1460,7 @@ export function App() {
             onSelectTable={handleSelectTable}
             onLongPressTable={handleLongPressTable}
             loggedInStaff={loggedInStaff}
+            isConnected={serverConnected}
           />
         ) : activeTab === "kots" ? (
           <FailedKotsScreen

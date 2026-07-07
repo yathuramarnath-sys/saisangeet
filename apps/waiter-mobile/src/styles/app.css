@@ -6597,3 +6597,234 @@ html, body, #root {
   transition: background 0.1s;
 }
 .wp2-done:active { background: #E6B400; }
+
+/* ── Screen 21: Floor Offline — offline pill + banner additions ───────────── */
+.tf2-offline-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: #FFF7ED; border: 1px solid #FDE3BF;
+  border-radius: 20px; padding: 5px 10px; flex-shrink: 0;
+}
+.tf2-offline-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #E07A1F; flex-shrink: 0;
+}
+.tf2-offline-label { font-size: 12px; font-weight: 600; color: #E07A1F; }
+.tf2-offline-banner {
+  margin: 12px 16px 0;
+  background: #FFF7ED; border-radius: 14px;
+  padding: 12px 14px;
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.tf2-offline-banner-icon { color: #E07A1F; flex-shrink: 0; margin-top: 1px; }
+.tf2-offline-banner-text { font-size: 14px; color: #C16010; font-weight: 500; line-height: 1.45; }
+
+/* ── Screen 28: Move Table redesign — mt2 list-layout additions ───────────── */
+.mt2-header-block { display: flex; flex-direction: column; flex: 1; }
+.mt2-subtitle { font-size: 13px; color: #6B6B6B; font-weight: 400; margin: 0; }
+.mt2-list-card {
+  background: #fff; border-radius: 16px;
+  border: 1px solid #ECEAE3; overflow: hidden;
+}
+.mt2-list-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 15px 16px; border: none; background: transparent;
+  cursor: pointer; width: 100%; text-align: left;
+  border-bottom: 1px solid #ECEAE3; touch-action: manipulation;
+}
+.mt2-list-row:last-child { border-bottom: none; }
+.mt2-list-row-sel { background: #FFFBF0; }
+.mt2-list-row-info { display: flex; align-items: baseline; gap: 10px; }
+.mt2-list-num { font-size: 15px; font-weight: 700; color: #1C1C1C; }
+.mt2-list-meta { font-size: 13px; color: #6B6B6B; }
+.mt2-radio2 {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #DEDBD2; background: #fff;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+}
+.mt2-radio2-sel { border-color: #F8CB46; background: #F8CB46; }
+.mt2-confirm-with-icon {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+
+/* ── Screen 29: Customer full-screen (cust3-*) ───────────────────────────── */
+.cust3-page {
+  position: fixed; inset: 0; background: #F7F6F2;
+  display: flex; flex-direction: column; z-index: 500;
+}
+.cust3-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 52px 20px 14px;
+}
+.cust3-back-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; touch-action: manipulation;
+}
+.cust3-header-text { display: flex; flex-direction: column; gap: 1px; }
+.cust3-title { font-size: 19px; font-weight: 700; color: #1C1C1C; margin: 0; }
+.cust3-subtitle { font-size: 13px; color: #6B6B6B; margin: 0; }
+.cust3-scroll {
+  flex: 1; overflow-y: auto;
+  padding: 4px 16px 120px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.cust3-phone-card {
+  background: #fff; border-radius: 14px; border: 1px solid #ECEAE3;
+  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+}
+.cust3-phone-icon { color: #9CA3AF; flex-shrink: 0; }
+.cust3-phone-input {
+  flex: 1; border: none; outline: none;
+  font-size: 16px; color: #1C1C1C; background: transparent; font-weight: 500;
+}
+.cust3-phone-check { color: #0C831F; flex-shrink: 0; }
+.cust3-profile-card {
+  background: #fff; border-radius: 14px; border: 1px solid #ECEAE3;
+  padding: 14px 16px; display: flex; align-items: center; gap: 14px;
+}
+.cust3-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; flex-shrink: 0;
+}
+.cust3-profile-info { display: flex; flex-direction: column; gap: 2px; }
+.cust3-profile-name { font-size: 16px; font-weight: 700; color: #1C1C1C; }
+.cust3-profile-sub { font-size: 13px; color: #6B6B6B; }
+.cust3-section-label {
+  font-size: 11px; font-weight: 700; color: #9CA3AF;
+  letter-spacing: 0.08em; padding: 0 4px;
+}
+.cust3-tags { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 4px; }
+.cust3-tag {
+  padding: 6px 14px; border-radius: 999px;
+  font-size: 13px; font-weight: 600; border: none; cursor: default;
+}
+.cust3-tag-regular { background: #E7F3E9; color: #0C831F; }
+.cust3-tag-vip     { background: #FFF3E0; color: #E07A1F; }
+.cust3-tag-plain   { background: #fff; border: 1.5px solid #ECEAE3; color: #1C1C1C; }
+.cust3-tag-add {
+  background: transparent; border: 1.5px dashed #DEDBD2; color: #9CA3AF;
+  padding: 5px 14px; cursor: pointer;
+}
+.cust3-orders-card {
+  background: #fff; border-radius: 14px;
+  border: 1px solid #ECEAE3; overflow: hidden;
+}
+.cust3-order-row {
+  padding: 14px 16px; border-bottom: 1px solid #ECEAE3;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.cust3-order-row:last-child { border-bottom: none; }
+.cust3-order-left { display: flex; flex-direction: column; gap: 2px; }
+.cust3-order-items { font-size: 14px; font-weight: 600; color: #1C1C1C; }
+.cust3-order-meta { font-size: 12px; color: #9CA3AF; }
+.cust3-order-amount {
+  font-size: 14px; font-weight: 600; color: #1C1C1C;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.cust3-bottom {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: #F7F6F2; border-top: 1px solid #ECEAE3;
+}
+.cust3-attach-btn {
+  width: 100%; height: 54px; border-radius: 16px; border: none;
+  background: #F8CB46; color: #1C1C1C; font-size: 16px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  gap: 8px; touch-action: manipulation;
+}
+.cust3-attach-btn:active { background: #EBBA2A; }
+
+/* ── Screen 33: KOT detail / reprint (kotdr-*) ───────────────────────────── */
+.kotdr-page {
+  position: fixed; inset: 0; background: #F7F6F2;
+  display: flex; flex-direction: column; z-index: 500;
+}
+.kotdr-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 52px 20px 14px;
+}
+.kotdr-back-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; touch-action: manipulation;
+}
+.kotdr-header-text { display: flex; flex-direction: column; gap: 1px; }
+.kotdr-title { font-size: 19px; font-weight: 700; color: #1C1C1C; margin: 0; }
+.kotdr-subtitle { font-size: 13px; color: #6B6B6B; margin: 0; }
+.kotdr-scroll {
+  flex: 1; overflow-y: auto;
+  padding: 8px 16px 140px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.kotdr-ticket-card {
+  background: #fff; border-radius: 16px;
+  border: 1px solid #ECEAE3; padding: 16px;
+}
+.kotdr-ticket-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.kotdr-ticket-eyebrow {
+  font-size: 11px; font-weight: 700; color: #9CA3AF;
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.kotdr-status-pill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
+}
+.kotdr-status-sent { background: #E7F3E9; color: #0C831F; }
+.kotdr-status-failed { background: #FBE9E7; color: #D92D20; }
+.kotdr-ticket-number { font-size: 24px; font-weight: 800; color: #1C1C1C; margin: 4px 0 2px; }
+.kotdr-ticket-meta { font-size: 13px; color: #6B6B6B; margin-bottom: 14px; }
+.kotdr-divider { height: 1px; background: #ECEAE3; margin: 0 0 12px; }
+.kotdr-item-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #ECEAE3;
+}
+.kotdr-item-row:last-of-type { border-bottom: none; padding-bottom: 0; }
+.kotdr-item-left { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.kotdr-item-name { font-size: 14px; font-weight: 600; color: #1C1C1C; }
+.kotdr-item-qty { color: #9CA3AF; font-weight: 400; }
+.kotdr-item-mods { font-size: 12px; color: #9CA3AF; }
+.kotdr-item-price { font-size: 14px; font-weight: 600; color: #1C1C1C; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kotdr-total-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 12px; margin-top: 12px; border-top: 1px solid #ECEAE3;
+}
+.kotdr-total-label { font-size: 13px; color: #6B6B6B; }
+.kotdr-total-amount { font-size: 17px; font-weight: 800; color: #1C1C1C; font-variant-numeric: tabular-nums; }
+.kotdr-last-printed {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 4px; justify-content: center;
+}
+.kotdr-last-printed-text { font-size: 12px; color: #9CA3AF; }
+.kotdr-void-btn {
+  background: #fff; border-radius: 14px; border: 1px solid #ECEAE3;
+  padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+  cursor: pointer; width: 100%; touch-action: manipulation;
+}
+.kotdr-void-icon { color: #D92D20; flex-shrink: 0; }
+.kotdr-void-label { font-size: 14px; font-weight: 600; color: #D92D20; }
+.kotdr-void-hint { font-size: 12px; color: #9CA3AF; margin-left: 2px; }
+.kotdr-bottom {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: #F7F6F2; border-top: 1px solid #ECEAE3;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.kotdr-reprint-btn {
+  width: 100%; height: 54px; border-radius: 16px; border: none;
+  background: #F8CB46; color: #1C1C1C; font-size: 16px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  gap: 8px; touch-action: manipulation;
+}
+.kotdr-reprint-btn:active { background: #EBBA2A; }
+.kotdr-retry-btn {
+  width: 100%; height: 54px; border-radius: 16px; border: none;
+  background: #F8CB46; color: #1C1C1C; font-size: 16px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  gap: 8px; touch-action: manipulation;
+}
+.kotdr-retry-btn:active { background: #EBBA2A; }
