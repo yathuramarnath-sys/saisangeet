@@ -77,18 +77,12 @@ const TF2_LABEL = {
   ordering: "Ordering",
 };
 const TF2_COLOR = {
-  open:     "#16A34A",
+  open:     "#0C831F",
   hold:     "#6B7280",
-  bill:     "#0891B2",
-  running:  "#2563EB",
-  ordering: "#D97706",
-};
-const TF2_BADGE_BG = {
-  open:     "#16A34A",
-  hold:     "#6B7280",
-  bill:     "#0891B2",
-  running:  "#2563EB",
-  ordering: "#D97706",
+  bill:     "#2E6F9E",
+  running:  "#2E6F9E",
+  ordering: "#E07A1F",
+  danger:   "#D92D20",
 };
 
 // Each table card is its own component so useLongPress (which calls useRef)
@@ -124,29 +118,41 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
     () => onSelectTable(table.id, area)
   );
 
-  const badgeBg    = TF2_BADGE_BG[displaySt];
-  const statusColor = TF2_COLOR[displaySt];
+  const statusColor = isNoOrderAlert ? TF2_COLOR.danger : TF2_COLOR[displaySt];
 
-  // Build the info line
-  let infoText, infoDanger;
+  // Bottom info: for occupied = "₹amount · time", for free = "X seats"
+  let bottomText, bottomDanger;
   if (isNoOrderAlert) {
-    infoText = `No order ${timer || ""}`;
-    infoDanger = true;
+    bottomText   = `₹${amount.toLocaleString("en-IN")}`;
+    bottomDanger = true;
   } else if (st === "open") {
-    infoText = table.seats > 0 ? `${table.seats} seats` : "";
-    infoDanger = false;
+    bottomText   = table.seats > 0 ? `${table.seats} seats` : "";
+    bottomDanger = false;
   } else {
-    infoText = [guests ? `${guests} guests` : null, timer].filter(Boolean).join(" · ");
-    infoDanger = false;
+    const parts = [];
+    if (amount > 0) parts.push(`₹${amount.toLocaleString("en-IN")}`);
+    if (timer)      parts.push(timer);
+    bottomText   = parts.join(" · ");
+    bottomDanger = false;
   }
 
-  // Info row: text + optional waiter avatar chip
-  const infoRow = isOccupied ? (
-    <div className="tf2-info-row">
-      <span className={`tf2-info-line${infoDanger ? " tf2-info-danger" : ""}`}>
-        {infoText}
-      </span>
-      {waiterInitialsStr && (
+  return (
+    <button className="tf2-card" {...pressHandlers}>
+      {/* Top row: table number + status */}
+      <div className="tf2-card-top">
+        <span className="tf2-table-num">{table.number}</span>
+        {displaySt === "bill" ? (
+          <span className="tf2-bill-tag">Bill ready</span>
+        ) : (
+          <span className="tf2-status-dot-row" style={{ color: statusColor }}>
+            <span className="tf2-status-dot" style={{ background: statusColor }} />
+            {isNoOrderAlert ? `No order ${timer || ""}` : TF2_LABEL[displaySt]}
+          </span>
+        )}
+      </div>
+
+      {/* Waiter chip (if occupied) */}
+      {isOccupied && waiterInitialsStr && (
         <span
           className="tf2-avatar-chip"
           style={{ background: avatarBg(waiterName) }}
@@ -155,37 +161,12 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
           {waiterInitialsStr}
         </span>
       )}
-    </div>
-  ) : (
-    <span className="tf2-info-line">{infoText}</span>
-  );
 
-  return (
-    <button className="tf2-card" {...pressHandlers}>
-      {/* Top row: badge + status */}
-      <div className="tf2-card-top">
-        <span className="tf2-badge" style={{ background: badgeBg }}>
-          {table.number}
-        </span>
-        {displaySt === "bill" ? (
-          <span className="tf2-bill-tag">Bill ready</span>
-        ) : (
-          <span className="tf2-status-text" style={{ color: statusColor }}>
-            {TF2_LABEL[displaySt]}
-          </span>
-        )}
-      </div>
-
-      {/* Info row: guests·time (or seats for free), optional waiter chip */}
-      {infoRow}
-
-      {/* Bottom row: amount + chevron */}
+      {/* Bottom row: amount · time (or seats) + chevron */}
       <div className="tf2-card-bottom">
-        {amount > 0 ? (
-          <span className="tf2-amount">₹{amount.toLocaleString("en-IN")}</span>
-        ) : (
-          <span />
-        )}
+        <span className={`tf2-info-line${bottomDanger ? " tf2-info-danger" : ""}`}>
+          {bottomText}
+        </span>
         <svg className="tf2-chevron" width="16" height="16" viewBox="0 0 24 24"
           fill="none" stroke="currentColor" strokeWidth="2.2">
           <polyline points="9 18 15 12 9 6"/>

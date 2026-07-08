@@ -1500,6 +1500,7 @@ export function App() {
         ) : activeTab === "kots" ? (
           <FailedKotsScreen
             pendingKots={pendingKots}
+            outletName={outlet?.name || branchConfig?.outletName}
             onRetry={handleRetryKot}
             onRetryAll={handleRetryAllKots}
             onClear={handleClearKot}

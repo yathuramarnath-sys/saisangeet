@@ -3871,6 +3871,30 @@ html, body, #root {
   flex-shrink: 0;
 }
 
+.tf2-table-num {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1C1C1C;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+
+.tf2-status-dot-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.tf2-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .tf2-status-text {
   font-size: 13px;
   font-weight: 600;
@@ -5170,6 +5194,227 @@ html, body, #root {
 }
 .fkot-retry-all-btn:active { background: #374151; }
 
+/* ── fkot2 · FailedKotsScreen (redesign) ────────────────────────────────── */
+.fkot2-page {
+  flex: 1;
+  background: #F7F6F2;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.fkot2-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px 16px;
+  background: #fff;
+  border-bottom: 1px solid #ECEAE3;
+  flex-shrink: 0;
+}
+.fkot2-back-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: #F3F2EE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  color: #1C1C1C;
+}
+.fkot2-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1C1C1C;
+  margin: 0;
+}
+.fkot2-subtitle {
+  font-size: 12px;
+  color: #6B6B6B;
+  margin: 2px 0 0;
+  font-weight: 500;
+}
+
+/* Empty state */
+.fkot2-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 24px;
+}
+.fkot2-empty-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #E7F3E9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0C831F;
+  margin-bottom: 8px;
+}
+.fkot2-empty-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1C1C1C;
+  margin: 0;
+}
+.fkot2-empty-sub {
+  font-size: 14px;
+  color: #9CA3AF;
+  margin: 0;
+  text-align: center;
+}
+
+/* Offline alert card */
+.fkot2-alert-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #FFFBF2;
+  border: 1px solid #FDE68A;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin: 14px 16px 0;
+  flex-shrink: 0;
+}
+.fkot2-alert-icon { flex-shrink: 0; margin-top: 1px; }
+.fkot2-alert-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1C1C1C;
+  margin: 0 0 3px;
+}
+.fkot2-alert-body {
+  font-size: 13px;
+  color: #6B6B6B;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* KOT cards scroll area */
+.fkot2-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fkot2-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #ECEAE3;
+  border-left: 4px solid #D92D20;
+  overflow: hidden;
+}
+.fkot2-card-inner {
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fkot2-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.fkot2-kot-id {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1C1C1C;
+}
+.fkot2-time {
+  font-size: 12px;
+  color: #9CA3AF;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.fkot2-status-fail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #D92D20;
+  margin: 0;
+}
+.fkot2-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #D92D20;
+  flex-shrink: 0;
+}
+.fkot2-items {
+  font-size: 13px;
+  color: #6B6B6B;
+  margin: 0;
+  font-weight: 400;
+}
+.fkot2-retry-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 4px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: none;
+  background: #FFF7E0;
+  color: #1C1C1C;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.fkot2-retry-btn:active { background: #FDE68A; }
+
+/* Bottom bar */
+.fkot2-bottom {
+  padding: 14px 16px 20px;
+  border-top: 1px solid #ECEAE3;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.fkot2-retry-all-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 50px;
+  border-radius: 14px;
+  border: none;
+  background: #F8CB46;
+  color: #1C1C1C;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.fkot2-retry-all-btn:active { background: #EBBA2A; }
+.fkot2-auto-caption {
+  font-size: 12px;
+  color: #9CA3AF;
+  margin: 0;
+  text-align: center;
+  font-weight: 500;
+}
+
 /* ── Move Table Screen (combined transfer + merge full-screen) ────────────── */
 .mt2-page {
   position: fixed;
@@ -5516,6 +5761,26 @@ html, body, #root {
   font-weight: 500;
 }
 .more2-chevron { color: #D1D5DB; flex-shrink: 0; }
+.more2-row-sync {
+  cursor: default;
+}
+.more2-row-sync:active { background: transparent; }
+.more2-sync-now-btn {
+  border: none;
+  background: none;
+  padding: 6px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #16A34A;
+  cursor: pointer;
+  touch-action: manipulation;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.more2-sync-now-btn:disabled {
+  color: #9CA3AF;
+  cursor: default;
+}
 .more2-divider {
   height: 1px;
   background: #F3F4F6;
@@ -6011,7 +6276,7 @@ html, body, #root {
 .lgm-icon-wrap {
   width: 64px; height: 64px;
   border-radius: 50%;
-  background: #DC2626;
+  background: #FBE9E7;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6367,82 +6632,348 @@ html, body, #root {
 .ico2-accept:active { background: #E6B400; }
 
 /* ── ls2 · LoginScreen ────────────────────────────────────────────────── */
+
+/* ---- Shared base ---- */
 .ls2-page {
-  min-height: 100vh; background: #F7F6F2;
-  display: flex; flex-direction: column;
-  align-items: center; padding: 0 20px 32px;
-}
-.ls2-header {
-  display: flex; align-items: center; gap: 14px;
-  padding: 52px 0 0; margin-bottom: 32px; align-self: flex-start;
-}
-.ls2-logo {
-  width: 44px; height: 44px; border-radius: 12px;
-  background: #FFC900; display: flex; align-items: center; justify-content: center;
-  color: #1C1C1E; flex-shrink: 0;
-}
-.ls2-appname { font-size: 1.15rem; font-weight: 900; color: #1C1C1E; margin: 0; }
-.ls2-outlet  { font-size: 0.82rem; color: #9CA3AF; font-weight: 500; margin: 2px 0 0; }
-
-.ls2-prompt {
-  font-size: 1.05rem; font-weight: 800; color: #1C1C1E;
-  align-self: flex-start; margin: 0 0 16px;
+  min-height: 100vh;
+  background: #F7F6F2;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.ls2-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 10px; width: 100%;
+/* ---- Staff picker page ---- */
+.ls2-picker-page {
+  padding: 0 0 32px;
+  overflow-y: auto;
 }
-.ls2-card {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 8px; padding: 18px 12px;
-  background: #fff; border: 1px solid #E5E2D9; border-radius: 14px;
-  cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
+.ls2-picker-top {
+  padding: 56px 20px 8px;
 }
-.ls2-card:active { transform: scale(0.96); box-shadow: 0 0 0 rgba(0,0,0,0); }
-.ls2-avatar {
-  width: 48px; height: 48px; border-radius: 99px;
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 1.25rem; font-weight: 800;
+.ls2-greeting {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6B6B6B;
+  margin: 0 0 4px;
+  letter-spacing: 0.02em;
 }
-.ls2-name { font-size: 0.88rem; font-weight: 700; color: #1C1C1E; text-align: center; }
-.ls2-role { font-size: 0.72rem; color: #9CA3AF; font-weight: 500; text-align: center; }
+.ls2-who-heading {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1C1C1C;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+/* Last-used featured card */
+.ls2-last-card {
+  margin: 20px 16px 0;
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px 16px 14px;
+  border: 1px solid #ECEAE3;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ls2-last-card-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ls2-last-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.ls2-last-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ls2-last-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ls2-last-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1C1C1C;
+}
+.ls2-last-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6B6B6B;
+  letter-spacing: 0.08em;
+  background: #ECEAE3;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.ls2-last-role {
+  font-size: 13px;
+  color: #6B6B6B;
+  font-weight: 500;
+}
+.ls2-continue-btn {
+  width: 100%;
+  height: 48px;
+  border-radius: 12px;
+  border: none;
+  background: #F8CB46;
+  color: #1C1C1C;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.1s;
+}
+.ls2-continue-btn:active { background: #EBBA2A; }
+
+/* Switch captain section */
+.ls2-switch-section {
+  margin: 24px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ls2-switch-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9CA3AF;
+  letter-spacing: 0.09em;
+  margin: 0 0 2px;
+  padding: 0 4px;
+}
+.ls2-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.ls2-search-icon {
+  position: absolute;
+  left: 13px;
+  color: #9CA3AF;
+  pointer-events: none;
+}
+.ls2-search {
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid #ECEAE3;
+  background: #fff;
+  padding: 0 14px 0 38px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1C1C1C;
+  outline: none;
+}
+.ls2-search::placeholder { color: #9CA3AF; }
+.ls2-search:focus { border-color: #F8CB46; }
+
+.ls2-list-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #ECEAE3;
+  overflow: hidden;
+}
+.ls2-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  text-align: left;
+}
+.ls2-list-row:active { background: #F9F8F5; }
+.ls2-list-row-sep { border-top: 1px solid #F3F2EE; }
+.ls2-list-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.ls2-list-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ls2-list-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1C1C1C;
+}
+.ls2-list-role {
+  font-size: 12px;
+  color: #6B6B6B;
+  font-weight: 400;
+}
+.ls2-list-chevron { color: #D1D5DB; flex-shrink: 0; }
+.ls2-list-empty {
+  font-size: 14px;
+  color: #9CA3AF;
+  text-align: center;
+  padding: 20px 16px;
+  margin: 0;
+}
 
 .ls2-forget {
-  margin-top: auto; padding: 10px 16px;
-  border: none; background: none; cursor: pointer;
-  font-size: 0.78rem; color: #9CA3AF; text-decoration: underline;
+  margin: 20px auto 0;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #9CA3AF;
+  text-decoration: underline;
+  display: block;
 }
 
-/* PIN screen */
-.ls2-back {
-  align-self: flex-start; margin-top: 52px; margin-bottom: 12px;
-  display: flex; align-items: center; gap: 5px;
-  border: none; background: none; cursor: pointer;
-  font-size: 0.85rem; font-weight: 600; color: #6B7280;
+/* ---- PIN entry page ---- */
+.ls2-pin-page {
+  align-items: center;
+  padding: 0 20px 32px;
 }
-.ls2-profile { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 28px; }
+
+/* Plato logo row */
+.ls2-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 52px 0 0;
+  align-self: flex-start;
+  margin-bottom: 36px;
+}
+.ls2-logo-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #F8CB46;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ls2-logo-brand {
+  font-size: 13px;
+  font-weight: 800;
+  color: #F8CB46;
+  letter-spacing: 0.12em;
+  display: block;
+  line-height: 1;
+}
+.ls2-logo-app {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1C1C1C;
+  display: block;
+  line-height: 1.2;
+}
+
+/* User card with switch link */
+.ls2-pin-user-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  border: 1px solid #ECEAE3;
+  margin-bottom: 32px;
+}
 .ls2-pin-avatar {
-  width: 64px; height: 64px; border-radius: 99px;
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 1.6rem; font-weight: 800;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  flex-shrink: 0;
 }
-.ls2-pin-name { font-size: 1rem; font-weight: 800; color: #1C1C1E; margin: 0; }
-.ls2-pin-role { font-size: 0.78rem; color: #9CA3AF; font-weight: 500; margin: 0; }
+.ls2-pin-user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ls2-pin-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1C1C1C;
+  margin: 0;
+}
+.ls2-pin-role {
+  font-size: 12px;
+  color: #6B6B6B;
+  font-weight: 500;
+  margin: 0;
+}
+.ls2-switch-btn {
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 700;
+  color: #F6B23C;
+  cursor: pointer;
+  touch-action: manipulation;
+  padding: 4px 0;
+  flex-shrink: 0;
+}
 
+/* PIN label */
+.ls2-pin-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9CA3AF;
+  letter-spacing: 0.1em;
+  margin: 0 0 18px;
+  text-align: center;
+}
+.ls2-pin-label-error {
+  color: #D92D20;
+}
+
+/* PIN dots */
 .ls2-dots {
-  display: flex; gap: 16px; margin-bottom: 12px;
+  display: flex;
+  gap: 16px;
+  margin-bottom: 36px;
 }
 .ls2-dot {
-  width: 14px; height: 14px; border-radius: 99px;
-  border: 2px solid #D1D5DB; background: transparent;
+  width: 14px;
+  height: 14px;
+  border-radius: 99px;
+  border: 2px solid #D1D5DB;
+  background: transparent;
   transition: background 0.15s, border-color 0.15s;
 }
-.ls2-dot-filled { background: #1C1C1E; border-color: #1C1C1E; }
-.ls2-hint { font-size: 0.82rem; color: #9CA3AF; margin-bottom: 24px; }
-.ls2-hint-error { color: #EF4444; font-weight: 600; }
+.ls2-dot-filled { background: #1C1C1C; border-color: #1C1C1C; }
+.ls2-dot-error  { border-color: #D92D20; background: transparent; }
 
+/* Shake animation */
 @keyframes ls2-shake {
   0%, 100% { transform: translateX(0); }
   20%       { transform: translateX(-8px); }
@@ -6452,19 +6983,40 @@ html, body, #root {
 }
 .ls2-shake { animation: ls2-shake 0.45s ease; }
 
+/* Numpad */
 .ls2-numpad {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 10px; width: 100%; max-width: 300px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 300px;
 }
 .ls2-key {
-  aspect-ratio: 1; border-radius: 14px; border: none;
-  background: #fff; font-size: 1.4rem; font-weight: 600; color: #1C1C1E;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  border: none;
+  background: #fff;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #1C1C1C;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   transition: transform 0.08s, background 0.08s;
+  touch-action: manipulation;
 }
 .ls2-key:active { transform: scale(0.93); background: #F0EDEA; }
-.ls2-key-empty { background: transparent; box-shadow: none; cursor: default; }
+.ls2-key-help {
+  background: transparent;
+  box-shadow: none;
+  cursor: default;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #9CA3AF;
+  opacity: 0.6;
+}
 .ls2-key-del { background: #F3F4F6; color: #374151; }
 
 /* ── su2 · SetupScreen ────────────────────────────────────────────────── */
