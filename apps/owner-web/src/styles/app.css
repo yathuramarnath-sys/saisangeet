@@ -12640,3 +12640,215 @@ textarea:focus {
   color: var(--oc-muted, #6B6B6B) !important;
   font-style: italic !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHIFTS v2 POLISH — warm tokens, teal active states
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Active filter tab: black → teal */
+.shift-filter-tab.active {
+  background: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+}
+
+/* Stats row cards */
+.shift-stats-row {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 12px !important;
+  margin-bottom: 20px !important;
+}
+.shift-stat {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 10px !important;
+  padding: 14px 16px !important;
+  box-shadow: none !important;
+}
+.shift-stat strong {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.shift-stat span {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+}
+.shift-stat.bad strong { color: #c0392b !important; }
+
+/* Live pill */
+.shift-live-pill {
+  background: #e8f5e9 !important;
+  color: #1a7a3a !important;
+  border: 1px solid #bbf7d0 !important;
+  border-radius: 20px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 4px 10px !important;
+}
+
+/* Alert banner */
+.shift-alert-banner {
+  background: #fff8e1 !important;
+  border: 1px solid #fde68a !important;
+  border-radius: 8px !important;
+  color: #92400e !important;
+}
+
+/* Table head */
+.shift-table-head {
+  background: var(--oc-ground, #F7F6F2) !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+}
+.shift-table-row {
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  font-size: 13px !important;
+}
+.shift-table-row:hover { background: var(--oc-ground, #F7F6F2) !important; }
+.shift-table-row.row-warn { background: #fffbf0 !important; }
+
+/* Short card */
+.shift-short-card {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 10px !important;
+}
+
+/* Monitor panel */
+.shift-monitor-panel {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+/* Cash move rows */
+.shift-move-type {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 16px !important;
+  flex-shrink: 0 !important;
+  background: var(--oc-ground, #F7F6F2) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ONLINE SALES / SETTLEMENTS v2 POLISH — teal accents, warm tokens
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Page background */
+.stl-page {
+  background: var(--oc-ground, #F7F6F2) !important;
+}
+
+/* Primary button: dark → teal */
+.stl-add-btn {
+  background: var(--oc-teal, #0F766E) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+}
+.stl-add-btn:hover {
+  background: #0a5c56 !important;
+}
+
+/* Filter buttons: black active → teal */
+.stl-filter-btn.active {
+  background: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+}
+.stl-filter-btn {
+  border-radius: 20px !important;
+  font-weight: 600 !important;
+  background: var(--oc-card, #fff) !important;
+  border-color: var(--oc-hairline, #ECEAE3) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+
+/* KPI cards: remove colored border-top, use hairline + teal value */
+.stl-kpi {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-top: none !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+.stl-kpi-blue,
+.stl-kpi-green,
+.stl-kpi-red,
+.stl-kpi-orange,
+.stl-kpi-purple {
+  border-top: 3px solid var(--oc-teal, #0F766E) !important;
+}
+.stl-kpi span {
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+.stl-kpi strong {
+  color: var(--oc-ink, #1C1C1C) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.stl-kpi-blue strong,
+.stl-kpi-green strong,
+.stl-kpi-red strong,
+.stl-kpi-orange strong,
+.stl-kpi-purple strong {
+  color: var(--oc-teal, #0F766E) !important;
+}
+
+/* Settlement card: clean hairline border */
+.stl-card {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-top: 3px solid var(--oc-teal, #0F766E) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+/* Net amount: teal instead of green */
+.stl-card-net strong { color: var(--oc-teal, #0F766E) !important; }
+.stl-kept-pct        { color: var(--oc-teal, #0F766E) !important; }
+
+/* Section labels */
+.stl-sec-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+}
+
+/* Waterfall bars: teal positive, muted negative */
+.stl-wf-bar-pos { background: var(--oc-teal, #0F766E) !important; }
+.stl-pos        { color: var(--oc-teal, #0F766E) !important; }
+
+/* Net row */
+.stl-net-row {
+  background: #f0fdf9 !important;
+  border: 1px solid #99f6e4 !important;
+  border-radius: 8px !important;
+}
+
+/* Delete button: destructive red */
+.stl-btn-delete {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+}
+
+/* Save button: teal */
+.stl-btn-save {
+  background: var(--oc-teal, #0F766E) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+}
