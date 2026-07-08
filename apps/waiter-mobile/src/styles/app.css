@@ -3726,7 +3726,7 @@ html, body, #root {
 
 .tf2-occ-bar-fill {
   height: 100%;
-  background: #FFC900;
+  background: #1C1C1C;
   border-radius: 99px;
   transition: width 0.5s ease;
   min-width: 6px;
@@ -3922,11 +3922,34 @@ html, body, #root {
   min-height: 18px;
 }
 
+/* Middle row: waiter chip + guests · time */
+.tf2-mid-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+}
+.tf2-guests-time {
+  font-size: 12px;
+  color: #6B6B6B;
+  font-weight: 400;
+}
+
 /* Bottom row: amount + chevron */
 .tf2-card-bottom {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.tf2-bottom-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1C1C1C;
+  letter-spacing: -0.4px;
+}
+.tf2-bottom-danger {
+  color: #D92D20;
 }
 
 .tf2-amount {
@@ -7343,10 +7366,11 @@ html, body, #root {
 }
 
 .tf2-avatar-chip {
-  width: 20px; height: 20px; border-radius: 50%;
-  font-size: 0.55rem; font-weight: 800; color: #fff;
+  width: 22px; height: 22px; border-radius: 50%;
+  font-size: 0.56rem; font-weight: 800; color: #fff;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; letter-spacing: 0;
+  background: #9CA3AF;
 }
 
 /* ── mt2 extensions — list layout ─────────────────────────────────────────── */
