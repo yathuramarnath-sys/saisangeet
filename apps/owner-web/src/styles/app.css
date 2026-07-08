@@ -8239,3 +8239,482 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   .oc-mob-overlay { display: none; }
   .oc-mob-hamburger { display: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PAGE CONTENT RESKIN — override prototype/styles.css with new design tokens
+   All feature pages (Dashboard, Outlets, Menu, Staff, Reports…) inherit these.
+   Zero JSX changes needed in feature pages.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* Body background — flat warm ground instead of gradient */
+body {
+  background: var(--oc-ground) !important;
+}
+
+/* ── Page header (topbar) ──────────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 0;
+}
+
+.topbar h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--oc-ink);
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--oc-muted);
+  margin: 0 0 3px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.primary-btn {
+  background: var(--oc-cta) !important;
+  color: var(--oc-ink) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: background 0.15s !important;
+}
+.primary-btn:hover:not(:disabled) {
+  background: #EBBA2A !important;
+  transform: none !important;
+}
+.primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.secondary-btn,
+.ghost-btn {
+  background: var(--oc-card) !important;
+  color: var(--oc-ink) !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s !important;
+}
+.secondary-btn:hover,
+.ghost-btn:hover {
+  border-color: var(--oc-teal) !important;
+  background: var(--oc-card) !important;
+  transform: none !important;
+}
+
+.ghost-chip {
+  background: var(--oc-card) !important;
+  color: var(--oc-ink) !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 6px !important;
+  min-height: 30px !important;
+  height: 30px !important;
+  padding: 0 10px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: border-color 0.12s !important;
+}
+.ghost-chip:hover {
+  border-color: var(--oc-teal) !important;
+  transform: none !important;
+}
+.ghost-chip-danger {
+  color: #D92D20 !important;
+  border-color: rgba(217,45,32,0.2) !important;
+}
+.ghost-chip-danger:hover { border-color: #D92D20 !important; }
+
+/* ── Hero banner — replace dark gradient with clean amber banner ────────────── */
+.hero-panel,
+.outlet-hero,
+.menu-hero,
+.staff-hero,
+.devices-hero,
+.taxes-hero,
+.shifts-hero,
+.integrations-hero,
+.discounts-hero,
+.reports-hero {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 12px !important;
+  color: var(--oc-ink) !important;
+  box-shadow: none !important;
+  padding: 20px 22px !important;
+  margin-bottom: 16px;
+}
+
+.hero-label {
+  color: var(--oc-muted) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.7px;
+}
+
+.hero-panel h3 {
+  color: var(--oc-ink) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.2px;
+}
+
+.hero-copy {
+  color: var(--oc-muted) !important;
+  font-size: 13px !important;
+}
+
+.hero-stats > div {
+  background: var(--oc-ground) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  backdrop-filter: none !important;
+}
+.hero-stats > div span { color: var(--oc-muted) !important; }
+.hero-stats > div strong {
+  color: var(--oc-ink) !important;
+  font-size: 1.4rem !important;
+  font-weight: 700 !important;
+}
+
+/* ── Stat cards (metrics-grid) ─────────────────────────────────────────────── */
+.metrics-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.metric-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  padding: 16px 18px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.metric-card.warning {
+  background: #FFFBF0 !important;
+  border-color: rgba(248,203,70,0.4) !important;
+}
+
+.metric-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--oc-muted) !important;
+  margin-bottom: 6px;
+}
+
+.metric-card strong {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink) !important;
+  margin-top: 4px !important;
+  display: block;
+}
+.metric-card strong.negative { color: #D92D20 !important; }
+
+.metric-card p {
+  font-size: 12px !important;
+  color: var(--oc-muted) !important;
+  margin: 4px 0 0 !important;
+  line-height: 1.4;
+}
+
+/* ── Content panels ────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px !important;
+}
+
+.panel-head h3 {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink) !important;
+  letter-spacing: -0.2px;
+}
+
+.panel-empty {
+  color: var(--oc-muted) !important;
+  font-size: 13px;
+  padding: 24px !important;
+  text-align: center;
+  background: var(--oc-ground) !important;
+  border-radius: 8px;
+}
+
+/* Dashboard grid */
+.dashboard-grid {
+  gap: 12px !important;
+}
+
+/* ── Status badges ─────────────────────────────────────────────────────────── */
+.status {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 3px 8px !important;
+  border-radius: 999px !important;
+  letter-spacing: 0.2px;
+}
+.status.online {
+  background: rgba(15,118,110,0.10) !important;
+  color: var(--oc-teal) !important;
+  border: 1px solid rgba(15,118,110,0.2) !important;
+}
+.status.warning {
+  background: rgba(248,203,70,0.18) !important;
+  color: #92700A !important;
+  border: 1px solid rgba(248,203,70,0.4) !important;
+}
+
+/* ── Sidebar cards (shared layout panels) ──────────────────────────────────── */
+.sidebar-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  padding: 16px !important;
+}
+
+/* ── Role cards (Staff page) ───────────────────────────────────────────────── */
+.role-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+.role-card.active-role {
+  border-color: var(--oc-teal) !important;
+  background: rgba(15,118,110,0.04) !important;
+}
+.role-card-inactive {
+  background: var(--oc-ground) !important;
+}
+
+/* ── Permission items (Staff page) ────────────────────────────────────────── */
+.permission-item {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+.permission-item.enabled {
+  border-color: rgba(15,118,110,0.3) !important;
+  background: rgba(15,118,110,0.04) !important;
+}
+
+/* ── Location cards (Outlets page) ────────────────────────────────────────── */
+.location-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+.location-card.outlet-editing {
+  border-color: var(--oc-teal) !important;
+}
+.outlet-inactive {
+  opacity: 0.6;
+}
+
+/* ── Category tabs ─────────────────────────────────────────────────────────── */
+.category-tabs {
+  border-bottom: 1px solid var(--oc-hairline);
+  margin-bottom: 16px;
+}
+.category-tabs button {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--oc-muted) !important;
+  border-radius: 0 !important;
+  height: auto !important;
+  min-height: auto !important;
+  padding: 8px 14px !important;
+  border-bottom: 2px solid transparent !important;
+  margin-bottom: -1px;
+  background: transparent !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+.category-tabs button:hover { color: var(--oc-ink) !important; }
+.category-tabs .tab-active {
+  color: var(--oc-teal) !important;
+  border-bottom-color: var(--oc-teal) !important;
+  font-weight: 600 !important;
+}
+
+/* ── Dashboard specific cards ──────────────────────────────────────────────── */
+.dash-kpi {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+.dash-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+.dash-otype-card {
+  border-radius: 10px !important;
+}
+
+/* ── Integration / device cards ────────────────────────────────────────────── */
+.integration-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+/* ── Menu item cards ───────────────────────────────────────────────────────── */
+.menu-item-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+/* ── Mini cards (work area checkboxes) ─────────────────────────────────────── */
+.mini-card {
+  background: var(--oc-card) !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+.mini-card:has(input:checked) {
+  border-color: var(--oc-teal) !important;
+  background: rgba(15,118,110,0.05) !important;
+}
+
+/* ── Device cards ──────────────────────────────────────────────────────────── */
+.device-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+/* ── Report section cards ──────────────────────────────────────────────────── */
+.rpt-card,
+.rpt-kpi-card,
+.srt-panel {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+/* ── Shift cards ───────────────────────────────────────────────────────────── */
+.shift-card,
+.scs-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+/* ── Inline forms inside panels ────────────────────────────────────────────── */
+.simple-form label { color: var(--oc-ink); font-size: 13px; font-weight: 500; }
+.simple-form input,
+.simple-form select,
+.simple-form textarea,
+.outlet-inline-form input,
+.outlet-inline-form select {
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 7px !important;
+  background: var(--oc-card) !important;
+  color: var(--oc-ink) !important;
+  font-family: inherit !important;
+}
+.simple-form input:focus,
+.simple-form select:focus,
+.outlet-inline-form input:focus,
+.outlet-inline-form select:focus {
+  border-color: var(--oc-teal) !important;
+  outline: none !important;
+}
+
+/* ── Form success/error messages ───────────────────────────────────────────── */
+.form-success {
+  background: rgba(15,118,110,0.08) !important;
+  border: 1px solid rgba(15,118,110,0.2) !important;
+  color: var(--oc-teal) !important;
+  border-radius: 7px !important;
+}
+.form-error {
+  background: rgba(217,45,32,0.06) !important;
+  border: 1px solid rgba(217,45,32,0.18) !important;
+  color: #B91C1C !important;
+  border-radius: 7px !important;
+}
+
+/* ── Change Password modal ─────────────────────────────────────────────────── */
+.cpw-box {
+  background: var(--oc-card) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important;
+  border: 1px solid var(--oc-hairline) !important;
+}
+
+/* ── Staff table rows ──────────────────────────────────────────────────────── */
+.staff-row:not(.staff-head) {
+  border-bottom: 1px solid var(--oc-hairline);
+}
+.staff-row:not(.staff-head):hover {
+  background: var(--oc-ground);
+}
+
+/* ── Onboarding wizard ─────────────────────────────────────────────────────── */
+.wizard-backdrop {
+  background: rgba(0,0,0,0.45) !important;
+}
+.wizard-card {
+  background: var(--oc-card) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important;
+  border: 1px solid var(--oc-hairline) !important;
+}
