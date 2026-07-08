@@ -22,10 +22,10 @@ export function LoginPage() {
     });
   }, []);
 
-  const [step, setStep]               = useState("identifier");
   const [identifier, setIdentifier]   = useState("");
   const [password, setPassword]       = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [loading, setLoading]         = useState(false);
 
   const [canShowGoogle] = useState(
@@ -39,15 +39,9 @@ export function LoginPage() {
     googleError ? "Google sign-in failed. Please try again or use your password." : ""
   );
 
-  function handleContinue(e) {
-    e.preventDefault();
-    if (!identifier.trim()) return;
-    setError("");
-    setStep("password");
-  }
-
   async function handleSignIn(e) {
     e.preventDefault();
+    if (!identifier.trim() || !password) return;
     setError("");
     setLoading(true);
     try {
@@ -66,10 +60,10 @@ export function LoginPage() {
       {/* Logo above card */}
       <div className="oc-auth-logo">
         <div className="oc-auth-logo-chip">
-          <span className="material-symbols-rounded"
-            style={{ fontSize: 22, color: "#1C1C1C", fontVariationSettings: "'FILL' 1" }}>
-            restaurant
-          </span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1C1C1C" strokeWidth="2" strokeLinecap="round">
+            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+            <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+          </svg>
         </div>
         <div className="oc-auth-logo-text">
           <span className="oc-auth-logo-brand">Plato</span>
@@ -90,9 +84,85 @@ export function LoginPage() {
 
       {/* Card */}
       <div className="oc-auth-card">
-        {/* Google sign-in */}
+        <h1 className="oc-auth-title">
+          {restaurantInfo ? `Sign in to ${restaurantInfo.restaurantName}` : "Sign in to your console"}
+        </h1>
+        <p className="oc-auth-sub">
+          Manage your outlets, menu, staff and reports — all in one place.
+        </p>
+
+        {error && <div className="oc-auth-error">{error}</div>}
+
+        <form onSubmit={handleSignIn} noValidate>
+          <div className="oc-auth-field">
+            <label className="oc-auth-label">Email or phone</label>
+            <input
+              className="oc-auth-input"
+              type="text"
+              autoComplete="username"
+              placeholder="owner@cafeamudham.com"
+              value={identifier}
+              onChange={e => setIdentifier(e.target.value)}
+              autoFocus
+              required
+            />
+          </div>
+
+          <div className="oc-auth-field">
+            <div className="oc-auth-label-row">
+              <label className="oc-auth-label">Password</label>
+              <Link to="/forgot-password" className="oc-auth-link">Forgot password?</Link>
+            </div>
+            <div className="oc-auth-pw-wrap">
+              <input
+                className="oc-auth-input"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="oc-auth-eye"
+                onClick={() => setShowPassword(v => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                ) : (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <label className="oc-auth-checkbox-row">
+            <input
+              type="checkbox"
+              checked={keepSignedIn}
+              onChange={e => setKeepSignedIn(e.target.checked)}
+            />
+            <span>Keep me signed in on this device</span>
+          </label>
+
+          <button type="submit" className="oc-auth-btn" disabled={loading || !identifier.trim() || !password}>
+            {loading ? <span className="oc-auth-spinner" /> : "Sign in"}
+          </button>
+        </form>
+
         {canShowGoogle && (
           <>
+            <div className="oc-auth-divider"><span>or</span></div>
             <a href={`${API_BASE}/auth/google`} className="oc-auth-google-btn">
               <svg width="18" height="18" viewBox="0 0 48 48">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -102,105 +172,7 @@ export function LoginPage() {
               </svg>
               Sign in with Google
             </a>
-            <div className="oc-auth-divider"><span>or sign in with password</span></div>
           </>
-        )}
-
-        {step === "identifier" ? (
-          <form onSubmit={handleContinue} noValidate>
-            <h1 className="oc-auth-title">
-              {restaurantInfo ? `Sign in to ${restaurantInfo.restaurantName}` : "Sign in to your console"}
-            </h1>
-            <p className="oc-auth-sub">
-              Manage your outlets, menu, staff and reports — all in one place.
-            </p>
-
-            {error && <div className="oc-auth-error">{error}</div>}
-
-            <div className="oc-auth-field">
-              <label className="oc-auth-label">Email or phone</label>
-              <input
-                className="oc-auth-input"
-                type="text"
-                autoComplete="username"
-                placeholder="owner@cafeamudham.com"
-                value={identifier}
-                onChange={e => setIdentifier(e.target.value)}
-                autoFocus
-                required
-              />
-            </div>
-
-            <button type="submit" className="oc-auth-btn" disabled={!identifier.trim()}>
-              Continue
-            </button>
-          </form>
-
-        ) : (
-          <form onSubmit={handleSignIn} noValidate>
-            <h1 className="oc-auth-title">Sign in to your console</h1>
-            <p className="oc-auth-sub">
-              Manage your outlets, menu, staff and reports — all in one place.
-            </p>
-
-            {/* Identifier pill with edit */}
-            <button
-              type="button"
-              className="oc-auth-id-pill"
-              onClick={() => { setStep("identifier"); setPassword(""); setError(""); }}
-            >
-              <span>{identifier}</span>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-            </button>
-
-            {error && <div className="oc-auth-error">{error}</div>}
-
-            <div className="oc-auth-field">
-              <div className="oc-auth-label-row">
-                <label className="oc-auth-label">Password</label>
-                <Link to="/forgot-password" className="oc-auth-link">Forgot password?</Link>
-              </div>
-              <div className="oc-auth-pw-wrap">
-                <input
-                  className="oc-auth-input"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  autoFocus
-                  required
-                />
-                <button
-                  type="button"
-                  className="oc-auth-eye"
-                  onClick={() => setShowPassword(v => !v)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                      <line x1="1" y1="1" x2="23" y2="23"/>
-                    </svg>
-                  ) : (
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <button type="submit" className="oc-auth-btn" disabled={loading || !password}>
-              {loading ? <span className="oc-auth-spinner" /> : "Sign in"}
-            </button>
-          </form>
         )}
       </div>
 
