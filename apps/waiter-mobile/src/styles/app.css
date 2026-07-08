@@ -7182,3 +7182,120 @@ html, body, #root {
 @keyframes fp2Spin {
   to { transform: rotate(360deg); }
 }
+
+/* ─── Bill Requested Success Modal (brm-*) ─── */
+.brm-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.70);
+  z-index: 1000; display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.brm-card {
+  background: #fff; border-radius: 24px; padding: 32px 24px 24px;
+  width: 100%; max-width: 360px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.brm-icon-wrap {
+  width: 64px; height: 64px; border-radius: 50%; background: #DCFCE7;
+  display: flex; align-items: center; justify-content: center; margin-bottom: 18px;
+}
+.brm-title {
+  font-size: 20px; font-weight: 700; color: #1C1C1C;
+  margin: 0 0 10px; text-align: center;
+}
+.brm-body {
+  font-size: 14px; color: #6B7280; text-align: center;
+  margin: 0 0 28px; line-height: 1.55;
+}
+.brm-done-btn {
+  width: 100%; height: 56px; border-radius: 18px; border: none;
+  background: #F8CB46; font-size: 16px; font-weight: 700; color: #1C1C1C;
+  cursor: pointer; touch-action: manipulation;
+}
+.brm-done-btn:active { background: #EBBA2A; }
+
+/* ─── Coursing Screen (crs-*) ─── */
+.crs-page {
+  position: fixed; inset: 0; background: #F7F6F2;
+  display: flex; flex-direction: column; z-index: 200;
+}
+.crs-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-top, 0px));
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  background: #fff; border-bottom: 1px solid #ECEAE3; flex-shrink: 0;
+}
+.crs-back-btn {
+  width: 40px; height: 40px; border-radius: 50%; border: none;
+  background: #F7F6F2; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; touch-action: manipulation; color: #1C1C1C; flex-shrink: 0;
+}
+.crs-header-text { flex: 1; min-width: 0; }
+.crs-title { font-size: 18px; font-weight: 700; color: #1C1C1C; margin: 0; line-height: 1.2; }
+.crs-subtitle { font-size: 13px; color: #6B7280; margin: 2px 0 0; }
+.crs-scroll {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.crs-course-card {
+  border-radius: 18px; background: #fff; overflow: hidden;
+}
+.crs-course-card.crs-onhold {
+  border: 2px solid #F8CB46;
+}
+.crs-course-card.crs-fired {
+  border: 1px solid #ECEAE3;
+}
+.crs-course-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px;
+}
+.crs-course-header-fired { background: #F0FDF4; }
+.crs-course-header-hold  { background: #fff; }
+.crs-course-name {
+  font-size: 11px; font-weight: 700; color: #1C1C1C; letter-spacing: 0.6px;
+}
+.crs-fired-pill {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 700; color: #0C831F;
+}
+.crs-hold-pill {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 700; color: #D97706;
+}
+.crs-item-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-top: 1px solid #ECEAE3;
+}
+.crs-item-qty { font-size: 14px; color: #6B7280; width: 28px; flex-shrink: 0; }
+.crs-item-name { flex: 1; font-size: 15px; color: #1C1C1C; }
+.crs-item-price {
+  font-size: 15px; color: #1C1C1C;
+  font-variant-numeric: tabular-nums;
+}
+.crs-fire-btn {
+  width: calc(100% - 32px); margin: 12px 16px 14px;
+  height: 50px; border-radius: 14px; border: none;
+  background: #F8CB46; color: #1C1C1C;
+  font-size: 15px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; touch-action: manipulation;
+}
+.crs-fire-btn:active { background: #EBBA2A; }
+.crs-bottom {
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: #F7F6F2; border-top: 1px solid #ECEAE3; flex-shrink: 0;
+}
+.crs-add-btn {
+  width: 100%; height: 56px; border-radius: 18px;
+  border: 1.5px solid #ECEAE3; background: #fff;
+  font-size: 16px; font-weight: 600; color: #1C1C1C;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; touch-action: manipulation;
+}
+.crs-add-btn:active { background: #F7F6F2; }
+.crs-courses-btn {
+  width: 34px; height: 34px; border-radius: 10px; border: 1px solid #ECEAE3;
+  background: #F7F6F2; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; touch-action: manipulation; color: #6B7280; flex-shrink: 0;
+}
+.crs-courses-btn:active { background: #ECEAE3; }

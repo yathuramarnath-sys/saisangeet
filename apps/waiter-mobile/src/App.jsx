@@ -137,7 +137,7 @@ export function App() {
   const socketRef             = useRef(null);
   const localSocketRef        = useRef(null);
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
-  const [localConn,    setLocalConn]    = useState(false);
+  const [localConn,      setLocalConn]      = useState(false);
   const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
   const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
   // Waiter assignment picker — shown before every KOT send
@@ -147,7 +147,8 @@ export function App() {
   // KOT progress overlay (sending → success) and transfer success modal
   const [kotState,        setKotState]        = useState(null);
   // null | { phase: 'sending'|'success', tableLabel, itemCount, kotNumber }
-  const [transferSuccess, setTransferSuccess] = useState(null);
+  const [transferSuccess,    setTransferSuccess]    = useState(null);
+  const [billRequestedLabel, setBillRequestedLabel] = useState(null);
   // null | { fromNum, toNum }
 
   // Incoming customer (QR) orders
@@ -290,7 +291,7 @@ export function App() {
           wasOffline = false;
         });
         socket.on("disconnect",    () => { wasOffline = true; setSocketConnected(false); });
-        socket.on("connect_error", () => { wasOffline = true; });
+        socket.on("connect_error", () => { wasOffline = true; setSocketConnected(false); });
 
         socket.on("order:updated", (o) => setOrders((p) => {
           if (!o.items?.length || o.isClosed) {
@@ -1014,8 +1015,12 @@ export function App() {
     const order = orders[tid];
     if (!order) return;
     handleUpdateOrder({ ...order, billRequested: true });
-    toast.success("Bill requested — cashier notified");
     if (tableId) setActionTableId(null);   // close action sheet when called from it
+    // Compute short label, e.g. "Table 5" from "TABLE 5"
+    const tNum = order.tableNumber || "";
+    const tMatch = String(tNum).trim().match(/(\d+)\s*$/);
+    const tLabel = tMatch ? `Table ${tMatch[1]}` : (String(tNum) || "the table");
+    setBillRequestedLabel(tLabel);
     const billReqPayload = { outletId: outlet?.id, tableId: tid };
     try {
       await api.post("/operations/bill-request", billReqPayload);
@@ -1313,7 +1318,21 @@ export function App() {
     setSelectedTableId(toId);
     setSelectedArea(toArea);
     toast.dismiss(tid);
-    setTransferSuccess({ fromNum: fromTable?.number, toNum: toTable.number });
+
+    const activeItems = (fromOrder.items || []).filter(i => !i.isVoided && !i.isComp);
+    const sub   = activeItems.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+    const tax   = activeItems.reduce((s, i) => {
+      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
+    }, 0);
+    const tsmLabel = (num) => { const m = String(num || "").trim().match(/(\d+)\s*$/); return m ? `Table ${m[1]}` : String(num || ""); };
+    setTransferSuccess({
+      fromLabel: tsmLabel(fromTable?.number),
+      toLabel:   tsmLabel(toTable.number),
+      itemCount: activeItems.length,
+      total:     sub + tax,
+      areaName:  toArea.name,
+    });
   }
 
   // ── Table merge ───────────────────────────────────────────────────────────
@@ -1686,28 +1705,58 @@ export function App() {
         <div className="tsm-overlay">
           <div className="tsm-card">
             <div className="tsm-icon-wrap">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
-                stroke="#16A34A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="17 1 21 5 17 9"/>
-                <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-                <polyline points="7 23 3 19 7 15"/>
-                <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none"
+                stroke="#0C831F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 4l4 4-4 4"/>
+                <path d="M3 12V8a4 4 0 0 1 4-4h14"/>
+                <path d="M7 20l-4-4 4-4"/>
+                <path d="M21 12v4a4 4 0 0 1-4 4H3"/>
               </svg>
             </div>
             <h2 className="tsm-title">Table moved</h2>
-            <div className="tsm-summary">
-              <span className="tsm-table-chip">T{transferSuccess.fromNum}</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"/>
-                <polyline points="12 5 19 12 12 19"/>
-              </svg>
-              <span className="tsm-table-chip">T{transferSuccess.toNum}</span>
+            <p className="tsm-subtitle">
+              {transferSuccess.fromLabel}'s running order has been moved to {transferSuccess.toLabel}.
+            </p>
+            <div className="tsm-info-box">
+              <div className="tsm-transfer-row">
+                <span>{transferSuccess.fromLabel}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="#6B6B6B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+                <span>{transferSuccess.toLabel}</span>
+              </div>
+              <div className="tsm-transfer-meta">
+                {[
+                  transferSuccess.itemCount > 0 ? `${transferSuccess.itemCount} item${transferSuccess.itemCount !== 1 ? "s" : ""}` : null,
+                  transferSuccess.total > 0 ? `₹${transferSuccess.total.toLocaleString("en-IN")}` : null,
+                  transferSuccess.areaName,
+                ].filter(Boolean).join(" · ")}
+              </div>
             </div>
-            <button
-              className="tsm-done-btn"
-              onClick={() => setTransferSuccess(null)}
-            >
+            <button className="tsm-done-btn" onClick={() => setTransferSuccess(null)}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bill requested success modal */}
+      {billRequestedLabel && (
+        <div className="brm-overlay">
+          <div className="brm-card">
+            <div className="brm-icon-wrap">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                stroke="#0C831F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <h2 className="brm-title">Bill requested</h2>
+            <p className="brm-body">
+              The cashier has been notified to prepare the bill for {billRequestedLabel}.
+            </p>
+            <button className="brm-done-btn" onClick={() => setBillRequestedLabel(null)}>
               Done
             </button>
           </div>

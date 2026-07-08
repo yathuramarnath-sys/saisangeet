@@ -5,6 +5,7 @@ import { NoteModal }   from "./NoteModal";
 import { SplitBill }   from "./SplitBill";
 import { TransferModal } from "./TransferModal";
 import { PhonePeQRModal } from "./PhonePeQRModal";
+import { CoursingScreen } from "./CoursingScreen";
 import {
   getStockState,
   subscribeStock,
@@ -160,6 +161,16 @@ export function OrderScreen({
     );
   }
 
+  if (screen === "courses") {
+    return (
+      <CoursingScreen
+        order={order}
+        tableLabel={tableLabel}
+        onBack={() => setScreen("order")}
+      />
+    );
+  }
+
   if (screen === "split") {
     return (
       <SplitBill
@@ -197,9 +208,24 @@ export function OrderScreen({
             </p>
           )}
         </div>
-        <div className="os2-synced-pill">
-          <span className="os2-synced-dot"/>
-          <span className="os2-synced-label">Synced</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {hasItems && (
+            <button
+              className="crs-courses-btn"
+              onClick={() => { tapImpact(); setScreen("courses"); }}
+              aria-label="Coursing"
+              title="Coursing"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/>
+              </svg>
+            </button>
+          )}
+          <div className="os2-synced-pill">
+            <span className="os2-synced-dot"/>
+            <span className="os2-synced-label">Synced</span>
+          </div>
         </div>
       </div>
 
