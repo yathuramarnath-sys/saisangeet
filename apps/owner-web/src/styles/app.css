@@ -12956,3 +12956,295 @@ button.inv-toggle:focus-visible {
   border-color: var(--oc-teal, #0F766E) !important;
   color: #fff !important;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGNER UI — v3 Final: Dashboard polish + All Reports redesign
+   ─ rpt-kpi-hi: light card (not dark)
+   ─ Dashboard: OC tokens, smaller icons
+   ─ All 13 report types: teal accents, warm card tokens
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── rpt-kpi-hi: white card with teal top-border + teal value ─────────────
+   Previously we made it solid dark-teal (#0F766E) which still looks dark.
+   Designer shows all-white KPI cards. We keep a subtle visual distinction
+   via a 3px teal top-border and teal-coloured value number.               */
+.rpt-kpi-hi {
+  background: var(--oc-card, #fff) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-top: 3px solid var(--oc-teal, #0F766E) !important;
+  box-shadow: 0 2px 8px rgba(15,118,110,.06) !important;
+}
+.rpt-kpi-hi .rpt-kpi-label,
+.rpt-kpi-hi .rpt-kpi-sub {
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+.rpt-kpi-hi .rpt-kpi-value {
+  color: var(--oc-teal, #0F766E) !important;
+}
+
+/* ── Dashboard KPI card: OC tokens, compact icon ──────────────────────────*/
+.dash-kpi {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04) !important;
+}
+.dash-kpi-icon {
+  font-size: 16px !important;
+  opacity: 0.55 !important;
+  flex-shrink: 0 !important;
+}
+.dash-kpi-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+}
+.dash-kpi-value {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.dash-kpi-sub {
+  font-size: 12px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+
+/* ── Dashboard cards: warm OC tokens ─────────────────────────────────────*/
+.dash-card {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04) !important;
+}
+.dash-card-title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  letter-spacing: -0.1px !important;
+}
+
+/* ── Dashboard pay/item/stat rows: OC tokens ──────────────────────────────*/
+.dash-pay-mode   { color: var(--oc-ink, #1C1C1C) !important; }
+.dash-pay-track  { background: var(--oc-hairline, #ECEAE3) !important; }
+.dash-pay-amt    { color: var(--oc-ink, #1C1C1C) !important; }
+.dash-pay-orders { color: var(--oc-muted, #6B6B6B) !important; }
+
+.dash-item-name  { color: var(--oc-ink, #1C1C1C) !important; }
+.dash-item-cat   { color: var(--oc-muted, #6B6B6B) !important; }
+.dash-item-amt   { color: var(--oc-ink, #1C1C1C) !important; }
+.dash-item-bar-fill { background: var(--oc-teal, #0F766E) !important; }
+/* Remove orange highlight on first item — use neutral */
+.dash-item-row:first-child {
+  background: var(--oc-card, #fff) !important;
+  border-color: var(--oc-hairline, #ECEAE3) !important;
+}
+.dash-item-row:first-child .dash-item-rank { color: var(--oc-teal, #0F766E) !important; }
+
+.dash-stat-row span   { color: var(--oc-muted, #6B6B6B) !important; }
+.dash-stat-row strong { color: var(--oc-ink, #1C1C1C) !important; }
+
+/* Order-type card: use OC border instead of hardcoded */
+.dash-otype-card {
+  border-color: var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 12px !important;
+}
+.dash-otype-label { color: var(--oc-ink, #1C1C1C) !important; }
+.dash-otype-orders { color: var(--oc-muted, #6B6B6B) !important; }
+.dash-otype-bar-track { background: var(--oc-hairline, #ECEAE3) !important; }
+
+/* Dashboard bar chart fill: teal */
+.dash-schart-fill { border-radius: 3px !important; }
+.dash-schart-label { color: var(--oc-muted, #6B6B6B) !important; }
+.dash-schart-track { background: var(--oc-hairline, #ECEAE3) !important; border-radius: 4px !important; }
+
+/* Category bars */
+.dash-cat-name  { color: var(--oc-ink, #1C1C1C) !important; }
+.dash-cat-qty   { color: var(--oc-muted, #6B6B6B) !important; }
+.dash-cat-amt   { color: var(--oc-ink, #1C1C1C) !important; }
+.dash-cat-track { background: var(--oc-hairline, #ECEAE3) !important; border-radius: 3px !important; }
+
+/* ── Order History: teal instead of green ─────────────────────────────────*/
+.rpt-oh-src {
+  background: var(--oc-teal-bg, rgba(15,118,110,.08)) !important;
+  color: var(--oc-teal, #0F766E) !important;
+}
+.rpt-oh-count { color: var(--oc-muted, #6B6B6B) !important; }
+.rpt-oh-detail-btn {
+  border-color: var(--oc-hairline, #ECEAE3) !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  border-radius: 7px !important;
+}
+.rpt-oh-detail-btn:hover {
+  background: var(--oc-ground, #F7F6F2) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+  color: var(--oc-teal, #0F766E) !important;
+}
+.rpt-oh-detail {
+  background: var(--oc-ground, #F7F6F2) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 10px !important;
+}
+.rpt-oh-detail-head { color: var(--oc-muted, #6B6B6B) !important; }
+.rpt-oh-detail-head strong { color: var(--oc-ink, #1C1C1C) !important; }
+.rpt-oh-close-btn {
+  border-color: var(--oc-hairline, #ECEAE3) !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  border-radius: 7px !important;
+}
+.rpt-oh-close-btn:hover { background: var(--oc-ground, #F7F6F2) !important; }
+.rpt-oh-detail-footer { border-top-color: var(--oc-hairline, #ECEAE3) !important; }
+
+/* Payment method pill: teal */
+.rpt-method-pill {
+  background: var(--oc-teal-bg, rgba(15,118,110,.08)) !important;
+  color: var(--oc-teal, #0F766E) !important;
+  border-radius: 20px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: .04em !important;
+}
+
+/* Pagination: teal hover */
+.rpt-page-btn {
+  border-color: var(--oc-hairline, #ECEAE3) !important;
+  background: var(--oc-card, #fff) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  border-radius: 8px !important;
+}
+.rpt-page-btn:hover:not(:disabled) {
+  background: var(--oc-teal-bg, rgba(15,118,110,.08)) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+  color: var(--oc-teal, #0F766E) !important;
+}
+.rpt-page-info { color: var(--oc-muted, #6B6B6B) !important; }
+
+/* ── All report bar fills: use category/mode color, not hardcoded green ───
+   The bars in DayEndSummary/StaffSales/CategorySales use inline style for
+   color. The ones without inline color fall back to .rpt-bar-fill which
+   we set to teal in the Phase 3 block. Keep that — nothing new needed.   */
+
+/* Report type cards (Order type breakdown inside DayEndSummary) */
+.rpt-type-card {
+  background: var(--oc-ground, #F7F6F2) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 10px !important;
+  padding: 14px 16px !important;
+}
+.rpt-type-info strong { color: var(--oc-ink, #1C1C1C) !important; font-weight: 700 !important; }
+.rpt-type-info span   { color: var(--oc-muted, #6B6B6B) !important; font-size: 12px !important; }
+.rpt-type-right strong { color: var(--oc-ink, #1C1C1C) !important; font-weight: 700 !important; }
+.rpt-type-right span   { color: var(--oc-muted, #6B6B6B) !important; font-size: 12px !important; }
+.rpt-type-icon { font-size: 20px !important; }
+
+/* Category cards (inside DayEndSummary bottom section) */
+.rpt-cat-card {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 10px !important;
+  padding: 14px 16px !important;
+}
+.rpt-cat-card strong { color: var(--oc-ink, #1C1C1C) !important; font-weight: 700 !important; }
+.rpt-cat-qty { color: var(--oc-muted, #6B6B6B) !important; font-size: 12px !important; }
+.rpt-cat-amt { color: var(--oc-teal, #0F766E) !important; font-weight: 700 !important; }
+.rpt-cat-pct { color: var(--oc-muted, #6B6B6B) !important; font-size: 11px !important; }
+
+/* Category bar in DayEndSummary uses inline styles — override track bg */
+.rpt-cat-bar {
+  background: var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 4px !important;
+}
+
+/* Summary rows (Tax & Discount panels) */
+.rpt-summary-total {
+  background: var(--oc-ground, #F7F6F2) !important;
+  border-radius: 6px !important;
+  padding: 10px 12px !important;
+  margin-top: 4px !important;
+  border-bottom: none !important;
+}
+.rpt-summary-total span   { color: var(--oc-ink, #1C1C1C) !important; font-weight: 700 !important; }
+.rpt-summary-total strong { color: var(--oc-teal, #0F766E) !important; font-weight: 800 !important; }
+.rpt-disc-count { color: var(--oc-muted, #6B6B6B) !important; font-size: 11px !important; }
+.rpt-disc-amt   { color: #dc2626 !important; }
+
+/* Report empty state */
+.rpt-empty-state strong { color: var(--oc-ink, #1C1C1C) !important; }
+.rpt-empty-state p { color: var(--oc-muted, #6B6B6B) !important; }
+.rpt-empty { text-align: center; padding: 32px !important; color: var(--oc-muted, #6B6B6B) !important; }
+
+/* Customer history button */
+.rpt-hist-btn {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 8px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+.rpt-hist-btn:hover,
+.rpt-hist-btn.open {
+  background: var(--oc-teal-bg, rgba(15,118,110,.08)) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+  color: var(--oc-teal, #0F766E) !important;
+}
+.rpt-cust-row-open { background: var(--oc-ground, #F7F6F2) !important; }
+
+/* Report panel toprow (with category tabs) */
+.rpt-panel-toprow {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin-bottom: 14px !important;
+}
+
+/* Rank badge in Item Sales */
+.rpt-rank-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  background: var(--oc-ground, #F7F6F2) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 50% !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+
+/* Category dot in Category Sales */
+.rpt-cat-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+}
+.rpt-cat-items-count { color: var(--oc-muted, #6B6B6B) !important; font-size: 11px !important; }
+.rpt-cat-name-cell {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+/* Email Settings panel */
+.rpt-email-panel { background: var(--oc-card, #fff) !important; border-radius: 12px !important; }
+.rpt-email-note  { color: var(--oc-muted, #6B6B6B) !important; font-size: 13px !important; }
+.rpt-email-reports-label { font-size: 11px !important; font-weight: 700 !important; color: var(--oc-muted, #6B6B6B) !important; text-transform: uppercase !important; letter-spacing: .06em !important; }
+.rpt-email-check { display: flex !important; align-items: center !important; gap: 6px !important; font-size: 13px !important; color: var(--oc-ink, #1C1C1C) !important; cursor: pointer !important; }
+
+/* Voids type-filter pills active → teal */
+.rpt-type-filter-pill.active,
+.rpt-filter-pill.active {
+  background: var(--oc-teal, #0F766E) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+}
+
+/* ── Captain Incentives sub-report (inside Reports) ──────────────────────*/
+.inc-share-bar-fill { background: var(--oc-teal, #0F766E) !important; }
+
