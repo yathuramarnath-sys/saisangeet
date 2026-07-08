@@ -12852,3 +12852,95 @@ textarea:focus {
   background: var(--oc-teal, #0F766E) !important;
   border-color: var(--oc-teal, #0F766E) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL TEAL SWEEP — replace remaining black/dark-blue primary accents
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Receipt template preview logo circle */
+.trp-logo-circle {
+  background: var(--oc-teal, #0F766E) !important;
+}
+
+/* Report export button hover */
+.rpt-export-btn:hover {
+  background: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+}
+
+/* AppStore step badge */
+.as-step-badge {
+  background: var(--oc-teal, #0F766E) !important;
+}
+
+/* AppStore copy link button */
+.as-link-copy-btn {
+  background: var(--oc-teal, #0F766E) !important;
+}
+.as-link-copy-btn:hover {
+  background: #0a5c56 !important;
+}
+
+/* Signup step active dot */
+.signup-step.active .signup-step-dot {
+  background: var(--oc-teal, #0F766E) !important;
+}
+
+/* Onboarding brand mark circle */
+.ob-brand-mark {
+  background: var(--oc-teal, #0F766E) !important;
+}
+.ob-brand-name {
+  color: var(--oc-teal, #0F766E) !important;
+}
+
+/* Inventory toggle ON state */
+button.inv-toggle.inv-toggle-on {
+  background: var(--oc-teal, #0F766E) !important;
+}
+button.inv-toggle:focus-visible {
+  outline-color: var(--oc-teal, #0F766E) !important;
+}
+
+/* Credit ledger — settle button */
+.credit-settle-btn {
+  background: var(--oc-teal, #0F766E) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+}
+.credit-settle-btn:hover {
+  background: #0a5c56 !important;
+}
+
+/* Credit customer card styling */
+.credit-customer-card {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+.credit-customer-name {
+  color: var(--oc-ink, #1C1C1C) !important;
+  font-weight: 700 !important;
+}
+.credit-bill-row {
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+.credit-bill-row:hover { background: var(--oc-ground, #F7F6F2) !important; }
+.credit-outstanding-chip strong { color: #c0392b !important; }
+.credit-settled-badge { color: var(--oc-teal, #0F766E) !important; }
+
+/* Credit settle summary */
+.credit-settle-summary > div strong {
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.credit-settle-total strong {
+  color: var(--oc-teal, #0F766E) !important;
+}
+
+/* ── RptNavBtn active: teal (applies globally via !important cascade) ─────── */
+.rpt-nav-btn.active {
+  background: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+}
