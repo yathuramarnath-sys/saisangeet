@@ -2,9 +2,9 @@ import { tapImpact } from "../lib/haptics";
 
 export function TableActionsSheet({
   tableNumber, areaName, order,
-  onClose, onMoveTable, onPrintBill, onMarkFree,
+  onClose, onMoveTable, onPrintBill, onMarkFree, onSplitBill,
   // kept for API compatibility but not rendered in this design:
-  onMerge, onSplitBill, onCustomerInfo, onEditOrder, onSendKOT,
+  onMerge, onCustomerInfo, onEditOrder, onSendKOT,
 }) {
   const items    = order?.items || [];
   const billable = items.filter(i => !i.isVoided && !i.isComp);
@@ -54,13 +54,35 @@ export function TableActionsSheet({
                       <rect x="6" y="14" width="12" height="8"/>
                     </svg>
                   </span>
-                  <span className="tas2-row-label">Print last KOT</span>
+                  <span className="tas2-row-label">Print Bill</span>
                   <svg className="tas2-row-chevron" width="16" height="16" viewBox="0 0 24 24"
                     fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="9 18 15 12 9 6"/>
                   </svg>
                 </button>
                 <div className="tas2-divider" />
+                {onSplitBill && (
+                  <>
+                    <button
+                      className="tas2-row"
+                      onClick={() => { tapImpact(); onSplitBill(); onClose(); }}
+                    >
+                      <span className="tas2-row-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="2" x2="12" y2="22"/>
+                          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
+                      </span>
+                      <span className="tas2-row-label">Split Bill</span>
+                      <svg className="tas2-row-chevron" width="16" height="16" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="9 18 15 12 9 6"/>
+                      </svg>
+                    </button>
+                    <div className="tas2-divider" />
+                  </>
+                )}
               </>
             )}
 
