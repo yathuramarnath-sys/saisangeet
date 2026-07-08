@@ -12092,3 +12092,551 @@ textarea:focus {
   .dash-otype-card:last-child { border-bottom: none !important; }
   .dash-toolbar { padding: 10px 16px !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REPORTS v2 — Designer-match polish
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── KPI cards ──────────────────────────────────────────────────────────── */
+.rpt-kpi-row {
+  display: flex !important;
+  gap: 14px !important;
+  flex-wrap: wrap !important;
+}
+
+.rpt-kpi {
+  flex: 1 !important;
+  min-width: 140px !important;
+  background: #fff !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 12px !important;
+  padding: 18px 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04) !important;
+  transition: box-shadow .15s !important;
+}
+.rpt-kpi:hover { box-shadow: 0 3px 10px rgba(0,0,0,.07) !important; }
+
+/* Dark highlight card → teal instead of black */
+.rpt-kpi-hi {
+  background: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+}
+.rpt-kpi-hi .rpt-kpi-label,
+.rpt-kpi-hi .rpt-kpi-sub {
+  color: rgba(255,255,255,.65) !important;
+}
+.rpt-kpi-hi .rpt-kpi-value {
+  color: #fff !important;
+}
+
+.rpt-kpi-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .05em !important;
+}
+.rpt-kpi-value {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  line-height: 1.2 !important;
+  font-variant-numeric: tabular-nums !important;
+  margin-top: 2px !important;
+}
+.rpt-kpi-sub {
+  font-size: 12px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  font-weight: 400 !important;
+}
+
+/* ── Category / view tabs ───────────────────────────────────────────────── */
+.rpt-cat-tabs {
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+.rpt-cat-tab {
+  padding: 5px 12px !important;
+  border-radius: 20px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  background: transparent !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  cursor: pointer !important;
+  transition: all .12s !important;
+}
+.rpt-cat-tab:hover {
+  border-color: var(--oc-teal, #0F766E) !important;
+  color: var(--oc-teal, #0F766E) !important;
+}
+.rpt-cat-tab.active {
+  background: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+}
+
+/* ── Panel top row (title + tabs side by side) ──────────────────────────── */
+.rpt-panel-toprow {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-bottom: 16px !important;
+  flex-wrap: wrap !important;
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────────── */
+.rpt-badge-ok {
+  display: inline-block !important;
+  padding: 2px 8px !important;
+  border-radius: 20px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  background: #DCFCE7 !important;
+  color: #166534 !important;
+  border: 1px solid #BBF7D0 !important;
+}
+.rpt-badge-warn {
+  display: inline-block !important;
+  padding: 2px 8px !important;
+  border-radius: 20px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  background: #FEF3C7 !important;
+  color: #92400E !important;
+  border: 1px solid #FDE68A !important;
+}
+.rpt-var-ok {
+  color: #16a34a !important;
+  font-weight: 700 !important;
+}
+.rpt-disc-amt {
+  color: #dc2626 !important;
+  font-weight: 700 !important;
+}
+.rpt-rank-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important; height: 22px !important;
+  border-radius: 50% !important;
+  background: var(--oc-ground, #F7F6F2) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+
+/* ── Category bar chart rows ────────────────────────────────────────────── */
+.rpt-cat-bars {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+.rpt-cat-bar-row {
+  display: grid !important;
+  grid-template-columns: 160px 1fr 80px 50px !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+.rpt-cat-bar-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+}
+.rpt-cat-bar-label strong {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.rpt-cat-items-count {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  white-space: nowrap !important;
+}
+.rpt-cat-bar-track {
+  height: 8px !important;
+  background: var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+.rpt-cat-bar-fill {
+  height: 100% !important;
+  border-radius: 4px !important;
+  transition: width .5s ease !important;
+}
+.rpt-cat-bar-val {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  text-align: right !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.rpt-cat-bar-pct {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  text-align: right !important;
+}
+.rpt-cat-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+}
+.rpt-cat-name-cell {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+/* ── Payment mode rows ──────────────────────────────────────────────────── */
+.rpt-pay-mode-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+}
+.rpt-pay-mode-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+.rpt-pay-icon {
+  font-size: 20px !important;
+  flex-shrink: 0 !important;
+  width: 28px !important;
+  text-align: center !important;
+}
+.rpt-pay-info {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+}
+.rpt-pay-info strong {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.rpt-pay-bar-track {
+  height: 6px !important;
+  background: var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 3px !important;
+  overflow: hidden !important;
+}
+.rpt-pay-bar-fill {
+  height: 100% !important;
+  border-radius: 3px !important;
+  transition: width .4s ease !important;
+}
+.rpt-pay-nums {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 1px !important;
+}
+.rpt-pay-nums strong {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.rpt-pay-nums span {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+
+/* ── Hourly bars ────────────────────────────────────────────────────────── */
+.rpt-hourly-bars {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+.rpt-hourly-row {
+  display: grid !important;
+  grid-template-columns: 40px 1fr 70px !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+.rpt-hourly-label {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+.rpt-hourly-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.rpt-hourly-amt {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  text-align: right !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.rpt-hourly-legend {
+  display: flex !important;
+  gap: 14px !important;
+  margin-top: 10px !important;
+  font-size: 12px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  flex-wrap: wrap !important;
+}
+.leg-dot {
+  display: inline-block !important;
+  width: 8px !important; height: 8px !important;
+  border-radius: 50% !important;
+  margin-right: 4px !important;
+  vertical-align: middle !important;
+}
+
+/* ── Drilldown sections ─────────────────────────────────────────────────── */
+.rpt-drilldown-section {
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+.rpt-drilldown-section:last-child { border-bottom: none !important; }
+
+.rpt-drilldown-toggle {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  padding: 12px 0 !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  text-align: left !important;
+}
+.rpt-drilldown-toggle strong {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.rpt-drilldown-toggle:hover { background: var(--oc-ground, #F7F6F2) !important; }
+.rpt-drilldown-meta {
+  font-size: 12px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  flex: 1 !important;
+  margin-left: 4px !important;
+}
+.rpt-drilldown-arrow {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  margin-left: auto !important;
+}
+
+/* ── Order history toolbar ──────────────────────────────────────────────── */
+.rpt-oh-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-bottom: 12px !important;
+  flex-wrap: wrap !important;
+}
+.rpt-oh-count {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  flex: 1 !important;
+}
+.rpt-oh-src {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  background: var(--oc-ground, #F7F6F2) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 20px !important;
+  padding: 2px 8px !important;
+}
+.rpt-oh-detail-btn {
+  padding: 3px 8px !important;
+  font-size: 12px !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  background: transparent !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+.rpt-oh-detail-btn:hover { background: var(--oc-ground, #F7F6F2) !important; }
+
+.rpt-oh-detail {
+  margin-top: 8px !important;
+  background: var(--oc-ground, #F7F6F2) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 10px !important;
+  padding: 16px !important;
+}
+.rpt-oh-detail-head {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-bottom: 12px !important;
+  flex-wrap: wrap !important;
+}
+.rpt-oh-detail-head strong { font-size: 14px !important; color: var(--oc-ink, #1C1C1C) !important; }
+.rpt-oh-detail-head span   { font-size: 12px !important; color: var(--oc-muted, #6B6B6B) !important; }
+.rpt-oh-close-btn {
+  margin-left: auto !important;
+  padding: 4px 10px !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+.rpt-oh-detail-footer {
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  margin-top: 10px !important;
+}
+
+/* Pagination */
+.rpt-oh-pagination {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  margin-top: 16px !important;
+}
+.rpt-page-btn {
+  padding: 6px 14px !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  cursor: pointer !important;
+  transition: all .12s !important;
+}
+.rpt-page-btn:hover:not(:disabled) {
+  background: var(--oc-ground, #F7F6F2) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+}
+.rpt-page-btn:disabled { opacity: 0.4 !important; cursor: not-allowed !important; }
+.rpt-page-info {
+  font-size: 13px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* ── metric-card (Voids, Wastage, Waitlist pages) ───────────────────────── */
+.metric-card {
+  background: #fff !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 12px !important;
+  padding: 14px 18px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  min-width: 120px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04) !important;
+}
+.metric-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .04em !important;
+}
+.metric-card strong {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  line-height: 1.2 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* ── Captain incentives card polish ─────────────────────────────────────── */
+.inc-captain-card {
+  background: #fff !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04) !important;
+}
+.inc-captain-avatar {
+  background: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+  border-radius: 50% !important;
+  width: 40px !important; height: 40px !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+.inc-captain-name {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.inc-captain-outlet {
+  font-size: 12px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+.inc-payable-amt {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: var(--oc-teal, #0F766E) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.inc-share-bar-wrap {
+  height: 4px !important;
+  background: var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 2px !important;
+  overflow: hidden !important;
+  margin: 6px 0 3px !important;
+}
+.inc-share-bar {
+  height: 100% !important;
+  background: var(--oc-teal, #0F766E) !important;
+  border-radius: 2px !important;
+  transition: width .4s ease !important;
+}
+.inc-share-pct {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+.inc-payable-cell {
+  color: var(--oc-teal, #0F766E) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.inc-disclaimer {
+  font-size: 12px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  margin-top: 12px !important;
+  padding-top: 12px !important;
+  border-top: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+
+/* ── Panel total row ────────────────────────────────────────────────────── */
+.rpt-panel-total {
+  display: flex !important;
+  justify-content: space-between !important;
+  padding: 10px 0 0 !important;
+  margin-top: 8px !important;
+  border-top: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+
+/* ── Top item in category name cell ─────────────────────────────────────── */
+.rpt-top-item {
+  font-size: 12px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  font-style: italic !important;
+}
