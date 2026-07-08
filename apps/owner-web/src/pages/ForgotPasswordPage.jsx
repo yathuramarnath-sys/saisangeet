@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 
@@ -33,80 +33,95 @@ function RequestResetForm() {
 
   if (sent) {
     return (
-      <div className="lp2-shell">
-        <div className="lp2-topbar">
-          <div className="lp2-brand">
-            <div className="lp2-brand-mark">D</div>
-            <span>Plato</span>
+      <div className="oc-auth-shell">
+        <div className="oc-auth-logo">
+          <div className="oc-auth-logo-chip">
+            <span className="material-symbols-rounded"
+              style={{ fontSize: 22, color: "#1C1C1C", fontVariationSettings: "'FILL' 1" }}>
+              restaurant
+            </span>
+          </div>
+          <div className="oc-auth-logo-text">
+            <span className="oc-auth-logo-brand">Plato</span>
+            <span className="oc-auth-logo-caption">Owner Console</span>
           </div>
         </div>
-        <div className="lp2-card">
-          <div className="fpw-sent-icon">📬</div>
-          <h1 className="lp2-heading" style={{ marginTop: 8 }}>Check your email</h1>
-          <p className="lp2-sub" style={{ marginBottom: 24 }}>
+
+        <div className="oc-auth-card">
+          <div className="oc-auth-sent-icon">📬</div>
+          <h1 className="oc-auth-title" style={{ marginTop: 8 }}>Check your email</h1>
+          <p className="oc-auth-sub">
             If <strong>{email}</strong> is registered, you'll receive a reset link shortly.
             The link expires in <strong>1 hour</strong>.
           </p>
-          <p className="lp2-sub" style={{ fontSize: 13, color: "#8A91A8" }}>
+          <p className="oc-auth-sub" style={{ fontSize: 13, marginTop: 12 }}>
             Didn't get an email? Check your spam folder, or{" "}
             <button
-              className="lp2-forgot-link"
-              style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+              className="oc-auth-link"
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }}
               onClick={() => setSent(false)}
             >
               try again
             </button>.
           </p>
-          <Link to="/login" className="lp2-btn" style={{ display: "block", textAlign: "center", marginTop: 24, textDecoration: "none" }}>
+          <Link to="/login" className="oc-auth-btn"
+            style={{ display: "block", textAlign: "center", marginTop: 24, textDecoration: "none" }}>
             Back to Sign In
           </Link>
         </div>
-        <p className="lp2-footer">© 2026 Plato · Restaurant Intelligence Platform</p>
+
+        <p className="oc-auth-footer">Powered by DinexPOS · app.dinexpos.in</p>
       </div>
     );
   }
 
   return (
-    <div className="lp2-shell">
-      <div className="lp2-topbar">
-        <div className="lp2-brand">
-          <div className="lp2-brand-mark">D</div>
-          <span>Plato</span>
+    <div className="oc-auth-shell">
+      <div className="oc-auth-logo">
+        <div className="oc-auth-logo-chip">
+          <span className="material-symbols-rounded"
+            style={{ fontSize: 22, color: "#1C1C1C", fontVariationSettings: "'FILL' 1" }}>
+            restaurant
+          </span>
+        </div>
+        <div className="oc-auth-logo-text">
+          <span className="oc-auth-logo-brand">Plato</span>
+          <span className="oc-auth-logo-caption">Owner Console</span>
         </div>
       </div>
-      <div className="lp2-card">
-        <h1 className="lp2-heading">Forgot password?</h1>
-        <p className="lp2-sub">Enter your registered email and we'll send you a reset link.</p>
 
-        {error && <div className="lp2-error">{error}</div>}
+      <div className="oc-auth-card">
+        <h1 className="oc-auth-title">Forgot password?</h1>
+        <p className="oc-auth-sub">Enter your registered email and we'll send you a reset link.</p>
+
+        {error && <div className="oc-auth-error">{error}</div>}
 
         <form onSubmit={handleSubmit} noValidate>
-          <div className="lp2-field-wrap">
+          <div className="oc-auth-field">
+            <label className="oc-auth-label">Email address</label>
             <input
-              className="lp2-input"
+              className="oc-auth-input"
               type="email"
               autoComplete="email"
-              placeholder="Email address"
+              placeholder="owner@cafeamudham.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoFocus
               required
             />
           </div>
-          <button
-            type="submit"
-            className="lp2-btn"
-            disabled={busy || !email.trim()}
-          >
-            {busy ? <span className="lp2-spinner" /> : "Send Reset Link"}
+
+          <button type="submit" className="oc-auth-btn" disabled={busy || !email.trim()}>
+            {busy ? <span className="oc-auth-spinner" /> : "Send Reset Link"}
           </button>
         </form>
 
-        <div className="lp2-forgot-wrap">
-          <Link to="/login" className="lp2-forgot-link">← Back to Sign In</Link>
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <Link to="/login" className="oc-auth-link">← Back to Sign In</Link>
         </div>
       </div>
-      <p className="lp2-footer">© 2026 Plato · Restaurant Intelligence Platform</p>
+
+      <p className="oc-auth-footer">Powered by DinexPOS · app.dinexpos.in</p>
     </div>
   );
 }
@@ -138,98 +153,115 @@ function ResetPasswordForm({ token }) {
 
   if (done) {
     return (
-      <div className="lp2-shell">
-        <div className="lp2-topbar">
-          <div className="lp2-brand">
-            <div className="lp2-brand-mark">D</div>
-            <span>Plato</span>
+      <div className="oc-auth-shell">
+        <div className="oc-auth-logo">
+          <div className="oc-auth-logo-chip">
+            <span className="material-symbols-rounded"
+              style={{ fontSize: 22, color: "#1C1C1C", fontVariationSettings: "'FILL' 1" }}>
+              restaurant
+            </span>
+          </div>
+          <div className="oc-auth-logo-text">
+            <span className="oc-auth-logo-brand">Plato</span>
+            <span className="oc-auth-logo-caption">Owner Console</span>
           </div>
         </div>
-        <div className="lp2-card">
-          <div className="fpw-sent-icon">✅</div>
-          <h1 className="lp2-heading" style={{ marginTop: 8 }}>Password updated!</h1>
-          <p className="lp2-sub" style={{ marginBottom: 24 }}>
+
+        <div className="oc-auth-card">
+          <div className="oc-auth-sent-icon">✅</div>
+          <h1 className="oc-auth-title" style={{ marginTop: 8 }}>Password updated!</h1>
+          <p className="oc-auth-sub">
             Your password has been changed successfully. You can now sign in with your new password.
           </p>
-          <Link to="/login" className="lp2-btn" style={{ display: "block", textAlign: "center", textDecoration: "none" }}>
+          <Link to="/login" className="oc-auth-btn"
+            style={{ display: "block", textAlign: "center", marginTop: 24, textDecoration: "none" }}>
             Sign In
           </Link>
         </div>
-        <p className="lp2-footer">© 2026 Plato · Restaurant Intelligence Platform</p>
+
+        <p className="oc-auth-footer">Powered by DinexPOS · app.dinexpos.in</p>
       </div>
     );
   }
 
   return (
-    <div className="lp2-shell">
-      <div className="lp2-topbar">
-        <div className="lp2-brand">
-          <div className="lp2-brand-mark">D</div>
-          <span>Plato</span>
+    <div className="oc-auth-shell">
+      <div className="oc-auth-logo">
+        <div className="oc-auth-logo-chip">
+          <span className="material-symbols-rounded"
+            style={{ fontSize: 22, color: "#1C1C1C", fontVariationSettings: "'FILL' 1" }}>
+            restaurant
+          </span>
+        </div>
+        <div className="oc-auth-logo-text">
+          <span className="oc-auth-logo-brand">Plato</span>
+          <span className="oc-auth-logo-caption">Owner Console</span>
         </div>
       </div>
-      <div className="lp2-card">
-        <h1 className="lp2-heading">Set new password</h1>
-        <p className="lp2-sub">Choose a strong password — at least 8 characters.</p>
 
-        {error && <div className="lp2-error">{error}</div>}
+      <div className="oc-auth-card">
+        <h1 className="oc-auth-title">Set new password</h1>
+        <p className="oc-auth-sub">Choose a strong password — at least 8 characters.</p>
+
+        {error && <div className="oc-auth-error">{error}</div>}
 
         <form onSubmit={handleSubmit} noValidate>
-          <div className="lp2-field-wrap lp2-pw-wrap">
-            <input
-              className="lp2-input"
-              type={show ? "text" : "password"}
-              autoComplete="new-password"
-              placeholder="New password"
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setError(""); }}
-              autoFocus
-              required
-            />
-            <button
-              type="button"
-              className="lp2-eye"
-              onClick={() => setShow((v) => !v)}
-              aria-label={show ? "Hide password" : "Show password"}
-              tabIndex={-1}
-            >
-              {show ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                  <line x1="1" y1="1" x2="23" y2="23"/>
-                </svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              )}
-            </button>
+          <div className="oc-auth-field">
+            <label className="oc-auth-label">New password</label>
+            <div className="oc-auth-pw-wrap">
+              <input
+                className="oc-auth-input"
+                type={show ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                autoFocus
+                required
+              />
+              <button
+                type="button"
+                className="oc-auth-eye"
+                onClick={() => setShow((v) => !v)}
+                aria-label={show ? "Hide password" : "Show password"}
+                tabIndex={-1}
+              >
+                {show ? (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                ) : (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
-          <div className="lp2-field-wrap" style={{ marginTop: 12 }}>
+          <div className="oc-auth-field">
+            <label className="oc-auth-label">Confirm new password</label>
             <input
-              className="lp2-input"
+              className="oc-auth-input"
               type={show ? "text" : "password"}
               autoComplete="new-password"
-              placeholder="Confirm new password"
+              placeholder="Re-enter new password"
               value={confirm}
               onChange={(e) => { setConfirm(e.target.value); setError(""); }}
               required
             />
           </div>
 
-          <button
-            type="submit"
-            className="lp2-btn"
-            disabled={busy || !password || !confirm}
-          >
-            {busy ? <span className="lp2-spinner" /> : "Update Password"}
+          <button type="submit" className="oc-auth-btn" disabled={busy || !password || !confirm}>
+            {busy ? <span className="oc-auth-spinner" /> : "Update Password"}
           </button>
         </form>
       </div>
-      <p className="lp2-footer">© 2026 Plato · Restaurant Intelligence Platform</p>
+
+      <p className="oc-auth-footer">Powered by DinexPOS · app.dinexpos.in</p>
     </div>
   );
 }
