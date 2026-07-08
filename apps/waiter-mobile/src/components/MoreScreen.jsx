@@ -43,6 +43,7 @@ export function MoreScreen({
     return (
       <FindPosScreen
         localPosIp={localPosIp}
+        outletName={outletName}
         onClose={() => setSub(null)}
       />
     );

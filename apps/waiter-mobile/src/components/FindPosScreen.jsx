@@ -2,7 +2,7 @@ import { useState } from "react";
 import { tapImpact } from "../lib/haptics";
 import { getDeviceLocalIp } from "../lib/deviceIp";
 
-export function FindPosScreen({ localPosIp, onClose }) {
+export function FindPosScreen({ localPosIp, outletName, onClose }) {
   const savedIp = localPosIp || localStorage.getItem("captain_local_server_ip") || null;
   const [discovered, setDiscovered] = useState([]);
   const [selected, setSelected]     = useState(savedIp);
@@ -57,24 +57,23 @@ export function FindPosScreen({ localPosIp, onClose }) {
     ? discovered
     : savedIp ? [{ ip: savedIp, port: 4001, name: "Plato POS" }] : [];
 
-  const sectionLabel = discovered.length > 0 ? "SERVERS ON THIS NETWORK" : "SAVED SERVER";
+  const isConnected = !!selected;
 
   return (
-    <div className="fps2-page">
-      <div className="fps2-header">
-        <button className="fps2-back-btn" onClick={onClose} aria-label="Back">
+    <div className="fp2-page">
+      <div className="fp2-header">
+        <button className="fp2-back-btn" onClick={onClose} aria-label="Back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
-        <h2 className="fps2-title">Find server IP</h2>
+        <h2 className="fp2-title">Find Server IP</h2>
       </div>
 
-      {/* Status card — centered wifi icon */}
-      <div className="fps2-status-card">
-        <div className={`fps2-status-icon-wrap${!selected ? " fps2-offline" : ""}`}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+      <div className={`fp2-status-card${isConnected ? " fp2-status-card-on" : ""}`}>
+        <div className={`fp2-status-icon${isConnected ? " fp2-status-icon-on" : ""}`}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
             <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
@@ -82,81 +81,77 @@ export function FindPosScreen({ localPosIp, onClose }) {
             <line x1="12" y1="20" x2="12.01" y2="20"/>
           </svg>
         </div>
-        <div className="fps2-status-title">
-          {selected ? "Connected to local POS" : "Not connected"}
+        <div className="fp2-status-text">
+          <div className="fp2-status-label">
+            {isConnected ? "Connected to local POS" : "Not connected"}
+          </div>
+          {isConnected && (
+            <div className="fp2-status-sub">
+              {[outletName, selected].filter(Boolean).join(" · ")}
+            </div>
+          )}
         </div>
-        {selected && (
-          <div className="fps2-status-addr">Plato POS · {selected}</div>
-        )}
       </div>
 
-      <div className="fps2-scroll">
+      <div className="fp2-scroll">
         {listEntries.length > 0 && (
-          <>
-            <div className="fps2-section-label">{sectionLabel}</div>
-            <div className="fps2-list-card">
-              {listEntries.map((entry) => {
+          <div className="fp2-section">
+            <div className="fp2-section-head">
+              {discovered.length > 0 ? "DISCOVERED ON NETWORK" : "SERVERS"}
+            </div>
+            <div className="fp2-list-card">
+              {listEntries.map((entry, idx) => {
                 const sel = selected === entry.ip;
                 return (
                   <button
                     key={entry.ip}
-                    className={`fps2-server-row${sel ? " fps2-server-row-sel" : ""}`}
+                    className={`fp2-server-row${sel ? " fp2-server-row-sel" : ""}${idx > 0 ? " fp2-server-row-bordered" : ""}`}
                     onClick={() => handleSelect(entry.ip)}
                   >
-                    <div className="fps2-server-info">
-                      <span className="fps2-server-name">{entry.name}</span>
-                      <span className="fps2-server-addr">{entry.ip} · port {entry.port}</span>
+                    <div className="fp2-server-info">
+                      <span className="fp2-server-name">{entry.name}</span>
+                      <span className="fp2-server-addr">{entry.ip} · port {entry.port}</span>
                     </div>
-                    <div className={`fps2-radio${sel ? " fps2-radio-sel" : ""}`}>
-                      {sel && (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                          stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      )}
-                    </div>
+                    <span className={`fp2-radio${sel ? " fp2-radio-sel" : ""}`} />
                   </button>
                 );
               })}
             </div>
-          </>
+          </div>
         )}
 
-        {/* Manual IP entry */}
-        <div className="fps2-manual-card">
-          <input
-            className="fps2-manual-input"
-            type="text"
-            inputMode="decimal"
-            placeholder="Enter IP address manually"
-            value={manualIp}
-            onChange={(e) => setManualIp(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAddManual()}
-          />
-          <button className="fps2-manual-add-btn" onClick={handleAddManual}>Add</button>
+        <div className="fp2-section">
+          <div className="fp2-section-head">ENTER IP ADDRESS MANUALLY</div>
+          <div className="fp2-manual-row">
+            <input
+              className="fp2-manual-input"
+              type="text"
+              inputMode="decimal"
+              placeholder="192.168.1.xxx"
+              value={manualIp}
+              onChange={(e) => setManualIp(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAddManual()}
+            />
+            <button className="fp2-manual-add-btn" onClick={handleAddManual}>
+              Add
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="fps2-bottom">
+      <div className="fp2-bottom">
         <button
-          className="fps2-rescan-btn"
+          className={`fp2-rescan-btn${scanning ? " fp2-rescan-scanning" : ""}`}
           onClick={handleRescan}
           disabled={scanning}
         >
           {scanning ? (
             <>
-              <div className="fps2-scan-spinner" />
+              <div className="fp2-scan-spinner" />
               Scanning network…
             </>
           ) : (
-            <>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="1 4 1 10 7 10"/>
-                <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
-              </svg>
-              Rescan network
-            </>
+            <>↺ Rescan network</>
           )}
         </button>
       </div>

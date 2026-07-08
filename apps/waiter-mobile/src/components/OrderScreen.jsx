@@ -32,6 +32,7 @@ export function OrderScreen({
   onBack, onSendKOT, onRequestBill, onPrintBill, onPrintSplitBill,
   onToggleHold, onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear, onCustomerInfo,
+  onRequestRemoveItem,
   autoOpen = null, // "menu" | "transfer" | "merge" | "split" — open screen/modal immediately on mount
 }) {
   const [screen,          setScreen]          = useState(
@@ -43,7 +44,6 @@ export function OrderScreen({
   const [showPhonePeQR,   setShowPhonePeQR]    = useState(false);
   const [showAssignModal, setShowAssignModal]  = useState(false);
   const [assignPick,      setAssignPick]       = useState(order.assignedWaiter || "");
-  const [pendingRemoveItem, setPendingRemoveItem] = useState(null);
   const [guestVal,        setGuestVal]         = useState(order.guests || "");
   // Only show Waiter/Server/Steward roles in the assign modal (not Captains)
   const waiterStaff = staff.filter(s => /waiter|server|steward/i.test(s.role || ""));
@@ -119,9 +119,17 @@ export function OrderScreen({
     const item  = next[idx];
     const newQty = (item?.quantity || 1) + delta;
     if (newQty <= 0) {
-      // Show confirm dialog before removing — prevents accidental swipes
-      setPendingRemoveItem({ id: item.id, name: item.name, sentToKot: !!item.sentToKot });
-      return;
+      // Show confirm dialog if available; otherwise remove directly
+      if (onRequestRemoveItem && item?.id) {
+        onRequestRemoveItem({ itemId: item.id, itemName: item.name, isSent: !!item.sentToKot });
+      } else if (onRemoveItem && item?.id) {
+        // Use dedicated remove handler so backend memory store is updated too
+        // (socket order:update alone doesn't update backend — causes stuck item bug)
+        onRemoveItem(item.id);
+      } else {
+        next.splice(idx, 1);
+        onUpdateOrder({ ...order, items: next });
+      }
     } else {
       next[idx] = { ...item, quantity: newQty };
       onUpdateOrder({ ...order, items: next });
@@ -153,6 +161,16 @@ export function OrderScreen({
     );
   }
 
+  if (screen === "courses") {
+    return (
+      <CoursingScreen
+        order={order}
+        tableLabel={tableLabel}
+        onBack={() => setScreen("order")}
+      />
+    );
+  }
+
   if (screen === "split") {
     return (
       <SplitBill
@@ -160,16 +178,6 @@ export function OrderScreen({
         outletName={outletName}
         onBack={() => setScreen("order")}
         onPrint={(items, seatLabel) => onPrintSplitBill?.(order.tableId, items, seatLabel)}
-      />
-    );
-  }
-
-  if (screen === "courses") {
-    return (
-      <CoursingScreen
-        order={order}
-        tableLabel={tableLabel}
-        onBack={() => setScreen("order")}
       />
     );
   }
@@ -384,47 +392,6 @@ export function OrderScreen({
           </button>
         )}
       </div>
-
-      {/* Remove item confirm dialog */}
-      {pendingRemoveItem && (
-        <div className="rmc-overlay">
-          <div className="rmc-card">
-            <div className="rmc-icon-wrap">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
-                stroke="#C0392B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6l-1 14H6L5 6"/>
-                <path d="M10 11v6M14 11v6"/>
-                <path d="M9 6V4h6v2"/>
-              </svg>
-            </div>
-            <h2 className="rmc-title">Remove item?</h2>
-            <p className="rmc-body">
-              {pendingRemoveItem.name} will be removed from this order.{" "}
-              {pendingRemoveItem.sentToKot
-                ? "It has already been sent to the kitchen."
-                : "It hasn't been sent to the kitchen yet."}
-            </p>
-            <div className="rmc-actions">
-              <button className="rmc-cancel-btn" onClick={() => setPendingRemoveItem(null)}>
-                Cancel
-              </button>
-              <button className="rmc-remove-btn" onClick={() => {
-                const { id } = pendingRemoveItem;
-                setPendingRemoveItem(null);
-                if (onRemoveItem && id) onRemoveItem(id);
-                else {
-                  const next = items.filter(i => i.id !== id);
-                  onUpdateOrder({ ...order, items: next });
-                }
-                tapImpact();
-              }}>
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Note modal */}
       {noteItemIdx !== null && (

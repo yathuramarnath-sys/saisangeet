@@ -36,6 +36,7 @@ import { LogoutModal }         from "./components/LogoutModal";
 import { IncomingOrdersSheet } from "./components/IncomingOrdersSheet";
 import { KotProgressOverlay }  from "./components/KotProgressOverlay";
 import { FailedKotsScreen }    from "./components/FailedKotsScreen";
+import { ConfirmDialog }       from "./components/ConfirmDialog";
 
 // ─── Build areas from outlet tables ──────────────────────────────────────────
 
@@ -130,11 +131,13 @@ export function App() {
   const [pendingKots, setPendingKots] = useState(() => {
     try { return JSON.parse(localStorage.getItem("captain_pending_kots") || "[]"); } catch { return []; }
   });
+  const [socketConnected,  setSocketConnected]  = useState(false);
+  const [confirmFreeTable,  setConfirmFreeTable]  = useState(null); // null | { tableId, tableNumber, amount }
+  const [confirmRemoveItem, setConfirmRemoveItem] = useState(null); // null | { itemId, itemName, isSent }
   const socketRef             = useRef(null);
   const localSocketRef        = useRef(null);
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
   const [localConn,      setLocalConn]      = useState(false);
-  const [serverConnected, setServerConnected] = useState(true);
   const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
   const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
   // Waiter assignment picker — shown before every KOT send
@@ -275,7 +278,7 @@ export function App() {
         // Also flush the sync queue immediately — server is reachable again.
         let wasOffline = false;
         socket.on("connect", () => {
-          setServerConnected(true);
+          setSocketConnected(true);
           if (wasOffline) {
             api.get(`/operations/orders?outletId=${target.id}`)
               .then((orders) => {
@@ -287,8 +290,8 @@ export function App() {
           }
           wasOffline = false;
         });
-        socket.on("disconnect",    () => { wasOffline = true; setServerConnected(false); });
-        socket.on("connect_error", () => { wasOffline = true; setServerConnected(false); });
+        socket.on("disconnect",    () => { wasOffline = true; setSocketConnected(false); });
+        socket.on("connect_error", () => { wasOffline = true; setSocketConnected(false); });
 
         socket.on("order:updated", (o) => setOrders((p) => {
           if (!o.items?.length || o.isClosed) {
@@ -652,6 +655,18 @@ export function App() {
       order: { tableId, items: [], isClosed: false },
     });
     setSelectedTableId(null);
+  }
+
+  // ── Mark table as free (optimistic clear from confirm dialog) ────────────
+  function handleMarkFree(tableId) {
+    setOrders(prev => { const { [tableId]: _, ...rest } = prev; return rest; });
+    socketRef.current?.emit("order:update", {
+      outletId: outlet?.id,
+      order: { tableId, items: [], isClosed: false },
+    });
+    localSocketRef.current?.emit("order:update", { order: { tableId, items: [], isClosed: false } });
+    setActionTableId(null);
+    setConfirmFreeTable(null);
   }
 
   // ── Update order (local + cloud socket + local socket) ───────────────────
@@ -1466,6 +1481,7 @@ export function App() {
             onUpdateOrder={handleUpdateOrder}
             onUpdateGuests={handleUpdateGuests}
             onRemoveItem={handleRemoveItem}
+            onRequestRemoveItem={(item) => setConfirmRemoveItem(item)}
             onAddItem={handleAddItem}
             onTransfer={handleTableTransfer}
             onMerge={handleTableMerge}
@@ -1479,7 +1495,7 @@ export function App() {
             onSelectTable={handleSelectTable}
             onLongPressTable={handleLongPressTable}
             loggedInStaff={loggedInStaff}
-            isConnected={serverConnected}
+            isOffline={!socketConnected}
           />
         ) : activeTab === "kots" ? (
           <FailedKotsScreen
@@ -1569,6 +1585,18 @@ export function App() {
             onSplitBill={() => openOrderScreen(actionTableId, actionArea, "split")}
             onPrintBill={() => handlePrintBill(actionTableId)}
             onCustomerInfo={() => { setShowCustomerInfo(true); }}
+            onMarkFree={() => {
+              const tbl = actionArea?.tables?.find(t => t.id === actionTableId);
+              const ord = orders[actionTableId];
+              const items = (ord?.items || []).filter(i => !i.isVoided && !i.isComp);
+              const sub = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+              const tax = items.reduce((s, i) => {
+                const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+                return s + Math.round((i.price || 0) * (i.quantity || 0) * r / 100);
+              }, 0);
+              setConfirmFreeTable({ tableId: actionTableId, tableNumber: tbl?.number || actionTableId, amount: sub + tax });
+              setActionTableId(null);
+            }}
           />
         );
       })()}
@@ -1733,6 +1761,38 @@ export function App() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Confirm: Remove Item */}
+      {confirmRemoveItem && (
+        <ConfirmDialog
+          variant="light"
+          icon="trash"
+          iconBg="#FEE2E2"
+          iconColor="#DC2626"
+          title="Remove item?"
+          body={`${confirmRemoveItem.itemName} will be removed from this order. ${confirmRemoveItem.isSent ? "It has already been sent to the kitchen." : "It hasn't been sent to the kitchen yet."}`}
+          confirmLabel="Remove"
+          confirmDanger
+          onCancel={() => setConfirmRemoveItem(null)}
+          onConfirm={() => { handleRemoveItem(confirmRemoveItem.itemId); setConfirmRemoveItem(null); }}
+        />
+      )}
+
+      {/* Confirm: Free Table */}
+      {confirmFreeTable && (
+        <ConfirmDialog
+          variant="dark"
+          icon="calendar-x"
+          iconBg="#FEE2E2"
+          iconColor="#DC2626"
+          title={`Free up Table T${confirmFreeTable.tableNumber}?`}
+          body={`This clears the running order of ₹${confirmFreeTable.amount.toLocaleString("en-IN")}. Only do this if the guests have left or the table was opened by mistake.`}
+          confirmLabel="Mark as free"
+          confirmDanger
+          onCancel={() => setConfirmFreeTable(null)}
+          onConfirm={() => handleMarkFree(confirmFreeTable.tableId)}
+        />
       )}
 
       {/* Incoming Customer Orders Sheet */}
