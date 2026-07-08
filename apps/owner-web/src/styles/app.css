@@ -11183,3 +11183,346 @@ textarea:focus {
 
 /* ── Shift empty state ───────────────────────────────────────────────────── */
 .shift-empty { font-size: 14px !important; color: var(--oc-muted) !important; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PHASE 6 — Kitchen Stations, Outlets forms, QR modals, form states
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Kitchen Stations page ───────────────────────────────────────────────── */
+.ks-page { padding: 0 24px 32px !important; }
+.ks-loading, .ks-error { padding: 48px 24px !important; text-align: center !important; color: var(--oc-muted) !important; }
+.ks-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  margin-bottom: 20px !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+}
+.ks-header-sub { font-size: 13px !important; color: var(--oc-muted) !important; margin: 4px 0 0 !important; }
+.ks-layout {
+  display: grid !important;
+  grid-template-columns: 300px 1fr !important;
+  gap: 20px !important;
+  align-items: start !important;
+}
+@media (max-width: 800px) {
+  .ks-layout { grid-template-columns: 1fr !important; }
+}
+.ks-list-col { display: flex; flex-direction: column; gap: 8px; }
+.ks-empty { font-size: 13.5px !important; color: var(--oc-muted) !important; padding: 24px !important; text-align: center !important; }
+.ks-card {
+  background: var(--oc-card) !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  padding: 14px 16px !important;
+  cursor: pointer !important;
+  transition: border-color 0.15s !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+.ks-card:hover { border-color: #B0AEA8 !important; }
+.ks-card.active { border-color: var(--oc-teal) !important; background: rgba(15, 118, 110, 0.04) !important; }
+.ks-card-body { flex: 1; min-width: 0; }
+.ks-card-name { font-size: 14px !important; font-weight: 700 !important; color: var(--oc-ink) !important; margin-bottom: 4px !important; }
+.ks-card-outlet { font-size: 12px !important; color: var(--oc-muted) !important; margin-bottom: 8px !important; }
+.ks-cat-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.ks-cat-chip {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 2px 8px !important;
+  background: rgba(15, 118, 110, 0.08) !important;
+  color: var(--oc-teal) !important;
+  border-radius: 10px !important;
+}
+.ks-no-cats { font-size: 12px !important; color: var(--oc-muted) !important; font-style: italic !important; }
+.ks-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.ks-form-col { position: sticky; top: 80px; }
+.ks-form-panel {
+  background: var(--oc-card) !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+}
+.ks-form-title {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink) !important;
+  margin-bottom: 16px !important;
+}
+.ks-form-err {
+  padding: 10px 14px !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  color: #B91C1C !important;
+  margin-bottom: 14px !important;
+}
+.ks-field {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  margin-bottom: 14px !important;
+}
+.ks-input, .ks-select {
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 7px !important;
+  background: var(--oc-ground) !important;
+  color: var(--oc-ink) !important;
+  font-family: inherit !important;
+  font-size: 13.5px !important;
+  padding: 9px 12px !important;
+}
+.ks-input:focus, .ks-select:focus { border-color: var(--oc-teal) !important; outline: none !important; }
+.ks-field-label {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 8px !important;
+  margin-bottom: 6px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink) !important;
+}
+.ks-field-hint { font-size: 11.5px !important; color: var(--oc-muted) !important; }
+.ks-cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.ks-cat-check {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 10px !important;
+  background: var(--oc-ground) !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  color: var(--oc-ink) !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+}
+.ks-cat-check.checked {
+  background: rgba(15, 118, 110, 0.08) !important;
+  border-color: var(--oc-teal) !important;
+}
+.ks-cat-check.locked { opacity: 0.55 !important; cursor: default !important; }
+.ks-locked-tag {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  padding: 1px 6px !important;
+  background: var(--oc-ground) !important;
+  border-radius: 8px !important;
+  color: var(--oc-muted) !important;
+  margin-left: auto !important;
+}
+.ks-form-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+/* ── Outlets — inline edit form ──────────────────────────────────────────── */
+.outlet-inline-form {
+  padding: 20px !important;
+  background: var(--oc-ground) !important;
+  border-top: 1px solid var(--oc-hairline) !important;
+}
+.outlet-inline-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  gap: 14px !important;
+  margin-bottom: 20px !important;
+}
+.outlet-inline-section { margin-bottom: 16px !important; }
+.outlet-check-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.mini-card {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 8px 14px !important;
+  background: var(--oc-card) !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--oc-ink) !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+}
+.mini-card input[type="checkbox"] { accent-color: var(--oc-teal) !important; }
+.mini-card:has(input:checked) {
+  border-color: var(--oc-teal) !important;
+  background: rgba(15, 118, 110, 0.06) !important;
+}
+.mini-card-custom { border-style: dashed !important; color: var(--oc-muted) !important; }
+.outlet-custom-area-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.outlet-turnover-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+}
+.outlet-inline-btns { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+.ghost-chip-qr {
+  background: rgba(15, 118, 110, 0.08) !important;
+  border: 1.5px solid rgba(15, 118, 110, 0.3) !important;
+  color: var(--oc-teal) !important;
+}
+
+/* ── Outlets — outlet list cards ─────────────────────────────────────────── */
+.outlets-layout { display: flex !important; flex-direction: column !important; }
+
+/* ── QR code modal ───────────────────────────────────────────────────────── */
+.qr-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(28, 28, 28, 0.5) !important;
+  z-index: 9000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+}
+.qr-modal {
+  background: var(--oc-card) !important;
+  border-radius: 14px !important;
+  padding: 24px !important;
+  max-width: 700px !important;
+  width: 100% !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.15) !important;
+}
+.qr-modal-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 16px !important;
+}
+.qr-close-btn {
+  background: none !important;
+  border: none !important;
+  font-size: 18px !important;
+  color: var(--oc-muted) !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  line-height: 1 !important;
+  border-radius: 4px !important;
+  transition: background 0.1s !important;
+}
+.qr-close-btn:hover { background: var(--oc-ground) !important; }
+.qr-modal-hint { font-size: 13px !important; color: var(--oc-muted) !important; margin-bottom: 16px !important; }
+.qr-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+  gap: 12px !important;
+}
+.qr-card {
+  background: var(--oc-ground) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  padding: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 8px !important;
+  text-align: center !important;
+}
+.qr-card-label { font-size: 11px !important; font-weight: 700 !important; color: var(--oc-muted) !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; }
+.qr-card-table { font-size: 14px !important; font-weight: 700 !important; color: var(--oc-ink) !important; }
+.qr-card-area { font-size: 11.5px !important; color: var(--oc-muted) !important; }
+
+/* ── Table area pill ─────────────────────────────────────────────────────── */
+.tbl-area-pill {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 2px 8px !important;
+  background: var(--oc-ground) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  color: var(--oc-muted) !important;
+  white-space: nowrap !important;
+}
+.tbl-edit-btn {
+  background: none !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 6px !important;
+  padding: 3px 10px !important;
+  font-size: 12px !important;
+  color: var(--oc-ink) !important;
+  cursor: pointer !important;
+}
+.tbl-add-btn { margin-top: 8px !important; width: 100% !important; justify-content: center !important; }
+
+/* ── Form status messages ────────────────────────────────────────────────── */
+.form-success {
+  padding: 10px 14px !important;
+  background: rgba(15, 118, 110, 0.08) !important;
+  border: 1px solid rgba(15, 118, 110, 0.25) !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  color: var(--oc-teal) !important;
+  margin: 8px 0 !important;
+}
+.form-error {
+  padding: 10px 14px !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  color: #B91C1C !important;
+  margin: 8px 0 !important;
+}
+
+/* ── Mobile/info banner ──────────────────────────────────────────────────── */
+.mobile-banner {
+  padding: 10px 16px !important;
+  background: rgba(15, 118, 110, 0.08) !important;
+  border: 1px solid rgba(15, 118, 110, 0.2) !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  color: var(--oc-teal) !important;
+  margin: 0 24px 16px !important;
+}
+
+/* ── Ghost btn sm / danger modifiers ────────────────────────────────────── */
+.ghost-btn.sm {
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+}
+.ghost-btn.danger {
+  color: #B91C1C !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+.ghost-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.06) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+}
+
+/* ── Outlet card at top-level list ───────────────────────────────────────── */
+.outlet-card {
+  background: var(--oc-card) !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 12px !important;
+  margin-bottom: 12px !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+.outlet-card-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px 20px !important;
+  cursor: pointer !important;
+  gap: 12px !important;
+}
+.outlet-card-header:hover { background: rgba(0,0,0,0.015) !important; }
+.outlet-card-name {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink) !important;
+}
+.outlet-card-meta { font-size: 12.5px !important; color: var(--oc-muted) !important; margin-top: 2px !important; }
+.outlet-card-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* ── Negative values in reports ──────────────────────────────────────────── */
+.negative { color: #B91C1C !important; }
+
+/* ── Outlet tabs on device/inventory pages ───────────────────────────────── */
+.device-outlet-tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 24px; margin-bottom: 16px; }
