@@ -27,7 +27,7 @@ function fmt(n) {
 }
 
 const PAYMENT_COLORS = {
-  Cash:   "#16a34a",
+  Cash:   "#0F766E",
   Upi:    "#2563eb",
   Card:   "#7c3aed",
   Swiggy: "#ea580c",
@@ -56,9 +56,9 @@ function KpiCard({ label, value, sub, color, icon }) {
 // ─── Order type cards (Dine-In / Takeaway / Online) ───────────────────────────
 
 const ORDER_TYPE_META = {
-  "Dine In":  { icon: "🍽️", color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0" },
-  "Takeaway": { icon: "🛍️", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
-  "Online":   { icon: "📦", color: "#ea580c", bg: "#fff7ed", border: "#fed7aa" },
+  "Dine In":  { icon: "🍽️", color: "#0F766E", bg: "#FFFFFF", border: "#ECEAE3" },
+  "Takeaway": { icon: "🛍️", color: "#2563eb", bg: "#FFFFFF", border: "#ECEAE3" },
+  "Online":   { icon: "📦", color: "#ea580c", bg: "#FFFFFF", border: "#ECEAE3" },
 };
 
 function OrderTypeCards({ orderTypes }) {
@@ -96,7 +96,7 @@ function OrderTypeCards({ orderTypes }) {
 
 const SESSION_META = {
   Breakfast: { icon: "🌅", color: "#f59e0b" },
-  Lunch:     { icon: "☀️",  color: "#16a34a" },
+  Lunch:     { icon: "☀️",  color: "#0F766E" },
   Dinner:    { icon: "🌙", color: "#7c3aed" },
 };
 
@@ -173,7 +173,7 @@ function TopItemRow({ rank, name, category, qty, amount, maxAmount }) {
 
 // ─── Category bar ─────────────────────────────────────────────────────────────
 
-const CAT_COLORS_FE = ["#2563eb","#16a34a","#ea580c","#7c3aed","#dc2626","#0891b2","#92400e","#374151"];
+const CAT_COLORS_FE = ["#2563eb","#0F766E","#ea580c","#7c3aed","#dc2626","#0891b2","#92400e","#374151"];
 
 function CategorySalesSection({ categorySales }) {
   const cats = (categorySales?.categories || []).slice(0, 6);
@@ -428,7 +428,7 @@ export function DashboardPage() {
         <>
           {/* ── KPI row ───────────────────────────────────────────────── */}
           <div className="dash-kpi-row">
-            <KpiCard icon="💰" label="Total Sales"    value={fmt(totalSales)}    sub={`${totalOrders} orders`}              color="#16a34a" />
+            <KpiCard icon="💰" label="Total Sales"    value={fmt(totalSales)}    sub={`${totalOrders} orders`}              color="#0F766E" />
             <KpiCard icon="🧾" label="Orders Billed"  value={totalOrders}        sub={`Avg ${fmt(avgOrder)} / bill`}         color="#2563eb" />
             <KpiCard icon="📱" label="Collected"       value={fmt(totalCollected)} sub={paymentModes.map(p => p.mode).join(" · ") || "—"} color="#7c3aed" />
             <KpiCard icon="🏷️" label="GST Collected"  value={fmt(totalTax)}      sub="CGST + SGST"                          color="#dc2626" />

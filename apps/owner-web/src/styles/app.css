@@ -8718,3 +8718,55 @@ body {
   box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important;
   border: 1px solid var(--oc-hairline) !important;
 }
+
+/* ── Dashboard KPI — flat border, no coloured top stripe ─────────────────── */
+.dash-kpi {
+  border-top: 1px solid var(--oc-hairline) !important;
+}
+.dash-kpi-value { color: var(--oc-ink) !important; }
+.dash-kpi-label { color: var(--oc-muted) !important; }
+
+/* ── Dashboard order-type cards — force neutral background ───────────────── */
+.dash-otype-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+}
+
+/* ── Top item #1 row — amber tint instead of orange ──────────────────────── */
+.dash-item-row:first-child {
+  background: rgba(248,203,70,0.10) !important;
+  border-color: rgba(248,203,70,0.4) !important;
+}
+.dash-item-row:first-child .dash-item-rank { color: #92700A !important; }
+
+/* ── Dashboard stat row dividers ─────────────────────────────────────────── */
+.dash-stat-row { border-bottom-color: var(--oc-hairline) !important; }
+.dash-stat-row span { color: var(--oc-muted) !important; }
+.dash-stat-row strong { color: var(--oc-ink) !important; }
+
+/* ── Payment / session track backgrounds ─────────────────────────────────── */
+.dash-pay-track,
+.dash-schart-track,
+.dash-cat-track { background: var(--oc-hairline) !important; }
+
+/* ── Dashboard card title text ───────────────────────────────────────────── */
+.dash-card-title { color: var(--oc-ink) !important; }
+
+/* ── Toolbar date inputs and select ──────────────────────────────────────── */
+.dash-date-input,
+.dash-outlet-select {
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 7px !important;
+  background: var(--oc-card) !important;
+  color: var(--oc-ink) !important;
+  font-family: inherit !important;
+}
+.dash-date-input:focus,
+.dash-outlet-select:focus {
+  border-color: var(--oc-teal) !important;
+  outline: none !important;
+}
+
+/* ── Live dot — teal ──────────────────────────────────────────────────────── */
+.dash-live-dot { background: var(--oc-teal) !important; }
+.dash-live-label { color: var(--oc-teal) !important; }
