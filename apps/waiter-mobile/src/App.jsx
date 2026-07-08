@@ -36,6 +36,7 @@ import { LogoutModal }         from "./components/LogoutModal";
 import { IncomingOrdersSheet } from "./components/IncomingOrdersSheet";
 import { KotProgressOverlay }  from "./components/KotProgressOverlay";
 import { FailedKotsScreen }    from "./components/FailedKotsScreen";
+import { ConfirmDialog }       from "./components/ConfirmDialog";
 
 // ─── Build areas from outlet tables ──────────────────────────────────────────
 
@@ -130,6 +131,9 @@ export function App() {
   const [pendingKots, setPendingKots] = useState(() => {
     try { return JSON.parse(localStorage.getItem("captain_pending_kots") || "[]"); } catch { return []; }
   });
+  const [socketConnected,  setSocketConnected]  = useState(false);
+  const [confirmFreeTable,  setConfirmFreeTable]  = useState(null); // null | { tableId, tableNumber, amount }
+  const [confirmRemoveItem, setConfirmRemoveItem] = useState(null); // null | { itemId, itemName, isSent }
   const socketRef             = useRef(null);
   const localSocketRef        = useRef(null);
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
@@ -273,6 +277,7 @@ export function App() {
         // Also flush the sync queue immediately — server is reachable again.
         let wasOffline = false;
         socket.on("connect", () => {
+          setSocketConnected(true);
           if (wasOffline) {
             api.get(`/operations/orders?outletId=${target.id}`)
               .then((orders) => {
@@ -284,7 +289,7 @@ export function App() {
           }
           wasOffline = false;
         });
-        socket.on("disconnect",    () => { wasOffline = true; });
+        socket.on("disconnect",    () => { wasOffline = true; setSocketConnected(false); });
         socket.on("connect_error", () => { wasOffline = true; });
 
         socket.on("order:updated", (o) => setOrders((p) => {
@@ -649,6 +654,18 @@ export function App() {
       order: { tableId, items: [], isClosed: false },
     });
     setSelectedTableId(null);
+  }
+
+  // ── Mark table as free (optimistic clear from confirm dialog) ────────────
+  function handleMarkFree(tableId) {
+    setOrders(prev => { const { [tableId]: _, ...rest } = prev; return rest; });
+    socketRef.current?.emit("order:update", {
+      outletId: outlet?.id,
+      order: { tableId, items: [], isClosed: false },
+    });
+    localSocketRef.current?.emit("order:update", { order: { tableId, items: [], isClosed: false } });
+    setActionTableId(null);
+    setConfirmFreeTable(null);
   }
 
   // ── Update order (local + cloud socket + local socket) ───────────────────
@@ -1445,6 +1462,7 @@ export function App() {
             onUpdateOrder={handleUpdateOrder}
             onUpdateGuests={handleUpdateGuests}
             onRemoveItem={handleRemoveItem}
+            onRequestRemoveItem={(item) => setConfirmRemoveItem(item)}
             onAddItem={handleAddItem}
             onTransfer={handleTableTransfer}
             onMerge={handleTableMerge}
@@ -1458,6 +1476,7 @@ export function App() {
             onSelectTable={handleSelectTable}
             onLongPressTable={handleLongPressTable}
             loggedInStaff={loggedInStaff}
+            isOffline={!socketConnected}
           />
         ) : activeTab === "kots" ? (
           <FailedKotsScreen
@@ -1547,6 +1566,18 @@ export function App() {
             onSplitBill={() => openOrderScreen(actionTableId, actionArea, "split")}
             onPrintBill={() => handlePrintBill(actionTableId)}
             onCustomerInfo={() => { setShowCustomerInfo(true); }}
+            onMarkFree={() => {
+              const tbl = actionArea?.tables?.find(t => t.id === actionTableId);
+              const ord = orders[actionTableId];
+              const items = (ord?.items || []).filter(i => !i.isVoided && !i.isComp);
+              const sub = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+              const tax = items.reduce((s, i) => {
+                const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+                return s + Math.round((i.price || 0) * (i.quantity || 0) * r / 100);
+              }, 0);
+              setConfirmFreeTable({ tableId: actionTableId, tableNumber: tbl?.number || actionTableId, amount: sub + tax });
+              setActionTableId(null);
+            }}
           />
         );
       })()}
@@ -1568,16 +1599,21 @@ export function App() {
 
       {/* ── Waiter assignment picker — shown before every KOT send ────────────── */}
       {showWaiterPick && (
-        <div className="assign-backdrop" onClick={() => setShowWaiterPick(false)}>
-          <div className="assign-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="assign-modal-title">
-              <span>🧑‍🍽️</span>
+        <div className="wp2-backdrop" onClick={() => setShowWaiterPick(false)}>
+          <div className="wp2-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="wp2-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
               <span>Assign Waiter</span>
             </div>
-            <div className="assign-staff-list">
-              {/* None option — clears any previously assigned waiter */}
-              <label className="assign-staff-row" onClick={() => setPickedWaiter(null)}>
-                <span className="assign-staff-name" style={{ color: "#9ca3af" }}>None</span>
+            <div className="wp2-list">
+              <label className="wp2-row" onClick={() => setPickedWaiter(null)}>
+                <div className="wp2-row-left">
+                  <span className="wp2-avatar wp2-avatar-none">—</span>
+                  <span className="wp2-sname wp2-none-label">None</span>
+                </div>
                 <input
                   type="radio"
                   name="waiter-pick"
@@ -1587,13 +1623,16 @@ export function App() {
                 />
               </label>
               {waiterStaff.map((s) => (
-                <label key={s.id} className="assign-staff-row" onClick={() => setPickedWaiter(s.name)}>
-                  <span className="assign-staff-name">
-                    {s.name}
-                    <span style={{ fontSize: "0.75rem", color: "#9ca3af", marginLeft: 6, fontWeight: 500 }}>
-                      {s.role}
+                <label key={s.id} className="wp2-row" onClick={() => setPickedWaiter(s.name)}>
+                  <div className="wp2-row-left">
+                    <span className="wp2-avatar" style={{ background: avatarBg(s.name) }}>
+                      {s.name?.[0]?.toUpperCase() || "?"}
                     </span>
-                  </span>
+                    <div>
+                      <span className="wp2-sname">{s.name}</span>
+                      <span className="wp2-role">{s.role}</span>
+                    </div>
+                  </div>
                   <input
                     type="radio"
                     name="waiter-pick"
@@ -1604,15 +1643,15 @@ export function App() {
                 </label>
               ))}
             </div>
-            <div className="assign-modal-actions">
+            <div className="wp2-actions">
               <button
-                className="assign-cancel-btn"
+                className="wp2-cancel"
                 onClick={() => { setShowWaiterPick(false); setKotPendingTableId(null); }}
               >
                 Cancel
               </button>
               <button
-                className="assign-done-btn"
+                className="wp2-done"
                 onClick={() => {
                   setShowWaiterPick(false);
                   doSendKOT(kotPendingTableId, pickedWaiter);
@@ -1673,6 +1712,38 @@ export function App() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Confirm: Remove Item */}
+      {confirmRemoveItem && (
+        <ConfirmDialog
+          variant="light"
+          icon="trash"
+          iconBg="#FEE2E2"
+          iconColor="#DC2626"
+          title="Remove item?"
+          body={`${confirmRemoveItem.itemName} will be removed from this order. ${confirmRemoveItem.isSent ? "It has already been sent to the kitchen." : "It hasn't been sent to the kitchen yet."}`}
+          confirmLabel="Remove"
+          confirmDanger
+          onCancel={() => setConfirmRemoveItem(null)}
+          onConfirm={() => { handleRemoveItem(confirmRemoveItem.itemId); setConfirmRemoveItem(null); }}
+        />
+      )}
+
+      {/* Confirm: Free Table */}
+      {confirmFreeTable && (
+        <ConfirmDialog
+          variant="dark"
+          icon="calendar-x"
+          iconBg="#FEE2E2"
+          iconColor="#DC2626"
+          title={`Free up Table T${confirmFreeTable.tableNumber}?`}
+          body={`This clears the running order of ₹${confirmFreeTable.amount.toLocaleString("en-IN")}. Only do this if the guests have left or the table was opened by mistake.`}
+          confirmLabel="Mark as free"
+          confirmDanger
+          onCancel={() => setConfirmFreeTable(null)}
+          onConfirm={() => handleMarkFree(confirmFreeTable.tableId)}
+        />
       )}
 
       {/* Incoming Customer Orders Sheet */}

@@ -1,32 +1,14 @@
-import { useState, useEffect } from "react";
 import { tapImpact } from "../lib/haptics";
 
 export function TableActionsSheet({
   tableNumber, areaName, order,
-  onClose, onMoveTable, onMerge, onSplitBill, onPrintBill, onCustomerInfo,
+  onClose, onMoveTable, onPrintBill, onMarkFree,
+  // kept for API compatibility but not rendered in this design:
+  onMerge, onSplitBill, onCustomerInfo, onEditOrder, onSendKOT,
 }) {
-  const [elapsed, setElapsed] = useState("");
-
-  useEffect(() => {
-    function calc() {
-      const ts = order?.seatedAt || order?.createdAt || order?.openedAt;
-      if (!ts) { setElapsed(""); return; }
-      const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
-      if (mins < 1)         setElapsed("< 1 min");
-      else if (mins < 60)   setElapsed(`${mins} min`);
-      else {
-        const h = Math.floor(mins / 60), m = mins % 60;
-        setElapsed(`${h}h ${m}m`);
-      }
-    }
-    calc();
-    const t = setInterval(calc, 30000);
-    return () => clearInterval(t);
-  }, [order]);
-
-  const items     = order?.items || [];
-  const billable  = items.filter(i => !i.isVoided && !i.isComp);
-  const itemCount = billable.length;
+  const items    = order?.items || [];
+  const billable = items.filter(i => !i.isVoided && !i.isComp);
+  const guests   = order?.covers || order?.guests || null;
 
   const subtotal = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
   const tax      = billable.reduce((s, i) => {
@@ -35,59 +17,105 @@ export function TableActionsSheet({
   }, 0);
   const total = subtotal + tax;
 
+  const subtitle = [
+    areaName || null,
+    guests ? `${guests} guests` : null,
+    total > 0 ? `₹${total.toLocaleString("en-IN")} running` : null,
+  ].filter(Boolean).join(" · ");
+
   return (
     <>
-      <div className="tas-backdrop" onClick={onClose} />
-      <div className="tas-sheet">
-        <div className="tas-handle" />
+      <div className="tas2-backdrop" onClick={onClose} />
+      <div className="tas2-sheet">
+        <div className="tas2-handle" />
 
         {/* Header */}
-        <div className="tas-header">
-          <div className="tas-table-badge">
-            <div>
-              <div className="tas-table-num">Table {tableNumber}</div>
-              {areaName && <div className="tas-table-area">{areaName}</div>}
-            </div>
-          </div>
-          <div className="tas-meta">
-            {itemCount > 0 && <span className="tas-chip">{itemCount} items</span>}
-            {total > 0 && <span className="tas-chip tas-chip-amount">₹{total.toLocaleString("en-IN")}</span>}
-            {elapsed && <span className="tas-chip tas-chip-time">{elapsed}</span>}
-          </div>
+        <div className="tas2-header">
+          <p className="tas2-table-num">Table {tableNumber}</p>
+          {subtitle && <p className="tas2-subtitle">{subtitle}</p>}
         </div>
 
-        {/* All actions — plain list */}
-        <div className="tas-section tas-section-secondary">
+        {/* Body — two cards */}
+        <div className="tas2-body">
 
-          {itemCount > 0 && (
-            <button className="tas-action-sm" onClick={() => { tapImpact(); onPrintBill?.(); onClose(); }}>
-              <span>Print Bill</span>
+          {/* Main actions card */}
+          <div className="tas2-card">
+            {billable.length > 0 && (
+              <>
+                <button
+                  className="tas2-row"
+                  onClick={() => { tapImpact(); onPrintBill?.(); onClose(); }}
+                >
+                  <span className="tas2-row-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 6 2 18 2 18 9"/>
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                      <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                  </span>
+                  <span className="tas2-row-label">Print last KOT</span>
+                  <svg className="tas2-row-chevron" width="16" height="16" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+                <div className="tas2-divider" />
+              </>
+            )}
+
+            <button
+              className="tas2-row"
+              onClick={() => { tapImpact(); onMoveTable?.(); }}
+            >
+              <span className="tas2-row-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="5 9 2 12 5 15"/>
+                  <polyline points="9 5 12 2 15 5"/>
+                  <line x1="2" y1="12" x2="22" y2="12"/>
+                  <line x1="12" y1="2" x2="12" y2="22"/>
+                  <polyline points="15 19 12 22 9 19"/>
+                  <polyline points="19 9 22 12 19 15"/>
+                </svg>
+              </span>
+              <span className="tas2-row-label">Move table</span>
+              <svg className="tas2-row-chevron" width="16" height="16" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
             </button>
-          )}
+          </div>
 
-          <button className="tas-action-sm" onClick={() => { tapImpact(); onMoveTable(); }}>
-            <span>Move Table</span>
-          </button>
-
-          <button className="tas-action-sm" onClick={() => { tapImpact(); onMerge(); }}>
-            <span>Merge Tables</span>
-          </button>
-
-          {itemCount > 0 && onSplitBill && (
-            <button className="tas-action-sm" onClick={() => { tapImpact(); onSplitBill(); }}>
-              <span>Split Bill</span>
+          {/* Danger card */}
+          <div className="tas2-card">
+            <button
+              className="tas2-row tas2-row-danger"
+              onClick={() => { tapImpact(); onMarkFree?.(); }}
+            >
+              <span className="tas2-row-icon tas2-row-icon-danger">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                  <line x1="9.5" y1="14.5" x2="14.5" y2="19.5"/>
+                  <line x1="14.5" y1="14.5" x2="9.5" y2="19.5"/>
+                </svg>
+              </span>
+              <span className="tas2-row-label tas2-row-label-danger">Mark table as free</span>
+              <svg className="tas2-row-chevron" width="16" height="16" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
             </button>
-          )}
-
-          {onCustomerInfo && (
-            <button className="tas-action-sm tas-action-sm-ghost" onClick={() => { tapImpact(); onCustomerInfo(); }}>
-              <span>Guest Info</span>
-            </button>
-          )}
+          </div>
 
         </div>
 
-        <button className="tas-close-btn" onClick={onClose}>Close</button>
+        {/* Cancel */}
+        <button className="tas2-cancel" onClick={onClose}>Cancel</button>
       </div>
     </>
   );
