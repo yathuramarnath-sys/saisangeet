@@ -9541,3 +9541,528 @@ body {
     width: 100%;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGNER UI — Phase 4: Taxes & Receipts, Staff, Business Profile, more
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Taxes & Receipts — section panels ──────────────────────────────────── */
+.bn-panel {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  padding: 22px 24px !important;
+  box-shadow: none !important;
+  margin-bottom: 16px;
+}
+
+.bn-header h3 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink) !important;
+  letter-spacing: -0.3px !important;
+  margin: 2px 0 4px !important;
+}
+
+.bn-desc {
+  font-size: 13px !important;
+  color: var(--oc-muted) !important;
+  margin: 0 !important;
+  line-height: 1.5 !important;
+}
+
+/* Bill number option cards */
+.bn-option {
+  display: flex !important;
+  gap: 12px !important;
+  padding: 16px !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: border-color 0.12s !important;
+  background: var(--oc-ground) !important;
+}
+
+.bn-option-active {
+  border-color: var(--oc-teal) !important;
+  background: rgba(15, 118, 110, 0.04) !important;
+}
+
+.bn-option input[type="radio"] { accent-color: var(--oc-teal); }
+
+.bn-option-title {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.bn-option-desc {
+  font-size: 12.5px !important;
+  color: var(--oc-muted) !important;
+  margin: 4px 0 0 !important;
+  line-height: 1.5 !important;
+}
+
+.bn-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  background: var(--oc-hairline);
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--oc-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bn-badge-default { background: rgba(15,118,110,0.12); color: var(--oc-teal); }
+
+.bn-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+@media (max-width: 700px) { .bn-options { grid-template-columns: 1fr; } }
+
+.bn-kot-info {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--oc-ground);
+  border: 1px solid var(--oc-hairline);
+  border-radius: 7px;
+  font-size: 12.5px;
+  color: var(--oc-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bn-reset-row {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bn-stat-row {
+  margin-top: 6px;
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--oc-muted);
+}
+
+.bn-msg {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--oc-teal);
+  font-weight: 500;
+}
+
+/* ── Receipt builder section ─────────────────────────────────────────────── */
+.rb-section {
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  margin-bottom: 8px !important;
+  overflow: hidden !important;
+}
+
+.rb-section-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  padding: 13px 16px !important;
+  background: var(--oc-card) !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-family: inherit !important;
+  text-align: left !important;
+}
+
+.rb-section-head:hover { background: var(--oc-ground) !important; }
+
+.rb-section-title {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.rb-section-body {
+  padding: 12px 16px !important;
+  border-top: 1px solid var(--oc-hairline) !important;
+  background: var(--oc-card) !important;
+}
+
+.rb-chevron {
+  color: var(--oc-muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.rb-chevron.open { transform: rotate(180deg); }
+
+/* ── Receipt toggle items ─────────────────────────────────────────────────── */
+.inv-toggle {
+  display: inline-flex;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--oc-hairline);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.inv-toggle-on { background: var(--oc-teal) !important; }
+
+.inv-toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: left 0.2s;
+}
+
+.inv-toggle-on .inv-toggle-knob { left: 19px; }
+
+/* ── Sticky tax save bar ─────────────────────────────────────────────────── */
+.tax-save-bar {
+  position: sticky !important;
+  bottom: 0 !important;
+  background: var(--oc-card) !important;
+  border-top: 1px solid var(--oc-hairline) !important;
+  padding: 12px 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  z-index: 10 !important;
+}
+
+/* ── Staff page metrics grid ─────────────────────────────────────────────── */
+.metrics-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 12px !important;
+  margin-bottom: 20px !important;
+}
+
+.metrics-grid .metric-card {
+  padding: 18px 20px !important;
+}
+
+.metrics-grid .metric-label {
+  display: block !important;
+  margin-bottom: 4px !important;
+}
+
+.metrics-grid .metric-card strong {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink) !important;
+  letter-spacing: -0.5px !important;
+  line-height: 1.1 !important;
+  display: block !important;
+}
+
+@media (max-width: 900px) {
+  .metrics-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* ── Staff role cards ────────────────────────────────────────────────────── */
+.role-card {
+  background: var(--oc-card) !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  padding: 14px 16px !important;
+  box-shadow: none !important;
+  transition: border-color 0.12s !important;
+}
+
+.role-card:hover { border-color: rgba(15,118,110,0.3) !important; }
+
+.role-card.active-role {
+  border-color: var(--oc-teal) !important;
+  background: rgba(15,118,110,0.04) !important;
+}
+
+.role-card-inactive { opacity: 0.55 !important; }
+
+/* ── Staff permission items ──────────────────────────────────────────────── */
+.permission-item {
+  background: var(--oc-card) !important;
+  border: 1.5px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  box-shadow: none !important;
+  transition: border-color 0.12s !important;
+}
+
+.permission-item.enabled { border-color: var(--oc-teal) !important; background: rgba(15,118,110,0.05) !important; }
+.permission-item.disabled { opacity: 0.6 !important; }
+.permission-item:hover:not(.disabled) { border-color: rgba(15,118,110,0.3) !important; }
+
+/* ── Staff table ─────────────────────────────────────────────────────────── */
+.staff-table .staff-row {
+  border-bottom: 1px solid var(--oc-hairline) !important;
+  padding: 12px 0 !important;
+  font-size: 13.5px !important;
+}
+
+.staff-table .staff-head {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--oc-muted) !important;
+  padding-bottom: 8px !important;
+}
+
+.staff-table .staff-row:not(.staff-head):hover { background: var(--oc-ground) !important; }
+
+/* ── Category tabs on staff permissions ─────────────────────────────────── */
+.category-tabs {
+  display: flex !important;
+  gap: 4px !important;
+  flex-wrap: wrap !important;
+  margin-bottom: 14px !important;
+}
+
+.category-tabs button {
+  padding: 6px 14px !important;
+  border-radius: 20px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: var(--oc-muted) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  cursor: pointer !important;
+  transition: all 0.12s !important;
+  font-family: inherit !important;
+}
+
+.category-tabs button:hover { background: var(--oc-ground) !important; color: var(--oc-ink) !important; }
+
+.category-tabs .tab-active {
+  background: var(--oc-teal) !important;
+  color: #fff !important;
+  border-color: var(--oc-teal) !important;
+}
+
+/* ── Ghost chips ─────────────────────────────────────────────────────────── */
+.ghost-chip {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 7px !important;
+  color: var(--oc-ink) !important;
+  font-weight: 500 !important;
+  padding: 6px 12px !important;
+  box-shadow: none !important;
+}
+
+.ghost-chip:hover { background: var(--oc-ground) !important; transform: none !important; }
+
+/* ── Ghost button ────────────────────────────────────────────────────────── */
+.ghost-btn {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  color: var(--oc-ink) !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+.ghost-btn:hover { background: var(--oc-ground) !important; transform: none !important; }
+
+/* ── Secondary button ────────────────────────────────────────────────────── */
+.secondary-btn {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 8px !important;
+  color: var(--oc-ink) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.secondary-btn:hover { background: var(--oc-ground) !important; transform: none !important; }
+
+/* ── Status text ─────────────────────────────────────────────────────────── */
+span.online { 
+  background: rgba(15,118,110,0.12) !important;
+  color: var(--oc-teal) !important;
+  border-radius: 20px !important;
+  padding: 2px 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+span.warning {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #B45309 !important;
+  border-radius: 20px !important;
+  padding: 2px 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+/* ── Business profile form ───────────────────────────────────────────────── */
+.simple-form label {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--oc-ink) !important;
+}
+
+/* ── Inline form inputs (used across multiple pages) ─────────────────────── */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="time"],
+input[type="password"],
+select,
+textarea {
+  border: 1.5px solid var(--oc-hairline);
+  border-radius: 7px;
+  background: var(--oc-card);
+  color: var(--oc-ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  padding: 9px 12px;
+  transition: border-color 0.15s;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
+input[type="number"]:focus,
+input[type="time"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--oc-teal);
+  outline: none;
+}
+
+/* Don't override auth inputs — they have their own focused styles */
+.oc-auth-input { all: unset; }
+.oc-auth-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1.5px solid #DDDBD4;
+  border-radius: 8px;
+  background: #FAFAF8;
+  color: #1C1C1C;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 11px 13px;
+  transition: border-color 0.15s;
+}
+
+.oc-auth-input::placeholder { color: #BCBAB4; }
+.oc-auth-input:focus { border-color: var(--oc-teal); outline: none; }
+
+/* Eye button doesn't inherit from above all: unset */
+.oc-auth-pw-wrap .oc-auth-input {
+  padding-right: 40px;
+}
+
+/* ── Dashboard grid layout ───────────────────────────────────────────────── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.dashboard-grid .panel-wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Staff layout specific ───────────────────────────────────────────────── */
+.staff-layout {
+  grid-template-columns: 1fr 1.4fr !important;
+}
+
+/* ── Discount rules page ─────────────────────────────────────────────────── */
+.discount-card,
+.dr-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+/* ── Online sales / settlements ──────────────────────────────────────────── */
+.stt-panel,
+.settlements-panel {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+/* ── Inventory table rows ────────────────────────────────────────────────── */
+.inv-table tr {
+  border-bottom: 1px solid var(--oc-hairline) !important;
+}
+
+.inv-table th {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--oc-muted) !important;
+  padding: 10px 12px !important;
+  background: transparent !important;
+}
+
+.inv-table td {
+  padding: 12px 12px !important;
+  font-size: 13.5px !important;
+  color: var(--oc-ink) !important;
+}
+
+/* ── Billing & Plans cards ───────────────────────────────────────────────── */
+.plan-card {
+  background: var(--oc-card) !important;
+  border: 1px solid var(--oc-hairline) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+.plan-card.plan-highlight {
+  border-color: var(--oc-teal) !important;
+  background: rgba(15,118,110,0.04) !important;
+}
+
+/* ── Page titles in topbar ───────────────────────────────────────────────── */
+.topbar h2 {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink) !important;
+  letter-spacing: -0.4px !important;
+}
+
+/* Override old green bg on active nav item */
+.nav-item.active {
+  background: var(--oc-teal) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
