@@ -12944,3 +12944,15 @@ button.inv-toggle:focus-visible {
   color: #fff !important;
   border-color: var(--oc-teal, #0F766E) !important;
 }
+
+/* ── Menu outlet chip selected + Device outlet tab active — teal ─────────── */
+.menu-outlet-chip.selected {
+  background: var(--oc-teal, #0F766E) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+}
+.device-outlet-tab.active {
+  background: var(--oc-teal, #0F766E) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+}
