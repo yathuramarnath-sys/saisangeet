@@ -13343,3 +13343,252 @@ button.inv-toggle:focus-visible {
   font-weight: 700 !important;
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGNER UI — v5 Patch: All 13 report types — OC warm tokens + teal
+   Covers: Customers table, Order History detail table, bar labels,
+   payment mode hourly, pay mode list, section eyebrow, export bar,
+   empty states, panel total rows, and all remaining gaps.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Customers tab: rpt-table (no prior CSS definition) ──────────────────
+   JSX: <table className="rpt-table"> — used only in CustomersTab          */
+.rpt-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-size: 13px !important;
+}
+.rpt-table thead tr {
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+.rpt-table th {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  padding: 10px 14px !important;
+  text-align: left !important;
+  background: transparent !important;
+}
+.rpt-table td {
+  padding: 14px 14px !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  font-size: 13px !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  vertical-align: middle !important;
+}
+.rpt-table tbody tr:last-child td { border-bottom: none !important; }
+.rpt-table tbody tr:hover { background: var(--oc-ground, #F7F6F2) !important; }
+
+/* ── Inline customer order history table ─────────────────────────────────
+   JSX: <table className="rpt-order-hist-table"> inside CustomerOrderHistory */
+.rpt-order-hist-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-size: 13px !important;
+}
+.rpt-order-hist-table th {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  padding: 8px 10px !important;
+  text-align: left !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  background: transparent !important;
+}
+.rpt-order-hist-table td {
+  padding: 10px 10px !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  font-size: 12.5px !important;
+}
+.rpt-order-hist-table tr:last-child td { border-bottom: none !important; }
+.rpt-order-hist-table tbody tr:hover { background: var(--oc-ground, #F7F6F2) !important; }
+.rpt-order-hist-eyebrow {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.07em !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  margin-bottom: 8px !important;
+}
+
+/* ── Bar row labels/counts/amounts (DayEnd, Staff, Category bars) ─────── */
+.rpt-bar-label { color: var(--oc-ink, #1C1C1C) !important; font-size: 13px !important; }
+.rpt-bar-count { color: var(--oc-muted, #6B6B6B) !important; font-size: 13px !important; font-variant-numeric: tabular-nums !important; }
+.rpt-bar-amt   { color: var(--oc-ink, #1C1C1C) !important; font-size: 13px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums !important; }
+
+/* ── Payment report: pay mode list ──────────────────────────────────────── */
+.rpt-pay-mode-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 0 !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+.rpt-pay-mode-row:last-child { border-bottom: none !important; }
+.rpt-pay-icon { font-size: 20px !important; flex-shrink: 0 !important; }
+.rpt-pay-info { flex: 1 !important; }
+.rpt-pay-info strong { font-size: 13px !important; font-weight: 700 !important; color: var(--oc-ink, #1C1C1C) !important; display: block !important; margin-bottom: 4px !important; }
+.rpt-pay-bar-track { height: 6px !important; background: var(--oc-hairline, #ECEAE3) !important; border-radius: 3px !important; overflow: hidden !important; }
+.rpt-pay-bar-fill { height: 100% !important; border-radius: 3px !important; }
+.rpt-pay-nums { text-align: right !important; }
+.rpt-pay-nums strong { font-size: 14px !important; font-weight: 700 !important; color: var(--oc-ink, #1C1C1C) !important; display: block !important; font-variant-numeric: tabular-nums !important; }
+.rpt-pay-nums span { font-size: 11px !important; color: var(--oc-muted, #6B6B6B) !important; }
+
+/* ── Payment report: hourly bars ─────────────────────────────────────────── */
+.rpt-hourly-bars { display: flex !important; flex-direction: column !important; gap: 8px !important; }
+.rpt-hourly-row {
+  display: grid !important;
+  grid-template-columns: 56px 1fr 72px !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+.rpt-hourly-label { font-size: 11px !important; color: var(--oc-muted, #6B6B6B) !important; font-weight: 500 !important; }
+.rpt-hourly-stack { display: flex !important; flex-direction: column !important; gap: 2px !important; }
+.rpt-hourly-amt { font-size: 11px !important; font-weight: 600 !important; color: var(--oc-ink, #1C1C1C) !important; text-align: right !important; font-variant-numeric: tabular-nums !important; }
+.rpt-hourly-legend {
+  display: flex !important;
+  gap: 12px !important;
+  margin-top: 8px !important;
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+.rpt-hourly-legend span { display: flex !important; align-items: center !important; gap: 5px !important; }
+.leg-dot { width: 8px !important; height: 8px !important; border-radius: 50% !important; flex-shrink: 0 !important; }
+
+/* ── Category bar chart rows (CategoryReport) ────────────────────────────── */
+.rpt-cat-bar-val {
+  font-size: 13px !important; font-weight: 600 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  text-align: right !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.rpt-cat-bar-pct {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  text-align: right !important;
+  width: 44px !important;
+}
+
+/* ── Section eyebrow text ─────────────────────────────────────────────────── */
+.rpt-section-head .eyebrow {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  margin: 0 0 3px !important;
+}
+
+/* ── Export bar: left-align, warm border ─────────────────────────────────── */
+.rpt-export-bar {
+  display: flex !important;
+  gap: 6px !important;
+  justify-content: flex-end !important;
+  margin-bottom: 4px !important;
+}
+.rpt-export-btn {
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 7px !important;
+  background: var(--oc-card, #fff) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  cursor: pointer !important;
+  font-family: inherit !important;
+}
+
+/* ── Summary list rows ────────────────────────────────────────────────────── */
+.rpt-summary-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 11px 0 !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  font-size: 13px !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.rpt-summary-row:last-child { border-bottom: none !important; }
+.rpt-summary-row span { color: var(--oc-ink, #1C1C1C) !important; }
+.rpt-summary-row strong { color: var(--oc-ink, #1C1C1C) !important; font-weight: 700 !important; font-variant-numeric: tabular-nums !important; }
+
+/* ── Panel total (DayEnd Payment mode total) ──────────────────────────────── */
+.rpt-panel-total strong { color: var(--oc-teal, #0F766E) !important; font-variant-numeric: tabular-nums !important; }
+
+/* ── Empty state on wastage/voids/waitlist ────────────────────────────────── */
+.rpt-empty {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 40px 24px !important;
+  text-align: center !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+.rpt-empty p { color: var(--oc-muted, #6B6B6B) !important; font-size: 13px !important; margin: 0 !important; }
+
+/* ── Top report: Topbar ─────────────────────────────────────────────────── */
+.oc-export-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 7px 14px !important;
+  border-radius: 8px !important;
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  background: var(--oc-card, #fff) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  font-family: inherit !important;
+}
+.oc-export-btn:hover {
+  background: var(--oc-teal, #0F766E) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+}
+
+/* ── Drilldown toggle: teal hover ────────────────────────────────────────── */
+.rpt-drilldown-toggle {
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  padding: 12px 0 !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+.rpt-drilldown-section:last-child .rpt-drilldown-toggle { border-bottom: none !important; }
+.rpt-drilldown-meta { color: var(--oc-muted, #6B6B6B) !important; font-size: 12px !important; margin-left: 4px !important; }
+.rpt-drilldown-arrow { margin-left: auto !important; color: var(--oc-muted, #6B6B6B) !important; font-size: 12px !important; }
+.rpt-drilldown-toggle:hover .rpt-drilldown-arrow { color: var(--oc-teal, #0F766E) !important; }
+.rpt-drilldown-toggle:hover strong { color: var(--oc-teal, #0F766E) !important; }
+
+/* ── rpt-two-col gap ─────────────────────────────────────────────────────── */
+.rpt-two-col {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 16px !important;
+}
+@media (max-width: 800px) {
+  .rpt-two-col { grid-template-columns: 1fr !important; }
+}
+
+/* ── Incentives stat rows ─────────────────────────────────────────────────── */
+.inc-stat-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  font-size: 12px !important;
+  padding: 3px 0 !important;
+}
+.inc-stat-row span { color: var(--oc-muted, #6B6B6B) !important; }
+.inc-stat-row strong { color: var(--oc-ink, #1C1C1C) !important; font-weight: 700 !important; }
+.inc-payable-label { font-size: 10px !important; text-transform: uppercase !important; letter-spacing: 0.07em !important; color: var(--oc-muted, #6B6B6B) !important; font-weight: 700 !important; }
+
