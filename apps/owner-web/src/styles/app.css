@@ -13592,3 +13592,392 @@ button.inv-toggle:focus-visible {
 .inc-stat-row strong { color: var(--oc-ink, #1C1C1C) !important; font-weight: 700 !important; }
 .inc-payable-label { font-size: 10px !important; text-transform: uppercase !important; letter-spacing: 0.07em !important; color: var(--oc-muted, #6B6B6B) !important; font-weight: 700 !important; }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGNER UI — v6 Dashboard rebuild: sales trend, service mode, top items
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── KPI row — no icon variant ───────────────────────────────────────────── */
+.dash-kpi {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-top: 3px solid var(--oc-teal, #0F766E) !important;
+  border-radius: 10px !important;
+  padding: 18px 20px 16px !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.dash-kpi-body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+.dash-kpi-icon { display: none !important; }
+
+.dash-kpi-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+
+.dash-kpi-value {
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  line-height: 1.1 !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+}
+
+.dash-kpi-sub {
+  font-size: 12px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  font-weight: 400 !important;
+}
+
+/* ── Main grid ───────────────────────────────────────────────────────────── */
+.dash-main-2col {
+  display: grid !important;
+  grid-template-columns: 1.6fr 1fr !important;
+  gap: 16px !important;
+  margin-bottom: 16px !important;
+}
+
+.dash-bottom-2col {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 16px !important;
+  margin-bottom: 16px !important;
+}
+
+@media (max-width: 860px) {
+  .dash-main-2col,
+  .dash-bottom-2col { grid-template-columns: 1fr !important; }
+}
+
+/* ── Trend chart card ─────────────────────────────────────────────────────── */
+.dash-trend-card {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.dash-trend-meta {
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+
+.dash-trend-subtitle {
+  font-size: 12px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  font-weight: 500 !important;
+}
+
+.dash-trend-peak {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+
+/* ── Hourly vertical bar chart ───────────────────────────────────────────── */
+.dash-trend-chart {
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 3px !important;
+  height: 130px !important;
+  padding-bottom: 0 !important;
+}
+
+.dash-trend-col {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 5px !important;
+  flex: 1 !important;
+  height: 100% !important;
+  justify-content: flex-end !important;
+}
+
+.dash-trend-bar-wrap {
+  width: 100% !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  flex: 1 !important;
+}
+
+.dash-trend-bar {
+  width: 100% !important;
+  min-height: 4px !important;
+  border-radius: 3px 3px 0 0 !important;
+  background: var(--oc-hairline, #ECEAE3) !important;
+  transition: height 0.3s ease !important;
+}
+
+.dash-trend-bar.active {
+  background: var(--oc-teal, #0F766E) !important;
+}
+
+.dash-trend-bar.peak {
+  background: #F8CB46 !important;
+}
+
+.dash-trend-hour {
+  font-size: 9px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* ── Trend legend ─────────────────────────────────────────────────────────── */
+.dash-trend-legend {
+  display: flex !important;
+  gap: 16px !important;
+  flex-wrap: wrap !important;
+}
+
+.dash-trend-legend span {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  font-weight: 500 !important;
+}
+
+.dash-tleg-dot {
+  display: inline-block !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 2px !important;
+  background: var(--oc-hairline, #ECEAE3) !important;
+  flex-shrink: 0 !important;
+}
+
+.dash-tleg-dot.active { background: var(--oc-teal, #0F766E) !important; }
+.dash-tleg-dot.peak   { background: #F8CB46 !important; }
+
+/* ── Top selling items ────────────────────────────────────────────────────── */
+.dash-top-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+}
+
+.dash-top-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 0 !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+
+.dash-top-row:last-child { border-bottom: none !important; }
+
+.dash-top-rank {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  width: 18px !important;
+  text-align: center !important;
+  flex-shrink: 0 !important;
+}
+
+.dash-top-row:first-child .dash-top-rank { color: #92700A !important; }
+
+.dash-top-info {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+}
+
+.dash-top-name {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.dash-top-qty {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+
+.dash-top-amt {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+  flex-shrink: 0 !important;
+}
+
+/* ── Service mode breakdown ───────────────────────────────────────────────── */
+.dash-mode-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+.dash-mode-row { display: flex; flex-direction: column; gap: 5px; }
+
+.dash-mode-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.dash-mode-name {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+
+.dash-mode-right {
+  font-size: 12.5px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  font-weight: 500 !important;
+}
+
+.dash-mode-track {
+  height: 6px !important;
+  background: var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 3px !important;
+  overflow: hidden !important;
+}
+
+.dash-mode-fill {
+  height: 100% !important;
+  border-radius: 3px !important;
+  transition: width 0.5s ease !important;
+}
+
+/* ── Orders by channel block ──────────────────────────────────────────────── */
+.dash-channel-block {
+  margin-top: 20px !important;
+  padding-top: 16px !important;
+  border-top: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+
+.dash-section-eyebrow {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  margin: 0 0 12px !important;
+}
+
+.dash-channel-row {
+  display: flex !important;
+  gap: 24px !important;
+}
+
+.dash-channel-item {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+.dash-channel-item strong {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  font-variant-numeric: tabular-nums !important;
+  line-height: 1.1 !important;
+}
+
+.dash-channel-item span {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  font-weight: 500 !important;
+}
+
+/* ── Payment list ─────────────────────────────────────────────────────────── */
+.dash-pay-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+.dash-pay-row {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+}
+
+.dash-pay-head {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.dash-pay-mode {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  flex: 1 !important;
+}
+
+.dash-pay-bills {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+
+.dash-pay-amt {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.dash-pay-track {
+  height: 5px !important;
+  background: var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 3px !important;
+  overflow: hidden !important;
+}
+
+.dash-pay-fill {
+  height: 100% !important;
+  border-radius: 3px !important;
+  transition: width 0.5s ease !important;
+}
+
+/* ── Dashboard card shared ────────────────────────────────────────────────── */
+.dash-card {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  box-shadow: none !important;
+}
+
+.dash-card-title {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  margin: 0 0 14px !important;
+  letter-spacing: -0.2px !important;
+}
+
+.dash-card-empty {
+  font-size: 13px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  padding: 20px 0 !important;
+  text-align: center !important;
+}

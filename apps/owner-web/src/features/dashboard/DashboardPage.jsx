@@ -1,8 +1,8 @@
 /**
  * DashboardPage — Live Sales Hub
  *
- * Shows today's trading snapshot: total sales, order-type breakdown,
- * session bar chart, payment breakdown, top items, category sales.
+ * Shows today's trading snapshot: KPI summary, hourly sales trend,
+ * top items, service-mode breakdown, payment summary.
  *
  * Data source: GET /reports/owner-summary?dateFrom=TODAY&dateTo=TODAY&outletId=ALL
  * Auto-refreshes every 60 seconds while the page is open.
@@ -38,12 +38,41 @@ function payColor(mode) {
   return PAYMENT_COLORS[mode] || "#6b7280";
 }
 
+// Converts "13:00" → "1p", "08:00" → "8a", "12:00" → "12p"
+function fmtHourShort(hourStr) {
+  const h = parseInt(hourStr, 10);
+  if (isNaN(h)) return hourStr;
+  if (h === 0)  return "12a";
+  if (h < 12)  return `${h}a`;
+  if (h === 12) return "12p";
+  return `${h - 12}p`;
+}
+
+// Converts "20:00" → "8 PM", "11:00" → "11 AM"
+function fmtHourFull(hourStr) {
+  const h = parseInt(hourStr, 10);
+  if (isNaN(h)) return hourStr;
+  if (h === 0)  return "12 AM";
+  if (h < 12)  return `${h} AM`;
+  if (h === 12) return "12 PM";
+  return `${h - 12} PM`;
+}
+
+const SERVICE_MODE_COLORS = {
+  "Dine In":  "#0F766E",
+  "Takeaway": "#F59E0B",
+  "Online":   "#2563eb",
+};
+
+function serviceModeColor(type) {
+  return SERVICE_MODE_COLORS[type] || "#6b7280";
+}
+
 // ─── KPI card ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, color, icon }) {
+function KpiCard({ label, value, sub }) {
   return (
-    <div className="dash-kpi" style={{ "--kpi-color": color || "#2563eb" }}>
-      <span className="dash-kpi-icon">{icon}</span>
+    <div className="dash-kpi">
       <div className="dash-kpi-body">
         <span className="dash-kpi-label">{label}</span>
         <strong className="dash-kpi-value">{value}</strong>
@@ -53,155 +82,135 @@ function KpiCard({ label, value, sub, color, icon }) {
   );
 }
 
-// ─── Order type cards (Dine-In / Takeaway / Online) ───────────────────────────
+// ─── Hourly sales trend bar chart ─────────────────────────────────────────────
 
-const ORDER_TYPE_META = {
-  "Dine In":  { icon: "🍽️", color: "#0F766E", bg: "#FFFFFF", border: "#ECEAE3" },
-  "Takeaway": { icon: "🛍️", color: "#2563eb", bg: "#FFFFFF", border: "#ECEAE3" },
-  "Online":   { icon: "📦", color: "#ea580c", bg: "#FFFFFF", border: "#ECEAE3" },
-};
+function SalesTrendChart({ hourlySales }) {
+  if (!hourlySales.length) return <p className="dash-card-empty">No hourly data yet</p>;
 
-function OrderTypeCards({ orderTypes }) {
-  const total = orderTypes.reduce((s, t) => s + t.amount, 0);
-
-  return (
-    <div className="dash-otype-row">
-      {orderTypes.map(t => {
-        const meta = ORDER_TYPE_META[t.type] || { icon: "🍽️", color: "#6b7280", bg: "#f9fafb", border: "#e5e7eb" };
-        const pct  = total > 0 ? Math.round((t.amount / total) * 100) : 0;
-        return (
-          <div
-            key={t.type}
-            className="dash-otype-card"
-            style={{ background: meta.bg, borderColor: meta.border }}
-          >
-            <div className="dash-otype-head">
-              <span className="dash-otype-icon">{meta.icon}</span>
-              <span className="dash-otype-label">{t.type}</span>
-              <span className="dash-otype-pct" style={{ color: meta.color }}>{pct}%</span>
-            </div>
-            <strong className="dash-otype-amt" style={{ color: meta.color }}>{fmt(t.amount)}</strong>
-            <span className="dash-otype-orders">{t.orders} order{t.orders !== 1 ? "s" : ""}</span>
-            <div className="dash-otype-bar-track">
-              <div className="dash-otype-bar-fill" style={{ width: `${pct}%`, background: meta.color }} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
+  const maxAmt = Math.max(...hourlySales.map(h => h.amount), 1);
+  const peakEntry = hourlySales.reduce(
+    (best, h) => (h.amount > (best?.amount || 0) ? h : best),
+    null
   );
-}
-
-// ─── Session bar chart (Breakfast / Lunch / Dinner) ───────────────────────────
-
-const SESSION_META = {
-  Breakfast: { icon: "🌅", color: "#f59e0b" },
-  Lunch:     { icon: "☀️",  color: "#0F766E" },
-  Dinner:    { icon: "🌙", color: "#7c3aed" },
-};
-
-function SessionBarChart({ sessions }) {
-  const maxAmt = Math.max(...sessions.map(s => s.amount), 1);
 
   return (
-    <div className="dash-session-chart">
-      {sessions.map(s => {
-        const meta = SESSION_META[s.session] || { icon: "🍽️", color: "#6b7280" };
-        const w    = Math.max(4, Math.round((s.amount / maxAmt) * 100));
-        return (
-          <div key={s.session} className="dash-schart-row">
-            <span className="dash-schart-label">
-              {meta.icon} {s.session}
-            </span>
-            <div className="dash-schart-track">
-              <div
-                className="dash-schart-fill"
-                style={{ width: `${w}%`, background: meta.color }}
-              />
-            </div>
-            <div className="dash-schart-info">
-              <strong>{fmt(Math.round(s.amount))}</strong>
-              <span>{s.orders} orders</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── Payment breakdown bar ─────────────────────────────────────────────────────
-
-function PaymentBar({ mode, amount, orders, total }) {
-  const w = total > 0 ? Math.max(2, Math.round((amount / total) * 100)) : 0;
-  return (
-    <div className="dash-pay-row">
-      <span className="dash-pay-mode">{mode}</span>
-      <div className="dash-pay-track">
-        <div
-          className="dash-pay-fill"
-          style={{ width: `${w}%`, background: payColor(mode) }}
-        />
-      </div>
-      <span className="dash-pay-orders">{orders} bills</span>
-      <span className="dash-pay-amt">{fmt(amount)}</span>
-    </div>
-  );
-}
-
-// ─── Top item row ─────────────────────────────────────────────────────────────
-
-function TopItemRow({ rank, name, category, qty, amount, maxAmount }) {
-  const w = maxAmount > 0 ? Math.round((amount / maxAmount) * 100) : 0;
-  return (
-    <div className="dash-item-row">
-      <span className="dash-item-rank">#{rank}</span>
-      <div className="dash-item-info" style={{ flex: 1 }}>
-        <strong className="dash-item-name">{name}</strong>
-        <div className="dash-item-bar-track">
-          <div className="dash-item-bar-fill" style={{ width: `${w}%` }} />
+    <>
+      <div className="dash-trend-meta">
+        <div>
+          <span className="dash-trend-subtitle">Hourly · today</span>
         </div>
-        <span className="dash-item-cat">{category}</span>
+        {peakEntry && (
+          <span className="dash-trend-peak">
+            Peak {fmt(peakEntry.amount)} at {fmtHourFull(peakEntry.hour)}
+          </span>
+        )}
       </div>
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <div className="dash-item-amt">{fmt(amount)}</div>
-        <div className="dash-item-qty">{qty} sold</div>
-      </div>
-    </div>
-  );
-}
 
-// ─── Category bar ─────────────────────────────────────────────────────────────
-
-const CAT_COLORS_FE = ["#2563eb","#0F766E","#ea580c","#7c3aed","#dc2626","#0891b2","#92400e","#374151"];
-
-function CategorySalesSection({ categorySales }) {
-  const cats = (categorySales?.categories || []).slice(0, 6);
-  if (!cats.length) return null;
-
-  const maxAmt = Math.max(...cats.map(c => c.amount), 1);
-
-  return (
-    <section className="dash-card">
-      <h4 className="dash-card-title">📂 Sales by Category</h4>
-      <div className="dash-cat-list">
-        {cats.map((cat, i) => {
-          const color = CAT_COLORS_FE[i % CAT_COLORS_FE.length];
-          const w     = Math.max(4, Math.round((cat.amount / maxAmt) * 100));
+      <div className="dash-trend-chart">
+        {hourlySales.map(h => {
+          const isPeak   = peakEntry && h.hour === peakEntry.hour;
+          const isActive = h.amount > 0;
+          const heightPct = Math.max(4, Math.round((h.amount / maxAmt) * 100));
           return (
-            <div key={cat.name} className="dash-cat-row">
-              <span className="dash-cat-dot" style={{ background: color }} />
-              <span className="dash-cat-name">{cat.name}</span>
-              <div className="dash-cat-track">
-                <div className="dash-cat-fill" style={{ width: `${w}%`, background: color }} />
+            <div key={h.hour} className="dash-trend-col">
+              <div className="dash-trend-bar-wrap">
+                <div
+                  className={`dash-trend-bar${isPeak ? " peak" : isActive ? " active" : ""}`}
+                  style={{ height: `${heightPct}%` }}
+                />
               </div>
-              <span className="dash-cat-qty">{cat.qty} qty</span>
-              <span className="dash-cat-amt">{fmt(cat.amount)}</span>
+              <span className="dash-trend-hour">{fmtHourShort(h.hour)}</span>
             </div>
           );
         })}
       </div>
-    </section>
+
+      <div className="dash-trend-legend">
+        <span><span className="dash-tleg-dot" />Off-peak</span>
+        <span><span className="dash-tleg-dot active" />Active hours</span>
+        <span><span className="dash-tleg-dot peak" />Peak hour</span>
+      </div>
+    </>
+  );
+}
+
+// ─── Top selling items list ────────────────────────────────────────────────────
+
+function TopItemsList({ items }) {
+  if (!items.length) return <p className="dash-card-empty">No item data</p>;
+  return (
+    <div className="dash-top-list">
+      {items.map((item, i) => (
+        <div key={item.name} className="dash-top-row">
+          <span className="dash-top-rank">{i + 1}</span>
+          <div className="dash-top-info">
+            <strong className="dash-top-name">{item.name}</strong>
+            <span className="dash-top-qty">{item.qty} sold</span>
+          </div>
+          <span className="dash-top-amt">{fmt(item.amount)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Service mode breakdown ────────────────────────────────────────────────────
+
+function ServiceModeSection({ orderTypes }) {
+  const total = orderTypes.reduce((s, t) => s + t.amount, 0);
+  return (
+    <div className="dash-mode-list">
+      {orderTypes.map(t => {
+        const pct  = total > 0 ? Math.round((t.amount / total) * 100) : 0;
+        const color = serviceModeColor(t.type);
+        const label = t.type === "Online" ? "Delivery" : t.type;
+        return (
+          <div key={t.type} className="dash-mode-row">
+            <div className="dash-mode-head">
+              <span className="dash-mode-name">{label}</span>
+              <span className="dash-mode-right">
+                {pct}% · {fmt(t.amount)}
+              </span>
+            </div>
+            <div className="dash-mode-track">
+              <div
+                className="dash-mode-fill"
+                style={{ width: `${pct}%`, background: color }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Payment breakdown list ────────────────────────────────────────────────────
+
+function PaymentList({ paymentModes }) {
+  if (!paymentModes.length) return <p className="dash-card-empty">No payment data</p>;
+  const total = paymentModes.reduce((s, p) => s + p.amount, 0);
+  return (
+    <div className="dash-pay-list">
+      {[...paymentModes].sort((a, b) => b.amount - a.amount).map(p => {
+        const pct = total > 0 ? Math.round((p.amount / total) * 100) : 0;
+        return (
+          <div key={p.mode} className="dash-pay-row">
+            <div className="dash-pay-head">
+              <span className="dash-pay-mode">{p.mode}</span>
+              <span className="dash-pay-bills">{p.orders} bills</span>
+              <span className="dash-pay-amt">{fmt(p.amount)}</span>
+            </div>
+            <div className="dash-pay-track">
+              <div
+                className="dash-pay-fill"
+                style={{ width: `${pct}%`, background: payColor(p.mode) }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -225,14 +234,14 @@ function EmptyDay({ outletName }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function DashboardPage() {
-  const [outlets,    setOutlets]    = useState([]);
-  const [outletId,   setOutletId]   = useState("__all__");
-  const [dateFrom,   setDateFrom]   = useState(todayISO);
-  const [dateTo,     setDateTo]     = useState(todayISO);
-  const [data,          setData]          = useState(null);
-  const [loading,       setLoading]       = useState(true);
-  const [lastSynced,    setLastSynced]    = useState(null);
-  const [error,         setError]         = useState("");
+  const [outlets,        setOutlets]        = useState([]);
+  const [outletId,       setOutletId]       = useState("__all__");
+  const [dateFrom,       setDateFrom]       = useState(todayISO);
+  const [dateTo,         setDateTo]         = useState(todayISO);
+  const [data,           setData]           = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [lastSynced,     setLastSynced]     = useState(null);
+  const [error,          setError]          = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
   const timerRef = useRef(null);
 
@@ -303,11 +312,9 @@ export function DashboardPage() {
 
     // Socket-level connection failure (network down, server unreachable)
     sock.on("connect_error", () => {
-      // Don't overwrite a session-expired state — that's a more specific message
       if (!sessionExpired) setError("Live updates paused — retrying connection...");
     });
     sock.on("connect", () => {
-      // Clear connection error once socket recovers
       setError(prev => prev === "Live updates paused — retrying connection..." ? "" : prev);
     });
 
@@ -317,12 +324,10 @@ export function DashboardPage() {
   // ── derived values ────────────────────────────────────────────────────────
   const summary      = data?.salesData?.dayEnd?.summary       || {};
   const paymentModes = data?.salesData?.dayEnd?.paymentModes  || [];
-  const sessions     = data?.salesData?.dayEnd?.sessions      || [];
   const orderTypes   = data?.salesData?.dayEnd?.orderTypes    || [];
+  const hourlySales  = data?.salesData?.dayEnd?.hourlySales   || [];
   const itemSales    = data?.salesData?.itemSales             || [];
-  const categorySales = data?.salesData?.categorySales        || {};
   const topItems     = [...itemSales].sort((a, b) => b.amount - a.amount).slice(0, 5);
-  const topItemMax   = topItems[0]?.amount || 1;
 
   const totalSales     = summary.totalSales       || 0;
   const totalOrders    = summary.totalOrders      || 0;
@@ -337,16 +342,12 @@ export function DashboardPage() {
     ? lastSynced.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
     : "—";
 
-  // Compute "active" order types (filter out zero-order types for cleanliness)
   const activeOrderTypes = orderTypes.filter(t => t.orders > 0);
-  // If nothing from backend yet, show skeleton types
   const displayOrderTypes = activeOrderTypes.length > 0
     ? activeOrderTypes
-    : [
-        { type: "Dine In",  orders: totalOrders, amount: totalSales },
-        { type: "Takeaway", orders: 0, amount: 0 },
-        { type: "Online",   orders: 0, amount: 0 },
-      ].filter(t => t.orders > 0);
+    : totalOrders > 0
+      ? [{ type: "Dine In", orders: totalOrders, amount: totalSales }]
+      : [];
 
   return (
     <>
@@ -369,11 +370,9 @@ export function DashboardPage() {
         </div>
       </header>
 
-
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div className="dash-toolbar">
         <div className="dash-toolbar-left">
-          <span className="dash-date-chip">📅</span>
           <input
             type="date" className="dash-date-input" value={dateFrom} max={dateTo}
             onChange={e => { setDateFrom(e.target.value); if (e.target.value > dateTo) setDateTo(e.target.value); }}
@@ -385,7 +384,7 @@ export function DashboardPage() {
           />
           {isToday && (
             <>
-              <span className="dash-live-dot" title="Updates instantly when orders are billed" />
+              <span className="dash-live-dot" />
               <span className="dash-live-label">Live</span>
             </>
           )}
@@ -428,89 +427,61 @@ export function DashboardPage() {
         <>
           {/* ── KPI row ───────────────────────────────────────────────── */}
           <div className="dash-kpi-row">
-            <KpiCard icon="💰" label="Total Sales"    value={fmt(totalSales)}    sub={`${totalOrders} orders`}              color="#0F766E" />
-            <KpiCard icon="🧾" label="Orders Billed"  value={totalOrders}        sub={`Avg ${fmt(avgOrder)} / bill`}         color="#2563eb" />
-            <KpiCard icon="📱" label="Collected"       value={fmt(totalCollected)} sub={paymentModes.map(p => p.mode).join(" · ") || "—"} color="#7c3aed" />
-            <KpiCard icon="🏷️" label="GST Collected"  value={fmt(totalTax)}      sub="CGST + SGST"                          color="#dc2626" />
+            <KpiCard label="Net sales"       value={fmt(totalSales)}  sub={`${totalOrders} orders`} />
+            <KpiCard label="Orders"          value={totalOrders}       sub={`Avg ${fmt(avgOrder)} / bill`} />
+            <KpiCard label="Avg order value" value={fmt(avgOrder)}     sub="per bill" />
+            <KpiCard label="GST collected"   value={fmt(totalTax)}     sub="CGST + SGST" />
             {totalDisc > 0 && (
-              <KpiCard icon="🎁" label="Discounts Given" value={fmt(totalDisc)} sub="Total savings" color="#ea580c" />
+              <KpiCard label="Discounts" value={fmt(totalDisc)} sub="total savings" />
             )}
           </div>
 
-          {/* ── Order type breakdown row ───────────────────────────────── */}
-          {displayOrderTypes.length > 0 && (
-            <OrderTypeCards orderTypes={displayOrderTypes} />
-          )}
+          {/* ── Main two-column grid ───────────────────────────────────── */}
+          <div className="dash-main-2col">
 
-          {/* ── Main grid ─────────────────────────────────────────────── */}
-          <div className="dash-main-grid">
+            {/* Sales trend — hourly vertical bar chart */}
+            <section className="dash-card dash-trend-card">
+              <h4 className="dash-card-title">Sales trend</h4>
+              <SalesTrendChart hourlySales={hourlySales} />
+            </section>
 
-            {/* Session / time-of-day bar chart */}
-            {sessions.length > 0 && (
-              <section className="dash-card dash-card-wide">
-                <h4 className="dash-card-title">📊 Sales by Time of Day</h4>
-                <SessionBarChart sessions={sessions} />
-              </section>
-            )}
-
-            {/* Top 5 selling items */}
+            {/* Top selling items */}
             <section className="dash-card">
-              <h4 className="dash-card-title">🔥 Top Selling Items</h4>
-              {topItems.length === 0 ? (
-                <p className="dash-card-empty">No item data</p>
-              ) : (
-                <div className="dash-item-list">
-                  {topItems.map((item, i) => (
-                    <TopItemRow
-                      key={item.name}
-                      rank={i + 1}
-                      name={item.name}
-                      category={item.category}
-                      qty={item.qty}
-                      amount={item.amount}
-                      maxAmount={topItemMax}
-                    />
-                  ))}
+              <h4 className="dash-card-title">Top selling items</h4>
+              <TopItemsList items={topItems} />
+            </section>
+
+          </div>
+
+          {/* ── Bottom two-column row ──────────────────────────────────── */}
+          <div className="dash-bottom-2col">
+
+            {/* Sales by service mode */}
+            <section className="dash-card">
+              <h4 className="dash-card-title">Sales by service mode</h4>
+              {displayOrderTypes.length > 0
+                ? <ServiceModeSection orderTypes={displayOrderTypes} />
+                : <p className="dash-card-empty">No service mode data</p>
+              }
+              {displayOrderTypes.length > 0 && (
+                <div className="dash-channel-block">
+                  <p className="dash-section-eyebrow">Orders by channel</p>
+                  <div className="dash-channel-row">
+                    {displayOrderTypes.map(t => (
+                      <div key={t.type} className="dash-channel-item">
+                        <strong>{t.orders}</strong>
+                        <span>{t.type === "Online" ? "Delivery" : t.type}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>
-
-            {/* Category breakdown */}
-            <CategorySalesSection categorySales={categorySales} />
 
             {/* Payment breakdown */}
             <section className="dash-card">
-              <h4 className="dash-card-title">💳 Payment Breakdown</h4>
-              {paymentModes.length === 0 ? (
-                <p className="dash-card-empty">No payment data</p>
-              ) : (
-                <div className="dash-pay-list">
-                  {[...paymentModes].sort((a, b) => b.amount - a.amount).map(p => (
-                    <PaymentBar key={p.mode} mode={p.mode} amount={p.amount} orders={p.orders} total={totalCollected} />
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* Quick stats */}
-            <section className="dash-card dash-card-stats">
-              <h4 className="dash-card-title">📈 Quick Stats</h4>
-              <div className="dash-stat-list">
-                <div className="dash-stat-row"><span>Gross Revenue</span><strong>{fmt(totalSales)}</strong></div>
-                <div className="dash-stat-row"><span>Total Tax</span><strong>{fmt(totalTax)}</strong></div>
-                <div className="dash-stat-row"><span>Discounts</span><strong>{fmt(totalDisc)}</strong></div>
-                <div className="dash-stat-row"><span>Avg Bill Value</span><strong>{fmt(avgOrder)}</strong></div>
-                <div className="dash-stat-row">
-                  <span>Highest Mode</span>
-                  <strong>{paymentModes.length > 0 ? [...paymentModes].sort((a, b) => b.amount - a.amount)[0].mode : "—"}</strong>
-                </div>
-                <div className="dash-stat-row">
-                  <span>Top Item</span>
-                  <strong style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {topItems[0]?.name || "—"}
-                  </strong>
-                </div>
-              </div>
+              <h4 className="dash-card-title">Payment breakdown</h4>
+              <PaymentList paymentModes={paymentModes} />
             </section>
 
           </div>
