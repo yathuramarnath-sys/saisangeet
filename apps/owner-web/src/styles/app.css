@@ -13248,3 +13248,98 @@ button.inv-toggle:focus-visible {
 /* ── Captain Incentives sub-report (inside Reports) ──────────────────────*/
 .inc-share-bar-fill { background: var(--oc-teal, #0F766E) !important; }
 
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGNER UI — v4 Patch: Hide dashboard emoji icons + fix teal value color
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Dashboard KPI: hide emoji icon (designer shows no icon on stat cards) */
+.dash-kpi-icon {
+  display: none !important;
+}
+
+/* ── Dashboard toolbar: hide calendar emoji chip before date inputs ───────*/
+.dash-date-chip {
+  display: none !important;
+}
+
+/* ── Dashboard order-type card: hide emoji icon ───────────────────────────*/
+.dash-otype-icon {
+  display: none !important;
+}
+
+/* ── Dashboard KPI body: fill the space the icon vacated ─────────────────*/
+.dash-kpi-body {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+/* ── rpt-kpi-hi: teal value — use double-class specificity to win ─────────
+   .rpt-kpi.rpt-kpi-hi beats any single-class rule regardless of order     */
+.rpt-kpi.rpt-kpi-hi {
+  background: var(--oc-card, #fff) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-top: 3px solid var(--oc-teal, #0F766E) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  box-shadow: 0 2px 8px rgba(15,118,110,.07) !important;
+}
+.rpt-kpi.rpt-kpi-hi .rpt-kpi-value {
+  color: var(--oc-teal, #0F766E) !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+}
+.rpt-kpi.rpt-kpi-hi .rpt-kpi-label,
+.rpt-kpi.rpt-kpi-hi .rpt-kpi-sub {
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+
+/* ── Dashboard KPI card: slightly taller without icon ────────────────────*/
+.dash-kpi {
+  padding: 20px 24px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0 !important;
+}
+.dash-kpi-label {
+  margin-bottom: 4px !important;
+}
+
+/* ── Date inputs: style as cleaner pill ──────────────────────────────────*/
+.dash-date-input {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 6px 10px !important;
+  border-radius: 7px !important;
+  background: var(--oc-card, #fff) !important;
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  font-family: inherit !important;
+}
+.dash-date-sep {
+  color: var(--oc-muted, #6B6B6B) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+/* ── Outlet select: cleaner pill ─────────────────────────────────────────*/
+.dash-outlet-select {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 6px 12px !important;
+  border-radius: 7px !important;
+  background: var(--oc-card, #fff) !important;
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+}
+
+/* ── rpt-quick-chip active: stronger teal so it's unmistakable ───────────*/
+.rpt-quick-chip.active {
+  background: var(--oc-teal, #0F766E) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+
