@@ -13981,3 +13981,305 @@ button.inv-toggle:focus-visible {
   padding: 20px 0 !important;
   text-align: center !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGNER UI — v6b: Remaining pages — Inventory, Menu, Staff, Integrations,
+   Taxes/Receipts, Credits, webhook cards
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Inventory: session tab active ───────────────────────────────────────── */
+.inv-session-tab {
+  padding: 6px 16px !important;
+  border-radius: 20px !important;
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  background: var(--oc-card, #fff) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  transition: all 0.15s !important;
+}
+.inv-session-tab.active {
+  background: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+}
+
+/* ── Inventory: stock table rows ─────────────────────────────────────────── */
+.inv-stock-head {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  border-bottom: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  background: transparent !important;
+}
+.inv-stock-row {
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  font-size: 13.5px !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.inv-stock-row:hover { background: var(--oc-ground, #F7F6F2) !important; }
+.inv-item-name { font-weight: 600 !important; color: var(--oc-ink, #1C1C1C) !important; }
+
+/* ── Inventory: inputs ───────────────────────────────────────────────────── */
+.inv-qty-input {
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 7px !important;
+  background: var(--oc-card, #fff) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.inv-qty-input:focus { border-color: var(--oc-teal, #0F766E) !important; }
+.inv-unit-select {
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 7px !important;
+  background: var(--oc-card, #fff) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+
+/* ── Inventory: wastage form ─────────────────────────────────────────────── */
+.inv-wastage-form label select,
+.inv-wastage-form label input {
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 7px !important;
+  background: var(--oc-card, #fff) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.inv-wastage-form label select:focus,
+.inv-wastage-form label input:focus { border-color: var(--oc-teal, #0F766E) !important; }
+.inv-wastage-submit {
+  background: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 8px !important;
+}
+
+/* ── Inventory: log table ────────────────────────────────────────────────── */
+.inv-log-head {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  background: transparent !important;
+  border-bottom: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+}
+.inv-log-row {
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  font-size: 13px !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.inv-log-row:hover { background: var(--oc-ground, #F7F6F2) !important; }
+
+/* ── Inventory: add item row ─────────────────────────────────────────────── */
+.inv-add-item-input {
+  background: var(--oc-ground, #F7F6F2) !important;
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 7px !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.inv-add-item-input:focus { border-color: var(--oc-teal, #0F766E) !important; }
+
+/* ── Menu: library row selected + head ───────────────────────────────────── */
+.menu-library-row.row-selected {
+  background: rgba(15, 118, 110, 0.05) !important;
+  border-left: 3px solid var(--oc-teal, #0F766E) !important;
+}
+.menu-library-row.head {
+  background: var(--oc-ground, #F7F6F2) !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+}
+.menu-library-row .col-check input[type="checkbox"] {
+  accent-color: var(--oc-teal, #0F766E) !important;
+}
+.unit-badge {
+  background: rgba(15, 118, 110, 0.1) !important;
+  color: var(--oc-teal, #0F766E) !important;
+  border-radius: 4px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+}
+
+/* ── Tax delivery chip selected ──────────────────────────────────────────── */
+.tax-delivery-chip.selected {
+  border-color: var(--oc-teal, #0F766E) !important;
+  background: rgba(15, 118, 110, 0.07) !important;
+  font-weight: 600 !important;
+  color: var(--oc-teal, #0F766E) !important;
+}
+.tax-delivery-chip.selected input { display: none !important; }
+
+/* ── Tax badge ───────────────────────────────────────────────────────────── */
+.tax-badge {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 2px 8px !important;
+  border-radius: 10px !important;
+  background: rgba(15, 118, 110, 0.1) !important;
+  color: var(--oc-teal, #0F766E) !important;
+}
+
+/* ── Integrations: webhook card ──────────────────────────────────────────── */
+.int-webhook-card {
+  background: var(--oc-card, #fff) !important;
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 12px !important;
+  padding: 20px 22px !important;
+  box-shadow: none !important;
+  margin-bottom: 16px !important;
+}
+.int-webhook-title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  margin: 0 0 4px !important;
+}
+.int-webhook-desc {
+  font-size: 13px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  margin: 0 0 16px !important;
+  line-height: 1.5 !important;
+}
+.int-webhook-field-label {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  display: block !important;
+  margin-bottom: 5px !important;
+}
+.int-webhook-field-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: var(--oc-ground, #F7F6F2) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  flex-wrap: wrap !important;
+}
+.int-webhook-url {
+  font-family: "Roboto Mono", monospace !important;
+  font-size: 12px !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  flex: 1 !important;
+  word-break: break-all !important;
+  background: none !important;
+  border: none !important;
+  outline: none !important;
+}
+.int-webhook-hint {
+  font-size: 11px !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  margin: 4px 0 0 !important;
+}
+.int-webhook-divider {
+  height: 1px !important;
+  background: var(--oc-hairline, #ECEAE3) !important;
+  margin: 14px 0 !important;
+}
+
+/* ── Integrations: copy button ───────────────────────────────────────────── */
+.int-copy-btn {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 5px 12px !important;
+  border-radius: 6px !important;
+  border: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  background: var(--oc-card, #fff) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.15s !important;
+}
+.int-copy-btn:hover {
+  background: var(--oc-teal, #0F766E) !important;
+  border-color: var(--oc-teal, #0F766E) !important;
+  color: #fff !important;
+}
+.int-copy-btn.ghost {
+  border-color: var(--oc-hairline, #ECEAE3) !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+}
+
+/* ── Integrations: creds form ────────────────────────────────────────────── */
+.int-creds-form {
+  background: var(--oc-ground, #F7F6F2) !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 10px !important;
+}
+.int-creds-title {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.int-creds-live-badge {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--oc-teal, #0F766E) !important;
+  background: rgba(15, 118, 110, 0.1) !important;
+  padding: 2px 8px !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(15, 118, 110, 0.25) !important;
+}
+
+/* ── Credit: items table ─────────────────────────────────────────────────── */
+.credit-items-table th {
+  color: var(--oc-muted, #6B6B6B) !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  background: transparent !important;
+}
+.credit-items-table td {
+  color: var(--oc-ink, #1C1C1C) !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+.credit-bill-totals {
+  border-top: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+.credit-total-row {
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.credit-total-row.total {
+  border-top: 1.5px solid var(--oc-hairline, #ECEAE3) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.credit-total-row.settled { color: var(--oc-teal, #0F766E) !important; }
+.credit-item-note { color: var(--oc-muted, #6B6B6B) !important; }
+.credit-no-items  { color: var(--oc-muted, #6B6B6B) !important; }
+.credit-bill-notes { color: var(--oc-muted, #6B6B6B) !important; }
+.credit-settle-summary > div {
+  border-bottom: 1px dashed var(--oc-hairline, #ECEAE3) !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+}
+.credit-settle-total strong { color: var(--oc-teal, #0F766E) !important; }
+.credit-po {
+  background: var(--oc-ground, #F7F6F2) !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  border-radius: 4px !important;
+}
+.credit-bill-amt { color: var(--oc-ink, #1C1C1C) !important; }
+
+/* ── Receipt preview: keep thermal look, warm paper tones ────────────────── */
+.trp-paper {
+  background: #FDFCF8 !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-bottom: none !important;
+}
+.trp-total-row.saved { color: var(--oc-teal, #0F766E) !important; font-weight: 700 !important; }
+.trp-total-row.discount { color: #B91C1C !important; }
+
+/* ── Int guide toggle ────────────────────────────────────────────────────── */
+.int-guide-toggle {
+  color: var(--oc-teal, #0F766E) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  margin-top: 6px !important;
+}
+.int-setup-guide li { color: var(--oc-ink, #1C1C1C) !important; font-size: 13px !important; }
+.int-setup-guide a  { color: var(--oc-teal, #0F766E) !important; }
