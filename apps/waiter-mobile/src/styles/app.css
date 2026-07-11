@@ -7875,3 +7875,171 @@ html, body, #root {
   cursor: pointer; touch-action: manipulation; color: #6B7280; flex-shrink: 0;
 }
 .crs-courses-btn:active { background: #ECEAE3; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Captain App — Designer UI v2 overrides
+   All correctness overrides live here to keep them auditable in one place.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Design token — warm cream background (replaces cold blue-gray) */
+:root {
+  --bg:        #F7F6F2;
+  --surface-2: #ECEAE3;
+  --border:    rgba(0,0,0,0.07);
+}
+
+/* 2. Floor page — occupancy bar fill: amber (was black) */
+.tf2-occ-bar-fill { background: #F8CB46; }
+
+/* 3. Bottom tab — active icon + label: amber (was near-black) */
+.btab-item.btab-active { color: #D4A017; }
+
+/* 4. KOT sending overlay — solid amber disc with white ring spinner inside */
+.kot-spinner {
+  position: relative;
+  border: none;
+  background: #FFC900;
+  box-shadow: 0 0 0 6px rgba(255,201,0,0.18);
+  animation: none;
+}
+.kot-spinner::before {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 28px; height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  animation: kot-spin 0.75s linear infinite;
+}
+
+/* 5. Table-moved modal — Done button: amber (was green) */
+.tsm-done-btn            { background: #F8CB46; color: #1C1C1E; }
+.tsm-done-btn:active     { background: #E6B400; }
+
+/* 6. Settings screen — backgrounds + save button + focus ring */
+.ss3-page                { background: #F7F6F2; }
+.ss3-back-btn            { background: #F7F6F2; }
+.ss3-field-input:focus   { border-color: #FFC900; }
+.ss3-field-select:focus  { border-color: #FFC900; }
+.ss3-save-btn            { background: #F8CB46; color: #1C1C1E; }
+.ss3-save-btn:active     { background: #E6B400; }
+/* keep .ss3-save-ok green so success feedback stays distinct */
+
+/* 7. Find POS screen — backgrounds + rescan button + focus ring */
+.fp2-page                { background: #F7F6F2; }
+.fp2-bottom              { background: #F7F6F2; }
+.fp2-back-btn            { background: #F7F6F2; }
+.fp2-manual-input:focus  { border-color: #FFC900; }
+.fp2-rescan-btn          { background: #F8CB46; color: #1C1C1E; }
+.fp2-rescan-btn:active   { background: #E6B400; }
+.fp2-rescan-scanning     { background: #EBBA2A; cursor: wait; }
+
+/* ── Customer Info Sheet (cust3-*) ─────────────────────────────────────── */
+/* This component was using classes that had no CSS — adding them here.      */
+.cust3-page {
+  display: flex; flex-direction: column;
+  height: 100%; background: #F7F6F2;
+  font-family: inherit;
+}
+
+.cust3-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 16px 14px;
+  background: #fff;
+  border-bottom: 1px solid #ECEAE3;
+  flex-shrink: 0;
+}
+
+.cust3-back-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  border: none; background: #F7F6F2; border-radius: 50%;
+  color: #1C1C1E; cursor: pointer; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.cust3-back-btn:active { background: #ECEAE3; }
+
+.cust3-header-text { display: flex; flex-direction: column; gap: 1px; }
+.cust3-title  { font-size: 1.05rem; font-weight: 700; color: #1C1C1E; margin: 0; }
+.cust3-subtitle { font-size: 0.78rem; color: #9CA3AF; margin: 0; }
+
+.cust3-scroll { flex: 1; overflow-y: auto; padding: 16px 16px 8px; }
+
+/* Phone input card */
+.cust3-phone-card {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; border-radius: 14px;
+  border: 1.5px solid #ECEAE3;
+  padding: 12px 16px; margin-bottom: 12px;
+}
+.cust3-phone-icon { color: #9CA3AF; flex-shrink: 0; display: flex; }
+.cust3-phone-input {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  font-size: 1rem; color: #1C1C1E; font-family: inherit;
+}
+.cust3-phone-input::placeholder { color: #D1D5DB; }
+.cust3-phone-check { color: #16A34A; flex-shrink: 0; display: flex; }
+
+/* Profile card */
+.cust3-profile-card {
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border-radius: 14px;
+  border: 1.5px solid #ECEAE3;
+  padding: 14px 16px; margin-bottom: 12px;
+}
+.cust3-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; font-weight: 700; flex-shrink: 0;
+}
+.cust3-profile-info { display: flex; flex-direction: column; gap: 2px; }
+.cust3-profile-name { font-size: 0.95rem; font-weight: 700; color: #1C1C1E; }
+.cust3-profile-sub  { font-size: 0.78rem; color: #6B7280; }
+
+/* Tags */
+.cust3-section-label {
+  display: block; font-size: 0.67rem; font-weight: 700; letter-spacing: 0.09em;
+  color: #9CA3AF; margin: 4px 0 8px 2px;
+}
+.cust3-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.cust3-tag {
+  padding: 5px 12px; border-radius: 99px;
+  font-size: 0.78rem; font-weight: 600;
+}
+.cust3-tag-plain { background: #ECEAE3; color: #374151; }
+.cust3-tag-add   { background: #FFF7DC; color: #D4A017; border: 1.5px dashed #F8CB46; }
+
+/* Recent orders card */
+.cust3-orders-card {
+  background: #fff; border-radius: 14px;
+  border: 1.5px solid #ECEAE3;
+  overflow: hidden; margin-bottom: 12px;
+}
+.cust3-order-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; gap: 12px;
+  border-top: 1px solid #F5F4F0;
+}
+.cust3-order-row:first-child { border-top: none; }
+.cust3-order-left  { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.cust3-order-items { font-size: 0.85rem; font-weight: 600; color: #1C1C1E;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cust3-order-meta  { font-size: 0.73rem; color: #9CA3AF; }
+.cust3-order-amount { font-size: 0.88rem; font-weight: 700; color: #1C1C1E; flex-shrink: 0; }
+
+/* Bottom action */
+.cust3-bottom {
+  padding: 12px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: #fff; border-top: 1px solid #ECEAE3; flex-shrink: 0;
+}
+.cust3-attach-btn {
+  width: 100%; height: 52px; border-radius: 14px; border: none;
+  background: #F8CB46; color: #1C1C1E;
+  font-size: 1rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.cust3-attach-btn:active { background: #E6B400; }
