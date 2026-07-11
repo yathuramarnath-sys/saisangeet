@@ -8043,3 +8043,26 @@ html, body, #root {
   -webkit-tap-highlight-color: transparent;
 }
 .cust3-attach-btn:active { background: #E6B400; }
+
+/* ── Designer v2 patch 2 — Settings layout + FindPOS Add button ─────────── */
+
+/* Settings: stack label above input (designer shows column layout) */
+.ss3-field-row        { flex-direction: column; align-items: stretch; gap: 6px; padding: 14px 16px 16px; }
+.ss3-field-label      { font-size: 0.82rem; }
+.ss3-field-input      { text-align: left; width: 100%; }
+.ss3-field-select     { width: 100%; }
+
+/* FindPOS: "Add" is a plain blue text link, not a solid button */
+.fp2-manual-add-btn {
+  background: transparent;
+  color: #2563EB;
+  padding: 9px 4px 9px 12px;
+  border: none;
+  border-radius: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.fp2-manual-add-btn:active { background: transparent; opacity: 0.6; }
