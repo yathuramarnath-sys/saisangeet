@@ -8257,3 +8257,51 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 /* J. Occupied table bar fill: official --color-occupied */
 .tf2-occ-bar-occupied .tf2-occ-bar-fill { background: #E07A1F; }
 /* Free table indicator via Floor chip colors */
+
+/* ── PATCH 5: Audit fixes ──────────────────────────────────────────────────── */
+
+/* K. Font: override :root's Manrope with Inter on :root itself (higher specificity) */
+:root { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+/* L. FindPOS Add button: parent selector (0-2-0 beats 0-1-0) ensures transparent text link */
+.fp2-manual-row .fp2-manual-add-btn {
+  background: transparent;
+  color: #2563EB;
+  padding: 9px 4px 9px 12px;
+  border: none;
+  border-radius: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.fp2-manual-row .fp2-manual-add-btn:active { background: transparent; opacity: 0.6; }
+
+/* M. Input fonts → Inter (override SF Mono) */
+.fp2-manual-input  { font-family: 'Inter', sans-serif; }
+.ss3-field-input   { font-family: 'Inter', sans-serif; }
+.ss3-field-select  { font-family: 'Inter', sans-serif; }
+
+/* N. Section labels: Tailwind gray #9CA3AF → official --color-faint #757570 */
+.fp2-section-head  { color: #757570; }
+.ss3-section-head  { color: #757570; }
+
+/* O. Card / row borders → official --color-hairline #ECEAE3 */
+.ss3-card          { border-color: #ECEAE3; }
+.fp2-list-card     { border-color: #ECEAE3; }
+.fp2-manual-row    { border-color: #ECEAE3; }
+
+/* P. Settings test button: official hairline + ink text */
+.ss3-test-btn      { border-color: #ECEAE3; color: #1C1C1C; }
+.ss3-test-ok       { border-color: #0C831F; color: #0C831F; }   /* --color-free */
+.ss3-test-fail     { border-color: #D92D20; color: #D92D20; }   /* --color-danger */
+
+/* Q. FindPOS server row selected: official --color-free-soft */
+.fp2-server-row-sel { background: #E7F3E9; }
+
+/* R. More screen / info rows text: official tokens */
+.more2-sync-value  { color: #757570; }
+.more2-info-value  { color: #1C1C1C; font-weight: 500; }
+.more2-info-label  { color: #757570; }
