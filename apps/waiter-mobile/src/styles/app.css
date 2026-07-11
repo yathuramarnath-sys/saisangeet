@@ -8482,3 +8482,120 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 
 /* floor-summary active number: official --color-occupied (was orange) */
 .active-num { color: #E07A1F !important; }
+
+/* ── PATCH 8: Comprehensive sweep of all remaining #FFC900/#E6B400 instances ────────── */
+
+/* Assign waiter */
+.assign-staff-row input[type="radio"] { accent-color: #F8CB46; }
+.assign-done-btn       { background: #F8CB46; color: #1C1C1C; }
+.assign-done-btn:active { background: #EBBA2A; }
+
+/* Menu browser category chip — reorder inset glow */
+.cat-chip-reorder { box-shadow: 0 0 0 2px #F8CB46 inset; }
+
+/* Menu grid add button (box layout, !important needed) */
+.menu-add-btn { background: #F8CB46 !important; color: #1C1C1C !important; }
+
+/* Login PIN brand icon + dot current + numpad v2 */
+.pin-brand-icon           { background: #F8CB46; }
+.pin-v2-dot-current       { background: #F8CB46; border-color: #EBBA2A; }
+.numpad-v2-key:active     { background: #F8CB46; border-color: #EBBA2A; }
+
+/* Floor area tabs + running bar + unsent badge */
+.tf2-area-tab-active { background: #F8CB46; border-color: #F8CB46; color: #1C1C1C; }
+.tf2-tab-active      { border-bottom-color: #F8CB46; }
+.tf2-bar-running     { background: #F8CB46; }
+.tf2-unsent          { background: #F8CB46; color: #1C1C1C; }
+
+/* MenuBrowser: search active, category chips, stepper, add button */
+.mb2-search-active   { border-color: #F8CB46; }
+.mb2-cat-fav         { border-color: #F8CB46; color: #E07A1F; }
+.mb2-cat-active      { background: #F8CB46; border-color: #F8CB46; color: #1C1C1C; }
+.mb2-fav-active      { color: #F6B23C; }
+.mb2-stepper         { border-color: #F8CB46; }
+.mb2-step-plus       { background: #F8CB46; color: #1C1C1C; }
+.mb2-step-plus:active { background: #EBBA2A; }
+.mb2-add-btn         { border-color: #F8CB46; background: #F8CB46; color: #1C1C1C; }
+.mb2-add-btn:active  { background: #EBBA2A; }
+.mb2-cart-view       { color: #F6B23C; }
+
+/* Order Screen: guest add, section count pill, qty stepper, KOT send */
+.os2-guest-btn-add   { background: #F8CB46; color: #1C1C1C; }
+.os2-section-count   { background: #F8CB46; color: #1C1C1C; }
+.os2-qty-ctrl        { border-color: #F8CB46; }
+.os2-qty-plus        { background: #F8CB46; color: #1C1C1C; }
+.os2-qty-plus:active { background: #EBBA2A; }
+.os2-kot-btn         { background: #F8CB46; color: #1C1C1C; }
+.os2-kot-btn:active  { background: #EBBA2A; }
+
+/* KOT progress overlay: spinner, fill, add-more border */
+.kot-progress-fill  { background: #F8CB46; }
+.kot-addmore-btn    { border-color: #F8CB46; color: #F6B23C; }
+
+/* Failed KOTs retry button */
+.fkot-retry-btn       { background: #F8CB46; color: #1C1C1C; }
+.fkot-retry-btn:active { background: #EBBA2A; }
+
+/* MoveTable: selected chip, merge row, radio, confirm */
+.mt2-table-chip-sel  { border-color: #F8CB46; }
+.mt2-merge-row-sel   { border-color: #F8CB46; }
+.mt2-radio-sel       { border-color: #F8CB46; background: #F8CB46; }
+.mt2-confirm-btn     { background: #F8CB46; color: #1C1C1C; }
+.mt2-confirm-btn:not(:disabled):active { background: #EBBA2A; }
+
+/* Bottom tab active indicator dot */
+.btab-item.btab-active::before { background: #F8CB46; }
+
+/* More screen update button */
+.more2-update-btn  { background: #F8CB46; color: #1C1C1C; }
+
+/* Sync progress modal: syncing icon + fill bar */
+.spm-icon-syncing  { background: #F8CB46; }
+.spm-fill          { background: #F8CB46; }
+
+/* FindPOS (fps-): server row, radio, input focus, rescan button */
+.fps-server-row-sel { border-color: #F8CB46; background: #E7F3E9; }
+.fps-radio-sel      { border-color: #F8CB46; background: #F8CB46; }
+.fps-manual-input:focus { border-color: #F8CB46; }
+.fps-rescan-btn       { background: #F8CB46; color: #1C1C1C; }
+.fps-rescan-btn:not(:disabled):active { background: #EBBA2A; }
+
+/* Settings v2 (set2-): input focus, save button, default printer */
+.set2-field-input:focus  { border-color: #F8CB46; }
+.set2-save-btn           { background: #F8CB46; color: #1C1C1C; }
+.set2-save-btn:active    { background: #EBBA2A; }
+.set2-printer-default    { border-color: #F8CB46; background: rgba(248,203,70,0.08); }
+
+/* CustomerInfoSheet v2 (cis2-) */
+.cis2-input:focus  { border-color: #F8CB46; }
+.cis2-save         { background: #F8CB46; color: #1C1C1C; }
+.cis2-save:active  { background: #EBBA2A; }
+
+/* IncomingOrders v2 (ico2-) */
+.ico2-accept        { background: #F8CB46; color: #1C1C1C; }
+.ico2-accept:active { background: #EBBA2A; }
+
+/* SetupScreen (su2-) */
+.su2-logo             { background: #F8CB46; }
+.su2-input:focus      { border-color: #F8CB46; }
+.su2-btn              { background: #F8CB46; color: #1C1C1C; }
+.su2-btn:active:not(:disabled) { background: #EBBA2A; }
+.su2-scan-btn         { color: #F8CB46; }
+
+/* WaiterPicker (wp2-) */
+.wp2-row input[type="radio"] { accent-color: #F8CB46; }
+.wp2-done        { background: #F8CB46; color: #1C1C1C; }
+.wp2-done:active { background: #EBBA2A; }
+
+/* ConfirmDialog (cdlg-) */
+.cdlg-confirm        { background: #F8CB46; color: #1C1C1C; }
+.cdlg-confirm:active { background: #EBBA2A; }
+
+/* Login screen misc */
+.ls2-search::placeholder { color: #757570; }
+.ls2-list-chevron { color: #E3E1DA; }
+.ls2-key-del { background: #F0EFE9; color: #6B6B6B; }
+.ls2-list-row:active { background: #F0EFE9; }
+
+/* os2- hold badge: official --color-occupied */
+.os2-hold-badge { color: #E07A1F; }
