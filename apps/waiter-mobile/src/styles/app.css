@@ -8390,3 +8390,95 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 
 /* Y. Bottom nav bar background: white card */
 .btab-bar { background: #FFFFFF; border-top-color: #ECEAE3; }
+
+/* ── PATCH 7: Replace all old #FFC900/#E6B400 CTA colors with official Plato tokens ── */
+/*
+ * #FFC900 was the original "Blinkit yellow" KOT color used before design handoff.
+ * Official token is --color-cta: #F8CB46 (press: --color-cta-press: #EBBA2A).
+ * These !important overrides beat the existing !important rules at lines 2094-2242
+ * because they appear later in the cascade with equal specificity.
+ */
+
+/* Area tabs + category chip active state */
+.area-tab-active  { background: #F8CB46 !important; border-color: #EBBA2A !important; color: #1C1C1C !important; }
+.cat-chip-active  { background: #F8CB46 !important; border-color: #EBBA2A !important; color: #1C1C1C !important; }
+
+/* KOT send button (Order screen) */
+.kot-btn {
+  background:  #F8CB46 !important;
+  color:       #1C1C1C !important;
+  box-shadow:  0 6px 20px rgba(248,203,70,0.4) !important;
+}
+@keyframes kotPulse {
+  0%,100% { box-shadow: 0 4px 12px rgba(248,203,70,0.40); }
+  50%      { box-shadow: 0 6px 22px rgba(248,203,70,0.70); }
+}
+
+/* Login page logo accent */
+.login-logo { background: #F8CB46 !important; color: #1C1C1C !important; }
+.staff-card:active { border-color: #EBBA2A !important; }
+
+/* PIN pad (old pin-dot / numpad-key classes) */
+.numpad-key:active { background: #F8CB46 !important; border-color: #EBBA2A !important; color: #1C1C1C !important; }
+/* Designer: filled dots = --color-ink (not amber). Only active dot is amber. */
+.pin-dot.filled    { background: #1C1C1C !important; border-color: #1C1C1C !important; }
+
+/* "Add items" CTA (Order screen) */
+.add-items-btn { background: #F8CB46 !important; color: #1C1C1C !important; }
+
+/* Qty stepper add button + Cart bar + Quick chip + Sheet save */
+.qty-btn.qty-btn-add     { background: #F8CB46 !important; border-color: #EBBA2A !important; color: #1C1C1C !important; }
+.cart-bar-btn            { background: #F8CB46 !important; color: #1C1C1C !important; }
+.quick-chip-active       { background: #F8CB46 !important; border-color: #EBBA2A !important; color: #1C1C1C !important; }
+.sheet-save-btn          { background: #F8CB46 !important; color: #1C1C1C !important; }
+
+/* Customer info sheet save button */
+.cis-btn-save       { background: #F8CB46; color: #1C1C1C; box-shadow: 0 2px 8px rgba(248,203,70,0.35); }
+.cis-btn-save:active { background: #EBBA2A; }
+.cis-field input:focus { border-color: #F8CB46; box-shadow: 0 0 0 3px rgba(248,203,70,0.22); }
+
+/* Drawer update + printer save buttons */
+.drawer-update-btn    { background: #F8CB46; color: #1C1C1C; }
+.drawer-printer-save-btn { background: #F8CB46; color: #1C1C1C; }
+
+/* Incoming orders: header icon badge + table badge + accept button */
+.captain-incoming-btn {
+  background:  #F8CB46;
+  color:       #1C1C1C;
+  box-shadow:  0 2px 8px rgba(248,203,70,0.35);
+}
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 2px 8px rgba(248,203,70,0.35); }
+  50%       { box-shadow: 0 2px 16px rgba(248,203,70,0.60); }
+}
+.ico-count-badge  { background: #F8CB46; color: #1C1C1C; }
+.ico-table-badge  { background: #F8CB46; color: #1C1C1C; }
+.ico-accept       { background: #F8CB46; color: #1C1C1C; }
+.ico-accept:active { background: #EBBA2A; }
+
+/* ico-item-qty: gold → official app-accent */
+.ico-item-qty    { color: #F6B23C; }
+.ico-total-row strong { color: #F6B23C; }
+
+/* ico-reject: official danger-soft */
+.ico-reject      { background: #FBE9E7; color: #D92D20; }
+.ico-reject:active { background: #f8d5d2; }
+
+/* ico-sheet-header border, ico-card border → official hairline */
+.ico-sheet-header { border-bottom-color: #ECEAE3; }
+.ico-card  { background: #F7F6F2; border-color: #ECEAE3; }
+.ico-items { border-color: #ECEAE3; }
+.ico-total-row { border-top-color: #ECEAE3; color: #1C1C1C; }
+.ico-close-btn { background: #F0EFE9; color: #6B6B6B; }
+
+/* Login continue button (lv2- staff picker variant) */
+.lv2-continue-btn { background: #F8CB46; color: #1C1C1C; }
+
+/* Drawer printer inputs → Inter font, official hairline */
+.drawer-printer-input  { font-family: 'Inter', sans-serif; border-color: #ECEAE3; background: #FAFAF8; }
+.drawer-printer-select { font-family: 'Inter', sans-serif; border-color: #ECEAE3; background: #FAFAF8; }
+.drawer-printer-label  { color: #6B6B6B; }
+.drawer-printer-test-btn { border-color: #ECEAE3; background: #F7F6F2; color: #1C1C1C; }
+
+/* floor-summary active number: official --color-occupied (was orange) */
+.active-num { color: #E07A1F !important; }
