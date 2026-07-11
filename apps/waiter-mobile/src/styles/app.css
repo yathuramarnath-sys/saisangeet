@@ -8985,3 +8985,55 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .kotdr-void-icon                  { color: #757570; }
 .kotdr-void-hint                  { color: #757570; }
 .kotdr-reprint-btn:active, .kotdr-retry-btn:active { background: #EBBA2A; }
+
+/* ── PATCH 14 · Bold & Clear typography + final Tailwind color sweep ─────── */
+
+/* ── Update root text tokens to official Plato warm grays ── */
+:root {
+  --text-2: #6B6B6B;   /* Muted  (was cool #4B5563) */
+  --text-3: #757570;   /* Faint  (was cool #9CA3AF) */
+}
+
+/* ── Bottom nav — bigger, bolder labels ── */
+.btab-label      { font-size: 11px; font-weight: 700; }
+.btab-item       { color: #757570; }
+.btab-badge      { background: #D92D20; }
+.btab-update-dot { background: #D92D20; }
+
+/* ── Floor title — extra bold ── */
+.tf2-title       { font-weight: 800; }
+
+/* ── Floor area tabs — clearer weight, Hairline border ── */
+.tf2-area-tab        { font-weight: 600; border-color: #ECEAE3; }
+.tf2-area-tab-active { font-weight: 700; }
+.tf2-card            { border-color: #ECEAE3; }
+
+/* ── Floor top-tab bar (FLOOR / KOTS / etc.) ── */
+.tf2-tab             { color: #757570; font-weight: 600; }
+
+/* ── More screen — bolder row labels, warm palette ── */
+.more2-row-label    { font-weight: 700; }
+.more2-row-sub      { color: #757570; }
+.more2-section-head { color: #757570; }
+.more2-profile-sub  { color: #6B6B6B; }
+.more2-card         { border-color: #ECEAE3; }
+.more2-profile-card { border-bottom-color: #ECEAE3; }
+.more2-row-icon     { background: #F0EFE9; color: #1C1C1C; }
+
+/* ── Menu browser — bolder item names, category pills ── */
+.mb2-title       { font-weight: 800; }
+.mb2-subtitle    { color: #6B6B6B; }
+.mb2-item-name   { font-weight: 700; }
+.mb2-cat         { font-weight: 600; border-color: #ECEAE3; }
+.mb2-cat-active  { font-weight: 700; }
+.mb2-stepper     { border-color: #F8CB46; }
+.mb2-soldout-tag { background: #FBE9E7; color: #D92D20; }
+
+/* ── Settings — bolder title and field labels ── */
+.ss3-title       { font-size: 1.15rem; font-weight: 800; }
+.ss3-field-label { font-weight: 700; color: #1C1C1C; }
+.ss3-card        { border-color: #ECEAE3; }
+.ss3-back-btn    { background: #F0EFE9; }
+
+/* ── Find POS back button warm bg ── */
+.fp2-back-btn    { background: #F0EFE9; }
