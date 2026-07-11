@@ -8066,3 +8066,104 @@ html, body, #root {
   -webkit-tap-highlight-color: transparent;
 }
 .fp2-manual-add-btn:active { background: transparent; opacity: 0.6; }
+
+/* ── KOT Reprint / Detail Screen (kotdr-*) — CSS was entirely missing ─────── */
+.kotdr-page {
+  display: flex; flex-direction: column;
+  height: 100%; background: #F7F6F2; overflow: hidden;
+}
+.kotdr-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 16px 14px;
+  background: #fff; border-bottom: 1px solid #ECEAE3; flex-shrink: 0;
+}
+.kotdr-back-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: none; background: #F7F6F2; color: #1C1C1E;
+  cursor: pointer; flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+}
+.kotdr-back-btn:active { background: #ECEAE3; }
+.kotdr-header-text { display: flex; flex-direction: column; gap: 2px; }
+.kotdr-title   { font-size: 1.05rem; font-weight: 700; color: #1C1C1E; margin: 0; }
+.kotdr-subtitle { font-size: 0.78rem; color: #9CA3AF; margin: 0; }
+
+.kotdr-scroll { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* Ticket card */
+.kotdr-ticket-card {
+  background: #fff; border-radius: 16px;
+  border: 1.5px solid #ECEAE3; padding: 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.kotdr-ticket-top {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+}
+.kotdr-ticket-eyebrow {
+  font-size: 0.67rem; font-weight: 700; letter-spacing: 0.09em; color: #9CA3AF; text-transform: uppercase;
+}
+.kotdr-status-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 99px;
+  font-size: 0.72rem; font-weight: 700;
+}
+.kotdr-status-sent   { background: #ECFDF5; color: #059669; }
+.kotdr-status-failed { background: #FEF2F2; color: #DC2626; }
+
+.kotdr-ticket-number { font-size: 1.3rem; font-weight: 800; color: #1C1C1E; margin: 4px 0 2px; }
+.kotdr-ticket-meta   { font-size: 0.78rem; color: #9CA3AF; margin: 0; }
+
+.kotdr-divider { height: 1px; background: #F5F4F0; margin: 10px 0; }
+
+.kotdr-item-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 4px 0;
+}
+.kotdr-item-left { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.kotdr-item-name { font-size: 0.88rem; font-weight: 600; color: #1C1C1E; }
+.kotdr-item-qty  { font-weight: 500; color: #6B7280; }
+.kotdr-item-mods { font-size: 0.75rem; color: #9CA3AF; }
+.kotdr-item-price { font-size: 0.88rem; font-weight: 700; color: #374151; flex-shrink: 0; }
+
+.kotdr-total-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 8px; border-top: 1px solid #F5F4F0; margin-top: 4px;
+}
+.kotdr-total-label  { font-size: 0.82rem; color: #9CA3AF; }
+.kotdr-total-amount { font-size: 1rem; font-weight: 800; color: #1C1C1E; }
+
+/* Last printed info */
+.kotdr-last-printed {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px; border-radius: 12px;
+  background: #F7F6F2; color: #9CA3AF;
+}
+.kotdr-last-printed-text { font-size: 0.78rem; color: #6B7280; }
+
+/* Void button */
+.kotdr-void-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-radius: 12px;
+  border: 1.5px dashed #E5E7EB; background: #fff;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; text-align: left;
+  width: 100%;
+}
+.kotdr-void-btn:active { background: #F7F6F2; }
+.kotdr-void-icon  { color: #9CA3AF; display: flex; }
+.kotdr-void-label { font-size: 0.88rem; font-weight: 600; color: #374151; }
+.kotdr-void-hint  { font-size: 0.78rem; color: #9CA3AF; }
+
+/* Bottom action bar */
+.kotdr-bottom {
+  padding: 12px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: #fff; border-top: 1px solid #ECEAE3; flex-shrink: 0;
+}
+.kotdr-reprint-btn, .kotdr-retry-btn {
+  width: 100%; height: 52px; border-radius: 14px; border: none;
+  background: #F8CB46; color: #1C1C1E;
+  font-size: 1rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.kotdr-reprint-btn:active, .kotdr-retry-btn:active { background: #E6B400; }
