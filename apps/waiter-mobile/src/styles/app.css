@@ -8305,3 +8305,88 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .more2-sync-value  { color: #757570; }
 .more2-info-value  { color: #1C1C1C; font-weight: 500; }
 .more2-info-label  { color: #757570; }
+
+/* ── PATCH 6: Root variable override — remap legacy Tailwind vars to official Plato tokens ────── */
+/*
+ * The original :root uses Tailwind-based colours (--text #111827, --text-2 #4B5563, etc.).
+ * Everything in the early CSS that uses var(--text) / var(--text-2) / var(--bg) etc.
+ * inherits these. Overriding the variables here propagates the official Plato tokens
+ * across every rule that uses them — no JSX changes needed.
+ */
+:root {
+  /* Text hierarchy → official Plato neutral tokens */
+  --text:        #1C1C1C;   /* was #111827 — now --color-ink */
+  --text-2:      #6B6B6B;   /* was #4B5563 — now --color-muted */
+  --text-3:      #757570;   /* was #9CA3AF — now --color-faint */
+
+  /* Backgrounds → official Plato neutral tokens */
+  --bg:          #F7F6F2;   /* was #F7F8FB — now --color-ground */
+  --surface:     #FFFFFF;   /* --color-card (unchanged) */
+  --surface-2:   #F0EFE9;   /* was #F1F4F8 — warm off-white closer to ground */
+
+  /* Borders → official --color-hairline */
+  --border:      #ECEAE3;   /* was rgba(0,0,0,0.08) */
+  --border-md:   #E0DDD6;   /* was rgba(0,0,0,0.13) — slightly stronger */
+
+  /* Hold state → --color-faint (was Tailwind gray) */
+  --hold-fg:     #757570;   /* was #6B7280 */
+  --hold-bg:     #F7F6F2;   /* was #F9FAFB */
+  --hold-border: #ECEAE3;   /* was #E5E7EB */
+
+  /* Status: Free → official --color-free / --color-free-soft */
+  --free-fg:     #0C831F;   /* was #059669 */
+  --free-bg:     #E7F3E9;   /* was #ECFDF5 */
+  --free-border: #0C831F;   /* was #A7F3D0 */
+
+  /* Status: Occupied/Running → official --color-occupied / --color-occupied-soft */
+  --running-fg:  #E07A1F;   /* was #D97706 */
+  --running-bg:  #FBEEDD;   /* was #FFFBEB */
+  --running-border: #E07A1F; /* was #FDE68A */
+
+  /* Status: Bill/Danger → official --color-danger / --color-danger-soft */
+  --bill-fg:     #D92D20;   /* was #DC2626 */
+  --bill-bg:     #FBE9E7;   /* was #FEF2F2 */
+  --bill-border: #D92D20;   /* was #FECACA */
+
+  /* KOT action → official --color-cta */
+  --kot-bg:      #F8CB46;   /* was #FFC900 */
+  --kot-bg-dark: #EBBA2A;   /* was #E6B400 — now --color-cta-press */
+  --kot-shadow:  rgba(248,203,70,0.35); /* was rgba(255,201,0,0.45) */
+}
+
+/* S. Header sub-label: official --color-muted (was #9CA3AF Tailwind gray) */
+.header-sub  { color: #6B6B6B !important; }
+
+/* T. Sign-out button: official tokens */
+.signout-btn { color: #6B6B6B !important; border-color: #ECEAE3 !important; background: #F7F6F2 !important; }
+.signout-btn:active { background: #ECEAE3 !important; }
+
+/* U. PhonePe QR modal: replace Tailwind grays with official tokens */
+.ppqr-amt-label { color: #6B6B6B; }
+.ppqr-amt-value { color: #1C1C1C; }
+.ppqr-amt-hint  { color: #757570; }
+.ppqr-timer-label { color: #757570; }
+
+/* V. Incoming orders sheet: official ink/muted/faint */
+.ico-customer { color: #1C1C1C; }
+.ico-phone    { color: #6B6B6B; }
+.ico-time     { color: #757570; }
+.ico-item-name  { color: #1C1C1C; }
+.ico-item-price { color: #1C1C1C; }
+.ico-notes      { color: #757570; }
+
+/* W. MenuBrowser: official ink/muted tokens */
+.mb2-search-icon  { color: #757570; }
+.mb2-empty-sub    { color: #6B6B6B; }
+.mb2-item-unit    { color: #757570; }
+.mb2-item-sku     { color: #757570; }
+.mb2-item-desc    { color: #757570; }
+.mb2-photo-neutral { background: #F0EFE9; }
+
+/* X. Dining table status: official --color-dining tokens (info/bill-ready state) */
+.tf2-tile-dining    { border-color: #2E6F9E; }
+.tf2-tile-dining .tf2-tile-status  { color: #2E6F9E; }
+.tf2-tile-dining .tf2-tile-guests  { color: #2E6F9E; }
+
+/* Y. Bottom nav bar background: white card */
+.btab-bar { background: #FFFFFF; border-top-color: #ECEAE3; }
