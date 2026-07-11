@@ -5,15 +5,24 @@ import { SyncProgressModal } from "./SyncProgressModal";
 import { FindPosScreen }     from "./FindPosScreen";
 import { SettingsScreen }    from "./SettingsScreen";
 
-const APP_VERSION = "1.26";
+const APP_VERSION = "2.0";
 const STEP_LABELS = ["Menu & prices", "Tables & sections", "Open orders", "Unsent KOTs check"];
+
+function formatSyncAge(ts) {
+  if (!ts) return null;
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  if (mins < 1)  return "Just synced";
+  if (mins < 60) return `Last synced ${mins} min ago`;
+  return `Last synced ${Math.floor(mins / 60)}h ago`;
+}
 
 export function MoreScreen({
   loggedInStaff, outletName, serverId, localPosIp, deviceIp,
   serverUrl, updateInfo, onSync, onSignOut,
 }) {
-  const [sub,       setSub]       = useState(null); // null | 'findPos' | 'settings'
-  const [syncSteps, setSyncSteps] = useState(null); // null | array while syncing
+  const [sub,        setSub]        = useState(null); // null | 'findPos' | 'settings'
+  const [syncSteps,  setSyncSteps]  = useState(null); // null | array while syncing
+  const [lastSynced, setLastSynced] = useState(null); // timestamp ms
 
   async function handleSync() {
     tapImpact();
@@ -37,12 +46,14 @@ export function MoreScreen({
     upd(3, "done");
     await tick(1100);
     setSyncSteps(null);
+    setLastSynced(Date.now());
   }
 
   if (sub === "findPos") {
     return (
       <FindPosScreen
         localPosIp={localPosIp}
+        outletName={outletName}
         onClose={() => setSub(null)}
       />
     );
@@ -103,7 +114,7 @@ export function MoreScreen({
         {/* DEVICE & SYNC */}
         <div className="more2-section-head">DEVICE &amp; SYNC</div>
         <div className="more2-card">
-          <button className="more2-row" onClick={handleSync} disabled={!!syncSteps}>
+          <div className="more2-row more2-row-sync">
             <div className="more2-row-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -114,13 +125,12 @@ export function MoreScreen({
             </div>
             <div className="more2-row-body">
               <span className="more2-row-label">Sync data</span>
-              <span className="more2-row-sub">Pull latest menu &amp; orders</span>
+              <span className="more2-row-sub">{formatSyncAge(lastSynced) || "Pull latest menu & orders"}</span>
             </div>
-            <svg className="more2-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          </button>
+            <button className="more2-sync-now-btn" onClick={handleSync} disabled={!!syncSteps}>
+              {syncSteps ? "Syncing…" : "Sync now"}
+            </button>
+          </div>
           <div className="more2-divider" />
           <button className="more2-row" onClick={() => { tapImpact(); setSub("findPos"); }}>
             <div className="more2-row-icon">

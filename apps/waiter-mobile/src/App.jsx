@@ -36,6 +36,7 @@ import { LogoutModal }         from "./components/LogoutModal";
 import { IncomingOrdersSheet } from "./components/IncomingOrdersSheet";
 import { KotProgressOverlay }  from "./components/KotProgressOverlay";
 import { FailedKotsScreen }    from "./components/FailedKotsScreen";
+import { ConfirmDialog }       from "./components/ConfirmDialog";
 
 // ─── Build areas from outlet tables ──────────────────────────────────────────
 
@@ -130,10 +131,13 @@ export function App() {
   const [pendingKots, setPendingKots] = useState(() => {
     try { return JSON.parse(localStorage.getItem("captain_pending_kots") || "[]"); } catch { return []; }
   });
+  const [socketConnected,  setSocketConnected]  = useState(false);
+  const [confirmFreeTable,  setConfirmFreeTable]  = useState(null); // null | { tableId, tableNumber, amount }
+  const [confirmRemoveItem, setConfirmRemoveItem] = useState(null); // null | { itemId, itemName, isSent }
   const socketRef             = useRef(null);
   const localSocketRef        = useRef(null);
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
-  const [localConn,    setLocalConn]    = useState(false);
+  const [localConn,      setLocalConn]      = useState(false);
   const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
   const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
   // Waiter assignment picker — shown before every KOT send
@@ -143,7 +147,8 @@ export function App() {
   // KOT progress overlay (sending → success) and transfer success modal
   const [kotState,        setKotState]        = useState(null);
   // null | { phase: 'sending'|'success', tableLabel, itemCount, kotNumber }
-  const [transferSuccess, setTransferSuccess] = useState(null);
+  const [transferSuccess,    setTransferSuccess]    = useState(null);
+  const [billRequestedLabel, setBillRequestedLabel] = useState(null);
   // null | { fromNum, toNum }
 
   // Incoming customer (QR) orders
@@ -273,6 +278,7 @@ export function App() {
         // Also flush the sync queue immediately — server is reachable again.
         let wasOffline = false;
         socket.on("connect", () => {
+          setSocketConnected(true);
           if (wasOffline) {
             api.get(`/operations/orders?outletId=${target.id}`)
               .then((orders) => {
@@ -284,8 +290,8 @@ export function App() {
           }
           wasOffline = false;
         });
-        socket.on("disconnect",    () => { wasOffline = true; });
-        socket.on("connect_error", () => { wasOffline = true; });
+        socket.on("disconnect",    () => { wasOffline = true; setSocketConnected(false); });
+        socket.on("connect_error", () => { wasOffline = true; setSocketConnected(false); });
 
         socket.on("order:updated", (o) => setOrders((p) => {
           if (!o.items?.length || o.isClosed) {
@@ -576,12 +582,11 @@ export function App() {
   }, []);
 
   // ── Select table ──────────────────────────────────────────────────────────
-  // TAP → free table skips straight to the menu (nothing to look at yet);
-  // occupied table opens the order screen so the existing items are visible.
+  // TAP → always open order screen first (so user can see the table state before acting)
   async function handleSelectTable(tableId, area) {
     const existingOrder = orders[tableId];
     const isOccupied = (existingOrder?.items || []).filter(i => !i.isVoided && !i.isComp).length > 0;
-    await openOrderScreen(tableId, area, isOccupied ? null : "menu");
+    await openOrderScreen(tableId, area, null);
   }
 
   // LONG PRESS on occupied table → show action sheet (Merge/Transfer/Split/Print Bill)
@@ -649,6 +654,18 @@ export function App() {
       order: { tableId, items: [], isClosed: false },
     });
     setSelectedTableId(null);
+  }
+
+  // ── Mark table as free (optimistic clear from confirm dialog) ────────────
+  function handleMarkFree(tableId) {
+    setOrders(prev => { const { [tableId]: _, ...rest } = prev; return rest; });
+    socketRef.current?.emit("order:update", {
+      outletId: outlet?.id,
+      order: { tableId, items: [], isClosed: false },
+    });
+    localSocketRef.current?.emit("order:update", { order: { tableId, items: [], isClosed: false } });
+    setActionTableId(null);
+    setConfirmFreeTable(null);
   }
 
   // ── Update order (local + cloud socket + local socket) ───────────────────
@@ -997,8 +1014,12 @@ export function App() {
     const order = orders[tid];
     if (!order) return;
     handleUpdateOrder({ ...order, billRequested: true });
-    toast.success("Bill requested — cashier notified");
     if (tableId) setActionTableId(null);   // close action sheet when called from it
+    // Compute short label, e.g. "Table 5" from "TABLE 5"
+    const tNum = order.tableNumber || "";
+    const tMatch = String(tNum).trim().match(/(\d+)\s*$/);
+    const tLabel = tMatch ? `Table ${tMatch[1]}` : (String(tNum) || "the table");
+    setBillRequestedLabel(tLabel);
     const billReqPayload = { outletId: outlet?.id, tableId: tid };
     try {
       await api.post("/operations/bill-request", billReqPayload);
@@ -1296,7 +1317,21 @@ export function App() {
     setSelectedTableId(toId);
     setSelectedArea(toArea);
     toast.dismiss(tid);
-    setTransferSuccess({ fromNum: fromTable?.number, toNum: toTable.number });
+
+    const activeItems = (fromOrder.items || []).filter(i => !i.isVoided && !i.isComp);
+    const sub   = activeItems.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+    const tax   = activeItems.reduce((s, i) => {
+      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
+    }, 0);
+    const tsmLabel = (num) => { const m = String(num || "").trim().match(/(\d+)\s*$/); return m ? `Table ${m[1]}` : String(num || ""); };
+    setTransferSuccess({
+      fromLabel: tsmLabel(fromTable?.number),
+      toLabel:   tsmLabel(toTable.number),
+      itemCount: activeItems.length,
+      total:     sub + tax,
+      areaName:  toArea.name,
+    });
   }
 
   // ── Table merge ───────────────────────────────────────────────────────────
@@ -1445,6 +1480,7 @@ export function App() {
             onUpdateOrder={handleUpdateOrder}
             onUpdateGuests={handleUpdateGuests}
             onRemoveItem={handleRemoveItem}
+            onRequestRemoveItem={(item) => setConfirmRemoveItem(item)}
             onAddItem={handleAddItem}
             onTransfer={handleTableTransfer}
             onMerge={handleTableMerge}
@@ -1458,10 +1494,12 @@ export function App() {
             onSelectTable={handleSelectTable}
             onLongPressTable={handleLongPressTable}
             loggedInStaff={loggedInStaff}
+            isOffline={!socketConnected}
           />
         ) : activeTab === "kots" ? (
           <FailedKotsScreen
             pendingKots={pendingKots}
+            outletName={outlet?.name || branchConfig?.outletName}
             onRetry={handleRetryKot}
             onRetryAll={handleRetryAllKots}
             onClear={handleClearKot}
@@ -1547,6 +1585,18 @@ export function App() {
             onSplitBill={() => openOrderScreen(actionTableId, actionArea, "split")}
             onPrintBill={() => handlePrintBill(actionTableId)}
             onCustomerInfo={() => { setShowCustomerInfo(true); }}
+            onMarkFree={() => {
+              const tbl = actionArea?.tables?.find(t => t.id === actionTableId);
+              const ord = orders[actionTableId];
+              const items = (ord?.items || []).filter(i => !i.isVoided && !i.isComp);
+              const sub = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+              const tax = items.reduce((s, i) => {
+                const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+                return s + Math.round((i.price || 0) * (i.quantity || 0) * r / 100);
+              }, 0);
+              setConfirmFreeTable({ tableId: actionTableId, tableNumber: tbl?.number || actionTableId, amount: sub + tax });
+              setActionTableId(null);
+            }}
           />
         );
       })()}
@@ -1655,32 +1705,94 @@ export function App() {
         <div className="tsm-overlay">
           <div className="tsm-card">
             <div className="tsm-icon-wrap">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
-                stroke="#16A34A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="17 1 21 5 17 9"/>
-                <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-                <polyline points="7 23 3 19 7 15"/>
-                <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none"
+                stroke="#0C831F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 4l4 4-4 4"/>
+                <path d="M3 12V8a4 4 0 0 1 4-4h14"/>
+                <path d="M7 20l-4-4 4-4"/>
+                <path d="M21 12v4a4 4 0 0 1-4 4H3"/>
               </svg>
             </div>
             <h2 className="tsm-title">Table moved</h2>
-            <div className="tsm-summary">
-              <span className="tsm-table-chip">T{transferSuccess.fromNum}</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"/>
-                <polyline points="12 5 19 12 12 19"/>
-              </svg>
-              <span className="tsm-table-chip">T{transferSuccess.toNum}</span>
+            <p className="tsm-subtitle">
+              {transferSuccess.fromLabel}'s running order has been moved to {transferSuccess.toLabel}.
+            </p>
+            <div className="tsm-info-box">
+              <div className="tsm-transfer-row">
+                <span>{transferSuccess.fromLabel}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="#6B6B6B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+                <span>{transferSuccess.toLabel}</span>
+              </div>
+              <div className="tsm-transfer-meta">
+                {[
+                  transferSuccess.itemCount > 0 ? `${transferSuccess.itemCount} item${transferSuccess.itemCount !== 1 ? "s" : ""}` : null,
+                  transferSuccess.total > 0 ? `₹${transferSuccess.total.toLocaleString("en-IN")}` : null,
+                  transferSuccess.areaName,
+                ].filter(Boolean).join(" · ")}
+              </div>
             </div>
-            <button
-              className="tsm-done-btn"
-              onClick={() => setTransferSuccess(null)}
-            >
+            <button className="tsm-done-btn" onClick={() => setTransferSuccess(null)}>
               Done
             </button>
           </div>
         </div>
+      )}
+
+      {/* Bill requested success modal */}
+      {billRequestedLabel && (
+        <div className="brm-overlay">
+          <div className="brm-card">
+            <div className="brm-icon-wrap">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                stroke="#0C831F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <h2 className="brm-title">Bill requested</h2>
+            <p className="brm-body">
+              The cashier has been notified to prepare the bill for {billRequestedLabel}.
+            </p>
+            <button className="brm-done-btn" onClick={() => setBillRequestedLabel(null)}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm: Remove Item */}
+      {confirmRemoveItem && (
+        <ConfirmDialog
+          variant="light"
+          icon="trash"
+          iconBg="#FEE2E2"
+          iconColor="#DC2626"
+          title="Remove item?"
+          body={`${confirmRemoveItem.itemName} will be removed from this order. ${confirmRemoveItem.isSent ? "It has already been sent to the kitchen." : "It hasn't been sent to the kitchen yet."}`}
+          confirmLabel="Remove"
+          confirmDanger
+          onCancel={() => setConfirmRemoveItem(null)}
+          onConfirm={() => { handleRemoveItem(confirmRemoveItem.itemId); setConfirmRemoveItem(null); }}
+        />
+      )}
+
+      {/* Confirm: Free Table */}
+      {confirmFreeTable && (
+        <ConfirmDialog
+          variant="dark"
+          icon="calendar-x"
+          iconBg="#FEE2E2"
+          iconColor="#DC2626"
+          title={`Free up Table T${confirmFreeTable.tableNumber}?`}
+          body={`This clears the running order of ₹${confirmFreeTable.amount.toLocaleString("en-IN")}. Only do this if the guests have left or the table was opened by mistake.`}
+          confirmLabel="Mark as free"
+          confirmDanger
+          onCancel={() => setConfirmFreeTable(null)}
+          onConfirm={() => handleMarkFree(confirmFreeTable.tableId)}
+        />
       )}
 
       {/* Incoming Customer Orders Sheet */}
