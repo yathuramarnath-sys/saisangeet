@@ -8167,3 +8167,93 @@ html, body, #root {
   -webkit-tap-highlight-color: transparent;
 }
 .kotdr-reprint-btn:active, .kotdr-retry-btn:active { background: #E6B400; }
+
+/* ── PATCH 4: Official Plato design tokens + colour/font alignment ─────────
+   Source: design-system/tokens.css (official handoff, Jul 2026)
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* A. Register all official tokens so they cascade everywhere */
+:root {
+  --color-ground:        #F7F6F2;
+  --color-card:          #FFFFFF;
+  --color-ink:           #1C1C1C;
+  --color-muted:         #6B6B6B;
+  --color-faint:         #757570;
+  --color-hairline:      #ECEAE3;
+  --color-track:         #E3E1DA;
+  --color-cta:           #F8CB46;
+  --color-cta-press:     #EBBA2A;
+  --app-accent:          #F6B23C;
+  --color-accent-soft:   rgb(246 178 60 / 14%);
+  --color-free:          #0C831F;
+  --color-free-soft:     #E7F3E9;
+  --color-occupied:      #E07A1F;
+  --color-occupied-soft: #FBEEDD;
+  --color-danger:        #D92D20;
+  --color-danger-soft:   #FBE9E7;
+  --color-dining:        #2E6F9E;
+  --color-dining-soft:   #E9F1F7;
+  --radius-sm:           8px;
+  --radius-md:           12px;
+  --radius-lg:           16px;
+  --radius-pill:         999px;
+}
+
+/* B. Font: switch base from Manrope to Inter (official spec) */
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+/* Settings inputs use Inter (not monospace) per design spec */
+.ss3-field-input  { font-family: 'Inter', sans-serif; }
+.ss3-field-select { font-family: 'Inter', sans-serif; }
+
+/* C. Bottom-nav active: official --app-accent (#F6B23C), not dark gold */
+.btab-item.btab-active { color: #F6B23C; }
+
+/* D. KOT spinner disc: official --color-cta + matching glow */
+.kot-spinner {
+  background:  #F8CB46;
+  box-shadow:  0 0 0 6px rgba(248,203,70,0.18);
+}
+
+/* E. Focus rings: official --color-cta */
+.ss3-field-input:focus  { border-color: #F8CB46; }
+.ss3-field-select:focus { border-color: #F8CB46; }
+.fp2-manual-input:focus { border-color: #F8CB46; }
+.cust3-phone-input:focus { border-color: #F8CB46; outline: none; }
+
+/* F. CTA pressed: official --color-cta-press (#EBBA2A) everywhere */
+.tsm-done-btn:active             { background: #EBBA2A; }
+.ss3-save-btn:active             { background: #EBBA2A; }
+.fp2-rescan-btn:active           { background: #EBBA2A; }
+.kotdr-reprint-btn:active,
+.kotdr-retry-btn:active          { background: #EBBA2A; }
+.cust3-attach-btn:active         { background: #EBBA2A; }
+
+/* G. KOT detail: status pills → official semantic tokens */
+.kotdr-status-sent   { background: #E7F3E9; color: #0C831F; }  /* --color-free-soft / --color-free */
+.kotdr-status-failed { background: #FBE9E7; color: #D92D20; }  /* --color-danger-soft / --color-danger */
+
+/* H. KOT detail: text → official ink / muted / faint tokens */
+.kotdr-subtitle      { color: #757570; }   /* --color-faint */
+.kotdr-ticket-eyebrow { color: #757570; }
+.kotdr-ticket-meta   { color: #757570; }
+.kotdr-item-qty      { color: #6B6B6B; }   /* --color-muted */
+.kotdr-item-mods     { color: #757570; }
+.kotdr-item-price    { color: #1C1C1C; }   /* --color-ink */
+.kotdr-total-label   { color: #757570; }
+.kotdr-total-amount  { color: #1C1C1C; }
+.kotdr-last-printed  { color: #757570; }
+.kotdr-last-printed-text { color: #6B6B6B; }
+.kotdr-void-icon     { color: #757570; }
+.kotdr-void-label    { color: #1C1C1C; }
+.kotdr-void-hint     { color: #757570; }
+/* Void button border: official --color-hairline */
+.kotdr-void-btn      { border-color: #ECEAE3; border-style: dashed; }
+
+/* I. Customer sheet: muted text → official tokens */
+.cust3-subtitle      { color: #757570; }
+.cust3-profile-sub   { color: #6B6B6B; }
+.cust3-section-label { color: #757570; letter-spacing: 0.06em; font-size: 0.68rem; font-weight: 600; }
+
+/* J. Occupied table bar fill: official --color-occupied */
+.tf2-occ-bar-occupied .tf2-occ-bar-fill { background: #E07A1F; }
+/* Free table indicator via Floor chip colors */
