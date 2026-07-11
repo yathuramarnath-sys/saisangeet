@@ -2,26 +2,26 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { api } from "../lib/api";
-import { navigation } from "../data/navigation";
+import { navGroups } from "../data/navigation";
 
 // ── Change Password Modal ─────────────────────────────────────────────────────
 function ChangePasswordModal({ onClose }) {
-  const [form, setForm]   = useState({ current: "", next: "", confirm: "" });
-  const [show, setShow]   = useState(false);
-  const [msg,  setMsg]    = useState("");
-  const [err,  setErr]    = useState("");
-  const [busy, setBusy]   = useState(false);
+  const [form, setForm] = useState({ current: "", next: "", confirm: "" });
+  const [show, setShow] = useState(false);
+  const [msg,  setMsg]  = useState("");
+  const [err,  setErr]  = useState("");
+  const [busy, setBusy] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setErr(""); setMsg("");
-    if (form.next.length < 6)          return setErr("New password must be at least 6 characters.");
-    if (form.next !== form.confirm)    return setErr("Passwords do not match.");
+    if (form.next.length < 6)       return setErr("New password must be at least 6 characters.");
+    if (form.next !== form.confirm) return setErr("Passwords do not match.");
     setBusy(true);
     try {
       await api.post("/auth/change-password", {
         currentPassword: form.current,
-        newPassword:     form.next
+        newPassword:     form.next,
       });
       setMsg("Password changed successfully! Use your new password next time you log in.");
       setForm({ current: "", next: "", confirm: "" });
@@ -94,7 +94,8 @@ function ChangePasswordModal({ onClose }) {
             </label>
 
             <div className="cpw-actions">
-              <button type="submit" className="primary-btn" disabled={busy || !form.current || !form.next || !form.confirm}>
+              <button type="submit" className="primary-btn"
+                disabled={busy || !form.current || !form.next || !form.confirm}>
                 {busy ? "Saving…" : "Change Password"}
               </button>
               <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
@@ -113,81 +114,108 @@ export function Sidebar({ open, onClose }) {
   const [changePwd, setChangePwd] = useState(false);
 
   const initials = user?.fullName
-    ? user.fullName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+    ? user.fullName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
     : "O";
 
+  const email = user?.email || user?.phone || "";
+
+  function NavItem({ item }) {
+    return (
+      <NavLink
+        to={item.path}
+        className={({ isActive }) => `oc-nav-link${isActive ? " active" : ""}`}
+        onClick={onClose}
+      >
+        <span className="material-symbols-rounded oc-nav-icon">{item.icon}</span>
+        <span className="oc-nav-label">{item.label}</span>
+      </NavLink>
+    );
+  }
+
   return (
-    <aside className={`sidebar${open ? " mob-open" : ""}`}>
-      {/* Close button — only visible on mobile */}
-      <button type="button" className="mob-sidebar-close" onClick={onClose} aria-label="Close menu">✕</button>
-      <div className="brand-block" style={{ display: "flex", alignItems: "center" }}>
-        <img src="/favicon.svg" width="28" height="28" alt="Plato" style={{ borderRadius: 6 }} />
-        <div>
-          <h1 className="brand-title">Plato</h1>
-          <p className="brand-sub">Owner Console</p>
-        </div>
-      </div>
+    <>
+      {/* Mobile overlay backdrop */}
+      {open && <div className="oc-mob-overlay" onClick={onClose} />}
 
-      <nav className="nav-list" aria-label="Owner navigation">
-        {navigation.map((item) => (
-          <NavLink
-            key={item.id}
-            to={item.path}
-            className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
-            onClick={onClose}
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
-
-      {/* User area with dropdown */}
-      <div className="sidebar-user" style={{ position: "relative" }}>
-        <button
-          type="button"
-          className="sidebar-user-btn"
-          onClick={() => setMenuOpen(v => !v)}
-          aria-label="Account menu"
-        >
-          <div className="sidebar-user-avatar">{initials}</div>
-          <div className="sidebar-user-info">
-            <strong>{user?.fullName || "Owner"}</strong>
-            <span>{user?.roles?.[0] || "Admin"}</span>
+      <aside className={`oc-sidebar${open ? " oc-sidebar-open" : ""}`}>
+        {/* Logo */}
+        <div className="oc-sidebar-logo">
+          <div className="oc-logo-chip">
+            <span className="material-symbols-rounded" style={{ fontSize: 18, color: "#1C1C1C", fontVariationSettings: "'FILL' 1" }}>
+              restaurant
+            </span>
           </div>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ marginLeft: "auto", flexShrink: 0, opacity: 0.5 }}>
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
+          <div className="oc-logo-text">
+            <span className="oc-logo-brand">Plato</span>
+            <span className="oc-logo-caption">Owner Console</span>
+          </div>
+        </div>
 
-        {menuOpen && (
-          <>
-            {/* Click-away backdrop */}
-            <div className="sidebar-menu-backdrop" onClick={() => setMenuOpen(false)} />
-            <div className="sidebar-user-menu">
-              <button
-                className="sidebar-menu-item"
-                onClick={() => { setMenuOpen(false); setChangePwd(true); }}
-              >
-                🔑 Change Password
-              </button>
-              <div className="sidebar-menu-divider" />
-              <button
-                className="sidebar-menu-item danger"
-                onClick={() => { setMenuOpen(false); logout(); }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                Sign Out
-              </button>
+        {/* Nav */}
+        <nav className="oc-nav" aria-label="Owner navigation">
+          {navGroups.map((entry, i) => {
+            if (entry.type === "item") {
+              return <NavItem key={entry.id} item={entry} />;
+            }
+            return (
+              <div key={i} className="oc-nav-section">
+                <div className="oc-section-label">{entry.label}</div>
+                {entry.items.map(item => <NavItem key={item.id} item={item} />)}
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* User area */}
+        <div className="oc-user-area" style={{ position: "relative" }}>
+          <button
+            type="button"
+            className="oc-user-btn"
+            onClick={() => setMenuOpen(v => !v)}
+            aria-label="Account menu"
+          >
+            <div className="oc-user-avatar">{initials}</div>
+            <div className="oc-user-info">
+              <span className="oc-user-name">{user?.fullName || "Owner"}</span>
+              <span className="oc-user-email">{email}</span>
             </div>
-          </>
-        )}
-      </div>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.2" strokeLinecap="round" style={{ flexShrink: 0, opacity: 0.45 }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          {menuOpen && (
+            <>
+              <div className="oc-menu-backdrop" onClick={() => setMenuOpen(false)} />
+              <div className="oc-user-menu">
+                <button
+                  className="oc-user-menu-item"
+                  onClick={() => { setMenuOpen(false); setChangePwd(true); }}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: 16 }}>key</span>
+                  Change Password
+                </button>
+                <div className="oc-user-menu-divider" />
+                <button
+                  className="oc-user-menu-item oc-menu-danger"
+                  onClick={() => { setMenuOpen(false); logout(); }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                  Sign Out
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </aside>
 
       {changePwd && <ChangePasswordModal onClose={() => setChangePwd(false)} />}
-    </aside>
+    </>
   );
 }

@@ -7875,3 +7875,1249 @@ html, body, #root {
   cursor: pointer; touch-action: manipulation; color: #6B7280; flex-shrink: 0;
 }
 .crs-courses-btn:active { background: #ECEAE3; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Captain App — Designer UI v2 overrides
+   All correctness overrides live here to keep them auditable in one place.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Design token — warm cream background (replaces cold blue-gray) */
+:root {
+  --bg:        #F7F6F2;
+  --surface-2: #ECEAE3;
+  --border:    rgba(0,0,0,0.07);
+}
+
+/* 2. Floor page — occupancy bar fill: amber (was black) */
+.tf2-occ-bar-fill { background: #F8CB46; }
+
+/* 3. Bottom tab — active icon + label: amber (was near-black) */
+.btab-item.btab-active { color: #D4A017; }
+
+/* 4. KOT sending overlay — solid amber disc with white ring spinner inside */
+.kot-spinner {
+  position: relative;
+  border: none;
+  background: #FFC900;
+  box-shadow: 0 0 0 6px rgba(255,201,0,0.18);
+  animation: none;
+}
+.kot-spinner::before {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 28px; height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  animation: kot-spin 0.75s linear infinite;
+}
+
+/* 5. Table-moved modal — Done button: amber (was green) */
+.tsm-done-btn            { background: #F8CB46; color: #1C1C1E; }
+.tsm-done-btn:active     { background: #E6B400; }
+
+/* 6. Settings screen — backgrounds + save button + focus ring */
+.ss3-page                { background: #F7F6F2; }
+.ss3-back-btn            { background: #F7F6F2; }
+.ss3-field-input:focus   { border-color: #FFC900; }
+.ss3-field-select:focus  { border-color: #FFC900; }
+.ss3-save-btn            { background: #F8CB46; color: #1C1C1E; }
+.ss3-save-btn:active     { background: #E6B400; }
+/* keep .ss3-save-ok green so success feedback stays distinct */
+
+/* 7. Find POS screen — backgrounds + rescan button + focus ring */
+.fp2-page                { background: #F7F6F2; }
+.fp2-bottom              { background: #F7F6F2; }
+.fp2-back-btn            { background: #F7F6F2; }
+.fp2-manual-input:focus  { border-color: #FFC900; }
+.fp2-rescan-btn          { background: #F8CB46; color: #1C1C1E; }
+.fp2-rescan-btn:active   { background: #E6B400; }
+.fp2-rescan-scanning     { background: #EBBA2A; cursor: wait; }
+
+/* ── Customer Info Sheet (cust3-*) ─────────────────────────────────────── */
+/* This component was using classes that had no CSS — adding them here.      */
+.cust3-page {
+  display: flex; flex-direction: column;
+  height: 100%; background: #F7F6F2;
+  font-family: inherit;
+}
+
+.cust3-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 16px 14px;
+  background: #fff;
+  border-bottom: 1px solid #ECEAE3;
+  flex-shrink: 0;
+}
+
+.cust3-back-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  border: none; background: #F7F6F2; border-radius: 50%;
+  color: #1C1C1E; cursor: pointer; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.cust3-back-btn:active { background: #ECEAE3; }
+
+.cust3-header-text { display: flex; flex-direction: column; gap: 1px; }
+.cust3-title  { font-size: 1.05rem; font-weight: 700; color: #1C1C1E; margin: 0; }
+.cust3-subtitle { font-size: 0.78rem; color: #9CA3AF; margin: 0; }
+
+.cust3-scroll { flex: 1; overflow-y: auto; padding: 16px 16px 8px; }
+
+/* Phone input card */
+.cust3-phone-card {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; border-radius: 14px;
+  border: 1.5px solid #ECEAE3;
+  padding: 12px 16px; margin-bottom: 12px;
+}
+.cust3-phone-icon { color: #9CA3AF; flex-shrink: 0; display: flex; }
+.cust3-phone-input {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  font-size: 1rem; color: #1C1C1E; font-family: inherit;
+}
+.cust3-phone-input::placeholder { color: #D1D5DB; }
+.cust3-phone-check { color: #16A34A; flex-shrink: 0; display: flex; }
+
+/* Profile card */
+.cust3-profile-card {
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border-radius: 14px;
+  border: 1.5px solid #ECEAE3;
+  padding: 14px 16px; margin-bottom: 12px;
+}
+.cust3-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; font-weight: 700; flex-shrink: 0;
+}
+.cust3-profile-info { display: flex; flex-direction: column; gap: 2px; }
+.cust3-profile-name { font-size: 0.95rem; font-weight: 700; color: #1C1C1E; }
+.cust3-profile-sub  { font-size: 0.78rem; color: #6B7280; }
+
+/* Tags */
+.cust3-section-label {
+  display: block; font-size: 0.67rem; font-weight: 700; letter-spacing: 0.09em;
+  color: #9CA3AF; margin: 4px 0 8px 2px;
+}
+.cust3-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.cust3-tag {
+  padding: 5px 12px; border-radius: 99px;
+  font-size: 0.78rem; font-weight: 600;
+}
+.cust3-tag-plain { background: #ECEAE3; color: #374151; }
+.cust3-tag-add   { background: #FFF7DC; color: #D4A017; border: 1.5px dashed #F8CB46; }
+
+/* Recent orders card */
+.cust3-orders-card {
+  background: #fff; border-radius: 14px;
+  border: 1.5px solid #ECEAE3;
+  overflow: hidden; margin-bottom: 12px;
+}
+.cust3-order-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; gap: 12px;
+  border-top: 1px solid #F5F4F0;
+}
+.cust3-order-row:first-child { border-top: none; }
+.cust3-order-left  { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.cust3-order-items { font-size: 0.85rem; font-weight: 600; color: #1C1C1E;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cust3-order-meta  { font-size: 0.73rem; color: #9CA3AF; }
+.cust3-order-amount { font-size: 0.88rem; font-weight: 700; color: #1C1C1E; flex-shrink: 0; }
+
+/* Bottom action */
+.cust3-bottom {
+  padding: 12px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: #fff; border-top: 1px solid #ECEAE3; flex-shrink: 0;
+}
+.cust3-attach-btn {
+  width: 100%; height: 52px; border-radius: 14px; border: none;
+  background: #F8CB46; color: #1C1C1E;
+  font-size: 1rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.cust3-attach-btn:active { background: #E6B400; }
+
+/* ── Designer v2 patch 2 — Settings layout + FindPOS Add button ─────────── */
+
+/* Settings: stack label above input (designer shows column layout) */
+.ss3-field-row        { flex-direction: column; align-items: stretch; gap: 6px; padding: 14px 16px 16px; }
+.ss3-field-label      { font-size: 0.82rem; }
+.ss3-field-input      { text-align: left; width: 100%; }
+.ss3-field-select     { width: 100%; }
+
+/* FindPOS: "Add" is a plain blue text link, not a solid button */
+.fp2-manual-add-btn {
+  background: transparent;
+  color: #2563EB;
+  padding: 9px 4px 9px 12px;
+  border: none;
+  border-radius: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.fp2-manual-add-btn:active { background: transparent; opacity: 0.6; }
+
+/* ── KOT Reprint / Detail Screen (kotdr-*) — CSS was entirely missing ─────── */
+.kotdr-page {
+  display: flex; flex-direction: column;
+  height: 100%; background: #F7F6F2; overflow: hidden;
+}
+.kotdr-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 16px 14px;
+  background: #fff; border-bottom: 1px solid #ECEAE3; flex-shrink: 0;
+}
+.kotdr-back-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: none; background: #F7F6F2; color: #1C1C1E;
+  cursor: pointer; flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+}
+.kotdr-back-btn:active { background: #ECEAE3; }
+.kotdr-header-text { display: flex; flex-direction: column; gap: 2px; }
+.kotdr-title   { font-size: 1.05rem; font-weight: 700; color: #1C1C1E; margin: 0; }
+.kotdr-subtitle { font-size: 0.78rem; color: #9CA3AF; margin: 0; }
+
+.kotdr-scroll { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* Ticket card */
+.kotdr-ticket-card {
+  background: #fff; border-radius: 16px;
+  border: 1.5px solid #ECEAE3; padding: 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.kotdr-ticket-top {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+}
+.kotdr-ticket-eyebrow {
+  font-size: 0.67rem; font-weight: 700; letter-spacing: 0.09em; color: #9CA3AF; text-transform: uppercase;
+}
+.kotdr-status-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 99px;
+  font-size: 0.72rem; font-weight: 700;
+}
+.kotdr-status-sent   { background: #ECFDF5; color: #059669; }
+.kotdr-status-failed { background: #FEF2F2; color: #DC2626; }
+
+.kotdr-ticket-number { font-size: 1.3rem; font-weight: 800; color: #1C1C1E; margin: 4px 0 2px; }
+.kotdr-ticket-meta   { font-size: 0.78rem; color: #9CA3AF; margin: 0; }
+
+.kotdr-divider { height: 1px; background: #F5F4F0; margin: 10px 0; }
+
+.kotdr-item-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 4px 0;
+}
+.kotdr-item-left { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.kotdr-item-name { font-size: 0.88rem; font-weight: 600; color: #1C1C1E; }
+.kotdr-item-qty  { font-weight: 500; color: #6B7280; }
+.kotdr-item-mods { font-size: 0.75rem; color: #9CA3AF; }
+.kotdr-item-price { font-size: 0.88rem; font-weight: 700; color: #374151; flex-shrink: 0; }
+
+.kotdr-total-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 8px; border-top: 1px solid #F5F4F0; margin-top: 4px;
+}
+.kotdr-total-label  { font-size: 0.82rem; color: #9CA3AF; }
+.kotdr-total-amount { font-size: 1rem; font-weight: 800; color: #1C1C1E; }
+
+/* Last printed info */
+.kotdr-last-printed {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px; border-radius: 12px;
+  background: #F7F6F2; color: #9CA3AF;
+}
+.kotdr-last-printed-text { font-size: 0.78rem; color: #6B7280; }
+
+/* Void button */
+.kotdr-void-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-radius: 12px;
+  border: 1.5px dashed #E5E7EB; background: #fff;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; text-align: left;
+  width: 100%;
+}
+.kotdr-void-btn:active { background: #F7F6F2; }
+.kotdr-void-icon  { color: #9CA3AF; display: flex; }
+.kotdr-void-label { font-size: 0.88rem; font-weight: 600; color: #374151; }
+.kotdr-void-hint  { font-size: 0.78rem; color: #9CA3AF; }
+
+/* Bottom action bar */
+.kotdr-bottom {
+  padding: 12px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: #fff; border-top: 1px solid #ECEAE3; flex-shrink: 0;
+}
+.kotdr-reprint-btn, .kotdr-retry-btn {
+  width: 100%; height: 52px; border-radius: 14px; border: none;
+  background: #F8CB46; color: #1C1C1E;
+  font-size: 1rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.kotdr-reprint-btn:active, .kotdr-retry-btn:active { background: #E6B400; }
+
+/* ── PATCH 4: Official Plato design tokens + colour/font alignment ─────────
+   Source: design-system/tokens.css (official handoff, Jul 2026)
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* A. Register all official tokens so they cascade everywhere */
+:root {
+  --color-ground:        #F7F6F2;
+  --color-card:          #FFFFFF;
+  --color-ink:           #1C1C1C;
+  --color-muted:         #6B6B6B;
+  --color-faint:         #757570;
+  --color-hairline:      #ECEAE3;
+  --color-track:         #E3E1DA;
+  --color-cta:           #F8CB46;
+  --color-cta-press:     #EBBA2A;
+  --app-accent:          #F6B23C;
+  --color-accent-soft:   rgb(246 178 60 / 14%);
+  --color-free:          #0C831F;
+  --color-free-soft:     #E7F3E9;
+  --color-occupied:      #E07A1F;
+  --color-occupied-soft: #FBEEDD;
+  --color-danger:        #D92D20;
+  --color-danger-soft:   #FBE9E7;
+  --color-dining:        #2E6F9E;
+  --color-dining-soft:   #E9F1F7;
+  --radius-sm:           8px;
+  --radius-md:           12px;
+  --radius-lg:           16px;
+  --radius-pill:         999px;
+}
+
+/* B. Font: switch base from Manrope to Inter (official spec) */
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+/* Settings inputs use Inter (not monospace) per design spec */
+.ss3-field-input  { font-family: 'Inter', sans-serif; }
+.ss3-field-select { font-family: 'Inter', sans-serif; }
+
+/* C. Bottom-nav active: official --app-accent (#F6B23C), not dark gold */
+.btab-item.btab-active { color: #F6B23C; }
+
+/* D. KOT spinner disc: official --color-cta + matching glow */
+.kot-spinner {
+  background:  #F8CB46;
+  box-shadow:  0 0 0 6px rgba(248,203,70,0.18);
+}
+
+/* E. Focus rings: official --color-cta */
+.ss3-field-input:focus  { border-color: #F8CB46; }
+.ss3-field-select:focus { border-color: #F8CB46; }
+.fp2-manual-input:focus { border-color: #F8CB46; }
+.cust3-phone-input:focus { border-color: #F8CB46; outline: none; }
+
+/* F. CTA pressed: official --color-cta-press (#EBBA2A) everywhere */
+.tsm-done-btn:active             { background: #EBBA2A; }
+.ss3-save-btn:active             { background: #EBBA2A; }
+.fp2-rescan-btn:active           { background: #EBBA2A; }
+.kotdr-reprint-btn:active,
+.kotdr-retry-btn:active          { background: #EBBA2A; }
+.cust3-attach-btn:active         { background: #EBBA2A; }
+
+/* G. KOT detail: status pills → official semantic tokens */
+.kotdr-status-sent   { background: #E7F3E9; color: #0C831F; }  /* --color-free-soft / --color-free */
+.kotdr-status-failed { background: #FBE9E7; color: #D92D20; }  /* --color-danger-soft / --color-danger */
+
+/* H. KOT detail: text → official ink / muted / faint tokens */
+.kotdr-subtitle      { color: #757570; }   /* --color-faint */
+.kotdr-ticket-eyebrow { color: #757570; }
+.kotdr-ticket-meta   { color: #757570; }
+.kotdr-item-qty      { color: #6B6B6B; }   /* --color-muted */
+.kotdr-item-mods     { color: #757570; }
+.kotdr-item-price    { color: #1C1C1C; }   /* --color-ink */
+.kotdr-total-label   { color: #757570; }
+.kotdr-total-amount  { color: #1C1C1C; }
+.kotdr-last-printed  { color: #757570; }
+.kotdr-last-printed-text { color: #6B6B6B; }
+.kotdr-void-icon     { color: #757570; }
+.kotdr-void-label    { color: #1C1C1C; }
+.kotdr-void-hint     { color: #757570; }
+/* Void button border: official --color-hairline */
+.kotdr-void-btn      { border-color: #ECEAE3; border-style: dashed; }
+
+/* I. Customer sheet: muted text → official tokens */
+.cust3-subtitle      { color: #757570; }
+.cust3-profile-sub   { color: #6B6B6B; }
+.cust3-section-label { color: #757570; letter-spacing: 0.06em; font-size: 0.68rem; font-weight: 600; }
+
+/* J. Occupied table bar fill: official --color-occupied */
+.tf2-occ-bar-occupied .tf2-occ-bar-fill { background: #E07A1F; }
+/* Free table indicator via Floor chip colors */
+
+/* ── PATCH 5: Audit fixes ──────────────────────────────────────────────────── */
+
+/* K. Font: override :root's Manrope with Inter on :root itself (higher specificity) */
+:root { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+/* L. FindPOS Add button: parent selector (0-2-0 beats 0-1-0) ensures transparent text link */
+.fp2-manual-row .fp2-manual-add-btn {
+  background: transparent;
+  color: #2563EB;
+  padding: 9px 4px 9px 12px;
+  border: none;
+  border-radius: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.fp2-manual-row .fp2-manual-add-btn:active { background: transparent; opacity: 0.6; }
+
+/* M. Input fonts → Inter (override SF Mono) */
+.fp2-manual-input  { font-family: 'Inter', sans-serif; }
+.ss3-field-input   { font-family: 'Inter', sans-serif; }
+.ss3-field-select  { font-family: 'Inter', sans-serif; }
+
+/* N. Section labels: Tailwind gray #9CA3AF → official --color-faint #757570 */
+.fp2-section-head  { color: #757570; }
+.ss3-section-head  { color: #757570; }
+
+/* O. Card / row borders → official --color-hairline #ECEAE3 */
+.ss3-card          { border-color: #ECEAE3; }
+.fp2-list-card     { border-color: #ECEAE3; }
+.fp2-manual-row    { border-color: #ECEAE3; }
+
+/* P. Settings test button: official hairline + ink text */
+.ss3-test-btn      { border-color: #ECEAE3; color: #1C1C1C; }
+.ss3-test-ok       { border-color: #0C831F; color: #0C831F; }   /* --color-free */
+.ss3-test-fail     { border-color: #D92D20; color: #D92D20; }   /* --color-danger */
+
+/* Q. FindPOS server row selected: official --color-free-soft */
+.fp2-server-row-sel { background: #E7F3E9; }
+
+/* R. More screen / info rows text: official tokens */
+.more2-sync-value  { color: #757570; }
+.more2-info-value  { color: #1C1C1C; font-weight: 500; }
+.more2-info-label  { color: #757570; }
+
+/* ── PATCH 6: Root variable override — remap legacy Tailwind vars to official Plato tokens ────── */
+/*
+ * The original :root uses Tailwind-based colours (--text #111827, --text-2 #4B5563, etc.).
+ * Everything in the early CSS that uses var(--text) / var(--text-2) / var(--bg) etc.
+ * inherits these. Overriding the variables here propagates the official Plato tokens
+ * across every rule that uses them — no JSX changes needed.
+ */
+:root {
+  /* Text hierarchy → official Plato neutral tokens */
+  --text:        #1C1C1C;   /* was #111827 — now --color-ink */
+  --text-2:      #6B6B6B;   /* was #4B5563 — now --color-muted */
+  --text-3:      #757570;   /* was #9CA3AF — now --color-faint */
+
+  /* Backgrounds → official Plato neutral tokens */
+  --bg:          #F7F6F2;   /* was #F7F8FB — now --color-ground */
+  --surface:     #FFFFFF;   /* --color-card (unchanged) */
+  --surface-2:   #F0EFE9;   /* was #F1F4F8 — warm off-white closer to ground */
+
+  /* Borders → official --color-hairline */
+  --border:      #ECEAE3;   /* was rgba(0,0,0,0.08) */
+  --border-md:   #E0DDD6;   /* was rgba(0,0,0,0.13) — slightly stronger */
+
+  /* Hold state → --color-faint (was Tailwind gray) */
+  --hold-fg:     #757570;   /* was #6B7280 */
+  --hold-bg:     #F7F6F2;   /* was #F9FAFB */
+  --hold-border: #ECEAE3;   /* was #E5E7EB */
+
+  /* Status: Free → official --color-free / --color-free-soft */
+  --free-fg:     #0C831F;   /* was #059669 */
+  --free-bg:     #E7F3E9;   /* was #ECFDF5 */
+  --free-border: #0C831F;   /* was #A7F3D0 */
+
+  /* Status: Occupied/Running → official --color-occupied / --color-occupied-soft */
+  --running-fg:  #E07A1F;   /* was #D97706 */
+  --running-bg:  #FBEEDD;   /* was #FFFBEB */
+  --running-border: #E07A1F; /* was #FDE68A */
+
+  /* Status: Bill/Danger → official --color-danger / --color-danger-soft */
+  --bill-fg:     #D92D20;   /* was #DC2626 */
+  --bill-bg:     #FBE9E7;   /* was #FEF2F2 */
+  --bill-border: #D92D20;   /* was #FECACA */
+
+  /* KOT action → official --color-cta */
+  --kot-bg:      #F8CB46;   /* was #FFC900 */
+  --kot-bg-dark: #EBBA2A;   /* was #E6B400 — now --color-cta-press */
+  --kot-shadow:  rgba(248,203,70,0.35); /* was rgba(255,201,0,0.45) */
+}
+
+/* S. Header sub-label: official --color-muted (was #9CA3AF Tailwind gray) */
+.header-sub  { color: #6B6B6B !important; }
+
+/* T. Sign-out button: official tokens */
+.signout-btn { color: #6B6B6B !important; border-color: #ECEAE3 !important; background: #F7F6F2 !important; }
+.signout-btn:active { background: #ECEAE3 !important; }
+
+/* U. PhonePe QR modal: replace Tailwind grays with official tokens */
+.ppqr-amt-label { color: #6B6B6B; }
+.ppqr-amt-value { color: #1C1C1C; }
+.ppqr-amt-hint  { color: #757570; }
+.ppqr-timer-label { color: #757570; }
+
+/* V. Incoming orders sheet: official ink/muted/faint */
+.ico-customer { color: #1C1C1C; }
+.ico-phone    { color: #6B6B6B; }
+.ico-time     { color: #757570; }
+.ico-item-name  { color: #1C1C1C; }
+.ico-item-price { color: #1C1C1C; }
+.ico-notes      { color: #757570; }
+
+/* W. MenuBrowser: official ink/muted tokens */
+.mb2-search-icon  { color: #757570; }
+.mb2-empty-sub    { color: #6B6B6B; }
+.mb2-item-unit    { color: #757570; }
+.mb2-item-sku     { color: #757570; }
+.mb2-item-desc    { color: #757570; }
+.mb2-photo-neutral { background: #F0EFE9; }
+
+/* X. Dining table status: official --color-dining tokens (info/bill-ready state) */
+.tf2-tile-dining    { border-color: #2E6F9E; }
+.tf2-tile-dining .tf2-tile-status  { color: #2E6F9E; }
+.tf2-tile-dining .tf2-tile-guests  { color: #2E6F9E; }
+
+/* Y. Bottom nav bar background: white card */
+.btab-bar { background: #FFFFFF; border-top-color: #ECEAE3; }
+
+/* ── PATCH 7: Replace all old #FFC900/#E6B400 CTA colors with official Plato tokens ── */
+/*
+ * #FFC900 was the original "Blinkit yellow" KOT color used before design handoff.
+ * Official token is --color-cta: #F8CB46 (press: --color-cta-press: #EBBA2A).
+ * These !important overrides beat the existing !important rules at lines 2094-2242
+ * because they appear later in the cascade with equal specificity.
+ */
+
+/* Area tabs + category chip active state */
+.area-tab-active  { background: #F8CB46 !important; border-color: #EBBA2A !important; color: #1C1C1C !important; }
+.cat-chip-active  { background: #F8CB46 !important; border-color: #EBBA2A !important; color: #1C1C1C !important; }
+
+/* KOT send button (Order screen) */
+.kot-btn {
+  background:  #F8CB46 !important;
+  color:       #1C1C1C !important;
+  box-shadow:  0 6px 20px rgba(248,203,70,0.4) !important;
+}
+@keyframes kotPulse {
+  0%,100% { box-shadow: 0 4px 12px rgba(248,203,70,0.40); }
+  50%      { box-shadow: 0 6px 22px rgba(248,203,70,0.70); }
+}
+
+/* Login page logo accent */
+.login-logo { background: #F8CB46 !important; color: #1C1C1C !important; }
+.staff-card:active { border-color: #EBBA2A !important; }
+
+/* PIN pad (old pin-dot / numpad-key classes) */
+.numpad-key:active { background: #F8CB46 !important; border-color: #EBBA2A !important; color: #1C1C1C !important; }
+/* Designer: filled dots = --color-ink (not amber). Only active dot is amber. */
+.pin-dot.filled    { background: #1C1C1C !important; border-color: #1C1C1C !important; }
+
+/* "Add items" CTA (Order screen) */
+.add-items-btn { background: #F8CB46 !important; color: #1C1C1C !important; }
+
+/* Qty stepper add button + Cart bar + Quick chip + Sheet save */
+.qty-btn.qty-btn-add     { background: #F8CB46 !important; border-color: #EBBA2A !important; color: #1C1C1C !important; }
+.cart-bar-btn            { background: #F8CB46 !important; color: #1C1C1C !important; }
+.quick-chip-active       { background: #F8CB46 !important; border-color: #EBBA2A !important; color: #1C1C1C !important; }
+.sheet-save-btn          { background: #F8CB46 !important; color: #1C1C1C !important; }
+
+/* Customer info sheet save button */
+.cis-btn-save       { background: #F8CB46; color: #1C1C1C; box-shadow: 0 2px 8px rgba(248,203,70,0.35); }
+.cis-btn-save:active { background: #EBBA2A; }
+.cis-field input:focus { border-color: #F8CB46; box-shadow: 0 0 0 3px rgba(248,203,70,0.22); }
+
+/* Drawer update + printer save buttons */
+.drawer-update-btn    { background: #F8CB46; color: #1C1C1C; }
+.drawer-printer-save-btn { background: #F8CB46; color: #1C1C1C; }
+
+/* Incoming orders: header icon badge + table badge + accept button */
+.captain-incoming-btn {
+  background:  #F8CB46;
+  color:       #1C1C1C;
+  box-shadow:  0 2px 8px rgba(248,203,70,0.35);
+}
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 2px 8px rgba(248,203,70,0.35); }
+  50%       { box-shadow: 0 2px 16px rgba(248,203,70,0.60); }
+}
+.ico-count-badge  { background: #F8CB46; color: #1C1C1C; }
+.ico-table-badge  { background: #F8CB46; color: #1C1C1C; }
+.ico-accept       { background: #F8CB46; color: #1C1C1C; }
+.ico-accept:active { background: #EBBA2A; }
+
+/* ico-item-qty: gold → official app-accent */
+.ico-item-qty    { color: #F6B23C; }
+.ico-total-row strong { color: #F6B23C; }
+
+/* ico-reject: official danger-soft */
+.ico-reject      { background: #FBE9E7; color: #D92D20; }
+.ico-reject:active { background: #f8d5d2; }
+
+/* ico-sheet-header border, ico-card border → official hairline */
+.ico-sheet-header { border-bottom-color: #ECEAE3; }
+.ico-card  { background: #F7F6F2; border-color: #ECEAE3; }
+.ico-items { border-color: #ECEAE3; }
+.ico-total-row { border-top-color: #ECEAE3; color: #1C1C1C; }
+.ico-close-btn { background: #F0EFE9; color: #6B6B6B; }
+
+/* Login continue button (lv2- staff picker variant) */
+.lv2-continue-btn { background: #F8CB46; color: #1C1C1C; }
+
+/* Drawer printer inputs → Inter font, official hairline */
+.drawer-printer-input  { font-family: 'Inter', sans-serif; border-color: #ECEAE3; background: #FAFAF8; }
+.drawer-printer-select { font-family: 'Inter', sans-serif; border-color: #ECEAE3; background: #FAFAF8; }
+.drawer-printer-label  { color: #6B6B6B; }
+.drawer-printer-test-btn { border-color: #ECEAE3; background: #F7F6F2; color: #1C1C1C; }
+
+/* floor-summary active number: official --color-occupied (was orange) */
+.active-num { color: #E07A1F !important; }
+
+/* ── PATCH 8: Comprehensive sweep of all remaining #FFC900/#E6B400 instances ────────── */
+
+/* Assign waiter */
+.assign-staff-row input[type="radio"] { accent-color: #F8CB46; }
+.assign-done-btn       { background: #F8CB46; color: #1C1C1C; }
+.assign-done-btn:active { background: #EBBA2A; }
+
+/* Menu browser category chip — reorder inset glow */
+.cat-chip-reorder { box-shadow: 0 0 0 2px #F8CB46 inset; }
+
+/* Menu grid add button (box layout, !important needed) */
+.menu-add-btn { background: #F8CB46 !important; color: #1C1C1C !important; }
+
+/* Login PIN brand icon + dot current + numpad v2 */
+.pin-brand-icon           { background: #F8CB46; }
+.pin-v2-dot-current       { background: #F8CB46; border-color: #EBBA2A; }
+.numpad-v2-key:active     { background: #F8CB46; border-color: #EBBA2A; }
+
+/* Floor area tabs + running bar + unsent badge */
+.tf2-area-tab-active { background: #F8CB46; border-color: #F8CB46; color: #1C1C1C; }
+.tf2-tab-active      { border-bottom-color: #F8CB46; }
+.tf2-bar-running     { background: #F8CB46; }
+.tf2-unsent          { background: #F8CB46; color: #1C1C1C; }
+
+/* MenuBrowser: search active, category chips, stepper, add button */
+.mb2-search-active   { border-color: #F8CB46; }
+.mb2-cat-fav         { border-color: #F8CB46; color: #E07A1F; }
+.mb2-cat-active      { background: #F8CB46; border-color: #F8CB46; color: #1C1C1C; }
+.mb2-fav-active      { color: #F6B23C; }
+.mb2-stepper         { border-color: #F8CB46; }
+.mb2-step-plus       { background: #F8CB46; color: #1C1C1C; }
+.mb2-step-plus:active { background: #EBBA2A; }
+.mb2-add-btn         { border-color: #F8CB46; background: #F8CB46; color: #1C1C1C; }
+.mb2-add-btn:active  { background: #EBBA2A; }
+.mb2-cart-view       { color: #F6B23C; }
+
+/* Order Screen: guest add, section count pill, qty stepper, KOT send */
+.os2-guest-btn-add   { background: #F8CB46; color: #1C1C1C; }
+.os2-section-count   { background: #F8CB46; color: #1C1C1C; }
+.os2-qty-ctrl        { border-color: #F8CB46; }
+.os2-qty-plus        { background: #F8CB46; color: #1C1C1C; }
+.os2-qty-plus:active { background: #EBBA2A; }
+.os2-kot-btn         { background: #F8CB46; color: #1C1C1C; }
+.os2-kot-btn:active  { background: #EBBA2A; }
+
+/* KOT progress overlay: spinner, fill, add-more border */
+.kot-progress-fill  { background: #F8CB46; }
+.kot-addmore-btn    { border-color: #F8CB46; color: #F6B23C; }
+
+/* Failed KOTs retry button */
+.fkot-retry-btn       { background: #F8CB46; color: #1C1C1C; }
+.fkot-retry-btn:active { background: #EBBA2A; }
+
+/* MoveTable: selected chip, merge row, radio, confirm */
+.mt2-table-chip-sel  { border-color: #F8CB46; }
+.mt2-merge-row-sel   { border-color: #F8CB46; }
+.mt2-radio-sel       { border-color: #F8CB46; background: #F8CB46; }
+.mt2-confirm-btn     { background: #F8CB46; color: #1C1C1C; }
+.mt2-confirm-btn:not(:disabled):active { background: #EBBA2A; }
+
+/* Bottom tab active indicator dot */
+.btab-item.btab-active::before { background: #F8CB46; }
+
+/* More screen update button */
+.more2-update-btn  { background: #F8CB46; color: #1C1C1C; }
+
+/* Sync progress modal: syncing icon + fill bar */
+.spm-icon-syncing  { background: #F8CB46; }
+.spm-fill          { background: #F8CB46; }
+
+/* FindPOS (fps-): server row, radio, input focus, rescan button */
+.fps-server-row-sel { border-color: #F8CB46; background: #E7F3E9; }
+.fps-radio-sel      { border-color: #F8CB46; background: #F8CB46; }
+.fps-manual-input:focus { border-color: #F8CB46; }
+.fps-rescan-btn       { background: #F8CB46; color: #1C1C1C; }
+.fps-rescan-btn:not(:disabled):active { background: #EBBA2A; }
+
+/* Settings v2 (set2-): input focus, save button, default printer */
+.set2-field-input:focus  { border-color: #F8CB46; }
+.set2-save-btn           { background: #F8CB46; color: #1C1C1C; }
+.set2-save-btn:active    { background: #EBBA2A; }
+.set2-printer-default    { border-color: #F8CB46; background: rgba(248,203,70,0.08); }
+
+/* CustomerInfoSheet v2 (cis2-) */
+.cis2-input:focus  { border-color: #F8CB46; }
+.cis2-save         { background: #F8CB46; color: #1C1C1C; }
+.cis2-save:active  { background: #EBBA2A; }
+
+/* IncomingOrders v2 (ico2-) */
+.ico2-accept        { background: #F8CB46; color: #1C1C1C; }
+.ico2-accept:active { background: #EBBA2A; }
+
+/* SetupScreen (su2-) */
+.su2-logo             { background: #F8CB46; }
+.su2-input:focus      { border-color: #F8CB46; }
+.su2-btn              { background: #F8CB46; color: #1C1C1C; }
+.su2-btn:active:not(:disabled) { background: #EBBA2A; }
+.su2-scan-btn         { color: #F8CB46; }
+
+/* WaiterPicker (wp2-) */
+.wp2-row input[type="radio"] { accent-color: #F8CB46; }
+.wp2-done        { background: #F8CB46; color: #1C1C1C; }
+.wp2-done:active { background: #EBBA2A; }
+
+/* ConfirmDialog (cdlg-) */
+.cdlg-confirm        { background: #F8CB46; color: #1C1C1C; }
+.cdlg-confirm:active { background: #EBBA2A; }
+
+/* Login screen misc */
+.ls2-search::placeholder { color: #757570; }
+.ls2-list-chevron { color: #E3E1DA; }
+.ls2-key-del { background: #F0EFE9; color: #6B6B6B; }
+.ls2-list-row:active { background: #F0EFE9; }
+
+/* os2- hold badge: official --color-occupied */
+.os2-hold-badge { color: #E07A1F; }
+
+/* ── PATCH 10 · Floor screen (tf2-) complete token alignment ─────────────── */
+
+/* Synced pill — use official --color-free-soft + --color-free */
+.tf2-synced-pill  { background: #E7F3E9; border-color: #0C831F; }
+.tf2-synced-dot   { background: #0C831F; }
+.tf2-synced-label { color: #0C831F; }
+
+/* Bill-ready tag on table tile — official --color-dining */
+.tf2-bill-tag { background: #2E6F9E; }
+
+/* Occupancy stats header: free count green, stat-label faint */
+.tf2-num-free    { color: #0C831F; }
+.tf2-stat-label  { color: #757570; }
+
+/* Area tab active underline — official --color-cta */
+.tf2-tab-active  { color: #1C1C1C; border-bottom-color: #F8CB46; }
+
+/* Card bar (color stripe at top of each table tile) */
+.tf2-bar-open    { background: #0C831F; }   /* free → official green */
+.tf2-bar-running { background: #F8CB46; }   /* ordering → official amber */
+.tf2-bar-hold    { background: #E3E1DA; }   /* hold → official track */
+.tf2-bar-bill    { background: #D92D20; }   /* bill → official danger */
+
+/* Status text on table tiles */
+.tf2-st-text               { color: #6B6B6B; }
+.tf2-card-open   .tf2-st-text { color: #0C831F; }
+.tf2-card-running .tf2-st-text { color: #E07A1F; }
+.tf2-card-hold   .tf2-st-text { color: #757570; }
+.tf2-card-bill   .tf2-st-text { color: #D92D20; }
+
+/* Guest/time and count secondary labels */
+.tf2-count { color: #6B6B6B; }
+
+/* Login v2 staff picker connection pill — official --color-free */
+.lv2-conn-pill  { background: #E7F3E9; }
+.lv2-conn-dot   { background: #0C831F; }
+.lv2-conn-label { color: #0C831F; }
+
+/* More screen — sync now button, divider, logout, footer */
+.more2-sync-now-btn          { color: #0C831F; }
+.more2-sync-now-btn:disabled { color: #757570; }
+.more2-divider               { background: #ECEAE3; }
+.more2-logout-btn            { border-color: #FBE9E7; background: #FBE9E7; color: #D92D20; }
+.more2-logout-btn:active     { background: #FBE9E7; }
+.more2-footer                { color: #757570; }
+.more2-chevron               { color: #E3E1DA; }
+.more2-row:active            { background: #F0EFE9; }
+
+/* Table Actions Sheet — chips and action rows */
+.tas2-area                          { color: #757570; }
+.tas2-chip-amount                   { background: rgb(246 178 60 / 14%); color: #1C1C1C; }
+.tas2-chip-time                     { background: #E9F1F7; color: #2E6F9E; }
+.tas2-action-ghost .tas2-action-label { color: #6B6B6B; }
+.tas2-action-ghost .tas2-action-icon  { color: #757570; }
+.tas2-chevron                       { color: #E3E1DA; }
+
+/* ── PATCH 11 · KOT, Failed KOT, Menu Browser token alignment ─────────────── */
+
+/* Menu browser — search bar and secondary text */
+.mb2-subtitle      { color: #6B6B6B; }
+.mb2-search-active { border-color: #F8CB46; }
+.mb2-search-icon   { color: #757570; }
+.mb2-search-clear  { color: #6B6B6B; }
+.mb2-empty-sub     { color: #6B6B6B; }
+
+/* Menu browser — veg/nonveg indicator icons */
+.mb2-veg-box   { border-color: #0C831F; }
+.mb2-veg-dot   { background:   #0C831F; }
+.mb2-nonveg-icon { border-color: #D92D20; color: #D92D20; }
+
+/* Menu browser — item metadata and sold-out tag */
+.mb2-item-unit { color: #757570; }
+.mb2-item-sku  { color: #757570; }
+.mb2-item-desc { color: #757570; }
+.mb2-soldout-tag { background: #FBE9E7; color: #D92D20; }
+
+/* KOT sending overlay — progress sub-text */
+.kot-sending-sub { color: #6B6B6B; }
+.kot-outlet-line { color: #757570; }
+
+/* KOT success screen — circle, halo, labels */
+.kot-success-halo   { background: radial-gradient(circle, rgba(12,131,31,0.18) 0%, rgba(12,131,31,0) 70%); }
+.kot-success-circle { background: #0C831F; box-shadow: 0 4px 20px rgba(12,131,31,0.35); }
+.kot-success-sub    { color: #6B6B6B; }
+
+/* KOT success — ticket card */
+.kot-ticket-card    { border-color: #ECEAE3; }
+.kot-ticket-divider { background:   #ECEAE3; }
+.kot-ticket-label   { color: #757570; }
+.kot-ticket-time    { color: #1C1C1C; }
+.kot-return-hint    { color: #757570; }
+
+/* Failed KOT screen (fkot-) */
+.fkot-count-badge  { background: #D92D20; }
+.fkot-empty-icon   { background: #E7F3E9; color: #0C831F; }
+.fkot-empty-sub    { color: #757570; }
+.fkot-more         { color: #757570; }
+.fkot-card         { border-color: #FBE9E7; }
+
+/* ── PATCH 9 · Remaining box-shadow + semantic color token fixes ─────────── */
+
+/* 1. CTA glow box-shadows — three buttons that still had rgba(255,201,0,0.35) */
+.os2-kot-btn     { box-shadow: 0 2px 8px rgba(248,203,70,0.35); }
+.mt2-confirm-btn { box-shadow: 0 2px 8px rgba(248,203,70,0.35); }
+.fps-rescan-btn  { box-shadow: 0 2px 8px rgba(248,203,70,0.35); }
+
+/* 2. Disabled / dim states — official --color-track and --color-faint */
+.mt2-confirm-btn-dim { background: #ECEAE3; color: #757570; }
+.fps-rescan-scanning { background: #F0EFE9; color: #757570; box-shadow: none; }
+.fps-scan-spinner    { border-color: #E3E1DA; border-top-color: #757570; }
+
+/* 3. Floor table tiles — occupied/running: official --color-occupied #E07A1F */
+.tf2-num-busy                     { color: #E07A1F; }
+.tf2-card-running .tf2-st-text    { color: #E07A1F; }
+.tf2-bar-running                  { background: #F8CB46; }
+
+/* 4. Floor table tiles — free/bill/dining semantic tokens */
+.tf2-card-free .tf2-st-text       { color: #0C831F; }
+.tf2-card-bill .tf2-st-text       { color: #D92D20; }
+.tf2-card-dining .tf2-st-text     { color: #2E6F9E; }
+
+/* 5. Inline running/occupied text across other screens */
+.spm-ss-syncing { color: #E07A1F; }
+.os2-hold-badge { color: #E07A1F; }
+.os2-note-btn-active { color: #E07A1F; }
+
+/* 6. Danger/error red — slightly off on old value; align to official #D92D20 */
+.pin-label.pin-label-error { color: #D92D20; }
+.lgm-confirm-btn           { background: #D92D20; }
+.set2-test-fail            { background: #FBE9E7; color: #D92D20; border-color: #FBE9E7; }
+
+/* 7. KOT floor-button secondary state — official ink not gray */
+.kot-floor-btn:active { background: #1C1C1C; }
+
+/* 8. Incoming orders (ico-) item text — official ink */
+.ico-item-name  { color: #1C1C1C; }
+.ico-item-price { color: #1C1C1C; }
+.ico-customer   { color: #1C1C1C; }
+
+/* 9. Menu browser empty-state muted text */
+.mb2-empty-sub { color: #6B6B6B; }
+
+/* 10. KOT sending overlay progress bar track */
+.kot-progress-track { background: #E3E1DA; }
+.kot-progress-fill  { background: #F8CB46; }
+
+/* ── PATCH 12 · Full sweep — order screen, settings, cis2, ico2, su2, btab, fp2, tf2, etc. ── */
+
+/* ─── Order screen (os2-) remaining token fixes ─── */
+.os2-subtitle                     { color: #6B6B6B; }
+.os2-synced-pill                  { background: #E7F3E9; border-color: #0C831F; }
+.os2-synced-dot                   { background: #0C831F; }
+.os2-synced-label                 { color: #0C831F; }
+.os2-empty-icon                   { color: #757570; }
+.os2-empty-sub                    { color: #6B6B6B; }
+.os2-section-label                { color: #757570; }
+.os2-item-sent .os2-item-name     { color: #6B6B6B; }
+.os2-note-btn                     { color: #757570; }
+.os2-note-sent                    { color: #757570; }
+.os2-item-sent .os2-item-price    { color: #6B6B6B; }
+.os2-qty-sent                     { color: #757570; }
+.os2-total-label                  { color: #6B6B6B; }
+.os2-total-val                    { color: #6B6B6B; }
+.os2-qty-btn:active               { background: rgb(246 178 60 / 14%); }
+.os2-comp-tag                     { background: #E9F1F7; color: #2E6F9E; }
+.os2-total-grand                  { border-top-color: #ECEAE3; }
+
+/* ─── Move / merge table (mt2-) remaining fixes ─── */
+.mt2-section-label                { color: #757570; }
+.mt2-empty-hint                   { color: #757570; }
+.mt2-chip-area                    { color: #757570; }
+.mt2-merge-area                   { color: #757570; }
+.mt2-merge-amount                 { color: #6B6B6B; }
+.mt2-table-chip                   { border-color: #ECEAE3; }
+.mt2-table-chip-sel               { background: rgb(246 178 60 / 14%); }
+.mt2-merge-row                    { border-color: #ECEAE3; }
+.mt2-merge-row-sel                { background: rgb(246 178 60 / 14%); }
+.mt2-radio                        { border-color: #E3E1DA; }
+.mt2-bottom                       { border-top-color: #ECEAE3; }
+
+/* ─── Settings v2 (set2-) remaining fixes ─── */
+.set2-header                      { border-bottom-color: #ECEAE3; }
+.set2-back-btn                    { background: #F7F6F2; }
+.set2-section-head                { color: #757570; }
+.set2-card                        { border-color: #ECEAE3; }
+.set2-field-label                 { color: #757570; }
+.set2-field-input                 { border-color: #ECEAE3; background: #F7F6F2; }
+.set2-field-select                { border-color: #ECEAE3; background: #F7F6F2; }
+.set2-divider                     { background: #ECEAE3; }
+.set2-test-btn                    { background: #F7F6F2; color: #1C1C1C; border-color: #ECEAE3; }
+.set2-test-btn:active             { background: #ECEAE3; }
+.set2-test-ok                     { background: #E7F3E9; color: #0C831F; border-color: #0C831F; }
+.set2-save-ok                     { background: #0C831F; }
+.set2-row-label                   { color: #6B6B6B; }
+.set2-mono                        { color: #6B6B6B; }
+.set2-status-dot                  { background: #E3E1DA; }
+.set2-status-dot-on               { background: #0C831F; box-shadow: 0 0 0 2px rgba(12,131,31,0.2); }
+.set2-printer-card-label          { color: #E07A1F; }
+.set2-printer-remove              { color: #D92D20; }
+.set2-printer-note                { color: #757570; }
+
+/* ─── Settings v3 (ss3-) remaining fixes ─── */
+.ss3-header                       { border-bottom-color: #ECEAE3; }
+.ss3-divider                      { background: #ECEAE3; }
+.ss3-field-input                  { border-color: #ECEAE3; background: #F7F6F2; color: #1C1C1C; }
+.ss3-field-input::placeholder     { color: #E3E1DA; }
+.ss3-field-select                 { border-color: #ECEAE3; background: #F7F6F2; color: #1C1C1C; }
+.ss3-save-ok                      { background: #0C831F; }
+.ss3-info-label                   { color: #6B6B6B; }
+.ss3-info-muted                   { color: #757570; }
+.ss3-info-connected               { color: #0C831F; }
+.ss3-connected-dot                { background: #0C831F; }
+
+/* ─── Customer info sheet (cis2-) remaining fixes ─── */
+.cis2-header-icon                 { background: rgb(246 178 60 / 14%); color: #E07A1F; }
+.cis2-sub                         { color: #757570; }
+.cis2-label                       { color: #6B6B6B; }
+.cis2-cancel                      { color: #6B6B6B; }
+
+/* ─── Incoming orders sheet (ico2-) remaining fixes ─── */
+.ico2-badge                       { background: #D92D20; }
+.ico2-close                       { background: #F7F6F2; color: #6B6B6B; }
+.ico2-empty                       { color: #757570; }
+.ico2-time                        { color: #757570; }
+.ico2-guest-phone                 { color: #6B6B6B; }
+.ico2-qty                         { color: #6B6B6B; }
+.ico2-notes                       { color: #6B6B6B; }
+.ico2-total                       { color: #6B6B6B; }
+.ico2-reject                      { background: #FBE9E7; color: #D92D20; }
+
+/* ─── Setup screen (su2-) remaining fixes ─── */
+.su2-subtitle                     { color: #757570; }
+.su2-instruction                  { color: #6B6B6B; }
+.su2-input-error                  { border-color: #D92D20; }
+.su2-error                        { color: #D92D20; }
+.su2-check                        { background: #E7F3E9; color: #0C831F; }
+.su2-meta                         { color: #757570; }
+.su2-hint                         { color: #757570; }
+.su2-local-label                  { color: #6B6B6B; }
+.su2-local-hint                   { color: #757570; }
+.su2-back                         { color: #757570; }
+
+/* ─── Bottom tab bar (btab-) remaining fixes ─── */
+.btab-item                        { color: #757570; }
+.btab-badge                       { background: #D92D20; }
+.btab-update-dot                  { background: #D92D20; }
+
+/* ─── Find POS v2 (fp2-) remaining fixes ─── */
+.fp2-status-card                  { background: #F7F6F2; border-color: #ECEAE3; }
+.fp2-status-card-on               { background: #E7F3E9; border-color: #0C831F; }
+.fp2-status-icon                  { background: #ECEAE3; color: #757570; }
+.fp2-status-icon-on               { background: #E7F3E9; color: #0C831F; }
+.fp2-status-sub                   { color: #6B6B6B; }
+.fp2-server-addr                  { color: #757570; }
+.fp2-radio                        { border-color: #E3E1DA; }
+.fp2-radio-sel                    { border-color: #0C831F; background: #0C831F; }
+.fp2-manual-input                 { border-color: #ECEAE3; background: #F7F6F2; color: #1C1C1C; }
+.fp2-manual-input::placeholder    { color: #E3E1DA; }
+
+/* ─── Floor screen v2 (tf2-) remaining fixes ─── */
+.tf2-tab                          { color: #6B6B6B; }
+.tf2-area-heading                 { color: #757570; }
+.tf2-timer                        { color: #6B6B6B; background: #F7F6F2; }
+
+/* ─── Waiter picker (wp2-) fixes ─── */
+.wp2-avatar-none                  { background: #F7F6F2; color: #757570; }
+.wp2-role                         { color: #757570; }
+.wp2-none-label                   { color: #757570; }
+
+/* ─── Coursing screen (crs-) fixes ─── */
+.crs-subtitle                     { color: #6B6B6B; }
+.crs-hold-pill                    { color: #E07A1F; }
+.crs-course-header-fired          { background: #E7F3E9; }
+.crs-item-qty                     { color: #6B6B6B; }
+.crs-courses-btn                  { color: #6B6B6B; }
+
+/* ─── Bill requested modal (brm-) fixes ─── */
+.brm-icon-wrap                    { background: #E7F3E9; }
+.brm-body                         { color: #6B6B6B; }
+
+/* ─── Logout modal (lgm-) remaining fixes ─── */
+.lgm-body                         { color: #6B6B6B; }
+.lgm-cancel-btn                   { background: #F7F6F2; color: #6B6B6B; }
+.lgm-cancel-btn:active            { background: #ECEAE3; }
+
+/* ── PATCH 13 · Final sweep — all remaining old Tailwind colors ──────────── */
+
+/* ─── Setup screen — success icon & button: use official --color-free ─── */
+.success-icon { background: linear-gradient(135deg, #1A9B35, #0C831F); box-shadow: 0 8px 28px rgba(12,131,31,0.3); }
+.success-btn  { background: linear-gradient(135deg, #1A9B35, #0C831F); box-shadow: 0 6px 24px rgba(12,131,31,0.3); }
+
+/* ─── Setup screen — input error border ─── */
+.setup-input.input-error { border-color: #D92D20; }
+
+/* ─── Assign waiter — selected row active state ─── */
+.assign-btn-active { background: #E7F3E9; border-color: #0C831F; color: #0C831F; }
+
+/* ─── Menu — favourite icon active ─── */
+.menu-item-fav-btn.active { color: #F6B23C; }
+
+/* ─── Old soldout tag (pre-mb2 class) ─── */
+.soldout-tag { background: #FBE9E7; color: #D92D20; border-color: #FBE9E7; }
+
+/* ─── PIN screen — brand label, avatar icon, switch link, error ─── */
+.pin-brand-plato    { color: #F6B23C; }
+.pin-user-avatar    { color: #E07A1F; }
+.pin-switch-btn     { color: #F6B23C; }
+.pin-v2-label-error { color: #D92D20; }
+.pin-v2-dot-error   { border-color: #D92D20; }
+
+/* ─── Confirm dialog — cancel button + danger variant ─── */
+.cdlg-cancel              { border-color: #ECEAE3; color: #6B6B6B; }
+.cdlg-cancel:active       { background: #F0EFE9; }
+.cdlg-confirm-danger      { background: #D92D20; }
+.cdlg-confirm-danger:active { background: #C0261A; }
+
+/* ─── Table Actions Sheet (tas2-) extended styles ─── */
+.tas2-subtitle          { color: #757570; }
+.tas2-row-icon          { background: #F0EFE9; color: #1C1C1C; }
+.tas2-row-chevron       { color: #E3E1DA; }
+.tas2-row-icon-danger   { background: #FBE9E7; color: #D92D20; }
+.tas2-row-label-danger  { color: #D92D20; }
+.tas2-cancel            { border-color: #ECEAE3; color: #6B6B6B; }
+
+/* ─── Floor offline banner (tf2-) ─── */
+.tf2-offline-banner     { background: #FBEEDD; border-bottom-color: #E07A1F; color: #E07A1F; }
+.tf2-offline-pill       { background: #FBEEDD; border-color: #E07A1F; }
+.tf2-offline-dot        { background: #E07A1F; }
+.tf2-offline-label      { color: #E07A1F; }
+.tf2-info-danger        { color: #D92D20 !important; }
+.tf2-avatar-chip        { background: #E3E1DA; }
+.tf2-occ-alert-dot      { background: #D92D20; }
+
+/* ─── Move table list (mt2-) extended styles ─── */
+.mt2-subtitle           { color: #757570; }
+.mt2-list-card          { border-color: #ECEAE3; }
+.mt2-list-row-sel       { background: rgba(248,203,70,0.12); }
+.mt2-list-row-sel:active { background: rgba(248,203,70,0.22); }
+.mt2-list-sub           { color: #757570; }
+
+/* ─── Settings v3 (ss3-) section head, test states, focus rings ─── */
+.ss3-section-head       { color: #757570; }
+.ss3-test-ok            { border-color: #0C831F; color: #0C831F; }
+.ss3-test-fail          { border-color: #D92D20; color: #D92D20; }
+.ss3-field-input:focus  { border-color: #F8CB46; background: #fff; }
+.ss3-field-select:focus { border-color: #F8CB46; }
+.ss3-save-btn:active    { background: #EBBA2A; }
+
+/* ─── Find POS v2 (fp2-) section head, active states ─── */
+.fp2-section-head          { color: #757570; }
+.fp2-server-row-sel:active { background: #D4EDD7; }
+.fp2-rescan-btn:active     { background: #EBBA2A; }
+.fp2-manual-input:focus    { border-color: #F8CB46; }
+
+/* ─── KOT spinner disc ─── */
+.kot-spinner { background: #F8CB46; box-shadow: 0 0 0 6px rgba(248,203,70,0.18); }
+
+/* ─── Table-moved modal done button press ─── */
+.tsm-done-btn:active { background: #EBBA2A; }
+
+/* ─── Customer info v3 (cust3-) ─── */
+.cust3-subtitle                   { color: #757570; }
+.cust3-phone-icon                 { color: #757570; }
+.cust3-phone-input::placeholder   { color: #E3E1DA; }
+.cust3-phone-check                { color: #0C831F; }
+.cust3-profile-sub                { color: #6B6B6B; }
+.cust3-section-label              { color: #757570; }
+.cust3-order-meta                 { color: #757570; }
+.cust3-attach-btn:active          { background: #EBBA2A; }
+
+/* ─── KOT reprint / detail screen (kotdr-) ─── */
+.kotdr-subtitle                   { color: #757570; }
+.kotdr-ticket-eyebrow             { color: #757570; }
+.kotdr-status-sent                { background: #E7F3E9; color: #0C831F; }
+.kotdr-status-failed              { background: #FBE9E7; color: #D92D20; }
+.kotdr-ticket-meta                { color: #757570; }
+.kotdr-item-qty                   { color: #6B6B6B; }
+.kotdr-item-mods                  { color: #757570; }
+.kotdr-total-label                { color: #757570; }
+.kotdr-last-printed               { color: #757570; }
+.kotdr-last-printed-text          { color: #6B6B6B; }
+.kotdr-void-btn                   { border-color: #ECEAE3; }
+.kotdr-void-icon                  { color: #757570; }
+.kotdr-void-hint                  { color: #757570; }
+.kotdr-reprint-btn:active, .kotdr-retry-btn:active { background: #EBBA2A; }
+
+/* ── PATCH 14 · Bold & Clear typography + final Tailwind color sweep ─────── */
+
+/* ── Update root text tokens to official Plato warm grays ── */
+:root {
+  --text-2: #6B6B6B;   /* Muted  (was cool #4B5563) */
+  --text-3: #757570;   /* Faint  (was cool #9CA3AF) */
+}
+
+/* ── Bottom nav — bigger, bolder labels ── */
+.btab-label      { font-size: 11px; font-weight: 700; }
+.btab-item       { color: #757570; }
+.btab-badge      { background: #D92D20; }
+.btab-update-dot { background: #D92D20; }
+
+/* ── Floor title — extra bold ── */
+.tf2-title       { font-weight: 800; }
+
+/* ── Floor area tabs — clearer weight, Hairline border ── */
+.tf2-area-tab        { font-weight: 600; border-color: #ECEAE3; }
+.tf2-area-tab-active { font-weight: 700; }
+.tf2-card            { border-color: #ECEAE3; }
+
+/* ── Floor top-tab bar (FLOOR / KOTS / etc.) ── */
+.tf2-tab             { color: #757570; font-weight: 600; }
+
+/* ── More screen — bolder row labels, warm palette ── */
+.more2-row-label    { font-weight: 700; }
+.more2-row-sub      { color: #757570; }
+.more2-section-head { color: #757570; }
+.more2-profile-sub  { color: #6B6B6B; }
+.more2-card         { border-color: #ECEAE3; }
+.more2-profile-card { border-bottom-color: #ECEAE3; }
+.more2-row-icon     { background: #F0EFE9; color: #1C1C1C; }
+
+/* ── Menu browser — bolder item names, category pills ── */
+.mb2-title       { font-weight: 800; }
+.mb2-subtitle    { color: #6B6B6B; }
+.mb2-item-name   { font-weight: 700; }
+.mb2-cat         { font-weight: 600; border-color: #ECEAE3; }
+.mb2-cat-active  { font-weight: 700; }
+.mb2-stepper     { border-color: #F8CB46; }
+.mb2-soldout-tag { background: #FBE9E7; color: #D92D20; }
+
+/* ── Settings — bolder title and field labels ── */
+.ss3-title       { font-size: 1.15rem; font-weight: 800; }
+.ss3-field-label { font-weight: 700; color: #1C1C1C; }
+.ss3-card        { border-color: #ECEAE3; }
+.ss3-back-btn    { background: #F0EFE9; }
+
+/* ── Find POS back button warm bg ── */
+.fp2-back-btn    { background: #F0EFE9; }
+
+/* ── PATCH 15 · Settings: stacked field layout to match designer ─────────── */
+
+/* Label on top, full-width input below — matching the designer reference */
+.ss3-field-row {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 14px 16px 12px;
+}
+
+/* Left-aligned text, white bg, Hairline border */
+.ss3-field-input {
+  text-align: left;
+  background: #FFFFFF;
+  border-color: #ECEAE3;
+  color: #1C1C1C;
+}
+.ss3-field-input::placeholder { color: #C4BFB5; }
+
+/* Full-width select, left-aligned, white bg */
+.ss3-field-select {
+  flex-shrink: unset;
+  width: 100%;
+  text-align: left;
+  background: #FFFFFF;
+  border-color: #ECEAE3;
+  color: #1C1C1C;
+}
+
+/* Test connection button: Hairline border, Muted text */
+.ss3-test-btn {
+  border-color: #ECEAE3;
+  color: #6B6B6B;
+}
+.ss3-test-btn:active { background: #F0EFE9; }
+
+/* ── PATCH 16 · Settings: printer icons, device info boldness ──────────────── */
+
+/* Section heads: slightly larger, flex layout so icon sits inline */
+.ss3-section-head {
+  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Field labels: larger */
+.ss3-field-label { font-size: 0.9rem; }
+
+/* Printer icon before "PRINTER SETTINGS" (first section head in scroll) */
+.ss3-scroll .ss3-section-head:first-child::before {
+  content: '';
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23757570'%3E%3Cpath d='M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Test connection button: flex so icon + text sit side by side */
+.ss3-test-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Printer icon inside test button — only in default (untested) state */
+.ss3-test-btn:not(.ss3-test-ok):not(.ss3-test-fail):not([disabled])::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236B6B6B'%3E%3Cpath d='M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Device Info: bolder, clearer typography */
+.ss3-info-value     { font-size: 0.9rem; font-weight: 700; color: #1C1C1C; }
+.ss3-info-label     { font-size: 0.88rem; font-weight: 600; color: #757570; }
+.ss3-mono           { font-size: 0.8rem; font-weight: 600; }
+.ss3-info-connected { font-size: 0.9rem; font-weight: 700; }
