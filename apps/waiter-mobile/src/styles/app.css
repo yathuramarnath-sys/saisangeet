@@ -8884,3 +8884,104 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .lgm-body                         { color: #6B6B6B; }
 .lgm-cancel-btn                   { background: #F7F6F2; color: #6B6B6B; }
 .lgm-cancel-btn:active            { background: #ECEAE3; }
+
+/* ── PATCH 13 · Final sweep — all remaining old Tailwind colors ──────────── */
+
+/* ─── Setup screen — success icon & button: use official --color-free ─── */
+.success-icon { background: linear-gradient(135deg, #1A9B35, #0C831F); box-shadow: 0 8px 28px rgba(12,131,31,0.3); }
+.success-btn  { background: linear-gradient(135deg, #1A9B35, #0C831F); box-shadow: 0 6px 24px rgba(12,131,31,0.3); }
+
+/* ─── Setup screen — input error border ─── */
+.setup-input.input-error { border-color: #D92D20; }
+
+/* ─── Assign waiter — selected row active state ─── */
+.assign-btn-active { background: #E7F3E9; border-color: #0C831F; color: #0C831F; }
+
+/* ─── Menu — favourite icon active ─── */
+.menu-item-fav-btn.active { color: #F6B23C; }
+
+/* ─── Old soldout tag (pre-mb2 class) ─── */
+.soldout-tag { background: #FBE9E7; color: #D92D20; border-color: #FBE9E7; }
+
+/* ─── PIN screen — brand label, avatar icon, switch link, error ─── */
+.pin-brand-plato    { color: #F6B23C; }
+.pin-user-avatar    { color: #E07A1F; }
+.pin-switch-btn     { color: #F6B23C; }
+.pin-v2-label-error { color: #D92D20; }
+.pin-v2-dot-error   { border-color: #D92D20; }
+
+/* ─── Confirm dialog — cancel button + danger variant ─── */
+.cdlg-cancel              { border-color: #ECEAE3; color: #6B6B6B; }
+.cdlg-cancel:active       { background: #F0EFE9; }
+.cdlg-confirm-danger      { background: #D92D20; }
+.cdlg-confirm-danger:active { background: #C0261A; }
+
+/* ─── Table Actions Sheet (tas2-) extended styles ─── */
+.tas2-subtitle          { color: #757570; }
+.tas2-row-icon          { background: #F0EFE9; color: #1C1C1C; }
+.tas2-row-chevron       { color: #E3E1DA; }
+.tas2-row-icon-danger   { background: #FBE9E7; color: #D92D20; }
+.tas2-row-label-danger  { color: #D92D20; }
+.tas2-cancel            { border-color: #ECEAE3; color: #6B6B6B; }
+
+/* ─── Floor offline banner (tf2-) ─── */
+.tf2-offline-banner     { background: #FBEEDD; border-bottom-color: #E07A1F; color: #E07A1F; }
+.tf2-offline-pill       { background: #FBEEDD; border-color: #E07A1F; }
+.tf2-offline-dot        { background: #E07A1F; }
+.tf2-offline-label      { color: #E07A1F; }
+.tf2-info-danger        { color: #D92D20 !important; }
+.tf2-avatar-chip        { background: #E3E1DA; }
+.tf2-occ-alert-dot      { background: #D92D20; }
+
+/* ─── Move table list (mt2-) extended styles ─── */
+.mt2-subtitle           { color: #757570; }
+.mt2-list-card          { border-color: #ECEAE3; }
+.mt2-list-row-sel       { background: rgba(248,203,70,0.12); }
+.mt2-list-row-sel:active { background: rgba(248,203,70,0.22); }
+.mt2-list-sub           { color: #757570; }
+
+/* ─── Settings v3 (ss3-) section head, test states, focus rings ─── */
+.ss3-section-head       { color: #757570; }
+.ss3-test-ok            { border-color: #0C831F; color: #0C831F; }
+.ss3-test-fail          { border-color: #D92D20; color: #D92D20; }
+.ss3-field-input:focus  { border-color: #F8CB46; background: #fff; }
+.ss3-field-select:focus { border-color: #F8CB46; }
+.ss3-save-btn:active    { background: #EBBA2A; }
+
+/* ─── Find POS v2 (fp2-) section head, active states ─── */
+.fp2-section-head          { color: #757570; }
+.fp2-server-row-sel:active { background: #D4EDD7; }
+.fp2-rescan-btn:active     { background: #EBBA2A; }
+.fp2-manual-input:focus    { border-color: #F8CB46; }
+
+/* ─── KOT spinner disc ─── */
+.kot-spinner { background: #F8CB46; box-shadow: 0 0 0 6px rgba(248,203,70,0.18); }
+
+/* ─── Table-moved modal done button press ─── */
+.tsm-done-btn:active { background: #EBBA2A; }
+
+/* ─── Customer info v3 (cust3-) ─── */
+.cust3-subtitle                   { color: #757570; }
+.cust3-phone-icon                 { color: #757570; }
+.cust3-phone-input::placeholder   { color: #E3E1DA; }
+.cust3-phone-check                { color: #0C831F; }
+.cust3-profile-sub                { color: #6B6B6B; }
+.cust3-section-label              { color: #757570; }
+.cust3-order-meta                 { color: #757570; }
+.cust3-attach-btn:active          { background: #EBBA2A; }
+
+/* ─── KOT reprint / detail screen (kotdr-) ─── */
+.kotdr-subtitle                   { color: #757570; }
+.kotdr-ticket-eyebrow             { color: #757570; }
+.kotdr-status-sent                { background: #E7F3E9; color: #0C831F; }
+.kotdr-status-failed              { background: #FBE9E7; color: #D92D20; }
+.kotdr-ticket-meta                { color: #757570; }
+.kotdr-item-qty                   { color: #6B6B6B; }
+.kotdr-item-mods                  { color: #757570; }
+.kotdr-total-label                { color: #757570; }
+.kotdr-last-printed               { color: #757570; }
+.kotdr-last-printed-text          { color: #6B6B6B; }
+.kotdr-void-btn                   { border-color: #ECEAE3; }
+.kotdr-void-icon                  { color: #757570; }
+.kotdr-void-hint                  { color: #757570; }
+.kotdr-reprint-btn:active, .kotdr-retry-btn:active { background: #EBBA2A; }
