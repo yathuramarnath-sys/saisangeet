@@ -8745,3 +8745,142 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 /* 10. KOT sending overlay progress bar track */
 .kot-progress-track { background: #E3E1DA; }
 .kot-progress-fill  { background: #F8CB46; }
+
+/* ── PATCH 12 · Full sweep — order screen, settings, cis2, ico2, su2, btab, fp2, tf2, etc. ── */
+
+/* ─── Order screen (os2-) remaining token fixes ─── */
+.os2-subtitle                     { color: #6B6B6B; }
+.os2-synced-pill                  { background: #E7F3E9; border-color: #0C831F; }
+.os2-synced-dot                   { background: #0C831F; }
+.os2-synced-label                 { color: #0C831F; }
+.os2-empty-icon                   { color: #757570; }
+.os2-empty-sub                    { color: #6B6B6B; }
+.os2-section-label                { color: #757570; }
+.os2-item-sent .os2-item-name     { color: #6B6B6B; }
+.os2-note-btn                     { color: #757570; }
+.os2-note-sent                    { color: #757570; }
+.os2-item-sent .os2-item-price    { color: #6B6B6B; }
+.os2-qty-sent                     { color: #757570; }
+.os2-total-label                  { color: #6B6B6B; }
+.os2-total-val                    { color: #6B6B6B; }
+.os2-qty-btn:active               { background: rgb(246 178 60 / 14%); }
+.os2-comp-tag                     { background: #E9F1F7; color: #2E6F9E; }
+.os2-total-grand                  { border-top-color: #ECEAE3; }
+
+/* ─── Move / merge table (mt2-) remaining fixes ─── */
+.mt2-section-label                { color: #757570; }
+.mt2-empty-hint                   { color: #757570; }
+.mt2-chip-area                    { color: #757570; }
+.mt2-merge-area                   { color: #757570; }
+.mt2-merge-amount                 { color: #6B6B6B; }
+.mt2-table-chip                   { border-color: #ECEAE3; }
+.mt2-table-chip-sel               { background: rgb(246 178 60 / 14%); }
+.mt2-merge-row                    { border-color: #ECEAE3; }
+.mt2-merge-row-sel                { background: rgb(246 178 60 / 14%); }
+.mt2-radio                        { border-color: #E3E1DA; }
+.mt2-bottom                       { border-top-color: #ECEAE3; }
+
+/* ─── Settings v2 (set2-) remaining fixes ─── */
+.set2-header                      { border-bottom-color: #ECEAE3; }
+.set2-back-btn                    { background: #F7F6F2; }
+.set2-section-head                { color: #757570; }
+.set2-card                        { border-color: #ECEAE3; }
+.set2-field-label                 { color: #757570; }
+.set2-field-input                 { border-color: #ECEAE3; background: #F7F6F2; }
+.set2-field-select                { border-color: #ECEAE3; background: #F7F6F2; }
+.set2-divider                     { background: #ECEAE3; }
+.set2-test-btn                    { background: #F7F6F2; color: #1C1C1C; border-color: #ECEAE3; }
+.set2-test-btn:active             { background: #ECEAE3; }
+.set2-test-ok                     { background: #E7F3E9; color: #0C831F; border-color: #0C831F; }
+.set2-save-ok                     { background: #0C831F; }
+.set2-row-label                   { color: #6B6B6B; }
+.set2-mono                        { color: #6B6B6B; }
+.set2-status-dot                  { background: #E3E1DA; }
+.set2-status-dot-on               { background: #0C831F; box-shadow: 0 0 0 2px rgba(12,131,31,0.2); }
+.set2-printer-card-label          { color: #E07A1F; }
+.set2-printer-remove              { color: #D92D20; }
+.set2-printer-note                { color: #757570; }
+
+/* ─── Settings v3 (ss3-) remaining fixes ─── */
+.ss3-header                       { border-bottom-color: #ECEAE3; }
+.ss3-divider                      { background: #ECEAE3; }
+.ss3-field-input                  { border-color: #ECEAE3; background: #F7F6F2; color: #1C1C1C; }
+.ss3-field-input::placeholder     { color: #E3E1DA; }
+.ss3-field-select                 { border-color: #ECEAE3; background: #F7F6F2; color: #1C1C1C; }
+.ss3-save-ok                      { background: #0C831F; }
+.ss3-info-label                   { color: #6B6B6B; }
+.ss3-info-muted                   { color: #757570; }
+.ss3-info-connected               { color: #0C831F; }
+.ss3-connected-dot                { background: #0C831F; }
+
+/* ─── Customer info sheet (cis2-) remaining fixes ─── */
+.cis2-header-icon                 { background: rgb(246 178 60 / 14%); color: #E07A1F; }
+.cis2-sub                         { color: #757570; }
+.cis2-label                       { color: #6B6B6B; }
+.cis2-cancel                      { color: #6B6B6B; }
+
+/* ─── Incoming orders sheet (ico2-) remaining fixes ─── */
+.ico2-badge                       { background: #D92D20; }
+.ico2-close                       { background: #F7F6F2; color: #6B6B6B; }
+.ico2-empty                       { color: #757570; }
+.ico2-time                        { color: #757570; }
+.ico2-guest-phone                 { color: #6B6B6B; }
+.ico2-qty                         { color: #6B6B6B; }
+.ico2-notes                       { color: #6B6B6B; }
+.ico2-total                       { color: #6B6B6B; }
+.ico2-reject                      { background: #FBE9E7; color: #D92D20; }
+
+/* ─── Setup screen (su2-) remaining fixes ─── */
+.su2-subtitle                     { color: #757570; }
+.su2-instruction                  { color: #6B6B6B; }
+.su2-input-error                  { border-color: #D92D20; }
+.su2-error                        { color: #D92D20; }
+.su2-check                        { background: #E7F3E9; color: #0C831F; }
+.su2-meta                         { color: #757570; }
+.su2-hint                         { color: #757570; }
+.su2-local-label                  { color: #6B6B6B; }
+.su2-local-hint                   { color: #757570; }
+.su2-back                         { color: #757570; }
+
+/* ─── Bottom tab bar (btab-) remaining fixes ─── */
+.btab-item                        { color: #757570; }
+.btab-badge                       { background: #D92D20; }
+.btab-update-dot                  { background: #D92D20; }
+
+/* ─── Find POS v2 (fp2-) remaining fixes ─── */
+.fp2-status-card                  { background: #F7F6F2; border-color: #ECEAE3; }
+.fp2-status-card-on               { background: #E7F3E9; border-color: #0C831F; }
+.fp2-status-icon                  { background: #ECEAE3; color: #757570; }
+.fp2-status-icon-on               { background: #E7F3E9; color: #0C831F; }
+.fp2-status-sub                   { color: #6B6B6B; }
+.fp2-server-addr                  { color: #757570; }
+.fp2-radio                        { border-color: #E3E1DA; }
+.fp2-radio-sel                    { border-color: #0C831F; background: #0C831F; }
+.fp2-manual-input                 { border-color: #ECEAE3; background: #F7F6F2; color: #1C1C1C; }
+.fp2-manual-input::placeholder    { color: #E3E1DA; }
+
+/* ─── Floor screen v2 (tf2-) remaining fixes ─── */
+.tf2-tab                          { color: #6B6B6B; }
+.tf2-area-heading                 { color: #757570; }
+.tf2-timer                        { color: #6B6B6B; background: #F7F6F2; }
+
+/* ─── Waiter picker (wp2-) fixes ─── */
+.wp2-avatar-none                  { background: #F7F6F2; color: #757570; }
+.wp2-role                         { color: #757570; }
+.wp2-none-label                   { color: #757570; }
+
+/* ─── Coursing screen (crs-) fixes ─── */
+.crs-subtitle                     { color: #6B6B6B; }
+.crs-hold-pill                    { color: #E07A1F; }
+.crs-course-header-fired          { background: #E7F3E9; }
+.crs-item-qty                     { color: #6B6B6B; }
+.crs-courses-btn                  { color: #6B6B6B; }
+
+/* ─── Bill requested modal (brm-) fixes ─── */
+.brm-icon-wrap                    { background: #E7F3E9; }
+.brm-body                         { color: #6B6B6B; }
+
+/* ─── Logout modal (lgm-) remaining fixes ─── */
+.lgm-body                         { color: #6B6B6B; }
+.lgm-cancel-btn                   { background: #F7F6F2; color: #6B6B6B; }
+.lgm-cancel-btn:active            { background: #ECEAE3; }
