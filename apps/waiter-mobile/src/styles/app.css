@@ -8599,3 +8599,50 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 
 /* os2- hold badge: official --color-occupied */
 .os2-hold-badge { color: #E07A1F; }
+
+/* ── PATCH 9 · Remaining box-shadow + semantic color token fixes ─────────── */
+
+/* 1. CTA glow box-shadows — three buttons that still had rgba(255,201,0,0.35) */
+.os2-kot-btn     { box-shadow: 0 2px 8px rgba(248,203,70,0.35); }
+.mt2-confirm-btn { box-shadow: 0 2px 8px rgba(248,203,70,0.35); }
+.fps-rescan-btn  { box-shadow: 0 2px 8px rgba(248,203,70,0.35); }
+
+/* 2. Disabled / dim states — official --color-track and --color-faint */
+.mt2-confirm-btn-dim { background: #ECEAE3; color: #757570; }
+.fps-rescan-scanning { background: #F0EFE9; color: #757570; box-shadow: none; }
+.fps-scan-spinner    { border-color: #E3E1DA; border-top-color: #757570; }
+
+/* 3. Floor table tiles — occupied/running: official --color-occupied #E07A1F */
+.tf2-num-busy                     { color: #E07A1F; }
+.tf2-card-running .tf2-st-text    { color: #E07A1F; }
+.tf2-bar-running                  { background: #F8CB46; }
+
+/* 4. Floor table tiles — free/bill/dining semantic tokens */
+.tf2-card-free .tf2-st-text       { color: #0C831F; }
+.tf2-card-bill .tf2-st-text       { color: #D92D20; }
+.tf2-card-dining .tf2-st-text     { color: #2E6F9E; }
+
+/* 5. Inline running/occupied text across other screens */
+.spm-ss-syncing { color: #E07A1F; }
+.os2-hold-badge { color: #E07A1F; }
+.os2-note-btn-active { color: #E07A1F; }
+
+/* 6. Danger/error red — slightly off on old value; align to official #D92D20 */
+.pin-label.pin-label-error { color: #D92D20; }
+.lgm-confirm-btn           { background: #D92D20; }
+.set2-test-fail            { background: #FBE9E7; color: #D92D20; border-color: #FBE9E7; }
+
+/* 7. KOT floor-button secondary state — official ink not gray */
+.kot-floor-btn:active { background: #1C1C1C; }
+
+/* 8. Incoming orders (ico-) item text — official ink */
+.ico-item-name  { color: #1C1C1C; }
+.ico-item-price { color: #1C1C1C; }
+.ico-customer   { color: #1C1C1C; }
+
+/* 9. Menu browser empty-state muted text */
+.mb2-empty-sub { color: #6B6B6B; }
+
+/* 10. KOT sending overlay progress bar track */
+.kot-progress-track { background: #E3E1DA; }
+.kot-progress-fill  { background: #F8CB46; }
