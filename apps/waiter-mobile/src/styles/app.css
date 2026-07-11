@@ -8656,6 +8656,49 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .tas2-action-ghost .tas2-action-icon  { color: #757570; }
 .tas2-chevron                       { color: #E3E1DA; }
 
+/* ── PATCH 11 · KOT, Failed KOT, Menu Browser token alignment ─────────────── */
+
+/* Menu browser — search bar and secondary text */
+.mb2-subtitle      { color: #6B6B6B; }
+.mb2-search-active { border-color: #F8CB46; }
+.mb2-search-icon   { color: #757570; }
+.mb2-search-clear  { color: #6B6B6B; }
+.mb2-empty-sub     { color: #6B6B6B; }
+
+/* Menu browser — veg/nonveg indicator icons */
+.mb2-veg-box   { border-color: #0C831F; }
+.mb2-veg-dot   { background:   #0C831F; }
+.mb2-nonveg-icon { border-color: #D92D20; color: #D92D20; }
+
+/* Menu browser — item metadata and sold-out tag */
+.mb2-item-unit { color: #757570; }
+.mb2-item-sku  { color: #757570; }
+.mb2-item-desc { color: #757570; }
+.mb2-soldout-tag { background: #FBE9E7; color: #D92D20; }
+
+/* KOT sending overlay — progress sub-text */
+.kot-sending-sub { color: #6B6B6B; }
+.kot-outlet-line { color: #757570; }
+
+/* KOT success screen — circle, halo, labels */
+.kot-success-halo   { background: radial-gradient(circle, rgba(12,131,31,0.18) 0%, rgba(12,131,31,0) 70%); }
+.kot-success-circle { background: #0C831F; box-shadow: 0 4px 20px rgba(12,131,31,0.35); }
+.kot-success-sub    { color: #6B6B6B; }
+
+/* KOT success — ticket card */
+.kot-ticket-card    { border-color: #ECEAE3; }
+.kot-ticket-divider { background:   #ECEAE3; }
+.kot-ticket-label   { color: #757570; }
+.kot-ticket-time    { color: #1C1C1C; }
+.kot-return-hint    { color: #757570; }
+
+/* Failed KOT screen (fkot-) */
+.fkot-count-badge  { background: #D92D20; }
+.fkot-empty-icon   { background: #E7F3E9; color: #0C831F; }
+.fkot-empty-sub    { color: #757570; }
+.fkot-more         { color: #757570; }
+.fkot-card         { border-color: #FBE9E7; }
+
 /* ── PATCH 9 · Remaining box-shadow + semantic color token fixes ─────────── */
 
 /* 1. CTA glow box-shadows — three buttons that still had rgba(255,201,0,0.35) */
