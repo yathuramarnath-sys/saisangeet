@@ -762,17 +762,34 @@ export function App() {
       setOrders((prev) => {
         const local = prev[tableId];
         if (!local) return prev;
-        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
-        const localOnlyUnsent = (local.items || []).filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+        // Local unsent items are the source of truth — the captain may have removed
+        // or changed items while the REST call was in flight.
+        const localUnsent = (local.items || []).filter(i => !i.sentToKot && !i.isVoided);
+        const localUnsentMenuIds = new Set(localUnsent.map(i => i.menuItemId));
+        const sentFromServer = (serverOrder.items || []).filter(i => i.sentToKot || i.isVoided);
+        // Server items the captain has since removed — clean up server memory so POS
+        // doesn't see them on reconnect.
+        const orphaned = (serverOrder.items || []).filter(
+          si => !si.sentToKot && !si.isVoided && !localUnsentMenuIds.has(si.menuItemId)
         );
+        if (orphaned.length) {
+          setTimeout(() => {
+            orphaned.forEach(si =>
+              api.delete(`/operations/order/item`, {
+                tableId,
+                outletId: outlet?.id || branchConfig?.outletId,
+                itemId:   si.id,
+                actorName: loggedInStaff?.name || "Captain",
+              }).catch(() => {})
+            );
+          }, 0);
+        }
         return {
           ...prev,
           [tableId]: {
             ...serverOrder,
-            // Preserve local assignedWaiter if server response doesn't include one
             assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
-            items: [...(serverOrder.items || []), ...localOnlyUnsent],
+            items: [...sentFromServer, ...localUnsent],
           },
         };
       });
