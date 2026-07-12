@@ -303,12 +303,15 @@ export function App() {
           if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) {
             return p; // our version is newer — discard
           }
-          // Concurrent-edit merge: preserve local unsent items not in the incoming order
+          // Concurrent-edit merge: preserve local unsent items not in the incoming order.
+          // Exclude items in _deletedItemIds — those were intentionally removed and must
+          // not be re-added even if they're absent from the incoming snapshot.
           let merged = o;
           if (current) {
             const incomingIds = new Set((o.items || []).map(i => i.id));
+            const deletedIds  = new Set(o._deletedItemIds || []);
             const localOnly   = (current.items || []).filter(
-              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id) && !deletedIds.has(i.id)
             );
             if (localOnly.length > 0) {
               merged = { ...o, items: [...(o.items || []), ...localOnly] };
@@ -436,12 +439,14 @@ export function App() {
             }
             const current = p[o.tableId];
             if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) return p;
-            // Concurrent-edit merge: preserve local unsent items not in the incoming order
+            // Concurrent-edit merge: preserve local unsent items not in the incoming order.
+            // Exclude _deletedItemIds so intentionally-removed items are never re-added.
             let merged = o;
             if (current) {
               const incomingIds = new Set((o.items || []).map(i => i.id));
+              const deletedIds  = new Set(o._deletedItemIds || []);
               const localOnly   = (current.items || []).filter(
-                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id) && !deletedIds.has(i.id)
               );
               if (localOnly.length > 0) {
                 merged = { ...o, items: [...(o.items || []), ...localOnly] };
@@ -702,11 +707,18 @@ export function App() {
     const tableId = selectedTableId;
     if (!tableId || !itemId) return;
 
-    // Optimistic local remove immediately
+    // Optimistic local remove: include itemId in _deletedItemIds so POS concurrent-edit
+    // merge doesn't re-add it when it receives the updated order without that item.
     setOrders((prev) => {
       const order = prev[tableId];
       if (!order) return prev;
-      const next = { ...order, items: order.items.filter((i) => i.id !== itemId) };
+      const deletedItemIds = [...(order._deletedItemIds || []), itemId].slice(-100);
+      const next = {
+        ...order,
+        items: order.items.filter((i) => i.id !== itemId),
+        _deletedItemIds: deletedItemIds,
+        updatedAt: new Date().toISOString(),
+      };
       socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: next });
       localSocketRef.current?.emit("order:update", { order: next });
       return { ...prev, [tableId]: next };
@@ -720,7 +732,15 @@ export function App() {
       actorName: loggedInStaff?.name || "Captain",
     };
     try {
-      await api.delete(`/operations/order/item`, removePayload);
+      const serverOrder = await api.delete(`/operations/order/item`, removePayload);
+      // Re-emit server-authoritative order (carries _deletedItemIds tombstone) so POS
+      // discards this item even if it was cached locally before the delete arrived.
+      if (serverOrder?.items) {
+        const authoritative = { ...serverOrder, updatedAt: new Date().toISOString() };
+        setOrders(prev => ({ ...prev, [tableId]: authoritative }));
+        socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: authoritative });
+        localSocketRef.current?.emit("order:update", { order: authoritative });
+      }
     } catch (err) {
       console.warn("[captain] removeItem sync failed — queuing for retry:", err.message);
       syncEnqueue(SYNC_ACTION.REMOVE_ITEM, removePayload);

@@ -642,8 +642,10 @@ export default function App() {
             if (current && !updatedOrder.isClosed) {
               const incomingWithTax = withLocalTaxRate(updatedOrder.items || [], current.items);
               const incomingIds  = new Set(incomingWithTax.map(i => i.id));
+              // Exclude _deletedItemIds: Captain explicitly removed these; don't re-add them
+              const deletedIds   = new Set(updatedOrder._deletedItemIds || []);
               const localOnly    = (current.items || []).filter(
-                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id) && !deletedIds.has(i.id)
               );
               merged = { ...updatedOrder, items: [...incomingWithTax, ...localOnly] };
             }

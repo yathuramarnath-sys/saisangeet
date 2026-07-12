@@ -156,14 +156,22 @@ export function OrderScreen({
         onUpdateOrder={(next) => {
           const prevUnsent = (order.items || []).filter(i => !i.sentToKot && !i.isVoided);
           const nextUnsentIds = new Set((next.items || []).filter(i => !i.sentToKot && !i.isVoided).map(i => i.menuItemId));
-          onUpdateOrder(next);
+          const removedItems = prevUnsent.filter(i => !nextUnsentIds.has(i.menuItemId));
+          // Include removed item IDs as tombstones so receiving devices (POS) don't
+          // re-add them through the concurrent-edit merge.
+          const nextWithTombstone = removedItems.length > 0 ? {
+            ...next,
+            _deletedItemIds: [...(order._deletedItemIds || []), ...removedItems.map(i => i.id).filter(Boolean)].slice(-100),
+          } : next;
+          onUpdateOrder(nextWithTombstone);
           // New item pushed — sync to server
           if ((next.items || []).filter(i => !i.sentToKot).length > (order.items || []).filter(i => !i.sentToKot).length) {
             onAddItem?.(next.items.at(-1));
           }
-          // Item fully removed from MenuBrowser — REST DELETE it from server immediately
-          prevUnsent
-            .filter(i => !nextUnsentIds.has(i.menuItemId) && i.id && !String(i.id).startsWith('item-'))
+          // Item fully removed from MenuBrowser — REST DELETE it from server immediately.
+          // No startsWith('item-') guard: server handles unknown IDs gracefully via tombstone.
+          removedItems
+            .filter(i => i.id)
             .forEach(i => onRemoveItem?.(i.id));
         }}
         onBack={() => setScreen("order")}
