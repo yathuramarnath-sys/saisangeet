@@ -624,9 +624,9 @@ export function App() {
       const serverOrder = await api.get(`/operations/order?tableId=${tableId}${outlet?.id ? `&outletId=${outlet.id}` : ""}`);
       setOrders((prev) => {
         // Merge: keep server-side items + any local unsent items not yet on server
-        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
+        const serverUnsentMenuIds = new Set((serverOrder.items || []).filter(i => !i.sentToKot && !i.isVoided).map(i => i.menuItemId));
         const localOnlyUnsent = capturedLocalItems.filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+          (li) => !li.sentToKot && !li.isVoided && !serverUnsentMenuIds.has(li.menuItemId)
         );
         return {
           ...prev,
@@ -761,9 +761,9 @@ export function App() {
       setOrders((prev) => {
         const local = prev[tableId];
         if (!local) return prev;
-        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
+        const serverUnsentMenuIds = new Set((serverOrder.items || []).filter(i => !i.sentToKot && !i.isVoided).map(i => i.menuItemId));
         const localOnlyUnsent = (local.items || []).filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+          (li) => !li.sentToKot && !li.isVoided && !serverUnsentMenuIds.has(li.menuItemId)
         );
         return {
           ...prev,
@@ -989,15 +989,15 @@ export function App() {
       setOrders((prev) => {
         const local = prev[tid];
         if (!local) return prev;
-        const serverItemIds = new Set((lastServerOrder.items || []).map((i) => i.id));
+        const serverUnsentMenuIds = new Set((lastServerOrder.items || []).filter(i => !i.sentToKot && !i.isVoided).map(i => i.menuItemId));
         const localOnlyUnsent = (local.items || []).filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+          (li) => !li.sentToKot && !li.isVoided && !serverUnsentMenuIds.has(li.menuItemId)
         );
         return {
           ...prev,
           [tid]: {
             ...lastServerOrder,
-            assignedWaiter: waiterToShow,  // stamp waiter on server-refreshed order too
+            assignedWaiter: waiterToShow,
             items: [...(lastServerOrder.items || []), ...localOnlyUnsent],
           },
         };
