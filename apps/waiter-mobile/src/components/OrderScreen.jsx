@@ -154,9 +154,17 @@ export function OrderScreen({
         outletId={outletId}
         socket={socket}
         onUpdateOrder={(next) => {
-          const prevCount = (order.items || []).length;
+          const prevUnsent = (order.items || []).filter(i => !i.sentToKot && !i.isVoided);
+          const nextUnsentIds = new Set((next.items || []).filter(i => !i.sentToKot && !i.isVoided).map(i => i.menuItemId));
           onUpdateOrder(next);
-          if ((next.items || []).length > prevCount) onAddItem?.(next.items.at(-1));
+          // New item pushed — sync to server
+          if ((next.items || []).filter(i => !i.sentToKot).length > (order.items || []).filter(i => !i.sentToKot).length) {
+            onAddItem?.(next.items.at(-1));
+          }
+          // Item fully removed from MenuBrowser — REST DELETE it from server immediately
+          prevUnsent
+            .filter(i => !nextUnsentIds.has(i.menuItemId) && i.id && !String(i.id).startsWith('item-'))
+            .forEach(i => onRemoveItem?.(i.id));
         }}
         onBack={() => setScreen("order")}
         tableLabel={tableLabel}
