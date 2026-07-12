@@ -712,6 +712,7 @@ export function App() {
         ...order,
         items: order.items.filter((i) => i.id !== itemId),
         _deletedItemIds: deletedIds,
+        updatedAt: Date.now(),
       };
       socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: next });
       localSocketRef.current?.emit("order:update", { order: next });
