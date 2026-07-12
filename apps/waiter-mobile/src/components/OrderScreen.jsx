@@ -153,7 +153,11 @@ export function OrderScreen({
         categoryStockState={categoryStockState}
         outletId={outletId}
         socket={socket}
-        onUpdateOrder={(next) => { onUpdateOrder(next); onAddItem?.(next.items?.at(-1)); }}
+        onUpdateOrder={(next) => {
+          const prevCount = (order.items || []).length;
+          onUpdateOrder(next);
+          if ((next.items || []).length > prevCount) onAddItem?.(next.items.at(-1));
+        }}
         onBack={() => setScreen("order")}
         tableLabel={tableLabel}
       />
