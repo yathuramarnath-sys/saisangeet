@@ -638,12 +638,15 @@ export default function App() {
             // an item a split-second before the Captain's socket event arrived).
             // Preserve any local unsent items that are absent from the incoming
             // order so they aren't silently dropped.
+            // Exclude _deletedItemIds: items Captain explicitly removed must not
+            // be re-added even if they're absent from the incoming snapshot.
             let merged = updatedOrder;
             if (current && !updatedOrder.isClosed) {
               const incomingWithTax = withLocalTaxRate(updatedOrder.items || [], current.items);
               const incomingIds  = new Set(incomingWithTax.map(i => i.id));
+              const deletedIds   = new Set(updatedOrder._deletedItemIds || []);
               const localOnly    = (current.items || []).filter(
-                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id) && !deletedIds.has(i.id)
               );
               merged = { ...updatedOrder, items: [...incomingWithTax, ...localOnly] };
             }

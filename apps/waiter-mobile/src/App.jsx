@@ -702,11 +702,17 @@ export function App() {
     const tableId = selectedTableId;
     if (!tableId || !itemId) return;
 
-    // Optimistic local remove immediately
+    // Optimistic local remove — include itemId in _deletedItemIds so POS concurrent-edit
+    // merge doesn't re-add it when it receives the updated order without that item.
     setOrders((prev) => {
       const order = prev[tableId];
       if (!order) return prev;
-      const next = { ...order, items: order.items.filter((i) => i.id !== itemId) };
+      const deletedIds = [...(order._deletedItemIds || []), itemId].slice(-50);
+      const next = {
+        ...order,
+        items: order.items.filter((i) => i.id !== itemId),
+        _deletedItemIds: deletedIds,
+      };
       socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: next });
       localSocketRef.current?.emit("order:update", { order: next });
       return { ...prev, [tableId]: next };
