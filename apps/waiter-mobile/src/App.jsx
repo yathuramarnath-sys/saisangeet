@@ -671,9 +671,11 @@ export function App() {
 
   // ── Update order (local + cloud socket + local socket) ───────────────────
   function handleUpdateOrder(nextOrder) {
-    setOrders((p) => ({ ...p, [nextOrder.tableId]: nextOrder }));
-    socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: nextOrder });
-    localSocketRef.current?.emit("order:update", { order: nextOrder });
+    // Stamp current time so stale server echoes (older updatedAt) are rejected by the order:updated guard.
+    const stamped = { ...nextOrder, updatedAt: new Date().toISOString() };
+    setOrders((p) => ({ ...p, [stamped.tableId]: stamped }));
+    socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: stamped });
+    localSocketRef.current?.emit("order:update", { order: stamped });
   }
 
   // ── Persist guest count to backend so it survives syncs ──────────────────
