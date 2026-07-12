@@ -21,7 +21,7 @@ function makeLongPress(callback, ms = 550) {
   };
 }
 
-export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, onUpdateOrder, onBack, tableLabel }) {
+export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, onUpdateOrder, onBack }) {
   // Restrict the menu to the table's area, mirroring the POS work-area filter:
   // a category only shows here if it's explicitly tagged for this area (categories with
   // no area tag are reserved for full-access terminals/screens); an item with no area tag
@@ -209,47 +209,41 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
   }, 0);
   const cartTotal   = cartSub + cartTax;
 
-  const headerSub = [
-    tableLabel,
-    order.guests ? `${order.guests} guests` : null,
-  ].filter(Boolean).join(" · ");
-
   return (
-    <div className="menu-page mb2-page">
+    <div className="menu-page">
       {/* Header */}
-      <div className="mb2-header">
-        <button className="mb2-back-btn" onClick={onBack}>
+      <div className="menu-header">
+        <button className="icon-back-btn" onClick={onBack}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
-        <div className="mb2-header-text">
-          <h2 className="mb2-title">Add Items</h2>
-          {headerSub && <p className="mb2-subtitle">{headerSub}</p>}
-        </div>
+        <h2 className="menu-title">Add Items</h2>
       </div>
 
       {/* Search */}
-      <div className={`mb2-search${search ? " mb2-search-active" : ""}`}>
-        <svg className="mb2-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <div className="menu-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
         <input
           type="text"
-          className="mb2-search-input"
-          placeholder="Search by name or code #352"
+          placeholder="Search or type item # + Enter"
           value={search}
           onChange={e => setSearch(e.target.value)}
           onKeyDown={e => {
             if (e.key === "Enter" && search.trim() && /^\d+$/.test(search.trim())) {
               const match = captainMenuItems.find(i => String(i.sku || "") === search.trim());
-              if (match) { addItem(match); setSearch(""); }
+              if (match) {
+                addItem(match);
+                setSearch("");
+              }
               e.preventDefault();
             }
           }}
         />
         {search && (
-          <button className="mb2-search-clear" onClick={() => setSearch("")}>
+          <button className="search-clear" onClick={() => setSearch("")}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
@@ -257,11 +251,12 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
         )}
       </div>
 
-      {/* Category chips — long-press any chip to enter reorder mode */}
+      {/* Category chips — long-press any chip to enter reorder mode (drag to rearrange,
+          tap any chip to exit). Order is a captain-only display preference. */}
       {!search && (
-        <div className="mb2-cats">
+        <div className="cat-chips">
           <button
-            className={`mb2-cat mb2-cat-fav${activeCat === FAVORITES_CHIP_ID ? " mb2-cat-active" : ""}`}
+            className={`cat-chip cat-chip-favorites${activeCat === FAVORITES_CHIP_ID ? " cat-chip-active" : ""}`}
             onClick={() => { setActiveCat(FAVORITES_CHIP_ID); tapImpact(); }}
           >
             ★ Favourites
@@ -277,8 +272,11 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
                 onDragStart={reorderMode ? (e) => e.dataTransfer.setData("text/plain", id) : undefined}
                 onDragOver={reorderMode ? (e) => e.preventDefault() : undefined}
                 onDrop={reorderMode ? (e) => { e.preventDefault(); reorderCategory(e.dataTransfer.getData("text/plain"), id); } : undefined}
-                className={`mb2-cat${activeCat === id ? " mb2-cat-active" : ""}${reorderMode ? " mb2-cat-reorder" : ""}${catDisabled ? " mb2-cat-disabled" : ""}`}
-                onClick={() => { if (reorderMode) { setReorderMode(false); return; } setActiveCat(id); tapImpact(); }}
+                className={`cat-chip${activeCat === id ? " cat-chip-active" : ""}${reorderMode ? " cat-chip-reorder" : ""}${catDisabled ? " cat-chip-disabled" : ""}`}
+                onClick={() => {
+                  if (reorderMode) { setReorderMode(false); return; }
+                  setActiveCat(id); tapImpact();
+                }}
                 {...(!reorderMode ? longPress : {})}
               >
                 {catDisabled && "⏸ "}{c.name}
@@ -289,83 +287,58 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
       )}
 
       {/* Items list */}
-      <div className="mb2-items">
-        {/* Empty state */}
-        {displayItems.length === 0 && search && (
-          <div className="mb2-empty">
-            <div className="mb2-empty-icon-wrap">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C4BFB5" strokeWidth="1.5">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="m21 21-4.35-4.35"/>
-                <line x1="8.5" y1="8.5" x2="13.5" y2="13.5"/>
-                <line x1="13.5" y1="8.5" x2="8.5" y2="13.5"/>
-              </svg>
-            </div>
-            <p className="mb2-empty-title">No matches for "{search}"</p>
-            <p className="mb2-empty-sub">Try a different name, or search by item code like #214.</p>
-            <button className="mb2-clear-search-btn" onClick={() => setSearch("")}>× Clear search</button>
+      <div className="menu-items">
+        {displayItems.length === 0 && (
+          <div className="menu-empty">
+            <p>{activeCat === FAVORITES_CHIP_ID
+              ? "No favourites yet — tap the ☆ on any item to add one"
+              : "No items found"}</p>
           </div>
         )}
-        {displayItems.length === 0 && !search && (
-          <div className="mb2-empty">
-            <p className="mb2-empty-title">
-              {activeCat === FAVORITES_CHIP_ID
-                ? "No favourites yet — tap ★ on any item to add one"
-                : "No items in this category"}
-            </p>
-          </div>
-        )}
-
         {displayItems.map(item => {
-          const price       = parsePriceNumber(item.price || item.basePrice);
-          const soldOut     = stockState[item.id]?.available === false;
+          const price   = parsePriceNumber(item.price || item.basePrice);
+          const soldOut = stockState[item.id]?.available === false;
           const catDisabled = categoryStockState[item.categoryId]?.available === false;
           const unavailable = soldOut || catDisabled;
-          const cartItem    = (order.items || []).find(i => i.menuItemId === item.id && !i.sentToKot);
-          const cartQty     = cartItem ? cartItem.quantity : 0;
-          const isFavorite  = favoriteIds.includes(item.id);
-          const isVeg       = item.isVeg === true;
-          const isNonVeg    = item.isVeg === false;
+          const cartItem = (order.items || []).find(i => i.menuItemId === item.id && !i.sentToKot);
+          const cartQty  = cartItem ? cartItem.quantity : 0;
+
+          const isFavorite = favoriteIds.includes(item.id);
 
           return (
-            <div key={item.id} className={`mb2-item${unavailable ? " mb2-item-unavail" : ""}`}>
-              {/* Left: details */}
-              <div className="mb2-item-left">
-                <div className="mb2-item-meta-row">
-                  {isVeg    && <span className="mb2-veg-icon"><span className="mb2-veg-dot"/></span>}
-                  {isNonVeg && <span className="mb2-nonveg-icon">▲</span>}
-                  <button
-                    className={`mb2-fav-btn${isFavorite ? " mb2-fav-active" : ""}`}
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
-                  >
-                    {isFavorite ? "★" : "☆"}
-                  </button>
+            <div key={item.id} className={`menu-item${unavailable ? " menu-item-soldout" : ""}${item.isVeg === false ? " item-nonveg" : item.isVeg === true ? " item-veg" : ""}`}>
+              <div className="menu-item-left">
+                <button
+                  className={`menu-item-fav-btn${isFavorite ? " active" : ""}`}
+                  onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
+                  aria-label={isFavorite ? "Remove from favourites" : "Add to favourites"}
+                >
+                  {isFavorite ? "★" : "☆"}
+                </button>
+                <div className="menu-item-info">
+                  <span className="menu-item-name">
+                    {item.sku && <span className="menu-item-sku">#{item.sku}</span>}
+                    {item.name}{item.unit ? <span className="menu-item-unit">/{item.unit}</span> : null}
+                  </span>
+                  {soldOut && <span className="soldout-tag">Sold out</span>}
+                  {!soldOut && catDisabled && <span className="soldout-tag">Category unavailable</span>}
                 </div>
-                <p className="mb2-item-name">
-                  {item.name}
-                  {item.unit ? <span className="mb2-item-unit"> /{item.unit}</span> : null}
-                </p>
-                <p className="mb2-item-price-row">
-                  <span className="mb2-item-price">₹{price}</span>
-                  {item.sku && <span className="mb2-item-sku">  #{item.sku}</span>}
-                </p>
-                {item.description && <p className="mb2-item-desc">{item.description}</p>}
-                {soldOut     && <span className="mb2-soldout-tag">Sold out</span>}
-                {!soldOut && catDisabled && <span className="mb2-soldout-tag">Category unavailable</span>}
               </div>
-
-              {/* Right: photo + action */}
-              <div className="mb2-item-right">
-                <div className={`mb2-photo${isVeg ? " mb2-photo-veg" : isNonVeg ? " mb2-photo-nonveg" : " mb2-photo-neutral"}`} />
+              <div className="menu-item-right">
+                <span className="menu-item-price">₹{price}</span>
                 {!unavailable && (
                   cartQty > 0 ? (
-                    <div className="mb2-stepper">
-                      <button className="mb2-step-btn mb2-step-minus" onClick={() => removeItem(item.id)}>−</button>
-                      <span className="mb2-step-num">{cartQty}</span>
-                      <button className="mb2-step-btn mb2-step-plus" onClick={() => addItem(item)}>+</button>
+                    <div className="menu-qty-ctrl">
+                      <button className="qty-btn" onClick={() => removeItem(item.id)}>−</button>
+                      <span className="qty-num">{cartQty}</span>
+                      <button className="qty-btn qty-btn-add" onClick={() => addItem(item)}>+</button>
                     </div>
                   ) : (
-                    <button className="mb2-add-btn" onClick={() => addItem(item)}>ADD +</button>
+                    <button className="menu-add-btn" onClick={() => addItem(item)}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                    </button>
                   )
                 )}
               </div>
@@ -374,19 +347,22 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
         })}
       </div>
 
-      {/* Cart bar — shows when order has any items */}
+      {/* Floating cart bar */}
       {(order.items?.length > 0) && (
-        <div className="mb2-cart-bar">
-          <button className="mb2-cart-btn" onClick={onBack}>
-            <div className="mb2-cart-left">
-              <span className="mb2-cart-amount">₹{cartTotal}</span>
-              <span className="mb2-cart-sub">
+        <div className="cart-bar">
+          <button className="cart-bar-btn" onClick={onBack}>
+            <span className="cart-bar-left">
+              <span className="cart-count-badge">{order.items.length}</span>
+              <span>
                 {unsentCount > 0
                   ? `${unsentCount} unsent item${unsentCount > 1 ? "s" : ""}`
                   : `${order.items.length} item${order.items.length > 1 ? "s" : ""}`}
               </span>
-            </div>
-            <span className="mb2-cart-view">View Order →</span>
+            </span>
+            <span className="cart-bar-right">
+              <span>₹{cartTotal}</span>
+              <span className="cart-view-chip">View Order →</span>
+            </span>
           </button>
         </div>
       )}

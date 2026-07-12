@@ -303,15 +303,12 @@ export function App() {
           if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) {
             return p; // our version is newer — discard
           }
-          // Concurrent-edit merge: preserve local unsent items not in the incoming order.
-          // Exclude items in _deletedItemIds — those were intentionally removed and must
-          // not be re-added even if they're absent from the incoming snapshot.
+          // Concurrent-edit merge: preserve local unsent items not in the incoming order
           let merged = o;
           if (current) {
             const incomingIds = new Set((o.items || []).map(i => i.id));
-            const deletedIds  = new Set(o._deletedItemIds || []);
             const localOnly   = (current.items || []).filter(
-              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id) && !deletedIds.has(i.id)
+              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
             );
             if (localOnly.length > 0) {
               merged = { ...o, items: [...(o.items || []), ...localOnly] };
@@ -439,14 +436,12 @@ export function App() {
             }
             const current = p[o.tableId];
             if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) return p;
-            // Concurrent-edit merge: preserve local unsent items not in the incoming order.
-            // Exclude _deletedItemIds so intentionally-removed items are never re-added.
+            // Concurrent-edit merge: preserve local unsent items not in the incoming order
             let merged = o;
             if (current) {
               const incomingIds = new Set((o.items || []).map(i => i.id));
-              const deletedIds  = new Set(o._deletedItemIds || []);
               const localOnly   = (current.items || []).filter(
-                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id) && !deletedIds.has(i.id)
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
               );
               if (localOnly.length > 0) {
                 merged = { ...o, items: [...(o.items || []), ...localOnly] };
@@ -629,9 +624,9 @@ export function App() {
       const serverOrder = await api.get(`/operations/order?tableId=${tableId}${outlet?.id ? `&outletId=${outlet.id}` : ""}`);
       setOrders((prev) => {
         // Merge: keep server-side items + any local unsent items not yet on server
-        const serverUnsentMenuIds = new Set((serverOrder.items || []).filter(i => !i.sentToKot && !i.isVoided).map(i => i.menuItemId));
+        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
         const localOnlyUnsent = capturedLocalItems.filter(
-          (li) => !li.sentToKot && !li.isVoided && !serverUnsentMenuIds.has(li.menuItemId)
+          (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
         return {
           ...prev,
@@ -675,11 +670,9 @@ export function App() {
 
   // ── Update order (local + cloud socket + local socket) ───────────────────
   function handleUpdateOrder(nextOrder) {
-    // Stamp current time so stale server echoes (older updatedAt) are rejected by the order:updated guard.
-    const stamped = { ...nextOrder, updatedAt: new Date().toISOString() };
-    setOrders((p) => ({ ...p, [stamped.tableId]: stamped }));
-    socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: stamped });
-    localSocketRef.current?.emit("order:update", { order: stamped });
+    setOrders((p) => ({ ...p, [nextOrder.tableId]: nextOrder }));
+    socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: nextOrder });
+    localSocketRef.current?.emit("order:update", { order: nextOrder });
   }
 
   // ── Persist guest count to backend so it survives syncs ──────────────────
@@ -707,18 +700,11 @@ export function App() {
     const tableId = selectedTableId;
     if (!tableId || !itemId) return;
 
-    // Optimistic local remove: include itemId in _deletedItemIds so POS concurrent-edit
-    // merge doesn't re-add it when it receives the updated order without that item.
+    // Optimistic local remove immediately
     setOrders((prev) => {
       const order = prev[tableId];
       if (!order) return prev;
-      const deletedItemIds = [...(order._deletedItemIds || []), itemId].slice(-100);
-      const next = {
-        ...order,
-        items: order.items.filter((i) => i.id !== itemId),
-        _deletedItemIds: deletedItemIds,
-        updatedAt: new Date().toISOString(),
-      };
+      const next = { ...order, items: order.items.filter((i) => i.id !== itemId) };
       socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: next });
       localSocketRef.current?.emit("order:update", { order: next });
       return { ...prev, [tableId]: next };
@@ -732,15 +718,7 @@ export function App() {
       actorName: loggedInStaff?.name || "Captain",
     };
     try {
-      const serverOrder = await api.delete(`/operations/order/item`, removePayload);
-      // Re-emit server-authoritative order (carries _deletedItemIds tombstone) so POS
-      // discards this item even if it was cached locally before the delete arrived.
-      if (serverOrder?.items) {
-        const authoritative = { ...serverOrder, updatedAt: new Date().toISOString() };
-        setOrders(prev => ({ ...prev, [tableId]: authoritative }));
-        socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: authoritative });
-        localSocketRef.current?.emit("order:update", { order: authoritative });
-      }
+      await api.delete(`/operations/order/item`, removePayload);
     } catch (err) {
       console.warn("[captain] removeItem sync failed — queuing for retry:", err.message);
       syncEnqueue(SYNC_ACTION.REMOVE_ITEM, removePayload);
@@ -781,14 +759,15 @@ export function App() {
       setOrders((prev) => {
         const local = prev[tableId];
         if (!local) return prev;
-        const serverUnsentMenuIds = new Set((serverOrder.items || []).filter(i => !i.sentToKot && !i.isVoided).map(i => i.menuItemId));
+        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
         const localOnlyUnsent = (local.items || []).filter(
-          (li) => !li.sentToKot && !li.isVoided && !serverUnsentMenuIds.has(li.menuItemId)
+          (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
         return {
           ...prev,
           [tableId]: {
             ...serverOrder,
+            // Preserve local assignedWaiter if server response doesn't include one
             assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
             items: [...(serverOrder.items || []), ...localOnlyUnsent],
           },
@@ -1009,15 +988,15 @@ export function App() {
       setOrders((prev) => {
         const local = prev[tid];
         if (!local) return prev;
-        const serverUnsentMenuIds = new Set((lastServerOrder.items || []).filter(i => !i.sentToKot && !i.isVoided).map(i => i.menuItemId));
+        const serverItemIds = new Set((lastServerOrder.items || []).map((i) => i.id));
         const localOnlyUnsent = (local.items || []).filter(
-          (li) => !li.sentToKot && !li.isVoided && !serverUnsentMenuIds.has(li.menuItemId)
+          (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
         return {
           ...prev,
           [tid]: {
             ...lastServerOrder,
-            assignedWaiter: waiterToShow,
+            assignedWaiter: waiterToShow,  // stamp waiter on server-refreshed order too
             items: [...(lastServerOrder.items || []), ...localOnlyUnsent],
           },
         };

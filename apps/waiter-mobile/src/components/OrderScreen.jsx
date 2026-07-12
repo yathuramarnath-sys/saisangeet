@@ -4,8 +4,8 @@ import { MenuBrowser } from "./MenuBrowser";
 import { NoteModal }   from "./NoteModal";
 import { SplitBill }   from "./SplitBill";
 import { TransferModal } from "./TransferModal";
+import { MergeModal }    from "./MergeModal";
 import { PhonePeQRModal } from "./PhonePeQRModal";
-import { CoursingScreen } from "./CoursingScreen";
 import {
   getStockState,
   subscribeStock,
@@ -17,22 +17,12 @@ import {
   setCategoryAvailability,
 } from "../../../../packages/shared-types/src/categoryAvailability.js";
 
-function elapsedLabel(ts) {
-  if (!ts) return null;
-  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
-  if (mins < 1)   return "< 1m";
-  if (mins < 60)  return `${mins}m`;
-  const h = Math.floor(mins / 60), m = mins % 60;
-  return `${h}h${m > 0 ? ` ${m}m` : ""}`;
-}
-
 export function OrderScreen({
   order, tableLabel, areas, categories, menuItems, outletName,
   orders, outletId, socket, staff = [],
   onBack, onSendKOT, onRequestBill, onPrintBill, onPrintSplitBill,
   onToggleHold, onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear, onCustomerInfo,
-  onRequestRemoveItem,
   autoOpen = null, // "menu" | "transfer" | "merge" | "split" — open screen/modal immediately on mount
 }) {
   const [screen,          setScreen]          = useState(
@@ -101,10 +91,8 @@ export function OrderScreen({
     };
   }, [socket]);
 
-  const items         = order.items || [];
-  const unsentCount   = items.filter(i => !i.sentToKot).length;
-  const sentItems     = items.filter(i =>  i.sentToKot && !i.isVoided);
-  const unsentItems   = items.filter(i => !i.sentToKot && !i.isVoided);
+  const items      = order.items || [];
+  const unsentCount = items.filter(i => !i.sentToKot).length;
   const billableItems = items.filter(i => !i.isVoided && !i.isComp);
   const totalSub    = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const totalTax    = billableItems.reduce((s, i) => {
@@ -119,16 +107,10 @@ export function OrderScreen({
     const item  = next[idx];
     const newQty = (item?.quantity || 1) + delta;
     if (newQty <= 0) {
-      // Sent items: show confirm dialog (removal voids kitchen-prepared food)
-      // Unsent items: remove directly without dialog, matching expected UX
-      if (item?.sentToKot && onRequestRemoveItem && item?.id) {
-        onRequestRemoveItem({ itemId: item.id, itemName: item.name, isSent: true });
-      } else if (onRemoveItem && item?.id) {
-        onRemoveItem(item.id);
-      } else {
-        next.splice(idx, 1);
-        onUpdateOrder({ ...order, items: next });
-      }
+      // Use dedicated remove handler so backend memory store is updated too
+      // (socket order:update alone doesn't update backend — causes stuck item bug)
+      if (onRemoveItem && item?.id) onRemoveItem(item.id);
+      else { next.splice(idx, 1); onUpdateOrder({ ...order, items: next }); }
     } else {
       next[idx] = { ...item, quantity: newQty };
       onUpdateOrder({ ...order, items: next });
@@ -153,38 +135,7 @@ export function OrderScreen({
         categoryStockState={categoryStockState}
         outletId={outletId}
         socket={socket}
-        onUpdateOrder={(next) => {
-          const prevUnsent = (order.items || []).filter(i => !i.sentToKot && !i.isVoided);
-          const nextUnsentIds = new Set((next.items || []).filter(i => !i.sentToKot && !i.isVoided).map(i => i.menuItemId));
-          const removedItems = prevUnsent.filter(i => !nextUnsentIds.has(i.menuItemId));
-          // Include removed item IDs as tombstones so receiving devices (POS) don't
-          // re-add them through the concurrent-edit merge.
-          const nextWithTombstone = removedItems.length > 0 ? {
-            ...next,
-            _deletedItemIds: [...(order._deletedItemIds || []), ...removedItems.map(i => i.id).filter(Boolean)].slice(-100),
-          } : next;
-          onUpdateOrder(nextWithTombstone);
-          // New item pushed — sync to server
-          if ((next.items || []).filter(i => !i.sentToKot).length > (order.items || []).filter(i => !i.sentToKot).length) {
-            onAddItem?.(next.items.at(-1));
-          }
-          // Item fully removed from MenuBrowser — REST DELETE it from server immediately.
-          // No startsWith('item-') guard: server handles unknown IDs gracefully via tombstone.
-          removedItems
-            .filter(i => i.id)
-            .forEach(i => onRemoveItem?.(i.id));
-        }}
-        onBack={() => setScreen("order")}
-        tableLabel={tableLabel}
-      />
-    );
-  }
-
-  if (screen === "courses") {
-    return (
-      <CoursingScreen
-        order={order}
-        tableLabel={tableLabel}
+        onUpdateOrder={(next) => { onUpdateOrder(next); onAddItem?.(next.items?.at(-1)); }}
         onBack={() => setScreen("order")}
       />
     );
@@ -201,82 +152,48 @@ export function OrderScreen({
     );
   }
 
-  const seatedTs   = order.openedAt || order.createdAt;
-  const seatedTimer = seatedTs ? elapsedLabel(seatedTs) : null;
-  const headerSub   = [
-    order.areaName,
-    order.guests ? `${order.guests} guests` : null,
-    seatedTimer,
-  ].filter(Boolean).join(" · ");
-
   return (
-    <div className="os2-page">
+    <div className="order-page">
       {/* Header */}
-      <div className="os2-header">
-        <button className="os2-back-btn" onClick={onBack}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
-        </button>
-        <div className="os2-header-text">
-          <h2 className="os2-title">{tableLabel}</h2>
-          {headerSub && (
-            <p className="os2-subtitle">
-              {headerSub}
-              {order.isOnHold && <span className="os2-hold-badge"> · Hold</span>}
+      <div className="order-header">
+        <div className="order-header-row">
+          <button className="icon-back-btn" onClick={onBack}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <div className="order-title-block">
+            <h2 className="order-table-title">{tableLabel}</h2>
+            <p className="order-table-meta">
+              {order.areaName}
+              {order.isOnHold && <span className="hold-badge">⏸ Hold</span>}
             </p>
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          {hasItems && (
-            <button
-              className="crs-courses-btn"
-              onClick={() => { tapImpact(); setScreen("courses"); }}
-              aria-label="Coursing"
-              title="Coursing"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/>
-              </svg>
-            </button>
-          )}
-          <div className="os2-synced-pill">
-            <span className="os2-synced-dot"/>
-            <span className="os2-synced-label">Synced</span>
           </div>
-        </div>
-      </div>
-
-      {/* Scrollable body */}
-      <div className="os2-scroll">
-        {/* Empty state */}
-        {!hasItems && (
-          <div className="os2-empty">
-            <div className="os2-empty-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                <rect x="9" y="3" width="6" height="4" rx="1"/>
-                <path d="M9 12h6M9 16h4"/>
-              </svg>
-            </div>
-            <p className="os2-empty-title">No items yet</p>
-            <p className="os2-empty-sub">Add your first item below to start the order</p>
-
-            <div className="os2-guests-card">
-              <span className="os2-guests-label">Guests</span>
-              <div className="os2-guests-stepper">
+          <div className="order-header-right">
+            {/* Customer details — optional, available before KOT too */}
+            <button type="button" className="icon-back-btn"
+              title="Customer Details (optional)"
+              onClick={() => { tapImpact(); onCustomerInfo?.(); }}>
+              👤
+            </button>
+            {/* Guests */}
+            <div className="order-guests-block">
+              <span className="guests-label">Guests</span>
+              <div className="guests-stepper">
                 <button
-                  className="os2-guest-btn"
+                  type="button"
+                  className="guests-step-btn"
                   onClick={() => {
                     tapImpact();
                     const n = Math.max(0, Number(guestVal || 0) - 1);
                     setGuestVal(n || "");
                     onUpdateGuests?.(order.tableId, n);
                   }}
-                >−</button>
+                >
+                  −
+                </button>
                 <input
-                  className="os2-guest-input"
+                  className="guests-input"
                   type="number"
                   min="0"
                   max="20"
@@ -290,21 +207,37 @@ export function OrderScreen({
                   }}
                 />
                 <button
-                  className="os2-guest-btn os2-guest-btn-add"
+                  type="button"
+                  className="guests-step-btn guests-step-btn-add"
                   onClick={() => {
                     tapImpact();
                     const n = Math.min(20, Number(guestVal || 0) + 1);
                     setGuestVal(n || "");
                     onUpdateGuests?.(order.tableId, n);
                   }}
-                >+</button>
+                >
+                  +
+                </button>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
+      {/* Items list */}
+      <div className="order-items">
+        {!hasItems && (
+          <div className="order-empty">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity=".25">
+              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+              <rect x="9" y="3" width="6" height="4" rx="1"/>
+              <path d="M9 12h6M9 16h4"/>
+            </svg>
+            <p className="order-empty-title">No items yet</p>
+            <p className="order-empty-sub">Tap Add Items below to start the order</p>
             {onForceClear && (
               <button
                 className="force-clear-btn"
-                style={{ marginTop: 16 }}
                 onClick={() => { tapImpact(); onForceClear(); }}
               >
                 Mark Table as Free
@@ -313,103 +246,74 @@ export function OrderScreen({
           </div>
         )}
 
-        {/* Unsent items */}
-        {unsentItems.length > 0 && (
-          <div className="os2-section os2-section-unsent">
-            <div className="os2-section-head">
-              <span className="os2-section-label">NOT SENT YET</span>
-              <span className="os2-section-count">{unsentItems.length}</span>
+        {items.map((item, idx) => (
+          <div key={item.id || idx} className={`order-item${item.sentToKot ? " item-sent" : ""}`}>
+            <div className="order-item-left">
+              <div className="order-item-name-row">
+                <span className="order-item-name">{item.name}</span>
+                {item.sentToKot && (
+                  <span className="kot-badge">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    KOT
+                  </span>
+                )}
+              </div>
+              {!item.sentToKot ? (
+                <button
+                  className={`note-btn${item.note ? " note-btn-active" : ""}`}
+                  onClick={() => setNoteItemIdx(idx)}
+                >
+                  {item.note ? `📝 ${item.note}` : "+ add note"}
+                </button>
+              ) : item.note ? (
+                <span className="note-sent">{item.note}</span>
+              ) : null}
             </div>
-            {unsentItems.map((item) => {
-              const idx = items.findIndex(i => i.id === item.id);
-              return (
-                <div key={item.id || idx} className="os2-item os2-item-unsent">
-                  <div className="os2-item-left">
-                    <span className="os2-item-name">{item.name}</span>
-                    <button
-                      className={`os2-note-btn${item.note ? " os2-note-btn-active" : ""}`}
-                      onClick={() => setNoteItemIdx(idx)}
-                    >
-                      {item.note ? `📝 ${item.note}` : "+ add note"}
-                    </button>
-                  </div>
-                  <div className="os2-item-right">
-                    <span className="os2-item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
-                    <div className="os2-qty-ctrl">
-                      <button className="os2-qty-btn" onClick={() => changeQty(idx, -1)}>−</button>
-                      <span className="os2-qty-val">{item.quantity}</span>
-                      <button className="os2-qty-btn os2-qty-plus" onClick={() => changeQty(idx, +1)}>+</button>
-                    </div>
-                  </div>
+            <div className="order-item-right">
+              {!item.sentToKot ? (
+                <div className="qty-ctrl">
+                  <button className="qty-minus" onClick={() => changeQty(idx, -1)}>−</button>
+                  <span className="qty-value">{item.quantity}</span>
+                  <button className="qty-plus" onClick={() => changeQty(idx, +1)}>+</button>
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Sent items */}
-        {sentItems.length > 0 && (
-          <div className="os2-section os2-section-sent">
-            <div className="os2-section-head">
-              <span className="os2-section-label">SENT TO KITCHEN</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            </div>
-            {sentItems.map((item) => {
-              const idx = items.findIndex(i => i.id === item.id);
-              return (
-                <div key={item.id || idx} className="os2-item os2-item-sent">
-                  <div className="os2-item-left">
-                    <span className="os2-item-name">{item.name}</span>
-                    {item.isComp && <span className="os2-comp-tag">COMP</span>}
-                    {item.note && <span className="os2-note-sent">{item.note}</span>}
-                  </div>
-                  <div className="os2-item-right">
-                    <span className="os2-item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
-                    <span className="os2-qty-sent">×{item.quantity}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Running total */}
-        {totalAmount > 0 && (
-          <div className="os2-total-card">
-            <div className="os2-total-row">
-              <span className="os2-total-label">Sub total</span>
-              <span className="os2-total-val">₹{totalSub.toLocaleString("en-IN")}</span>
-            </div>
-            <div className="os2-total-row">
-              <span className="os2-total-label">Tax</span>
-              <span className="os2-total-val">₹{totalTax.toLocaleString("en-IN")}</span>
-            </div>
-            <div className="os2-total-row os2-total-grand">
-              <span className="os2-total-label">Total</span>
-              <span className="os2-total-val">₹{totalAmount.toLocaleString("en-IN")}</span>
+              ) : (
+                <span className="qty-sent">×{item.quantity}</span>
+              )}
+              <span className="item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
             </div>
           </div>
-        )}
+        ))}
       </div>
 
-      {/* Bottom bar */}
-      <div className="os2-bottom">
-        <button className="os2-add-btn" onClick={() => { tapImpact(); setScreen("menu"); }}>
+      {/* Add items + total bar */}
+      <div className="add-bar">
+        <button className="add-items-btn" onClick={() => { tapImpact(); setScreen("menu"); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
           Add Items
+          {unsentCount > 0 && <span className="unsent-badge">{unsentCount}</span>}
         </button>
+        {totalAmount > 0 && (
+          <span className="running-total">₹{totalAmount}</span>
+        )}
+      </div>
+
+      {/* Action buttons */}
+      <div className="order-actions">
+        {/* Send KOT */}
         {unsentCount > 0 && (
-          <button className="os2-kot-btn" onClick={() => { tapImpact(); onSendKOT(); }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12"/>
+          <button className={`action-btn kot-btn${unsentCount > 0 ? " has-pending" : ""}`} onClick={() => { tapImpact(); onSendKOT(); }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
             </svg>
-            Send to Kitchen · {unsentCount}
+            Send KOT · {unsentCount} item{unsentCount > 1 ? "s" : ""}
           </button>
         )}
+
+        {/* Hold removed — Merge/Transfer/Split/Print Bill all via long press on table */}
       </div>
 
       {/* Note modal */}
@@ -422,24 +326,32 @@ export function OrderScreen({
         />
       )}
 
-      {/* Move Table — combined transfer + merge full-screen */}
-      {(showTransfer || showMerge) && (
+      {/* Transfer modal */}
+      {showTransfer && (
         <TransferModal
           currentTableId={order.tableId}
-          currentOrder={order}
           areas={areas}
           orders={orders}
           onTransfer={(from, to) => {
             setShowTransfer(false);
-            setShowMerge(false);
             onTransfer?.(from, to);
           }}
+          onClose={() => setShowTransfer(false)}
+        />
+      )}
+
+      {/* Merge modal */}
+      {showMerge && (
+        <MergeModal
+          currentTableId={order.tableId}
+          currentOrder={order}
+          areas={areas}
+          orders={orders}
           onMerge={(cur, from) => {
-            setShowTransfer(false);
             setShowMerge(false);
             onMerge?.(cur, from);
           }}
-          onClose={() => { setShowTransfer(false); setShowMerge(false); }}
+          onClose={() => setShowMerge(false)}
         />
       )}
 
