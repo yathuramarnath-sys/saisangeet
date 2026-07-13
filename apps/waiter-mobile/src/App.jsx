@@ -782,6 +782,10 @@ export function App() {
           },
         };
       });
+      // Broadcast to POS immediately so it gets the new item with taxRate without waiting for KOT
+      const stamped = { ...serverOrder, updatedAt: Date.now() };
+      socketRef.current?.emit("order:update",      { outletId: outlet?.id || branchConfig?.outletId, order: stamped });
+      localSocketRef.current?.emit("order:update", { order: stamped });
     } catch (err) {
       console.warn("[captain] addItem sync failed — queuing for retry:", err.message);
       syncEnqueue(SYNC_ACTION.ADD_ITEM, {
