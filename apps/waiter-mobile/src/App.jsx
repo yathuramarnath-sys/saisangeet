@@ -1001,41 +1001,41 @@ export function App() {
     });
 
     if (lastServerOrder) {
-      setOrders((prev) => {
-        const local = prev[tid];
-        if (!local) return prev;
-        // Build a qty map from captain's local unsent items — these are the quantities
-        // captain actually saw and sent in the KOT payload. The backend's in-memory
-        // quantities can be stale (higher) when captain decremented an item without
-        // a full-remove, since decrements only update local state + socket, not REST.
-        const unsentQtyMap = {};
-        unsent.forEach(i => { unsentQtyMap[i.id] = i.quantity; });
-        const serverItemIds = new Set((lastServerOrder.items || []).map((i) => i.id));
-        const localOnlyUnsent = (local.items || []).filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
-        );
-        // Prefer captain's local qty for any item that was in the KOT payload
-        const reconciledItems = (lastServerOrder.items || []).map(si => {
-          const captainQty = unsentQtyMap[si.id];
-          if (captainQty != null) return { ...si, quantity: captainQty };
-          return si;
-        });
-        return {
-          ...prev,
-          [tid]: {
-            ...lastServerOrder,
-            assignedWaiter: waiterToShow,
-            items: [...reconciledItems, ...localOnlyUnsent],
-            // Stamp a fresh numeric updatedAt — must be Date.now() (number) to match
-            // the backend's convention (markKotSent also uses Date.now()). The guard
-            // uses (a > b) which yields NaN when types differ (ISO string vs number),
-            // making the guard always pass and allowing the backend echo to overwrite.
-            // Since this runs after the HTTP response returns, it will be newer than
-            // the backend's timestamp and the guard will correctly reject the echo.
-            updatedAt: Date.now(),
-          },
-        };
+      // Build qty map from captain's local unsent items — these are what was actually
+      // sent to the kitchen. Backend's in-memory qty can be stale (higher) when captain
+      // decremented without a full-remove (decrements only update local + socket, not REST).
+      const unsentQtyMap = {};
+      unsent.forEach(i => { unsentQtyMap[i.id] = i.quantity; });
+      const serverItemIds = new Set((lastServerOrder.items || []).map(i => i.id));
+      // Preserve any captain-local unsent items the backend doesn't know about yet
+      const localNow = orders[tid];
+      const localOnlyUnsent = localNow
+        ? (localNow.items || []).filter(li => !li.sentToKot && !serverItemIds.has(li.id))
+        : [];
+      // Override server quantities with captain's actual sent quantities
+      const reconciledItems = (lastServerOrder.items || []).map(si => {
+        const captainQty = unsentQtyMap[si.id];
+        return captainQty != null ? { ...si, quantity: captainQty } : si;
       });
+      // Use lastServerOrder.updatedAt + 1 so the reconciled order is always exactly
+      // 1ms newer than the backend's own timestamp — regardless of server/client clock
+      // skew. Both the captain guard and the POS guard will then correctly reject the
+      // stale backend echo (which carries lastServerOrder.updatedAt).
+      const reconciledOrder = {
+        ...lastServerOrder,
+        assignedWaiter: waiterToShow,
+        items: [...reconciledItems, ...localOnlyUnsent],
+        updatedAt: (lastServerOrder.updatedAt || 0) + 1,
+      };
+
+      setOrders((prev) => prev[tid] ? { ...prev, [tid]: reconciledOrder } : prev);
+
+      // Broadcast corrected quantities to POS immediately — without this, POS only
+      // receives the backend's stale order:updated (wrong qty) and captain's decrement
+      // never reaches POS after KOT. The +1 updatedAt ensures POS's guard rejects
+      // the subsequent stale echo.
+      socketRef.current?.emit("order:update",      { outletId: effectiveOutletId, order: reconciledOrder });
+      localSocketRef.current?.emit("order:update", { order: reconciledOrder });
     }
 
     setActionTableId(null);    // close action sheet if it was open
