@@ -771,8 +771,14 @@ export function App() {
         const local = prev[tableId];
         if (!local) return prev;
         const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
+        // Also exclude local items whose menuItemId is already present in the server's
+        // unsent items — prevents temp-ID items (item-${Date.now()}-random) from
+        // surviving as duplicates alongside the real server item with the same menuItemId.
+        const serverUnsentMenuItemIds = new Set(
+          (serverOrder.items || []).filter(i => !i.sentToKot).map(i => i.menuItemId)
+        );
         const localOnlyUnsent = (local.items || []).filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+          (li) => !li.sentToKot && !serverItemIds.has(li.id) && !serverUnsentMenuItemIds.has(li.menuItemId)
         );
         return {
           ...prev,
