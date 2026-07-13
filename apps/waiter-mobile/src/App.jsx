@@ -872,6 +872,13 @@ export function App() {
     // so the name persists across multiple KOTs on the same table.
     const waiterToShow = waiterName || order.assignedWaiter || null;
 
+    // Block ALL socket order:updated events for this table for the entire KOT flow.
+    // Must be set BEFORE handleUpdateOrder (which emits order:update and can trigger a
+    // server-side order:updated echo) and BEFORE the assign-waiter await (whose REST
+    // handler can also emit order:updated with a server-clock timestamp that would pass
+    // the stale-write guard and overwrite captain's locally-adjusted quantities).
+    kotInFlightRef.current.add(tid);
+
     // Stamp assignedWaiter on the order so it persists until the next KOT
     handleUpdateOrder({ ...order, assignedWaiter: waiterToShow || "",
       items: order.items.map((i) => ({ ...i, sentToKot: true })) });
@@ -892,7 +899,6 @@ export function App() {
     setKotState({ phase: "sending", tableLabel: kotTableLabel, itemCount: unsent.length });
     let serverKots = [];
     let lastServerOrder;
-    kotInFlightRef.current.add(tid);
     try {
       const result = await api.post("/operations/kot", {
         outletId:    effectiveOutletId,
