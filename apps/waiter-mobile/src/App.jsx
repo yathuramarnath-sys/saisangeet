@@ -137,6 +137,7 @@ export function App() {
   const socketRef             = useRef(null);
   const localSocketRef        = useRef(null);
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
+  const kotInFlightRef        = useRef(new Set()); // tableIds with KOT request in flight
   const [localConn,      setLocalConn]      = useState(false);
   const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
   const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
@@ -294,6 +295,11 @@ export function App() {
         socket.on("connect_error", () => { wasOffline = true; setSocketConnected(false); });
 
         socket.on("order:updated", (o) => setOrders((p) => {
+          // Block all socket updates while a KOT request is in flight for this table.
+          // Prevents the server's markKotSent broadcast (which has a higher server-clock
+          // timestamp) from overwriting the captain's optimistic state before the HTTP
+          // response arrives with the properly reconciled order.
+          if (kotInFlightRef.current.has(o.tableId)) return p;
           if (!o.items?.length || o.isClosed) {
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
@@ -430,6 +436,7 @@ export function App() {
             }
           });
           lSock.on("order:updated", (o) => setOrders((p) => {
+            if (kotInFlightRef.current.has(o.tableId)) return p;
             if (!o.items?.length || o.isClosed) {
               const { [o.tableId]: _r, ...rest } = p;
               return rest;
@@ -771,8 +778,14 @@ export function App() {
         const local = prev[tableId];
         if (!local) return prev;
         const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
+        // Also exclude local items whose menuItemId is already present in the server's
+        // unsent items — prevents temp-ID items (item-${Date.now()}-random) from
+        // surviving as duplicates alongside the real server item with the same menuItemId.
+        const serverUnsentMenuItemIds = new Set(
+          (serverOrder.items || []).filter(i => !i.sentToKot).map(i => i.menuItemId)
+        );
         const localOnlyUnsent = (local.items || []).filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+          (li) => !li.sentToKot && !serverItemIds.has(li.id) && !serverUnsentMenuItemIds.has(li.menuItemId)
         );
         return {
           ...prev,
@@ -879,6 +892,7 @@ export function App() {
     setKotState({ phase: "sending", tableLabel: kotTableLabel, itemCount: unsent.length });
     let serverKots = [];
     let lastServerOrder;
+    kotInFlightRef.current.add(tid);
     try {
       const result = await api.post("/operations/kot", {
         outletId:    effectiveOutletId,
@@ -1001,42 +1015,43 @@ export function App() {
     });
 
     if (lastServerOrder) {
-      setOrders((prev) => {
-        const local = prev[tid];
-        if (!local) return prev;
-        // Build a qty map from captain's local unsent items — these are the quantities
-        // captain actually saw and sent in the KOT payload. The backend's in-memory
-        // quantities can be stale (higher) when captain decremented an item without
-        // a full-remove, since decrements only update local state + socket, not REST.
-        const unsentQtyMap = {};
-        unsent.forEach(i => { unsentQtyMap[i.id] = i.quantity; });
-        const serverItemIds = new Set((lastServerOrder.items || []).map((i) => i.id));
-        const localOnlyUnsent = (local.items || []).filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
-        );
-        // Prefer captain's local qty for any item that was in the KOT payload
-        const reconciledItems = (lastServerOrder.items || []).map(si => {
-          const captainQty = unsentQtyMap[si.id];
-          if (captainQty != null) return { ...si, quantity: captainQty };
-          return si;
-        });
-        return {
-          ...prev,
-          [tid]: {
-            ...lastServerOrder,
-            assignedWaiter: waiterToShow,
-            items: [...reconciledItems, ...localOnlyUnsent],
-            // Stamp a fresh numeric updatedAt — must be Date.now() (number) to match
-            // the backend's convention (markKotSent also uses Date.now()). The guard
-            // uses (a > b) which yields NaN when types differ (ISO string vs number),
-            // making the guard always pass and allowing the backend echo to overwrite.
-            // Since this runs after the HTTP response returns, it will be newer than
-            // the backend's timestamp and the guard will correctly reject the echo.
-            updatedAt: Date.now(),
-          },
-        };
+      // Build qty map from captain's local unsent items — these are what was actually
+      // sent to the kitchen. Backend's in-memory qty can be stale (higher) when captain
+      // decremented without a full-remove (decrements only update local + socket, not REST).
+      const unsentQtyMap = {};
+      unsent.forEach(i => { unsentQtyMap[i.id] = i.quantity; });
+      const serverItemIds = new Set((lastServerOrder.items || []).map(i => i.id));
+      // Preserve any captain-local unsent items the backend doesn't know about yet
+      const localNow = orders[tid];
+      const localOnlyUnsent = localNow
+        ? (localNow.items || []).filter(li => !li.sentToKot && !serverItemIds.has(li.id))
+        : [];
+      // Override server quantities with captain's actual sent quantities
+      const reconciledItems = (lastServerOrder.items || []).map(si => {
+        const captainQty = unsentQtyMap[si.id];
+        return captainQty != null ? { ...si, quantity: captainQty } : si;
       });
+      // Use lastServerOrder.updatedAt + 1 so the reconciled order is always exactly
+      // 1ms newer than the backend's own timestamp — regardless of server/client clock
+      // skew. Both the captain guard and the POS guard will then correctly reject the
+      // stale backend echo (which carries lastServerOrder.updatedAt).
+      const reconciledOrder = {
+        ...lastServerOrder,
+        assignedWaiter: waiterToShow,
+        items: [...reconciledItems, ...localOnlyUnsent],
+        updatedAt: (lastServerOrder.updatedAt || 0) + 1,
+      };
+
+      setOrders((prev) => prev[tid] ? { ...prev, [tid]: reconciledOrder } : prev);
+
+      // Broadcast corrected quantities to POS immediately — without this, POS only
+      // receives the backend's stale order:updated (wrong qty) and captain's decrement
+      // never reaches POS after KOT. The +1 updatedAt ensures POS's guard rejects
+      // the subsequent stale echo.
+      socketRef.current?.emit("order:update",      { outletId: effectiveOutletId, order: reconciledOrder });
+      localSocketRef.current?.emit("order:update", { order: reconciledOrder });
     }
+    kotInFlightRef.current.delete(tid);
 
     setActionTableId(null);    // close action sheet if it was open
     // Note: setSelectedTableId(null) is deferred to KotProgressOverlay onClose / onAddMore
