@@ -671,7 +671,9 @@ export function App() {
   // ── Update order (local + cloud socket + local socket) ───────────────────
   function handleUpdateOrder(nextOrder) {
     // Stamp current time so stale server echoes (older updatedAt) are rejected by the order:updated guard.
-    const stamped = { ...nextOrder, updatedAt: new Date().toISOString() };
+    // Must be Date.now() (number) — backend also uses Date.now() and the guard compares with >.
+    // Mixing ISO strings and numbers in the comparison always yields NaN > number = false.
+    const stamped = { ...nextOrder, updatedAt: Date.now() };
     setOrders((p) => ({ ...p, [stamped.tableId]: stamped }));
     socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: stamped });
     localSocketRef.current?.emit("order:update", { order: stamped });
@@ -1024,10 +1026,13 @@ export function App() {
             ...lastServerOrder,
             assignedWaiter: waiterToShow,
             items: [...reconciledItems, ...localOnlyUnsent],
-            // Stamp a fresh updatedAt so the backend's order:updated socket echo
-            // (same lastServerOrder.updatedAt) is rejected by the stale-write guard
-            // and doesn't overwrite the quantity-reconciled state we just set.
-            updatedAt: new Date().toISOString(),
+            // Stamp a fresh numeric updatedAt — must be Date.now() (number) to match
+            // the backend's convention (markKotSent also uses Date.now()). The guard
+            // uses (a > b) which yields NaN when types differ (ISO string vs number),
+            // making the guard always pass and allowing the backend echo to overwrite.
+            // Since this runs after the HTTP response returns, it will be newer than
+            // the backend's timestamp and the guard will correctly reject the echo.
+            updatedAt: Date.now(),
           },
         };
       });
