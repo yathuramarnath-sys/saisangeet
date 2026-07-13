@@ -154,7 +154,9 @@ export function OrderScreen({
         categoryStockState={categoryStockState}
         outletId={outletId}
         socket={socket}
-        onUpdateOrder={(next) => { onUpdateOrder(next); onAddItem?.(next.items?.at(-1)); }}
+        onUpdateOrder={onUpdateOrder}
+        onItemAdded={onAddItem}
+        onItemRemoved={(itemId) => onRemoveItem?.(itemId)}
         onBack={() => setScreen("order")}
         tableLabel={tableLabel}
       />
