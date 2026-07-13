@@ -1024,6 +1024,10 @@ export function App() {
             ...lastServerOrder,
             assignedWaiter: waiterToShow,
             items: [...reconciledItems, ...localOnlyUnsent],
+            // Stamp a fresh updatedAt so the backend's order:updated socket echo
+            // (same lastServerOrder.updatedAt) is rejected by the stale-write guard
+            // and doesn't overwrite the quantity-reconciled state we just set.
+            updatedAt: new Date().toISOString(),
           },
         };
       });
