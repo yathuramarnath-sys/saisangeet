@@ -21,7 +21,7 @@ function makeLongPress(callback, ms = 550) {
   };
 }
 
-export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, onUpdateOrder, onBack, tableLabel }) {
+export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, onUpdateOrder, onItemAdded, onItemRemoved, onBack, tableLabel }) {
   // Restrict the menu to the table's area, mirroring the POS work-area filter:
   // a category only shows here if it's explicitly tagged for this area (categories with
   // no area tag are reserved for full-access terminals/screens); an item with no area tag
@@ -185,19 +185,26 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
         station:      item.station || "",
         categoryId:   item.categoryId || "",
         categoryName,          // needed so backend can match category → station by name
+        taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
       });
     }
     onUpdateOrder({ ...order, items });
+    // Notify parent with the SPECIFIC menu item so backend add/increment targets the right item
+    onItemAdded?.(item);
   }
 
   function removeItem(menuItemId) {
     tapImpact();
-    const items = [...(order.items || [])];
-    const idx   = items.findIndex(i => i.menuItemId === menuItemId && !i.sentToKot);
+    const items    = [...(order.items || [])];
+    const idx      = items.findIndex(i => i.menuItemId === menuItemId && !i.sentToKot);
     if (idx < 0) return;
-    if ((items[idx].quantity || 1) <= 1) items.splice(idx, 1);
+    const cartItem = items[idx];
+    const wasLast  = (cartItem.quantity || 1) <= 1;
+    if (wasLast) items.splice(idx, 1);
     else items[idx] = { ...items[idx], quantity: items[idx].quantity - 1 };
     onUpdateOrder({ ...order, items });
+    // When item is fully removed, tell backend to DELETE it so it doesn't reappear on sync
+    if (wasLast) onItemRemoved?.(cartItem.id);
   }
 
   const unsentCount = (order.items || []).filter(i => !i.sentToKot).length;

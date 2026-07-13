@@ -1002,16 +1002,28 @@ export function App() {
       setOrders((prev) => {
         const local = prev[tid];
         if (!local) return prev;
+        // Build a qty map from captain's local unsent items — these are the quantities
+        // captain actually saw and sent in the KOT payload. The backend's in-memory
+        // quantities can be stale (higher) when captain decremented an item without
+        // a full-remove, since decrements only update local state + socket, not REST.
+        const unsentQtyMap = {};
+        unsent.forEach(i => { unsentQtyMap[i.id] = i.quantity; });
         const serverItemIds = new Set((lastServerOrder.items || []).map((i) => i.id));
         const localOnlyUnsent = (local.items || []).filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
+        // Prefer captain's local qty for any item that was in the KOT payload
+        const reconciledItems = (lastServerOrder.items || []).map(si => {
+          const captainQty = unsentQtyMap[si.id];
+          if (captainQty != null) return { ...si, quantity: captainQty };
+          return si;
+        });
         return {
           ...prev,
           [tid]: {
             ...lastServerOrder,
-            assignedWaiter: waiterToShow,  // stamp waiter on server-refreshed order too
-            items: [...(lastServerOrder.items || []), ...localOnlyUnsent],
+            assignedWaiter: waiterToShow,
+            items: [...reconciledItems, ...localOnlyUnsent],
           },
         };
       });
