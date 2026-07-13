@@ -35,17 +35,11 @@ export function tableStatusOf(orders, tableId) {
 
 // Long-press hook — fires onLongPress after 500ms hold, cancels on release/move
 function useLongPress(onLongPress, onPress, ms = 500) {
-  const timerRef   = useRef(null);
-  const firedRef   = useRef(false);
-  const movedRef   = useRef(false);
-  const startPos   = useRef({ x: 0, y: 0 });
+  const timerRef = useRef(null);
+  const firedRef = useRef(false);
 
   function start(e) {
     firedRef.current = false;
-    movedRef.current = false;
-    if (e.touches) {
-      startPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    }
     timerRef.current = setTimeout(() => {
       firedRef.current = true;
       tapImpact();
@@ -53,18 +47,13 @@ function useLongPress(onLongPress, onPress, ms = 500) {
     }, ms);
   }
 
-  function cancel(e) {
+  function cancel() {
     clearTimeout(timerRef.current);
-    if (e && e.touches) {
-      const dx = Math.abs(e.touches[0].clientX - startPos.current.x);
-      const dy = Math.abs(e.touches[0].clientY - startPos.current.y);
-      if (dx > 8 || dy > 8) movedRef.current = true;
-    }
   }
 
   function end(e) {
     clearTimeout(timerRef.current);
-    if (!firedRef.current && !movedRef.current) {
+    if (!firedRef.current) {
       tapImpact();
       onPress(e);
     }
