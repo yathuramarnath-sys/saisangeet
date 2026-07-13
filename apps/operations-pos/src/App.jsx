@@ -197,13 +197,18 @@ const ORDERS_OUTLET_KEY = "pos_active_orders_outlet"; // guards against cross-ou
 
 // When the server returns order items it may omit taxRate (not stored in DB).
 // Preserve taxRate from the local version so GST never disappears.
-function withLocalTaxRate(serverItems, localItems) {
+// Falls back to menuItems lookup for captain-added items absent from local POS state.
+function withLocalTaxRate(serverItems, localItems, menuItems) {
   if (!serverItems?.length) return serverItems || [];
-  if (!localItems?.length) return serverItems;
-  const localById = Object.fromEntries(localItems.map(i => [i.id, i]));
-  return serverItems.map(si =>
-    si.taxRate != null ? si : { ...si, taxRate: localById[si.id]?.taxRate ?? null }
-  );
+  const localById = Object.fromEntries((localItems || []).map(i => [i.id, i]));
+  const menuById  = Object.fromEntries((menuItems  || []).map(i => [String(i.id), i]));
+  return serverItems.map(si => {
+    if (si.taxRate != null) return si;
+    const localRate = localById[si.id]?.taxRate;
+    if (localRate != null) return { ...si, taxRate: localRate };
+    const menuRate = menuById[String(si.menuItemId || si.id)]?.taxRate;
+    return menuRate != null ? { ...si, taxRate: menuRate } : si;
+  });
 }
 
 /**
@@ -589,7 +594,8 @@ export default function App() {
                       const isGhostItem = (i) => i.isGhostVoid === true || (i.isVoided === true && i.sentToKot === false);
                       const cleanedServerItems = withLocalTaxRate(
                         (serverOrder.items || []).filter(i => !isGhostItem(i)),
-                        local?.items
+                        local?.items,
+                        menuItemsRef.current
                       );
                       merged[tableId] = {
                         ...serverOrder,
@@ -640,10 +646,11 @@ export default function App() {
             // order so they aren't silently dropped.
             let merged = updatedOrder;
             if (current && !updatedOrder.isClosed) {
-              const incomingWithTax = withLocalTaxRate(updatedOrder.items || [], current.items);
+              const incomingWithTax = withLocalTaxRate(updatedOrder.items || [], current.items, menuItemsRef.current);
               const incomingIds  = new Set(incomingWithTax.map(i => i.id));
+              const deletedIds   = new Set(updatedOrder._deletedItemIds || []);
               const localOnly    = (current.items || []).filter(
-                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id) && !deletedIds.has(i.id)
               );
               merged = { ...updatedOrder, items: [...incomingWithTax, ...localOnly] };
             }
@@ -1576,7 +1583,8 @@ export default function App() {
             (serverOrder.items || []).filter(
               (si) => si.sentToKot || si.isVoided || localItemIds.has(si.id)
             ),
-            localOrder.items
+            localOrder.items,
+            menuItemsRef.current
           );
           return {
             ...prev,
@@ -2180,7 +2188,8 @@ export default function App() {
         const isGhostItem  = (i) => i.isGhostVoid === true || (i.isVoided === true && i.sentToKot === false);
         const cleanedServerItems = withLocalTaxRate(
           (serverOrder.items || []).filter(i => !isGhostItem(i)),
-          localOrder?.items
+          localOrder?.items,
+          menuItemsRef.current
         );
         return {
           ...prev,
