@@ -761,6 +761,7 @@ export function App() {
           stationName:  resolvedStation,
           categoryId:   item.categoryId || "",
           categoryName: item.categoryName || item.category || "",  // for backend name-based routing
+          taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
         },
         actorName: loggedInStaff?.name || "Captain",
       });
@@ -803,6 +804,7 @@ export function App() {
           })(),
           categoryId:   item.categoryId || "",
           categoryName: item.categoryName || item.category || "",
+          taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
         },
         actorName: loggedInStaff?.name || "Captain",
       });
