@@ -185,6 +185,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
         station:      item.station || "",
         categoryId:   item.categoryId || "",
         categoryName,          // needed so backend can match category → station by name
+        taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
       });
     }
     onUpdateOrder({ ...order, items });

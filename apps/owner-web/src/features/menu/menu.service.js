@@ -320,6 +320,7 @@ export async function fetchMenuData() {
         availableFrom: category.availableFrom || "",
         availableTo: category.availableTo || "",
         areaAvailability: category.areaAvailability || [],
+        areaByOutlet: category.areaByOutlet || {},
         outletAvailability: category.outletAvailability || [],
         station: category.station,
         printerTarget: category.printerTarget,
