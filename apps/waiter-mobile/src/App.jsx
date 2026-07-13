@@ -137,6 +137,7 @@ export function App() {
   const socketRef             = useRef(null);
   const localSocketRef        = useRef(null);
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
+  const kotInFlightRef        = useRef(new Set()); // tableIds with KOT request in flight
   const [localConn,      setLocalConn]      = useState(false);
   const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
   const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
@@ -294,6 +295,11 @@ export function App() {
         socket.on("connect_error", () => { wasOffline = true; setSocketConnected(false); });
 
         socket.on("order:updated", (o) => setOrders((p) => {
+          // Block all socket updates while a KOT request is in flight for this table.
+          // Prevents the server's markKotSent broadcast (which has a higher server-clock
+          // timestamp) from overwriting the captain's optimistic state before the HTTP
+          // response arrives with the properly reconciled order.
+          if (kotInFlightRef.current.has(o.tableId)) return p;
           if (!o.items?.length || o.isClosed) {
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
@@ -430,6 +436,7 @@ export function App() {
             }
           });
           lSock.on("order:updated", (o) => setOrders((p) => {
+            if (kotInFlightRef.current.has(o.tableId)) return p;
             if (!o.items?.length || o.isClosed) {
               const { [o.tableId]: _r, ...rest } = p;
               return rest;
@@ -885,6 +892,7 @@ export function App() {
     setKotState({ phase: "sending", tableLabel: kotTableLabel, itemCount: unsent.length });
     let serverKots = [];
     let lastServerOrder;
+    kotInFlightRef.current.add(tid);
     try {
       const result = await api.post("/operations/kot", {
         outletId:    effectiveOutletId,
@@ -1043,6 +1051,7 @@ export function App() {
       socketRef.current?.emit("order:update",      { outletId: effectiveOutletId, order: reconciledOrder });
       localSocketRef.current?.emit("order:update", { order: reconciledOrder });
     }
+    kotInFlightRef.current.delete(tid);
 
     setActionTableId(null);    // close action sheet if it was open
     // Note: setSelectedTableId(null) is deferred to KotProgressOverlay onClose / onAddMore
