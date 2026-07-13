@@ -119,12 +119,11 @@ export function OrderScreen({
     const item  = next[idx];
     const newQty = (item?.quantity || 1) + delta;
     if (newQty <= 0) {
-      // Show confirm dialog if available; otherwise remove directly
-      if (onRequestRemoveItem && item?.id) {
-        onRequestRemoveItem({ itemId: item.id, itemName: item.name, isSent: !!item.sentToKot });
+      // Sent items: show confirm dialog (removal voids kitchen-prepared food)
+      // Unsent items: remove directly without dialog, matching expected UX
+      if (item?.sentToKot && onRequestRemoveItem && item?.id) {
+        onRequestRemoveItem({ itemId: item.id, itemName: item.name, isSent: true });
       } else if (onRemoveItem && item?.id) {
-        // Use dedicated remove handler so backend memory store is updated too
-        // (socket order:update alone doesn't update backend — causes stuck item bug)
         onRemoveItem(item.id);
       } else {
         next.splice(idx, 1);
@@ -154,7 +153,11 @@ export function OrderScreen({
         categoryStockState={categoryStockState}
         outletId={outletId}
         socket={socket}
-        onUpdateOrder={(next) => { onUpdateOrder(next); onAddItem?.(next.items?.at(-1)); }}
+        onUpdateOrder={(next) => {
+          const prevCount = (order.items || []).length;
+          onUpdateOrder(next);
+          if ((next.items || []).length > prevCount) onAddItem?.(next.items.at(-1));
+        }}
         onBack={() => setScreen("order")}
         tableLabel={tableLabel}
       />

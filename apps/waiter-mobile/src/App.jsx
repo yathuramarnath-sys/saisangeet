@@ -670,9 +670,11 @@ export function App() {
 
   // ── Update order (local + cloud socket + local socket) ───────────────────
   function handleUpdateOrder(nextOrder) {
-    setOrders((p) => ({ ...p, [nextOrder.tableId]: nextOrder }));
-    socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: nextOrder });
-    localSocketRef.current?.emit("order:update", { order: nextOrder });
+    // Stamp current time so stale server echoes (older updatedAt) are rejected by the order:updated guard.
+    const stamped = { ...nextOrder, updatedAt: new Date().toISOString() };
+    setOrders((p) => ({ ...p, [stamped.tableId]: stamped }));
+    socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: stamped });
+    localSocketRef.current?.emit("order:update", { order: stamped });
   }
 
   // ── Persist guest count to backend so it survives syncs ──────────────────
@@ -704,7 +706,13 @@ export function App() {
     setOrders((prev) => {
       const order = prev[tableId];
       if (!order) return prev;
-      const next = { ...order, items: order.items.filter((i) => i.id !== itemId) };
+      const deletedIds = [...(order._deletedItemIds || []), itemId].slice(-50);
+      const next = {
+        ...order,
+        items: order.items.filter((i) => i.id !== itemId),
+        _deletedItemIds: deletedIds,
+        updatedAt: Date.now(),
+      };
       socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: next });
       localSocketRef.current?.emit("order:update", { order: next });
       return { ...prev, [tableId]: next };
@@ -753,6 +761,7 @@ export function App() {
           stationName:  resolvedStation,
           categoryId:   item.categoryId || "",
           categoryName: item.categoryName || item.category || "",  // for backend name-based routing
+          taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
         },
         actorName: loggedInStaff?.name || "Captain",
       });
@@ -773,6 +782,10 @@ export function App() {
           },
         };
       });
+      // Broadcast to POS immediately so it gets the new item with taxRate without waiting for KOT
+      const stamped = { ...serverOrder, updatedAt: Date.now() };
+      socketRef.current?.emit("order:update",      { outletId: outlet?.id || branchConfig?.outletId, order: stamped });
+      localSocketRef.current?.emit("order:update", { order: stamped });
     } catch (err) {
       console.warn("[captain] addItem sync failed — queuing for retry:", err.message);
       syncEnqueue(SYNC_ACTION.ADD_ITEM, {
@@ -795,6 +808,7 @@ export function App() {
           })(),
           categoryId:   item.categoryId || "",
           categoryName: item.categoryName || item.category || "",
+          taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
         },
         actorName: loggedInStaff?.name || "Captain",
       });
