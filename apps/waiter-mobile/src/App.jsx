@@ -746,6 +746,14 @@ export function App() {
   async function handleAddItem(item) {
     const tableId = selectedTableId;
     if (!tableId) return;
+    // Snapshot which unsent menuItemIds exist in local state RIGHT NOW (before the REST call).
+    // If a server item is missing from local when the response arrives AND it was here before
+    // the call, the captain removed it while the call was in flight — suppress it from the merge.
+    const preCallUnsentMenuItemIds = new Set(
+      ((orders[tableId]?.items) || [])
+        .filter(li => !li.sentToKot && li.menuItemId)
+        .map(li => li.menuItemId)
+    );
     // Resolve station: match by category ID first, then fall back to category name
     // (handles ID type mismatches between Owner Console and menu API).
     const itemCatName = (item.category || item.categoryName || "").trim().toLowerCase();
@@ -805,9 +813,13 @@ export function App() {
           if (!si.sentToKot) {
             const localQty = localUnsentQty.get(si.id) ?? localUnsentQty.get(`m:${si.menuItemId}`);
             if (localQty != null) return { ...si, quantity: localQty };
+            // localQty is null — item is absent from current local state.
+            // If it was present before this REST call, captain removed it while call was in flight.
+            // Suppress it so it doesn't jump back into the menu browser stepper.
+            if (si.menuItemId && preCallUnsentMenuItemIds.has(si.menuItemId)) return null;
           }
           return si;
-        });
+        }).filter(Boolean);
         const newTableState = {
           ...serverOrder,
           // Preserve local assignedWaiter if server response doesn't include one
