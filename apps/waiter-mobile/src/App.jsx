@@ -810,22 +810,30 @@ export function App() {
         const localOnlyUnsent = (local.items || []).filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id) && !serverUnsentMenuItemIds.has(li.menuItemId)
         );
-        // Captain may have tapped − on Order Screen while this REST call was in flight.
-        // Preserve local unsent qty so the server's stale (higher) count doesn't overwrite.
-        const localUnsentQty = new Map();
+        // Map local unsent items for qty protection — but ONLY for items where captain
+        // explicitly tapped − (captainAdjusted: true). Items added via + taps must use the
+        // server's accumulated qty so that multiple taps correctly reflect a higher count.
+        // Without this distinction, all local qtys would override server's accumulated value,
+        // locking in ×1 even after the captain tapped + three times.
+        const localUnsentByKey = new Map();
         (local.items || []).forEach(li => {
           if (!li.sentToKot) {
-            localUnsentQty.set(li.id, li.quantity);
-            if (li.menuItemId) localUnsentQty.set(`m:${li.menuItemId}`, li.quantity);
+            localUnsentByKey.set(li.id, li);
+            if (li.menuItemId) localUnsentByKey.set(`m:${li.menuItemId}`, li);
           }
         });
         const mergedServerItems = (serverOrder.items || []).map(si => {
           if (!si.sentToKot) {
-            const localQty = localUnsentQty.get(si.id) ?? localUnsentQty.get(`m:${si.menuItemId}`);
-            if (localQty != null) return { ...si, quantity: localQty };
-            // localQty is null — item is absent from current local state.
-            // If it was present before this REST call, captain removed it while call was in flight.
-            // Suppress it so it doesn't jump back into the menu browser stepper.
+            const localItem = localUnsentByKey.get(si.id) ?? localUnsentByKey.get(`m:${si.menuItemId}`);
+            if (localItem) {
+              if (localItem.captainAdjusted) {
+                // Captain explicitly tapped − while this + call was in flight — keep their qty
+                return { ...si, quantity: localItem.quantity };
+              }
+              // Captain only tapped + here; let server's accumulated qty through
+              return si;
+            }
+            // Item absent from local state — if it was pre-call unsent, captain removed it
             if (si.menuItemId && preCallUnsentMenuItemIds.has(si.menuItemId)) return null;
           }
           return si;
