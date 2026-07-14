@@ -84,6 +84,80 @@ function Toggle({ enabled, onChange }) {
 }
 
 // ────────────────────────────────────────────────────────────
+// Staff Edit Drawer
+// ────────────────────────────────────────────────────────────
+function StaffEditDrawer({ member, draft, setDraft, outletOptions, activeRoles, onSave, onClose }) {
+  if (!member || !draft) return null;
+  return (
+    <div className="sed-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+      <div className="sed-drawer">
+        <div className="sed-head">
+          <div>
+            <p className="sed-eyebrow">Edit Staff Member</p>
+            <h3 className="sed-title">{member.name}</h3>
+          </div>
+          <button type="button" className="sed-close" onClick={onClose}>✕</button>
+        </div>
+        <form className="sed-body" onSubmit={onSave}>
+          <div className="sed-grid">
+            <label className="sed-field">
+              Full name
+              <input type="text" value={draft.fullName}
+                onChange={e => setDraft(p => ({ ...p, fullName: e.target.value }))} required />
+            </label>
+            <label className="sed-field">
+              Mobile
+              <input type="text" value={draft.mobileNumber}
+                onChange={e => setDraft(p => ({ ...p, mobileNumber: e.target.value }))} />
+            </label>
+            <label className="sed-field">
+              PIN (4 digits)
+              <input type="text" maxLength={4} value={draft.pin}
+                onChange={e => setDraft(p => ({ ...p, pin: e.target.value }))} />
+            </label>
+            <label className="sed-field">
+              Outlet
+              <select value={draft.outletName} onChange={e => setDraft(p => ({ ...p, outletName: e.target.value }))}>
+                {outletOptions.map(name => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </label>
+            <label className="sed-field">
+              Role
+              <select value={draft.role} onChange={e => setDraft(p => ({ ...p, role: e.target.value }))}>
+                {activeRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+              </select>
+            </label>
+            <label className="sed-field">
+              Status
+              <select value={draft.isActive ? "Active" : "Inactive"}
+                onChange={e => setDraft(p => ({ ...p, isActive: e.target.value === "Active" }))}>
+                <option>Active</option>
+                <option>Inactive</option>
+              </select>
+            </label>
+            <label className="sed-field">
+              Incentive % (on sales)
+              <input type="number" min="0" max="100" step="0.5" placeholder="0"
+                value={draft.incentivePct ?? 0}
+                onChange={e => setDraft(p => ({ ...p, incentivePct: e.target.value }))} />
+            </label>
+          </div>
+          <label className="sed-check-row">
+            <input type="checkbox" checked={!!draft.canApplyDiscount}
+              onChange={e => setDraft(p => ({ ...p, canApplyDiscount: e.target.checked }))} />
+            Can apply discounts <span style={{ color: "#6b7280", fontSize: 12 }}>(Bulk orders)</span>
+          </label>
+          <div className="sed-actions">
+            <button type="submit" className="primary-btn" style={{ flex: 1 }}>Save Changes</button>
+            <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
 // Main Page
 // ────────────────────────────────────────────────────────────
 export function StaffPage() {
@@ -787,96 +861,6 @@ export function StaffPage() {
                     </span>
                   </div>
 
-                  {/* Inline edit form */}
-                  {editingStaffId === member.id && editStaffDraft && (
-                    <div style={{
-                      gridColumn: "1 / -1", padding: "1rem",
-                      background: "#f4f3ef", borderRadius: "8px",
-                      margin: "0.25rem 0", border: "1.5px solid #e0ddd6"
-                    }}>
-                      <form className="simple-form" onSubmit={handleSaveStaff}>
-                        <p className="eyebrow" style={{ marginBottom: "0.75rem" }}>Editing {member.name}</p>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
-                          <label>
-                            Full name
-                            <input
-                              type="text" value={editStaffDraft.fullName}
-                              onChange={(e) => setEditStaffDraft((p) => ({ ...p, fullName: e.target.value }))}
-                              required
-                            />
-                          </label>
-                          <label>
-                            Mobile
-                            <input
-                              type="text" value={editStaffDraft.mobileNumber}
-                              onChange={(e) => setEditStaffDraft((p) => ({ ...p, mobileNumber: e.target.value }))}
-                            />
-                          </label>
-                          <label>
-                            PIN
-                            <input
-                              type="text" maxLength={4} value={editStaffDraft.pin}
-                              onChange={(e) => setEditStaffDraft((p) => ({ ...p, pin: e.target.value }))}
-                            />
-                          </label>
-                          <label>
-                            Outlet
-                            <select
-                              value={editStaffDraft.outletName}
-                              onChange={(e) => setEditStaffDraft((p) => ({ ...p, outletName: e.target.value }))}
-                            >
-                              {outletOptions.map((name) => (
-                                <option key={name} value={name}>{name}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label>
-                            Role
-                            <select
-                              value={editStaffDraft.role}
-                              onChange={(e) => setEditStaffDraft((p) => ({ ...p, role: e.target.value }))}
-                            >
-                              {activeRoles.map((r) => (
-                                <option key={r.id} value={r.name}>{r.name}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label>
-                            Status
-                            <select
-                              value={editStaffDraft.isActive ? "Active" : "Inactive"}
-                              onChange={(e) => setEditStaffDraft((p) => ({ ...p, isActive: e.target.value === "Active" }))}
-                            >
-                              <option>Active</option>
-                              <option>Inactive</option>
-                            </select>
-                          </label>
-                          <label>
-                            Incentive % (on sales)
-                            <input
-                              type="number" min="0" max="100" step="0.5"
-                              value={editStaffDraft.incentivePct ?? 0}
-                              onChange={(e) => setEditStaffDraft((p) => ({ ...p, incentivePct: e.target.value }))}
-                              placeholder="0"
-                            />
-                          </label>
-                          <label style={{ flexDirection: "row", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                            <input
-                              type="checkbox"
-                              checked={!!editStaffDraft.canApplyDiscount}
-                              onChange={(e) => setEditStaffDraft((p) => ({ ...p, canApplyDiscount: e.target.checked }))}
-                              style={{ width: 16, height: 16, accentColor: "#059669" }}
-                            />
-                            <span>Can apply discounts <span style={{ color: "#6b7280", fontSize: 12 }}>(Bulk orders)</span></span>
-                          </label>
-                        </div>
-                        <div className="entity-actions" style={{ marginTop: "0.75rem" }}>
-                          <button type="submit" className="primary-btn">Save Changes</button>
-                          <button type="button" className="ghost-btn" onClick={cancelEditStaff}>Cancel</button>
-                        </div>
-                      </form>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -885,6 +869,19 @@ export function StaffPage() {
 
 
       </section>
+
+      {/* ── Staff Edit Drawer ── */}
+      {editingStaffId && editStaffDraft && (
+        <StaffEditDrawer
+          member={staffData.staff.find(m => m.id === editingStaffId)}
+          draft={editStaffDraft}
+          setDraft={setEditStaffDraft}
+          outletOptions={outletOptions}
+          activeRoles={activeRoles}
+          onSave={handleSaveStaff}
+          onClose={cancelEditStaff}
+        />
+      )}
     </>
   );
 }
