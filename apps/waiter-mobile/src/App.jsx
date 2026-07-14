@@ -838,7 +838,10 @@ export function App() {
           ...serverOrder,
           assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
           items: resolvedLocal,
-          updatedAt: Date.now(),
+          // Use server timestamp so POS.updatedAt stays in sync with server clock.
+          // Using Date.now() (captain's device clock) can be ahead of the Railway server
+          // clock, which causes POS to reject the post-KOT order:updated broadcast.
+          updatedAt: serverOrder.updatedAt || Date.now(),
         };
         mergedForBroadcast = newTableState;
         return { ...prev, [tableId]: newTableState };
@@ -935,9 +938,22 @@ export function App() {
     // the stale-write guard and overwrite captain's locally-adjusted quantities).
     kotInFlightRef.current.add(tid);
 
-    // Stamp assignedWaiter on the order so it persists until the next KOT
-    handleUpdateOrder({ ...order, assignedWaiter: waiterToShow || "",
-      items: order.items.map((i) => ({ ...i, sentToKot: true })) });
+    // Update captain's local state only — mark all items sentToKot optimistically.
+    // Do NOT broadcast to POS here: broadcasting with Date.now() (captain's device clock)
+    // poisons POS's stale-write guard, causing it to reject the post-KOT server broadcast
+    // (server clock may be behind captain's clock). POS gets the correct state via the
+    // post-KOT reconciliation broadcast which uses lastServerOrder.updatedAt + 1.
+    setOrders((prev) => {
+      if (!prev[tid]) return prev;
+      return {
+        ...prev,
+        [tid]: {
+          ...prev[tid],
+          assignedWaiter: waiterToShow || "",
+          items: (prev[tid].items || []).map((i) => ({ ...i, sentToKot: true })),
+        },
+      };
+    });
 
     // Persist to backend so it survives POS reconnects (socket-only update is lost on reconnect)
     try {
