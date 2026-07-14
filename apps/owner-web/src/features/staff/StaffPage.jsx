@@ -368,7 +368,9 @@ export function StaffPage() {
       await updateStaffMember(member.id, {
         fullName: member.name, mobileNumber: member.mobileNumber || "",
         outletName: member.outlet, roles: [member.role],
-        pin: member.pin || "", isActive
+        pin: member.pin || "", isActive,
+        incentivePct:     member.incentivePct     || 0,
+        canApplyDiscount: !!member.canApplyDiscount,
       });
     } catch (_) { /* offline */ }
     const updatedStaff = staffData.staff.map((m) => m.id === member.id ? updated : m);
