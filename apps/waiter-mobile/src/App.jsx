@@ -1078,41 +1078,42 @@ export function App() {
     });
 
     if (lastServerOrder) {
-      // Build qty map from captain's local unsent items — these are what was actually
-      // sent to the kitchen. Backend's in-memory qty can be stale (higher) when captain
-      // decremented without a full-remove (decrements only update local + socket, not REST).
-      const unsentQtyMap = {};
-      unsent.forEach(i => { unsentQtyMap[i.id] = i.quantity; });
-      const serverItemIds = new Set((lastServerOrder.items || []).map(i => i.id));
-      // Preserve any captain-local unsent items the backend doesn't know about yet
-      const localNow = orders[tid];
-      const localOnlyUnsent = localNow
-        ? (localNow.items || []).filter(li => !li.sentToKot && !serverItemIds.has(li.id))
-        : [];
-      // Override server quantities with captain's actual sent quantities
-      const reconciledItems = (lastServerOrder.items || []).map(si => {
-        const captainQty = unsentQtyMap[si.id];
-        return captainQty != null ? { ...si, quantity: captainQty } : si;
+      // Compute reconciled order inside the setOrders updater so we read the freshest
+      // local state. Key insight: captain's minus-taps reduce qty for ALL items locally
+      // (both unsent and already-sent ones) with no REST call — server keeps the original
+      // accumulated qty. We must preserve the captain's qty for EVERY item, not just
+      // the unsent batch that was just KOT'd.
+      let reconciledOrder = null;
+      setOrders((prev) => {
+        if (!prev[tid]) return prev;
+        const localItems = prev[tid].items || [];
+        // Map every local item's qty by id — covers sent+unsent items reduced by captain
+        const localQtyMap = {};
+        localItems.forEach(i => { localQtyMap[i.id] = i.quantity; });
+        // Secondary lookup by menuItemId for unsent items that may carry a temp local id
+        unsent.forEach(i => { if (i.menuItemId) localQtyMap[`m:${i.menuItemId}`] = i.quantity; });
+        const serverItemIds = new Set((lastServerOrder.items || []).map(i => i.id));
+        const localOnlyUnsent = localItems.filter(li => !li.sentToKot && !serverItemIds.has(li.id));
+        const reconciledItems = (lastServerOrder.items || []).map(si => {
+          const captainQty = localQtyMap[si.id] ?? (si.menuItemId ? localQtyMap[`m:${si.menuItemId}`] : undefined);
+          return captainQty != null ? { ...si, quantity: captainQty } : si;
+        });
+        // updatedAt + 1 ensures the reconciled order is always exactly 1ms newer than
+        // the backend's own timestamp so both captain and POS reject the stale echo.
+        const rec = {
+          ...lastServerOrder,
+          assignedWaiter: waiterToShow,
+          items: [...reconciledItems, ...localOnlyUnsent],
+          updatedAt: (lastServerOrder.updatedAt || 0) + 1,
+        };
+        reconciledOrder = rec;
+        return { ...prev, [tid]: rec };
       });
-      // Use lastServerOrder.updatedAt + 1 so the reconciled order is always exactly
-      // 1ms newer than the backend's own timestamp — regardless of server/client clock
-      // skew. Both the captain guard and the POS guard will then correctly reject the
-      // stale backend echo (which carries lastServerOrder.updatedAt).
-      const reconciledOrder = {
-        ...lastServerOrder,
-        assignedWaiter: waiterToShow,
-        items: [...reconciledItems, ...localOnlyUnsent],
-        updatedAt: (lastServerOrder.updatedAt || 0) + 1,
-      };
-
-      setOrders((prev) => prev[tid] ? { ...prev, [tid]: reconciledOrder } : prev);
-
-      // Broadcast corrected quantities to POS immediately — without this, POS only
-      // receives the backend's stale order:updated (wrong qty) and captain's decrement
-      // never reaches POS after KOT. The +1 updatedAt ensures POS's guard rejects
-      // the subsequent stale echo.
-      socketRef.current?.emit("order:update",      { outletId: effectiveOutletId, order: reconciledOrder });
-      localSocketRef.current?.emit("order:update", { order: reconciledOrder });
+      // Broadcast corrected quantities to POS so its guard rejects the stale server echo.
+      if (reconciledOrder) {
+        socketRef.current?.emit("order:update",      { outletId: effectiveOutletId, order: reconciledOrder });
+        localSocketRef.current?.emit("order:update", { order: reconciledOrder });
+      }
     }
     kotInFlightRef.current.delete(tid);
 
