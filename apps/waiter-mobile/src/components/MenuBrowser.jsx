@@ -166,30 +166,10 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
 
   function addItem(item) {
     tapImpact();
-    const items = [...(order.items || [])];
-    const idx   = items.findIndex(i => i.menuItemId === item.id && !i.sentToKot);
-    if (idx >= 0) {
-      items[idx] = { ...items[idx], quantity: items[idx].quantity + 1 };
-    } else {
-      // Resolve category name from the active category list (used for KDS routing fallback)
-      const catObj      = categories.find(c => String(c.id) === String(item.categoryId) || c.name === item.categoryName);
-      const categoryName = catObj?.name || item.categoryName || item.category || "";
-      items.push({
-        id:           `item-${Date.now()}-${Math.random().toString(16).slice(2, 5)}`,
-        menuItemId:   item.id,
-        name:         item.name,
-        price:        parsePriceNumber(item.price || item.basePrice),
-        quantity:     1,
-        sentToKot:    false,
-        note:         "",
-        station:      item.station || "",
-        categoryId:   item.categoryId || "",
-        categoryName,          // needed so backend can match category → station by name
-        taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
-      });
-    }
-    onUpdateOrder({ ...order, items });
-    // Notify parent with the SPECIFIC menu item so backend add/increment targets the right item
+    // All local state mutation happens in App.jsx handleAddItem via setOrders(prev => …).
+    // Using prev (the latest committed state, not a captured prop) means two rapid taps
+    // always see each other's changes — the second tap increments qty instead of creating
+    // a ghost duplicate row.
     onItemAdded?.(item);
   }
 
