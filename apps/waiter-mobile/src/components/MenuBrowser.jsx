@@ -31,6 +31,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
   function categoryVisibleInWorkArea(category) {
     if (!workArea) return true;
     const avail = category.areaAvailability || [];
+    if (avail.length === 0) return true;
     return avail.some((a) => a.area === workArea && a.enabled !== false);
   }
   function itemVisibleInWorkArea(item) {

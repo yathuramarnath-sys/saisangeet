@@ -33,13 +33,17 @@ export function tableStatusOf(orders, tableId) {
   return "running";
 }
 
-// Long-press hook — fires onLongPress after 500ms hold, cancels on release/move
+// Long-press hook — fires onLongPress after 500ms hold, cancels on release/move.
+// movedRef tracks whether the touch scrolled; if it did, onTouchEnd won't fire
+// the press action, preventing table selection when the user scrolls the floor.
 function useLongPress(onLongPress, onPress, ms = 500) {
   const timerRef = useRef(null);
   const firedRef = useRef(false);
+  const movedRef = useRef(false);
 
   function start(e) {
     firedRef.current = false;
+    movedRef.current = false;
     timerRef.current = setTimeout(() => {
       firedRef.current = true;
       tapImpact();
@@ -49,11 +53,12 @@ function useLongPress(onLongPress, onPress, ms = 500) {
 
   function cancel() {
     clearTimeout(timerRef.current);
+    movedRef.current = true;
   }
 
   function end(e) {
     clearTimeout(timerRef.current);
-    if (!firedRef.current) {
+    if (!firedRef.current && !movedRef.current) {
       tapImpact();
       onPress(e);
     }
