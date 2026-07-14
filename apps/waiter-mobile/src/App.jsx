@@ -789,6 +789,40 @@ export function App() {
       )?.name || "";
     // Don't persist fallback station names — they break KDS routing
     const resolvedStation = (rawStation === "Main Kitchen" || rawStation === "Main kitchen" || rawStation === "Unassigned") ? "" : rawStation;
+
+    // Immediate local state update via functional updater — always reads the latest
+    // committed state, not a captured prop. Two rapid taps queue two updaters; React
+    // runs them sequentially, so the second updater sees the item the first one added
+    // and correctly increments qty instead of creating a ghost duplicate row.
+    const catObj = categories.find(
+      c => String(c.id) === String(item.categoryId) || c.name === (item.categoryName || item.category)
+    );
+    const resolvedCategoryName = catObj?.name || item.categoryName || item.category || "";
+    setOrders(prev => {
+      const local = prev[tableId];
+      if (!local) return prev;
+      const items = [...(local.items || [])];
+      const idx = items.findIndex(i => i.menuItemId === item.id && !i.sentToKot && !i.isVoided);
+      if (idx >= 0) {
+        items[idx] = { ...items[idx], quantity: (items[idx].quantity || 1) + 1 };
+      } else {
+        items.push({
+          id:           `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          menuItemId:   item.id,
+          name:         item.name,
+          price:        parsePriceNumber(item.price || item.basePrice),
+          quantity:     1,
+          sentToKot:    false,
+          note:         "",
+          station:      resolvedStation,
+          categoryId:   item.categoryId || "",
+          categoryName: resolvedCategoryName,
+          taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
+        });
+      }
+      return { ...prev, [tableId]: { ...local, items } };
+    });
+
     // Block order:updated socket events for this table while REST call is in flight.
     // Server echoes back order:updated after processing the add — without this guard,
     // the echo (with server qty) overwrites the captain's local qty adjustments.
