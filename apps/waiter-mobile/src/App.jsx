@@ -796,6 +796,7 @@ export function App() {
       // so any post-REST broadcast would carry the server's stale qty and overwrite POS.
       // Stamp updatedAt: Date.now() on the merged state so the stale-write guard in
       // socket.on("order:updated") blocks the server's echo (which has an older timestamp).
+      let mergedForBroadcast = null;
       setOrders((prev) => {
         const local = prev[tableId];
         if (!local) return prev;
@@ -838,8 +839,17 @@ export function App() {
           // echo that arrives after this REST response (server timestamp is older).
           updatedAt: Date.now(),
         };
+        mergedForBroadcast = newTableState;
         return { ...prev, [tableId]: newTableState };
       });
+      // Re-broadcast the captain's merged (authoritative) state to POS.
+      // The server emits order:updated to POS with accumulated server qty after each REST call.
+      // That overwrites the captain's local qty reduction on POS. Broadcasting the merged state
+      // here corrects POS — the updater runs synchronously so mergedForBroadcast is set.
+      if (mergedForBroadcast) {
+        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: mergedForBroadcast });
+        localSocketRef.current?.emit("order:update", { order: mergedForBroadcast });
+      }
       // Unblock after a short delay to absorb any late-arriving server echo.
       // The reconciled state is already set above; the delay just ensures the echo
       // (which may be in transit) is discarded rather than overwriting our merged state.
