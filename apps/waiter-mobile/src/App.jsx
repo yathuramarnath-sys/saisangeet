@@ -810,28 +810,28 @@ export function App() {
         const localOnlyUnsent = (local.items || []).filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id) && !serverUnsentMenuItemIds.has(li.menuItemId)
         );
-        // Map local unsent items for qty protection — but ONLY for items where captain
-        // explicitly tapped − (captainAdjusted: true). Items added via + taps must use the
-        // server's accumulated qty so that multiple taps correctly reflect a higher count.
-        // Without this distinction, all local qtys would override server's accumulated value,
-        // locking in ×1 even after the captain tapped + three times.
-        const localUnsentByKey = new Map();
+        // Build lookup by menuItemId across ALL items (sent + unsent) so we can
+        // detect when doSendKOT marked an item as sentToKot while this REST call
+        // was still in flight (Bug: without this, the item disappears from the order).
+        const localByMenuItemId = new Map();
         (local.items || []).forEach(li => {
-          if (!li.sentToKot) {
-            localUnsentByKey.set(li.id, li);
-            if (li.menuItemId) localUnsentByKey.set(`m:${li.menuItemId}`, li);
-          }
+          if (li.menuItemId) localByMenuItemId.set(li.menuItemId, li);
         });
         const mergedServerItems = (serverOrder.items || []).map(si => {
           if (!si.sentToKot) {
-            const localItem = localUnsentByKey.get(si.id) ?? localUnsentByKey.get(`m:${si.menuItemId}`);
+            const localItem = localByMenuItemId.get(si.menuItemId);
             if (localItem) {
+              if (localItem.sentToKot) {
+                // doSendKOT ran while this REST call was in flight — honour the sent status
+                return { ...si, sentToKot: true, quantity: localItem.quantity };
+              }
               if (localItem.captainAdjusted) {
                 // Captain explicitly tapped − while this + call was in flight — keep their qty
                 return { ...si, quantity: localItem.quantity };
               }
-              // Captain only tapped + here; let server's accumulated qty through
-              return si;
+              // For + taps: use the higher of server or local so out-of-order responses
+              // (a slow call 1 resolving after call 3) never regress the displayed qty.
+              return { ...si, quantity: Math.max(si.quantity, localItem.quantity) };
             }
             // Item absent from local state — if it was pre-call unsent, captain removed it
             if (si.menuItemId && preCallUnsentMenuItemIds.has(si.menuItemId)) return null;
@@ -1095,11 +1095,15 @@ export function App() {
       setOrders((prev) => {
         if (!prev[tid]) return prev;
         const localItems = prev[tid].items || [];
-        // Map every local item's qty by id — covers sent+unsent items reduced by captain
+        // Map every local item's qty by id AND menuItemId from fresh prev[tid].items.
+        // Using the stale `unsent` snapshot for menuItemId lookups was wrong — if any
+        // handleAddItem REST calls resolved between doSendKOT start and this updater,
+        // `unsent` would have stale quantities. localItems (prev[tid]) is always fresh.
         const localQtyMap = {};
-        localItems.forEach(i => { localQtyMap[i.id] = i.quantity; });
-        // Secondary lookup by menuItemId for unsent items that may carry a temp local id
-        unsent.forEach(i => { if (i.menuItemId) localQtyMap[`m:${i.menuItemId}`] = i.quantity; });
+        localItems.forEach(i => {
+          localQtyMap[i.id] = i.quantity;
+          if (i.menuItemId) localQtyMap[`m:${i.menuItemId}`] = i.quantity;
+        });
         const serverItemIds = new Set((lastServerOrder.items || []).map(i => i.id));
         const localOnlyUnsent = localItems.filter(li => !li.sentToKot && !serverItemIds.has(li.id));
         const reconciledItems = (lastServerOrder.items || []).map(si => {
