@@ -774,6 +774,11 @@ export function App() {
         },
         actorName: loggedInStaff?.name || "Captain",
       });
+      // Capture the merged order so we broadcast the captain's locally-corrected qty
+      // (not serverOrder's stale qty). Without this, the server bounces the broadcast
+      // back as order:updated with a newer updatedAt, which passes the stale-write guard
+      // and overwrites the captain's reduction — causing the visible qty/item jump.
+      let mergedForBroadcast = serverOrder;
       setOrders((prev) => {
         const local = prev[tableId];
         if (!local) return prev;
@@ -803,18 +808,17 @@ export function App() {
           }
           return si;
         });
-        return {
-          ...prev,
-          [tableId]: {
-            ...serverOrder,
-            // Preserve local assignedWaiter if server response doesn't include one
-            assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
-            items: [...mergedServerItems, ...localOnlyUnsent],
-          },
+        const newTableState = {
+          ...serverOrder,
+          // Preserve local assignedWaiter if server response doesn't include one
+          assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
+          items: [...mergedServerItems, ...localOnlyUnsent],
         };
+        mergedForBroadcast = newTableState;
+        return { ...prev, [tableId]: newTableState };
       });
-      // Broadcast to POS immediately so it gets the new item with taxRate without waiting for KOT
-      const stamped = { ...serverOrder, updatedAt: Date.now() };
+      // Broadcast the MERGED order (captain's corrected qty) — NOT raw serverOrder
+      const stamped = { ...mergedForBroadcast, updatedAt: Date.now() };
       socketRef.current?.emit("order:update",      { outletId: outlet?.id || branchConfig?.outletId, order: stamped });
       localSocketRef.current?.emit("order:update", { order: stamped });
     } catch (err) {
