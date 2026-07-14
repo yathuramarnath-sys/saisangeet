@@ -667,26 +667,45 @@ export function OutletsPage() {
 
                   {/* Card header — always visible */}
                   <div className="location-card-head">
-                    <div>
-                      <strong>
-                        {outlet.name}
-                        {outlet.isActive === false && <span className="outlet-inactive-badge">Disabled</span>}
-                      </strong>
-                      <span>{outlet.city}</span>
+                    <div className="loc-name-row">
+                      <div className="loc-icon-chip">
+                        <span className="material-symbols-rounded" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>restaurant</span>
+                      </div>
+                      <div>
+                        <strong>
+                          {outlet.name}
+                          {outlet.isActive === false && <span className="outlet-inactive-badge">Disabled</span>}
+                        </strong>
+                        <span className="loc-city">{outlet.city}</span>
+                      </div>
                     </div>
                     <span className={`status ${statusClass(outlet.status)}`}>{outlet.status}</span>
                   </div>
 
                   {/* Meta info — only when NOT editing */}
                   {editingOutletId !== outlet.id && (
-                    <div className="location-meta">
-                      <span>Hours: {outlet.hours}</span>
-                      <span>Work areas: {outlet.workAreas.join(", ") || "Not set"}</span>
-                      <span>Devices: {outlet.devicesLinked} linked</span>
-                      <span>Tables: {outlet.tableCount}</span>
-                      <span>Default tax: {outlet.defaultTax}</span>
-                      <span>Receipt: {outlet.receiptTemplateName}</span>
-                      <span>Reports: {outlet.reportEmail || "Report email pending"}</span>
+                    <div className="loc-meta-section">
+                      <div className="loc-pills-row">
+                        {outlet.hours && (
+                          <span className="loc-pill">
+                            <span className="material-symbols-rounded" style={{ fontSize: 13, verticalAlign: "middle" }}>schedule</span>
+                            {outlet.hours}
+                          </span>
+                        )}
+                        {outlet.workAreas.length > 0 && (
+                          <span className="loc-pill">{outlet.workAreas.join(" · ")}</span>
+                        )}
+                        <span className="loc-pill">{outlet.devicesLinked} devices</span>
+                        <span className="loc-pill">{outlet.tableCount} tables</span>
+                        {outlet.defaultTax && <span className="loc-pill">{outlet.defaultTax}</span>}
+                        {outlet.receiptTemplateName && <span className="loc-pill">{outlet.receiptTemplateName}</span>}
+                      </div>
+                      {outlet.reportEmail && (
+                        <div className="loc-reports-row">
+                          <span className="material-symbols-rounded" style={{ fontSize: 13 }}>mail_outline</span>
+                          <span>Reports → {outlet.reportEmail}</span>
+                        </div>
+                      )}
                     </div>
                   )}
 

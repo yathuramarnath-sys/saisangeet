@@ -8617,6 +8617,71 @@ body {
   opacity: 0.6;
 }
 
+/* Outlet card header layout */
+.location-card-head {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+/* Outlet card header with icon */
+.loc-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.loc-icon-chip {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--oc-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--oc-ink);
+}
+.loc-city {
+  font-size: 12px;
+  color: var(--oc-muted);
+  margin-top: 1px;
+  display: block;
+}
+
+/* Outlet pill chips */
+.loc-meta-section {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.loc-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.loc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid var(--oc-hairline);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--oc-ink);
+  background: var(--oc-ground);
+  white-space: nowrap;
+}
+.loc-reports-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--oc-muted);
+}
+
 /* ── Category tabs ─────────────────────────────────────────────────────────── */
 .category-tabs {
   border-bottom: 1px solid var(--oc-hairline);
