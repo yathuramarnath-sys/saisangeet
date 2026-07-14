@@ -131,10 +131,7 @@ export function OrderScreen({
         onUpdateOrder({ ...order, items: next });
       }
     } else {
-      // captainAdjusted: true signals an explicit minus tap so handleAddItem's REST
-      // reconciliation knows to preserve this qty instead of using the server's
-      // accumulated value (which is higher when − was tapped while a + call was in flight).
-      next[idx] = { ...item, quantity: newQty, captainAdjusted: delta < 0 };
+      next[idx] = { ...item, quantity: newQty };
       onUpdateOrder({ ...order, items: next });
     }
     tapImpact();
