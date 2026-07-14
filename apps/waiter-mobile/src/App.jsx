@@ -836,10 +836,25 @@ export function App() {
           return li;
         });
 
+        // Deduplicate by ID: a rapid double-tap can create two local items that both
+        // resolve to the same server UUID (via serverByMenuItemId). Merge their quantities
+        // so captain shows 1 row with correct qty instead of 2 ghost rows.
+        const seenIds = new Map();
+        const deduplicatedLocal = [];
+        for (const li of resolvedLocal) {
+          if (seenIds.has(li.id)) {
+            seenIds.get(li.id).quantity = (seenIds.get(li.id).quantity || 1) + (li.quantity || 1);
+          } else {
+            const copy = { ...li };
+            seenIds.set(li.id, copy);
+            deduplicatedLocal.push(copy);
+          }
+        }
+
         const newTableState = {
           ...serverOrder,
           assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
-          items: resolvedLocal,
+          items: deduplicatedLocal,
           // Use server timestamp so POS.updatedAt stays in sync with server clock.
           // Using Date.now() (captain's device clock) can be ahead of the Railway server
           // clock, which causes POS to reject the post-KOT order:updated broadcast.
@@ -969,8 +984,23 @@ export function App() {
     // to all station-splits. This guarantees the printed slip and every KDS ticket share
     // the same KOT number. (Previous approach sent one request per station → each got a
     // different sequential number → print said #36 but North Indian KDS showed #35.)
+    //
+    // Safety-net dedup: if REST add-item calls for rapid double-taps haven't returned yet,
+    // captain's local state can still have 2 items with the same ID at this point.
+    // Merge them here so the server receives accurate quantities.
+    const kotItemMap = new Map();
+    const kotItems = [];
+    for (const item of unsent) {
+      if (kotItemMap.has(item.id)) {
+        kotItemMap.get(item.id).quantity = (kotItemMap.get(item.id).quantity || 1) + (item.quantity || 1);
+      } else {
+        const copy = { ...item };
+        kotItemMap.set(item.id, copy);
+        kotItems.push(copy);
+      }
+    }
     const kotTableLabel = `Table ${order.tableNumber}`;
-    setKotState({ phase: "sending", tableLabel: kotTableLabel, itemCount: unsent.length });
+    setKotState({ phase: "sending", tableLabel: kotTableLabel, itemCount: kotItems.length });
     let serverKots = [];
     let lastServerOrder;
     try {
@@ -980,7 +1010,7 @@ export function App() {
         tableNumber: order.tableNumber,
         areaName:    order.areaName,
         // No stationName — backend splits by menu-item station / category / Owner config
-        items:       unsent,
+        items:       kotItems,
         orderId:     order.id,
         actorName:   actorName,
         waiterName:  waiterToShow || "",
@@ -999,7 +1029,7 @@ export function App() {
         areaName:    order.areaName,
         outletId:    effectiveOutletId,
         orderId:     order.id,
-        items:       unsent,
+        items:       kotItems,
         actorName:   actorName,
         failedAt:    new Date().toISOString(),
       };
@@ -1033,7 +1063,7 @@ export function App() {
               body:    JSON.stringify({
                 order,
                 kots:     serverKots,
-                allItems: unsent,
+                allItems: kotItems,
                 kotSeq:   serverKotNumber,
                 sentBy:   actorName,
                 waiter:   waiterToShow,
@@ -1049,14 +1079,14 @@ export function App() {
           // Fallback: print locally (Electron desktop or Android direct TCP)
           const waiterPrinter = getWaiterKotPrinter();
           const kotNumber     = serverKotNumber;
-          printKOT(order, unsent, waiterPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
+          printKOT(order, kotItems, waiterPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
           serverKots.forEach(kot => {
             const st = (kot.station || "").trim();
             if (!st || st.toLowerCase() === "main kitchen") return;
             const stPrinter = getKotPrinterForStation(st);
             if (stPrinter && stPrinter.name !== waiterPrinter?.name) {
               const kotItemIds = new Set((kot.items || []).map(i => i.id));
-              const stItems    = unsent.filter(i => kotItemIds.has(i.id));
+              const stItems    = kotItems.filter(i => kotItemIds.has(i.id));
               printKOT(order, stItems.length ? stItems : kot.items, stPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
             }
           });
@@ -1070,7 +1100,7 @@ export function App() {
       tableId:      order.tableId,
       tableNumber:  order.tableNumber,
       areaName:     order.areaName,
-      items:        unsent,
+      items:        kotItems,
       stationGroups: serverKots
         .filter(k => {
           const st = (k.station || "").trim();
@@ -1078,7 +1108,7 @@ export function App() {
         })
         .map(k => {
           const kotItemIds = new Set((k.items || []).map(i => i.id));
-          const stItems = unsent.filter(i => kotItemIds.has(i.id));
+          const stItems = kotItems.filter(i => kotItemIds.has(i.id));
           return { station: k.station, items: stItems.length ? stItems : (k.items || []) };
         }),
       actorName:         actorName,
@@ -1127,12 +1157,24 @@ export function App() {
             sentToKot: si.sentToKot ?? li.sentToKot,
           };
         });
+        // Deduplicate by ID (same rapid double-tap protection as handleAddItem).
+        const kotSeenIds = new Map();
+        const deduplicatedItems = [];
+        for (const li of resolvedItems) {
+          if (kotSeenIds.has(li.id)) {
+            kotSeenIds.get(li.id).quantity = (kotSeenIds.get(li.id).quantity || 1) + (li.quantity || 1);
+          } else {
+            const copy = { ...li };
+            kotSeenIds.set(li.id, copy);
+            deduplicatedItems.push(copy);
+          }
+        }
         // updatedAt + 1 ensures the reconciled order is always exactly 1ms newer than
         // the backend's own timestamp so both captain and POS reject the stale echo.
         const rec = {
           ...lastServerOrder,
           assignedWaiter: waiterToShow,
-          items: resolvedItems,
+          items: deduplicatedItems,
           updatedAt: (lastServerOrder.updatedAt || 0) + 1,
         };
         reconciledOrder = rec;
