@@ -36,7 +36,7 @@ async function fetchMenuCategories(outletId) {
       .map(item => item.categoryId)
   );
 
-  return categories.filter(c => {
+  const filtered = categories.filter(c => {
     const catAvail = c.outletAvailability || [];
     // Category has an explicit branch assignment — that's now the source of truth.
     if (catAvail.length > 0) {
@@ -45,6 +45,18 @@ async function fetchMenuCategories(outletId) {
     }
     // No explicit assignment (legacy categories) — fall back to inferring from items.
     return availCategoryIds.has(c.id);
+  });
+
+  // The Owner Console stores physical work-area tags (e.g. "AC", "AC HALL 2") in
+  // category.areaByOutlet[outletName] so the same category can have different area
+  // restrictions per branch. Clients (captain app, POS) only read category.areaAvailability,
+  // so merge the per-outlet overrides in before returning.
+  return filtered.map(c => {
+    const perOutlet = c.areaByOutlet?.[outletName];
+    if (!perOutlet) return c;
+    // Keep the Online entry from global areaAvailability — it's always global.
+    const onlineEntries = (c.areaAvailability || []).filter(e => e.area === "Online");
+    return { ...c, areaAvailability: [...perOutlet, ...onlineEntries] };
   });
 }
 
