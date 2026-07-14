@@ -708,13 +708,15 @@ export function App() {
 
   // ── Update order (local + cloud socket + local socket) ───────────────────
   function handleUpdateOrder(nextOrder) {
-    // Stamp current time so stale server echoes (older updatedAt) are rejected by the order:updated guard.
-    // Must be Date.now() (number) — backend also uses Date.now() and the guard compares with >.
-    // Mixing ISO strings and numbers in the comparison always yields NaN > number = false.
-    const stamped = { ...nextOrder, updatedAt: Date.now() };
-    setOrders((p) => ({ ...p, [stamped.tableId]: stamped }));
-    socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: stamped });
-    localSocketRef.current?.emit("order:update", { order: stamped });
+    // Do NOT override nextOrder.updatedAt with Date.now() (captain's device clock).
+    // Captain's clock can be ahead of the Railway server clock. If we stamp Date.now() here,
+    // POS accepts the optimistic broadcast at T_captain and then rejects all later server
+    // broadcasts at T_server < T_captain (stale-write guard blocks them as "stale").
+    // Callers that genuinely need a fresh timestamp (table transfer, merge, split bill)
+    // already set updatedAt: Date.now() on the order before calling this function.
+    setOrders((p) => ({ ...p, [nextOrder.tableId]: nextOrder }));
+    socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: nextOrder });
+    localSocketRef.current?.emit("order:update", { order: nextOrder });
   }
 
   // ── Persist guest count to backend so it survives syncs ──────────────────
