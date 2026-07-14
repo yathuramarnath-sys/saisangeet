@@ -890,7 +890,7 @@ function addOrderItem(tableId, payload, actor = "System") {
     if (payload.note) order.items[existingIdx].note = payload.note;
   } else {
     const nextItem = {
-      id:          payload.id || `line-${Date.now()}`,
+      id:          `line-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       menuItemId:  incomingMenuItemId,
       name:        payload.name,
       quantity:    payload.quantity || 1,
