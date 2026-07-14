@@ -4,10 +4,25 @@ import { useAuth } from "../lib/AuthContext";
 import { api } from "../lib/api";
 import { navGroups } from "../data/navigation";
 
+// ── Eye-toggle icon ───────────────────────────────────────────────────────────
+function EyeIcon({ open }) {
+  return open ? (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  ) : (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>
+  );
+}
+
 // ── Change Password Modal ─────────────────────────────────────────────────────
 function ChangePasswordModal({ onClose }) {
   const [form, setForm] = useState({ current: "", next: "", confirm: "" });
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState({ current: false, next: false, confirm: false });
   const [msg,  setMsg]  = useState("");
   const [err,  setErr]  = useState("");
   const [busy, setBusy] = useState(false);
@@ -53,12 +68,15 @@ function ChangePasswordModal({ onClose }) {
               Current password
               <div className="cpw-pw-wrap">
                 <input
-                  type={show ? "text" : "password"}
+                  type={show.current ? "text" : "password"}
                   placeholder="Your current password"
                   value={form.current}
                   onChange={e => setForm(f => ({ ...f, current: e.target.value }))}
                   required autoFocus
                 />
+                <button type="button" className="cpw-eye-btn" onClick={() => setShow(s => ({ ...s, current: !s.current }))}>
+                  <EyeIcon open={show.current} />
+                </button>
               </div>
             </label>
 
@@ -66,12 +84,15 @@ function ChangePasswordModal({ onClose }) {
               New password
               <div className="cpw-pw-wrap">
                 <input
-                  type={show ? "text" : "password"}
+                  type={show.next ? "text" : "password"}
                   placeholder="At least 6 characters"
                   value={form.next}
                   onChange={e => setForm(f => ({ ...f, next: e.target.value }))}
                   required
                 />
+                <button type="button" className="cpw-eye-btn" onClick={() => setShow(s => ({ ...s, next: !s.next }))}>
+                  <EyeIcon open={show.next} />
+                </button>
               </div>
             </label>
 
@@ -79,22 +100,28 @@ function ChangePasswordModal({ onClose }) {
               Confirm new password
               <div className="cpw-pw-wrap">
                 <input
-                  type={show ? "text" : "password"}
+                  type={show.confirm ? "text" : "password"}
                   placeholder="Re-enter new password"
                   value={form.confirm}
                   onChange={e => setForm(f => ({ ...f, confirm: e.target.value }))}
                   required
                 />
+                <button type="button" className="cpw-eye-btn" onClick={() => setShow(s => ({ ...s, confirm: !s.confirm }))}>
+                  <EyeIcon open={show.confirm} />
+                </button>
               </div>
             </label>
 
             <label className="cpw-show-toggle">
-              <input type="checkbox" checked={show} onChange={e => setShow(e.target.checked)} />
+              <input type="checkbox"
+                checked={show.current && show.next && show.confirm}
+                onChange={e => setShow({ current: e.target.checked, next: e.target.checked, confirm: e.target.checked })}
+              />
               Show passwords
             </label>
 
             <div className="cpw-actions">
-              <button type="submit" className="primary-btn"
+              <button type="submit" className="cpw-submit-btn"
                 disabled={busy || !form.current || !form.next || !form.confirm}>
                 {busy ? "Saving…" : "Change Password"}
               </button>

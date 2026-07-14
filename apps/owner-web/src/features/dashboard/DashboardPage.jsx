@@ -68,16 +68,75 @@ function serviceModeColor(type) {
   return SERVICE_MODE_COLORS[type] || "#6b7280";
 }
 
+// ─── Date chip ────────────────────────────────────────────────────────────────
+
+function fmtChipDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
+function DateChip({ value, min, max, onChange }) {
+  return (
+    <label className="dash-date-chip">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>{fmtChipDate(value)}</span>
+      <input
+        type="date" value={value} min={min} max={max}
+        onChange={onChange}
+        className="dash-date-chip-input"
+      />
+    </label>
+  );
+}
+
+// ─── Sparkline ────────────────────────────────────────────────────────────────
+
+function Sparkline({ data }) {
+  if (!data || !data.length) return null;
+  const max = Math.max(...data, 1);
+  const H = 28, W = 52, gap = 2;
+  const barW = Math.floor((W - gap * (data.length - 1)) / data.length);
+  return (
+    <svg width={W} height={H} className="dash-sparkline" aria-hidden="true">
+      {data.map((v, i) => {
+        const bh = Math.max(2, Math.round((v / max) * H));
+        return (
+          <rect
+            key={i}
+            x={i * (barW + gap)} y={H - bh} width={barW} height={bh}
+            rx="1"
+            fill={i === data.length - 1 ? "#F8CB46" : "#ECEAE3"}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
 // ─── KPI card ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub }) {
+function KpiCard({ label, value, sub, delta, sparkData }) {
+  const deltaClass = delta === null ? "" : delta >= 0 ? "pos" : "neg";
+  const deltaLabel = delta === null ? null
+    : `${delta >= 0 ? "+" : ""}${delta}% vs yesterday`;
+
   return (
     <div className="dash-kpi">
       <div className="dash-kpi-body">
         <span className="dash-kpi-label">{label}</span>
         <strong className="dash-kpi-value">{value}</strong>
         {sub && <span className="dash-kpi-sub">{sub}</span>}
+        {deltaLabel && (
+          <span className={`dash-kpi-delta ${deltaClass}`}>{deltaLabel}</span>
+        )}
       </div>
+      {sparkData && sparkData.length > 0 && <Sparkline data={sparkData} />}
     </div>
   );
 }
@@ -233,12 +292,19 @@ function EmptyDay({ outletName }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+function yesterdayISO() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString("en-CA");
+}
+
 export function DashboardPage() {
   const [outlets,        setOutlets]        = useState([]);
   const [outletId,       setOutletId]       = useState("__all__");
   const [dateFrom,       setDateFrom]       = useState(todayISO);
   const [dateTo,         setDateTo]         = useState(todayISO);
   const [data,           setData]           = useState(null);
+  const [yesterdayData,  setYesterdayData]  = useState(null);
   const [loading,        setLoading]        = useState(true);
   const [lastSynced,     setLastSynced]     = useState(null);
   const [error,          setError]          = useState("");
@@ -260,14 +326,25 @@ export function DashboardPage() {
     const params = new URLSearchParams({ dateFrom, dateTo });
     if (outletId !== "__all__") params.set("outletId", outletId);
     setError("");
-    api.get(`/reports/owner-summary?${params}`)
-      .then(res => { setData(res); setLastSynced(new Date()); setLoading(false); })
-      .catch(err => {
-        setError("Could not load sales data. Will retry shortly.");
-        console.error("[Dashboard] fetch error:", err.message);
-        setLoading(false);
-      });
-  }, [outletId, dateFrom, dateTo]);
+
+    const ydayISO = yesterdayISO();
+    const yParams = new URLSearchParams({ dateFrom: ydayISO, dateTo: ydayISO });
+    if (outletId !== "__all__") yParams.set("outletId", outletId);
+
+    Promise.all([
+      api.get(`/reports/owner-summary?${params}`),
+      isToday ? api.get(`/reports/owner-summary?${yParams}`).catch(() => null) : Promise.resolve(null),
+    ]).then(([res, yRes]) => {
+      setData(res);
+      setYesterdayData(yRes);
+      setLastSynced(new Date());
+      setLoading(false);
+    }).catch(err => {
+      setError("Could not load sales data. Will retry shortly.");
+      console.error("[Dashboard] fetch error:", err.message);
+      setLoading(false);
+    });
+  }, [outletId, dateFrom, dateTo, isToday]);
 
   useEffect(() => { setLoading(true); setData(null); fetchData(); }, [fetchData]);
 
@@ -349,6 +426,21 @@ export function DashboardPage() {
       ? [{ type: "Dine In", orders: totalOrders, amount: totalSales }]
       : [];
 
+  // vs-yesterday deltas (only shown on "today" view)
+  const ySum = yesterdayData?.salesData?.dayEnd?.summary || {};
+  function calcDelta(today, yesterday) {
+    if (!isToday || !yesterdayData || !yesterday) return null;
+    if (yesterday === 0) return today > 0 ? 100 : null;
+    return Math.round(((today - yesterday) / yesterday) * 100);
+  }
+  const deltaSales  = calcDelta(totalSales, ySum.totalSales || 0);
+  const deltaOrders = calcDelta(totalOrders, ySum.totalOrders || 0);
+  const deltaAvg    = calcDelta(avgOrder, ySum.avgOrderValue || 0);
+  const deltaTax    = calcDelta(totalTax, ySum.totalTax || 0);
+
+  // Sparkline: last 8 hours of sales amounts (or fewer if not available)
+  const sparkData = hourlySales.slice(-8).map(h => h.amount);
+
   return (
     <>
       {/* ── Header ──────────────────────────────────────────────────────── */}
@@ -373,13 +465,13 @@ export function DashboardPage() {
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div className="dash-toolbar">
         <div className="dash-toolbar-left">
-          <input
-            type="date" className="dash-date-input" value={dateFrom} max={dateTo}
+          <DateChip
+            value={dateFrom} max={dateTo}
             onChange={e => { setDateFrom(e.target.value); if (e.target.value > dateTo) setDateTo(e.target.value); }}
           />
           <span className="dash-date-sep">→</span>
-          <input
-            type="date" className="dash-date-input" value={dateTo} min={dateFrom} max={todayISO()}
+          <DateChip
+            value={dateTo} min={dateFrom} max={todayISO()}
             onChange={e => { setDateTo(e.target.value); if (e.target.value < dateFrom) setDateFrom(e.target.value); }}
           />
           {isToday && (
@@ -427,10 +519,10 @@ export function DashboardPage() {
         <>
           {/* ── KPI row ───────────────────────────────────────────────── */}
           <div className="dash-kpi-row">
-            <KpiCard label="Net sales"       value={fmt(totalSales)}  sub={`${totalOrders} orders`} />
-            <KpiCard label="Orders"          value={totalOrders}       sub={`Avg ${fmt(avgOrder)} / bill`} />
-            <KpiCard label="Avg order value" value={fmt(avgOrder)}     sub="per bill" />
-            <KpiCard label="GST collected"   value={fmt(totalTax)}     sub="CGST + SGST" />
+            <KpiCard label="Net sales"       value={fmt(totalSales)}  sub={`${totalOrders} orders`}       delta={deltaSales}  sparkData={sparkData} />
+            <KpiCard label="Orders"          value={totalOrders}       sub={`Avg ${fmt(avgOrder)} / bill`} delta={deltaOrders} sparkData={sparkData} />
+            <KpiCard label="Avg order value" value={fmt(avgOrder)}     sub="per bill"                      delta={deltaAvg}    sparkData={sparkData} />
+            <KpiCard label="GST collected"   value={fmt(totalTax)}     sub="CGST + SGST"                   delta={deltaTax}    />
             {totalDisc > 0 && (
               <KpiCard label="Discounts" value={fmt(totalDisc)} sub="total savings" />
             )}
