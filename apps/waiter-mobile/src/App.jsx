@@ -1000,6 +1000,7 @@ export function App() {
     // KOT printing to POS. POS uses its own pos_printers config (single source
     // of truth) to print waiter copy + per-station copies. Falls back to local
     // printing if POS is unreachable.
+    let posDelegated = false;
     try {
       const { printKOT, getWaiterKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } =
         await import("./lib/kotPrint.js");
