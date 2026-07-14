@@ -138,6 +138,7 @@ export function App() {
   const localSocketRef        = useRef(null);
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
   const kotInFlightRef        = useRef(new Set()); // tableIds with KOT request in flight
+  const addItemInFlightRef    = useRef({});        // tableId → in-flight add-item count
   const [localConn,      setLocalConn]      = useState(false);
   const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
   const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
@@ -300,6 +301,7 @@ export function App() {
           // timestamp) from overwriting the captain's optimistic state before the HTTP
           // response arrives with the properly reconciled order.
           if (kotInFlightRef.current.has(o.tableId)) return p;
+          if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
           if (!o.items?.length || o.isClosed) {
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
@@ -437,6 +439,7 @@ export function App() {
           });
           lSock.on("order:updated", (o) => setOrders((p) => {
             if (kotInFlightRef.current.has(o.tableId)) return p;
+            if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
             if (!o.items?.length || o.isClosed) {
               const { [o.tableId]: _r, ...rest } = p;
               return rest;
@@ -764,6 +767,10 @@ export function App() {
       )?.name || "";
     // Don't persist fallback station names — they break KDS routing
     const resolvedStation = (rawStation === "Main Kitchen" || rawStation === "Main kitchen" || rawStation === "Unassigned") ? "" : rawStation;
+    // Block order:updated socket events for this table while REST call is in flight.
+    // Server echoes back order:updated after processing the add — without this guard,
+    // the echo (with server qty) overwrites the captain's local qty adjustments.
+    addItemInFlightRef.current[tableId] = (addItemInFlightRef.current[tableId] || 0) + 1;
     try {
       const serverOrder = await api.post("/operations/order/item", {
         tableId,
@@ -833,8 +840,16 @@ export function App() {
         };
         return { ...prev, [tableId]: newTableState };
       });
+      // Unblock after a short delay to absorb any late-arriving server echo.
+      // The reconciled state is already set above; the delay just ensures the echo
+      // (which may be in transit) is discarded rather than overwriting our merged state.
+      setTimeout(() => {
+        addItemInFlightRef.current[tableId] = Math.max(0, (addItemInFlightRef.current[tableId] || 1) - 1);
+      }, 300);
     } catch (err) {
       console.warn("[captain] addItem sync failed — queuing for retry:", err.message);
+      // Decrement immediately on error — no server echo will arrive
+      addItemInFlightRef.current[tableId] = Math.max(0, (addItemInFlightRef.current[tableId] || 1) - 1);
       syncEnqueue(SYNC_ACTION.ADD_ITEM, {
         tableId,
         outletId:  outlet?.id || branchConfig?.outletId,
