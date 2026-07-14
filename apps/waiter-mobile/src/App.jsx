@@ -138,6 +138,7 @@ export function App() {
   const localSocketRef        = useRef(null);
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
   const kotInFlightRef        = useRef(new Set()); // tableIds with KOT request in flight
+  const addItemInFlightRef    = useRef({});        // tableId → in-flight add-item count
   const [localConn,      setLocalConn]      = useState(false);
   const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
   const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
@@ -300,6 +301,7 @@ export function App() {
           // timestamp) from overwriting the captain's optimistic state before the HTTP
           // response arrives with the properly reconciled order.
           if (kotInFlightRef.current.has(o.tableId)) return p;
+          if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
           if (!o.items?.length || o.isClosed) {
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
@@ -437,6 +439,7 @@ export function App() {
           });
           lSock.on("order:updated", (o) => setOrders((p) => {
             if (kotInFlightRef.current.has(o.tableId)) return p;
+            if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
             if (!o.items?.length || o.isClosed) {
               const { [o.tableId]: _r, ...rest } = p;
               return rest;
@@ -609,15 +612,8 @@ export function App() {
   // Extracted so both direct-tap and "Edit Order" from action sheet call the same logic
   // autoOpen: null | "menu" | "transfer" | "merge" | "split" — immediately opens the relevant screen/modal
   async function openOrderScreen(tableId, area, autoOpen = null) {
-    // Capture the local items synchronously BEFORE the async server fetch.
-    // A socket event may clear orders[tableId] while the fetch is in flight —
-    // using a closure variable avoids losing items that only existed locally.
-    let capturedLocalItems = [];
     setOrders((prev) => {
-      if (prev[tableId]) {
-        capturedLocalItems = [...(prev[tableId].items || [])];
-        return prev;
-      }
+      if (prev[tableId]) return prev;
       const t = area.tables.find((x) => x.id === tableId);
       if (!t) return prev;
       return { ...prev, [tableId]: buildBlankOrder(t, area) };
@@ -630,18 +626,53 @@ export function App() {
     try {
       const serverOrder = await api.get(`/operations/order?tableId=${tableId}${outlet?.id ? `&outletId=${outlet.id}` : ""}`);
       setOrders((prev) => {
-        // Merge: keep server-side items + any local unsent items not yet on server
-        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
-        const localOnlyUnsent = capturedLocalItems.filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+        const localState = prev[tableId];
+        const serverItems = serverOrder.items || [];
+        const localItems = localState?.items || [];
+
+        if (localItems.length === 0) {
+          // No local items yet (first open) — use server as base
+          return {
+            ...prev,
+            [tableId]: {
+              ...serverOrder,
+              assignedWaiter: serverOrder.assignedWaiter || localState?.assignedWaiter || null,
+              items: serverItems,
+            },
+          };
+        }
+
+        // Local items exist — captain's qty/notes/GST are authoritative (local-first).
+        // Server is only used to resolve temp IDs and pick up sentToKot status.
+        const serverByMenuItemId = new Map();
+        const serverById = new Map();
+        serverItems.forEach(si => {
+          serverById.set(si.id, si);
+          if (si.menuItemId) serverByMenuItemId.set(si.menuItemId, si);
+        });
+        const localMenuItemIds = new Set(localItems.filter(li => li.menuItemId).map(li => li.menuItemId));
+        const localIds = new Set(localItems.map(li => li.id));
+
+        // Resolve temp IDs; pick up sentToKot from server; keep local qty/notes/GST
+        const resolvedLocal = localItems.map(li => {
+          const si = serverById.get(li.id) || (li.menuItemId ? serverByMenuItemId.get(li.menuItemId) : null);
+          if (!si) return li;
+          return { ...li, id: si.id, sentToKot: si.sentToKot ?? li.sentToKot };
+        });
+
+        // Add items that appeared on server but aren't in local at all
+        // (e.g. another device added and KOT'd them while captain was away).
+        // Only include sentToKot items — unsent ones arrive via socket anyway.
+        const serverNewSent = serverItems.filter(si =>
+          si.sentToKot && !localMenuItemIds.has(si.menuItemId) && !localIds.has(si.id)
         );
+
         return {
           ...prev,
           [tableId]: {
             ...serverOrder,
-            // Preserve local assignedWaiter if server response doesn't include one
-            assignedWaiter: serverOrder.assignedWaiter || prev[tableId]?.assignedWaiter || null,
-            items: [...(serverOrder.items || []), ...localOnlyUnsent],
+            assignedWaiter: serverOrder.assignedWaiter || localState?.assignedWaiter || null,
+            items: [...resolvedLocal, ...serverNewSent],
           },
         };
       });
@@ -756,6 +787,10 @@ export function App() {
       )?.name || "";
     // Don't persist fallback station names — they break KDS routing
     const resolvedStation = (rawStation === "Main Kitchen" || rawStation === "Main kitchen" || rawStation === "Unassigned") ? "" : rawStation;
+    // Block order:updated socket events for this table while REST call is in flight.
+    // Server echoes back order:updated after processing the add — without this guard,
+    // the echo (with server qty) overwrites the captain's local qty adjustments.
+    addItemInFlightRef.current[tableId] = (addItemInFlightRef.current[tableId] || 0) + 1;
     try {
       const serverOrder = await api.post("/operations/order/item", {
         tableId,
@@ -774,35 +809,56 @@ export function App() {
         },
         actorName: loggedInStaff?.name || "Captain",
       });
+      // Local state is the source of truth for qty, note, taxRate (GST).
+      // Server response is used ONLY to resolve temp IDs → real server UUIDs,
+      // and to pick up items added by another device (e.g. POS) while in flight.
+      let mergedForBroadcast = null;
       setOrders((prev) => {
         const local = prev[tableId];
         if (!local) return prev;
-        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
-        // Also exclude local items whose menuItemId is already present in the server's
-        // unsent items — prevents temp-ID items (item-${Date.now()}-random) from
-        // surviving as duplicates alongside the real server item with the same menuItemId.
-        const serverUnsentMenuItemIds = new Set(
-          (serverOrder.items || []).filter(i => !i.sentToKot).map(i => i.menuItemId)
-        );
-        const localOnlyUnsent = (local.items || []).filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id) && !serverUnsentMenuItemIds.has(li.menuItemId)
-        );
-        return {
-          ...prev,
-          [tableId]: {
-            ...serverOrder,
-            // Preserve local assignedWaiter if server response doesn't include one
-            assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
-            items: [...(serverOrder.items || []), ...localOnlyUnsent],
-          },
+
+        // Build server lookup for temp-ID resolution
+        const serverByMenuItemId = new Map();
+        (serverOrder.items || []).forEach(si => {
+          if (si.menuItemId) serverByMenuItemId.set(si.menuItemId, si);
+        });
+
+        // Start from local items — preserve qty, note, taxRate, sentToKot unchanged.
+        // Only swap temp IDs for real server UUIDs on unsent items.
+        const resolvedLocal = (local.items || []).map(li => {
+          if (li.sentToKot || !li.menuItemId) return li;
+          const si = serverByMenuItemId.get(li.menuItemId);
+          if (si && li.id !== si.id) {
+            return { ...li, id: si.id }; // resolve temp ID → real UUID only
+          }
+          return li;
+        });
+
+        const newTableState = {
+          ...serverOrder,
+          assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
+          items: resolvedLocal,
+          updatedAt: Date.now(),
         };
+        mergedForBroadcast = newTableState;
+        return { ...prev, [tableId]: newTableState };
       });
-      // Broadcast to POS immediately so it gets the new item with taxRate without waiting for KOT
-      const stamped = { ...serverOrder, updatedAt: Date.now() };
-      socketRef.current?.emit("order:update",      { outletId: outlet?.id || branchConfig?.outletId, order: stamped });
-      localSocketRef.current?.emit("order:update", { order: stamped });
+      // Broadcast the local-authoritative state to POS so it receives the correct
+      // qty, note, and taxRate (GST) — not the server's accumulated version.
+      if (mergedForBroadcast) {
+        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: mergedForBroadcast });
+        localSocketRef.current?.emit("order:update", { order: mergedForBroadcast });
+      }
+      // Unblock after a short delay to absorb any late-arriving server echo.
+      // The reconciled state is already set above; the delay just ensures the echo
+      // (which may be in transit) is discarded rather than overwriting our merged state.
+      setTimeout(() => {
+        addItemInFlightRef.current[tableId] = Math.max(0, (addItemInFlightRef.current[tableId] || 1) - 1);
+      }, 300);
     } catch (err) {
       console.warn("[captain] addItem sync failed — queuing for retry:", err.message);
+      // Decrement immediately on error — no server echo will arrive
+      addItemInFlightRef.current[tableId] = Math.max(0, (addItemInFlightRef.current[tableId] || 1) - 1);
       syncEnqueue(SYNC_ACTION.ADD_ITEM, {
         tableId,
         outletId:  outlet?.id || branchConfig?.outletId,
@@ -944,6 +1000,7 @@ export function App() {
     // KOT printing to POS. POS uses its own pos_printers config (single source
     // of truth) to print waiter copy + per-station copies. Falls back to local
     // printing if POS is unreachable.
+    let posDelegated = false;
     try {
       const { printKOT, getWaiterKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } =
         await import("./lib/kotPrint.js");
@@ -1021,41 +1078,53 @@ export function App() {
     });
 
     if (lastServerOrder) {
-      // Build qty map from captain's local unsent items — these are what was actually
-      // sent to the kitchen. Backend's in-memory qty can be stale (higher) when captain
-      // decremented without a full-remove (decrements only update local + socket, not REST).
-      const unsentQtyMap = {};
-      unsent.forEach(i => { unsentQtyMap[i.id] = i.quantity; });
-      const serverItemIds = new Set((lastServerOrder.items || []).map(i => i.id));
-      // Preserve any captain-local unsent items the backend doesn't know about yet
-      const localNow = orders[tid];
-      const localOnlyUnsent = localNow
-        ? (localNow.items || []).filter(li => !li.sentToKot && !serverItemIds.has(li.id))
-        : [];
-      // Override server quantities with captain's actual sent quantities
-      const reconciledItems = (lastServerOrder.items || []).map(si => {
-        const captainQty = unsentQtyMap[si.id];
-        return captainQty != null ? { ...si, quantity: captainQty } : si;
+      // Compute reconciled order inside the setOrders updater so we read the freshest
+      // local state. Key insight: captain's minus-taps reduce qty for ALL items locally
+      // (both unsent and already-sent ones) with no REST call — server keeps the original
+      // accumulated qty. We must preserve the captain's qty for EVERY item, not just
+      // the unsent batch that was just KOT'd.
+      let reconciledOrder = null;
+      setOrders((prev) => {
+        if (!prev[tid]) return prev;
+        const localItems = prev[tid].items || [];
+        // Map every local item's qty by id AND menuItemId from fresh prev[tid].items.
+        // Using the stale `unsent` snapshot for menuItemId lookups was wrong — if any
+        // handleAddItem REST calls resolved between doSendKOT start and this updater,
+        // `unsent` would have stale quantities. localItems (prev[tid]) is always fresh.
+        // Server lookups for ID resolution and sentToKot status
+        const serverById = new Map();
+        const serverByMenuItemId = new Map();
+        (lastServerOrder.items || []).forEach(si => {
+          serverById.set(si.id, si);
+          if (si.menuItemId) serverByMenuItemId.set(si.menuItemId, si);
+        });
+        // Start from local items (source of truth for qty, note, taxRate).
+        // Only update: real ID (resolve temp → UUID) and sentToKot status from server.
+        const resolvedItems = localItems.map(li => {
+          const si = serverById.get(li.id) || (li.menuItemId ? serverByMenuItemId.get(li.menuItemId) : null);
+          if (!si) return li;
+          return {
+            ...li,
+            id: si.id,
+            sentToKot: si.sentToKot ?? li.sentToKot,
+          };
+        });
+        // updatedAt + 1 ensures the reconciled order is always exactly 1ms newer than
+        // the backend's own timestamp so both captain and POS reject the stale echo.
+        const rec = {
+          ...lastServerOrder,
+          assignedWaiter: waiterToShow,
+          items: resolvedItems,
+          updatedAt: (lastServerOrder.updatedAt || 0) + 1,
+        };
+        reconciledOrder = rec;
+        return { ...prev, [tid]: rec };
       });
-      // Use lastServerOrder.updatedAt + 1 so the reconciled order is always exactly
-      // 1ms newer than the backend's own timestamp — regardless of server/client clock
-      // skew. Both the captain guard and the POS guard will then correctly reject the
-      // stale backend echo (which carries lastServerOrder.updatedAt).
-      const reconciledOrder = {
-        ...lastServerOrder,
-        assignedWaiter: waiterToShow,
-        items: [...reconciledItems, ...localOnlyUnsent],
-        updatedAt: (lastServerOrder.updatedAt || 0) + 1,
-      };
-
-      setOrders((prev) => prev[tid] ? { ...prev, [tid]: reconciledOrder } : prev);
-
-      // Broadcast corrected quantities to POS immediately — without this, POS only
-      // receives the backend's stale order:updated (wrong qty) and captain's decrement
-      // never reaches POS after KOT. The +1 updatedAt ensures POS's guard rejects
-      // the subsequent stale echo.
-      socketRef.current?.emit("order:update",      { outletId: effectiveOutletId, order: reconciledOrder });
-      localSocketRef.current?.emit("order:update", { order: reconciledOrder });
+      // Broadcast corrected quantities to POS so its guard rejects the stale server echo.
+      if (reconciledOrder) {
+        socketRef.current?.emit("order:update",      { outletId: effectiveOutletId, order: reconciledOrder });
+        localSocketRef.current?.emit("order:update", { order: reconciledOrder });
+      }
     }
     kotInFlightRef.current.delete(tid);
 

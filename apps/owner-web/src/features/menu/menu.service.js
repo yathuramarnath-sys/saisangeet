@@ -148,7 +148,8 @@ function buildMenuItemPayload(formValues, category, stationName) {
     takeawayPackingCharge: taPack,
     deliveryPackingCharge: dlPack,
     // ── Legacy compat fields (kept so old POS versions don't break) ───────
-    taxMode:       "Exclusive",
+    // Preserve item's existing taxMode so editing an Inclusive item doesn't downgrade it.
+    taxMode:       formValues.taxMode || "Exclusive",
     taxRate,
     takeawayPrice: buildPriceLabel(base),
     deliveryPrice: buildPriceLabel(base),
@@ -168,6 +169,8 @@ function buildMenuItemPayload(formValues, category, stationName) {
     allowDecimalQty:   formValues.allowDecimalQty   !== undefined ? Boolean(formValues.allowDecimalQty)  : false,
     manufacturingDate: formValues.manufacturingDate || "",
     expiryDate:        formValues.expiryDate        || "",
+    lowStockLevel:     formValues.lowStockLevel != null && formValues.lowStockLevel !== ""
+      ? Number(formValues.lowStockLevel) : undefined,
   };
 }
 
@@ -245,7 +248,10 @@ function normalizeMenuItems(items) {
     availableFrom: item.availableFrom || "",
     availableTo:   item.availableTo   || "",
     taxMode: item.taxMode || "Exclusive",
-    taxRate: Number(item.taxRate || 0),
+    // Preserve null/undefined taxRate so the MenuPage "Missing GST" warning fires correctly.
+    // Number(null || 0) would coerce to 0, making intentionally-unset items
+    // indistinguishable from zero-rated items and breaking the badge + filter.
+    taxRate: item.taxRate != null && item.taxRate !== "" ? Number(item.taxRate) : null,
     // ── New pricing fields ──────────────────────────────────────────────
     price:       item.price      || item.basePrice || 0,
     basePrice:   item.basePrice  || item.price     || 0,

@@ -774,9 +774,21 @@ function mergeTables(currentTableId, sourceTableId, actor = "System") {
   return { mergedOrder: clone(mergedOrder), clearedTableId: sourceTableId };
 }
 
-function markKotSent(tableId, actor = "Captain") {
+function markKotSent(tableId, actor = "Captain", captainItems = null) {
   const order = findOrder(tableId);
   assertOrderOpen(order, "send KOT");
+  // Apply captain's reduced quantities before marking sentToKot.
+  // The captain can adjust quantities on the KOT review screen via socket-only
+  // updates; the server's accumulated qty from REST addOrderItem calls may be
+  // higher. This reconciliation ensures the server reflects what actually went
+  // to the kitchen.
+  if (captainItems?.length) {
+    const captainQtyById = new Map(captainItems.map(ci => [String(ci.id), ci.quantity]));
+    order.items = order.items.map(item => {
+      const captainQty = captainQtyById.get(String(item.id));
+      return captainQty != null ? { ...item, quantity: captainQty } : item;
+    });
+  }
   order.items = order.items.map((item) => ({ ...item, sentToKot: true }));
   order.pickupStatus = "new";
   order.notes = "KOT sent to kitchen";

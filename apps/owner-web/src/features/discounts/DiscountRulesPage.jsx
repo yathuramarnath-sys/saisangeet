@@ -17,7 +17,11 @@ function fmtRule(rule) {
     : `${rule.value}% off`;
 }
 
-const EMPTY_FORM = { name: "", discountType: "percentage", value: "", notes: "", outletScope: "All Outlets" };
+const EMPTY_FORM = {
+  name: "", discountType: "percentage", value: "", notes: "", outletScope: "All Outlets",
+  discountScope: "order", appliesToRole: "All Billing Roles",
+  requiresApproval: false, timeWindow: "Always on",
+};
 
 export function DiscountRulesPage() {
   const [rules,     setRules]     = useState([]);
@@ -60,11 +64,15 @@ export function DiscountRulesPage() {
   function startEdit(rule) {
     setEditingId(rule.id);
     setForm({
-      name:         rule.name,
-      discountType: rule.discountType || "percentage",
-      value:        String(rule.value),
-      notes:        rule.notes || "",
-      outletScope:  rule.outletScope || "All Outlets",
+      name:             rule.name,
+      discountType:     rule.discountType     || "percentage",
+      value:            String(rule.value),
+      notes:            rule.notes            || "",
+      outletScope:      rule.outletScope      || "All Outlets",
+      discountScope:    rule.discountScope    || "order",
+      appliesToRole:    rule.appliesToRole    || "All Billing Roles",
+      requiresApproval: rule.requiresApproval ?? false,
+      timeWindow:       rule.timeWindow       || "Always on",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -110,11 +118,15 @@ export function DiscountRulesPage() {
     setSaving(true);
     try {
       const payload = {
-        name:         form.name.trim(),
-        discountType: form.discountType,
-        value:        Number(form.value),
-        notes:        form.notes.trim(),
-        outletScope:  form.outletScope,
+        name:             form.name.trim(),
+        discountType:     form.discountType,
+        value:            Number(form.value),
+        notes:            form.notes.trim(),
+        outletScope:      form.outletScope,
+        discountScope:    form.discountScope,
+        appliesToRole:    form.appliesToRole,
+        requiresApproval: form.requiresApproval,
+        timeWindow:       form.timeWindow,
       };
       const updated = await api.patch(`/settings/discounts/${editingId}`, payload);
       setRules(prev => prev.map(r => r.id === editingId ? { ...r, ...updated } : r));

@@ -68,8 +68,8 @@ async function fetchOrCreateOrderByTable(tableId) {
   return runWrite(() => getOrCreateOrder(tableId));
 }
 
-async function sendKot(tableId, actor) {
-  return runWrite(() => markKotSent(tableId, actor));
+async function sendKot(tableId, actor, captainItems) {
+  return runWrite(() => markKotSent(tableId, actor, captainItems));
 }
 
 async function requestOrderBill(tableId, actor, isSplit) {
