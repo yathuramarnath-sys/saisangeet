@@ -490,11 +490,21 @@ async function deviceSendKotHandler(req, res) {
   }
 
   // Mark items sentToKot: true in the in-memory order so backend state matches POS.
+  // Pass captain's items so markKotSent can reconcile quantities — the captain may
+  // have reduced quantities on the KOT review screen via socket-only updates, so the
+  // server's accumulated qty (from REST addOrderItem calls) can be higher than intended.
   // Skipped for counter/online orders — those have no backend table entry.
   let updatedOrder;
   if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
     try {
-      updatedOrder = await sendOrderKot(tableId, { actorName: req.body.actorName || req.user?.name || "Captain" });
+      updatedOrder = await sendOrderKot(tableId, {
+        actorName: req.body.actorName || req.user?.name || "Captain",
+        items: items,
+      });
+      // Broadcast corrected order so POS immediately picks up the reconciled quantities.
+      if (io && outletId && updatedOrder) {
+        io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", updatedOrder);
+      }
     } catch (err) {
       // ORDER_NOT_FOUND or TABLE_NOT_FOUND — log but do not fail the KOT send.
       // The KOT is already recorded and broadcast; the order state will reconcile on next open.
