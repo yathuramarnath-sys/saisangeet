@@ -787,13 +787,29 @@ export function App() {
         const localOnlyUnsent = (local.items || []).filter(
           (li) => !li.sentToKot && !serverItemIds.has(li.id) && !serverUnsentMenuItemIds.has(li.menuItemId)
         );
+        // Captain may have tapped − on Order Screen while this REST call was in flight.
+        // Preserve local unsent qty so the server's stale (higher) count doesn't overwrite.
+        const localUnsentQty = new Map();
+        (local.items || []).forEach(li => {
+          if (!li.sentToKot) {
+            localUnsentQty.set(li.id, li.quantity);
+            if (li.menuItemId) localUnsentQty.set(`m:${li.menuItemId}`, li.quantity);
+          }
+        });
+        const mergedServerItems = (serverOrder.items || []).map(si => {
+          if (!si.sentToKot) {
+            const localQty = localUnsentQty.get(si.id) ?? localUnsentQty.get(`m:${si.menuItemId}`);
+            if (localQty != null) return { ...si, quantity: localQty };
+          }
+          return si;
+        });
         return {
           ...prev,
           [tableId]: {
             ...serverOrder,
             // Preserve local assignedWaiter if server response doesn't include one
             assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
-            items: [...(serverOrder.items || []), ...localOnlyUnsent],
+            items: [...mergedServerItems, ...localOnlyUnsent],
           },
         };
       });
