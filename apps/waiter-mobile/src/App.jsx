@@ -612,15 +612,8 @@ export function App() {
   // Extracted so both direct-tap and "Edit Order" from action sheet call the same logic
   // autoOpen: null | "menu" | "transfer" | "merge" | "split" — immediately opens the relevant screen/modal
   async function openOrderScreen(tableId, area, autoOpen = null) {
-    // Capture the local items synchronously BEFORE the async server fetch.
-    // A socket event may clear orders[tableId] while the fetch is in flight —
-    // using a closure variable avoids losing items that only existed locally.
-    let capturedLocalItems = [];
     setOrders((prev) => {
-      if (prev[tableId]) {
-        capturedLocalItems = [...(prev[tableId].items || [])];
-        return prev;
-      }
+      if (prev[tableId]) return prev;
       const t = area.tables.find((x) => x.id === tableId);
       if (!t) return prev;
       return { ...prev, [tableId]: buildBlankOrder(t, area) };
@@ -633,18 +626,20 @@ export function App() {
     try {
       const serverOrder = await api.get(`/operations/order?tableId=${tableId}${outlet?.id ? `&outletId=${outlet.id}` : ""}`);
       setOrders((prev) => {
-        // Merge: keep server-side items + any local unsent items not yet on server
-        const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
-        const localOnlyUnsent = capturedLocalItems.filter(
-          (li) => !li.sentToKot && !serverItemIds.has(li.id)
+        const serverItems = serverOrder.items || [];
+        const serverItemIds = new Set(serverItems.map((i) => i.id));
+        const serverMenuItemIds = new Set(serverItems.filter(i => i.menuItemId).map(i => i.menuItemId));
+        // Use CURRENT local state (prev), not a stale closure snapshot, so items
+        // the captain added while the fetch was in flight are preserved.
+        const localOnlyUnsent = (prev[tableId]?.items || []).filter(
+          (li) => !li.sentToKot && !serverItemIds.has(li.id) && !serverMenuItemIds.has(li.menuItemId)
         );
         return {
           ...prev,
           [tableId]: {
             ...serverOrder,
-            // Preserve local assignedWaiter if server response doesn't include one
             assignedWaiter: serverOrder.assignedWaiter || prev[tableId]?.assignedWaiter || null,
-            items: [...(serverOrder.items || []), ...localOnlyUnsent],
+            items: [...serverItems, ...localOnlyUnsent],
           },
         };
       });
@@ -789,19 +784,10 @@ export function App() {
         const local = prev[tableId];
         if (!local) return prev;
 
-        // Build server lookups for ID resolution
+        // Build server lookup for temp-ID resolution
         const serverByMenuItemId = new Map();
-        const serverById = new Map();
         (serverOrder.items || []).forEach(si => {
-          serverById.set(si.id, si);
           if (si.menuItemId) serverByMenuItemId.set(si.menuItemId, si);
-        });
-
-        // Local lookups
-        const localIds = new Set((local.items || []).map(li => li.id));
-        const localByMenuItemId = new Map();
-        (local.items || []).forEach(li => {
-          if (li.menuItemId) localByMenuItemId.set(li.menuItemId, li);
         });
 
         // Start from local items — preserve qty, note, taxRate, sentToKot unchanged.
@@ -815,16 +801,10 @@ export function App() {
           return li;
         });
 
-        // Include items the server knows about that aren't in local state at all
-        // (added by another device such as POS while this call was in flight).
-        const serverOnlyItems = (serverOrder.items || []).filter(si =>
-          !localByMenuItemId.has(si.menuItemId) && !localIds.has(si.id)
-        );
-
         const newTableState = {
           ...serverOrder,
           assignedWaiter: serverOrder.assignedWaiter || local.assignedWaiter || null,
-          items: [...resolvedLocal, ...serverOnlyItems],
+          items: resolvedLocal,
           updatedAt: Date.now(),
         };
         mergedForBroadcast = newTableState;
