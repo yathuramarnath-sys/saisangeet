@@ -61,7 +61,7 @@ async function getOrCreateOrderForTable(tableId) {
 }
 
 async function sendOrderKot(tableId, payload = {}) {
-  return sendKot(tableId, resolveActor(payload.actorName, payload.actorRole));
+  return sendKot(tableId, resolveActor(payload.actorName, payload.actorRole), payload.items || null);
 }
 
 async function requestBillForOrder(tableId, payload = {}) {

@@ -977,6 +977,10 @@ export function MenuPage() {
       unit:          item.unit          || "",
       trackInventory: item.inventoryTracking?.enabled ? "Enabled" : "Disabled",
       selectedAreas: (item.areaAvailability || []).filter((e) => e.enabled).map((e) => e.area),
+      // Preserve outlet availability so editing never silently wipes branch restrictions
+      outletAvailability: item.outletAvailability || [],
+      // Preserve taxMode so editing an Inclusive item doesn't downgrade it to Exclusive
+      taxMode: item.taxMode || "Exclusive",
       // New pricing model
       basePrice:    String(base),
       onlinePrice:  String(item.onlinePrice || 0),
@@ -994,6 +998,7 @@ export function MenuPage() {
       allowDecimalQty:   item.allowDecimalQty   === true,
       manufacturingDate: item.manufacturingDate || "",
       expiryDate:        item.expiryDate        || "",
+      lowStockLevel:     item.lowStockLevel     ?? "",
     });
     setSaveError("");
     setSaveMessage("");
