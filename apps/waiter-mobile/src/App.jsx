@@ -314,11 +314,18 @@ export function App() {
                 socketRef.current?.emit("order:update", { outletId: outlet?.id, order: promoted });
                 localSocketRef.current?.emit("order:update", { order: promoted });
               }, 0);
-              return { ...p, [o.tableId]: promoted, [nextTid]: { ...localNext, isClosed: true } };
+              // Remove T1_next entirely (not just mark closed) so the backend's
+              // post-settlement blank doesn't re-trigger this block and miss promotion.
+              const { [nextTid]: _gone, ...withoutNext } = p;
+              return { ...withoutNext, [o.tableId]: promoted };
             }
           }
 
           if (!o.items?.length || o.isClosed) {
+            // Protect a live promoted order: if captain already has active items on this
+            // table (e.g. the _next order just promoted), don't wipe it via a server blank.
+            const cur = p[o.tableId];
+            if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
           }
@@ -467,11 +474,14 @@ export function App() {
                   socketRef.current?.emit("order:update", { outletId: outlet?.id, order: promoted });
                   localSocketRef.current?.emit("order:update", { order: promoted });
                 }, 0);
-                return { ...p, [o.tableId]: promoted, [nextTid]: { ...localNext, isClosed: true } };
+                const { [nextTid]: _gone, ...withoutNext } = p;
+                return { ...withoutNext, [o.tableId]: promoted };
               }
             }
 
             if (!o.items?.length || o.isClosed) {
+              const cur = p[o.tableId];
+              if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
               const { [o.tableId]: _r, ...rest } = p;
               return rest;
             }

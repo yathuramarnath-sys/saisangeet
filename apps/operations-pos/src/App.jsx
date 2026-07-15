@@ -627,15 +627,19 @@ export default function App() {
         socket.on("order:updated", (updatedOrder) => {
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
-            // Stale-write guard: if our local copy is newer, ignore this event.
-            // Prevents a slow Captain socket event from overwriting POS changes
-            // that were made after the Captain last touched the order.
+            // Stale-write guard: ignore events that are more than 30 s older than our
+            // local copy. A strict timestamp comparison breaks when the Captain device
+            // clock is even slightly behind the server clock (server stamps orders with
+            // server-time after each KOT, making all subsequent captain broadcasts look
+            // "older"). 30 s covers any realistic clock skew while still blocking truly
+            // stale in-transit duplicates.
             if (
               current &&
               !updatedOrder.isClosed &&
-              (current.updatedAt || 0) > (updatedOrder.updatedAt || 0)
+              new Date(current.updatedAt || 0).getTime() -
+                new Date(updatedOrder.updatedAt || 0).getTime() > 30_000
             ) {
-              return prev; // our version is newer — discard incoming
+              return prev; // our version is >30 s newer — discard incoming
             }
 
             // ── Concurrent-edit merge ─────────────────────────────────────────
@@ -814,7 +818,9 @@ export default function App() {
         localSock.on("order:updated", (updatedOrder) => {
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
-            if (current && (current.updatedAt || 0) > (updatedOrder.updatedAt || 0)) return prev;
+            if (current && !updatedOrder.isClosed &&
+                new Date(current.updatedAt || 0).getTime() -
+                  new Date(updatedOrder.updatedAt || 0).getTime() > 30_000) return prev;
             const next = { ...prev, [updatedOrder.tableId]: updatedOrder };
             saveOrdersToStorage(next);
             return next;
