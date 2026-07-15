@@ -63,7 +63,8 @@ export function TableGrid({ areas, orders, selectedTableId, onSelectTable }) {
               const isSplit = orders[table.id]?.isSplitBill && orders[table.id]?.billRequested;
               const seatCount = table.seats || 0;
               const staff = tableStaff(table.id);
-              const hasNext = !!orders[`${table.id}_next`] && !orders[`${table.id}_next`]?.isClosed;
+              const hasNext = (!!orders[table.id]?.hasNextOrder && !!orders[table.id]?.billRequested)
+                           || (!!orders[`${table.id}_next`] && !orders[`${table.id}_next`]?.isClosed);
               return (
                 <button
                   key={table.id}

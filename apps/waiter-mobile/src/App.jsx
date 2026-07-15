@@ -302,6 +302,22 @@ export function App() {
           // response arrives with the properly reconciled order.
           if (kotInFlightRef.current.has(o.tableId)) return p;
           if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
+
+          // Mirror-table promotion: when POS settles and broadcasts a blank/closed T1,
+          // if captain has a local _next order, promote it to T1 and broadcast to POS.
+          if (!o.tableId.endsWith('_next')) {
+            const nextTid = `${o.tableId}_next`;
+            const localNext = p[nextTid];
+            if (localNext && !localNext.isClosed && (!o.items?.length || o.isClosed)) {
+              const promoted = { ...localNext, tableId: o.tableId, isNextSlot: false, updatedAt: new Date().toISOString() };
+              setTimeout(() => {
+                socketRef.current?.emit("order:update", { outletId: outlet?.id, order: promoted });
+                localSocketRef.current?.emit("order:update", { order: promoted });
+              }, 0);
+              return { ...p, [o.tableId]: promoted, [nextTid]: { ...localNext, isClosed: true } };
+            }
+          }
+
           if (!o.items?.length || o.isClosed) {
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
@@ -440,6 +456,21 @@ export function App() {
           lSock.on("order:updated", (o) => setOrders((p) => {
             if (kotInFlightRef.current.has(o.tableId)) return p;
             if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
+
+            // Mirror-table promotion (local socket path — same logic as remote socket)
+            if (!o.tableId.endsWith('_next')) {
+              const nextTid = `${o.tableId}_next`;
+              const localNext = p[nextTid];
+              if (localNext && !localNext.isClosed && (!o.items?.length || o.isClosed)) {
+                const promoted = { ...localNext, tableId: o.tableId, isNextSlot: false, updatedAt: new Date().toISOString() };
+                setTimeout(() => {
+                  socketRef.current?.emit("order:update", { outletId: outlet?.id, order: promoted });
+                  localSocketRef.current?.emit("order:update", { order: promoted });
+                }, 0);
+                return { ...p, [o.tableId]: promoted, [nextTid]: { ...localNext, isClosed: true } };
+              }
+            }
+
             if (!o.items?.length || o.isClosed) {
               const { [o.tableId]: _r, ...rest } = p;
               return rest;
@@ -1333,13 +1364,15 @@ export function App() {
       billNo:      printOrder.billNo || null,
     }).catch(() => {});
 
-    // Mark billRequested: true — table turns blue on POS floor plan
-    handleUpdateOrder({ ...printOrder, billRequested: true });
+    // Mark billRequested: true — table turns blue on POS floor plan.
+    // hasNextOrder: true signals POS to show "+NEW" badge while bill awaits payment.
+    handleUpdateOrder({ ...printOrder, billRequested: true, hasNextOrder: true });
     api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid }).catch(() => {});
     toast("Printing bill…", { icon: "🖨️" });
 
-    // Mirror-table: create a _next virtual slot so captain can start the next order
-    // on the same table immediately, while the old bill awaits payment at the cashier.
+    // Mirror-table: store _next slot locally for captain navigation only.
+    // POS learns about the next order via hasNextOrder on the main broadcast above,
+    // and receives the order data when captain promotes _next after POS settles.
     const nextTid = `${tid}_next`;
     const nextSlot = {
       tableId:         nextTid,
@@ -1359,7 +1392,7 @@ export function App() {
       openedAt:        new Date().toISOString(),
       seatedAt:        new Date().toISOString(),
     };
-    handleUpdateOrder(nextSlot);
+    setOrders(prev => ({ ...prev, [nextTid]: nextSlot }));
 
     if (tid === selectedTableId) setSelectedTableId(null);
     setActionTableId(null);

@@ -2087,16 +2087,17 @@ export default function App() {
       }
 
       setOrders(prev => {
+        // If captain has already promoted a _next order to this table, skip the blank reset.
+        // The captain broadcasts the promoted order to POS; overwriting it here would lose it.
+        if (prev[tableId]?.orderNumber !== order.orderNumber) return prev;
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
         const updated = { ...prev, [tableId]: fresh };
         delete updated[nextTableId];
         return updated;
       });
-      // Clear any stale _next slot on other devices
-      const blankNext = { tableId: nextTableId, items: [], isClosed: true };
-      socketRef.current?.emit("order:update", { outletId: outlet?.id, order: blankNext });
-      localSocketRef.current?.emit("order:update", { order: blankNext });
+      // Do NOT broadcast _next as isClosed — captain handles its own _next cleanup
+      // via the mirror-table promotion logic in its socket handler.
       // Check waitlist for a party that fits this freed table
       checkWaitlistSuggest(tableId);
     }, 1500);
