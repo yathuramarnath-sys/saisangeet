@@ -25,6 +25,9 @@ function waiterInitials(name) {
 }
 
 export function tableStatusOf(orders, tableId) {
+  // Mirror-table: if a _next virtual slot exists, physical table appears free for new order
+  const nextSlot = orders[`${tableId}_next`];
+  if (nextSlot && !nextSlot.isClosed) return "next";
   const o = orders[tableId];
   const activeItems = o?.items?.filter(i => !i.isVoided && !i.isComp);
   if (!activeItems?.length) return "open";
@@ -76,6 +79,7 @@ function useLongPress(onLongPress, onPress, ms = 500) {
 
 const TF2_LABEL = {
   open:     "Free",
+  next:     "New order",
   hold:     "Hold",
   bill:     "Bill ready",
   running:  "Dining",
@@ -83,6 +87,7 @@ const TF2_LABEL = {
 };
 const TF2_COLOR = {
   open:     "#0C831F",
+  next:     "#0C831F",
   hold:     "#6B7280",
   bill:     "#2E6F9E",
   running:  "#2E6F9E",
@@ -94,6 +99,8 @@ const TF2_COLOR = {
 // is always called at the top level — never inside a .map() loop.
 function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
   const st          = tableStatusOf(orders, table.id);
+  // Mirror-table: when status is "next", tap opens the _next virtual slot
+  const activeTableId = st === "next" ? `${table.id}_next` : table.id;
   const order       = orders[table.id];
   const _items      = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
   const _sub        = _items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
@@ -104,8 +111,8 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
   const amount      = _sub + _tax;
   const unsentCount = (order?.items || []).filter(i => !i.sentToKot && !i.isVoided).length;
   const seatedTs    = order?.seatedAt || order?.createdAt || order?.openedAt;
-  const timer       = (st !== "open") ? elapsedLabel(seatedTs) : null;
-  const isOccupied  = st !== "open";
+  const timer       = (st !== "open" && st !== "next") ? elapsedLabel(seatedTs) : null;
+  const isOccupied  = st !== "open" && st !== "next";
   const displaySt   = (st === "running" && unsentCount > 0) ? "ordering" : st;
   const guests      = order?.covers || order?.guests || null;
 
@@ -119,8 +126,8 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
   const waiterInitialsStr = waiterName ? waiterInitials(waiterName) : null;
 
   const pressHandlers = useLongPress(
-    () => isOccupied && onLongPressTable?.(table.id, area),
-    () => onSelectTable(table.id, area)
+    () => isOccupied && onLongPressTable?.(activeTableId, area),
+    () => onSelectTable(activeTableId, area)
   );
 
   const statusColor = isNoOrderAlert ? TF2_COLOR.danger : TF2_COLOR[displaySt];
@@ -196,7 +203,10 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, log
 
   const allTables    = areas.flatMap(a => a.tables);
   const totalTables  = allTables.length;
-  const freeTables   = allTables.filter(t => tableStatusOf(orders, t.id) === "open").length;
+  const freeTables   = allTables.filter(t => {
+    const s = tableStatusOf(orders, t.id);
+    return s === "open" || s === "next";
+  }).length;
   const activeTables = totalTables - freeTables;
   const billTables   = allTables.filter(t => tableStatusOf(orders, t.id) === "bill").length;
   const pct          = totalTables ? Math.round((activeTables / totalTables) * 100) : 0;

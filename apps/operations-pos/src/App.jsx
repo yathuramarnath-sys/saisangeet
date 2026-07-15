@@ -2047,6 +2047,27 @@ export default function App() {
     // When online, the server emits order:updated (blank) and this runs in parallel —
     // both set the same blank state, no harm done.
     setTimeout(() => {
+      const nextTableId = `${tableId}_next`;
+      const nextOrder   = ordersRef.current[nextTableId];
+
+      // Mirror-table promotion: if captain started a new order on the _next virtual slot,
+      // promote it to the physical table now that the old bill is settled.
+      if (nextOrder && !nextOrder.isClosed) {
+        const promotedOrder = { ...nextOrder, tableId, isNextSlot: false };
+        setOrders(prev => {
+          const updated = { ...prev, [tableId]: promotedOrder };
+          delete updated[nextTableId];
+          return updated;
+        });
+        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: promotedOrder });
+        localSocketRef.current?.emit("order:update", { order: promotedOrder });
+        // Clear the _next slot on all devices
+        const blankNext = { tableId: nextTableId, items: [], isClosed: true };
+        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: blankNext });
+        localSocketRef.current?.emit("order:update", { order: blankNext });
+        return;
+      }
+
       const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
       const table = area?.tables.find(t => t.id === tableId);
 
@@ -2059,6 +2080,7 @@ export default function App() {
           if (!prev[tableId]?.isClosed) return prev; // already cleared by socket
           const next = { ...prev };
           delete next[tableId];
+          delete next[nextTableId];
           return next;
         });
         return;
@@ -2067,8 +2089,14 @@ export default function App() {
       setOrders(prev => {
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
-        return { ...prev, [tableId]: fresh };
+        const updated = { ...prev, [tableId]: fresh };
+        delete updated[nextTableId];
+        return updated;
       });
+      // Clear any stale _next slot on other devices
+      const blankNext = { tableId: nextTableId, items: [], isClosed: true };
+      socketRef.current?.emit("order:update", { outletId: outlet?.id, order: blankNext });
+      localSocketRef.current?.emit("order:update", { order: blankNext });
       // Check waitlist for a party that fits this freed table
       checkWaitlistSuggest(tableId);
     }, 1500);

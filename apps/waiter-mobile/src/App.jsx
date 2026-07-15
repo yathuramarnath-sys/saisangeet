@@ -1337,6 +1337,30 @@ export function App() {
     handleUpdateOrder({ ...printOrder, billRequested: true });
     api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid }).catch(() => {});
     toast("Printing bill…", { icon: "🖨️" });
+
+    // Mirror-table: create a _next virtual slot so captain can start the next order
+    // on the same table immediately, while the old bill awaits payment at the cashier.
+    const nextTid = `${tid}_next`;
+    const nextSlot = {
+      tableId:         nextTid,
+      tableNumber:     printOrder.tableNumber,
+      areaId:          printOrder.areaId,
+      areaName:        printOrder.areaName,
+      outletName:      printOrder.outletName,
+      isNextSlot:      true,
+      originalTableId: tid,
+      captainName:     printOrder.captainName    || null,
+      assignedWaiter:  printOrder.assignedWaiter || null,
+      items:           [],
+      guests:          0,
+      covers:          0,
+      orderNumber:     (printOrder.orderNumber || 10000) + 1,
+      createdAt:       new Date().toISOString(),
+      openedAt:        new Date().toISOString(),
+      seatedAt:        new Date().toISOString(),
+    };
+    handleUpdateOrder(nextSlot);
+
     if (tid === selectedTableId) setSelectedTableId(null);
     setActionTableId(null);
   }
