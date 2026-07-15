@@ -29,6 +29,16 @@ export function TableGrid({ areas, orders, selectedTableId, onSelectTable }) {
     return orders[tableId]?.guests || 0;
   }
 
+  function tableStaff(tableId) {
+    const order = orders[tableId];
+    if (!order) return null;
+    const captain = order.captainName || null;
+    const waiter  = order.assignedWaiter || null;
+    if (!captain && !waiter) return null;
+    if (captain && waiter && captain !== waiter) return `${captain} / ${waiter}`;
+    return captain || waiter;
+  }
+
   const statusLabels = {
     available: "Free",
     occupied:  "Occupied",
@@ -52,6 +62,7 @@ export function TableGrid({ areas, orders, selectedTableId, onSelectTable }) {
 
               const isSplit = orders[table.id]?.isSplitBill && orders[table.id]?.billRequested;
               const seatCount = table.seats || 0;
+              const staff = tableStaff(table.id);
               return (
                 <button
                   key={table.id}
@@ -69,6 +80,9 @@ export function TableGrid({ areas, orders, selectedTableId, onSelectTable }) {
                   )}
                   {seatCount > 0 && (
                     <span className="table-btn-seats">{seatCount} seats</span>
+                  )}
+                  {staff && status !== "available" && (
+                    <span className="table-btn-staff">{staff}</span>
                   )}
                 </button>
               );

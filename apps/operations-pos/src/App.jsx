@@ -2523,13 +2523,9 @@ export default function App() {
       return o;
     });
 
-    // Validate waiter against current active staff — reject stale/test names
-    const WAITER_ROLES = ["waiter", "server", "steward"];
     const assignedWaiter = printOrder.assignedWaiter || null;
-    const validWaiter = activeStaff.length
-      ? (activeStaff.some(s => s.name === assignedWaiter && WAITER_ROLES.includes((s.role || "").toLowerCase()))
-          ? assignedWaiter : null)
-      : assignedWaiter; // no staff list loaded → show as-is (offline fallback)
+    // Trust whatever the captain app assigned — same as KOT printing does
+    const validWaiter = assignedWaiter;
 
     printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
       cashierName,

@@ -368,6 +368,17 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   font-weight: 600;
 }
 
+.table-btn-staff {
+  font-size: 9.5px;
+  font-weight: 600;
+  opacity: 0.65;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  margin-top: 1px;
+}
+
 /* Status variants */
 .table-btn.status-available {
   background: var(--sq-surface);
