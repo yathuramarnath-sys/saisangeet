@@ -12153,9 +12153,10 @@ body {
 .tpp-sum-pill.hold  { background: #F7F6F2 !important; color: #6B6B6B !important; border: 1px solid #ECEAE3 !important; }
 
 .tpp-table-btn[data-st="occupied"]::before      { background: #E07A1F !important; }
-.tpp-table-btn[data-st="bill"]::before          { background: #D92D20 !important; }
+/* Bill-ready = dining blue, not danger red (per Plato design spec) */
+.tpp-table-btn[data-st="bill"]::before          { background: #2E6F9E !important; }
 .tpp-table-btn[data-st="occupied"] .tpp-table-status { background: #FBEEDD !important; color: #E07A1F !important; }
-.tpp-table-btn[data-st="bill"]     .tpp-table-status { background: #FBE9E7 !important; color: #D92D20 !important; }
+.tpp-table-btn[data-st="bill"]     .tpp-table-status { background: #E9F1F7 !important; color: #2E6F9E !important; }
 
 /* 25. Roboto Mono for all currency / numeric values ─────────────────────── */
 .order-total-row.total .order-total-val,
@@ -12174,5 +12175,58 @@ body {
 .tpp-table-btn .tpp-table-amount {
   font-family: 'Roboto Mono', monospace !important;
 }
+
+/* 26. Primary CTA buttons still using wrong green — override to amber ──────── */
+/* Collect Payment button */
+.pay2-collect-btn {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+  border: none !important;
+}
+.pay2-collect-btn:hover,
+.pay2-collect-btn:active { background: #EBBA2A !important; }
+
+/* New Order FAB */
+.tpp-new-order-fab {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+  box-shadow: 0 4px 14px rgb(248 203 70 / 40%) !important;
+}
+.tpp-new-order-fab:hover,
+.tpp-new-order-fab:active { background: #EBBA2A !important; }
+
+/* 27. Order panel badge (pot-badge) ───────────────────────────────────────── */
+.pot-badge {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+}
+
+/* 28. Quantity editor — active border & hover ──────────────────────────────── */
+.qty-value.qty-value-tap:hover { color: #F6B23C !important; }
+.qty-edit-input { border-color: #F8CB46 !important; }
+.qty-edit-input:focus { border-color: #F8CB46 !important; outline-color: #F8CB46 !important; }
+
+/* 29. Split-bill UI ──────────────────────────────────────────────────────────── */
+.split-item-row.assigned { border-color: #F8CB46 !important; }
+.split-seat-pill.active  { background: #F8CB46 !important; color: #1C1C1C !important; }
+.split-equal-label       { color: #6B6B6B !important; }
+.split-equal-amount      { color: #1C1C1C !important; }
+
+/* 30. Settlement / denomination amounts ─────────────────────────────────────── */
+.sm-denom-amt { color: #0C831F !important; }
+
+/* 31. Payment recorded chip icon ──────────────────────────────────────────── */
+.payment-recorded-chip-icon { color: #0C831F !important; }
+
+/* 32. Payment method tab hover ────────────────────────────────────────────── */
+.pay2-method-tab:hover  { border-color: #F8CB46 !important; color: #1C1C1C !important; }
+.pay2-method-tab.active { border-color: #F8CB46 !important; background: rgb(248 203 70 / 12%) !important; color: #1C1C1C !important; }
+
+/* 33. Change / balance row highlight ───────────────────────────────────────── */
+.pay2-change-row span:last-child { color: #0C831F !important; }
+
+/* 34. pos-dark mode leftovers that still used green ─────────────────────────── */
+.pos-dark .menu-cat-btn.active  { background: #F8CB46 !important; color: #1C1C1C !important; }
+.pos-dark .tpp-area-tab.active  { background: #F8CB46 !important; color: #1C1C1C !important; }
 
 /* ── End Plato design system overrides ───────────────────────────────────── */
