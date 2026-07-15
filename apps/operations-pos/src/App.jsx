@@ -2052,13 +2052,30 @@ export default function App() {
     // order:updated broadcast won't fire, so we reset the local table state here.
     // When online, the server emits order:updated (blank) and this runs in parallel —
     // both set the same blank state, no harm done.
-    setTimeout(() => {
+    setTimeout(async () => {
       const nextTableId = `${tableId}_next`;
-      const nextOrder   = ordersRef.current[nextTableId];
+      let nextOrder = ordersRef.current[nextTableId];
+
+      // Fetch the authoritative _next order from the server. Socket broadcasts from
+      // the captain can be missed when add-item API calls complete after the settle
+      // timeout fires, or when a broadcast is lost in transit. The server is the
+      // single source of truth — always prefer its version over the in-memory cache.
+      if (outlet?.id) {
+        try {
+          const serverNext = await api.get(
+            `/operations/order?tableId=${nextTableId}&outletId=${outlet.id}`
+          );
+          if (serverNext && !serverNext.isClosed &&
+              (serverNext.items || []).some(i => !i.isVoided && !i.isComp)) {
+            nextOrder = serverNext;
+          }
+        } catch (_) { /* network error — fall back to in-memory cache */ }
+      }
 
       // Mirror-table promotion: if captain started a new order on the _next virtual slot,
       // promote it to the physical table now that the old bill is settled.
-      if (nextOrder && !nextOrder.isClosed) {
+      if (nextOrder && !nextOrder.isClosed &&
+          (nextOrder.items || []).some(i => !i.isVoided && !i.isComp)) {
         const promotedOrder = { ...nextOrder, tableId, isNextSlot: false };
         setOrders(prev => {
           const updated = { ...prev, [tableId]: promotedOrder };
