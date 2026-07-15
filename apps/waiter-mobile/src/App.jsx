@@ -839,6 +839,49 @@ export function App() {
       c => String(c.id) === String(item.categoryId) || c.name === (item.categoryName || item.category)
     );
     const resolvedCategoryName = catObj?.name || item.categoryName || item.category || "";
+
+    // ── _next slot fast-path ──────────────────────────────────────────────────
+    // REST API throws TABLE_NOT_FOUND for virtual _next tableIds — backend has no
+    // catalog entry for them.  Update local state and emit to socket immediately so
+    // POS tracks the _next items and can promote them on settlement (Check 2 in
+    // handleSettle's setTimeout).  Skip the failing REST call entirely.
+    if (tableId.endsWith('_next')) {
+      let orderToEmit = null;
+      setOrders(prev => {
+        const local = prev[tableId];
+        if (!local) return prev;
+        const items = [...(local.items || [])];
+        const idx = items.findIndex(i => i.menuItemId === item.id && !i.sentToKot && !i.isVoided);
+        if (idx >= 0) {
+          items[idx] = { ...items[idx], quantity: (items[idx].quantity || 1) + 1 };
+        } else {
+          items.push({
+            id:           `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            menuItemId:   item.id,
+            name:         item.name,
+            price:        parsePriceNumber(item.price || item.basePrice),
+            quantity:     1,
+            sentToKot:    false,
+            note:         "",
+            station:      resolvedStation,
+            categoryId:   item.categoryId || "",
+            categoryName: resolvedCategoryName,
+            taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
+          });
+        }
+        orderToEmit = { ...local, items, updatedAt: new Date().toISOString() };
+        return { ...prev, [tableId]: orderToEmit };
+      });
+      if (orderToEmit) {
+        socketRef.current?.emit("order:update", {
+          outletId: outlet?.id || branchConfig?.outletId,
+          order: orderToEmit,
+        });
+        localSocketRef.current?.emit("order:update", { order: orderToEmit });
+      }
+      return;
+    }
+
     setOrders(prev => {
       const local = prev[tableId];
       if (!local) return prev;
