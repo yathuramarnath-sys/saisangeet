@@ -642,6 +642,25 @@ export default function App() {
               return prev; // our version is >30 s newer — discard incoming
             }
 
+            // Mirror-table blank guard: if a blank/closed event arrives for a table
+            // that still has a live _next slot in our state, the captain has not finished
+            // promoting yet — hold the current state. This prevents the backend blank
+            // (emitted by clearTableAfterSettle) from wiping a table that the captain
+            // is actively using for the next order.
+            if (
+              !updatedOrder.tableId?.endsWith('_next') &&
+              (!updatedOrder.items?.length || updatedOrder.isClosed)
+            ) {
+              const nextTid = `${updatedOrder.tableId}_next`;
+              const nextSlot = prev[nextTid];
+              if (
+                nextSlot && !nextSlot.isClosed &&
+                (nextSlot.items || []).some(i => !i.isVoided && !i.isComp)
+              ) {
+                return prev; // _next has live items — captain will promote; ignore this blank
+              }
+            }
+
             // ── Concurrent-edit merge ─────────────────────────────────────────
             // The incoming order is the server's authoritative state but it may
             // not include items the POS just added locally (e.g. cashier tapped
@@ -2079,7 +2098,7 @@ export default function App() {
       // promote it to the physical table now that the old bill is settled.
       if (nextOrder && !nextOrder.isClosed &&
           (nextOrder.items || []).some(i => !i.isVoided && !i.isComp)) {
-        const promotedOrder = { ...nextOrder, tableId, isNextSlot: false };
+        const promotedOrder = { ...nextOrder, tableId, isNextSlot: false, updatedAt: new Date().toISOString() };
         setOrders(prev => {
           const updated = { ...prev, [tableId]: promotedOrder };
           delete updated[nextTableId];
@@ -2524,10 +2543,20 @@ export default function App() {
       const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
       const table = area?.tables.find(t => t.id === tableId);
       if (!table || !area) return;
+      const nextTableId = `${tableId}_next`;
       setOrders(prev => {
+        // Mirror-table: captain may have promoted a _next order to this table between
+        // the split-settle and this timeout. If the current slot already has live items
+        // (and is NOT the closed split order we just settled), don't wipe it.
+        const cur = prev[tableId];
+        const curHasLiveItems = cur && !cur.isClosed &&
+          (cur.items || []).some(i => !i.isVoided && !i.isComp);
+        if (curHasLiveItems && cur.orderNumber !== order.orderNumber) return prev;
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
-        return { ...prev, [tableId]: fresh };
+        const updated = { ...prev, [tableId]: fresh };
+        delete updated[nextTableId];
+        return updated;
       });
       checkWaitlistSuggest(tableId);
     }, 1500);
