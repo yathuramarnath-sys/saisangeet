@@ -2052,21 +2052,28 @@ export default function App() {
     // order:updated broadcast won't fire, so we reset the local table state here.
     // When online, the server emits order:updated (blank) and this runs in parallel —
     // both set the same blank state, no harm done.
-    setTimeout(async () => {
+    setTimeout(() => {
       const nextTableId = `${tableId}_next`;
-      let nextOrder = ordersRef.current[nextTableId];
 
-      // Fetch the authoritative _next order from the server. Socket broadcasts from
-      // the captain can be missed when add-item API calls complete after the settle
-      // timeout fires, or when a broadcast is lost in transit. The server is the
-      // single source of truth — always prefer its version over the in-memory cache.
-      try {
-        const serverNext = await api.get(`/operations/orders/${nextTableId}`);
-        if (serverNext && !serverNext.isClosed &&
-            (serverNext.items || []).some(i => !i.isVoided && !i.isComp)) {
-          nextOrder = serverNext;
-        }
-      } catch (_) { /* network error — fall back to in-memory cache */ }
+      // Captain's socket handler promotes T4_next → T4 as soon as it receives the
+      // "T4 settled" broadcast, stamping a fresh updatedAt. If that promotion already
+      // landed here, ordersRef.current[tableId] will have live items — don't overwrite
+      // it with the potentially-incomplete in-memory T4_next accumulated from earlier
+      // socket broadcasts. Just clean up the _next slot and exit.
+      const alreadyPromoted = ordersRef.current[tableId];
+      if (alreadyPromoted && !alreadyPromoted.isClosed &&
+          (alreadyPromoted.items || []).some(i => !i.isVoided && !i.isComp)) {
+        setOrders(prev => {
+          const { [nextTableId]: _, ...rest } = prev;
+          return rest;
+        });
+        return;
+      }
+
+      // Captain's promotion hasn't arrived yet — use whatever T4_next we have in memory.
+      // Note: the backend never stores _next orders (T4_next is a client-side-only concept)
+      // so a server query would always 404; in-memory is the only source available here.
+      const nextOrder = ordersRef.current[nextTableId];
 
       // Mirror-table promotion: if captain started a new order on the _next virtual slot,
       // promote it to the physical table now that the old bill is settled.
