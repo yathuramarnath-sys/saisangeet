@@ -1,5 +1,6 @@
 /* ─── Bitepoint POS Design System ────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -11809,3 +11810,369 @@ input, select, textarea {
   cursor: pointer;
 }
 .tpp-new-order-fab:active { transform: scale(0.97) !important; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PLATO DESIGN SYSTEM — Official token overrides for POS app
+   Source: design-system/tokens.css (official Plato design handoff)
+   Rule: CTA amber (#F8CB46) always carries dark ink text (#1C1C1C), never white.
+   Both surfaces are light. Semantic status colors from Plato tokens.json.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Redefine v2 palette tokens → official Plato values ─────────────────── */
+:root {
+  /* CTA: true amber (was wrongly set to green #059669) */
+  --v2-amber:        #F8CB46;
+  --v2-amber-dark:   #EBBA2A;
+  --v2-amber-bg:     rgb(246 178 60 / 14%);
+  --bp-teal:         #F8CB46;
+
+  /* Plato light neutrals */
+  --v2-bg:           #F7F6F2;
+  --v2-surface:      #FFFFFF;
+  --v2-surface2:     #ECEAE3;
+  --v2-border:       #ECEAE3;
+  --v2-border-md:    rgba(0,0,0,0.12);
+  --v2-text:         #1C1C1C;
+  --v2-text2:        #6B6B6B;
+  --v2-text3:        #757570;
+  --sq-bg:           #F7F6F2;
+  --sq-text:         #1C1C1C;
+  --sq-muted:        #6B6B6B;
+
+  /* Plato semantic status tokens (official) */
+  --v2-free-fg:      #0C831F;
+  --v2-free-bg:      #E7F3E9;
+  --v2-free-border:  #A8D5AC;
+  --v2-occ-fg:       #E07A1F;
+  --v2-occ-bg:       #FBEEDD;
+  --v2-occ-border:   #F5C791;
+  --v2-bill-fg:      #D92D20;
+  --v2-bill-bg:      #FBE9E7;
+  --v2-bill-border:  #F5B8B4;
+  --v2-hold-fg:      #6B6B6B;
+  --v2-hold-bg:      #F7F6F2;
+  --v2-hold-border:  #ECEAE3;
+
+  /* Legacy status vars → Plato */
+  --color-available:    #0C831F;
+  --color-available-bg: #E7F3E9;
+  --color-occupied:     #E07A1F;
+  --color-occupied-bg:  #FBEEDD;
+  --color-bill:         #D92D20;
+  --color-bill-bg:      #FBE9E7;
+  --color-hold:         #6B6B6B;
+  --color-hold-bg:      #F7F6F2;
+}
+
+/* 2. Font: Inter for all UI text */
+:root { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; }
+body  { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; }
+
+/* 3. Page background: Plato warm off-white ground */
+body {
+  background: #F7F6F2 !important;
+}
+
+/* 4. Topbar: Plato ink (#1C1C1C) — strong dark anchor header */
+.pos-topbar, .pos-brand-bar, [class*="brand-bar"] {
+  background: #1C1C1C !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+.pos-topbar-name,
+.pbb-name { color: #FFFFFF !important; }
+.pos-topbar-sub,
+.pbb-sub  { color: rgba(255,255,255,0.45) !important; }
+.pos-topbar-time { color: #FFFFFF !important; font-family: 'Roboto Mono', monospace !important; }
+.pos-topbar-cashier,
+.pbb-session { color: rgba(255,255,255,0.50) !important; }
+.pbb-icon { color: rgba(255,255,255,0.70) !important; }
+.pbb-cashier-name { color: rgba(255,255,255,0.90) !important; }
+
+/* Cashier chip on dark topbar */
+.pbb-cashier-chip {
+  background: rgba(255,255,255,0.10) !important;
+  border: 1.5px solid rgba(255,255,255,0.18) !important;
+}
+.pbb-cashier-name { color: #FFFFFF !important; }
+
+/* Mode pills container on dark topbar */
+.pos-mode-pills {
+  background: rgba(255,255,255,0.10) !important;
+  border-radius: 10px !important;
+  padding: 3px !important;
+}
+.pbb-ver-badge {
+  background: rgba(255,255,255,0.15) !important;
+  color: rgba(255,255,255,0.65) !important;
+}
+
+/* 5. Mode pills: amber active, ink text (never white on amber) ───────────── */
+.pos-mode-pill {
+  color: rgba(255,255,255,0.55) !important;
+  background: transparent !important;
+  border: none !important;
+}
+.pos-mode-pill.active {
+  background: #F8CB46 !important;
+  border-color: #F8CB46 !important;
+  color: #1C1C1C !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15) !important;
+}
+.pbb-mode-pill { color: rgba(255,255,255,0.55) !important; background: transparent !important; border: none !important; }
+.pbb-mode-pill.active {
+  background: #F8CB46 !important;
+  border-color: #F8CB46 !important;
+  color: #1C1C1C !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(248,203,70,0.25) !important;
+}
+
+/* Avatar initial circle on dark topbar */
+.pbb-avatar {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+}
+
+/* 6. Menu category active buttons: amber bg, ink text ───────────────────── */
+.menu-cat-btn.active {
+  background: #F8CB46 !important;
+  border-color: #F8CB46 !important;
+  color: #1C1C1C !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 8px rgba(248,203,70,0.25) !important;
+}
+
+/* 7. Area tabs: amber active, ink text ──────────────────────────────────── */
+.pos-area-tab.active {
+  background: #F8CB46 !important;
+  border-color: #EBBA2A !important;
+  color: #1C1C1C !important;
+}
+.tpp-area-tab.active, .tpp-area-tab:hover {
+  background: #F8CB46 !important;
+  border-color: #EBBA2A !important;
+  color: #1C1C1C !important;
+}
+
+/* 8. Primary CTA button (pay/collect) ───────────────────────────────────── */
+.pos-btn.pay {
+  background: #F8CB46 !important;
+  border-color: #EBBA2A !important;
+  color: #1C1C1C !important;
+  box-shadow: 0 4px 16px rgba(248,203,70,0.28) !important;
+}
+.pos-btn.pay:hover {
+  background: #EBBA2A !important;
+  color: #1C1C1C !important;
+  box-shadow: 0 8px 24px rgba(248,203,70,0.35) !important;
+}
+.payment-settle-btn {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+  box-shadow: 0 4px 14px rgba(248,203,70,0.25) !important;
+}
+.payment-settle-btn:hover { background: #EBBA2A !important; color: #1C1C1C !important; }
+
+/* 9. Session gate: start-shift, pills ───────────────────────────────────── */
+.sg-start-btn {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+  box-shadow: 0 4px 16px rgba(248,203,70,0.28) !important;
+}
+.sg-start-btn:hover { background: #EBBA2A !important; color: #1C1C1C !important; }
+.sg-pill.active {
+  background: #F8CB46 !important;
+  border-color: #EBBA2A !important;
+  color: #1C1C1C !important;
+  box-shadow: 0 3px 10px rgba(248,203,70,0.25) !important;
+}
+.sg-brand-icon { background: #F8CB46 !important; }
+
+/* 10. Action bar buttons: amber bg, ink text ────────────────────────────── */
+.pab-btn {
+  background: #F8CB46 !important;
+  border: 1.5px solid #EBBA2A !important;
+  color: #1C1C1C !important;
+}
+.pab-btn:hover {
+  background: #EBBA2A !important;
+  border-color: #D4A422 !important;
+  color: #1C1C1C !important;
+  box-shadow: 0 3px 10px rgba(248,203,70,0.28) !important;
+  transform: translateY(-1px) !important;
+}
+.pab-btn.orange, .pab-btn.blue,  .pab-btn.purple,
+.pab-btn.teal,   .pab-btn.green, .pab-btn.gray,
+.pab-btn.cyan,   .pab-btn.red,   .pab-btn.dark,
+.pab-btn.logout-btn {
+  background: #F8CB46 !important;
+  border-color: #EBBA2A !important;
+  color: #1C1C1C !important;
+}
+.pab-btn.dark:hover, .pab-btn.logout-btn:hover {
+  background: #EBBA2A !important;
+  border-color: #D4A422 !important;
+  color: #1C1C1C !important;
+}
+
+/* 11. Online orders toggle: amber when enabled ───────────────────────────── */
+.online-toggle-btn.enabled {
+  background: #F8CB46 !important;
+  border-color: #EBBA2A !important;
+  color: #1C1C1C !important;
+}
+
+/* 12. Sidebar category active (already dark text in v2, reinforce) ──────── */
+.cat-sidebar-brand  { background: #F8CB46 !important; }
+.cat-sidebar-brand-name { color: #1C1C1C !important; }
+.cat-sidebar-brand-sub  { color: rgba(0,0,0,0.50) !important; }
+.cat-sidebar-item.active {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+  box-shadow: 0 2px 8px rgba(248,203,70,0.28) !important;
+}
+.cat-sidebar-item.active .cat-sidebar-count { background: rgba(0,0,0,0.10) !important; color: rgba(0,0,0,0.55) !important; }
+
+/* 13. Add-item button (+) on menu food card ──────────────────────────────── */
+.mfc-add-btn {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+  box-shadow: 0 2px 5px rgba(248,203,70,0.30) !important;
+}
+
+/* 14. Print button (label print modal) ───────────────────────────────────── */
+.lpm-print-btn {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+}
+.lpm-print-btn:hover:not(:disabled) { background: #EBBA2A !important; color: #1C1C1C !important; }
+
+/* 15. Category availability modal confirm ────────────────────────────────── */
+.cat-avail-custom button {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+}
+.cat-avail-custom button:disabled { background: #CBD5E1 !important; color: #94A3B8 !important; }
+
+/* 16. Day-end print / bulk list confirm ──────────────────────────────────── */
+.dayend-print-btn {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+}
+.blm-confirm, [class*="blm-confirm"] {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+}
+.blm-checkbox.on {
+  background: #F8CB46 !important;
+  border-color: #EBBA2A !important;
+}
+
+/* 17. Waitlist confirm / seat button ─────────────────────────────────────── */
+.wl-seat-btn, .wl-confirm-btn {
+  background: #F8CB46 !important;
+  color: #1C1C1C !important;
+}
+.wl-seat-btn:hover, .wl-confirm-btn:hover { background: #EBBA2A !important; }
+
+/* 18. PIN pad filled dot → amber brand accent ────────────────────────────── */
+.pin-dot.filled {
+  background: #F8CB46 !important;
+  border-color: #EBBA2A !important;
+}
+
+/* 19. Pay2 mode active (payment split tab) ───────────────────────────────── */
+.pay2-method-tab.active {
+  background: #1C1C1C !important;
+  border-color: #1C1C1C !important;
+  color: #FFFFFF !important;
+}
+.pbb-mode-pill.active { color: #1C1C1C !important; }
+
+/* 20. Hover states → amber tint ─────────────────────────────────────────── */
+.payment-quick-btn:hover {
+  border-color: #F8CB46 !important;
+  color: #1C1C1C !important;
+  background: rgb(246 178 60 / 14%) !important;
+}
+.payment-denom-btn:hover, .pay2-denom-btn:hover {
+  border-color: #F8CB46 !important;
+  color: #1C1C1C !important;
+  background: rgb(246 178 60 / 14%) !important;
+}
+.payment-denom-exact, .pay2-exact {
+  background: rgb(246 178 60 / 14%) !important;
+  border-color: #F8CB46 !important;
+  color: #1C1C1C !important;
+}
+.pay2-plus500, .payment-denom-plus {
+  background: rgb(246 178 60 / 14%) !important;
+  border-color: #F8CB46 !important;
+  color: #1C1C1C !important;
+}
+.blm-sel-btn:hover {
+  background: rgb(246 178 60 / 14%) !important;
+  border-color: #F8CB46 !important;
+  color: #1C1C1C !important;
+}
+.qty-btn:hover {
+  background: #F8CB46 !important;
+  border-color: #EBBA2A !important;
+  color: #1C1C1C !important;
+}
+.tpp-counter-ticket:hover { border-color: #F8CB46 !important; background: rgb(246 178 60 / 14%) !important; }
+
+/* 21. Focus rings → amber accent ────────────────────────────────────────── */
+.payment-amount-input-wrap:focus-within { border-color: #F8CB46 !important; }
+.split-amount-input-wrap:focus-within   { border-color: #F8CB46 !important; }
+.pay2-entry-amount-row:focus-within     { border-color: #F8CB46 !important; }
+.payment-ref-input:focus  { border-color: #F8CB46 !important; outline: none !important; box-shadow: 0 0 0 3px rgba(248,203,70,0.15) !important; }
+.pay2-ref-field:focus     { border-color: #F8CB46 !important; outline: none !important; }
+.pcf-field input:focus    { border-color: #F8CB46 !important; outline: none !important; }
+.lpm-search:focus, .lpm-input:focus {
+  border-color: #F8CB46 !important;
+  box-shadow: 0 0 0 3px rgba(248,203,70,0.15) !important;
+}
+.blm-search:focus, .blm-qty-input:focus, .blm-input:focus {
+  border-color: #F8CB46 !important;
+}
+.pay2-denom-input:focus { border-color: #F8CB46 !important; }
+
+/* 22. Pos drawer toggle ON state → accent color */
+.pos-drawer-toggle.on { color: #F6B23C !important; }
+
+/* 23. Availability toggles — keep Plato free-green for semantic ON */
+.mfc-avail-toggle.on  { background: #E7F3E9 !important; color: #0C831F !important; border: 1.5px solid #A8D5AC !important; }
+.menu-cat-avail-toggle.on { background: #0C831F !important; color: #FFFFFF !important; }
+
+/* 24. Table status pills — Plato official semantic tokens ────────────────── */
+.tpp-sum-pill.free  { background: #E7F3E9 !important; color: #0C831F !important; border: 1px solid #A8D5AC !important; }
+.tpp-sum-pill.occ   { background: #FBEEDD !important; color: #E07A1F !important; border: 1px solid #F5C791 !important; }
+.tpp-sum-pill.hold  { background: #F7F6F2 !important; color: #6B6B6B !important; border: 1px solid #ECEAE3 !important; }
+
+.tpp-table-btn[data-st="occupied"]::before      { background: #E07A1F !important; }
+.tpp-table-btn[data-st="bill"]::before          { background: #D92D20 !important; }
+.tpp-table-btn[data-st="occupied"] .tpp-table-status { background: #FBEEDD !important; color: #E07A1F !important; }
+.tpp-table-btn[data-st="bill"]     .tpp-table-status { background: #FBE9E7 !important; color: #D92D20 !important; }
+
+/* 25. Roboto Mono for all currency / numeric values ─────────────────────── */
+.order-total-row.total .order-total-val,
+.order-total-val,
+.order-item-price,
+.menu-item-price,
+.item-price,
+.pab-stat-val,
+.pos-topbar-time,
+.split-equal-amount,
+.table-btn-amount,
+.tpp-table-amount,
+.sm-denom-amt,
+.pay2-amount,
+.payment-total,
+.tpp-table-btn .tpp-table-amount {
+  font-family: 'Roboto Mono', monospace !important;
+}
+
+/* ── End Plato design system overrides ───────────────────────────────────── */
