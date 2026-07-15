@@ -2060,17 +2060,13 @@ export default function App() {
       // the captain can be missed when add-item API calls complete after the settle
       // timeout fires, or when a broadcast is lost in transit. The server is the
       // single source of truth — always prefer its version over the in-memory cache.
-      if (outlet?.id) {
-        try {
-          const serverNext = await api.get(
-            `/operations/order?tableId=${nextTableId}&outletId=${outlet.id}`
-          );
-          if (serverNext && !serverNext.isClosed &&
-              (serverNext.items || []).some(i => !i.isVoided && !i.isComp)) {
-            nextOrder = serverNext;
-          }
-        } catch (_) { /* network error — fall back to in-memory cache */ }
-      }
+      try {
+        const serverNext = await api.get(`/operations/orders/${nextTableId}`);
+        if (serverNext && !serverNext.isClosed &&
+            (serverNext.items || []).some(i => !i.isVoided && !i.isComp)) {
+          nextOrder = serverNext;
+        }
+      } catch (_) { /* network error — fall back to in-memory cache */ }
 
       // Mirror-table promotion: if captain started a new order on the _next virtual slot,
       // promote it to the physical table now that the old bill is settled.
