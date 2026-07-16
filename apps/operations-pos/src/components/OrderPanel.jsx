@@ -502,7 +502,7 @@ export function OrderPanel({
           </div>
           <div className="order-total-row total">
             <span>Total</span>
-            <span>₹{fin.total}</span>
+            <span>₹{fin.total.toFixed(2)}</span>
           </div>
         </div>
       )}

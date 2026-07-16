@@ -128,9 +128,6 @@ function LinkCodeCard({ outlet }) {
   const [generating, setGenerating] = useState(false);
   const [error,     setError]     = useState("");
 
-  // Generate on mount
-  useEffect(() => { generateCode(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   async function generateCode() {
     setGenerating(true);
     setError("");
@@ -179,16 +176,27 @@ function LinkCodeCard({ outlet }) {
       </div>
 
       <div className="as-link-code-row">
-        <span className="as-link-code">
-          {generating ? "Generating…" : error ? error : (code || "—")}
-        </span>
-        <button
-          className={`as-link-copy-btn${copied ? " copied" : ""}`}
-          onClick={copyCode}
-          disabled={generating || !code}
-        >
-          {copied ? "✓ Copied" : "Copy"}
-        </button>
+        {code ? (
+          <>
+            <span className="as-link-code">{generating ? "Generating…" : error ? error : code}</span>
+            <button
+              className={`as-link-copy-btn${copied ? " copied" : ""}`}
+              onClick={copyCode}
+              disabled={generating || !code}
+            >
+              {copied ? "✓ Copied" : "Copy"}
+            </button>
+          </>
+        ) : (
+          <button
+            className="as-regen-btn"
+            onClick={generateCode}
+            disabled={generating}
+          >
+            {generating ? "Generating…" : "Generate Code"}
+          </button>
+        )}
+        {error && <span className="as-link-code error">{error}</span>}
       </div>
 
       <p className="as-link-hint">
