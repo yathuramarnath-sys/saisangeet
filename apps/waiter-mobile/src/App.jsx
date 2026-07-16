@@ -315,12 +315,6 @@ export function App() {
           if (kotInFlightRef.current.has(o.tableId)) return p;
           if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
 
-          // Mirror-table: after captain prints a bill and removes the table from local
-          // state, the bill-request endpoint emits order:updated (Order 1, billRequested:true).
-          // If captain has already cleared the table (not in state), don't re-add it —
-          // the floor plan should show it as free so the next customer can be seated.
-          if (o.billRequested && !p[o.tableId]) return p;
-
           if (!o.items?.length || o.isClosed) {
             // Protect a live order: if captain already has active items on this table,
             // don't wipe it via a server blank.
