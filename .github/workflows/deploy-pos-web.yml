@@ -33,11 +33,7 @@ jobs:
         run: npm run build
 
       - name: Deploy dist to Vercel (pos.dinexpos.in)
-        working-directory: apps/operations-pos
         run: |
-          cp -r dist /tmp/pos-dist
-          cp vercel.json /tmp/pos-dist/vercel.json
-          cd /tmp/pos-dist
           npx vercel link --project plato-pos --yes --token ${{ secrets.VERCEL_TOKEN }}
           npx vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
         env:
