@@ -57,7 +57,7 @@ export function LoginScreen({ outletName, staff = [], onLogin, onForgetDevice })
     setError("");
     if (next.length === 4) {
       setTimeout(() => {
-        if (selected.pin === "0000" || next === selected.pin) {
+        if (next === selected.pin) {
           doLogin(selected);
         } else {
           triggerShake();
@@ -76,7 +76,7 @@ export function LoginScreen({ outletName, staff = [], onLogin, onForgetDevice })
 
   function pickStaff(s) {
     tapImpact();
-    if (!s.pin || s.pin === "0000") {
+    if (!s.pin) {
       doLogin(s);
     } else {
       setSelected(s);

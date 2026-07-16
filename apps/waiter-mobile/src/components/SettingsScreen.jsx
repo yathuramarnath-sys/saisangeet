@@ -28,7 +28,7 @@ function persistPrinters(printers) {
   }
 }
 
-const APP_VERSION = "1.30";
+import { APP_VERSION } from "../lib/version";
 
 export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
   const [printers,   setPrinters]   = useState(loadPrinters);

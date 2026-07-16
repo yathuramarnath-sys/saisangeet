@@ -373,7 +373,10 @@ export function StaffPage() {
         incentivePct: Number(staffDraft.incentivePct || 0),
         canApplyDiscount: !!staffDraft.canApplyDiscount
       });
-    } catch (_) { /* offline — add to local state */ }
+    } catch (err) {
+      showErr(err?.message || "Failed to save staff — check your connection");
+      return;
+    }
     const updatedStaff = [...staffData.staff, newMember];
     setStaffData((p) => ({ ...p, staff: updatedStaff }));
     saveLocal(LOCAL_STAFF_KEY, updatedStaff);
@@ -417,7 +420,10 @@ export function StaffPage() {
         incentivePct: updated.incentivePct,
         canApplyDiscount: !!updated.canApplyDiscount
       });
-    } catch (_) { /* offline */ }
+    } catch (err) {
+      showErr(err?.message || "Failed to update staff — check your connection");
+      return;
+    }
     const updatedStaff = staffData.staff.map((m) => m.id === editingStaffId ? updated : m);
     setStaffData((p) => ({ ...p, staff: updatedStaff }));
     saveLocal(LOCAL_STAFF_KEY, updatedStaff);
@@ -427,7 +433,12 @@ export function StaffPage() {
 
   async function handleDeleteStaff(member) {
     if (!window.confirm(`Delete ${member.name}?`)) return;
-    try { await deleteStaffMember(member.id); } catch (_) { /* offline */ }
+    try {
+      await deleteStaffMember(member.id);
+    } catch (err) {
+      showErr(err?.message || "Failed to delete staff — check your connection");
+      return;
+    }
     const updatedStaff = staffData.staff.filter((m) => m.id !== member.id);
     setStaffData((p) => ({ ...p, staff: updatedStaff }));
     saveLocal(LOCAL_STAFF_KEY, updatedStaff);

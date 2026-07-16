@@ -229,8 +229,8 @@ export function OrderPanel({
   const [editingQtyIdx,   setEditingQtyIdx]   = useState(null);   // index of item whose qty is being typed
   const [editingQtyVal,  setEditingQtyVal]  = useState("");     // current typed value
 
-  // Helper: does this cashier need a PIN check? (PIN set and not 0000)
-  const needsPin = cashierPin && cashierPin !== "0000";
+  // Helper: does this cashier have a PIN set?
+  const needsPin = !!cashierPin;
 
   function commitQtyEdit(idx) {
     const item = order.items?.[idx];

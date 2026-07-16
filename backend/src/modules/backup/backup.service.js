@@ -149,11 +149,15 @@ async function runNightlyBackup() {
         continue;
       }
 
-      // Build snapshot for just this tenant
+      // Build snapshot for just this tenant — strip password hashes before emailing
+      const sanitizedData = {
+        ...data,
+        users: (data?.users || []).map(({ passwordHash: _omit, ...u }) => u),
+      };
       const backupData = {
         exportedAt:  new Date().toISOString(),
         tenantCount: 1,
-        tenants:     { [tenantId]: data }
+        tenants:     { [tenantId]: sanitizedData }
       };
       const backupJson = JSON.stringify(backupData, null, 2);
 

@@ -110,8 +110,8 @@ async function googleCallbackHandler(req, res) {
 
   try {
     const result = await loginWithGoogle({ code });
-    // Pass JWT back to frontend via URL param — frontend stores it in localStorage
-    return res.redirect(`${frontendUrl}/auth/callback?token=${result.token}`);
+    // Pass JWT back to frontend via fragment — not sent to servers in requests or referrer headers
+    return res.redirect(`${frontendUrl}/auth/callback#token=${result.token}`);
   } catch (err) {
     const msg = err.message || "google_error";
     return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(msg)}`);

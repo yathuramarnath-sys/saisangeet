@@ -199,12 +199,10 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   <meta charset="UTF-8">
   <title>${kotNum}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800;900&display=swap');
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Manrope', 'Courier New', monospace;
+      font-family: 'Segoe UI', Arial, 'Helvetica Neue', sans-serif;
       font-size: 13px;
       width: ${width};
       margin: 0 auto;

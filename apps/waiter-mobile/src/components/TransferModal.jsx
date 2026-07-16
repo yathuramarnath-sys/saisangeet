@@ -9,7 +9,7 @@ const OCCUPIED_STATUS_LABEL = {
 };
 
 export function TransferModal({
-  currentTableId, currentOrder, areas, orders,
+  currentTableId, currentOrder, areas, orders, defaultTaxRate = 0,
   onTransfer, onMerge, onClose,
 }) {
   const [selected, setSelected] = useState(null);
@@ -22,7 +22,7 @@ export function TransferModal({
   const fromItems = (currentOrder?.items || []).filter(i => !i.isVoided && !i.isComp);
   const fromSub = fromItems.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
   const fromTax = fromItems.reduce((s, i) => {
-    const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
     return s + Math.round((i.price || 0) * (i.quantity || 0) * r / 100);
   }, 0);
   const fromTotal = fromSub + fromTax;
@@ -46,7 +46,7 @@ export function TransferModal({
         const items = (o?.items || []).filter((i) => !i.isVoided && !i.isComp);
         const sub   = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
         const tax   = items.reduce((s, i) => {
-          const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+          const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
           return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
         }, 0);
         const guests = o?.covers || o?.guests || 0;

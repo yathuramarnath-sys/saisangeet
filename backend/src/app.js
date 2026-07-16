@@ -9,6 +9,7 @@ const { webhooksRouter }     = require("./modules/online-orders/online-orders.ro
 const { phonePeWebhook }     = require("./modules/phonepe/phonepe.routes");
 const { borzoWebhook }       = require("./modules/borzo/borzo.routes");
 const { dynoWebhookRouter }  = require("./modules/dynoapis/dynoapis.routes");
+const { razorpayWebhook }    = require("./modules/billing/billing.routes");
 const { errorHandler } = require("./middleware/error-handler");
 const { notFoundHandler } = require("./middleware/not-found");
 const { generalLimiter } = require("./middleware/rate-limit");
@@ -96,11 +97,12 @@ function createApp() {
     });
   });
 
-  // Public webhook routes — no JWT (UrbanPiper + PhonePe hit these directly)
+  // Public webhook routes — no JWT (UrbanPiper + PhonePe + Razorpay hit these directly)
   app.use("/webhooks", webhooksRouter);
   app.use("/webhooks", phonePeWebhook);
   app.use("/webhooks", borzoWebhook);
   app.use("/webhooks/dynoapis", dynoWebhookRouter);
+  app.use("/webhooks/billing", razorpayWebhook);
 
   app.use("/api/v1", generalLimiter, apiRouter);
   app.use(notFoundHandler);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { APP_VERSION } from "./lib/version";
 
 import { api }        from "./lib/api";
 import { printBill }  from "./lib/printBill";
@@ -597,7 +598,6 @@ export function App() {
 
   // ── Check for Captain app updates (shown in drawer, not top banner) ──────
   useEffect(() => {
-    const APP_VERSION_CAPTAIN = "1.30";
     const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1");
     function checkUpdate() {
       fetch(`${API_BASE}/app-versions`, { cache: "no-store" })
@@ -605,7 +605,7 @@ export function App() {
         .then(data => {
           const latest = data?.captain;
           if (!latest?.version) return;
-          const pa = APP_VERSION_CAPTAIN.split(".").map(Number);
+          const pa = APP_VERSION.split(".").map(Number);
           const pb = latest.version.split(".").map(Number);
           const newer = pb.some((v, i) => v > (pa[i] || 0));
           if (newer) setUpdateInfo(latest);
@@ -733,7 +733,21 @@ export function App() {
   }
 
   // ── Update order (local + cloud socket + local socket) ───────────────────
-  function handleUpdateOrder(nextOrder) {
+  function handleUpdateOrder(nextOrderOrFn) {
+    // Accepts either a plain order object or a functional updater (tableId, prevOrder) => nextOrder.
+    // The functional form lets callers avoid closing over a stale `order` prop — they receive
+    // the latest committed state and return only the changed order.
+    if (typeof nextOrderOrFn === "function") {
+      setOrders((p) => {
+        const { tableId, order: nextOrder } = nextOrderOrFn(p);
+        if (!nextOrder) return p;
+        socketRef.current?.emit("order:update",      { outletId: outlet?.id, order: nextOrder });
+        localSocketRef.current?.emit("order:update", { order: nextOrder });
+        return { ...p, [tableId]: nextOrder };
+      });
+      return;
+    }
+    const nextOrder = nextOrderOrFn;
     // Do NOT override nextOrder.updatedAt with Date.now() (captain's device clock).
     // Captain's clock can be ahead of the Railway server clock. If we stamp Date.now() here,
     // POS accepts the optimistic broadcast at T_captain and then rejects all later server
@@ -1472,7 +1486,7 @@ export function App() {
     const billableItems = (items || []).filter(i => !i.isVoided && !i.isComp);
     const subtotal = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
     const tax = billableItems.reduce((s, i) => {
-      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
       return s + Math.round(i.price * i.quantity * rate / 100);
     }, 0);
     api.post("/operations/split-bill-record", {
@@ -1527,7 +1541,26 @@ export function App() {
         api.get(`/menu/categories?outletId=${outlet.id}`).catch(() => null),
         api.get(`/menu/items?outletId=${outlet.id}`).catch(() => null),
       ]);
-      if (liveOrders) setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
+      if (liveOrders) {
+        // Merge server orders with local state — preserve any unsent items that
+        // haven't been KOT'd yet (items not in the server response).
+        setOrders((prev) => {
+          const serverMap = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
+          const merged = { ...serverMap };
+          for (const [tableId, localOrder] of Object.entries(prev)) {
+            const unsentItems = (localOrder.items || []).filter((i) => !i.sentToKot);
+            if (unsentItems.length > 0 && merged[tableId]) {
+              merged[tableId] = {
+                ...merged[tableId],
+                items: [...(merged[tableId].items || []), ...unsentItems],
+              };
+            } else if (unsentItems.length > 0 && !merged[tableId]) {
+              merged[tableId] = localOrder;
+            }
+          }
+          return merged;
+        });
+      }
       if (cats)  setCategories(cats);
       if (items) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
     } catch (_) {
@@ -1560,10 +1593,19 @@ export function App() {
   }
 
   async function handleRetryAllKots() {
-    const results = await Promise.allSettled(pendingKots.map(handleRetryKot));
-    const failed  = results.filter((r) => r.status === "rejected").length;
-    if (!failed) toast.success("All pending KOTs sent");
-    else toast(`${results.length - failed} sent, ${failed} still failed`, { icon: "⚠️" });
+    // handleRetryKot catches its own errors internally (shows toast.error, never rejects),
+    // so we track success by comparing pendingKots count before and after.
+    const countBefore = pendingKots.length;
+    await Promise.allSettled(pendingKots.map(handleRetryKot));
+    // pendingKots state is updated asynchronously — read the latest value via ref pattern
+    setPendingKots((current) => {
+      const sent   = countBefore - current.length;
+      const failed = current.length;
+      if (failed === 0) toast.success("All pending KOTs sent");
+      else if (sent > 0) toast(`${sent} sent, ${failed} still failed`, { icon: "⚠️" });
+      else toast.error("All retries failed — still offline");
+      return current;
+    });
   }
 
   function handleClearKot(kotId) {
@@ -1620,7 +1662,7 @@ export function App() {
     const activeItems = (fromOrder.items || []).filter(i => !i.isVoided && !i.isComp);
     const sub   = activeItems.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
     const tax   = activeItems.reduce((s, i) => {
-      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
       return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
     }, 0);
     const tsmLabel = (num) => { const m = String(num || "").trim().match(/(\d+)\s*$/); return m ? `Table ${m[1]}` : String(num || ""); };
@@ -1785,6 +1827,7 @@ export function App() {
             onMerge={handleTableMerge}
             onForceClear={() => handleForceClearTable(selectedTableId)}
             onCustomerInfo={() => setShowCustomerInfo(true)}
+            defaultTaxRate={outlet?.defaultTaxRate ?? 0}
           />
         ) : activeTab === "floor" ? (
           <TableFloor
@@ -1794,6 +1837,7 @@ export function App() {
             onLongPressTable={handleLongPressTable}
             loggedInStaff={loggedInStaff}
             isOffline={!socketConnected}
+            defaultTaxRate={outlet?.defaultTaxRate ?? 0}
           />
         ) : activeTab === "kots" ? (
           <FailedKotsScreen
@@ -1815,7 +1859,7 @@ export function App() {
             serverUrl={(import.meta.env.VITE_API_BASE_URL || "").replace("/api/v1", "")}
             updateInfo={updateInfo}
             orders={orders}
-            tableAreas={tableAreas}
+            tableAreas={areas}
             onSync={handleSync}
             onSignOut={() => setShowLogout(true)}
           />
@@ -1879,6 +1923,7 @@ export function App() {
             tableNumber={actionTable?.number || actionTableId}
             areaName={actionArea?.name || ""}
             order={actionOrder}
+            defaultTaxRate={outlet?.defaultTaxRate ?? 0}
             onClose={() => { setActionTableId(null); setActionArea(null); }}
             onEditOrder={() => openOrderScreen(actionTableId, actionArea)}
             onSendKOT={() => handleSendKOT(actionTableId)}
@@ -1893,7 +1938,7 @@ export function App() {
               const items = (ord?.items || []).filter(i => !i.isVoided && !i.isComp);
               const sub = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
               const tax = items.reduce((s, i) => {
-                const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+                const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
                 return s + Math.round((i.price || 0) * (i.quantity || 0) * r / 100);
               }, 0);
               setConfirmFreeTable({ tableId: actionTableId, tableNumber: tbl?.number || actionTableId, amount: sub + tax });

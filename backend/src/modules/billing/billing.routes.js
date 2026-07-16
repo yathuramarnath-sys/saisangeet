@@ -1,8 +1,12 @@
 /**
  * billing.routes.js
  *
- * Public webhook route (/billing/webhook) must receive the RAW body
- * so Razorpay HMAC verification works.  All other routes are auth-gated.
+ * razorpayWebhook — mounted in app.js at /webhooks/billing BEFORE requireTenant,
+ * so Razorpay (no JWT) can reach it. Uses express.raw() so req.body is the raw
+ * Buffer needed for HMAC verification.
+ *
+ * billingRouter — mounted in routes/index.js after requireTenant for authenticated
+ * billing management routes.
  */
 
 const express = require("express");
@@ -16,19 +20,19 @@ const {
   webhookHandler,
 } = require("./billing.controller");
 
-const billingRouter = express.Router();
-
-// ── Public — Razorpay webhook (needs raw body) ────────────────────────────
-billingRouter.post(
+// ── Public webhook router (mounted at /webhooks/billing in app.js) ────────
+const razorpayWebhook = express.Router();
+razorpayWebhook.post(
   "/webhook",
   express.raw({ type: "application/json" }),
   asyncHandler(webhookHandler)
 );
 
-// ── Authenticated routes ──────────────────────────────────────────────────
+// ── Authenticated routes (mounted at /billing in routes/index.js) ─────────
+const billingRouter = express.Router();
 billingRouter.get(  "/plans",     asyncHandler(plansHandler));
 billingRouter.get(  "/status",    requireAuth, asyncHandler(statusHandler));
 billingRouter.post( "/subscribe", requireAuth, asyncHandler(subscribeHandler));
 billingRouter.post( "/cancel",    requireAuth, asyncHandler(cancelHandler));
 
-module.exports = { billingRouter };
+module.exports = { billingRouter, razorpayWebhook };

@@ -43,12 +43,12 @@ authRouter.get("/subdomain/:slug", asyncHandler(async (req, res) => {
 
 authRouter.get("/signup-available",  asyncHandler(signupAvailableHandler));
 authRouter.post("/signup",           authLimiter, signupRules,         validate, asyncHandler(signupHandler));
-authRouter.post("/signup-interest",  asyncHandler(signupInterestHandler));
+authRouter.post("/signup-interest",  authLimiter, asyncHandler(signupInterestHandler));
 authRouter.post("/login",            authLimiter, loginRules,          validate, asyncHandler(loginHandler));
 authRouter.get("/me",                requireAuth, meHandler);
 authRouter.post("/logout",           requireAuth, logoutHandler);
 authRouter.post("/change-password",  requireAuth, changePasswordRules, validate, asyncHandler(changePasswordHandler));
-authRouter.post("/reset-owner",      asyncHandler(resetOwnerHandler));
+authRouter.post("/reset-owner",      authLimiter, asyncHandler(resetOwnerHandler));
 
 // Forgot / reset password via email token
 authRouter.post("/forgot-password",  authLimiter, forgotPasswordRules, validate, asyncHandler(forgotPasswordHandler));

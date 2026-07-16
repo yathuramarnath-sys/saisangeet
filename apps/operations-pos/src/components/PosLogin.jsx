@@ -72,7 +72,7 @@ export function PosLogin({ outletName, onLogin }) {
     setError("");
     if (next.length === 4) {
       setTimeout(() => {
-        if (!selected.pin || selected.pin === "0000" || next === selected.pin) {
+        if (!selected.pin || next === selected.pin) {
           onLogin(selected.name, selected.pin || "");
         } else {
           triggerShake();
@@ -169,8 +169,8 @@ export function PosLogin({ outletName, onLogin }) {
               type="button"
               className="poslogin-staff-btn"
               onClick={() => {
-                // Auto-login if no PIN set
-                if (!member.pin || member.pin === "0000") {
+                // Auto-login only if no PIN set at all
+                if (!member.pin) {
                   onLogin(member.name);
                 } else {
                   setSelected(member);
@@ -187,7 +187,7 @@ export function PosLogin({ outletName, onLogin }) {
               </div>
               <span className="poslogin-name">{member.name}</span>
               <span className="poslogin-role">{member.role}</span>
-              {member.pin && member.pin !== "0000" && (
+              {member.pin && (
                 <span className="poslogin-pin-badge">🔒</span>
               )}
             </button>

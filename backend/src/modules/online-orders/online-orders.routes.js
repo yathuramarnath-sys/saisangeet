@@ -134,7 +134,11 @@ webhooksRouter.post(
                       req.headers["x-urbanpiper-signature"] ||
                       req.headers["x-signature"];
 
-    if (secret && sigHeader) {
+    if (secret) {
+      // Secret is configured — signature header is mandatory
+      if (!sigHeader) {
+        return res.status(401).json({ error: "Webhook signature missing" });
+      }
       const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || "");
       if (!verifySignature(rawBody, secret, sigHeader)) {
         return res.status(401).json({ error: "Invalid webhook signature" });

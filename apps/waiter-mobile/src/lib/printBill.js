@@ -163,13 +163,11 @@ export function printBill(order, items, outletData, options = {}) {
 <head>
   <meta charset="UTF-8"/>
   <title>Bill${seatLabel ? " – " + seatLabel : ""}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     @page { size: ${_paperWidthMm}mm auto; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Manrope', 'Courier New', monospace;
+      font-family: 'Segoe UI', Arial, 'Helvetica Neue', sans-serif;
       font-size: ${_paperWidthMm <= 58 ? 11 : 12}px;
       color: #111;
       padding: 10px 10px 40px;

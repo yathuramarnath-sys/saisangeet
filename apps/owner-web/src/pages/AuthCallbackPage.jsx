@@ -3,8 +3,9 @@
  *
  * Flow:
  *   Google → backend /auth/google/callback
- *   → backend redirects to https://app.dinexpos.in/auth/callback?token=JWT
- *   → this page reads the token, stores it, goes to dashboard
+ *   → backend redirects to https://app.dinexpos.in/auth/callback#token=JWT
+ *   → this page reads the fragment, stores the token, goes to dashboard
+ *   (fragment is used instead of query param so the token is not sent in referrer headers)
  */
 
 import { useEffect } from "react";
@@ -14,7 +15,8 @@ export function AuthCallbackPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const hash   = window.location.hash.slice(1); // strip leading '#'
+    const params = new URLSearchParams(hash);
     const token  = params.get("token");
 
     if (token) {
