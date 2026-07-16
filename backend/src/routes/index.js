@@ -52,18 +52,13 @@ apiRouter.use("/public", publicRouter);
 // ── Public: app version manifest — no auth needed ─────────────────────────────
 // Returns current versions for all Plato apps so clients can show update banners.
 // Serves app version manifest for update banners on all POS/Captain/KDS apps.
-// Priority:
-//   1. .data/app-versions.json  — runtime override (Railway persistent volume, or local dev)
-//   2. src/app-versions.json    — committed fallback (always present after any deploy)
-// To release a new version: update src/app-versions.json and deploy — no volume needed.
+// Always uses src/app-versions.json (committed). Update it and deploy to release a new version.
 apiRouter.get("/app-versions", (_req, res) => {
   const fs   = require("fs");
   const path = require("path");
-  const runtimePath   = path.resolve(__dirname, "../../.data/app-versions.json");
   const committedPath = path.resolve(__dirname, "../app-versions.json");
   try {
-    const filePath = fs.existsSync(runtimePath) ? runtimePath : committedPath;
-    const raw      = fs.readFileSync(filePath, "utf8");
+    const raw = fs.readFileSync(committedPath, "utf8");
     res.json(JSON.parse(raw));
   } catch {
     res.json({});
