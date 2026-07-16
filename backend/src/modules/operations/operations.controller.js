@@ -945,23 +945,46 @@ async function deviceCloseOrderHandler(req, res) {
   // clearTableAfterSettle is silent for counter/online IDs (no catalog entry).
   if (order.tableId) {
     try {
-      await clearTableAfterSettle(order.tableId);
+      const isCounterOrOnline =
+        String(order.tableId).startsWith("counter-") ||
+        String(order.tableId).startsWith("online-");
 
-      // Authoritatively broadcast the table-cleared signal to every POS and Captain
-      // in the outlet room. This is the ONLY reliable way for all clients to know
-      // the table is free — the client-side 1.5 s timer on POS is just a fallback.
-      // Both clients handle blank orders: POS sets orders[tableId] = blank (→ "Free"),
-      // Captain removes tableId from its map (→ "Free").
-      if (io && !String(order.tableId).startsWith("counter-") && !String(order.tableId).startsWith("online-")) {
-        io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", {
-          tableId:       order.tableId,
-          items:         [],
-          payments:      [],
-          isClosed:      false,
-          billRequested: false,
-          isOnHold:      false,
-          discountAmount: 0,
-        });
+      if (!isCounterOrOnline) {
+        // Mirror-table guard: before clearing, check if the backend already has a
+        // NEWER order on this table (captain started next seating before cashier
+        // settled).  If orderNumbers differ, a live Order 2 exists — emit it instead
+        // of wiping, and skip the clear so Order 2 stays intact.
+        let liveOrder = null;
+        try { liveOrder = await getOrder(order.tableId); } catch (_) {}
+
+        const hasNewerOrder =
+          liveOrder &&
+          liveOrder.orderNumber != null &&
+          order.orderNumber   != null &&
+          liveOrder.orderNumber !== order.orderNumber;
+
+        if (hasNewerOrder) {
+          // Newer order is already active — broadcast it so POS and Captain show it.
+          if (io) {
+            io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", liveOrder);
+          }
+        } else {
+          await clearTableAfterSettle(order.tableId);
+          if (io) {
+            io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", {
+              tableId:        order.tableId,
+              items:          [],
+              payments:       [],
+              isClosed:       false,
+              billRequested:  false,
+              isOnHold:       false,
+              discountAmount: 0,
+            });
+          }
+        }
+      } else {
+        // Counter / online — clear silently; clearOrderAfterSettle is a no-op for these anyway.
+        await clearTableAfterSettle(order.tableId);
       }
     } catch (err) {
       // Non-fatal — log and continue. Sales record already written.
@@ -1087,6 +1110,26 @@ async function clearAllOrdersHandler(req, res) {
   }
 }
 
+// Captain calls this immediately after printing a bill so the backend advances the
+// in-memory slot to a fresh Order 2, allowing captain to seat the next customer on
+// the same physical table before cashier settles the old bill.
+// The previous order is NOT cleared from POS's local state (POS keeps billRequested:true
+// for settlement).  Only the backend memory is advanced so subsequent item-add REST calls
+// land on the new order rather than the already-printed one.
+async function deviceAdvanceTableHandler(req, res) {
+  const { outletId, tableId } = req.body;
+  if (!outletId || !tableId) {
+    return res.status(400).json({ error: "outletId and tableId are required" });
+  }
+  try {
+    await clearTableAfterSettle(tableId);
+    const newOrder = await getOrder(tableId);
+    res.json(newOrder);
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message || "advance-table failed" });
+  }
+}
+
 module.exports = {
   clearTableOrderHandler,
   clearAllOrdersHandler,
@@ -1124,5 +1167,6 @@ module.exports = {
   deviceRemoveOrderItemHandler,
   deviceVoidOrderItemHandler,
   deviceCloseOrderHandler,
+  deviceAdvanceTableHandler,
   correctClosedOrderPaymentsHandler,
 };

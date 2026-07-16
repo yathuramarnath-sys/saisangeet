@@ -627,15 +627,32 @@ export default function App() {
         socket.on("order:updated", (updatedOrder) => {
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
-            // Stale-write guard: if our local copy is newer, ignore this event.
-            // Prevents a slow Captain socket event from overwriting POS changes
-            // that were made after the Captain last touched the order.
+            // Stale-write guard: ignore events that are more than 30 s older than our
+            // local copy. A strict timestamp comparison breaks when the Captain device
+            // clock is even slightly behind the server clock (server stamps orders with
+            // server-time after each KOT, making all subsequent captain broadcasts look
+            // "older"). 30 s covers any realistic clock skew while still blocking truly
+            // stale in-transit duplicates.
             if (
               current &&
               !updatedOrder.isClosed &&
-              (current.updatedAt || 0) > (updatedOrder.updatedAt || 0)
+              new Date(current.updatedAt || 0).getTime() -
+                new Date(updatedOrder.updatedAt || 0).getTime() > 30_000
             ) {
-              return prev; // our version is newer — discard incoming
+              return prev; // our version is >30 s newer — discard incoming
+            }
+
+            // Mirror-table guard: if this table has an unsettled bill (billRequested:true)
+            // and the incoming order has a DIFFERENT orderNumber, it is a newer Order 2
+            // broadcast from captain's next seating.  Keep Order 1 in local state so the
+            // cashier can still settle it; Order 2 will be shown after settlement when the
+            // backend re-broadcasts it with the correct newer orderNumber.
+            if (
+              current && current.billRequested && !current.isClosed &&
+              current.orderNumber != null && updatedOrder.orderNumber != null &&
+              updatedOrder.orderNumber !== current.orderNumber
+            ) {
+              return prev;
             }
 
             // ── Concurrent-edit merge ─────────────────────────────────────────
@@ -814,7 +831,9 @@ export default function App() {
         localSock.on("order:updated", (updatedOrder) => {
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
-            if (current && (current.updatedAt || 0) > (updatedOrder.updatedAt || 0)) return prev;
+            if (current && !updatedOrder.isClosed &&
+                new Date(current.updatedAt || 0).getTime() -
+                  new Date(updatedOrder.updatedAt || 0).getTime() > 30_000) return prev;
             const next = { ...prev, [updatedOrder.tableId]: updatedOrder };
             saveOrdersToStorage(next);
             return next;
@@ -2042,21 +2061,27 @@ export default function App() {
         : "✓ Bill settled · Syncing in background"
     );
 
-    // Local safety-net reset: if the backend is offline (no network) the server-side
-    // order:updated broadcast won't fire, so we reset the local table state here.
-    // When online, the server emits order:updated (blank) and this runs in parallel —
-    // both set the same blank state, no harm done.
+    // Immediately drop billRequested so the mirror-table guard in order:updated
+    // deactivates before the backend's Order 2 broadcast arrives.  The guard holds
+    // Order 1 in place while billRequested:true — clearing it here lets Order 2 land.
+    setOrders(prev => {
+      const cur = prev[tableId];
+      if (!cur) return prev;
+      return { ...prev, [tableId]: { ...cur, billRequested: false } };
+    });
+
+    // Local safety-net reset: if the backend is offline the server-side order:updated
+    // broadcast won't fire, so we reset the local table state here after a short delay.
+    // When online, the server emits order:updated (Order 2 or blank) and the 1.5 s
+    // guard below is a no-op because orderNumber will already differ.
     setTimeout(() => {
       const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
       const table = area?.tables.find(t => t.id === tableId);
 
       if (!table || !area) {
-        // Counter / takeaway / online order — no catalog entry.
-        // Still must clear the local slot so the cashier can start the next order.
-        // These IDs can't use buildBlankOrder (no table/area object) so just wipe
-        // the closed order from state — the counter panel will create the next one.
+        // Counter / takeaway / online — no catalog entry; just wipe the closed slot.
         setOrders(prev => {
-          if (!prev[tableId]?.isClosed) return prev; // already cleared by socket
+          if (!prev[tableId]?.isClosed) return prev;
           const next = { ...prev };
           delete next[tableId];
           return next;
@@ -2065,11 +2090,13 @@ export default function App() {
       }
 
       setOrders(prev => {
+        // Mirror-table: if the backend already broadcast Order 2 it will have
+        // landed via order:updated with a different orderNumber.  Don't overwrite.
+        if (prev[tableId]?.orderNumber !== order.orderNumber) return prev;
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
         return { ...prev, [tableId]: fresh };
       });
-      // Check waitlist for a party that fits this freed table
       checkWaitlistSuggest(tableId);
     }, 1500);
   }
@@ -2470,6 +2497,8 @@ export default function App() {
       const table = area?.tables.find(t => t.id === tableId);
       if (!table || !area) return;
       setOrders(prev => {
+        // Mirror-table: if Order 2 already landed via order:updated, orderNumber differs.
+        if (prev[tableId]?.orderNumber !== order.orderNumber) return prev;
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
         return { ...prev, [tableId]: fresh };
@@ -2523,13 +2552,9 @@ export default function App() {
       return o;
     });
 
-    // Validate waiter against current active staff — reject stale/test names
-    const WAITER_ROLES = ["waiter", "server", "steward"];
     const assignedWaiter = printOrder.assignedWaiter || null;
-    const validWaiter = activeStaff.length
-      ? (activeStaff.some(s => s.name === assignedWaiter && WAITER_ROLES.includes((s.role || "").toLowerCase()))
-          ? assignedWaiter : null)
-      : assignedWaiter; // no staff list loaded → show as-is (offline fallback)
+    // Trust whatever the captain app assigned — same as KOT printing does
+    const validWaiter = assignedWaiter;
 
     printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
       cashierName,

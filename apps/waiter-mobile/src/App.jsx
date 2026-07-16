@@ -302,7 +302,12 @@ export function App() {
           // response arrives with the properly reconciled order.
           if (kotInFlightRef.current.has(o.tableId)) return p;
           if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
+
           if (!o.items?.length || o.isClosed) {
+            // Protect a live promoted order: if captain already has active items on this
+            // table (e.g. the _next order just promoted), don't wipe it via a server blank.
+            const cur = p[o.tableId];
+            if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
           }
@@ -440,7 +445,10 @@ export function App() {
           lSock.on("order:updated", (o) => setOrders((p) => {
             if (kotInFlightRef.current.has(o.tableId)) return p;
             if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
-            if (!o.items?.length || o.isClosed) {
+
+              if (!o.items?.length || o.isClosed) {
+              const cur = p[o.tableId];
+              if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
               const { [o.tableId]: _r, ...rest } = p;
               return rest;
             }
@@ -798,6 +806,7 @@ export function App() {
       c => String(c.id) === String(item.categoryId) || c.name === (item.categoryName || item.category)
     );
     const resolvedCategoryName = catObj?.name || item.categoryName || item.category || "";
+
     setOrders(prev => {
       const local = prev[tableId];
       if (!local) return prev;
@@ -1333,10 +1342,25 @@ export function App() {
       billNo:      printOrder.billNo || null,
     }).catch(() => {});
 
-    // Mark billRequested: true — table turns blue on POS floor plan
-    handleUpdateOrder({ ...printOrder, billRequested: true });
+    // Mark billRequested: true — table turns blue on POS floor plan.
+    // hasNextOrder: true signals POS to show "+NEW" badge while bill awaits payment.
+    handleUpdateOrder({ ...printOrder, billRequested: true, hasNextOrder: true });
     api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid }).catch(() => {});
     toast("Printing bill…", { icon: "🖨️" });
+
+    // Mirror-table: advance the backend slot to a fresh empty order so the next
+    // customer can be seated on the same physical table immediately.
+    // POS keeps showing the old bill (billRequested:true) for cashier settlement;
+    // captain's local slot is cleared so the table shows as "free" on the floor plan.
+    api.post("/operations/order/advance", {
+      outletId: outlet?.id || branchConfig?.outletId,
+      tableId:  tid,
+    }).catch(err => console.warn("[captain] advance-table failed:", err.message));
+    setOrders(prev => {
+      const { [tid]: _, ...rest } = prev;
+      return rest;
+    });
+
     if (tid === selectedTableId) setSelectedTableId(null);
     setActionTableId(null);
   }

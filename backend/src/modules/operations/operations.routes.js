@@ -41,6 +41,7 @@ const {
   deviceRemoveOrderItemHandler,
   deviceVoidOrderItemHandler,
   deviceCloseOrderHandler,
+  deviceAdvanceTableHandler,
   clearAllOrdersHandler,
   correctClosedOrderPaymentsHandler,
 } = require("./operations.controller");
@@ -190,6 +191,9 @@ operationsRouter.post("/order/item",   requireAuth, asyncHandler(deviceAddOrderI
 operationsRouter.delete("/order/item", requireAuth, asyncHandler(deviceRemoveOrderItemHandler));
 operationsRouter.patch("/order/item",  requireAuth, asyncHandler(deviceVoidOrderItemHandler));
 operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
+// Captain calls this after printing a bill to advance the backend slot to a fresh
+// order so the next customer can be seated on the same table immediately.
+operationsRouter.post("/order/advance", requireAuth, asyncHandler(deviceAdvanceTableHandler));
 // Correct the payment method/split on an already-closed order — used by POS
 // Past Orders and Owner Console Order History "Edit Payment" actions.
 operationsRouter.post("/closed-order/payments", requireAuth, asyncHandler(correctClosedOrderPaymentsHandler));
