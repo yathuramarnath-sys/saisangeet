@@ -233,8 +233,10 @@ export function OrderPanel({
   const needsPin = cashierPin && cashierPin !== "0000";
 
   function commitQtyEdit(idx) {
-    const n = parseInt(editingQtyVal, 10);
-    if (!isNaN(n) && n !== (order.items?.[idx]?.quantity || 1)) {
+    const item = order.items?.[idx];
+    const raw  = item?.allowDecimalQty ? parseFloat(editingQtyVal) : parseInt(editingQtyVal, 10);
+    const n    = item?.allowDecimalQty ? Math.round(raw * 1000) / 1000 : raw;
+    if (!isNaN(n) && n !== (item?.quantity || 1)) {
       onChangeQty(idx, n);  // n=0 removes the item (existing behaviour)
     }
     setEditingQtyIdx(null);
@@ -385,7 +387,11 @@ export function OrderPanel({
                     <div className="order-item-controls">
                       {!item.sentToKot && (
                         <button type="button" className="qty-btn"
-                          onClick={() => onChangeQty(idx, item.quantity - 1)}>−</button>
+                          onClick={() => {
+                            const step = item.allowDecimalQty ? 0.1 : 1;
+                            const next = Math.round((item.quantity - step) * 1000) / 1000;
+                            onChangeQty(idx, next);
+                          }}>−</button>
                       )}
                       {/* Tap qty number to type a value directly */}
                       {!item.sentToKot && editingQtyIdx === idx ? (
@@ -393,6 +399,7 @@ export function OrderPanel({
                           className="qty-edit-input"
                           type="number"
                           min="0"
+                          step={item.allowDecimalQty ? "0.001" : "1"}
                           autoFocus
                           value={editingQtyVal}
                           onChange={e => setEditingQtyVal(e.target.value)}
@@ -412,15 +419,19 @@ export function OrderPanel({
                             setEditingQtyIdx(idx);
                             setEditingQtyVal(String(item.quantity));
                           }}
-                        >{item.quantity}</span>
+                        >{item.allowDecimalQty ? item.quantity.toFixed(3).replace(/\.?0+$/, "") : item.quantity}</span>
                       )}
                       {!item.sentToKot && (
                         <button type="button" className="qty-btn"
-                          onClick={() => onChangeQty(idx, item.quantity + 1)}>+</button>
+                          onClick={() => {
+                            const step = item.allowDecimalQty ? 0.1 : 1;
+                            const next = Math.round((item.quantity + step) * 1000) / 1000;
+                            onChangeQty(idx, next);
+                          }}>+</button>
                       )}
                       <span className="order-item-price"
                         style={{ textDecoration: item.isComp ? "line-through" : "none", opacity: item.isComp ? 0.45 : 1 }}>
-                        ₹{(item.price * item.quantity).toFixed(0)}
+                        ₹{(item.price * item.quantity).toFixed(item.allowDecimalQty ? 2 : 0)}
                       </span>
                       {item.isComp && <span className="order-item-comp-price">FREE</span>}
                       {/* Pre-KOT: free remove */}
