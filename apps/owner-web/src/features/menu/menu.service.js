@@ -574,3 +574,7 @@ export async function updatePricingProfile(profileId, payload) {
 export async function bulkImportMenuItems(rows, targetOutletId = "all") {
   return api.post("/menu/import", { rows, targetOutletId });
 }
+
+export async function bulkSetCategoryUnit(categoryName, unit) {
+  return api.patch("/menu/items/bulk-unit", { categoryName, unit });
+}

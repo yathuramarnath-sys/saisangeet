@@ -393,6 +393,23 @@ async function updateMenuItem(id, payload) {
   return updatedItem;
 }
 
+async function bulkSetUnitForCategory(categoryName, unit) {
+  const unitValue       = unit === "PCS" ? null : (unit || null);
+  const allowDecimal    = ["KG", "G", "LTR", "ML"].includes(unit);
+  let updatedCount      = 0;
+
+  updateOwnerSetupData((current) => {
+    const items = current.menu.items.map((item) => {
+      if (item.categoryName !== categoryName) return item;
+      updatedCount++;
+      return { ...item, unit: unitValue, allowDecimalQty: allowDecimal };
+    });
+    return { ...current, menu: { ...current.menu, items } };
+  });
+
+  return { updatedCount, categoryName, unit: unitValue };
+}
+
 async function deleteMenuItem(id) {
   let deletedItem = null;
 
@@ -841,5 +858,6 @@ module.exports = {
   updateMenuAssignment,
   createPricingProfile,
   updatePricingProfile,
-  bulkImportMenuItems
+  bulkImportMenuItems,
+  bulkSetUnitForCategory
 };
