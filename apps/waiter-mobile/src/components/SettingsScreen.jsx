@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { tapImpact } from "../lib/haptics";
+import { APP_VERSION } from "../lib/version";
 
 const PAPER_OPTIONS = ["80mm", "76mm", "58mm"];
 
@@ -27,8 +28,6 @@ function persistPrinters(printers) {
     localStorage.setItem("captain_paper_size", updated[0].paper);
   }
 }
-
-import { APP_VERSION } from "../lib/version";
 
 export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
   const [printers,   setPrinters]   = useState(loadPrinters);

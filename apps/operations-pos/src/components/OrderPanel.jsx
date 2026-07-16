@@ -397,9 +397,8 @@ export function OrderPanel({
                       {!item.sentToKot && editingQtyIdx === idx ? (
                         <input
                           className="qty-edit-input"
-                          type="number"
-                          min="0"
-                          step={item.allowDecimalQty ? "0.001" : "1"}
+                          type="text"
+                          inputMode="decimal"
                           autoFocus
                           value={editingQtyVal}
                           onChange={e => setEditingQtyVal(e.target.value)}
