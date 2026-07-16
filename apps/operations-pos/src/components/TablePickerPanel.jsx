@@ -50,12 +50,11 @@ export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSele
     return "occupied";
   }
 
-  function tableTotal(tableId) {
-    const o = orders[tableId];
-    const billable  = o?.items?.filter(i => !i.isVoided && !i.isComp);
-    if (!billable?.length) return null;
+  function calcOrderTotal(o) {
+    const billable  = (o?.items || []).filter(i => !i.isVoided && !i.isComp);
+    if (!billable.length) return null;
     const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
-    const disc      = Math.min(o.discountAmount || 0, sub);
+    const disc      = Math.min(o?.discountAmount || 0, sub);
     const afterDisc = sub - disc;
     const tax       = billable.reduce((s, i) => {
       const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
@@ -65,18 +64,12 @@ export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSele
     return inclusive ? afterDisc : afterDisc + tax;
   }
 
+  function tableTotal(tableId) {
+    return calcOrderTotal(orders[tableId]);
+  }
+
   function mirrorOrderTotal(o) {
-    const billable  = (o?.items || []).filter(i => !i.isVoided && !i.isComp);
-    if (!billable.length) return null;
-    const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
-    const disc      = Math.min(o.discountAmount || 0, sub);
-    const afterDisc = sub - disc;
-    const tax       = billable.reduce((s, i) => {
-      const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
-      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
-      return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
-    }, 0);
-    return inclusive ? afterDisc : afterDisc + tax;
+    return calcOrderTotal(o);
   }
 
   const filtered = activeArea
@@ -111,18 +104,7 @@ export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSele
     );
 
     function fmt(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
-    function ticketTotal(order) {
-      const billable  = (order.items || []).filter(i => !i.isVoided && !i.isComp);
-      const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
-      const disc      = Math.min(order.discountAmount || 0, sub);
-      const afterDisc = sub - disc;
-      const tax       = billable.reduce((s, i) => {
-        const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
-        const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
-        return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
-      }, 0);
-      return inclusive ? afterDisc : afterDisc + tax;
-    }
+    function ticketTotal(order) { return calcOrderTotal(order); }
 
     return (
       <div className="tpp">
