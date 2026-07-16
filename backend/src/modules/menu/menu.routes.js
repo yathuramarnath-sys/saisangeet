@@ -34,6 +34,7 @@ const {
   createPricingProfileHandler,
   updatePricingProfileHandler,
   bulkImportMenuItemsHandler,
+  bulkSetUnitHandler,
   skuLookupHandler,
   getCaptainFavoritesHandler,
   saveCaptainFavoritesHandler,
@@ -83,6 +84,12 @@ menuRouter.post(
   requireAuth, requirePermission("menu.manage"),
   createItemRules, validate,
   asyncHandler(createMenuItemHandler)
+);
+// bulk-unit must be registered BEFORE /items/:id to avoid Express routing "bulk-unit" as an id
+menuRouter.patch(
+  "/items/bulk-unit",
+  requireAuth, requirePermission("menu.manage"),
+  asyncHandler(bulkSetUnitHandler)
 );
 menuRouter.patch(
   "/items/:id",

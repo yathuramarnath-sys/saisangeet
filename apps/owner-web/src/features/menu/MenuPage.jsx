@@ -23,7 +23,8 @@ import {
   updateCustomMenuItem,
   updateMenuCategory,
   updateMenuGroup,
-  updatePricingProfile
+  updatePricingProfile,
+  bulkSetCategoryUnit
 } from "./menu.service";
 import { api } from "../../lib/api";
 
@@ -212,6 +213,9 @@ export function MenuPage() {
   const [inventoryFilter, setInventoryFilter] = useState("Any");
   const [foodTypeFilter, setFoodTypeFilter] = useState("Any");
   const [taxFilter, setTaxFilter] = useState("Any"); // "Any" | "Missing"
+  const [unitFilter, setUnitFilter] = useState("Any"); // "Any" | "KG" | "G" | "LTR" | "ML" | "PCS"
+  const [bulkUnit, setBulkUnit] = useState(""); // unit to bulk-assign to category
+  const [bulkUnitSaving, setBulkUnitSaving] = useState(false);
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [outletFilter, setOutletFilter] = useState("all"); // "all" | outlet name — Item Library tab's branch filter
   const [categoryListOutletFilter, setCategoryListOutletFilter] = useState("all"); // "all" | outlet name — Category List panel's own branch filter, independent of the Item Library one
@@ -426,6 +430,8 @@ export function MenuPage() {
       (inventoryFilter === "Not tracked" && !item.inventoryTracking.enabled);
     const matchesFoodType = foodTypeFilter === "Any" || item.foodType === foodTypeFilter;
     const matchesTax = taxFilter === "Any" || (taxFilter === "Missing" && (item.taxRate === null || item.taxRate === undefined || item.taxRate === ""));
+    const matchesUnit = unitFilter === "Any" ||
+      (unitFilter === "PCS" ? !item.unit : item.unit === unitFilter);
     // Outlet filter: "all" shows everything; specific outlet shows only enabled items
     const matchesOutlet =
       outletFilter === "all" ||
@@ -434,11 +440,11 @@ export function MenuPage() {
         (entry) => entry.outlet === outletFilter && entry.enabled
       );
 
-    return matchesSearch && matchesCategory && matchesStatus && matchesInventory && matchesFoodType && matchesTax && matchesOutlet;
+    return matchesSearch && matchesCategory && matchesStatus && matchesInventory && matchesFoodType && matchesTax && matchesUnit && matchesOutlet;
   });
 
   // Reset to page 1 whenever filters change
-  useEffect(() => { setItemPage(1); }, [librarySearch, categoryFilter, statusFilter, inventoryFilter, foodTypeFilter, taxFilter, outletFilter]);
+  useEffect(() => { setItemPage(1); }, [librarySearch, categoryFilter, statusFilter, inventoryFilter, foodTypeFilter, taxFilter, unitFilter, outletFilter]);
 
   const totalPages   = Math.max(1, Math.ceil(filteredLibraryItems.length / ITEMS_PER_PAGE));
   const pagedItems   = filteredLibraryItems.slice((itemPage - 1) * ITEMS_PER_PAGE, itemPage * ITEMS_PER_PAGE);
@@ -501,6 +507,18 @@ export function MenuPage() {
     w.document.close();
     w.focus();
     setTimeout(() => { w.print(); w.onafterprint = () => w.close(); }, 400);
+  }
+
+  async function handleBulkSetUnit() {
+    if (!categoryFilter || categoryFilter === "All" || !bulkUnit) return;
+    setBulkUnitSaving(true);
+    try {
+      await bulkSetCategoryUnit(categoryFilter, bulkUnit);
+      await reloadMenu();
+      setBulkUnit("");
+    } finally {
+      setBulkUnitSaving(false);
+    }
   }
 
   async function reloadMenu() {
@@ -1772,6 +1790,8 @@ export function MenuPage() {
                     setInventoryFilter("Any");
                     setFoodTypeFilter("Any");
                     setOutletFilter("all");
+                    setUnitFilter("Any");
+                    setBulkUnit("");
                   }}
                 >
                   Reset
@@ -1836,6 +1856,51 @@ export function MenuPage() {
                   <option>Non-Veg</option>
                 </select>
               </label>
+              <label>
+                Sold by
+                <select value={unitFilter} onChange={(event) => setUnitFilter(event.target.value)}>
+                  <option value="Any">Any</option>
+                  <option value="KG">KG — per kilogram</option>
+                  <option value="LTR">LTR — per litre</option>
+                  <option value="G">G — per gram</option>
+                  <option value="ML">ML — per millilitre</option>
+                  <option value="PCS">Per piece (no unit set)</option>
+                </select>
+              </label>
+
+              {/* ── Bulk assign unit — only when a specific category is selected ── */}
+              {categoryFilter !== "All" && (
+                <div style={{ marginTop: 8, padding: 12, background: "var(--surface-secondary, #f9fafb)", borderRadius: 8, border: "1px solid var(--border-subtle, #e5e7eb)" }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary, #6b7280)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                    Set "Sold by" for entire category
+                  </p>
+                  <select
+                    value={bulkUnit}
+                    onChange={(e) => setBulkUnit(e.target.value)}
+                    style={{ width: "100%", marginBottom: 8 }}
+                  >
+                    <option value="">— Choose unit —</option>
+                    <option value="KG">KG — per kilogram</option>
+                    <option value="LTR">LTR — per litre</option>
+                    <option value="G">G — per gram</option>
+                    <option value="ML">ML — per millilitre</option>
+                    <option value="PCS">Per piece</option>
+                  </select>
+                  {bulkUnit && (
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      style={{ width: "100%" }}
+                      onClick={handleBulkSetUnit}
+                      disabled={bulkUnitSaving}
+                    >
+                      {bulkUnitSaving
+                        ? "Saving…"
+                        : `Set all "${categoryFilter}" items to ${bulkUnit === "PCS" ? "Per Piece" : bulkUnit}`}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </aside>
         ) : null}

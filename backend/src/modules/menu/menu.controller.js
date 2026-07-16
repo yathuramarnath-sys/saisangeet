@@ -22,6 +22,7 @@ const {
   updatePricingProfile,
   bulkImportMenuItems,
   lookupItemBySku,
+  bulkSetUnitForCategory,
 } = require("./menu.service");
 const { loadRuntimeState, saveRuntimeState } = require("../../db/runtime-state.repository");
 
@@ -93,6 +94,14 @@ async function createMenuStationHandler(req, res) {
 
 async function updateMenuItemHandler(req, res) {
   const result = await updateMenuItem(req.params.id, req.body);
+  pushSync(req);
+  res.json(result);
+}
+
+async function bulkSetUnitHandler(req, res) {
+  const { categoryName, unit } = req.body;
+  if (!categoryName) return res.status(400).json({ error: "categoryName is required" });
+  const result = await bulkSetUnitForCategory(categoryName, unit);
   pushSync(req);
   res.json(result);
 }
@@ -277,6 +286,7 @@ module.exports = {
   createPricingProfileHandler,
   updatePricingProfileHandler,
   bulkImportMenuItemsHandler,
+  bulkSetUnitHandler,
   skuLookupHandler,
   autoNumberItemsHandler,
   getCaptainFavoritesHandler,
