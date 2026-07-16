@@ -303,24 +303,6 @@ export function App() {
           if (kotInFlightRef.current.has(o.tableId)) return p;
           if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
 
-          // Mirror-table promotion: when POS settles and broadcasts a blank/closed T1,
-          // if captain has a local _next order, promote it to T1 and broadcast to POS.
-          if (!o.tableId.endsWith('_next')) {
-            const nextTid = `${o.tableId}_next`;
-            const localNext = p[nextTid];
-            if (localNext && !localNext.isClosed && (!o.items?.length || o.isClosed)) {
-              const promoted = { ...localNext, tableId: o.tableId, isNextSlot: false, updatedAt: new Date().toISOString() };
-              setTimeout(() => {
-                socketRef.current?.emit("order:update", { outletId: outlet?.id, order: promoted });
-                localSocketRef.current?.emit("order:update", { order: promoted });
-              }, 0);
-              // Remove T1_next entirely (not just mark closed) so the backend's
-              // post-settlement blank doesn't re-trigger this block and miss promotion.
-              const { [nextTid]: _gone, ...withoutNext } = p;
-              return { ...withoutNext, [o.tableId]: promoted };
-            }
-          }
-
           if (!o.items?.length || o.isClosed) {
             // Protect a live promoted order: if captain already has active items on this
             // table (e.g. the _next order just promoted), don't wipe it via a server blank.
@@ -464,22 +446,7 @@ export function App() {
             if (kotInFlightRef.current.has(o.tableId)) return p;
             if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
 
-            // Mirror-table promotion (local socket path — same logic as remote socket)
-            if (!o.tableId.endsWith('_next')) {
-              const nextTid = `${o.tableId}_next`;
-              const localNext = p[nextTid];
-              if (localNext && !localNext.isClosed && (!o.items?.length || o.isClosed)) {
-                const promoted = { ...localNext, tableId: o.tableId, isNextSlot: false, updatedAt: new Date().toISOString() };
-                setTimeout(() => {
-                  socketRef.current?.emit("order:update", { outletId: outlet?.id, order: promoted });
-                  localSocketRef.current?.emit("order:update", { order: promoted });
-                }, 0);
-                const { [nextTid]: _gone, ...withoutNext } = p;
-                return { ...withoutNext, [o.tableId]: promoted };
-              }
-            }
-
-            if (!o.items?.length || o.isClosed) {
+              if (!o.items?.length || o.isClosed) {
               const cur = p[o.tableId];
               if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
               const { [o.tableId]: _r, ...rest } = p;
@@ -839,48 +806,6 @@ export function App() {
       c => String(c.id) === String(item.categoryId) || c.name === (item.categoryName || item.category)
     );
     const resolvedCategoryName = catObj?.name || item.categoryName || item.category || "";
-
-    // ── _next slot fast-path ──────────────────────────────────────────────────
-    // REST API throws TABLE_NOT_FOUND for virtual _next tableIds — backend has no
-    // catalog entry for them.  Update local state and emit to socket immediately so
-    // POS tracks the _next items and can promote them on settlement (Check 2 in
-    // handleSettle's setTimeout).  Skip the failing REST call entirely.
-    if (tableId.endsWith('_next')) {
-      let orderToEmit = null;
-      setOrders(prev => {
-        const local = prev[tableId];
-        if (!local) return prev;
-        const items = [...(local.items || [])];
-        const idx = items.findIndex(i => i.menuItemId === item.id && !i.sentToKot && !i.isVoided);
-        if (idx >= 0) {
-          items[idx] = { ...items[idx], quantity: (items[idx].quantity || 1) + 1 };
-        } else {
-          items.push({
-            id:           `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            menuItemId:   item.id,
-            name:         item.name,
-            price:        parsePriceNumber(item.price || item.basePrice),
-            quantity:     1,
-            sentToKot:    false,
-            note:         "",
-            station:      resolvedStation,
-            categoryId:   item.categoryId || "",
-            categoryName: resolvedCategoryName,
-            taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
-          });
-        }
-        orderToEmit = { ...local, items, updatedAt: new Date().toISOString() };
-        return { ...prev, [tableId]: orderToEmit };
-      });
-      if (orderToEmit) {
-        socketRef.current?.emit("order:update", {
-          outletId: outlet?.id || branchConfig?.outletId,
-          order: orderToEmit,
-        });
-        localSocketRef.current?.emit("order:update", { order: orderToEmit });
-      }
-      return;
-    }
 
     setOrders(prev => {
       const local = prev[tableId];
@@ -1423,29 +1348,18 @@ export function App() {
     api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid }).catch(() => {});
     toast("Printing bill…", { icon: "🖨️" });
 
-    // Mirror-table: store _next slot locally for captain navigation only.
-    // POS learns about the next order via hasNextOrder on the main broadcast above,
-    // and receives the order data when captain promotes _next after POS settles.
-    const nextTid = `${tid}_next`;
-    const nextSlot = {
-      tableId:         nextTid,
-      tableNumber:     printOrder.tableNumber,
-      areaId:          printOrder.areaId,
-      areaName:        printOrder.areaName,
-      outletName:      printOrder.outletName,
-      isNextSlot:      true,
-      originalTableId: tid,
-      captainName:     printOrder.captainName    || null,
-      assignedWaiter:  printOrder.assignedWaiter || null,
-      items:           [],
-      guests:          0,
-      covers:          0,
-      orderNumber:     (printOrder.orderNumber || 10000) + 1,
-      createdAt:       new Date().toISOString(),
-      openedAt:        new Date().toISOString(),
-      seatedAt:        new Date().toISOString(),
-    };
-    setOrders(prev => ({ ...prev, [nextTid]: nextSlot }));
+    // Mirror-table: advance the backend slot to a fresh empty order so the next
+    // customer can be seated on the same physical table immediately.
+    // POS keeps showing the old bill (billRequested:true) for cashier settlement;
+    // captain's local slot is cleared so the table shows as "free" on the floor plan.
+    api.post("/operations/order/advance", {
+      outletId: outlet?.id || branchConfig?.outletId,
+      tableId:  tid,
+    }).catch(err => console.warn("[captain] advance-table failed:", err.message));
+    setOrders(prev => {
+      const { [tid]: _, ...rest } = prev;
+      return rest;
+    });
 
     if (tid === selectedTableId) setSelectedTableId(null);
     setActionTableId(null);

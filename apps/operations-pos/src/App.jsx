@@ -642,23 +642,17 @@ export default function App() {
               return prev; // our version is >30 s newer — discard incoming
             }
 
-            // Mirror-table blank guard: if a blank/closed event arrives for a table
-            // that still has a live _next slot in our state, the captain has not finished
-            // promoting yet — hold the current state. This prevents the backend blank
-            // (emitted by clearTableAfterSettle) from wiping a table that the captain
-            // is actively using for the next order.
+            // Mirror-table guard: if this table has an unsettled bill (billRequested:true)
+            // and the incoming order has a DIFFERENT orderNumber, it is a newer Order 2
+            // broadcast from captain's next seating.  Keep Order 1 in local state so the
+            // cashier can still settle it; Order 2 will be shown after settlement when the
+            // backend re-broadcasts it with the correct newer orderNumber.
             if (
-              !updatedOrder.tableId?.endsWith('_next') &&
-              (!updatedOrder.items?.length || updatedOrder.isClosed)
+              current && current.billRequested && !current.isClosed &&
+              current.orderNumber != null && updatedOrder.orderNumber != null &&
+              updatedOrder.orderNumber !== current.orderNumber
             ) {
-              const nextTid = `${updatedOrder.tableId}_next`;
-              const nextSlot = prev[nextTid];
-              if (
-                nextSlot && !nextSlot.isClosed &&
-                (nextSlot.items || []).some(i => !i.isVoided && !i.isComp)
-              ) {
-                return prev; // _next has live items — captain will promote; ignore this blank
-              }
+              return prev;
             }
 
             // ── Concurrent-edit merge ─────────────────────────────────────────
@@ -2067,83 +2061,42 @@ export default function App() {
         : "✓ Bill settled · Syncing in background"
     );
 
-    // Local safety-net reset: if the backend is offline (no network) the server-side
-    // order:updated broadcast won't fire, so we reset the local table state here.
-    // When online, the server emits order:updated (blank) and this runs in parallel —
-    // both set the same blank state, no harm done.
+    // Immediately drop billRequested so the mirror-table guard in order:updated
+    // deactivates before the backend's Order 2 broadcast arrives.  The guard holds
+    // Order 1 in place while billRequested:true — clearing it here lets Order 2 land.
+    setOrders(prev => {
+      const cur = prev[tableId];
+      if (!cur) return prev;
+      return { ...prev, [tableId]: { ...cur, billRequested: false } };
+    });
+
+    // Local safety-net reset: if the backend is offline the server-side order:updated
+    // broadcast won't fire, so we reset the local table state here after a short delay.
+    // When online, the server emits order:updated (Order 2 or blank) and the 1.5 s
+    // guard below is a no-op because orderNumber will already differ.
     setTimeout(() => {
-      const nextTableId = `${tableId}_next`;
-
-      // Captain's socket handler promotes T4_next → T4 as soon as it receives the
-      // "T4 settled" broadcast, stamping a fresh updatedAt. If that promotion already
-      // landed here, ordersRef.current[tableId] will have live items — don't overwrite
-      // it with the potentially-incomplete in-memory T4_next accumulated from earlier
-      // socket broadcasts. Just clean up the _next slot and exit.
-      const alreadyPromoted = ordersRef.current[tableId];
-      if (alreadyPromoted && !alreadyPromoted.isClosed &&
-          (alreadyPromoted.items || []).some(i => !i.isVoided && !i.isComp)) {
-        setOrders(prev => {
-          const { [nextTableId]: _, ...rest } = prev;
-          return rest;
-        });
-        return;
-      }
-
-      // Captain's promotion hasn't arrived yet — use whatever T4_next we have in memory.
-      // Note: the backend never stores _next orders (T4_next is a client-side-only concept)
-      // so a server query would always 404; in-memory is the only source available here.
-      const nextOrder = ordersRef.current[nextTableId];
-
-      // Mirror-table promotion: if captain started a new order on the _next virtual slot,
-      // promote it to the physical table now that the old bill is settled.
-      if (nextOrder && !nextOrder.isClosed &&
-          (nextOrder.items || []).some(i => !i.isVoided && !i.isComp)) {
-        const promotedOrder = { ...nextOrder, tableId, isNextSlot: false, updatedAt: new Date().toISOString() };
-        setOrders(prev => {
-          const updated = { ...prev, [tableId]: promotedOrder };
-          delete updated[nextTableId];
-          return updated;
-        });
-        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: promotedOrder });
-        localSocketRef.current?.emit("order:update", { order: promotedOrder });
-        // Clear the _next slot on all devices
-        const blankNext = { tableId: nextTableId, items: [], isClosed: true };
-        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: blankNext });
-        localSocketRef.current?.emit("order:update", { order: blankNext });
-        return;
-      }
-
       const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
       const table = area?.tables.find(t => t.id === tableId);
 
       if (!table || !area) {
-        // Counter / takeaway / online order — no catalog entry.
-        // Still must clear the local slot so the cashier can start the next order.
-        // These IDs can't use buildBlankOrder (no table/area object) so just wipe
-        // the closed order from state — the counter panel will create the next one.
+        // Counter / takeaway / online — no catalog entry; just wipe the closed slot.
         setOrders(prev => {
-          if (!prev[tableId]?.isClosed) return prev; // already cleared by socket
+          if (!prev[tableId]?.isClosed) return prev;
           const next = { ...prev };
           delete next[tableId];
-          delete next[nextTableId];
           return next;
         });
         return;
       }
 
       setOrders(prev => {
-        // If captain has already promoted a _next order to this table, skip the blank reset.
-        // The captain broadcasts the promoted order to POS; overwriting it here would lose it.
+        // Mirror-table: if the backend already broadcast Order 2 it will have
+        // landed via order:updated with a different orderNumber.  Don't overwrite.
         if (prev[tableId]?.orderNumber !== order.orderNumber) return prev;
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
-        const updated = { ...prev, [tableId]: fresh };
-        delete updated[nextTableId];
-        return updated;
+        return { ...prev, [tableId]: fresh };
       });
-      // Do NOT broadcast _next as isClosed — captain handles its own _next cleanup
-      // via the mirror-table promotion logic in its socket handler.
-      // Check waitlist for a party that fits this freed table
       checkWaitlistSuggest(tableId);
     }, 1500);
   }
@@ -2543,20 +2496,12 @@ export default function App() {
       const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
       const table = area?.tables.find(t => t.id === tableId);
       if (!table || !area) return;
-      const nextTableId = `${tableId}_next`;
       setOrders(prev => {
-        // Mirror-table: captain may have promoted a _next order to this table between
-        // the split-settle and this timeout. If the current slot already has live items
-        // (and is NOT the closed split order we just settled), don't wipe it.
-        const cur = prev[tableId];
-        const curHasLiveItems = cur && !cur.isClosed &&
-          (cur.items || []).some(i => !i.isVoided && !i.isComp);
-        if (curHasLiveItems && cur.orderNumber !== order.orderNumber) return prev;
+        // Mirror-table: if Order 2 already landed via order:updated, orderNumber differs.
+        if (prev[tableId]?.orderNumber !== order.orderNumber) return prev;
         const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
         const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
-        const updated = { ...prev, [tableId]: fresh };
-        delete updated[nextTableId];
-        return updated;
+        return { ...prev, [tableId]: fresh };
       });
       checkWaitlistSuggest(tableId);
     }, 1500);
