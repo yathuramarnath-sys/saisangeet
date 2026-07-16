@@ -607,7 +607,11 @@ export function App() {
           if (!latest?.version) return;
           const pa = APP_VERSION.split(".").map(Number);
           const pb = latest.version.split(".").map(Number);
-          const newer = pb.some((v, i) => v > (pa[i] || 0));
+          let newer = false;
+          for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+            if ((pb[i] || 0) > (pa[i] || 0)) { newer = true; break; }
+            if ((pb[i] || 0) < (pa[i] || 0)) break;
+          }
           if (newer) setUpdateInfo(latest);
         })
         .catch(() => {});

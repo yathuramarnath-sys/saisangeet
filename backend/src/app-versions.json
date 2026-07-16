@@ -20,13 +20,14 @@
     "releaseDate": "2026-06-12"
   },
   "captain": {
-    "version": "1.26",
+    "version": "1.8.0",
     "label": "Captain App",
-    "changelog": "Discount % on bill, GST fix, credit customer name on reprint",
+    "changelog": "Coloured table badges, KOT history tabs, pending bills screen, decimal qty fix",
     "whatsNew": [
-      "💰 Discount now shows percentage and amount on printed bills (e.g. Discount 25% −₹500)",
-      "🧾 GST / CGST / SGST no longer shows 0% on printed bills",
-      "👤 Credit customer name appears correctly on reprinted bills"
+      "🎨 Table number badges now show status colour at a glance (orange = active, blue = bill ready)",
+      "📋 KOT history tabs: All / Sent / Unsuccessful — see every KOT sent this shift",
+      "🧾 Pending bills shown in More screen — see which tables are waiting to pay",
+      "🔢 Decimal quantities (e.g. 0.100 kg) now save correctly"
     ],
     "installGuide": [
       "1. On Android, go to Settings → Security → Allow Install from Unknown Sources",
@@ -37,7 +38,7 @@
     ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
-    "releaseDate": "2026-06-12"
+    "releaseDate": "2026-07-16"
   },
   "kds": {
     "version": "1.7",

@@ -204,11 +204,18 @@ function withLocalTaxRate(serverItems, localItems, menuItems) {
   const localById = Object.fromEntries((localItems || []).map(i => [i.id, i]));
   const menuById  = Object.fromEntries((menuItems  || []).map(i => [String(i.id), i]));
   return serverItems.map(si => {
-    if (si.taxRate != null) return si;
-    const localRate = localById[si.id]?.taxRate;
-    if (localRate != null) return { ...si, taxRate: localRate };
-    const menuRate = menuById[String(si.menuItemId || si.id)]?.taxRate;
-    return menuRate != null ? { ...si, taxRate: menuRate } : si;
+    const menuItem = menuById[String(si.menuItemId || si.id)];
+    let result = si;
+    if (result.taxRate == null) {
+      const localRate = localById[si.id]?.taxRate;
+      if (localRate != null) result = { ...result, taxRate: localRate };
+      else if (menuItem?.taxRate != null) result = { ...result, taxRate: menuItem.taxRate };
+    }
+    if (menuItem) {
+      if (result.allowDecimalQty == null) result = { ...result, allowDecimalQty: !!menuItem.allowDecimalQty };
+      if (!result.unit && menuItem.unit)  result = { ...result, unit: menuItem.unit };
+    }
+    return result;
   });
 }
 
@@ -1591,19 +1598,21 @@ export default function App() {
         // Use area override price if the table's area matches one of the item's overrides
         const _aov1 = item.areaOverrides?.[order.areaName || ""];
         order.items.push({
-          id:         itemId,
-          menuItemId: item.id,
-          name:       item.name,
-          price:      (_aov1 && Number(_aov1) > 0) ? Number(_aov1) : parsePriceNumber(item.price || item.basePrice),
-          quantity:   overrideQty ?? 1,
-          sentToKot:  false,
-          note:       "",
-          station:    resolvedStation,
-          categoryId: item.categoryId || "",
-          category:   (categories.find(c => c.id === item.categoryId)?.name)
-                        || item.categoryName || item.category || "",
+          id:              itemId,
+          menuItemId:      item.id,
+          name:            item.name,
+          price:           (_aov1 && Number(_aov1) > 0) ? Number(_aov1) : parsePriceNumber(item.price || item.basePrice),
+          quantity:        overrideQty ?? 1,
+          sentToKot:       false,
+          note:            "",
+          station:         resolvedStation,
+          categoryId:      item.categoryId || "",
+          category:        (categories.find(c => c.id === item.categoryId)?.name)
+                             || item.categoryName || item.category || "",
           // ⚠️ taxRate MUST be included so 0% items don't fall back to 5% default
-          taxRate:    item.taxRate != null ? Number(item.taxRate) : null,
+          taxRate:         item.taxRate != null ? Number(item.taxRate) : null,
+          unit:            item.unit || "",
+          allowDecimalQty: !!item.allowDecimalQty,
         });
       }
       return order;
