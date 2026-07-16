@@ -303,9 +303,15 @@ export function App() {
           if (kotInFlightRef.current.has(o.tableId)) return p;
           if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
 
+          // Mirror-table: after captain prints a bill and removes the table from local
+          // state, the bill-request endpoint emits order:updated (Order 1, billRequested:true).
+          // If captain has already cleared the table (not in state), don't re-add it —
+          // the floor plan should show it as free so the next customer can be seated.
+          if (o.billRequested && !p[o.tableId]) return p;
+
           if (!o.items?.length || o.isClosed) {
-            // Protect a live promoted order: if captain already has active items on this
-            // table (e.g. the _next order just promoted), don't wipe it via a server blank.
+            // Protect a live order: if captain already has active items on this table,
+            // don't wipe it via a server blank.
             const cur = p[o.tableId];
             if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
             const { [o.tableId]: _removed, ...rest } = p;
@@ -445,7 +451,8 @@ export function App() {
           lSock.on("order:updated", (o) => setOrders((p) => {
             if (kotInFlightRef.current.has(o.tableId)) return p;
             if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
-
+            // Mirror-table: don't re-add a table captain already freed after printing bill
+            if (o.billRequested && !p[o.tableId]) return p;
               if (!o.items?.length || o.isClosed) {
               const cur = p[o.tableId];
               if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
