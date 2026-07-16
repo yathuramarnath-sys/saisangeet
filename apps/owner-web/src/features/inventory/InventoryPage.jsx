@@ -1,15 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "../../lib/api";
-import { INVENTORY_WASTAGE_KEY, UNITS } from "./inventory.seed";
+import { UNITS } from "./inventory.seed";
 
 const WASTAGE_SIDES_KEY = "pos_wastage_sides";
 const SESSIONS = ["Breakfast", "Lunch", "Dinner"];
-
-function loadWastage() {
-  try { return JSON.parse(localStorage.getItem(INVENTORY_WASTAGE_KEY) || "null") || []; }
-  catch { return []; }
-}
-function saveWastage(list) { localStorage.setItem(INVENTORY_WASTAGE_KEY, JSON.stringify(list)); }
 
 function loadSides() {
   try { return JSON.parse(localStorage.getItem(WASTAGE_SIDES_KEY) || "null") || []; }
@@ -53,7 +47,7 @@ export function InventoryPage() {
   const [stockSnapshot, setStockSnapshot] = useState({});
   const [configSaving,  setConfigSaving]  = useState(false);
 
-  const [wastage,       setWastage]       = useState(loadWastage);
+  const [wastage,       setWastage]       = useState([]);
   const [sides,         setSides]         = useState(loadSides);
   // { [itemId]: { posVisible: bool, online: bool } } — loaded from server
   const [visibility,    setVisibility]    = useState({});
@@ -188,6 +182,23 @@ export function InventoryPage() {
     menuCatalog.some(m => m.id === id)
   ).length;
 
+  // ── Load today's wastage from API on mount ────────────────────────────────
+  useEffect(() => {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    api.get(`/operations/wastage?dateFrom=${today}&dateTo=${today}`)
+      .then(entries => {
+        if (Array.isArray(entries)) {
+          setWastage(entries.map(e => ({
+            id: e.id, item: e.itemName, qty: e.quantity,
+            unit: e.unit, value: 0,
+            pricePerUnit: "", session: "", branch: e.outletId || "",
+            time: new Date(e.timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // ── Wastage form ───────────────────────────────────────────────────────────
   const autoValue = form.qty && form.pricePerUnit
     ? (Number(form.qty) * Number(form.pricePerUnit)).toFixed(2)
@@ -195,22 +206,33 @@ export function InventoryPage() {
   const totalWastageVal = wastage.reduce((s, w) => s + (w.value || 0), 0);
   const wastageItemNames = [...menuCatalog.map(m => m.name), ...sides];
 
-  function handleWastageSubmit(e) {
+  async function handleWastageSubmit(e) {
     e.preventDefault();
     if (!form.item || !form.qty) return;
-    const entry = {
-      id: `w-${Date.now()}`,
-      item: form.item, qty: Number(form.qty),
-      pricePerUnit: Number(form.pricePerUnit) || 0,
-      value: Number(autoValue) || 0,
-      unit: form.unit, session: form.session, branch: form.branch,
-      enteredBy: "Manager",
-      time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
-    };
-    const next = [entry, ...wastage];
-    setWastage(next); saveWastage(next);
-    setForm(f => ({ ...f, item: "", qty: "", pricePerUnit: "" }));
-    flash(`Wastage logged — ${entry.item}, ${entry.qty} ${entry.unit}, ₹${entry.value}`);
+    const outletObj = outlets.find(o => o.name === form.branch);
+    try {
+      const saved = await api.post("/operations/wastage", {
+        itemName:    form.item,
+        unit:        form.unit,
+        quantity:    Number(form.qty),
+        reason:      "Production Waste",
+        note:        `Session: ${form.session}`,
+        outletId:    outletObj?.id || "",
+        cashierName: "Owner",
+      });
+      const entry = {
+        id: saved.id, item: saved.itemName, qty: saved.quantity,
+        pricePerUnit: Number(form.pricePerUnit) || 0,
+        value: Number(autoValue) || 0,
+        unit: saved.unit, session: form.session, branch: form.branch,
+        time: new Date(saved.timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+      };
+      setWastage(prev => [entry, ...prev]);
+      setForm(f => ({ ...f, item: "", qty: "", pricePerUnit: "" }));
+      flash(`Wastage logged — ${entry.item}, ${entry.qty} ${entry.unit}`);
+    } catch (err) {
+      flash(`Failed to log wastage: ${err?.message || "check connection"}`);
+    }
   }
 
   function handleAddSide(e) {

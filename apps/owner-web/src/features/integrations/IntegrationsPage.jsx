@@ -7,14 +7,6 @@ import {
   INTEGRATIONS_CATALOG,
 } from "./integrations.seed";
 
-// ── localStorage helpers (for non-API integrations) ──────────────────────────
-const LOCAL_KEY = "pos_local_integrations";
-
-function loadConnected() {
-  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || "{}"); }
-  catch { return {}; }
-}
-function saveConnected(map) { localStorage.setItem(LOCAL_KEY, JSON.stringify(map)); }
 
 // ── Toggle switch ─────────────────────────────────────────────────────────────
 function Toggle({ on, onChange }) {
@@ -210,27 +202,10 @@ function WhatsAppCard({ integration, onConnectionChange }) {
   );
 }
 
-// ── Generic card (localStorage-only for non-live integrations) ────────────────
-function IntegrationCard({ integration, connected, creds, onConnect, onDisconnect, onSaveCreds }) {
-  const [open, setOpen]   = useState(false);
-  const [draft, setDraft] = useState(() => {
-    const saved = creds || {};
-    return Object.fromEntries(integration.fields.map((f) => [f.key, saved[f.key] || ""]));
-  });
-  const [saving, setSaving] = useState(false);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    onSaveCreds(integration.id, draft);
-    onConnect(integration.id);
-    setOpen(false);
-    setSaving(false);
-  }
-
+// ── Coming-soon card (placeholder for catalog items without backend support) ───
+function ComingSoonCard({ integration }) {
   return (
-    <div className={`integration-card ${connected ? "integration-connected" : ""}`}>
+    <div className="integration-card" style={{ opacity: 0.7 }}>
       <div className="integration-card-header">
         <span className="integration-emoji">{integration.emoji}</span>
         <div className="integration-info">
@@ -238,78 +213,9 @@ function IntegrationCard({ integration, connected, creds, onConnect, onDisconnec
           <p>{integration.tagline}</p>
         </div>
         <div className="integration-right">
-          {connected ? (
-            <span className="status online">Connected</span>
-          ) : (
-            <span className="integration-setup-time">⏱ {integration.setupTime}</span>
-          )}
-          <Toggle
-            on={connected}
-            onChange={(val) => {
-              if (val) setOpen(true);
-              else { onDisconnect(integration.id); setOpen(false); }
-            }}
-          />
+          <span className="integration-setup-time">Coming soon</span>
         </div>
       </div>
-
-      {open && !connected && (
-        <form className="integration-form" onSubmit={handleSubmit}>
-          <p className="integration-help">{integration.helpText}</p>
-          {integration.fields.map((field) => (
-            <label key={field.key}>
-              {field.label}
-              <input
-                type={field.type}
-                placeholder={field.placeholder}
-                value={draft[field.key]}
-                onChange={(e) => setDraft((d) => ({ ...d, [field.key]: e.target.value }))}
-                required
-                autoComplete="off"
-              />
-            </label>
-          ))}
-          <div className="integration-form-actions">
-            <button type="submit" className="primary-btn" disabled={saving}>
-              {saving ? "Connecting…" : `Connect ${integration.name}`}
-            </button>
-            <button type="button" className="ghost-chip" onClick={() => setOpen(false)}>Cancel</button>
-          </div>
-        </form>
-      )}
-
-      {connected && (
-        <div className="integration-connected-bar">
-          <span>✓ Active — syncing automatically</span>
-          <button type="button" className="ghost-chip" onClick={() => { setOpen(true); setDraft(creds || {}); }}>
-            Edit credentials
-          </button>
-        </div>
-      )}
-
-      {open && connected && (
-        <form className="integration-form" onSubmit={handleSubmit}>
-          <p className="integration-help">{integration.helpText}</p>
-          {integration.fields.map((field) => (
-            <label key={field.key}>
-              {field.label}
-              <input
-                type={field.type}
-                placeholder={field.placeholder}
-                value={draft[field.key]}
-                onChange={(e) => setDraft((d) => ({ ...d, [field.key]: e.target.value }))}
-                autoComplete="off"
-              />
-            </label>
-          ))}
-          <div className="integration-form-actions">
-            <button type="submit" className="primary-btn" disabled={saving}>
-              {saving ? "Saving…" : "Save changes"}
-            </button>
-            <button type="button" className="ghost-chip" onClick={() => setOpen(false)}>Cancel</button>
-          </div>
-        </form>
-      )}
     </div>
   );
 }
@@ -1132,34 +1038,9 @@ function OnlineOrdersWebhookCard() {
 }
 
 export function IntegrationsPage() {
-  const [connected, setConnected]         = useState(() => loadConnected());
   const [whatsappActive, setWhatsappActive] = useState(false);
-  const [msg, setMsg]                     = useState("");
 
-  function flash(text) { setMsg(text); setTimeout(() => setMsg(""), 3000); }
-
-  function handleConnect(id) {
-    const next = { ...connected, [id]: { ...connected[id], active: true } };
-    setConnected(next); saveConnected(next);
-    const item = INTEGRATIONS_CATALOG.find((x) => x.id === id);
-    flash(`${item?.name} connected successfully!`);
-  }
-
-  function handleDisconnect(id) {
-    const next = { ...connected, [id]: { ...connected[id], active: false } };
-    setConnected(next); saveConnected(next);
-    const item = INTEGRATIONS_CATALOG.find((x) => x.id === id);
-    flash(`${item?.name} disconnected.`);
-  }
-
-  function handleSaveCreds(id, creds) {
-    const next = { ...connected, [id]: { ...connected[id], creds } };
-    setConnected(next); saveConnected(next);
-  }
-
-  // Total connected count including API-managed WhatsApp
-  const localCount = Object.values(connected).filter((v) => v?.active).length;
-  const totalCount = localCount + (whatsappActive ? 1 : 0);
+  const totalCount = whatsappActive ? 1 : 0;
 
   return (
     <>
@@ -1190,7 +1071,6 @@ export function IntegrationsPage() {
         </div>
       </section>
 
-      {msg && <div className="mobile-banner">{msg}</div>}
 
       {/* ── Accounts & Finance ───────────────────────────────────────────────── */}
       <section className="integrations-section">
@@ -1259,15 +1139,7 @@ export function IntegrationsPage() {
                 item.apiManaged ? (
                   <WhatsAppCard key={item.id} integration={item} onConnectionChange={setWhatsappActive} />
                 ) : (
-                  <IntegrationCard
-                    key={item.id}
-                    integration={item}
-                    connected={!!connected[item.id]?.active}
-                    creds={connected[item.id]?.creds}
-                    onConnect={handleConnect}
-                    onDisconnect={handleDisconnect}
-                    onSaveCreds={handleSaveCreds}
-                  />
+                  <ComingSoonCard key={item.id} integration={item} />
                 )
               )}
             </div>

@@ -3,10 +3,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { api } from "../../lib/api";
-import {
-  dayEndSeed, itemSalesSeed, gstSeed, paymentSeed, discountVoidSeed, staffSalesSeed,
-  categorySalesSeed
-} from "./reports.seed";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function fmt(n)     { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
@@ -152,10 +148,9 @@ function NoDataState({ date }) {
 
 // ── 1. Day End Summary ───────────────────────────────────────────────────────
 function DayEndSummary({ outlet, date, data }) {
-  // Show empty state when API returned real data with zero orders
-  if (data && data.summary?.totalOrders === 0) return <NoDataState date={date} />;
+  if (!data || data.summary?.totalOrders === 0) return <NoDataState date={date} />;
 
-  const d = data || dayEndSeed;
+  const d = data;
   const totalPayAmt = d.paymentModes.reduce((s, p) => s + p.amount, 0);
 
   const exportHeaders = ["Item", "Category", "Qty", "Rate", "Amount"];
@@ -283,9 +278,9 @@ function DayEndSummary({ outlet, date, data }) {
 
 // ── 2. Item Sales Report ─────────────────────────────────────────────────────
 function ItemSalesReport({ outlet, date, data }) {
-  if (data && !data.itemSales?.length) return <NoDataState date={date} />;
+  if (!data?.itemSales?.length) return <NoDataState date={date} />;
   const [cat, setCat] = useState("All");
-  const items = data?.itemSales?.length ? data.itemSales : itemSalesSeed;
+  const items = data.itemSales;
   const cats = ["All", ...new Set(items.map(i => i.category))];
   const filtered = cat === "All" ? items : items.filter(i => i.category === cat);
   const totalAmt = items.reduce((s, i) => s + i.amount, 0);
@@ -336,8 +331,9 @@ function ItemSalesReport({ outlet, date, data }) {
 }
 
 // ── 3. GST Report ────────────────────────────────────────────────────────────
-function GSTReport({ outlet, data }) {
-  const d = (data?.gst?.summary?.totalBills > 0 ? data.gst : null) || gstSeed;
+function GSTReport({ outlet, date, data }) {
+  if (!data?.gst?.summary?.totalBills) return <NoDataState date={date || data?.gst?.month || ""} />;
+  const d = data.gst;
 
   const exportFilename = `GST_${d.month.replace(" ", "_")}`;
   const exportHeaders  = ["Date", "Bills", "Taxable Amount", "CGST", "SGST", "Total GST"];
@@ -390,8 +386,8 @@ function GSTReport({ outlet, data }) {
 
 // ── 4. Payment Report ────────────────────────────────────────────────────────
 function PaymentReport({ outlet, date, data }) {
-  if (data && !data.payment?.summary?.totalCollected) return <NoDataState date={date} />;
-  const d = (data?.payment?.summary?.totalCollected > 0 ? data.payment : null) || paymentSeed;
+  if (!data?.payment?.summary?.totalCollected) return <NoDataState date={date} />;
+  const d = data.payment;
   const maxHourly = Math.max(...d.hourly.map(h => h.total));
 
   const exportHeaders = ["Outlet", "Cash", "UPI", "Card", "Swiggy", "Zomato", "Total", "Variance"];
@@ -481,7 +477,8 @@ function PaymentReport({ outlet, date, data }) {
 
 // ── 5. Discount & Void Report ────────────────────────────────────────────────
 function DiscountVoidReport({ date, data }) {
-  const d = data?.discountVoid || discountVoidSeed;
+  if (!data?.discountVoid) return <NoDataState date={date} />;
+  const d = data.discountVoid;
 
   const exportHeaders = ["Bill", "Outlet", "Cashier", "Type", "Amount", "Approved By", "Time"];
   const exportRows    = d.discountLog.map(r => [r.bill, r.outlet, r.cashier, r.type, r.amount, r.approved, r.time]);
@@ -533,8 +530,8 @@ function DiscountVoidReport({ date, data }) {
 
 // ── 6. Staff Sales Report ────────────────────────────────────────────────────
 function StaffSalesReport({ date, data }) {
-  if (data && !data.staffSales?.length) return <NoDataState date={date} />;
-  const d = (data?.staffSales?.length ? data.staffSales : null) || staffSalesSeed;
+  if (!data?.staffSales?.length) return <NoDataState date={date} />;
+  const d = data.staffSales;
 
   const exportHeaders = ["Cashier", "Outlet", "Session", "Orders", "Sales", "Discounts", "Voids", "Opening Cash", "Closing Cash", "Variance"];
   const exportRows    = d.map(r => [r.cashier, r.outlet, r.session, r.orders, r.sales, r.discounts, r.voids, r.openingCash, r.closingCash, r.variance]);
@@ -690,76 +687,24 @@ function CaptainIncentivesReport({ date, data }) {
   );
 }
 
-// ── Email Trigger ────────────────────────────────────────────────────────────
-const EMAIL_KEY = "pos_report_email_settings";
-function loadEmail() {
-  try { return JSON.parse(localStorage.getItem(EMAIL_KEY) || "null") || { email: "", time: "23:00", frequency: "daily", reports: ["day-end"] }; }
-  catch { return { email: "", time: "23:00", frequency: "daily", reports: ["day-end"] }; }
-}
-
+// ── Email Status Panel ───────────────────────────────────────────────────────
 function EmailTrigger() {
-  const [cfg, setCfg] = useState(loadEmail);
-  const [saved, setSaved] = useState(false);
-
-  function save() {
-    localStorage.setItem(EMAIL_KEY, JSON.stringify(cfg));
-    setSaved(true); setTimeout(() => setSaved(false), 2500);
-  }
-
-  const REPORT_OPTIONS = [
-    { key: "day-end",   label: "Day End Summary"  },
-    { key: "item-sales", label: "Item Sales"       },
-    { key: "gst",        label: "GST Report"       },
-    { key: "payments",   label: "Payment Report"   },
-    { key: "discounts",  label: "Discount & Void"  },
-    { key: "staff",      label: "Staff Sales"      }
-  ];
-
-  function toggleReport(key) {
-    const next = cfg.reports.includes(key)
-      ? cfg.reports.filter(r => r !== key)
-      : [...cfg.reports, key];
-    setCfg(c => ({ ...c, reports: next }));
-  }
-
   return (
     <div className="rpt-email-panel panel">
-      <SectionHead title="Email Report Trigger" eyebrow="Auto-send to owner" />
-      <p className="rpt-email-note">
-        Selected reports are emailed automatically to the owner at the scheduled time.
-        Use this for end-of-day summaries and weekly GST exports.
-      </p>
-      <div className="rpt-email-form">
-        <label>Owner Email
-          <input type="email" placeholder="owner@restaurant.com" value={cfg.email}
-            onChange={e => setCfg(c => ({ ...c, email: e.target.value }))} />
-        </label>
-        <label>Send Time
-          <input type="time" value={cfg.time}
-            onChange={e => setCfg(c => ({ ...c, time: e.target.value }))} />
-        </label>
-        <label>Frequency
-          <select value={cfg.frequency} onChange={e => setCfg(c => ({ ...c, frequency: e.target.value }))}>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly (Monday)</option>
-            <option value="monthly">Monthly (1st)</option>
-          </select>
-        </label>
-        <div className="rpt-email-reports">
-          <span className="rpt-email-reports-label">Reports to include</span>
-          <div className="rpt-email-checkboxes">
-            {REPORT_OPTIONS.map(r => (
-              <label key={r.key} className="rpt-email-check">
-                <input type="checkbox" checked={cfg.reports.includes(r.key)}
-                  onChange={() => toggleReport(r.key)} />
-                {r.label}
-              </label>
-            ))}
-          </div>
+      <SectionHead title="Automatic Email Reports" eyebrow="Daily delivery" />
+      <div className="rpt-email-status-card">
+        <div className="rpt-email-status-icon">✅</div>
+        <div className="rpt-email-status-body">
+          <strong>Daily reports are sent automatically</strong>
+          <p>
+            The system emails a Day End Sales Summary to the owner email address on your{" "}
+            <a href="/business-profile">Business Profile</a> every night at <strong>11:00 PM IST</strong>.
+            No configuration is required — it runs automatically once sales data is available.
+          </p>
+          <p className="rpt-email-status-hint">
+            To change the delivery email, update the <strong>Email</strong> field in Business Profile and save.
+          </p>
         </div>
-        <button className="primary-btn" onClick={save}>
-          {saved ? "✓ Saved" : "Save Email Settings"}
-        </button>
       </div>
     </div>
   );
@@ -767,11 +712,8 @@ function EmailTrigger() {
 
 // ── 7. Category-wise Report ──────────────────────────────────────────────────
 function CategoryReport({ date, data }) {
-  if (data && !data.categorySales?.categories?.length) return <NoDataState date={date} />;
-  // Use live backend data when available; fall back to seed (all-zero) otherwise.
-  // Categories are grouped by item.station on the backend — "General" when unset.
-  const d = (data?.categorySales?.categories?.length ? data.categorySales : null)
-            || categorySalesSeed;
+  if (!data?.categorySales?.categories?.length) return <NoDataState date={date} />;
+  const d = data.categorySales;
   const [expanded, setExpanded] = useState(null);
   const [view, setView]         = useState("revenue"); // revenue | qty | orders
   const totalAmt   = d.categories.reduce((s, c) => s + c.amount, 0);
@@ -1982,7 +1924,7 @@ export function ReportsPage() {
       {active === "day-end"    && <DayEndSummary  outlet={selectedOutletName} date={`${dateFrom} – ${dateTo}`} data={salesData?.dayEnd} />}
       {active === "item-sales" && <ItemSalesReport outlet={selectedOutletName} date={`${dateFrom}_${dateTo}`}  data={salesData} />}
       {active === "category"   && <CategoryReport  date={`${dateFrom}_${dateTo}`}                              data={salesData} />}
-      {active === "gst"        && <GSTReport        outlet={selectedOutletName} month={month}                  data={salesData} />}
+      {active === "gst"        && <GSTReport        outlet={selectedOutletName} date={month} month={month}   data={salesData} />}
       {active === "payments"   && <PaymentReport    outlet={selectedOutletName} date={`${dateFrom}_${dateTo}`} data={salesData} />}
       {active === "discounts"  && <DiscountVoidReport date={`${dateFrom}_${dateTo}`}                           data={salesData} />}
       {active === "staff"      && <StaffSalesReport        date={`${dateFrom}_${dateTo}`}                            data={salesData} />}
