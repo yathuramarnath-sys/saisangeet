@@ -175,8 +175,11 @@ export function TaxesReceiptsPage() {
   const [profiles,   setProfiles]   = useState(() => load(TAX_SETTINGS_KEY + "_profiles", defaultTaxProfiles));
   const [receipt,    setReceipt]    = useState(() => load(RECEIPT_SETTINGS_KEY, defaultReceiptSettings));
   const [msg,        setMsg]        = useState("");
-  const [editProf,   setEditProf]   = useState(null);
-  const [profDraft,  setProfDraft]  = useState(null);
+  const [editProf,      setEditProf]      = useState(null);
+  const [profDraft,     setProfDraft]     = useState(null);
+  const [showNewProf,   setShowNewProf]   = useState(false);
+  const [newProfDraft,  setNewProfDraft]  = useState({ name: "", cgst: 0, sgst: 0, igst: 0, cess: 0, inclusive: false });
+  const [savingProf,    setSavingProf]    = useState(false);
   const [outletId,   setOutletId]   = useState(null);   // primary outlet (list[0])
   const [allOutletIds, setAllOutletIds] = useState([]); // ALL outlet IDs — so receipt settings apply to every outlet
   const [outletData, setOutletData] = useState(null);
@@ -263,6 +266,42 @@ export function TaxesReceiptsPage() {
   }
 
   function startEditProfile(p) { setEditProf(p.id); setProfDraft({ ...p }); }
+
+  async function handleCreateProfile() {
+    if (!newProfDraft.name.trim()) return;
+    setSavingProf(true);
+    try {
+      const created = await api.post("/tax-profiles", {
+        name:        newProfDraft.name.trim(),
+        cgstRate:    newProfDraft.cgst,
+        sgstRate:    newProfDraft.sgst,
+        igstRate:    newProfDraft.igst,
+        cessRate:    newProfDraft.cess,
+        isInclusive: newProfDraft.inclusive,
+      });
+      setProfiles(ps => [...ps, apiToProfile(created)]);
+      setShowNewProf(false);
+      setNewProfDraft({ name: "", cgst: 0, sgst: 0, igst: 0, cess: 0, inclusive: false });
+      flash(`"${created.name}" profile created.`);
+    } catch {
+      flash("⚠️ Could not create — please try again.");
+    } finally {
+      setSavingProf(false);
+    }
+  }
+
+  async function handleDeleteProfile(p) {
+    if (!window.confirm(`Delete "${p.name}" tax profile? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/tax-profiles/${p.id}`);
+      setProfiles(ps => ps.filter(x => x.id !== p.id));
+      if (editProf === p.id) setEditProf(null);
+      flash(`"${p.name}" deleted.`);
+    } catch {
+      flash("⚠️ Could not delete — please try again.");
+    }
+  }
+
   async function saveProfile() {
     try {
       const updated = await api.patch(`/tax-profiles/${profDraft.id}`, {
@@ -346,13 +385,58 @@ export function TaxesReceiptsPage() {
 
       {/* ── Tax Profiles ─────────────────────────────────────────────────── */}
       <section className="bn-panel" style={{ marginTop: 20 }}>
-        <div className="bn-header">
+        <div className="bn-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
             <p className="eyebrow">GST Slabs</p>
             <h3>Tax Profiles</h3>
             <p className="bn-desc">Standard GST rates applied to menu items. Assign profiles to items in Menu setup.</p>
           </div>
+          <button className="ghost-chip" onClick={() => { setShowNewProf(s => !s); setEditProf(null); }}>
+            {showNewProf ? "✕ Cancel" : "+ Add Profile"}
+          </button>
         </div>
+
+        {showNewProf && (
+          <div className="tax-profile-card" style={{ border: "2px solid #059669", marginBottom: 12 }}>
+            <div className="tax-form-grid">
+              <label>Profile Name
+                <input
+                  autoFocus
+                  placeholder="e.g. 5% GST"
+                  value={newProfDraft.name}
+                  onChange={e => setNewProfDraft(d => ({ ...d, name: e.target.value }))}
+                />
+              </label>
+              <label>CGST %
+                <input type="number" min="0" max="50" step="0.5" value={newProfDraft.cgst}
+                  onChange={e => setNewProfDraft(d => ({ ...d, cgst: parseFloat(e.target.value) || 0 }))} />
+              </label>
+              <label>SGST %
+                <input type="number" min="0" max="50" step="0.5" value={newProfDraft.sgst}
+                  onChange={e => setNewProfDraft(d => ({ ...d, sgst: parseFloat(e.target.value) || 0 }))} />
+              </label>
+              <label>IGST %
+                <input type="number" min="0" max="50" step="0.5" value={newProfDraft.igst}
+                  onChange={e => setNewProfDraft(d => ({ ...d, igst: parseFloat(e.target.value) || 0 }))} />
+              </label>
+              <label>Cess %
+                <input type="number" min="0" max="50" step="0.5" value={newProfDraft.cess}
+                  onChange={e => setNewProfDraft(d => ({ ...d, cess: parseFloat(e.target.value) || 0 }))} />
+              </label>
+              <label className="tax-inline-toggle">
+                <span>Tax-inclusive pricing</span>
+                <Toggle on={newProfDraft.inclusive} onChange={v => setNewProfDraft(d => ({ ...d, inclusive: v }))} />
+              </label>
+              <div className="tax-form-actions">
+                <button className="primary-btn" onClick={handleCreateProfile} disabled={savingProf || !newProfDraft.name.trim()}>
+                  {savingProf ? "Saving…" : "Create Profile"}
+                </button>
+                <button className="ghost-chip" onClick={() => setShowNewProf(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="tax-profiles-list">
           {profiles.map(p => (
             <div key={p.id} className="tax-profile-card">
@@ -391,7 +475,14 @@ export function TaxesReceiptsPage() {
                 <>
                   <div className="tax-profile-top">
                     <strong>{p.name}</strong>
-                    <button className="ghost-chip" onClick={() => startEditProfile(p)}>Edit</button>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="ghost-chip" onClick={() => startEditProfile(p)}>Edit</button>
+                      <button
+                        className="ghost-chip"
+                        style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+                        onClick={() => handleDeleteProfile(p)}
+                      >Delete</button>
+                    </div>
                   </div>
                   <div className="tax-profile-rates">
                     <span>CGST {p.cgst}%</span>

@@ -78,11 +78,13 @@ operationsRouter.post(
 operationsRouter.post(
   "/orders/:tableId/move-table",
   requireAuth,
+  requirePermission("operations.order.edit"),
   asyncHandler(moveTableHandler)
 );
 operationsRouter.post(
   "/orders/:tableId/merge-from",
   requireAuth,
+  requirePermission("operations.order.edit"),
   asyncHandler(mergeTablesHandler)
 );
 operationsRouter.post(
@@ -162,6 +164,7 @@ operationsRouter.post(
 operationsRouter.delete(
   "/orders/:tableId",
   requireAuth,
+  requirePermission("operations.order.clear"),
   asyncHandler(clearTableOrderHandler)
 );
 
@@ -170,6 +173,7 @@ operationsRouter.delete(
 operationsRouter.delete(
   "/orders",
   requireAuth,
+  requirePermission("operations.order.clear"),
   asyncHandler(clearAllOrdersHandler)
 );
 
@@ -220,14 +224,6 @@ operationsRouter.post("/reprint-log", requireAuth, asyncHandler(async (req, res)
   res.status(201).json(entry);
 }));
 
-operationsRouter.get("/action-logs", requireAuth, asyncHandler(async (req, res) => {
-  const { getActionLogs } = require("./action-log-store");
-  const tenantId = req.user?.tenantId || "default";
-  const { types, dateFrom, dateTo } = req.query;
-  const typeArr = types ? types.split(",") : [];
-  const logs = getActionLogs(tenantId, { types: typeArr, dateFrom, dateTo });
-  res.json(logs);
-}));
 
 // ── Credit sales ──────────────────────────────────────────────────────────────
 // GET  /operations/credits          — all credit orders (unpaid + paid) for this tenant

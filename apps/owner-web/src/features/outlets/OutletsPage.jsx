@@ -464,9 +464,13 @@ export function OutletsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchOutletPageData().then(result => {
-      if (!cancelled) { setPageData(result); setCreateDraft(buildCreateDraft(result)); setLoading(false); }
-    });
+    fetchOutletPageData()
+      .then(result => {
+        if (!cancelled) { setPageData(result); setCreateDraft(buildCreateDraft(result)); setLoading(false); }
+      })
+      .catch(() => {
+        if (!cancelled) { setLoading(false); setStatusError("Failed to load outlets — check your connection"); }
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -587,8 +591,12 @@ export function OutletsPage() {
     const outlet = deleteTarget;
     setDeleteTarget(null);
     if (editingOutletId === outlet.id) cancelEditingOutlet();
-    await reloadOutlets();
-    setStatusMessage(`${outlet.name} removed.`);
+    try {
+      await reloadOutlets();
+      setStatusMessage(`${outlet.name} removed.`);
+    } catch {
+      setStatusError("Failed to reload outlets after deletion — refresh the page.");
+    }
   }
 
   return (

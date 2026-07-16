@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { getFinancials } from "./OrderPanel";
 
-export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit, gstTreatment = "exclusive" }) {
+export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit, gstTreatment = "exclusive", defaultTaxRate = 0 }) {
   const seatLabels = order.seatLabels || [];
   const billable   = (order.items || []).filter(i => !i.isVoided && !i.isComp);
   const fin        = getFinancials(order, { gstTreatment });
@@ -28,7 +28,7 @@ export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit, gst
     const afterDisc   = sub - seatDisc;
     const tax         = items.reduce((s, i) => {
       const lineAfter = totalSub > 0 ? (i.price * i.quantity) * ((totalSub - discountAmt) / totalSub) : 0;
-      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
       return s + Math.round(lineAfter * rate / 100);
     }, 0);
     return { items, sub, seatDisc, afterDisc, tax, total: afterDisc + tax };
@@ -38,7 +38,8 @@ export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit, gst
 
   // ── By Equal ─────────────────────────────────────────────────────────────
   const [equalCount, setEqualCount] = useState(2);
-  const equalShare = equalCount > 0 ? Math.ceil(totalAmt / equalCount) : 0;
+  const equalShare = equalCount > 0 ? Math.floor(totalAmt / equalCount) : 0;
+  const equalRemainder = equalCount > 0 ? totalAmt - equalShare * equalCount : 0;
 
   // ── By Amount ─────────────────────────────────────────────────────────────
   const [amountRows, setAmountRows] = useState([
@@ -63,10 +64,10 @@ export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit, gst
       onConfirmSplit(splits);
       onClose();
     } else if (tab === "equal") {
-      const splits = Array.from({ length: equalCount }, (_, i) => ({
-        seatLabel: `Person ${i + 1}`, billNo: i + 1, items: [],
-        subtotal: equalShare, discount: 0, afterDiscount: equalShare, tax: 0, total: equalShare,
-      }));
+      const splits = Array.from({ length: equalCount }, (_, i) => {
+        const share = i === equalCount - 1 ? equalShare + equalRemainder : equalShare;
+        return { seatLabel: `Person ${i + 1}`, billNo: i + 1, items: [], subtotal: share, discount: 0, afterDiscount: share, tax: 0, total: share };
+      });
       onConfirmSplit(splits);
       onClose();
     } else if (tab === "amount") {
@@ -198,17 +199,20 @@ export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit, gst
             </div>
             <div className="split-equal-share">
               <p className="split-equal-label">Each person pays</p>
-              <p className="split-equal-amount">₹{equalShare}</p>
+              <p className="split-equal-amount">₹{equalShare}{equalRemainder > 0 ? ` / ₹${equalShare + equalRemainder}` : ""}</p>
             </div>
             <div className="split-persons">
-              {Array.from({ length: equalCount }, (_, i) => (
-                <div key={i} className="split-person-card">
-                  <div className="split-person-info">
-                    <span className="split-person-name">Person {i + 1}</span>
-                    <span className="split-person-share">₹{equalShare}</span>
+              {Array.from({ length: equalCount }, (_, i) => {
+                const share = i === equalCount - 1 ? equalShare + equalRemainder : equalShare;
+                return (
+                  <div key={i} className="split-person-card">
+                    <div className="split-person-info">
+                      <span className="split-person-name">Person {i + 1}</span>
+                      <span className="split-person-share">₹{share}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

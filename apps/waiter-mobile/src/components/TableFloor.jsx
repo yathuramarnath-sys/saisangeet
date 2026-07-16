@@ -97,7 +97,7 @@ const TF2_COLOR = {
 
 // Each table card is its own component so useLongPress (which calls useRef)
 // is always called at the top level — never inside a .map() loop.
-function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
+function TableCard({ table, area, orders, onSelectTable, onLongPressTable, defaultTaxRate = 0 }) {
   const st          = tableStatusOf(orders, table.id);
   // Mirror-table: when status is "next", tap opens the _next virtual slot
   const activeTableId = st === "next" ? `${table.id}_next` : table.id;
@@ -105,7 +105,7 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
   const _items      = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
   const _sub        = _items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
   const _tax        = _items.reduce((s, i) => {
-    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
     return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
   }, 0);
   const amount      = _sub + _tax;
@@ -190,7 +190,7 @@ function getHeaderTime() {
   return `${day} · ${time}`;
 }
 
-export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, loggedInStaff, isOffline }) {
+export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, loggedInStaff, isOffline, defaultTaxRate = 0 }) {
   const [activeArea, setActiveArea] = useState(null);
   const [tick, setTick] = useState(0); // triggers re-render every minute for timers
   const visible = activeArea ? areas.filter((a) => a.id === activeArea) : areas;
@@ -309,6 +309,7 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, log
                   orders={orders}
                   onSelectTable={onSelectTable}
                   onLongPressTable={onLongPressTable}
+                  defaultTaxRate={defaultTaxRate}
                 />
               ))}
             </div>

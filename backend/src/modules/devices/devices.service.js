@@ -298,7 +298,7 @@ async function resolveLinkCode(payload) {
       id:               u.id,
       name:             u.fullName || u.name,
       role:             u.roles?.[0] || "Staff",
-      pin:              u.pin || "0000",
+      pin:              u.pin || "",
       avatar:           (u.fullName || u.name || "?")[0].toUpperCase(),
       canApplyDiscount: u.canApplyDiscount === true,
     }));
@@ -386,7 +386,7 @@ async function fetchStaffForDevice(outletId) {
         id:               u.id,
         name:             u.fullName || u.name,
         role:             roleValue,
-        pin:              u.pin || "0000",
+        pin:              u.pin || "",
         avatar:           (u.fullName || u.name || "?")[0].toUpperCase(),
         canApplyDiscount: u.canApplyDiscount === true,
       };

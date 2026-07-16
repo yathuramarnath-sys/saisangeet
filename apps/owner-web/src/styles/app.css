@@ -2999,9 +2999,16 @@ body {
 .rpt-hourly-legend { display: flex; gap: 12px; margin-top: 10px; font-size: 12px; color: #666; }
 .leg-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
 
-/* Email trigger */
+/* Email status panel */
 .rpt-email-panel { max-width: 560px; }
 .rpt-email-note  { font-size: 13px; color: #777; margin: -8px 0 16px; line-height: 1.55; }
+.rpt-email-status-card { display: flex; gap: 14px; align-items: flex-start; padding: 16px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; }
+.rpt-email-status-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+.rpt-email-status-body { display: flex; flex-direction: column; gap: 6px; }
+.rpt-email-status-body strong { font-size: 14px; color: #15803d; }
+.rpt-email-status-body p { font-size: 13px; color: #374151; margin: 0; line-height: 1.55; }
+.rpt-email-status-body a { color: #1a7a3a; font-weight: 600; }
+.rpt-email-status-hint { color: #6b7280 !important; font-size: 12px !important; }
 .rpt-email-form  { display: flex; flex-direction: column; gap: 14px; }
 .rpt-email-form label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; color: #555; }
 .rpt-email-form input, .rpt-email-form select {

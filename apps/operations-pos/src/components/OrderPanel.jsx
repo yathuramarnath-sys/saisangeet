@@ -229,8 +229,8 @@ export function OrderPanel({
   const [editingQtyIdx,   setEditingQtyIdx]   = useState(null);   // index of item whose qty is being typed
   const [editingQtyVal,  setEditingQtyVal]  = useState("");     // current typed value
 
-  // Helper: does this cashier need a PIN check? (PIN set and not 0000)
-  const needsPin = cashierPin && cashierPin !== "0000";
+  // Helper: does this cashier have a PIN set?
+  const needsPin = !!cashierPin;
 
   function commitQtyEdit(idx) {
     const item = order.items?.[idx];
@@ -397,9 +397,8 @@ export function OrderPanel({
                       {!item.sentToKot && editingQtyIdx === idx ? (
                         <input
                           className="qty-edit-input"
-                          type="number"
-                          min="0"
-                          step={item.allowDecimalQty ? "0.001" : "1"}
+                          type="text"
+                          inputMode="decimal"
                           autoFocus
                           value={editingQtyVal}
                           onChange={e => setEditingQtyVal(e.target.value)}
@@ -502,7 +501,7 @@ export function OrderPanel({
           </div>
           <div className="order-total-row total">
             <span>Total</span>
-            <span>₹{fin.total}</span>
+            <span>₹{fin.total.toFixed(2)}</span>
           </div>
         </div>
       )}

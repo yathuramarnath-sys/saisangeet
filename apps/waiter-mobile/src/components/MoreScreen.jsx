@@ -4,8 +4,8 @@ import { avatarBg } from "./LoginScreen";
 import { SyncProgressModal } from "./SyncProgressModal";
 import { FindPosScreen }     from "./FindPosScreen";
 import { SettingsScreen }    from "./SettingsScreen";
+import { APP_VERSION }       from "../lib/version";
 
-const APP_VERSION = "2.0";
 const STEP_LABELS = ["Menu & prices", "Tables & sections", "Open orders", "Unsent KOTs check"];
 
 function formatSyncAge(ts) {

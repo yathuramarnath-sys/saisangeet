@@ -45,11 +45,12 @@ async function cancelHandler(req, res) {
   res.json({ ok: true, message: "Subscription will be cancelled at end of current billing period." });
 }
 
-// POST /billing/webhook  (raw body, no auth middleware)
+// POST /webhooks/billing/webhook  (raw body, no auth middleware)
+// req.body is a Buffer from express.raw() — pass directly for HMAC verification.
 async function webhookHandler(req, res) {
   const signature = req.headers["x-razorpay-signature"] || "";
   try {
-    const result = await handleWebhook(req.rawBody, signature);
+    const result = await handleWebhook(req.body, signature);
     res.json(result);
   } catch (err) {
     console.error("[billing] webhook error:", err.message);

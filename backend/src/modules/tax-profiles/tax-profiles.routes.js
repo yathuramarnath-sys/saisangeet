@@ -7,6 +7,7 @@ const {
   listTaxProfilesHandler,
   createTaxProfileHandler,
   updateTaxProfileHandler,
+  deleteTaxProfileHandler,
 } = require("./tax-profiles.controller");
 
 const taxProfilesRouter = express.Router();
@@ -23,6 +24,12 @@ taxProfilesRouter.patch(
   requireAuth,
   requirePermission("tax.manage"),
   asyncHandler(updateTaxProfileHandler)
+);
+taxProfilesRouter.delete(
+  "/:id",
+  requireAuth,
+  requirePermission("tax.manage"),
+  asyncHandler(deleteTaxProfileHandler)
 );
 
 module.exports = {

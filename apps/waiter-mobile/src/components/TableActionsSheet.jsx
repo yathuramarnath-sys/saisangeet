@@ -1,7 +1,7 @@
 import { tapImpact } from "../lib/haptics";
 
 export function TableActionsSheet({
-  tableNumber, areaName, order,
+  tableNumber, areaName, order, defaultTaxRate = 0,
   onClose, onMoveTable, onPrintBill, onMarkFree, onSplitBill,
   // kept for API compatibility but not rendered in this design:
   onMerge, onCustomerInfo, onEditOrder, onSendKOT,
@@ -12,7 +12,7 @@ export function TableActionsSheet({
 
   const subtotal = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
   const tax      = billable.reduce((s, i) => {
-    const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
     return s + Math.round((i.price || 0) * (i.quantity || 0) * r / 100);
   }, 0);
   const total = subtotal + tax;

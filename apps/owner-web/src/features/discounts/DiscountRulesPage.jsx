@@ -92,13 +92,13 @@ export function DiscountRulesPage() {
         name:             form.name.trim(),
         discountType:     form.discountType,
         value:            Number(form.value),
-        discountScope:    "order",
+        discountScope:    form.discountScope,
         notes:            form.notes.trim(),
         isActive:         true,
         outletScope:      form.outletScope,
-        appliesToRole:    "All Billing Roles",
-        requiresApproval: false,
-        timeWindow:       "Always on",
+        appliesToRole:    form.appliesToRole,
+        requiresApproval: form.requiresApproval,
+        timeWindow:       form.timeWindow,
       };
       const newRule = await api.post("/settings/discounts", payload);
       setRules(prev => [newRule, ...prev]);

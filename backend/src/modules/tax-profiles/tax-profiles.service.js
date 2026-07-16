@@ -53,8 +53,19 @@ async function updateTaxProfile(id, payload) {
   return updatedProfile || null;
 }
 
+async function deleteTaxProfile(id) {
+  let deleted = false;
+  await updateOwnerSetupDataNow((current) => {
+    const next = current.taxProfiles.filter(tp => tp.id !== id);
+    deleted = next.length < current.taxProfiles.length;
+    return { ...current, taxProfiles: next };
+  });
+  return deleted;
+}
+
 module.exports = {
   fetchTaxProfiles,
   createTaxProfile,
   updateTaxProfile,
+  deleteTaxProfile,
 };

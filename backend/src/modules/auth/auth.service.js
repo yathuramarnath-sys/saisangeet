@@ -112,7 +112,7 @@ async function signup({ fullName, email, phone, password, businessName }) {
       roles: ["Owner"],
       outletName: "All Outlets",
       isActive: true,
-      pin: "0000"
+      pin: String(Math.floor(1000 + Math.random() * 9000))
     };
 
     if (ownerIndex >= 0) {

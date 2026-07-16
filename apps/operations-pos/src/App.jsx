@@ -364,6 +364,8 @@ export default function App() {
   const autoCounterOpenedRef = useRef(false);
   // Tracks socket connection state for reconnect-resync logic
   const socketConnRef = useRef("connecting"); // "connecting" | "live" | "offline"
+  // Tracks whether any modal is open — barcode scanner is suppressed when true
+  const modalOpenRef = useRef(false);
   const [serverConn,  setServerConn]  = useState("connecting"); // for UI banner
   const [localConn,   setLocalConn]   = useState(false);        // local WiFi server status
 
@@ -415,6 +417,23 @@ export default function App() {
     const s = localStorage.getItem("pos_last_synced");
     return s ? new Date(s) : null;
   });
+
+  // Keep modalOpenRef in sync so the barcode listener (closure) can read it without stale state
+  useEffect(() => {
+    modalOpenRef.current = !!(
+      showPayment || showSplitBill || showCashIn || showCashOut || showCloseShift ||
+      showDayEnd || showCustomerForm || showSettings || showPastOrders || showHeldOrders ||
+      showLabelPrint || showBatchLabel || showCreditPanel || showOnlineOrders ||
+      showPhonePeQR || showWastage || showStock || showWaitlist || showAdvancePanel ||
+      showWhatsNew
+    );
+  }, [
+    showPayment, showSplitBill, showCashIn, showCashOut, showCloseShift,
+    showDayEnd, showCustomerForm, showSettings, showPastOrders, showHeldOrders,
+    showLabelPrint, showBatchLabel, showCreditPanel, showOnlineOrders,
+    showPhonePeQR, showWastage, showStock, showWaitlist, showAdvancePanel,
+    showWhatsNew,
+  ]);
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1366,6 +1385,8 @@ export default function App() {
       // Skip if focus is inside a text input / textarea / select
       const tag = document.activeElement?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
+      // Skip if any modal is open — scanner should not add items behind a dialog
+      if (modalOpenRef.current) return;
 
       if (e.key === "Enter") {
         if (scanLocked) { resetBuffer(); return; }  // duplicate Enter from scanner — ignore
@@ -1875,6 +1896,9 @@ export default function App() {
     }
 
     // ── 4. Return to table view after KOT sent ────────────────────────────
+    // Reset the counter auto-open guard so the next render opens a fresh ticket
+    // when in counter/takeaway/delivery mode (prevents blank screen after KOT).
+    autoCounterOpenedRef.current = false;
     setSelectedTableId(null);
   }
 
@@ -2412,15 +2436,21 @@ export default function App() {
     const fakeTable = { id: ticketId, number: onlineOrder.orderId };
     const orderNum  = Math.max(10050, ...Object.values(orders).map(o => o.orderNumber || 10050)) + 1;
 
-    const posItems = onlineOrder.items.map((item, i) => ({
-      id:         `item-${Date.now()}-${i}`,
-      menuItemId: `online-${i}`,
-      name:       item.name,
-      price:      item.price,
-      quantity:   item.quantity,
-      sentToKot:  true,   // auto-sent
-      note:       onlineOrder.notes || ""
-    }));
+    const posItems = onlineOrder.items.map((item, i) => {
+      const matched = menuItems.find(m =>
+        m.name?.toLowerCase().trim() === item.name?.toLowerCase().trim()
+      );
+      return {
+        id:         `item-${Date.now()}-${i}`,
+        menuItemId: matched?.id || `online-${i}`,
+        name:       item.name,
+        price:      item.price,
+        quantity:   item.quantity,
+        taxRate:    matched?.taxRate ?? (outlet?.defaultTaxRate ?? 0),
+        sentToKot:  true,   // auto-sent
+        note:       onlineOrder.notes || ""
+      };
+    });
 
     const newOrder = {
       ...buildBlankOrder(fakeTable, area, outlet?.name || "Outlet", orderNum),
@@ -3425,6 +3455,7 @@ export default function App() {
           onClose={() => setShowSplitBill(false)}
           onConfirmSplit={handleConfirmSplit}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
+          defaultTaxRate={outlet?.defaultTaxRate ?? 0}
         />
       )}
 

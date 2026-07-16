@@ -178,7 +178,7 @@ async function createMenuCategory(payload) {
     availableTo: payload.availableTo || "",
     station: payload.station || "",
     printerTarget: payload.printerTarget || "",
-    displayTarget: payload.displayTarget || "Hot Kitchen Display",
+    displayTarget: payload.displayTarget || "",
     // Areas this category is sold in — empty array = all areas (no restriction)
     areaAvailability: payload.areaAvailability || [],
     // Branches this category is assigned to — empty array = all branches (no restriction)

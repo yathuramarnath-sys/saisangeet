@@ -64,12 +64,12 @@ jobs:
             -destkeystore /tmp/dinex-captain.jks \
             -deststoretype PKCS12 \
             -J-Dkeystore.pkcs12.legacy \
-            -srcstorepass "Dinex@123" \
-            -deststorepass "Dinex@123" \
+            -srcstorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -deststorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
             -srcalias dinex \
             -destalias dinex \
-            -srckeypass "Dinex@123" \
-            -destkeypass "Dinex@123" \
+            -srckeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -destkeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
             -noprompt
 
       - name: Write local.properties
@@ -83,9 +83,9 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon
         env:
           KEYSTORE_PATH: /tmp/dinex-captain.jks
-          KEYSTORE_PASSWORD: Dinex@123
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: dinex
-          KEY_PASSWORD: Dinex@123
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
 
       - name: Rename APK
         run: |
@@ -152,26 +152,47 @@ jobs:
         working-directory: apps/owner-mobile
         run: ./node_modules/.bin/cap sync android
 
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.OWNER_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-owner-orig.jks
+          keytool -importkeystore \
+            -srckeystore /tmp/dinex-owner-orig.jks \
+            -destkeystore /tmp/dinex-owner.jks \
+            -deststoretype PKCS12 \
+            -J-Dkeystore.pkcs12.legacy \
+            -srcstorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -deststorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -srcalias dinex \
+            -destalias dinex \
+            -srckeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -destkeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -noprompt
+
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > apps/owner-mobile/android/local.properties
 
       - name: Remove local Java path from gradle.properties
         run: sed -i '/org.gradle.java.home/d' apps/owner-mobile/android/gradle.properties
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: apps/owner-mobile/android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleRelease --no-daemon
+        env:
+          KEYSTORE_FILE: /tmp/dinex-owner.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: dinex
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
 
       - name: Rename APK
         run: |
-          mv apps/owner-mobile/android/app/build/outputs/apk/debug/app-debug.apk \
-             apps/owner-mobile/android/app/build/outputs/apk/debug/plato-owner.apk
+          mv apps/owner-mobile/android/app/build/outputs/apk/release/app-release.apk \
+             apps/owner-mobile/android/app/build/outputs/apk/release/plato-owner.apk
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: plato-owner-apk
-          path: apps/owner-mobile/android/app/build/outputs/apk/debug/plato-owner.apk
+          path: apps/owner-mobile/android/app/build/outputs/apk/release/plato-owner.apk
           retention-days: 30
 
       - name: Upload to latest GitHub Release
@@ -181,7 +202,7 @@ jobs:
         run: |
           LATEST_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName' --repo ${{ github.repository }})
           gh release upload "$LATEST_TAG" \
-            "apps/owner-mobile/android/app/build/outputs/apk/debug/plato-owner.apk" \
+            "apps/owner-mobile/android/app/build/outputs/apk/release/plato-owner.apk" \
             --repo ${{ github.repository }} --clobber
 
   build-kds-android:
@@ -235,12 +256,12 @@ jobs:
             -destkeystore /tmp/dinex-kds.jks \
             -deststoretype PKCS12 \
             -J-Dkeystore.pkcs12.legacy \
-            -srcstorepass "Dinex@123" \
-            -deststorepass "Dinex@123" \
+            -srcstorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -deststorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
             -srcalias dinex \
             -destalias dinex \
-            -srckeypass "Dinex@123" \
-            -destkeypass "Dinex@123" \
+            -srckeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -destkeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
             -noprompt
 
       - name: Write local.properties
@@ -254,9 +275,9 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon
         env:
           KEYSTORE_PATH: /tmp/dinex-kds.jks
-          KEYSTORE_PASSWORD: Dinex@123
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: dinex
-          KEY_PASSWORD: Dinex@123
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
 
       - name: Rename APK
         run: |

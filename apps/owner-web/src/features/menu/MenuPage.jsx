@@ -1150,14 +1150,24 @@ export function MenuPage() {
     }));
   }
 
-  function toggleSalesAvailability(itemId) {
-    updateMenuControls((current) => ({
-      ...current,
-      [itemId]: {
-        ...(current[itemId] || {}),
-        salesAvailability: current[itemId]?.salesAvailability === "Sold Out" ? "Available" : "Sold Out"
-      }
+  async function toggleSalesAvailability(itemId) {
+    const item = menuData.items.find(i => i.id === itemId);
+    if (!item) return;
+    const next = item.salesAvailability === "Sold Out" ? "Available" : "Sold Out";
+    // Optimistic update
+    setMenuData(prev => ({
+      ...prev,
+      items: prev.items.map(i => i.id === itemId ? { ...i, salesAvailability: next } : i)
     }));
+    try {
+      await api.patch(`/menu/items/${itemId}`, { salesAvailability: next });
+    } catch {
+      // Revert on failure
+      setMenuData(prev => ({
+        ...prev,
+        items: prev.items.map(i => i.id === itemId ? { ...i, salesAvailability: item.salesAvailability } : i)
+      }));
+    }
   }
 
   function toggleOutletAvailability(itemId, outletName) {

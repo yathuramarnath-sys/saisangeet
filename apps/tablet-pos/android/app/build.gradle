@@ -18,10 +18,12 @@ android {
     }
     signingConfigs {
         release {
-            storeFile     file(System.getProperty("user.home") + "/Desktop/dinex-tablet-pos.jks")
-            storePassword "Dinex@123"
-            keyAlias      "dinex"
-            keyPassword   "Dinex@123"
+            def ksPath = System.getenv("KEYSTORE_PATH") ?: (System.getProperty("user.home") + "/Desktop/dinex-tablet-pos.jks")
+            storeFile     file(ksPath)
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias      System.getenv("KEY_ALIAS") ?: "dinex"
+            keyPassword   System.getenv("KEY_PASSWORD") ?: ""
+            storeType     "PKCS12"
         }
     }
     buildTypes {
