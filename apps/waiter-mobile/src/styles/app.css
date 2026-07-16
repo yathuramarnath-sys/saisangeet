@@ -9122,60 +9122,30 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .ss3-mono           { font-size: 0.8rem; font-weight: 600; }
 .ss3-info-connected { font-size: 0.9rem; font-weight: 700; }
 
-/* ── Coloured table cards (Feature 4) ──────────────────────────────────────
-   Occupied states get a solid colour background so captains can read the
-   floor at a glance.  Free tables remain white.  All text inside flips to
-   white / semi-transparent white for legibility.
+/* ── Coloured table number badge (Feature 4) ────────────────────────────────
+   Card stays white. Only the table-number box gets the status colour so
+   captains can read the floor at a glance without the full card washing out.
    ─────────────────────────────────────────────────────────────────────── */
-.tf2-card[data-st="running"]  { background: #FF6600; border-color: #FF6600; box-shadow: 0 2px 10px rgba(255,102,0,0.25); }
-.tf2-card[data-st="ordering"] { background: #E07A1F; border-color: #E07A1F; box-shadow: 0 2px 10px rgba(224,122,31,0.25); }
-.tf2-card[data-st="bill"]     { background: #3B82F6; border-color: #3B82F6; box-shadow: 0 2px 10px rgba(59,130,246,0.25); }
-.tf2-card[data-st="hold"]     { background: #F59E0B; border-color: #F59E0B; box-shadow: 0 2px 10px rgba(245,158,11,0.25); }
-.tf2-card[data-st="danger"]   { background: #EF4444; border-color: #EF4444; box-shadow: 0 2px 10px rgba(239,68,68,0.25); }
 
-/* Table number — white on coloured cards */
-.tf2-card[data-st="running"]  .tf2-table-num,
-.tf2-card[data-st="ordering"] .tf2-table-num,
-.tf2-card[data-st="bill"]     .tf2-table-num,
-.tf2-card[data-st="hold"]     .tf2-table-num,
-.tf2-card[data-st="danger"]   .tf2-table-num { color: rgba(255,255,255,0.95); }
+/* Badge shape — all tables get the pill, free = green tint */
+.tf2-table-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  padding: 0 6px;
+  background: #DCF3E2;
+  color: #0C831F;
+}
 
-/* Status dot row (dot + label text) */
-.tf2-card[data-st="running"]  .tf2-status-dot-row,
-.tf2-card[data-st="ordering"] .tf2-status-dot-row,
-.tf2-card[data-st="bill"]     .tf2-status-dot-row,
-.tf2-card[data-st="hold"]     .tf2-status-dot-row,
-.tf2-card[data-st="danger"]   .tf2-status-dot-row { color: rgba(255,255,255,0.92); }
-
-.tf2-card[data-st="running"]  .tf2-status-dot,
-.tf2-card[data-st="ordering"] .tf2-status-dot,
-.tf2-card[data-st="bill"]     .tf2-status-dot,
-.tf2-card[data-st="hold"]     .tf2-status-dot,
-.tf2-card[data-st="danger"]   .tf2-status-dot { background: rgba(255,255,255,0.65) !important; }
-
-/* Bill tag on blue card */
-.tf2-card[data-st="bill"] .tf2-bill-tag { background: rgba(255,255,255,0.22); color: #fff; }
-
-/* Guests / time text */
-.tf2-card[data-st="running"]  .tf2-guests-time,
-.tf2-card[data-st="ordering"] .tf2-guests-time,
-.tf2-card[data-st="bill"]     .tf2-guests-time,
-.tf2-card[data-st="hold"]     .tf2-guests-time,
-.tf2-card[data-st="danger"]   .tf2-guests-time { color: rgba(255,255,255,0.72); }
-
-/* Amount / seats text */
-.tf2-card[data-st="running"]  .tf2-bottom-text,
-.tf2-card[data-st="ordering"] .tf2-bottom-text,
-.tf2-card[data-st="bill"]     .tf2-bottom-text,
-.tf2-card[data-st="hold"]     .tf2-bottom-text,
-.tf2-card[data-st="danger"]   .tf2-bottom-text { color: rgba(255,255,255,0.95); }
-
-/* Chevron arrow */
-.tf2-card[data-st="running"]  .tf2-chevron,
-.tf2-card[data-st="ordering"] .tf2-chevron,
-.tf2-card[data-st="bill"]     .tf2-chevron,
-.tf2-card[data-st="hold"]     .tf2-chevron,
-.tf2-card[data-st="danger"]   .tf2-chevron { color: rgba(255,255,255,0.45); }
+/* Occupied-state badge colours */
+.tf2-card[data-st="running"]  .tf2-table-num { background: #FF6600; color: #fff; }
+.tf2-card[data-st="ordering"] .tf2-table-num { background: #E07A1F; color: #fff; }
+.tf2-card[data-st="bill"]     .tf2-table-num { background: #3B82F6; color: #fff; }
+.tf2-card[data-st="hold"]     .tf2-table-num { background: #9CA3AF; color: #fff; }
+.tf2-card[data-st="danger"]   .tf2-table-num { background: #EF4444; color: #fff; }
 
 /* ── KOT history tab pills (Feature 1) ─────────────────────────────────────── */
 .fkot2-tabs {
