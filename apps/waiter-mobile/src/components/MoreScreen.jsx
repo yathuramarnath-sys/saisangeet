@@ -18,7 +18,7 @@ function formatSyncAge(ts) {
 
 export function MoreScreen({
   loggedInStaff, outletName, serverId, localPosIp, deviceIp,
-  serverUrl, updateInfo, orders = {}, tableAreas = [], onSync, onSignOut,
+  serverUrl, updateInfo, orders = {}, billAlerts = {}, tableAreas = [], onSync, onSignOut,
 }) {
   const [sub,        setSub]        = useState(null); // null | 'findPos' | 'settings'
   const [syncSteps,  setSyncSteps]  = useState(null); // null | array while syncing
@@ -95,7 +95,7 @@ export function MoreScreen({
         {(() => {
           const allTables = tableAreas.flatMap(a => (a.tables || []).map(t => ({ ...t, areaName: a.name })));
           const pendingBills = allTables.filter(t => {
-            const o = orders[t.id];
+            const o = orders[t.id] || billAlerts[t.id];
             return o && o.billRequested && !o.isClosed &&
                    (o.items || []).some(i => !i.isVoided && !i.isComp);
           });
@@ -108,7 +108,7 @@ export function MoreScreen({
               </div>
               <div className="more2-card more2-pending-card">
                 {pendingBills.map((t, idx) => {
-                  const o = orders[t.id];
+                  const o = orders[t.id] || billAlerts[t.id];
                   const billable = (o.items || []).filter(i => !i.isVoided && !i.isComp);
                   const sub = billable.reduce((s, i) => s + i.price * i.quantity, 0);
                   const elapsedMs = o.billRequestedAt ? Date.now() - new Date(o.billRequestedAt).getTime() : null;

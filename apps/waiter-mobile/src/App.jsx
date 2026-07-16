@@ -125,6 +125,7 @@ export function App() {
     try { return JSON.parse(localStorage.getItem("captain_kitchen_stations") || "[]"); } catch { return []; }
   });
   const [orders,          setOrders]          = useState({});
+  const [billAlerts,      setBillAlerts]      = useState({});
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [selectedArea,    setSelectedArea]    = useState(null);
   const [outlet,          setOutlet]          = useState(null);
@@ -307,13 +308,28 @@ export function App() {
         socket.on("disconnect",    () => { wasOffline = true; setSocketConnected(false); });
         socket.on("connect_error", () => { wasOffline = true; setSocketConnected(false); });
 
-        socket.on("order:updated", (o) => setOrders((p) => {
+        socket.on("order:updated", (o) => {
+          // Track bill-requested orders for More screen (all tables, regardless of local state)
+          setBillAlerts((prev) => {
+            if (o.isClosed || !o.billRequested) {
+              if (!prev[o.tableId]) return prev;
+              const { [o.tableId]: _, ...rest } = prev;
+              return rest;
+            }
+            return { ...prev, [o.tableId]: o };
+          });
+
+          setOrders((p) => {
           // Block all socket updates while a KOT request is in flight for this table.
           // Prevents the server's markKotSent broadcast (which has a higher server-clock
           // timestamp) from overwriting the captain's optimistic state before the HTTP
           // response arrives with the properly reconciled order.
           if (kotInFlightRef.current.has(o.tableId)) return p;
           if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
+
+          // Don't add bill-requested tables to the floor if the captain hasn't served them.
+          // This prevents "Bill ready" appearing for tables outside the captain's local state.
+          if (o.billRequested && !p[o.tableId]) return p;
 
           if (!o.items?.length || o.isClosed) {
             // Protect a live order: if captain already has active items on this table,
@@ -340,7 +356,8 @@ export function App() {
             }
           }
           return { ...p, [o.tableId]: merged };
-        }));
+          });
+        });
 
         socket.on("kot:sent", ({ tableId }) =>
           setOrders((p) => {
@@ -1857,6 +1874,7 @@ export function App() {
             serverUrl={(import.meta.env.VITE_API_BASE_URL || "").replace("/api/v1", "")}
             updateInfo={updateInfo}
             orders={orders}
+            billAlerts={billAlerts}
             tableAreas={areas}
             onSync={handleSync}
             onSignOut={() => setShowLogout(true)}
