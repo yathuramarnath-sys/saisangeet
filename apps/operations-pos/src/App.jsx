@@ -834,6 +834,12 @@ export default function App() {
             if (current && !updatedOrder.isClosed &&
                 new Date(current.updatedAt || 0).getTime() -
                   new Date(updatedOrder.updatedAt || 0).getTime() > 30_000) return prev;
+            // Mirror-table guard: same as cloud socket — keep pending bill visible
+            if (
+              current && current.billRequested && !current.isClosed &&
+              current.orderNumber != null && updatedOrder.orderNumber != null &&
+              updatedOrder.orderNumber !== current.orderNumber
+            ) return prev;
             const next = { ...prev, [updatedOrder.tableId]: updatedOrder };
             saveOrdersToStorage(next);
             return next;
