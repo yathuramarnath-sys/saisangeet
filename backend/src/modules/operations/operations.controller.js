@@ -731,7 +731,19 @@ async function deviceGetOrCreateOrderHandler(req, res) {
   if (!tableId) {
     return res.status(400).json({ error: "tableId query parameter is required" });
   }
-  const result = await getOrCreateOrderForTable(tableId);
+  let result = await getOrCreateOrderForTable(tableId);
+
+  // Mirror-table auto-advance: if the current order is pending settlement
+  // (billRequested:true and has active items) and captain is opening the table,
+  // advance to a fresh empty slot so they get a clean slate for the next customer.
+  // This replaces the speculative advance that was previously called from handlePrintBill
+  // — that approach wiped the 2nd order's items before the 1st was settled.
+  const hasActiveItems = (result.items || []).some(i => !i.isVoided && !i.isGhostVoid);
+  if (result.billRequested && !result.isClosed && hasActiveItems) {
+    await clearTableAfterSettle(tableId);
+    result = await getOrder(tableId);
+  }
+
   res.json(result);
 }
 

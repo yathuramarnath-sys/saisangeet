@@ -1345,17 +1345,22 @@ export function App() {
     // Mark billRequested: true — table turns blue on POS floor plan.
     // hasNextOrder: true signals POS to show "+NEW" badge while bill awaits payment.
     handleUpdateOrder({ ...printOrder, billRequested: true, hasNextOrder: true });
-    api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid }).catch(() => {});
     toast("Printing bill…", { icon: "🖨️" });
 
-    // Mirror-table: advance the backend slot to a fresh empty order so the next
-    // customer can be seated on the same physical table immediately.
-    // POS keeps showing the old bill (billRequested:true) for cashier settlement;
-    // captain's local slot is cleared so the table shows as "free" on the floor plan.
-    api.post("/operations/order/advance", {
-      outletId: outlet?.id || branchConfig?.outletId,
-      tableId:  tid,
-    }).catch(err => console.warn("[captain] advance-table failed:", err.message));
+    // Await bill-request so the backend marks this order billRequested:true before
+    // we clear the captain's local slot.  When captain opens the table again,
+    // deviceGetOrCreateOrderHandler auto-advances to a fresh empty order on-demand
+    // (sees billRequested:true + items → creates Order 2).  This way Order 2 stays
+    // in backend memory until it is actually settled — not wiped by a speculative
+    // advance called at print time.
+    try {
+      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid });
+    } catch (err) {
+      console.warn("[captain] bill-request failed:", err.message);
+    }
+
+    // Remove table from captain's local state — floor plan shows it as free so
+    // captain can seat the next customer without waiting for cashier settlement.
     setOrders(prev => {
       const { [tid]: _, ...rest } = prev;
       return rest;
