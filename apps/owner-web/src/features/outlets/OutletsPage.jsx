@@ -464,9 +464,13 @@ export function OutletsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchOutletPageData().then(result => {
-      if (!cancelled) { setPageData(result); setCreateDraft(buildCreateDraft(result)); setLoading(false); }
-    });
+    fetchOutletPageData()
+      .then(result => {
+        if (!cancelled) { setPageData(result); setCreateDraft(buildCreateDraft(result)); setLoading(false); }
+      })
+      .catch(() => {
+        if (!cancelled) { setLoading(false); setStatusError("Failed to load outlets — check your connection"); }
+      });
     return () => { cancelled = true; };
   }, []);
 

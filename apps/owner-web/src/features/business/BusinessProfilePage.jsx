@@ -162,18 +162,21 @@ export function BusinessProfilePage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    const result = await saveBusinessProfile({ ...profile, menuFieldSettings });
-    setProfile({ ...emptyProfile, ...result });
-    if (result.menuFieldSettings) {
-      setMenuFieldSettings({ ...DEFAULT_FIELD_SETTINGS, ...result.menuFieldSettings });
-    }
-    setStatusMessage("Business profile saved.");
-    // Only update restaurant display name — never auto-submit slugDraft here
-    const name = profile.tradeName || profile.legalName;
-    if (name && currentSlug) {
-      // Restaurant name update only — slug stays unchanged
-      api.patch("/business-profile/subdomain", { subdomain: currentSlug, restaurantName: name })
-        .catch(() => {});
+    try {
+      const result = await saveBusinessProfile({ ...profile, menuFieldSettings });
+      setProfile({ ...emptyProfile, ...result });
+      if (result.menuFieldSettings) {
+        setMenuFieldSettings({ ...DEFAULT_FIELD_SETTINGS, ...result.menuFieldSettings });
+      }
+      setStatusMessage("Business profile saved.");
+      // Only update restaurant display name — never auto-submit slugDraft here
+      const name = profile.tradeName || profile.legalName;
+      if (name && currentSlug) {
+        api.patch("/business-profile/subdomain", { subdomain: currentSlug, restaurantName: name })
+          .catch(() => {});
+      }
+    } catch (err) {
+      setStatusMessage(`Failed to save: ${err?.message || "check your connection"}`);
     }
   }
 
