@@ -143,7 +143,7 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable }) {
   const bottomSeats  = st === "open" && table.seats > 0 ? `${table.seats} seats` : null;
 
   return (
-    <button className="tf2-card" {...pressHandlers}>
+    <button className="tf2-card" data-st={isNoOrderAlert ? "danger" : displaySt} {...pressHandlers}>
       {/* Top row: table number + status */}
       <div className="tf2-card-top">
         <span className="tf2-table-num">{table.number}</span>
