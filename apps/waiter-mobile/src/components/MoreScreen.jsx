@@ -106,31 +106,15 @@ export function MoreScreen({
                 PENDING BILLS
                 <span className="more2-pending-count">{pendingBills.length}</span>
               </div>
-              <div className="more2-card more2-pending-card">
-                {pendingBills.map((t, idx) => {
+              <div className="more2-pending-grid">
+                {pendingBills.map((t) => {
                   const o = orders[t.id] || billAlerts[t.id];
                   const billable = (o.items || []).filter(i => !i.isVoided && !i.isComp);
-                  const sub = billable.reduce((s, i) => s + i.price * i.quantity, 0);
-                  const elapsedMs = o.billRequestedAt ? Date.now() - new Date(o.billRequestedAt).getTime() : null;
-                  const elapsed = (elapsedMs !== null && isFinite(elapsedMs)) ? Math.floor(elapsedMs / 60000) : null;
+                  const amt = billable.reduce((s, i) => s + i.price * i.quantity, 0);
                   return (
-                    <div key={t.id}>
-                      {idx > 0 && <div className="more2-divider" />}
-                      <div className="more2-pending-row">
-                        <div className="more2-pending-badge">T{t.number || t.id}</div>
-                        <div className="more2-row-body">
-                          <span className="more2-row-label">Table {t.number || t.id}</span>
-                          <span className="more2-row-sub">
-                            Bill requested{elapsed !== null ? ` · ${elapsed}m ago` : ""}
-                            {t.areaName ? ` · ${t.areaName}` : ""}
-                          </span>
-                        </div>
-                        {sub > 0 && (
-                          <span className="more2-pending-amt">
-                            ₹{sub.toLocaleString("en-IN")}
-                          </span>
-                        )}
-                      </div>
+                    <div key={t.id} className="more2-pending-tile">
+                      <span className="more2-pending-tile-num">{t.number || t.id}</span>
+                      {amt > 0 && <span className="more2-pending-tile-amt">₹{amt.toLocaleString("en-IN")}</span>}
                     </div>
                   );
                 })}

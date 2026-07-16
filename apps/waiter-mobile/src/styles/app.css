@@ -9218,32 +9218,31 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   margin-left: 6px;
   vertical-align: middle;
 }
-.more2-pending-card { overflow: hidden; }
-.more2-pending-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+.more2-pending-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 0 16px;
 }
-.more2-pending-badge {
-  display: inline-flex;
+.more2-pending-tile {
+  background: var(--more2-card-bg, #fff);
+  border-radius: 14px;
+  padding: 18px 8px 14px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: #3B82F6;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  flex-shrink: 0;
-  letter-spacing: -0.3px;
+  gap: 5px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
-.more2-pending-amt {
-  font-size: 15px;
+.more2-pending-tile-num {
+  font-size: 24px;
   font-weight: 700;
-  color: #1C1C1C;
-  letter-spacing: -0.3px;
-  flex-shrink: 0;
-  margin-left: auto;
+  color: var(--more2-label-color, #1C1C1C);
+  letter-spacing: -0.5px;
+}
+.more2-pending-tile-amt {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--more2-sub-color, #666);
 }
