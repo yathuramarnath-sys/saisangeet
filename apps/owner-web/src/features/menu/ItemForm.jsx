@@ -99,6 +99,12 @@ export function ItemForm({
             if (!["KG", "G"].includes(newUnit) && draft.scalePlu) {
               f("scalePlu", "");
             }
+            // Weight/volume units always need decimal qty support
+            if (["KG", "G", "LTR", "ML"].includes(newUnit)) {
+              f("allowDecimalQty", true);
+            } else {
+              f("allowDecimalQty", false);
+            }
           }}>
             <option value="">— Per piece —</option>
             <option value="KG">KG — per kilogram</option>

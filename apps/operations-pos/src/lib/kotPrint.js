@@ -102,9 +102,18 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   const sentBy         = options.sentBy || order.cashierName || null;
   const assignedWaiter = options.waiter || order.assignedWaiter || null;
 
+  const fmtQty = (item) => {
+    if (item.allowDecimalQty) {
+      const num = Number(item.quantity);
+      const str = num.toFixed(3).replace(/\.?0+$/, "");
+      return item.unit ? `${str} ${item.unit}` : str;
+    }
+    return item.quantity;
+  };
+
   const itemsHTML = items.map(item => `
     <tr class="kot-item-row">
-      <td class="kot-qty">${item.quantity}</td>
+      <td class="kot-qty">${fmtQty(item)}</td>
       <td class="kot-item-name">${item.name}${item.note ? `<div class="kot-item-note">${item.note}</div>` : ""}</td>
     </tr>
   `).join("");
@@ -299,7 +308,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   <div class="kot-footer">
     <div class="kot-footer-row">
       <span>Total Items:</span>
-      <span>${items.reduce((s, i) => s + i.quantity, 0)}</span>
+      <span>${items.reduce((s, i) => s + (i.allowDecimalQty ? 1 : i.quantity), 0)}</span>
     </div>
     ${sentBy ? `<div class="kot-footer-row"><span>Sent by:</span><span style="font-weight:900">${sentBy}</span></div>` : ""}
     ${assignedWaiter ? `<div class="kot-footer-row"><span>Waiter:</span><span style="font-weight:900">${assignedWaiter}</span></div>` : ""}
