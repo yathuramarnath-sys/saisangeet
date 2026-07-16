@@ -58,19 +58,7 @@ jobs:
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.CAPTAIN_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-captain-orig.jks
-          keytool -importkeystore \
-            -srckeystore /tmp/dinex-captain-orig.jks \
-            -destkeystore /tmp/dinex-captain.jks \
-            -deststoretype PKCS12 \
-            -J-Dkeystore.pkcs12.legacy \
-            -srcstorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -deststorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -srcalias dinex \
-            -destalias dinex \
-            -srckeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -destkeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -noprompt
+          echo "${{ secrets.CAPTAIN_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-captain.jks
 
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > apps/waiter-mobile/android/local.properties
@@ -154,19 +142,7 @@ jobs:
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.OWNER_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-owner-orig.jks
-          keytool -importkeystore \
-            -srckeystore /tmp/dinex-owner-orig.jks \
-            -destkeystore /tmp/dinex-owner.jks \
-            -deststoretype PKCS12 \
-            -J-Dkeystore.pkcs12.legacy \
-            -srcstorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -deststorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -srcalias dinex \
-            -destalias dinex \
-            -srckeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -destkeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -noprompt
+          echo "${{ secrets.OWNER_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-owner.jks
 
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > apps/owner-mobile/android/local.properties
@@ -250,19 +226,7 @@ jobs:
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KDS_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-kds-orig.jks
-          keytool -importkeystore \
-            -srckeystore /tmp/dinex-kds-orig.jks \
-            -destkeystore /tmp/dinex-kds.jks \
-            -deststoretype PKCS12 \
-            -J-Dkeystore.pkcs12.legacy \
-            -srcstorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -deststorepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -srcalias dinex \
-            -destalias dinex \
-            -srckeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -destkeypass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -noprompt
+          echo "${{ secrets.KDS_KEYSTORE_BASE64 }}" | base64 -d > /tmp/dinex-kds.jks
 
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > apps/kitchen-display/android/local.properties
