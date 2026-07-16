@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder, gstTreatment = "exclusive" }) {
+export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSelectTable, onSelectMirrorOrder, serviceMode, onNewCounterOrder, onDeleteCounterOrder, gstTreatment = "exclusive" }) {
   const [activeArea, setActiveArea] = useState(null);
   const [tick, setTick] = useState(0);
   const inclusive = gstTreatment === "inclusive";
@@ -54,6 +54,20 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
     const o = orders[tableId];
     const billable  = o?.items?.filter(i => !i.isVoided && !i.isComp);
     if (!billable?.length) return null;
+    const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
+    const disc      = Math.min(o.discountAmount || 0, sub);
+    const afterDisc = sub - disc;
+    const tax       = billable.reduce((s, i) => {
+      const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+      return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
+    }, 0);
+    return inclusive ? afterDisc : afterDisc + tax;
+  }
+
+  function mirrorOrderTotal(o) {
+    const billable  = (o?.items || []).filter(i => !i.isVoided && !i.isComp);
+    if (!billable.length) return null;
     const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
     const disc      = Math.min(o.discountAmount || 0, sub);
     const afterDisc = sub - disc;
@@ -191,20 +205,41 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
           <div key={area.id} className="tpp-area">
             <p className="tpp-area-label">{area.name}</p>
             <div className="tpp-table-grid">
-              {area.tables.map(table => {
+              {area.tables.flatMap(table => {
                 const st     = tableStatus(table.id);
                 const col    = STATUS_COLORS[st] || STATUS_COLORS.available;
                 const total  = tableTotal(table.id);
                 const guests = orders[table.id]?.guests || 0;
-                const isOpen = true; // tables are always clickable; closed state is reset instantly
-                return (
+                const mirrors = mirrorOrders[table.id] || [];
+                const tiles = [];
+
+                // Mirror tiles (pending bills from earlier seatings) — rendered first as blue
+                mirrors.forEach(mirrorOrder => {
+                  const mTotal = mirrorOrderTotal(mirrorOrder);
+                  const mCol   = STATUS_COLORS.bill;
+                  tiles.push(
+                    <button
+                      key={`mirror-${mirrorOrder.orderNumber}`}
+                      type="button"
+                      className="tpp-table-btn"
+                      data-st="bill"
+                      onClick={() => onSelectMirrorOrder && onSelectMirrorOrder(table.id, mirrorOrder)}
+                    >
+                      <span className="tpp-table-num">{table.number}</span>
+                      <span className="tpp-table-status">{mCol.label}</span>
+                      {mTotal !== null && <span className="tpp-table-amt">₹{mTotal.toLocaleString("en-IN")}</span>}
+                    </button>
+                  );
+                });
+
+                // Normal table tile
+                tiles.push(
                   <button
                     key={table.id}
                     type="button"
-                    className={`tpp-table-btn${!isOpen ? " closed" : ""}`}
+                    className="tpp-table-btn"
                     data-st={st}
-                    disabled={!isOpen}
-                    onClick={() => isOpen && onSelectTable(table.id)}
+                    onClick={() => onSelectTable(table.id)}
                   >
                     <span className="tpp-table-num">{table.number}</span>
                     <span className="tpp-table-status">{col.label}</span>
@@ -224,6 +259,8 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
                     })()}
                   </button>
                 );
+
+                return tiles;
               })}
             </div>
           </div>

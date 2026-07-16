@@ -344,6 +344,10 @@ export default function App() {
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
   const ordersRef  = useRef({});
+  // Mirror (pending bill) orders waiting for cashier settlement while a new order is active
+  const [mirrorOrders, setMirrorOrders] = useState({});
+  const mirrorOrdersRef = useRef({});
+  const [selectedMirrorOrder, setSelectedMirrorOrder] = useState(null);
   // Refs for barcode scanner listener — always hold latest values without re-subscribing
   const selectedTableIdRef = useRef(null);
   const outletRef          = useRef(null);
@@ -625,6 +629,23 @@ export default function App() {
         });
 
         socket.on("order:updated", (updatedOrder) => {
+          // Petpooja-style mirror table: if POS has a pending bill for this table
+          // (billRequested:true, different orderNumber) the incoming update is a new
+          // seating by Captain.  Preserve the pending bill as a "mirror" tile so the
+          // cashier can settle it independently; let Order 2 through into main state.
+          const currentSnapshot = ordersRef.current[updatedOrder.tableId];
+          if (
+            currentSnapshot && currentSnapshot.billRequested && !currentSnapshot.isClosed &&
+            currentSnapshot.orderNumber != null && updatedOrder.orderNumber != null &&
+            updatedOrder.orderNumber !== currentSnapshot.orderNumber
+          ) {
+            setMirrorOrders(mp => {
+              const arr = mp[currentSnapshot.tableId] || [];
+              if (arr.some(o => o.orderNumber === currentSnapshot.orderNumber)) return mp;
+              return { ...mp, [currentSnapshot.tableId]: [...arr, currentSnapshot] };
+            });
+          }
+
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
             // Stale-write guard: ignore events that are more than 30 s older than our
@@ -640,19 +661,6 @@ export default function App() {
                 new Date(updatedOrder.updatedAt || 0).getTime() > 30_000
             ) {
               return prev; // our version is >30 s newer — discard incoming
-            }
-
-            // Mirror-table guard: if this table has an unsettled bill (billRequested:true)
-            // and the incoming order has a DIFFERENT orderNumber, it is a newer Order 2
-            // broadcast from captain's next seating.  Keep Order 1 in local state so the
-            // cashier can still settle it; Order 2 will be shown after settlement when the
-            // backend re-broadcasts it with the correct newer orderNumber.
-            if (
-              current && current.billRequested && !current.isClosed &&
-              current.orderNumber != null && updatedOrder.orderNumber != null &&
-              updatedOrder.orderNumber !== current.orderNumber
-            ) {
-              return prev;
             }
 
             // ── Concurrent-edit merge ─────────────────────────────────────────
@@ -829,17 +837,24 @@ export default function App() {
 
         // Order update from Captain via local WiFi → update POS table state
         localSock.on("order:updated", (updatedOrder) => {
+          // Mirror tile: push pending bill to mirrorOrders when a newer order arrives
+          const currentSnapshotLocal = ordersRef.current[updatedOrder.tableId];
+          if (
+            currentSnapshotLocal && currentSnapshotLocal.billRequested && !currentSnapshotLocal.isClosed &&
+            currentSnapshotLocal.orderNumber != null && updatedOrder.orderNumber != null &&
+            updatedOrder.orderNumber !== currentSnapshotLocal.orderNumber
+          ) {
+            setMirrorOrders(mp => {
+              const arr = mp[currentSnapshotLocal.tableId] || [];
+              if (arr.some(o => o.orderNumber === currentSnapshotLocal.orderNumber)) return mp;
+              return { ...mp, [currentSnapshotLocal.tableId]: [...arr, currentSnapshotLocal] };
+            });
+          }
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
             if (current && !updatedOrder.isClosed &&
                 new Date(current.updatedAt || 0).getTime() -
                   new Date(updatedOrder.updatedAt || 0).getTime() > 30_000) return prev;
-            // Mirror-table guard: same as cloud socket — keep pending bill visible
-            if (
-              current && current.billRequested && !current.isClosed &&
-              current.orderNumber != null && updatedOrder.orderNumber != null &&
-              updatedOrder.orderNumber !== current.orderNumber
-            ) return prev;
             const next = { ...prev, [updatedOrder.tableId]: updatedOrder };
             saveOrdersToStorage(next);
             return next;
@@ -1173,6 +1188,8 @@ export default function App() {
     if (Object.keys(orders).length > 0) saveOrdersToStorage(orders);
     ordersRef.current = orders; // keep ref in sync for socket callbacks
   }, [orders]);
+
+  useEffect(() => { mirrorOrdersRef.current = mirrorOrders; }, [mirrorOrders]);
 
   // Restrict the menu shown at this terminal to its assigned work area.
   // A "Full Access" terminal (no workArea) sees everything, as before.
@@ -1906,9 +1923,11 @@ export default function App() {
   }
 
   async function handleSettle(paymentsInput) {
-    if (!selectedTableId) return;
-    const order       = orders[selectedTableId];
-    const tableId     = selectedTableId;
+    if (!selectedTableId && !selectedMirrorOrder) return;
+    const isMirrorSettle = !!selectedMirrorOrder;
+    const order       = selectedMirrorOrder || orders[selectedTableId];
+    const tableId     = selectedTableId || order?.tableId;
+    if (!order || !tableId) return;
     const newPayments = Array.isArray(paymentsInput) ? paymentsInput : [paymentsInput];
 
     // Build the fully-paid order snapshot
@@ -1929,14 +1948,27 @@ export default function App() {
     const paid         = allPayments.reduce((s, p) => s + p.amount, 0);
 
     if (paid < total) {
-      // Partial — record locally (optimistic) then fire-and-forget sync to backend.
-      mutateOrder(tableId, (o) => { o.payments = allPayments; return o; });
+      // Partial payment — for mirror orders update in mirrorOrders; for normal use mutateOrder.
+      if (isMirrorSettle) {
+        const updatedMirror = { ...order, payments: allPayments };
+        setMirrorOrders(mp => {
+          const arr = (mp[tableId] || []).map(o =>
+            o.orderNumber === order.orderNumber ? updatedMirror : o
+          );
+          return { ...mp, [tableId]: arr };
+        });
+        setSelectedMirrorOrder(updatedMirror);
+      } else {
+        mutateOrder(tableId, (o) => { o.payments = allPayments; return o; });
+      }
       setShowPayment(false);
+      if (!isMirrorSettle) setSelectedMirrorOrder(null);
       showToast(`Payment recorded · ₹${newPayments.reduce((s,p)=>s+p.amount,0)}`);
 
-      // Backend payment sync (fire-and-forget so the PaymentSheet loading state clears instantly).
-      // Counter/online orders have no backend table entry — skip.
-      if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+      // Backend partial sync only for normal (non-mirror) orders.
+      // Mirror orders are settled in full via /closed-order — partial backend sync
+      // would target the wrong in-memory slot (which holds the newer active order).
+      if (!isMirrorSettle && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
         (async () => {
           let lastServerOrder = null;
           for (const p of newPayments) {
@@ -1969,9 +2001,9 @@ export default function App() {
     const isCreditSale     = !!creditPayment;
     const creditCustomer   = creditPayment?.creditCustomer || null;
 
-    // Stamp creditCustomer on the live order NOW so any reprint (from
-    // past orders or the next print-bill call) includes the customer name.
-    if (isCreditSale && creditCustomer) {
+    // Stamp creditCustomer on the live order NOW so any reprint includes the customer name.
+    // For mirror settle, the live orders[tableId] is the NEW order — don't stamp it.
+    if (isCreditSale && creditCustomer && !isMirrorSettle) {
       mutateOrder(tableId, o => { o.creditCustomer = creditCustomer; o.isCreditSale = true; return o; });
     }
 
@@ -1998,20 +2030,19 @@ export default function App() {
       localStorage.setItem("pos_closed_orders", JSON.stringify(prev.slice(0, 500)));
     } catch {}
 
-    // 2. Temporarily mark as closed so UI shows ✓ for 1.5 s
-    setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
-    // Notify Captain App + KDS that this table's bill is settled
-    socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
-    localSocketRef.current?.emit("order:clear", { tableId });
-    window.electronAPI?.pushOrdersToLocal?.([]);
+    // 2. For normal settle: temporarily mark table closed for the 1.5 s UI flash.
+    //    For mirror settle: orders[tableId] holds the ACTIVE new order — don't touch it.
+    if (!isMirrorSettle) {
+      setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
+      // Notify Captain App + KDS that this table's bill is settled
+      socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
+      localSocketRef.current?.emit("order:clear", { tableId });
+      window.electronAPI?.pushOrdersToLocal?.([]);
+    }
 
     // 3. Push full closed order to backend so Owner Web shows real sales figures.
-    // This is also the gate for the fresh-table reset: clearTableAfterSettle runs
-    // server-side inside deviceCloseOrderHandler. We only reset the POS slot and
-    // broadcast "fresh table" to Captain AFTER the backend confirms the order is
-    // recorded and its in-memory slot has been cleared. If the call fails, the
-    // table stays isClosed: true on both POS and Captain — consistent with the
-    // backend still holding the old order — so no device disagrees about state.
+    // For mirror settle: backend detects hasNewerOrder (Order 2 in memory != Order 1 being
+    // settled), skips clearTableAfterSettle, and re-broadcasts Order 2 to all devices.
     let backendConfirmed = false;
     try {
       // Server returns { ok, billNo, billNoMode, billNoFY, billNoDate, closedAt }
@@ -2022,9 +2053,6 @@ export default function App() {
       backendConfirmed = true;
 
       // ── Stamp server-assigned bill number onto the local record ────────────
-      // This ensures the printed receipt and Past Orders modal both show the
-      // correct sequential bill number (e.g. 42 or FY25-0042) instead of the
-      // POS-local orderNumber (e.g. 10051).
       if (closeResult?.billNo != null) {
         closedOrder.billNo     = closeResult.billNo;
         closedOrder.billNoMode = closeResult.billNoMode  || null;
@@ -2035,7 +2063,6 @@ export default function App() {
         // Overwrite the localStorage record with the stamped version
         try {
           const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-          // Replace the first entry (we just unshifted it above) with the stamped copy
           if (prev.length && prev[0].orderNumber === closedOrder.orderNumber) {
             prev[0] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
           }
@@ -2044,18 +2071,13 @@ export default function App() {
       }
     } catch (err) {
       console.warn("[POS] closed-order sync failed (offline?) — queuing for retry:", err.message);
-      // Queue the closed order so it syncs automatically when connectivity returns.
-      // billNo will be assigned by the server when the queue is flushed.
       const q = loadClosedOrderQueue();
       q.push({ order: closedOrder });
       saveClosedOrderQueue(q);
     }
 
-    // No auto-print at settlement.
-    // Bill is always printed BEFORE settlement via the "Print Bill" button
-    // (which assigns the bill number at that point). Settlement = payment + close only.
-
     setShowPayment(false);
+    setSelectedMirrorOrder(null);
     setSelectedTableId(null);
 
     // Trigger cash drawer if any payment was cash (Electron only, silent on web)
@@ -2067,44 +2089,57 @@ export default function App() {
         : "✓ Bill settled · Syncing in background"
     );
 
-    // Immediately drop billRequested so the mirror-table guard in order:updated
-    // deactivates before the backend's Order 2 broadcast arrives.  The guard holds
-    // Order 1 in place while billRequested:true — clearing it here lets Order 2 land.
-    setOrders(prev => {
-      const cur = prev[tableId];
-      if (!cur) return prev;
-      return { ...prev, [tableId]: { ...cur, billRequested: false } };
-    });
-
-    // Local safety-net reset: if the backend is offline the server-side order:updated
-    // broadcast won't fire, so we reset the local table state here after a short delay.
-    // When online, the server emits order:updated (Order 2 or blank) and the 1.5 s
-    // guard below is a no-op because orderNumber will already differ.
-    setTimeout(() => {
-      const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
-      const table = area?.tables.find(t => t.id === tableId);
-
-      if (!table || !area) {
-        // Counter / takeaway / online — no catalog entry; just wipe the closed slot.
-        setOrders(prev => {
-          if (!prev[tableId]?.isClosed) return prev;
-          const next = { ...prev };
+    if (isMirrorSettle) {
+      // Remove this mirror order from the mirrorOrders tile — the active new order stays.
+      const settledNum = order.orderNumber;
+      setMirrorOrders(mp => {
+        const arr = (mp[tableId] || []).filter(o => o.orderNumber !== settledNum);
+        if (!arr.length) {
+          const next = { ...mp };
           delete next[tableId];
           return next;
-        });
-        return;
-      }
-
-      setOrders(prev => {
-        // Mirror-table: if the backend already broadcast Order 2 it will have
-        // landed via order:updated with a different orderNumber.  Don't overwrite.
-        if (prev[tableId]?.orderNumber !== order.orderNumber) return prev;
-        const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
-        const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
-        return { ...prev, [tableId]: fresh };
+        }
+        return { ...mp, [tableId]: arr };
       });
-      checkWaitlistSuggest(tableId);
-    }, 1500);
+      // Backend's hasNewerOrder guard re-broadcasts the active new order — no local reset needed.
+    } else {
+      // Normal settle: drop billRequested before backend's Order 2 broadcast lands.
+      setOrders(prev => {
+        const cur = prev[tableId];
+        if (!cur) return prev;
+        return { ...prev, [tableId]: { ...cur, billRequested: false } };
+      });
+
+      // Local safety-net reset after 1.5 s (no-op when backend broadcast already landed).
+      setTimeout(() => {
+        const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
+        const table = area?.tables.find(t => t.id === tableId);
+
+        if (!table || !area) {
+          setOrders(prev => {
+            if (!prev[tableId]?.isClosed) return prev;
+            const next = { ...prev };
+            delete next[tableId];
+            return next;
+          });
+          return;
+        }
+
+        setOrders(prev => {
+          if (prev[tableId]?.orderNumber !== order.orderNumber) return prev;
+          const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
+          const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
+          return { ...prev, [tableId]: fresh };
+        });
+        checkWaitlistSuggest(tableId);
+      }, 1500);
+    }
+  }
+
+  function handleSelectMirrorOrder(tableId, mirrorOrder) {
+    setSelectedTableId(tableId);
+    setSelectedMirrorOrder(mirrorOrder);
+    setShowPayment(true);
   }
 
   async function handleConfirmSplit(splits) {
@@ -2198,23 +2233,29 @@ export default function App() {
       const serverOrder = await api.get(`/operations/order?tableId=${tableId}&outletId=${outlet.id}`);
       if (!serverOrder || serverOrder.skipped) return;
 
+      // Mirror tile: if local has a pending bill and server has a newer order, save pending bill
+      const localSnapshot = ordersRef.current[tableId];
+      if (
+        localSnapshot && localSnapshot.billRequested && !localSnapshot.isClosed &&
+        localSnapshot.orderNumber != null && serverOrder.orderNumber != null &&
+        serverOrder.orderNumber !== localSnapshot.orderNumber
+      ) {
+        setMirrorOrders(mp => {
+          const arr = mp[tableId] || [];
+          if (arr.some(o => o.orderNumber === localSnapshot.orderNumber)) return mp;
+          return { ...mp, [tableId]: [...arr, localSnapshot] };
+        });
+      }
+
       setOrders((prev) => {
         const localOrder = prev[tableId];
-        // Mirror-table guard: if POS has a pending bill (billRequested:true) and the server
-        // has already advanced to a newer order (different orderNumber), keep Order 1 visible
-        // for the cashier to settle — don't overwrite with the next customer's order.
-        if (
-          localOrder && localOrder.billRequested && !localOrder.isClosed &&
-          localOrder.orderNumber != null && serverOrder.orderNumber != null &&
-          serverOrder.orderNumber !== localOrder.orderNumber
-        ) {
-          return prev;
-        }
-        // Stale-write guard: if our local copy is newer than the server's, don't overwrite.
-        // Allow server to win only when it's a closed/settled order (authoritative final state).
+        // Stale-write guard: if our local copy is newer than the server's (same session),
+        // don't overwrite. Allow server to win when it's a closed/settled order or a
+        // different order session (mirror situation — let Order 2 through).
         if (
           localOrder &&
           !serverOrder.isClosed &&
+          localOrder.orderNumber === serverOrder.orderNumber &&
           (localOrder.updatedAt || 0) > (serverOrder.updatedAt || 0)
         ) {
           return prev;
@@ -3271,7 +3312,9 @@ export default function App() {
           <TablePickerPanel
             tableAreas={workAreaScopedTableAreas}
             orders={orders}
+            mirrorOrders={mirrorOrders}
             onSelectTable={handleSelectTable}
+            onSelectMirrorOrder={handleSelectMirrorOrder}
             serviceMode={serviceMode}
             onNewCounterOrder={handleNewCounterOrder}
             onDeleteCounterOrder={handleDeleteCounterOrder}
@@ -3324,13 +3367,13 @@ export default function App() {
       </div>
 
       {/* ── Payment sheet ─────────────────────────────────────────────────── */}
-      {showPayment && selectedOrder && (
+      {showPayment && (selectedMirrorOrder || selectedOrder) && (
         <PaymentSheet
-          order={selectedOrder}
+          order={selectedMirrorOrder || selectedOrder}
           tableLabel={tableLabel}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
           outletId={outlet?.id || branchConfig?.outletId}
-          onClose={() => setShowPayment(false)}
+          onClose={() => { setShowPayment(false); setSelectedMirrorOrder(null); }}
           onSettle={handleSettle}
           onPhonePeQR={() => { setShowPayment(false); setShowPhonePeQR(true); }}
         />
