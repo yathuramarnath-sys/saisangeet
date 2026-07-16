@@ -591,8 +591,12 @@ export function OutletsPage() {
     const outlet = deleteTarget;
     setDeleteTarget(null);
     if (editingOutletId === outlet.id) cancelEditingOutlet();
-    await reloadOutlets();
-    setStatusMessage(`${outlet.name} removed.`);
+    try {
+      await reloadOutlets();
+      setStatusMessage(`${outlet.name} removed.`);
+    } catch {
+      setStatusError("Failed to reload outlets after deletion — refresh the page.");
+    }
   }
 
   return (

@@ -424,13 +424,15 @@ export default function App() {
       showPayment || showSplitBill || showCashIn || showCashOut || showCloseShift ||
       showDayEnd || showCustomerForm || showSettings || showPastOrders || showHeldOrders ||
       showLabelPrint || showBatchLabel || showCreditPanel || showOnlineOrders ||
-      showPhonePeQR || showWastage || showStock || showWaitlist || showAdvancePanel
+      showPhonePeQR || showWastage || showStock || showWaitlist || showAdvancePanel ||
+      showWhatsNew
     );
   }, [
     showPayment, showSplitBill, showCashIn, showCashOut, showCloseShift,
     showDayEnd, showCustomerForm, showSettings, showPastOrders, showHeldOrders,
     showLabelPrint, showBatchLabel, showCreditPanel, showOnlineOrders,
     showPhonePeQR, showWastage, showStock, showWaitlist, showAdvancePanel,
+    showWhatsNew,
   ]);
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
