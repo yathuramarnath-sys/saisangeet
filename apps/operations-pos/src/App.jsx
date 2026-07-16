@@ -3003,7 +3003,8 @@ export default function App() {
   // ── Quick stats ───────────────────────────────────────────────────────────
   const openTables = Object.values(orders).filter(o => o.items?.length && !o.isClosed && !o.isOnHold).length;
   const pendingKOT = Object.values(orders).reduce((s, o) => s + (o.items || []).filter(i => !i.sentToKot && !i.isVoided).length, 0);
-  const heldCount  = Object.values(orders).filter(isHeldOrder).length;
+  const _isDineIn  = serviceMode === "dine-in";
+  const heldCount  = Object.values(orders).filter(o => isHeldOrder(o) && (_isDineIn ? !o.isCounter : !!o.isCounter)).length;
 
   // Jump straight to a held order — also flips serviceMode for counter
   // tickets so the table/ticket label renders correctly after the jump.
@@ -3756,6 +3757,7 @@ export default function App() {
           onSelect={handleJumpToHeldOrder}
           onClose={() => setShowHeldOrders(false)}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
+          serviceMode={serviceMode}
         />
       )}
 

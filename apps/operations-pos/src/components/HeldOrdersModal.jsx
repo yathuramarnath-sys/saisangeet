@@ -10,12 +10,13 @@ export function isHeldOrder(order) {
   return (order.items || []).some(i => i.sentToKot && !i.isVoided);
 }
 
-export function HeldOrdersModal({ orders, onSelect, onClose, gstTreatment = "exclusive" }) {
+export function HeldOrdersModal({ orders, onSelect, onClose, gstTreatment = "exclusive", serviceMode = "dine-in" }) {
+  const isDineIn = serviceMode === "dine-in";
   const held = useMemo(() => {
     return Object.values(orders || {})
-      .filter(isHeldOrder)
+      .filter(o => isHeldOrder(o) && (isDineIn ? !o.isCounter : !!o.isCounter))
       .sort((a, b) => (a.updatedAt || a.createdAt || 0) - (b.updatedAt || b.createdAt || 0));
-  }, [orders]);
+  }, [orders, isDineIn]);
 
   function label(order) {
     if (order.isCounter) {
