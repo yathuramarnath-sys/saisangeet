@@ -18,7 +18,7 @@ function formatSyncAge(ts) {
 
 export function MoreScreen({
   loggedInStaff, outletName, serverId, localPosIp, deviceIp,
-  serverUrl, updateInfo, onSync, onSignOut,
+  serverUrl, updateInfo, orders = {}, tableAreas = [], onSync, onSignOut,
 }) {
   const [sub,        setSub]        = useState(null); // null | 'findPos' | 'settings'
   const [syncSteps,  setSyncSteps]  = useState(null); // null | array while syncing
@@ -91,6 +91,55 @@ export function MoreScreen({
       </div>
 
       <div className="more2-scroll">
+        {/* Pending bills — tables where cashier hasn't settled yet */}
+        {(() => {
+          const allTables = tableAreas.flatMap(a => (a.tables || []).map(t => ({ ...t, areaName: a.name })));
+          const pendingBills = allTables.filter(t => {
+            const o = orders[t.id];
+            return o && o.billRequested && !o.isClosed &&
+                   (o.items || []).some(i => !i.isVoided && !i.isComp);
+          });
+          if (pendingBills.length === 0) return null;
+          return (
+            <>
+              <div className="more2-section-head">
+                PENDING BILLS
+                <span className="more2-pending-count">{pendingBills.length}</span>
+              </div>
+              <div className="more2-card more2-pending-card">
+                {pendingBills.map((t, idx) => {
+                  const o = orders[t.id];
+                  const billable = (o.items || []).filter(i => !i.isVoided && !i.isComp);
+                  const sub = billable.reduce((s, i) => s + i.price * i.quantity, 0);
+                  const elapsed = o.billRequestedAt
+                    ? Math.floor((Date.now() - new Date(o.billRequestedAt).getTime()) / 60000)
+                    : null;
+                  return (
+                    <div key={t.id}>
+                      {idx > 0 && <div className="more2-divider" />}
+                      <div className="more2-pending-row">
+                        <div className="more2-pending-badge">T{t.number || t.id}</div>
+                        <div className="more2-row-body">
+                          <span className="more2-row-label">Table {t.number || t.id}</span>
+                          <span className="more2-row-sub">
+                            Bill requested{elapsed !== null ? ` · ${elapsed}m ago` : ""}
+                            {t.areaName ? ` · ${t.areaName}` : ""}
+                          </span>
+                        </div>
+                        {sub > 0 && (
+                          <span className="more2-pending-amt">
+                            ₹{sub.toLocaleString("en-IN")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()}
+
         {/* Update banner */}
         {updateInfo && (
           <div className="more2-update-banner">

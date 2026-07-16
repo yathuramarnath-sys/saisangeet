@@ -82,6 +82,15 @@ function savePendingKots(kots) {
   try { localStorage.setItem("captain_pending_kots", JSON.stringify(kots)); } catch (_) {}
 }
 
+// KOT history (sent this shift) — kept until table bill is settled
+const SENT_KOTS_KEY = "captain_sent_kots";
+function loadSentKots() {
+  try { return JSON.parse(localStorage.getItem(SENT_KOTS_KEY) || "[]"); } catch { return []; }
+}
+function saveSentKots(kots) {
+  try { localStorage.setItem(SENT_KOTS_KEY, JSON.stringify(kots.slice(0, 200))); } catch (_) {}
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parsePriceNumber(v) {
@@ -131,6 +140,8 @@ export function App() {
   const [pendingKots, setPendingKots] = useState(() => {
     try { return JSON.parse(localStorage.getItem("captain_pending_kots") || "[]"); } catch { return []; }
   });
+  // KOT history — all KOTs sent this shift (successful + failed), cleared when table bill settles
+  const [sentKots, setSentKots] = useState(() => loadSentKots());
   const [socketConnected,  setSocketConnected]  = useState(false);
   const [confirmFreeTable,  setConfirmFreeTable]  = useState(null); // null | { tableId, tableNumber, amount }
   const [confirmRemoveItem, setConfirmRemoveItem] = useState(null); // null | { itemId, itemName, isSent }
@@ -1088,6 +1099,22 @@ export function App() {
         savePendingKots(next);
         return next;
       });
+      // Also log in shift history as "failed" so the KOTs tab shows it under Unsuccessful
+      setSentKots(prev => {
+        const record = {
+          id:          failedKot.id,
+          kotNumber:   null,
+          tableId:     order.tableId,
+          tableNumber: order.tableNumber,
+          areaName:    order.areaName,
+          items:       kotItems,
+          sentAt:      failedKot.failedAt,
+          status:      "failed",
+        };
+        const next = [record, ...prev];
+        saveSentKots(next);
+        return next;
+      });
       toast.error("KOT queued — retry from menu when back online");
     }
 
@@ -1173,6 +1200,23 @@ export function App() {
       kotNumber:  serverKotNumber,
       tableLabel: kotTableLabel,
       itemCount:  unsent.length,
+    });
+
+    // Record in shift history so the KOTs tab can show All / Sent / Unsuccessful
+    setSentKots(prev => {
+      const record = {
+        id:          `sent-${Date.now()}`,
+        kotNumber:   serverKotNumber,
+        tableId:     order.tableId,
+        tableNumber: order.tableNumber,
+        areaName:    order.areaName,
+        items:       kotItems,
+        sentAt:      new Date().toISOString(),
+        status:      "sent",
+      };
+      const next = [record, ...prev];
+      saveSentKots(next);
+      return next;
     });
 
     if (lastServerOrder) {
@@ -1754,6 +1798,7 @@ export function App() {
         ) : activeTab === "kots" ? (
           <FailedKotsScreen
             pendingKots={pendingKots}
+            sentKots={sentKots}
             outletName={outlet?.name || branchConfig?.outletName}
             onRetry={handleRetryKot}
             onRetryAll={handleRetryAllKots}
@@ -1769,6 +1814,8 @@ export function App() {
             deviceIp={deviceIp}
             serverUrl={(import.meta.env.VITE_API_BASE_URL || "").replace("/api/v1", "")}
             updateInfo={updateInfo}
+            orders={orders}
+            tableAreas={tableAreas}
             onSync={handleSync}
             onSignOut={() => setShowLogout(true)}
           />
