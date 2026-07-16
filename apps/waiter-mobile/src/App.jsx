@@ -639,7 +639,7 @@ export function App() {
     setSelectedArea(area);
 
     try {
-      const serverOrder = await api.get(`/operations/order?tableId=${tableId}${outlet?.id ? `&outletId=${outlet.id}` : ""}`);
+      const serverOrder = await api.get(`/operations/order?tableId=${tableId}${outlet?.id ? `&outletId=${outlet.id}` : ""}&captain=true`);
       setOrders((prev) => {
         const localState = prev[tableId];
         const serverItems = serverOrder.items || [];

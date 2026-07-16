@@ -727,21 +727,21 @@ async function devicePaymentHandler(req, res) {
  * for a valid table; throws TABLE_NOT_FOUND (404) only if the tableId is unknown.
  */
 async function deviceGetOrCreateOrderHandler(req, res) {
-  const { tableId } = req.query;
+  const { tableId, captain } = req.query;
   if (!tableId) {
     return res.status(400).json({ error: "tableId query parameter is required" });
   }
   let result = await getOrCreateOrderForTable(tableId);
 
-  // Mirror-table auto-advance: if the current order is pending settlement
-  // (billRequested:true and has active items) and captain is opening the table,
-  // advance to a fresh empty slot so they get a clean slate for the next customer.
-  // This replaces the speculative advance that was previously called from handlePrintBill
-  // — that approach wiped the 2nd order's items before the 1st was settled.
-  const hasActiveItems = (result.items || []).some(i => !i.isVoided && !i.isGhostVoid);
-  if (result.billRequested && !result.isClosed && hasActiveItems) {
-    await clearTableAfterSettle(tableId);
-    result = await getOrder(tableId);
+  // Mirror-table auto-advance: only when captain explicitly opens a table (?captain=true).
+  // POS also calls this endpoint (handleSelectTable) — must NOT advance there or the bill
+  // is wiped before the cashier settles it.
+  if (captain === 'true') {
+    const hasActiveItems = (result.items || []).some(i => !i.isVoided && !i.isGhostVoid);
+    if (result.billRequested && !result.isClosed && hasActiveItems) {
+      await clearTableAfterSettle(tableId);
+      result = await getOrder(tableId);
+    }
   }
 
   res.json(result);

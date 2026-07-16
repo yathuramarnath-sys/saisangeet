@@ -2200,6 +2200,16 @@ export default function App() {
 
       setOrders((prev) => {
         const localOrder = prev[tableId];
+        // Mirror-table guard: if POS has a pending bill (billRequested:true) and the server
+        // has already advanced to a newer order (different orderNumber), keep Order 1 visible
+        // for the cashier to settle — don't overwrite with the next customer's order.
+        if (
+          localOrder && localOrder.billRequested && !localOrder.isClosed &&
+          localOrder.orderNumber != null && serverOrder.orderNumber != null &&
+          serverOrder.orderNumber !== localOrder.orderNumber
+        ) {
+          return prev;
+        }
         // Stale-write guard: if our local copy is newer than the server's, don't overwrite.
         // Allow server to win only when it's a closed/settled order (authoritative final state).
         if (
