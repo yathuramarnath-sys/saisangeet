@@ -111,9 +111,8 @@ export function MoreScreen({
                   const o = orders[t.id];
                   const billable = (o.items || []).filter(i => !i.isVoided && !i.isComp);
                   const sub = billable.reduce((s, i) => s + i.price * i.quantity, 0);
-                  const elapsed = o.billRequestedAt
-                    ? Math.floor((Date.now() - new Date(o.billRequestedAt).getTime()) / 60000)
-                    : null;
+                  const elapsedMs = o.billRequestedAt ? Date.now() - new Date(o.billRequestedAt).getTime() : null;
+                  const elapsed = (elapsedMs !== null && isFinite(elapsedMs)) ? Math.floor(elapsedMs / 60000) : null;
                   return (
                     <div key={t.id}>
                       {idx > 0 && <div className="more2-divider" />}

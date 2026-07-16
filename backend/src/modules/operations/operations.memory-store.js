@@ -821,7 +821,7 @@ function requestBill(tableId, actor = "Waiter", isSplit = false) {
   const order = findOrder(tableId);
   assertOrderOpen(order, "request bill");
   order.billRequested = true;
-  order.billRequestedAt = "Now";
+  order.billRequestedAt = new Date().toISOString();
   order.notes = "Bill requested from service floor";
   if (isSplit) order.isSplitBill = true;
   appendAudit(order, buildAuditEntry("Bill requested", actor, "Now"));
