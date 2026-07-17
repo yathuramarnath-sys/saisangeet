@@ -244,6 +244,39 @@ function ServiceModeSection({ orderTypes }) {
   );
 }
 
+// ─── Orders by channel with vs-yesterday ──────────────────────────────────────
+
+function ChannelSection({ orderTypes, yOrderTypes, isToday }) {
+  return (
+    <div className="dash-chan-list">
+      {orderTypes.map(t => {
+        const label  = t.type === "Online" ? "Delivery" : t.type;
+        const yEntry = yOrderTypes.find(y => y.type === t.type);
+        const yOrds  = yEntry?.orders || 0;
+        const diff   = isToday && yOrds > 0 ? t.orders - yOrds : null;
+        const color  = serviceModeColor(t.type);
+        return (
+          <div key={t.type} className="dash-chan-row">
+            <span className="dash-chan-dot" style={{ background: color }} />
+            <div className="dash-chan-info">
+              <span className="dash-chan-name">{label}</span>
+              {diff !== null && (
+                <span className={`dash-chan-yday${diff < 0 ? " dn" : ""}`}>
+                  {diff < 0 ? "▼" : "▲"} from {yOrds} yesterday
+                </span>
+              )}
+            </div>
+            <div className="dash-chan-right">
+              <span className="dash-chan-orders">{t.orders}</span>
+              <span className="dash-chan-amt">{fmt(t.amount)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Payment breakdown list ────────────────────────────────────────────────────
 
 function PaymentList({ paymentModes }) {
@@ -312,6 +345,19 @@ export function DashboardPage() {
   const timerRef = useRef(null);
 
   const isToday = dateFrom === todayISO() && dateTo === todayISO();
+  const isYesterday = dateFrom === yesterdayISO() && dateTo === yesterdayISO();
+
+  function setPreset(preset) {
+    const today = todayISO();
+    const yday  = yesterdayISO();
+    if (preset === "today")     { setDateFrom(today); setDateTo(today); return; }
+    if (preset === "yesterday") { setDateFrom(yday);  setDateTo(yday);  return; }
+    const from = new Date();
+    if (preset === "7d")  from.setDate(from.getDate() - 6);
+    if (preset === "30d") from.setDate(from.getDate() - 29);
+    setDateFrom(from.toLocaleDateString("en-CA"));
+    setDateTo(today);
+  }
 
   useEffect(() => {
     api.get("/outlets")
@@ -437,6 +483,7 @@ export function DashboardPage() {
   const deltaOrders = calcDelta(totalOrders, ySum.totalOrders || 0);
   const deltaAvg    = calcDelta(avgOrder, ySum.avgOrderValue || 0);
   const deltaTax    = calcDelta(totalTax, ySum.totalTax || 0);
+  const yOrderTypes = yesterdayData?.salesData?.dayEnd?.orderTypes || [];
 
   // Sparkline: last 8 hours of sales amounts (or fewer if not available)
   const sparkData = hourlySales.slice(-8).map(h => h.amount);
@@ -465,6 +512,12 @@ export function DashboardPage() {
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div className="dash-toolbar">
         <div className="dash-toolbar-left">
+          <div className="dash-preset-chips">
+            <button className={`dash-preset-chip${isToday ? " active" : ""}`}       onClick={() => setPreset("today")}>Today</button>
+            <button className={`dash-preset-chip${isYesterday ? " active" : ""}`}   onClick={() => setPreset("yesterday")}>Yesterday</button>
+            <button className="dash-preset-chip" onClick={() => setPreset("7d")}>7 Days</button>
+            <button className="dash-preset-chip" onClick={() => setPreset("30d")}>30 Days</button>
+          </div>
           <DateChip
             value={dateFrom} max={dateTo}
             onChange={e => { setDateFrom(e.target.value); if (e.target.value > dateTo) setDateTo(e.target.value); }}
@@ -479,12 +532,6 @@ export function DashboardPage() {
               <span className="dash-live-dot" />
               <span className="dash-live-label">Live</span>
             </>
-          )}
-          {!isToday && (
-            <button className="ghost-chip" style={{ marginLeft: 8 }}
-              onClick={() => { setDateFrom(todayISO()); setDateTo(todayISO()); }}>
-              Back to Today
-            </button>
           )}
         </div>
         <select className="dash-outlet-select" value={outletId} onChange={e => setOutletId(e.target.value)}>
@@ -545,29 +592,25 @@ export function DashboardPage() {
 
           </div>
 
-          {/* ── Bottom two-column row ──────────────────────────────────── */}
-          <div className="dash-bottom-2col">
+          {/* ── Bottom three-column row ───────────────────────────────────── */}
+          <div className="dash-bottom-3col">
 
             {/* Sales by service mode */}
             <section className="dash-card">
-              <h4 className="dash-card-title">Sales by service mode</h4>
+              <h4 className="dash-card-title">Service mode</h4>
               {displayOrderTypes.length > 0
                 ? <ServiceModeSection orderTypes={displayOrderTypes} />
                 : <p className="dash-card-empty">No service mode data</p>
               }
-              {displayOrderTypes.length > 0 && (
-                <div className="dash-channel-block">
-                  <p className="dash-section-eyebrow">Orders by channel</p>
-                  <div className="dash-channel-row">
-                    {displayOrderTypes.map(t => (
-                      <div key={t.type} className="dash-channel-item">
-                        <strong>{t.orders}</strong>
-                        <span>{t.type === "Online" ? "Delivery" : t.type}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+            </section>
+
+            {/* Orders by channel */}
+            <section className="dash-card">
+              <h4 className="dash-card-title">Orders by channel <span className="dash-card-title-sub">vs yesterday</span></h4>
+              {displayOrderTypes.length > 0
+                ? <ChannelSection orderTypes={displayOrderTypes} yOrderTypes={yOrderTypes} isToday={isToday} />
+                : <p className="dash-card-empty">No channel data</p>
+              }
             </section>
 
             {/* Payment breakdown */}
