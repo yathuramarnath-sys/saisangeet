@@ -5735,8 +5735,31 @@ html, body, #root {
   letter-spacing: 0.08em;
   padding: 4px 4px 6px;
   margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .more2-section-head:first-child { margin-top: 0; }
+.more2-section-chevron {
+  transition: transform 0.22s ease;
+  flex-shrink: 0;
+}
+.more2-section-open > .more2-section-head .more2-section-chevron {
+  transform: rotate(90deg);
+}
+.more2-section-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.28s ease, opacity 0.2s ease;
+  opacity: 0;
+}
+.more2-section-open > .more2-section-body {
+  max-height: 500px;
+  opacity: 1;
+}
 .more2-card {
   background: #fff;
   border-radius: 16px;
@@ -9245,4 +9268,86 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   font-size: 11px;
   font-weight: 600;
   color: var(--more2-sub-color, #666);
+}
+
+/* ── More screen: pending bills nav row ────────────────────────────────── */
+.more2-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 16px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #E5E7EB;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  touch-action: manipulation;
+}
+.more2-nav-row:active { background: #F9FAFB; }
+
+/* ── More screen: pending bills sub-screen header ──────────────────────── */
+.more2-pb-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px 14px;
+  background: #fff;
+  border-bottom: 1px solid #E5E7EB;
+  flex-shrink: 0;
+}
+.more2-pb-back {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: #F3F4F6;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.more2-pb-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1C1C1E;
+  flex: 1;
+}
+
+/* ── MenuBrowser guest stepper ─────────────────────────────────────────── */
+.mb2-guest-stepper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #F5F3EF;
+  border-radius: 10px;
+  padding: 4px 6px;
+  flex-shrink: 0;
+}
+.mb2-gs-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 4px;
+}
+.mb2-gs-btn {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  background: #fff;
+  font-size: 16px;
+  color: #6B7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  touch-action: manipulation;
+}
+.mb2-gs-btn-add {
+  background: #FFC900;
+  color: #1C1C1C;
+}
+.mb2-gs-val {
+  width: 26px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: #1C1C1C;
 }

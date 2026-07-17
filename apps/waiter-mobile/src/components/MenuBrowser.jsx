@@ -21,7 +21,8 @@ function makeLongPress(callback, ms = 550) {
   };
 }
 
-export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, onUpdateOrder, onItemAdded, onItemRemoved, onBack, tableLabel }) {
+export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, onUpdateOrder, onItemAdded, onItemRemoved, onBack, tableLabel, guests = 0, onUpdateGuests }) {
+  const [guestVal, setGuestVal] = useState(guests);
   // Restrict the menu to the table's area, mirroring the POS work-area filter:
   // a category only shows here if it's explicitly tagged for this area (categories with
   // no area tag are reserved for full-access terminals/screens); an item with no area tag
@@ -206,11 +207,6 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
   }, 0);
   const cartTotal   = cartSub + cartTax;
 
-  const headerSub = [
-    tableLabel,
-    order.guests ? `${order.guests} guests` : null,
-  ].filter(Boolean).join(" · ");
-
   return (
     <div className="menu-page mb2-page">
       {/* Header */}
@@ -222,7 +218,29 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
         </button>
         <div className="mb2-header-text">
           <h2 className="mb2-title">Add Items</h2>
-          {headerSub && <p className="mb2-subtitle">{headerSub}</p>}
+          {tableLabel && <p className="mb2-subtitle">{tableLabel}</p>}
+        </div>
+        <div className="mb2-guest-stepper">
+          <span className="mb2-gs-label">Guests</span>
+          <button
+            className="mb2-gs-btn"
+            onClick={() => {
+              tapImpact();
+              const n = Math.max(0, guestVal - 1);
+              setGuestVal(n);
+              onUpdateGuests?.(n);
+            }}
+          >−</button>
+          <span className="mb2-gs-val">{guestVal || "0"}</span>
+          <button
+            className="mb2-gs-btn mb2-gs-btn-add"
+            onClick={() => {
+              tapImpact();
+              const n = guestVal + 1;
+              setGuestVal(n);
+              onUpdateGuests?.(n);
+            }}
+          >+</button>
         </div>
       </div>
 

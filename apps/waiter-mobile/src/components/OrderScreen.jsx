@@ -159,6 +159,8 @@ export function OrderScreen({
         onItemRemoved={(itemId) => onRemoveItem?.(itemId)}
         onBack={() => setScreen("order")}
         tableLabel={tableLabel}
+        guests={order.guests || 0}
+        onUpdateGuests={(n) => onUpdateGuests?.(order.tableId, n)}
       />
     );
   }

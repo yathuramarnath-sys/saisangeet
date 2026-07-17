@@ -633,11 +633,11 @@ export function App() {
   }, []);
 
   // ── Select table ──────────────────────────────────────────────────────────
-  // TAP → always open order screen first (so user can see the table state before acting)
+  // TAP → free tables open menu directly; occupied tables open order screen
   async function handleSelectTable(tableId, area) {
     const existingOrder = orders[tableId];
     const isOccupied = (existingOrder?.items || []).filter(i => !i.isVoided && !i.isComp).length > 0;
-    await openOrderScreen(tableId, area, null);
+    await openOrderScreen(tableId, area, isOccupied ? null : "menu");
   }
 
   // LONG PRESS on occupied table → show action sheet (Merge/Transfer/Split/Print Bill)
