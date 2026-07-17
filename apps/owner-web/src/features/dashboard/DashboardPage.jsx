@@ -382,7 +382,7 @@ export function DashboardPage() {
     const yParams = new URLSearchParams({ dateFrom: ydayISO, dateTo: ydayISO });
     if (outletId !== "__all__") yParams.set("outletId", outletId);
 
-    const billsParams = new URLSearchParams({ dateFrom, dateTo, pageSize: "20" });
+    const billsParams = new URLSearchParams({ dateFrom, dateTo, pageSize: "5" });
     if (outletId !== "__all__") billsParams.set("outletId", outletId);
 
     Promise.all([
