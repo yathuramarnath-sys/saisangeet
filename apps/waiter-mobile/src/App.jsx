@@ -1375,7 +1375,7 @@ export function App() {
             captainName: printOrder.captainName    || null,
             waiterName:  printOrder.assignedWaiter || null,
           }),
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(15000),
         });
         if (res.ok) posBillDelegated = true;
       } catch (err) {

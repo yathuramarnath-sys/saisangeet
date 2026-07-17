@@ -87,18 +87,11 @@ export function printBill(order, items, outletData, options = {}) {
         : `Token #${order.ticketNumber}`)
     : `${order.tableNumber}${order.areaName ? " · " + order.areaName : ""}`;
 
-  // ── Android: if POS proxy is configured, fall through to HTML→proxy path below.
-  // If no POS proxy, use direct TCP (requires captain_printers to be configured).
+  // ── Android: prefer direct TCP to printer when printerIp is configured.
+  // Fall through to HTML→proxy path only when no printer IP is available.
   if (isNativeAndroid()) {
-    const _localPosIp = localStorage.getItem("captain_local_server_ip")?.trim();
-    if (!_localPosIp) {
-      // No POS proxy — use native TCP direct to printer
-      if (!printerIp) {
-        window.dispatchEvent(new CustomEvent("dinex:print-error", {
-          detail: { source: "Bill", error: "No printer IP set. Configure POS IP in Settings or add a printer." },
-        }));
-        return;
-      }
+    if (printerIp) {
+      // Direct TCP — matches KOT print behavior; works even when POS is offline
 
       const summaryRows = [];
       summaryRows.push({ label: "Subtotal", value: `${subtotal.toFixed(2)}` });
@@ -144,6 +137,14 @@ export function printBill(order, items, outletData, options = {}) {
         billNo: order.billNo || "",
       });
       window.dispatchEvent(new CustomEvent("dinex:flush-prints"));
+      return;
+    }
+    // No printer IP — check if POS proxy is configured before falling to HTML path
+    const _localPosIp = localStorage.getItem("captain_local_server_ip")?.trim();
+    if (!_localPosIp) {
+      window.dispatchEvent(new CustomEvent("dinex:print-error", {
+        detail: { source: "Bill", error: "No printer IP set. Configure POS IP in Settings or add a printer." },
+      }));
       return;
     }
     // POS proxy configured → fall through to HTML path below
