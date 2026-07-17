@@ -11946,57 +11946,38 @@ textarea:focus {
   min-width: 0 !important;
 }
 .dash-kpi-label {
-  font-size: 12px !important;
-  font-weight: 500 !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
   color: var(--oc-muted, #6B6B6B) !important;
-  text-transform: none !important;
-  letter-spacing: 0 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .07em !important;
   margin-bottom: 4px !important;
 }
 .dash-kpi-value {
-  font-size: 26px !important;
-  font-weight: 700 !important;
+  font-size: 38px !important;
+  font-weight: 800 !important;
   color: var(--oc-ink, #1C1C1C) !important;
   white-space: nowrap !important;
-  line-height: 1.15 !important;
+  line-height: 1 !important;
   font-variant-numeric: tabular-nums !important;
+  letter-spacing: -1px !important;
   margin-bottom: 5px !important;
 }
 .dash-kpi-sub {
   font-size: 12px !important;
   color: var(--oc-muted, #6B6B6B) !important;
-  font-weight: 400 !important;
+  font-weight: 500 !important;
   margin-top: 0 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
-
-/* sparkline placeholder strip */
-.dash-kpi::after {
-  content: '' !important;
-  position: absolute !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  height: 24px !important;
-  background:
-    linear-gradient(to top, #ECEAE3 40%, transparent 40%),
-    linear-gradient(to top, #ECEAE3 30%, transparent 30%),
-    linear-gradient(to top, #ECEAE3 50%, transparent 50%),
-    linear-gradient(to top, #ECEAE3 20%, transparent 20%),
-    linear-gradient(to top, #ECEAE3 65%, transparent 65%),
-    linear-gradient(to top, #ECEAE3 35%, transparent 35%),
-    linear-gradient(to top, var(--oc-teal, #0F766E) 80%, transparent 80%) !important;
-  background-size:
-    10px 100%, 10px 100%, 10px 100%, 10px 100%,
-    10px 100%, 10px 100%, 10px 100% !important;
-  background-position:
-    0px bottom, 13px bottom, 26px bottom, 39px bottom,
-    52px bottom, 65px bottom, 78px bottom !important;
-  background-repeat: no-repeat !important;
-  opacity: 0.35 !important;
+/* Primary KPI (Net Sales) — teal top accent */
+.dash-kpi.hi {
+  border-top: 3px solid var(--oc-teal, #0F766E) !important;
 }
+/* Remove fake sparkline strip */
+.dash-kpi::after { display: none !important; }
 
 /* ── Order-type (service mode) cards ───────────────────────────────────── */
 .dash-otype-row {
@@ -12408,39 +12389,41 @@ textarea:focus {
 }
 .rpt-kpi:hover { box-shadow: 0 3px 10px rgba(0,0,0,.07) !important; }
 
-/* Dark highlight card → teal instead of black */
+/* Primary highlight card → white with teal top border */
 .rpt-kpi-hi {
-  background: var(--oc-teal, #0F766E) !important;
-  color: #fff !important;
-  border-color: var(--oc-teal, #0F766E) !important;
+  background: #fff !important;
+  color: var(--oc-ink, #1C1C1C) !important;
+  border-color: var(--oc-hairline, #ECEAE3) !important;
+  border-top: 3px solid var(--oc-teal, #0F766E) !important;
 }
 .rpt-kpi-hi .rpt-kpi-label,
 .rpt-kpi-hi .rpt-kpi-sub {
-  color: rgba(255,255,255,.65) !important;
+  color: var(--oc-muted, #6B6B6B) !important;
 }
 .rpt-kpi-hi .rpt-kpi-value {
-  color: #fff !important;
+  color: var(--oc-ink, #1C1C1C) !important;
 }
 
 .rpt-kpi-label {
-  font-size: 11px !important;
-  font-weight: 600 !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
   color: var(--oc-muted, #6B6B6B) !important;
   text-transform: uppercase !important;
-  letter-spacing: .05em !important;
+  letter-spacing: .07em !important;
 }
 .rpt-kpi-value {
-  font-size: 22px !important;
-  font-weight: 700 !important;
+  font-size: 38px !important;
+  font-weight: 800 !important;
   color: var(--oc-ink, #1C1C1C) !important;
-  line-height: 1.2 !important;
+  line-height: 1 !important;
   font-variant-numeric: tabular-nums !important;
-  margin-top: 2px !important;
+  letter-spacing: -1px !important;
+  margin-top: 4px !important;
 }
 .rpt-kpi-sub {
   font-size: 12px !important;
   color: var(--oc-muted, #6B6B6B) !important;
-  font-weight: 400 !important;
+  font-weight: 500 !important;
 }
 
 /* ── Category / view tabs ───────────────────────────────────────────────── */

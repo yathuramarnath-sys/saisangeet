@@ -121,13 +121,13 @@ function Sparkline({ data }) {
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, delta, sparkData }) {
+function KpiCard({ label, value, sub, delta, sparkData, hi }) {
   const deltaClass = delta === null ? "" : delta >= 0 ? "pos" : "neg";
   const deltaLabel = delta === null ? null
     : `${delta >= 0 ? "+" : ""}${delta}% vs yesterday`;
 
   return (
-    <div className="dash-kpi">
+    <div className={`dash-kpi${hi ? " hi" : ""}`}>
       <div className="dash-kpi-body">
         <span className="dash-kpi-label">{label}</span>
         <strong className="dash-kpi-value">{value}</strong>
@@ -566,7 +566,7 @@ export function DashboardPage() {
         <>
           {/* ── KPI row ───────────────────────────────────────────────── */}
           <div className="dash-kpi-row">
-            <KpiCard label="Net sales"       value={fmt(totalSales)}  sub={`${totalOrders} orders`}       delta={deltaSales}  sparkData={sparkData} />
+            <KpiCard label="Net sales"       value={fmt(totalSales)}  sub={`${totalOrders} orders`}       delta={deltaSales}  sparkData={sparkData} hi />
             <KpiCard label="Orders"          value={totalOrders}       sub={`Avg ${fmt(avgOrder)} / bill`} delta={deltaOrders} sparkData={sparkData} />
             <KpiCard label="Avg order value" value={fmt(avgOrder)}     sub="per bill"                      delta={deltaAvg}    sparkData={sparkData} />
             <KpiCard label="GST collected"   value={fmt(totalTax)}     sub="CGST + SGST"                   delta={deltaTax}    />
