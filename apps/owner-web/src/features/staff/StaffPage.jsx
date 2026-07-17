@@ -69,7 +69,7 @@ function Toggle({ enabled, onChange }) {
       onClick={onChange}
       style={{
         display: "inline-block", width: "40px", height: "22px", borderRadius: "11px",
-        background: enabled ? "#1a7a3a" : "#ccc", position: "relative",
+        background: enabled ? "#16a34a" : "#ccc", position: "relative",
         transition: "background 0.2s", cursor: "pointer", flexShrink: 0
       }}
     >
@@ -632,7 +632,7 @@ export function StaffPage() {
                 >
                   <div className="role-card-header">
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <strong style={{ color: isActive ? undefined : "#aaa" }}>{role.name}</strong>
+                      <strong style={{ color: isActive ? "var(--oc-ink, #1C1C1C)" : "#aaa" }}>{role.name}</strong>
                       {!isActive && (
                         <span style={{ fontSize: "0.7rem", background: "#f0f0f0", color: "#aaa", borderRadius: "4px", padding: "1px 6px", fontWeight: 600 }}>
                           INACTIVE

@@ -91,9 +91,9 @@ body {
 }
 
 .nav-item.active {
-  background: #059669;
+  background: var(--oc-teal, #0F766E);
   color: #fff;
-  box-shadow: 0 8px 20px rgba(5, 150, 105, 0.25);
+  box-shadow: none;
 }
 
 .sidebar-card,
@@ -7690,12 +7690,18 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 }
 
 .oc-nav-link.active {
-  background: var(--oc-teal);
-  color: #FFFFFF;
+  background: var(--oc-teal, #0F766E) !important;
+  color: #ffffff !important;
 }
 
 .oc-nav-link.active .oc-nav-icon {
-  color: #FFFFFF;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.oc-nav-link.active svg {
+  color: #ffffff !important;
+  opacity: 1 !important;
 }
 
 .oc-nav-icon {
@@ -9934,6 +9940,8 @@ body {
 
 .role-card-inactive { opacity: 0.55 !important; }
 
+.role-card-header .entity-actions { margin-top: 0 !important; flex-wrap: nowrap !important; align-items: center !important; }
+
 /* ── Staff permission items ──────────────────────────────────────────────── */
 .permission-item {
   background: var(--oc-card) !important;
@@ -9944,7 +9952,7 @@ body {
   transition: border-color 0.12s !important;
 }
 
-.permission-item.enabled { border-color: var(--oc-teal) !important; background: rgba(15,118,110,0.05) !important; }
+.permission-item.enabled { border-color: var(--oc-hairline, #ECEAE3) !important; background: var(--oc-card, #FFFFFF) !important; }
 .permission-item.disabled { opacity: 0.6 !important; }
 .permission-item:hover:not(.disabled) { border-color: rgba(15,118,110,0.3) !important; }
 
@@ -11806,6 +11814,52 @@ textarea:focus {
   appearance: auto !important;
   min-width: 130px !important;
 }
+
+/* ── Preset date chips ──────────────────────────────────────────────────────── */
+.dash-preset-chips {
+  display: flex !important;
+  gap: 0 !important;
+  border: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  margin-right: 8px !important;
+}
+.dash-preset-chip {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  padding: 5px 12px !important;
+  cursor: pointer !important;
+  background: #fff !important;
+  border: none !important;
+  border-right: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  transition: background .12s !important;
+}
+.dash-preset-chip:last-child { border-right: none !important; }
+.dash-preset-chip:hover { background: var(--oc-ground, #F7F6F2) !important; }
+.dash-preset-chip.active { background: var(--oc-ink, #1C1C1C) !important; color: #fff !important; font-weight: 600 !important; }
+
+/* ── Channel breakdown ──────────────────────────────────────────────────────── */
+.dash-chan-list { display: flex !important; flex-direction: column !important; gap: 0 !important; }
+.dash-chan-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 9px 0 !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+}
+.dash-chan-row:last-child { border-bottom: none !important; }
+.dash-chan-dot { width: 8px !important; height: 8px !important; border-radius: 50% !important; flex-shrink: 0 !important; }
+.dash-chan-info { flex: 1 !important; display: flex !important; flex-direction: column !important; gap: 2px !important; }
+.dash-chan-name { font-size: 13px !important; font-weight: 600 !important; color: var(--oc-ink, #1C1C1C) !important; }
+.dash-chan-yday { font-size: 11px !important; color: var(--oc-muted, #6B6B6B) !important; }
+.dash-chan-yday.dn { color: #D92D20 !important; }
+.dash-chan-right { text-align: right !important; flex-shrink: 0 !important; display: flex !important; flex-direction: column !important; gap: 1px !important; }
+.dash-chan-orders { font-size: 14px !important; font-weight: 700 !important; color: var(--oc-ink, #1C1C1C) !important; font-variant-numeric: tabular-nums !important; }
+.dash-chan-amt { font-size: 11.5px !important; color: var(--oc-muted, #6B6B6B) !important; font-variant-numeric: tabular-nums !important; }
+
+/* ── Card title sub-label ───────────────────────────────────────────────────── */
+.dash-card-title-sub { font-size: 12px !important; font-weight: 400 !important; color: var(--oc-muted, #6B6B6B) !important; margin-left: 4px !important; }
 
 /* ── Sync label + refresh btn ──────────────────────────────────────────── */
 .dash-sync-label {
@@ -13860,9 +13914,18 @@ button.inv-toggle:focus-visible {
   margin-bottom: 16px !important;
 }
 
+.dash-bottom-3col {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr 1fr !important;
+  gap: 16px !important;
+  margin-bottom: 16px !important;
+  padding: 0 28px 28px !important;
+}
+
 @media (max-width: 860px) {
   .dash-main-2col,
   .dash-bottom-2col { grid-template-columns: 1fr !important; }
+  .dash-bottom-3col { grid-template-columns: 1fr !important; padding: 0 16px 24px !important; }
 }
 
 /* ── Trend chart card ─────────────────────────────────────────────────────── */
