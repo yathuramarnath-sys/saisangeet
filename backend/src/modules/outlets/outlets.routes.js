@@ -56,4 +56,23 @@ outletsRouter.post(
   asyncHandler(regenerateSyncCodeHandler)
 );
 
+// ── Payment method config for an outlet ──────────────────────────────────
+// Body: { paymentConfig: { cash, upi, card, credit } }
+outletsRouter.patch(
+  "/:id/payment-config",
+  requireAuth, requirePermission("outlets.manage"),
+  asyncHandler(async (req, res) => {
+    const { updateOutletSettings } = require("./outlets.service");
+    const { paymentConfig } = req.body;
+    if (!paymentConfig || typeof paymentConfig !== "object") {
+      return res.status(400).json({ error: "paymentConfig object required" });
+    }
+    const result = await updateOutletSettings(req.params.id, { paymentConfig });
+    const io       = req.app.locals.io;
+    const tenantId = req.user?.tenantId || "default";
+    if (io) io.to(`tenant:${tenantId}`).emit("sync:config", { type: "outlets", ts: Date.now() });
+    res.json(result);
+  })
+);
+
 module.exports = { outletsRouter };
