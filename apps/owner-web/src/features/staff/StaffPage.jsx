@@ -25,6 +25,17 @@ const PERMISSION_CATALOG = [
   { code: "floor.area.manage",         name: "Area Setup",        group: "Management",  desc: "Create or update AC, Non-AC, service areas" }
 ];
 
+const AVATAR_COLORS = [
+  "#0F766E","#2563EB","#7C3AED","#B45309","#DC2626",
+  "#0284C7","#16A34A","#9333EA","#D97706","#E11D48",
+];
+
+function avatarColor(name) {
+  let h = 0;
+  for (let i = 0; i < (name || "").length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
 const LOCAL_STAFF_KEY = "pos_local_staff";
 const LOCAL_ROLES_KEY = "pos_local_roles";
 
@@ -849,8 +860,13 @@ export function StaffPage() {
               {staffData.staff.map((member) => (
                 <div key={member.id}>
                   <div className="staff-row">
-                    <span style={{ fontWeight: editingStaffId === member.id ? 600 : 400 }}>
-                      {member.name}
+                    <span className="staff-name-cell">
+                      <span className="staff-avatar" style={{ background: avatarColor(member.name) }}>
+                        {(member.name || "?")[0].toUpperCase()}
+                      </span>
+                      <span className="staff-name" style={{ fontWeight: editingStaffId === member.id ? 600 : 400 }}>
+                        {member.name}
+                      </span>
                     </span>
                     <span>{member.role}</span>
                     <span>{member.outlet}</span>

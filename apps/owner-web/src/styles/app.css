@@ -14660,3 +14660,54 @@ button.inv-toggle:focus-visible {
   color: var(--oc-teal, #0F766E) !important;
   font-weight: 600 !important;
 }
+
+/* ── Staff avatar initials ───────────────────────────────────────────────── */
+.staff-name-cell { display: flex !important; align-items: center !important; gap: 8px !important; }
+.staff-avatar {
+  width: 28px !important; height: 28px !important;
+  border-radius: 50% !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  font-size: 11px !important; font-weight: 700 !important;
+  color: #fff !important; flex-shrink: 0 !important;
+}
+.staff-name { font-weight: 500 !important; }
+
+/* ── Dashboard Bill Flow table ───────────────────────────────────────────── */
+.dash-bill-flow { margin-top: 16px !important; }
+.dash-bill-flow-head {
+  display: flex !important; align-items: baseline !important;
+  justify-content: space-between !important; margin-bottom: 14px !important;
+}
+.dash-bill-flow-eyebrow {
+  font-size: 10px !important; font-weight: 700 !important;
+  text-transform: uppercase !important; letter-spacing: .08em !important;
+  color: var(--oc-muted, #6B6B6B) !important; margin-bottom: 2px !important;
+}
+.dash-bill-flow-count { font-size: 12px !important; color: var(--oc-muted, #6B6B6B) !important; }
+.dash-bill-table-wrap { overflow-x: auto !important; }
+.dash-bill-table {
+  width: 100% !important; border-collapse: collapse !important;
+  font-size: 13px !important; font-variant-numeric: tabular-nums !important;
+}
+.dash-bill-table thead th {
+  font-size: 10px !important; font-weight: 700 !important;
+  text-transform: uppercase !important; letter-spacing: .07em !important;
+  color: var(--oc-muted, #6B6B6B) !important;
+  padding: 0 12px 8px 0 !important; text-align: left !important;
+  border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important;
+  white-space: nowrap !important;
+}
+.dash-bill-table tbody tr { border-bottom: 1px solid var(--oc-hairline, #ECEAE3) !important; }
+.dash-bill-table tbody tr:last-child { border-bottom: none !important; }
+.dash-bill-table tbody td { padding: 10px 12px 10px 0 !important; vertical-align: middle !important; }
+.dash-bill-no { font-weight: 600 !important; color: var(--oc-ink, #1C1C1C) !important; }
+.dash-bill-muted { color: var(--oc-muted, #6B6B6B) !important; }
+.dash-bill-mode { color: var(--oc-ink, #1C1C1C) !important; }
+.dash-bill-amt { font-weight: 700 !important; color: var(--oc-ink, #1C1C1C) !important; text-align: right !important; }
+.dash-bill-status {
+  display: inline-block !important;
+  padding: 2px 9px !important; border-radius: 20px !important;
+  font-size: 11px !important; font-weight: 600 !important;
+}
+.dash-bill-status.paid { background: rgba(15,118,110,0.10) !important; color: #0F766E !important; }
+.dash-bill-status.credit { background: rgba(245,158,11,0.12) !important; color: #B45309 !important; }

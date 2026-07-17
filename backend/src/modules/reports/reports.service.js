@@ -130,6 +130,7 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
   // Discount tracking
   const discountLog       = [];
   let   manualOverrides   = 0;
+  let   totalCovers       = 0;
 
   for (const order of closedToday) {
     const items    = order.items || [];
@@ -140,6 +141,7 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
     totalGross             += net;
     totalGrossBeforeDiscount += subtotal;
     totalDiscount          += disc;
+    totalCovers            += order.guests || 0;
 
     for (const p of (order.payments || [])) {
       const mode = _cap(p.method || "cash");
@@ -419,6 +421,7 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
         totalDiscount:    Math.round(totalDiscount),
         totalCancelled,
         cancelledValue:   Math.round(cancelledValue),
+        coversTotal:      totalCovers,
       },
       paymentModes,
       orderTypes: computedOrderTypes,
@@ -981,6 +984,7 @@ function _formatBillRow(order) {
     tableNumber: order.tableNumber || order.tableId || "—",
     outletName:  order.outletName  || "—",
     outletId:    order._outletId   || order.outletId || null,
+    guests:      order.guests      || 0,
     items:       items.length,
     subtotal:    Math.round(subtotal),
     discount:    Math.round(discount),
@@ -991,6 +995,7 @@ function _formatBillRow(order) {
     date:        dateStr,
     time:        timeStr,
     closedAt,
+    status:      order.isCreditSale ? "Credit" : "Paid",
     // Full order attached so the UI can open a bill detail modal
     _order:      order,
   };

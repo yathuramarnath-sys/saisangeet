@@ -339,6 +339,7 @@ export function DashboardPage() {
   const [activePreset,   setActivePreset]   = useState("today");
   const [data,           setData]           = useState(null);
   const [yesterdayData,  setYesterdayData]  = useState(null);
+  const [recentBills,    setRecentBills]    = useState([]);
   const [loading,        setLoading]        = useState(true);
   const [lastSynced,     setLastSynced]     = useState(null);
   const [error,          setError]          = useState("");
@@ -381,12 +382,17 @@ export function DashboardPage() {
     const yParams = new URLSearchParams({ dateFrom: ydayISO, dateTo: ydayISO });
     if (outletId !== "__all__") yParams.set("outletId", outletId);
 
+    const billsParams = new URLSearchParams({ dateFrom, dateTo, pageSize: "20" });
+    if (outletId !== "__all__") billsParams.set("outletId", outletId);
+
     Promise.all([
       api.get(`/reports/owner-summary?${params}`),
       isToday ? api.get(`/reports/owner-summary?${yParams}`).catch(() => null) : Promise.resolve(null),
-    ]).then(([res, yRes]) => {
+      api.get(`/reports/orders?${billsParams}`).catch(() => null),
+    ]).then(([res, yRes, billsRes]) => {
       setData(res);
       setYesterdayData(yRes);
+      setRecentBills(billsRes?.orders || []);
       setLastSynced(new Date());
       setLoading(false);
     }).catch(err => {
@@ -461,6 +467,7 @@ export function DashboardPage() {
   const avgOrder       = summary.avgOrderValue    || 0;
   const totalTax       = summary.totalTax         || 0;
   const totalDisc      = summary.totalDiscount    || 0;
+  const coversTotal    = summary.coversTotal      || 0;
   const totalCollected = paymentModes.reduce((s, p) => s + p.amount, 0);
 
   const hasData = totalOrders > 0;
@@ -487,6 +494,7 @@ export function DashboardPage() {
   const deltaOrders = calcDelta(totalOrders, ySum.totalOrders || 0);
   const deltaAvg    = calcDelta(avgOrder, ySum.avgOrderValue || 0);
   const deltaTax    = calcDelta(totalTax, ySum.totalTax || 0);
+  const deltaCovers = calcDelta(coversTotal, ySum.coversTotal || 0);
   const yOrderTypes = yesterdayData?.salesData?.dayEnd?.orderTypes || [];
 
   // Sparkline: last 8 hours of sales amounts (or fewer if not available)
@@ -577,6 +585,7 @@ export function DashboardPage() {
           <div className="dash-kpi-row">
             <KpiCard label="Net sales"       value={fmt(totalSales)}  sub={`${totalOrders} orders`}       delta={deltaSales}  sparkData={sparkData} hi />
             <KpiCard label="Orders"          value={totalOrders}       sub={`Avg ${fmt(avgOrder)} / bill`} delta={deltaOrders} sparkData={sparkData} />
+            <KpiCard label="Covers (Guests)" value={coversTotal}       sub="guests seated"                 delta={deltaCovers} />
             <KpiCard label="Avg order value" value={fmt(avgOrder)}     sub="per bill"                      delta={deltaAvg}    sparkData={sparkData} />
             <KpiCard label="GST collected"   value={fmt(totalTax)}     sub="CGST + SGST"                   delta={deltaTax}    />
             {totalDisc > 0 && (
@@ -629,6 +638,53 @@ export function DashboardPage() {
             </section>
 
           </div>
+
+          {/* ── Bill Flow — Recent Bills ───────────────────────────────────── */}
+          {recentBills.length > 0 && (
+            <section className="dash-card dash-bill-flow">
+              <div className="dash-bill-flow-head">
+                <div>
+                  <p className="dash-bill-flow-eyebrow">Bill Flow</p>
+                  <h4 className="dash-card-title" style={{ marginBottom: 0 }}>Recent Bills</h4>
+                </div>
+                <span className="dash-bill-flow-count">{recentBills.length} shown</span>
+              </div>
+              <div className="dash-bill-table-wrap">
+                <table className="dash-bill-table">
+                  <thead>
+                    <tr>
+                      <th>Bill #</th>
+                      <th>Table</th>
+                      <th>Time</th>
+                      <th>Items</th>
+                      <th>Guests</th>
+                      <th>Mode</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentBills.map((bill, i) => (
+                      <tr key={bill.closedAt || i}>
+                        <td className="dash-bill-no">{bill.billNoFY || bill.billNo}</td>
+                        <td>{bill.tableNumber}</td>
+                        <td className="dash-bill-muted">{bill.time}</td>
+                        <td className="dash-bill-muted">{bill.items}</td>
+                        <td className="dash-bill-muted">{bill.guests || "—"}</td>
+                        <td className="dash-bill-mode">{bill.paymentMethods}</td>
+                        <td className="dash-bill-amt">{fmt(bill.net)}</td>
+                        <td>
+                          <span className={`dash-bill-status ${bill.status === "Credit" ? "credit" : "paid"}`}>
+                            {bill.status || "Paid"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
         </>
       )}
     </>
