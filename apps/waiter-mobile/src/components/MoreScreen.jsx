@@ -31,7 +31,7 @@ export function MoreScreen({
   const [syncSteps,  setSyncSteps]  = useState(null);
   const [lastSynced, setLastSynced] = useState(null);
   const [syncOpen,   setSyncOpen]   = useState(true);
-  const [appOpen,    setAppOpen]    = useState(false);
+  const [appOpen,    setAppOpen]    = useState(true);
 
   // Compute pending bills once — used in nav row and sub-screen
   const allTables = tableAreas.flatMap(a => (a.tables || []).map(t => ({ ...t, areaName: a.name })));
