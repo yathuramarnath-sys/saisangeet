@@ -537,7 +537,7 @@ export function StaffPage() {
         </article>
         <article className="metric-card">
           <span className="metric-label">Active</span>
-          <strong>{activeStaff}</strong>
+          <strong className="active-count">{activeStaff}</strong>
           <p>Currently enabled for login</p>
         </article>
         <article className={`metric-card ${pendingCount > 0 ? "warning" : ""}`}>

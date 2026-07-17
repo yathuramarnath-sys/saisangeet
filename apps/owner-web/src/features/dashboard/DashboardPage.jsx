@@ -336,6 +336,7 @@ export function DashboardPage() {
   const [outletId,       setOutletId]       = useState("__all__");
   const [dateFrom,       setDateFrom]       = useState(todayISO);
   const [dateTo,         setDateTo]         = useState(todayISO);
+  const [activePreset,   setActivePreset]   = useState("today");
   const [data,           setData]           = useState(null);
   const [yesterdayData,  setYesterdayData]  = useState(null);
   const [loading,        setLoading]        = useState(true);
@@ -346,12 +347,15 @@ export function DashboardPage() {
 
   const isToday = dateFrom === todayISO() && dateTo === todayISO();
   const isYesterday = dateFrom === yesterdayISO() && dateTo === yesterdayISO();
+  const showCustomRange = activePreset === "custom";
 
   function setPreset(preset) {
     const today = todayISO();
     const yday  = yesterdayISO();
+    setActivePreset(preset);
     if (preset === "today")     { setDateFrom(today); setDateTo(today); return; }
     if (preset === "yesterday") { setDateFrom(yday);  setDateTo(yday);  return; }
+    if (preset === "custom")    { return; }
     const from = new Date();
     if (preset === "7d")  from.setDate(from.getDate() - 6);
     if (preset === "30d") from.setDate(from.getDate() - 29);
@@ -513,20 +517,25 @@ export function DashboardPage() {
       <div className="dash-toolbar">
         <div className="dash-toolbar-left">
           <div className="dash-preset-chips">
-            <button className={`dash-preset-chip${isToday ? " active" : ""}`}       onClick={() => setPreset("today")}>Today</button>
-            <button className={`dash-preset-chip${isYesterday ? " active" : ""}`}   onClick={() => setPreset("yesterday")}>Yesterday</button>
-            <button className="dash-preset-chip" onClick={() => setPreset("7d")}>7 Days</button>
-            <button className="dash-preset-chip" onClick={() => setPreset("30d")}>30 Days</button>
+            <button className={`dash-preset-chip${activePreset === "today" ? " active" : ""}`}      onClick={() => setPreset("today")}>Today</button>
+            <button className={`dash-preset-chip${activePreset === "yesterday" ? " active" : ""}`}  onClick={() => setPreset("yesterday")}>Yesterday</button>
+            <button className={`dash-preset-chip${activePreset === "7d" ? " active" : ""}`}         onClick={() => setPreset("7d")}>7 Days</button>
+            <button className={`dash-preset-chip${activePreset === "30d" ? " active" : ""}`}        onClick={() => setPreset("30d")}>30 Days</button>
+            <button className={`dash-preset-chip${activePreset === "custom" ? " active" : ""}`}     onClick={() => setPreset("custom")}>Custom</button>
           </div>
-          <DateChip
-            value={dateFrom} max={dateTo}
-            onChange={e => { setDateFrom(e.target.value); if (e.target.value > dateTo) setDateTo(e.target.value); }}
-          />
-          <span className="dash-date-sep">→</span>
-          <DateChip
-            value={dateTo} min={dateFrom} max={todayISO()}
-            onChange={e => { setDateTo(e.target.value); if (e.target.value < dateFrom) setDateFrom(e.target.value); }}
-          />
+          {showCustomRange && (
+            <div className="dash-custom-range">
+              <input
+                type="date" className="dash-date-input" value={dateFrom} max={dateTo}
+                onChange={e => { setDateFrom(e.target.value); if (e.target.value > dateTo) setDateTo(e.target.value); }}
+              />
+              <span className="dash-range-sep">→</span>
+              <input
+                type="date" className="dash-date-input" value={dateTo} min={dateFrom} max={todayISO()}
+                onChange={e => { setDateTo(e.target.value); if (e.target.value < dateFrom) setDateFrom(e.target.value); }}
+              />
+            </div>
+          )}
           {isToday && (
             <>
               <span className="dash-live-dot" />
