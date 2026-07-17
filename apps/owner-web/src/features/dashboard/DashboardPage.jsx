@@ -121,13 +121,13 @@ function Sparkline({ data }) {
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, delta, sparkData }) {
+function KpiCard({ label, value, sub, delta, sparkData, hi }) {
   const deltaClass = delta === null ? "" : delta >= 0 ? "pos" : "neg";
   const deltaLabel = delta === null ? null
     : `${delta >= 0 ? "+" : ""}${delta}% vs yesterday`;
 
   return (
-    <div className="dash-kpi">
+    <div className={`dash-kpi${hi ? " hi" : ""}`}>
       <div className="dash-kpi-body">
         <span className="dash-kpi-label">{label}</span>
         <strong className="dash-kpi-value">{value}</strong>
@@ -336,8 +336,10 @@ export function DashboardPage() {
   const [outletId,       setOutletId]       = useState("__all__");
   const [dateFrom,       setDateFrom]       = useState(todayISO);
   const [dateTo,         setDateTo]         = useState(todayISO);
+  const [activePreset,   setActivePreset]   = useState("today");
   const [data,           setData]           = useState(null);
   const [yesterdayData,  setYesterdayData]  = useState(null);
+  const [recentBills,    setRecentBills]    = useState([]);
   const [loading,        setLoading]        = useState(true);
   const [lastSynced,     setLastSynced]     = useState(null);
   const [error,          setError]          = useState("");
@@ -346,12 +348,15 @@ export function DashboardPage() {
 
   const isToday = dateFrom === todayISO() && dateTo === todayISO();
   const isYesterday = dateFrom === yesterdayISO() && dateTo === yesterdayISO();
+  const showCustomRange = activePreset === "custom";
 
   function setPreset(preset) {
     const today = todayISO();
     const yday  = yesterdayISO();
+    setActivePreset(preset);
     if (preset === "today")     { setDateFrom(today); setDateTo(today); return; }
     if (preset === "yesterday") { setDateFrom(yday);  setDateTo(yday);  return; }
+    if (preset === "custom")    { return; }
     const from = new Date();
     if (preset === "7d")  from.setDate(from.getDate() - 6);
     if (preset === "30d") from.setDate(from.getDate() - 29);
@@ -377,12 +382,17 @@ export function DashboardPage() {
     const yParams = new URLSearchParams({ dateFrom: ydayISO, dateTo: ydayISO });
     if (outletId !== "__all__") yParams.set("outletId", outletId);
 
+    const billsParams = new URLSearchParams({ dateFrom, dateTo, pageSize: "5" });
+    if (outletId !== "__all__") billsParams.set("outletId", outletId);
+
     Promise.all([
       api.get(`/reports/owner-summary?${params}`),
       isToday ? api.get(`/reports/owner-summary?${yParams}`).catch(() => null) : Promise.resolve(null),
-    ]).then(([res, yRes]) => {
+      api.get(`/reports/orders?${billsParams}`).catch(() => null),
+    ]).then(([res, yRes, billsRes]) => {
       setData(res);
       setYesterdayData(yRes);
+      setRecentBills(billsRes?.orders || []);
       setLastSynced(new Date());
       setLoading(false);
     }).catch(err => {
@@ -457,6 +467,7 @@ export function DashboardPage() {
   const avgOrder       = summary.avgOrderValue    || 0;
   const totalTax       = summary.totalTax         || 0;
   const totalDisc      = summary.totalDiscount    || 0;
+  const coversTotal    = summary.coversTotal      || 0;
   const totalCollected = paymentModes.reduce((s, p) => s + p.amount, 0);
 
   const hasData = totalOrders > 0;
@@ -483,6 +494,7 @@ export function DashboardPage() {
   const deltaOrders = calcDelta(totalOrders, ySum.totalOrders || 0);
   const deltaAvg    = calcDelta(avgOrder, ySum.avgOrderValue || 0);
   const deltaTax    = calcDelta(totalTax, ySum.totalTax || 0);
+  const deltaCovers = calcDelta(coversTotal, ySum.coversTotal || 0);
   const yOrderTypes = yesterdayData?.salesData?.dayEnd?.orderTypes || [];
 
   // Sparkline: last 8 hours of sales amounts (or fewer if not available)
@@ -513,20 +525,25 @@ export function DashboardPage() {
       <div className="dash-toolbar">
         <div className="dash-toolbar-left">
           <div className="dash-preset-chips">
-            <button className={`dash-preset-chip${isToday ? " active" : ""}`}       onClick={() => setPreset("today")}>Today</button>
-            <button className={`dash-preset-chip${isYesterday ? " active" : ""}`}   onClick={() => setPreset("yesterday")}>Yesterday</button>
-            <button className="dash-preset-chip" onClick={() => setPreset("7d")}>7 Days</button>
-            <button className="dash-preset-chip" onClick={() => setPreset("30d")}>30 Days</button>
+            <button className={`dash-preset-chip${activePreset === "today" ? " active" : ""}`}      onClick={() => setPreset("today")}>Today</button>
+            <button className={`dash-preset-chip${activePreset === "yesterday" ? " active" : ""}`}  onClick={() => setPreset("yesterday")}>Yesterday</button>
+            <button className={`dash-preset-chip${activePreset === "7d" ? " active" : ""}`}         onClick={() => setPreset("7d")}>7 Days</button>
+            <button className={`dash-preset-chip${activePreset === "30d" ? " active" : ""}`}        onClick={() => setPreset("30d")}>30 Days</button>
+            <button className={`dash-preset-chip${activePreset === "custom" ? " active" : ""}`}     onClick={() => setPreset("custom")}>Custom</button>
           </div>
-          <DateChip
-            value={dateFrom} max={dateTo}
-            onChange={e => { setDateFrom(e.target.value); if (e.target.value > dateTo) setDateTo(e.target.value); }}
-          />
-          <span className="dash-date-sep">→</span>
-          <DateChip
-            value={dateTo} min={dateFrom} max={todayISO()}
-            onChange={e => { setDateTo(e.target.value); if (e.target.value < dateFrom) setDateFrom(e.target.value); }}
-          />
+          {showCustomRange && (
+            <div className="dash-custom-range">
+              <input
+                type="date" className="dash-date-input" value={dateFrom} max={dateTo}
+                onChange={e => { setDateFrom(e.target.value); if (e.target.value > dateTo) setDateTo(e.target.value); }}
+              />
+              <span className="dash-range-sep">→</span>
+              <input
+                type="date" className="dash-date-input" value={dateTo} min={dateFrom} max={todayISO()}
+                onChange={e => { setDateTo(e.target.value); if (e.target.value < dateFrom) setDateFrom(e.target.value); }}
+              />
+            </div>
+          )}
           {isToday && (
             <>
               <span className="dash-live-dot" />
@@ -566,8 +583,9 @@ export function DashboardPage() {
         <>
           {/* ── KPI row ───────────────────────────────────────────────── */}
           <div className="dash-kpi-row">
-            <KpiCard label="Net sales"       value={fmt(totalSales)}  sub={`${totalOrders} orders`}       delta={deltaSales}  sparkData={sparkData} />
+            <KpiCard label="Net sales"       value={fmt(totalSales)}  sub={`${totalOrders} orders`}       delta={deltaSales}  sparkData={sparkData} hi />
             <KpiCard label="Orders"          value={totalOrders}       sub={`Avg ${fmt(avgOrder)} / bill`} delta={deltaOrders} sparkData={sparkData} />
+            <KpiCard label="Covers (Guests)" value={coversTotal}       sub="guests seated"                 delta={deltaCovers} />
             <KpiCard label="Avg order value" value={fmt(avgOrder)}     sub="per bill"                      delta={deltaAvg}    sparkData={sparkData} />
             <KpiCard label="GST collected"   value={fmt(totalTax)}     sub="CGST + SGST"                   delta={deltaTax}    />
             {totalDisc > 0 && (
@@ -620,6 +638,53 @@ export function DashboardPage() {
             </section>
 
           </div>
+
+          {/* ── Bill Flow — Recent Bills ───────────────────────────────────── */}
+          {recentBills.length > 0 && (
+            <section className="dash-card dash-bill-flow">
+              <div className="dash-bill-flow-head">
+                <div>
+                  <p className="dash-bill-flow-eyebrow">Bill Flow</p>
+                  <h4 className="dash-card-title" style={{ marginBottom: 0 }}>Recent Bills</h4>
+                </div>
+                <span className="dash-bill-flow-count">{recentBills.length} shown</span>
+              </div>
+              <div className="dash-bill-table-wrap">
+                <table className="dash-bill-table">
+                  <thead>
+                    <tr>
+                      <th>Bill #</th>
+                      <th>Table</th>
+                      <th>Time</th>
+                      <th>Items</th>
+                      <th>Guests</th>
+                      <th>Mode</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentBills.map((bill, i) => (
+                      <tr key={bill.closedAt || i}>
+                        <td className="dash-bill-no">{bill.billNoFY || bill.billNo}</td>
+                        <td>{bill.tableNumber}</td>
+                        <td className="dash-bill-muted">{bill.time}</td>
+                        <td className="dash-bill-muted">{bill.items}</td>
+                        <td className="dash-bill-muted">{bill.guests || "—"}</td>
+                        <td className="dash-bill-mode">{bill.paymentMethods}</td>
+                        <td className="dash-bill-amt">{fmt(bill.net)}</td>
+                        <td>
+                          <span className={`dash-bill-status ${bill.status === "Credit" ? "credit" : "paid"}`}>
+                            {bill.status || "Paid"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
         </>
       )}
     </>

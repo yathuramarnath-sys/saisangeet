@@ -1680,22 +1680,85 @@ function WaitlistReport({ dateFrom, dateTo, outletId }) {
 }
 
 // ── Reports Shell ────────────────────────────────────────────────────────────
-const REPORTS = [
-  { key: "day-end",    label: "Day End Summary"  },
-  { key: "item-sales", label: "Item Sales"        },
-  { key: "category",   label: "Category-wise"     },
-  { key: "gst",        label: "GST Report"        },
-  { key: "payments",   label: "Payment Report"    },
-  { key: "discounts",  label: "Discount & Void"   },
-  { key: "staff",      label: "Staff Sales"       },
-  { key: "incentives", label: "🏆 Incentives"     },
-  { key: "orders",     label: "🗄 Order History"  },
-  { key: "wastage",    label: "🗑 Wastage"        },
-  { key: "voids",      label: "🚫 Voids & Reprints" },
-  { key: "waitlist",   label: "🪑 Waitlist"         },
-  { key: "customers",  label: "👥 Customers"       },
-  { key: "email",      label: "📧 Email Settings" }
+const REPORT_SECTIONS = [
+  { section: "Sales", items: [
+    { key: "day-end",    label: "Day End Summary" },
+    { key: "item-sales", label: "Item Sales"      },
+    { key: "category",   label: "Category-wise"   },
+  ]},
+  { section: "Tax & Payments", items: [
+    { key: "gst",       label: "GST Report"    },
+    { key: "payments",  label: "Payment Report" },
+    { key: "discounts", label: "Discount & Void" },
+  ]},
+  { section: "Staff", items: [
+    { key: "staff",      label: "Staff Sales"  },
+    { key: "incentives", label: "Incentives"   },
+  ]},
+  { section: "Operations", items: [
+    { key: "orders",    label: "Order History"   },
+    { key: "wastage",   label: "Wastage"         },
+    { key: "voids",     label: "Voids & Reprints" },
+    { key: "waitlist",  label: "Waitlist"        },
+    { key: "customers", label: "Customers"       },
+  ]},
+  { section: "Settings", items: [
+    { key: "email", label: "Email Settings" },
+  ]},
 ];
+const REPORTS = REPORT_SECTIONS.flatMap(s => s.items);
+
+
+// ─── Categorized report picker ────────────────────────────────────────────────
+function ReportPicker({ active, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const activeLabel = REPORTS.find(r => r.key === active)?.label ?? active;
+
+  useEffect(() => {
+    function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="rpt-picker" ref={ref}>
+      <button className="rpt-picker-trigger" onClick={() => setOpen(o => !o)}>
+        <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        <span>{activeLabel}</span>
+        <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="rpt-picker-dropdown">
+          {REPORT_SECTIONS.map(sec => (
+            <div key={sec.section}>
+              <div className="rpt-picker-section">{sec.section}</div>
+              {sec.items.map(item => (
+                <button
+                  key={item.key}
+                  className={`rpt-picker-item${item.key === active ? " active" : ""}`}
+                  onClick={() => { onChange(item.key); setOpen(false); }}
+                >
+                  <span>{item.label}</span>
+                  {item.key === active && (
+                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function thisMonthStr() {
@@ -1829,27 +1892,10 @@ export function ReportsPage() {
       {/* ── Designer toolbar: REPORT · DATE RANGE · OUTLET ── */}
       <div className="rpt-toolbar-v2">
 
-        {/* REPORT dropdown */}
+        {/* REPORT dropdown — categorized */}
         <div className="rpt-ctrl-group">
           <span className="rpt-ctrl-label">REPORT</span>
-          <div className="rpt-ctrl-wrap">
-            <svg className="rpt-ctrl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-            </svg>
-            <select
-              className="rpt-ctrl-select"
-              value={active}
-              onChange={e => setActive(e.target.value)}
-            >
-              {REPORTS.map(r => (
-                <option key={r.key} value={r.key}>{r.label}</option>
-              ))}
-            </select>
-            <svg className="rpt-ctrl-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </div>
+          <ReportPicker active={active} onChange={setActive} />
         </div>
 
         {/* DATE RANGE */}
