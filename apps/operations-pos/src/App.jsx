@@ -38,6 +38,7 @@ import { api } from "./lib/api";
 import { printKOT, getKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } from "./lib/kotPrint";
 import { printBill } from "./lib/printBill";
 import { openCashDrawer, hasCashPayment } from "./lib/cashDrawer";
+import { startPosPrintWorker } from "./lib/posPrintQueue";
 import { setItemAvailability } from "../../../packages/shared-types/src/stockAvailability.js";
 import { setCategoryAvailability } from "../../../packages/shared-types/src/categoryAvailability.js";
 
@@ -1231,6 +1232,9 @@ export default function App() {
     autoCounterOpenedRef.current = true;
     handleNewCounterOrder();
   }, [branchConfig?.workArea, workAreaScopedTableAreas, selectedTableId, serviceMode]);
+
+  // Start POS print retry worker once on mount
+  useEffect(() => startPosPrintWorker(), []);
 
   // Auto-save every order change to localStorage — belt-and-suspenders
   useEffect(() => {

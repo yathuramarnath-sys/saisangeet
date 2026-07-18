@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { printKOT, loadPrinters } from "../lib/kotPrint";
+import { getPrintLog, clearPrintLog } from "../lib/posPrintQueue";
 
 // Convert POS local table format → flat API table array
 function areasToApiTables(areas) {
@@ -18,7 +19,7 @@ function areasToApiTables(areas) {
    Tabs: Printers · Tables · Cashier · Display
    ══════════════════════════════════════════════════════════════════════════════ */
 
-const PRINTER_TYPES  = ["KOT Printer", "Bill Printer", "Both (KOT + Bill)"];
+const PRINTER_TYPES  = ["KOT Printer", "Bill Printer", "Both (KOT + Bill)", "Bar Printer", "Dessert Printer"];
 const PRINTER_CONNS  = ["Network (IP)", "USB", "Bluetooth"];
 const PAPER_SIZES    = ["80mm", "76mm", "72mm", "58mm"];
 const PRINTER_MODELS = ["Epson TM-T82", "Epson TM-T88", "TVS RP 3160 Gold", "TVS RP 45 Shoppe", "Other"];
@@ -85,6 +86,59 @@ function PrinterTab() {
       }));
       localStorage.setItem("pos_devices_assignments", JSON.stringify({ ...existing, devices, stationMap }));
     } catch { /* ignore */ }
+  }
+
+  // ── Print log state ───────────────────────────────────────────────────────
+  const [printLog,     setPrintLog]     = useState(() => getPrintLog());
+  const [showPrintLog, setShowPrintLog] = useState(false);
+
+  function refreshLog() { setPrintLog(getPrintLog()); }
+  function handleClearLog() { clearPrintLog(); setPrintLog([]); }
+
+  // ── Standardized test page ────────────────────────────────────────────────
+  function printTestPage(p) {
+    const now     = new Date();
+    const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+    const paperMm = parseInt(p.paper) || 80;
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;padding:12px 8px 16px;background:#fff;color:#000}
+.c{text-align:center}.b{font-weight:900}.s{font-size:10px;color:#555;letter-spacing:1px;text-transform:uppercase}
+.sep{border-top:2px dashed #000;margin:8px 0}.sep2{border-top:1px dashed #aaa;margin:6px 0}
+.ok{font-size:18px;font-weight:900;margin-top:8px;letter-spacing:2px}
+.row{display:flex;justify-content:space-between;font-size:11px;margin:2px 0}
+</style></head><body>
+<div class="c"><div class="b" style="font-size:16px">PLATO POS</div>
+<div class="s" style="margin-top:2px">Printer Test</div></div>
+<div class="sep"></div>
+<div class="row"><span>Printer</span><span class="b">${p.name || "—"}</span></div>
+<div class="row"><span>Model</span><span>${p.model || "—"}</span></div>
+<div class="row"><span>Type</span><span>${p.type || "—"}</span></div>
+<div class="row"><span>IP</span><span>${p.ip || "—"}</span></div>
+<div class="row"><span>Paper</span><span>${p.paper || "—"}</span></div>
+<div class="sep2"></div>
+<div class="row"><span>Date</span><span>${dateStr}</span></div>
+<div class="row"><span>Time</span><span>${timeStr}</span></div>
+<div class="sep"></div>
+<div class="c ok">✓ SUCCESS</div>
+</body></html>`;
+
+    if (window.electronAPI?.printHTML) {
+      window.electronAPI.printHTML({
+        html,
+        printerName:  p.winName || p.name || null,
+        printerIp:    p.ip?.trim() || null,
+        paperWidthMm: paperMm,
+      });
+    } else {
+      const w = window.open("", "_blank", `width=340,height=500,scrollbars=no`);
+      if (!w) return;
+      w.document.write(html);
+      w.document.close();
+      w.onload = () => { setTimeout(() => { w.focus(); w.print(); w.onafterprint = () => w.close(); }, 200); };
+    }
   }
 
   function openAdd() { setForm(BLANK_FORM); setEditId(null); setScanResults(null); setAdding(true); }
@@ -267,10 +321,7 @@ function PrinterTab() {
             </div>
             <div className="pset-printer-actions">
               <button type="button" className="pset-txt-btn"
-                onClick={() => printKOT(
-                  { outletName: "Test", tableNumber: "T1", areaName: "Main Hall", kotNumber: "KOT-TEST", guests: 0, isCounter: false },
-                  [{ name: "Test Item 1", quantity: 1, note: "" }, { name: "Test Item 2", quantity: 2 }], p, 1
-                )}>🖨 Test</button>
+                onClick={() => printTestPage(p)}>🖨 Test</button>
               <button type="button" className="pset-txt-btn" onClick={() => openEdit(p)}>Edit</button>
               {!p.isDefault && (
                 <button type="button" className="pset-txt-btn" onClick={() => setDefault(p.id)}>Set Default</button>
@@ -295,6 +346,60 @@ function PrinterTab() {
             Your choice is remembered — next prints go directly to that printer.
             Use the <strong>▾</strong> button on any label print button to change printers anytime.
           </p>
+        </div>
+      )}
+
+      {/* Print Log */}
+      {!adding && (
+        <div className="pset-label-printer-section">
+          <div className="pset-label-divider" style={{ cursor: "pointer" }}
+            onClick={() => { refreshLog(); setShowPrintLog(v => !v); }}>
+            <span>📋 Print Log {printLog.length > 0 && <span style={{ fontSize: 11, opacity: 0.7 }}>({printLog.length})</span>}</span>
+            <span style={{ fontSize: 12, marginLeft: "auto", opacity: 0.6 }}>{showPrintLog ? "▲ Hide" : "▼ Show"}</span>
+          </div>
+          {showPrintLog && (
+            <div>
+              {printLog.length === 0
+                ? <p className="pset-label-hint">No print jobs recorded yet.</p>
+                : (
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 6 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                          <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700 }}>Time</th>
+                          <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700 }}>Type</th>
+                          <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700 }}>Label</th>
+                          <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700 }}>Status</th>
+                          <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700 }}>Printer</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {printLog.map(e => (
+                          <tr key={e.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                            <td style={{ padding: "3px 6px", whiteSpace: "nowrap", color: "#6b7280" }}>
+                              {new Date(e.timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
+                            </td>
+                            <td style={{ padding: "3px 6px" }}>{e.type}</td>
+                            <td style={{ padding: "3px 6px" }}>{e.label}</td>
+                            <td style={{ padding: "3px 6px" }}>
+                              <span style={{ fontWeight: 700, color: e.status === "ok" ? "#16a34a" : "#dc2626" }}>
+                                {e.status === "ok" ? "✓ OK" : "✗ Fail"}
+                              </span>
+                              {e.error && <span style={{ color: "#9ca3af", marginLeft: 4, fontSize: 11 }}>({e.error})</span>}
+                              {e.note && <span style={{ color: "#9ca3af", marginLeft: 4, fontSize: 11 }}>{e.note}</span>}
+                            </td>
+                            <td style={{ padding: "3px 6px", color: "#6b7280" }}>{e.printerName || e.printerIp || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <button type="button" className="pset-txt-btn" style={{ marginTop: 8 }}
+                      onClick={handleClearLog}>Clear log</button>
+                  </div>
+                )
+              }
+            </div>
+          )}
         </div>
       )}
 
