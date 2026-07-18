@@ -29,6 +29,7 @@ export function FindPosScreen({ localPosIp, outletName, onClose }) {
               if (!selected) {
                 setSelected(ip);
                 localStorage.setItem("captain_local_server_ip", ip);
+                window.dispatchEvent(new CustomEvent("dinex:pos-ip-changed", { detail: { ip } }));
               }
             }
           } catch (_) {}
@@ -43,6 +44,7 @@ export function FindPosScreen({ localPosIp, outletName, onClose }) {
     tapImpact();
     setSelected(ip);
     localStorage.setItem("captain_local_server_ip", ip);
+    window.dispatchEvent(new CustomEvent("dinex:pos-ip-changed", { detail: { ip } }));
   }
 
   function handleAddManual() {

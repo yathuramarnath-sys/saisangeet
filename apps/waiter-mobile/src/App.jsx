@@ -1631,6 +1631,18 @@ export function App() {
     });
   }
 
+  async function handleReprintKot(kot) {
+    const { printKOT } = await import("./lib/kotPrint.js");
+    const fakeOrder = {
+      tableNumber:  kot.tableNumber,
+      areaName:     kot.areaName,
+      outletName:   outlet?.name || branchConfig?.outletName,
+      kotNumber:    kot.kotNumber ? `KOT-${String(kot.kotNumber).padStart(4, "0")}` : null,
+    };
+    printKOT(fakeOrder, kot.items || [], null, null, {});
+    toast.success("Reprinting KOT…");
+  }
+
   // ── Table transfer ────────────────────────────────────────────────────────
   async function handleTableTransfer(fromId, toId) {
     const fromOrder = orders[fromId];
@@ -1863,6 +1875,7 @@ export function App() {
             onRetryAll={handleRetryAllKots}
             onClear={handleClearKot}
             onClose={() => setActiveTab("floor")}
+            onReprint={handleReprintKot}
           />
         ) : (
           <MoreScreen

@@ -133,7 +133,7 @@ export function SplitBill({ order, onBack, onPrint }) {
         {/* Full bill */}
         <button
           className="action-btn primary-btn"
-          onClick={() => { tapImpact(); onPrint(items, null); }}
+          onClick={() => { tapImpact(); onPrint(billable, null); }}
         >
           🖨 Print Full Bill
         </button>
