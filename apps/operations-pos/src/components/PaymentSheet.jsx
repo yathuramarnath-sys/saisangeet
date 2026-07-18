@@ -98,9 +98,9 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
     setCreditError("");
     setLoading(true);
     try {
-      await onSettle([{
+      await onSettle([...localPayments, {
         method: "credit",
-        amount: fin.balance > 0 ? fin.balance : fin.total,
+        amount: remaining > 0 ? remaining : fin.total,
         creditCustomer: {
           name:     creditForm.name.trim(),
           gstin:    creditForm.gstin.trim().toUpperCase() || null,

@@ -641,6 +641,10 @@ export default function App() {
               .catch(() => {});
             flushKotQueue(target.id).catch(() => {});
             flushClosedOrderQueue(target.id).catch(() => {});
+          } else {
+            // Cold-start: flush KOT/settle queues from any previous session that crashed offline
+            flushKotQueue(target.id).catch(() => {});
+            flushClosedOrderQueue(target.id).catch(() => {});
           }
         });
 
@@ -889,7 +893,17 @@ export default function App() {
             if (current && !updatedOrder.isClosed &&
                 new Date(current.updatedAt || 0).getTime() -
                   new Date(updatedOrder.updatedAt || 0).getTime() > 30_000) return prev;
-            const next = { ...prev, [updatedOrder.tableId]: updatedOrder };
+            let merged = updatedOrder;
+            if (current && !updatedOrder.isClosed) {
+              const incomingWithTax = withLocalTaxRate(updatedOrder.items || [], current.items, menuItemsRef.current);
+              const incomingIds  = new Set(incomingWithTax.map(i => i.id));
+              const deletedIds   = new Set(updatedOrder._deletedItemIds || []);
+              const localOnly    = (current.items || []).filter(
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id) && !deletedIds.has(i.id)
+              );
+              merged = { ...updatedOrder, items: [...incomingWithTax, ...localOnly] };
+            }
+            const next = { ...prev, [updatedOrder.tableId]: merged };
             saveOrdersToStorage(next);
             return next;
           });

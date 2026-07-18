@@ -86,7 +86,7 @@ export function SplitBillSheet({ order, tableLabel, onClose, onConfirmSplit, gst
     ? unassignedItems.length === 0 && billable.length > 0
     : tab === "equal"
     ? equalCount >= 2
-    : amountRows.filter(r => Number(r.amount) > 0).length >= 2;
+    : amountRows.filter(r => Number(r.amount) > 0).length >= 2 && Math.abs(remaining) <= 1;
 
   return (
     <div className="split-overlay" role="dialog" aria-modal="true">
