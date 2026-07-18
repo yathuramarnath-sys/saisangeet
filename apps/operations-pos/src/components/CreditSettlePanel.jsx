@@ -111,7 +111,7 @@ export function CreditSettlePanel({ activeShift, outletId, onClose }) {
     setSaving(true);
     setSettleErr("");
     try {
-      const id = settling.billNo || settling.id || settling.orderNumber;
+      const id = settling.id || settling.billNo || settling.orderNumber;
       await api.post(`/operations/credits/${id}/settle`, {
         method,
         reference: reference.trim() || null,

@@ -29,7 +29,7 @@ const METHOD_LABELS = {
   online:  "Online",
 };
 
-export function DayEndModal({ orders, outlet, onClose, onPrint }) {
+export function DayEndModal({ orders, outlet, outletId: outletIdProp, onClose, onPrint }) {
   const [stage,   setStage]   = useState("checking"); // checking | blocked | loading | ready | error
   const [blocks,  setBlocks]  = useState([]);
   const [report,  setReport]  = useState(null);
@@ -79,7 +79,8 @@ export function DayEndModal({ orders, outlet, onClose, onPrint }) {
   async function loadReport() {
     setStage("loading");
     try {
-      const data = await api.get(`/operations/day-end?outletId=${outlet?.id || ""}`);
+      const outletId = outletIdProp || outlet?.id || "";
+      const data = await api.get(`/operations/day-end?outletId=${outletId}`);
       setReport(data);
       setStage("ready");
     } catch (err) {
