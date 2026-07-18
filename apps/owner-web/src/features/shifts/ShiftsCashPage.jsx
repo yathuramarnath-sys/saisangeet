@@ -25,7 +25,7 @@ function StatusBadge({ status }) {
   return <span className={`shift-badge ${cls}`}>{label}</span>;
 }
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
+function todayStr() { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); }
 function toDateStr(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });

@@ -18,13 +18,16 @@ const STATUS_PAID    = "paid";
 const SETTLE_METHODS = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"];
 
 // Default date range: last 30 days
+function istDate(d) {
+  return (d || new Date()).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
 function defaultDateFrom() {
   const d = new Date();
   d.setDate(d.getDate() - 30);
-  return d.toISOString().slice(0, 10);
+  return istDate(d);
 }
 function defaultDateTo() {
-  return new Date().toISOString().slice(0, 10);
+  return istDate();
 }
 
 export function CreditLedgerPage() {
@@ -107,7 +110,7 @@ export function CreditLedgerPage() {
     setSettleLoad(true);
     setSettleErr("");
     try {
-      const id = settling.billNo || settling.id || settling.orderNumber;
+      const id = settling.id || settling.billNo || settling.orderNumber;
       await api.post(`/operations/credits/${id}/settle`, {
         method:    settleForm.method,
         reference: settleForm.reference.trim() || null,

@@ -482,8 +482,12 @@ export function OnlineSalesPage() {
   }
 
   async function handleDelete(id) {
-    await api.delete(`/settlements/${id}`);
-    setSettlements(prev => prev.filter(s => s.id !== id));
+    try {
+      await api.delete(`/settlements/${id}`);
+      setSettlements(prev => prev.filter(s => s.id !== id));
+    } catch (e) {
+      console.error("Failed to delete settlement:", e);
+    }
     setDelConfirm(null);
   }
 

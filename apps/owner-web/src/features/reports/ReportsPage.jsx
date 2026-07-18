@@ -1760,14 +1760,15 @@ function ReportPicker({ active, onChange }) {
   );
 }
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
+function istStr(d) { return (d || new Date()).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); }
+function todayStr() { return istStr(); }
 function thisMonthStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const ist = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  return `${ist.getFullYear()}-${String(ist.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function getPresets() {
-  const fmt = d => d.toISOString().slice(0, 10);
+  const fmt = d => istStr(d);
   const today = new Date();
   const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
   const dayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
@@ -1831,7 +1832,7 @@ export function ReportsPage() {
       to   = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
     }
 
-    const cacheKey = `${from}|${to}|${outletId}`;
+    const cacheKey = `${active}|${from}|${to}|${outletId}`;
     if (reportCache.current[cacheKey]) {
       setSalesData(reportCache.current[cacheKey]);
       setApiError(false);

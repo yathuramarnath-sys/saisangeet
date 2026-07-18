@@ -221,7 +221,7 @@ function ComingSoonCard({ integration }) {
 }
 
 // ── Zoho Books config card ────────────────────────────────────────────────────
-function ZohoConfigCard() {
+function ZohoConfigCard({ onConnectionChange }) {
   const [cfg,      setCfg]      = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
@@ -256,6 +256,7 @@ function ZohoConfigCard() {
     api.get("/integrations/zoho/config")
       .then(d => {
         setCfg(d);
+        onConnectionChange?.(d.connected || false);
         setForm(f => ({
           ...f,
           stateCode:     d.stateCode || "TN",
@@ -663,7 +664,7 @@ function ZohoConfigCard() {
 }
 
 // ── Borzo Delivery config card ────────────────────────────────────────────────
-function BorzoConfigCard() {
+function BorzoConfigCard({ onConnectionChange }) {
   const [cfg,      setCfg]      = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
@@ -673,8 +674,8 @@ function BorzoConfigCard() {
 
   useEffect(() => {
     api.get("/delivery/borzo/config")
-      .then(d => { setCfg(d); setForm(f => ({ ...f, mode: d.mode || "sandbox", enabled: d.enabled || false })); })
-      .catch(() => {})
+      .then(d => { setCfg(d); onConnectionChange?.(d.configured || false); setForm(f => ({ ...f, mode: d.mode || "sandbox", enabled: d.enabled || false })); })
+      .catch(() => { onConnectionChange?.(false); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -685,6 +686,7 @@ function BorzoConfigCard() {
       await api.post("/delivery/borzo/config", form);
       const fresh = await api.get("/delivery/borzo/config");
       setCfg(fresh);
+      onConnectionChange?.(fresh.configured || false);
       setMsg("✓ Saved");
       setTimeout(() => setMsg(""), 3000);
     } catch (err) {
@@ -765,7 +767,7 @@ function BorzoConfigCard() {
 }
 
 // ── PhonePe Payments config card ─────────────────────────────────────────────
-function PhonePeConfigCard() {
+function PhonePeConfigCard({ onConnectionChange }) {
   const [cfg,       setCfg]      = useState(null);
   const [loading,   setLoading]  = useState(true);
   const [saving,    setSaving]   = useState(false);
@@ -777,6 +779,7 @@ function PhonePeConfigCard() {
     api.get("/payments/phonepe/config")
       .then(d => {
         setCfg(d);
+        onConnectionChange?.(d.configured || false);
         setForm(f => ({
           ...f,
           merchantId: d.merchantId || "",
@@ -785,7 +788,7 @@ function PhonePeConfigCard() {
           enabled:    d.enabled    || false,
         }));
       })
-      .catch(() => {})
+      .catch(() => { onConnectionChange?.(false); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -796,6 +799,7 @@ function PhonePeConfigCard() {
       await api.post("/payments/phonepe/config", form);
       const fresh = await api.get("/payments/phonepe/config");
       setCfg(fresh);
+      onConnectionChange?.(fresh.configured || false);
       setMsg("✓ Saved");
       setTimeout(() => setMsg(""), 3000);
     } catch (err) {
@@ -1039,8 +1043,11 @@ function OnlineOrdersWebhookCard() {
 
 export function IntegrationsPage() {
   const [whatsappActive, setWhatsappActive] = useState(false);
+  const [zohoActive,     setZohoActive]     = useState(false);
+  const [borzoActive,    setBorzoActive]    = useState(false);
+  const [phonepeActive,  setPhonePeActive]  = useState(false);
 
-  const totalCount = whatsappActive ? 1 : 0;
+  const totalCount = [whatsappActive, zohoActive, borzoActive, phonepeActive].filter(Boolean).length;
 
   return (
     <>
@@ -1082,7 +1089,7 @@ export function IntegrationsPage() {
             </p>
           </div>
         </div>
-        <ZohoConfigCard />
+        <ZohoConfigCard onConnectionChange={setZohoActive} />
       </section>
 
       {/* ── Delivery Partners ────────────────────────────────────────────────── */}
@@ -1095,7 +1102,7 @@ export function IntegrationsPage() {
             </p>
           </div>
         </div>
-        <BorzoConfigCard />
+        <BorzoConfigCard onConnectionChange={setBorzoActive} />
       </section>
 
       {/* ── Payments ─────────────────────────────────────────────────────────── */}
@@ -1108,7 +1115,7 @@ export function IntegrationsPage() {
             </p>
           </div>
         </div>
-        <PhonePeConfigCard />
+        <PhonePeConfigCard onConnectionChange={setPhonePeActive} />
       </section>
 
       {/* ── Online Orders (Swiggy / Zomato) ────────────────────────────────── */}
