@@ -155,8 +155,8 @@ export function BillingPage() {
     try {
       const res = await api.post("/billing/subscribe", { planId });
       if (res.shortUrl) {
-        // Open Razorpay hosted checkout page
-        window.open(res.shortUrl, "_blank");
+        // Navigate to Razorpay hosted checkout; on return the component remounts and refetches status
+        window.location.href = res.shortUrl;
       } else {
         setError("Could not get checkout link. Please try again.");
       }

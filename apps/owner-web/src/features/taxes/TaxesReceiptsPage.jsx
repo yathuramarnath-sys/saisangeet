@@ -674,8 +674,8 @@ export function TaxesReceiptsPage() {
               Receipt footer message
               <input className="tax-footer-input"
                 value={receipt.footerNote}
-                onChange={e => updateReceipt("footerNote", e.target.value)}
-                onBlur={() => flash("Footer note saved.")}
+                onChange={e => setReceipt(r => ({ ...r, footerNote: e.target.value }))}
+                onBlur={e => { updateReceipt("footerNote", e.target.value); flash("Footer note saved."); }}
                 placeholder="Thank you for dining with us!" />
             </label>
 

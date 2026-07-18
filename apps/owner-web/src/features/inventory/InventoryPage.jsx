@@ -212,13 +212,15 @@ export function InventoryPage() {
     const outletObj = outlets.find(o => o.name === form.branch);
     try {
       const saved = await api.post("/operations/wastage", {
-        itemName:    form.item,
-        unit:        form.unit,
-        quantity:    Number(form.qty),
-        reason:      "Production Waste",
-        note:        `Session: ${form.session}`,
-        outletId:    outletObj?.id || "",
-        cashierName: "Owner",
+        itemName:     form.item,
+        unit:         form.unit,
+        quantity:     Number(form.qty),
+        pricePerUnit: Number(form.pricePerUnit) || 0,
+        value:        Number(autoValue) || 0,
+        reason:       "Production Waste",
+        note:         `Session: ${form.session}`,
+        outletId:     outletObj?.id || "",
+        cashierName:  "Owner",
       });
       const entry = {
         id: saved.id, item: saved.itemName, qty: saved.quantity,

@@ -315,12 +315,14 @@ export function StaffPage() {
       );
       showMsg("Role updated.");
     } else {
+      let created;
+      try { created = await createStaffRole(payload); } catch (_) { /* offline */ }
       const newRole = {
-        id: `role-${Date.now()}`, name: payload.name,
+        id: created?.id || `role-${Date.now()}`,
+        name: payload.name,
         summary: payload.description, description: payload.description,
         permissions: [], active: true
       };
-      try { await createStaffRole(payload); } catch (_) { /* offline */ }
       updatedRoles = [...staffData.roles, newRole];
       setLocalPerms((p) => ({ ...p, [newRole.id]: [] }));
       setSelectedRoleId(newRole.id);
