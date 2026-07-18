@@ -139,7 +139,6 @@ export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR
     } else {
       setCurrentAmount(String(newRemaining));
       setCurrentRef("");
-      setCurrentMethod("cash");
     }
   }
 

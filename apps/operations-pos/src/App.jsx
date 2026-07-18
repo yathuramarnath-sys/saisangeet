@@ -348,6 +348,7 @@ export default function App() {
   const [serviceMode,     setServiceMode]     = useState("dine-in");
   const [toast,           setToast]           = useState(null);
   const [undoBanner,      setUndoBanner]      = useState(null); // { label, onUndo }
+  const undoBannerTimerRef = useRef(null); // active undo timer — cleared when new banner replaces it
   const socketRef      = useRef(null);   // cloud socket
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
@@ -2412,8 +2413,11 @@ export default function App() {
       if (!from || !to) return prev;
       const next = { ...prev };
       next[toTableId]       = { ...from, tableId: toTableId, tableNumber: to.tableNumber, areaName: to.areaName };
-      next[selectedTableId] = { ...to, items: [], payments: [], discountAmount: 0,
-        billRequested: false, isOnHold: false, isClosed: false };
+      next[selectedTableId] = {
+        tableId: selectedTableId, tableNumber: from.tableNumber, areaName: from.areaName,
+        items: [], payments: [], discountAmount: 0,
+        billRequested: false, isOnHold: false, isClosed: false,
+      };
       return next;
     });
     setSelectedTableId(toTableId);
@@ -2841,7 +2845,9 @@ export default function App() {
     });
 
     // 5-second undo window — API calls fire only after window expires
-    const timerId = setTimeout(() => {
+    if (undoBannerTimerRef.current) clearTimeout(undoBannerTimerRef.current);
+    undoBannerTimerRef.current = setTimeout(() => {
+      undoBannerTimerRef.current = null;
       setUndoBanner(null);
       api.post("/operations/void-log", {
         type:        "void_item",
@@ -2872,7 +2878,8 @@ export default function App() {
     setUndoBanner({
       label: `"${item?.name || "Item"}" voided — tap Undo within 5s`,
       onUndo: () => {
-        clearTimeout(timerId);
+        clearTimeout(undoBannerTimerRef.current);
+        undoBannerTimerRef.current = null;
         setUndoBanner(null);
         mutateOrder(tableId, o => {
           if (o.items[idx]) {
@@ -2913,7 +2920,9 @@ export default function App() {
     setSelectedTableId(null);
 
     // 5-second undo window — backend calls fire only after window expires
-    const timerId = setTimeout(() => {
+    if (undoBannerTimerRef.current) clearTimeout(undoBannerTimerRef.current);
+    undoBannerTimerRef.current = setTimeout(() => {
+      undoBannerTimerRef.current = null;
       setUndoBanner(null);
       api.post("/operations/void-log", {
         type:        "cancel_order",
@@ -2934,7 +2943,8 @@ export default function App() {
     setUndoBanner({
       label: `Order cancelled — tap Undo within 5s`,
       onUndo: () => {
-        clearTimeout(timerId);
+        clearTimeout(undoBannerTimerRef.current);
+        undoBannerTimerRef.current = null;
         setUndoBanner(null);
         // Restore all items from the pre-cancel snapshot
         mutateOrder(tableId, o => {
@@ -3665,6 +3675,7 @@ export default function App() {
         <DayEndModal
           orders={orders}
           outlet={outlet}
+          outletId={outlet?.id || branchConfig?.outletId}
           onClose={() => {
             setShowDayEnd(false);
             if (dayEndPostShift) {
