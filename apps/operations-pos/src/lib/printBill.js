@@ -7,6 +7,7 @@
 
 import QRCode from "qrcode";
 import { getBillPrinter } from "./kotPrint";
+import { appendPrintLog, enqueuePrint } from "./posPrintQueue";
 
 export async function printBill(order, items, outletOrName, options = {}) {
   // outletOrName can be a string (legacy) or a full outlet object
@@ -316,19 +317,27 @@ export async function printBill(order, items, outletOrName, options = {}) {
     const printerName  = _printer?.winName || _printer?.name || null;
     const printerIp    = _printer?.ip?.trim() || null;
     const paperWidthMm = _paperWidthMm;
+    const printArgs    = { html, printerName, printerIp, paperWidthMm };
+    const logLabel     = `Bill #${order.billNo || order.orderNumber || ""}`;
 
     window.electronAPI
-      .printHTML({ html, printerName, printerIp, paperWidthMm })
+      .printHTML(printArgs)
       .then((result) => {
         if (!result?.ok) {
           console.warn("[printBill] Electron print failed:", result?.error);
+          appendPrintLog({ type: "Bill", label: logLabel, status: "fail", printerName, printerIp, error: result?.error });
+          enqueuePrint("Bill", logLabel, printArgs);
           window.dispatchEvent(new CustomEvent("dinex:print-error", {
             detail: { source: "Bill", printerName, error: result?.error },
           }));
+        } else {
+          appendPrintLog({ type: "Bill", label: logLabel, status: "ok", printerName, printerIp });
         }
       })
       .catch((err) => {
         console.error("[printBill] Electron printHTML error:", err);
+        appendPrintLog({ type: "Bill", label: logLabel, status: "fail", printerName, printerIp, error: err?.message });
+        enqueuePrint("Bill", logLabel, printArgs);
         window.dispatchEvent(new CustomEvent("dinex:print-error", {
           detail: { source: "Bill", printerName, error: err?.message || "unknown" },
         }));

@@ -8,6 +8,8 @@
    Works for 80mm and 58mm paper widths.
    ══════════════════════════════════════════════════════════════════════════════ */
 
+import { appendPrintLog, enqueuePrint } from "./posPrintQueue";
+
 /** Load printers from localStorage */
 export function loadPrinters() {
   try {
@@ -44,7 +46,8 @@ export function getKotPrinterForStation(stationName) {
 
 /** Check if a printer type string includes KOT capability */
 function isKotType(t) {
-  return t === "KOT Printer" || t === "Both" || t === "Both (KOT + Bill)";
+  return t === "KOT Printer" || t === "Both" || t === "Both (KOT + Bill)"
+    || t === "Bar Printer" || t === "Dessert Printer";
 }
 
 /** Check if a printer type string includes Bill capability */
@@ -323,19 +326,27 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
     // Use IP for direct TCP printing regardless of connection type label —
     // this handles printers saved as "USB" that are actually on the network.
     const printerIp   = resolvedPrinter?.ip?.trim() || null;
+    const printArgs   = { html, printerName, printerIp, paperWidthMm: paperMm };
+    const logLabel    = `${kotNum} ${tableLabel}`;
 
     window.electronAPI
-      .printHTML({ html, printerName, printerIp, paperWidthMm: paperMm })
+      .printHTML(printArgs)
       .then((result) => {
         if (!result?.ok) {
           console.warn("[printKOT] Electron print failed:", result?.error);
+          appendPrintLog({ type: "KOT", label: logLabel, status: "fail", printerName, printerIp, error: result?.error });
+          enqueuePrint("KOT", logLabel, printArgs);
           window.dispatchEvent(new CustomEvent("dinex:print-error", {
             detail: { source: "KOT", printerName, error: result?.error },
           }));
+        } else {
+          appendPrintLog({ type: "KOT", label: logLabel, status: "ok", printerName, printerIp });
         }
       })
       .catch((err) => {
         console.error("[printKOT] Electron printHTML error:", err);
+        appendPrintLog({ type: "KOT", label: logLabel, status: "fail", printerName, printerIp, error: err?.message });
+        enqueuePrint("KOT", logLabel, printArgs);
         window.dispatchEvent(new CustomEvent("dinex:print-error", {
           detail: { source: "KOT", printerName, error: err?.message || "unknown" },
         }));

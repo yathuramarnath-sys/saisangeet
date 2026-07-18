@@ -1190,9 +1190,18 @@ ipcMain.handle("scan-printers", async () => {
           const sock = new net.Socket();
           sock.setTimeout(TIMEOUT_MS);
           sock.once("connect", () => {
-            found.push({ ip, name: `Printer @ ${ip}`, conn: "Network (IP)", source: "network" });
-            sock.destroy();
-            resolve();
+            let settled = false;
+            let banner  = "";
+            const done = () => {
+              if (settled) return;
+              settled = true;
+              sock.destroy();
+              const model = banner.replace(/[\x00-\x1f]+/g, " ").trim().slice(0, 60);
+              found.push({ ip, name: model || `Network Printer @ ${ip}`, conn: "Network (IP)", source: "network" });
+              resolve();
+            };
+            sock.on("data", (chunk) => { banner += chunk.toString("binary"); });
+            setTimeout(done, 300);
           });
           sock.once("timeout", () => { sock.destroy(); resolve(); });
           sock.once("error",   () => { sock.destroy(); resolve(); });
