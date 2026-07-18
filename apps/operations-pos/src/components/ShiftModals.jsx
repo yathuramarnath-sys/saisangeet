@@ -264,10 +264,14 @@ const DENOMS = [500, 200, 100, 50, 20, 10, 5, 2, 1];
 export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
   if (!shift) return null;
 
-  // Count orders that have items and are not settled
-  const openOrderCount = Object.values(orders || {}).filter(
-    o => !o.isClosed && (o.items || []).length > 0
-  ).length;
+  // Count orders that have non-voided items and are not settled.
+  // Must match TableGrid logic (filters isVoided + isComp) so the count
+  // agrees with what the cashier sees on the table grid.
+  const openOrderCount = Object.values(orders || {}).filter(o => {
+    if (o.isClosed) return false;
+    const activeItems = (o.items || []).filter(i => !i.isVoided && !i.isComp);
+    return activeItems.length > 0;
+  }).length;
 
   const [denomCounts, setDenomCounts] = useState(() =>
     Object.fromEntries(DENOMS.map(d => [d, ""]))
