@@ -108,7 +108,7 @@ export function OrderScreen({
   const billableItems = items.filter(i => !i.isVoided && !i.isComp);
   const totalSub    = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const totalTax    = billableItems.reduce((s, i) => {
-    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
     return s + Math.round(i.price * i.quantity * rate / 100);
   }, 0);
   const totalAmount = totalSub + totalTax;
