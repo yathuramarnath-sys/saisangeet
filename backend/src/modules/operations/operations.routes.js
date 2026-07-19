@@ -277,15 +277,11 @@ operationsRouter.post("/credits/settle-customer", requireAuth, asyncHandler(asyn
 
 // Action log — Owner Console audit trail
 operationsRouter.get("/action-logs",   requireAuth, asyncHandler(async (req, res) => {
-  const { getActionLogs } = require("../action-log/actionLog.service");
+  const { getActionLogs } = require("./action-log-store");
   const tenantId = req.user?.tenantId || "default";
-  const { outletId, tableId, action: actionFilter, limit } = req.query;
-  const logs = getActionLogs(tenantId, {
-    outletId,
-    tableId,
-    action:    actionFilter,
-    limit:     limit ? Number(limit) : 200,
-  });
+  const { outletId, dateFrom, dateTo } = req.query;
+  let logs = getActionLogs(tenantId, { dateFrom, dateTo });
+  if (outletId) logs = logs.filter(e => e.outletId === outletId);
   res.json(logs);
 }));
 
