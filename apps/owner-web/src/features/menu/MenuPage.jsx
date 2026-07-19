@@ -226,6 +226,7 @@ export function MenuPage() {
   const [autoNumbering, setAutoNumbering] = useState(false);
   const [routingDrafts, setRoutingDrafts] = useState({});
   const [labelItem, setLabelItem] = useState(null); // item to print labels for
+  const [soldOutPopover, setSoldOutPopover] = useState(null); // itemId whose timer popover is open
   const formRef = useRef(null);
 
   // ── Tabs + Field Settings ──────────────────────────────────────────────────
@@ -233,6 +234,13 @@ export function MenuPage() {
   const [menuFieldSettings, setMenuFieldSettings] = useState(DEFAULT_FIELD_SETTINGS);
   const [fieldSettingsSaving, setFieldSettingsSaving] = useState(false);
   const [fieldSettingsMsg, setFieldSettingsMsg] = useState("");
+
+  useEffect(() => {
+    if (!soldOutPopover) return;
+    function onKey(e) { if (e.key === "Escape") setSoldOutPopover(null); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [soldOutPopover]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1150,22 +1158,40 @@ export function MenuPage() {
     }));
   }
 
-  async function toggleSalesAvailability(itemId) {
+  // Returns a human-readable countdown like "47m" or "1h 23m"; null if expired/no timer.
+  function fmtTimeLeft(isoStr) {
+    if (!isoStr) return null;
+    const ms = new Date(isoStr).getTime() - Date.now();
+    if (ms <= 0) return null;
+    const totalMin = Math.round(ms / 60_000);
+    if (totalMin < 60) return `${totalMin}m`;
+    const h = Math.floor(totalMin / 60), m = totalMin % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  }
+
+  const SOLD_OUT_OPTS = [
+    { label: "Until restocked" },
+    { label: "30 min",  minutes: 30 },
+    { label: "1 hour",  minutes: 60 },
+    { label: "2 hours", minutes: 120 },
+    { label: "End of day", eod: true },
+  ];
+
+  async function setSalesAvailability(itemId, soldOut, soldOutUntil = null) {
     const item = menuData.items.find(i => i.id === itemId);
     if (!item) return;
-    const next = item.salesAvailability === "Sold Out" ? "Available" : "Sold Out";
-    // Optimistic update
+    const next = soldOut ? "Sold Out" : "Available";
+    const nextUntil = soldOut ? soldOutUntil : null;
     setMenuData(prev => ({
       ...prev,
-      items: prev.items.map(i => i.id === itemId ? { ...i, salesAvailability: next } : i)
+      items: prev.items.map(i => i.id === itemId ? { ...i, salesAvailability: next, soldOutUntil: nextUntil } : i)
     }));
     try {
-      await api.patch(`/menu/items/${itemId}`, { salesAvailability: next });
+      await api.patch(`/menu/items/${itemId}`, { salesAvailability: next, soldOutUntil: nextUntil });
     } catch {
-      // Revert on failure
       setMenuData(prev => ({
         ...prev,
-        items: prev.items.map(i => i.id === itemId ? { ...i, salesAvailability: item.salesAvailability } : i)
+        items: prev.items.map(i => i.id === itemId ? { ...i, salesAvailability: item.salesAvailability, soldOutUntil: item.soldOutUntil } : i)
       }));
     }
   }
@@ -1262,6 +1288,12 @@ export function MenuPage() {
 
   return (
     <>
+      {soldOutPopover && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 1049 }}
+          onClick={() => setSoldOutPopover(null)}
+        />
+      )}
       <header className="topbar">
         <div>
           <p className="eyebrow">Owner Setup • Menu</p>
@@ -1651,14 +1683,58 @@ export function MenuPage() {
                     </span>
 
                     {/* Status */}
-                    <span>
+                    <span style={{ position: "relative" }}>
                       <button
                         type="button"
                         className={`status status-pill ${item.salesAvailability === "Sold Out" ? "warning" : "online"}`}
-                        onClick={() => toggleSalesAvailability(item.id)}
+                        onClick={() => {
+                          if (item.salesAvailability === "Sold Out") {
+                            setSalesAvailability(item.id, false);
+                          } else {
+                            setSoldOutPopover(prev => prev === item.id ? null : item.id);
+                          }
+                        }}
                       >
-                        {item.salesAvailability === "Sold Out" ? "Sold out" : "Available"}
+                        {item.salesAvailability === "Sold Out"
+                          ? (() => { const tl = fmtTimeLeft(item.soldOutUntil); return tl ? `Sold out · ${tl}` : "Sold out"; })()
+                          : "Available"}
                       </button>
+                      {soldOutPopover === item.id && (
+                        <div style={{
+                          position: "absolute",
+                          top: "calc(100% + 6px)",
+                          right: 0,
+                          background: "#fff",
+                          border: "1.5px solid #e5e7eb",
+                          borderRadius: 10,
+                          boxShadow: "0 4px 20px rgba(0,0,0,0.14)",
+                          zIndex: 1050,
+                          minWidth: 170,
+                          padding: "4px 0",
+                        }}>
+                          <p style={{ margin: 0, padding: "8px 14px 4px", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                            Mark as Sold Out
+                          </p>
+                          {SOLD_OUT_OPTS.map(opt => (
+                            <button
+                              key={opt.label}
+                              type="button"
+                              style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#111827" }}
+                              onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
+                              onMouseLeave={e => e.currentTarget.style.background = "none"}
+                              onClick={() => {
+                                let until = null;
+                                if (opt.eod) { const d = new Date(); d.setHours(23, 59, 59, 999); until = d.toISOString(); }
+                                else if (opt.minutes) until = new Date(Date.now() + opt.minutes * 60_000).toISOString();
+                                setSalesAvailability(item.id, true, until);
+                                setSoldOutPopover(null);
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </span>
 
                     {/* Actions */}

@@ -29,7 +29,8 @@ const { hydrateShifts }          = require("./modules/operations/shifts-store");
 const { scheduleBackup }             = require("./jobs/daily-backup");
 const { scheduleDailySalesReport }   = require("./jobs/daily-sales-report");
 const { getAllCachedTenants,
-        getOwnerSetupData }           = require("./data/owner-setup-store");
+        getOwnerSetupData,
+        updateOwnerSetupData }        = require("./data/owner-setup-store");
 const { runWithTenant }               = require("./data/tenant-context");
 const { toggleItemAvailability,
         toggleCategoryAvailability }   = require("./modules/online-orders/urbanpiper.service");
@@ -208,8 +209,13 @@ io.on("connection", (socket) => {
       if (!outletAvailability[data.outletId]) outletAvailability[data.outletId] = {};
       if (data.available) {
         delete outletAvailability[data.outletId][data.itemId];
+        if (outletItemAvailableAt[data.outletId]) delete outletItemAvailableAt[data.outletId][data.itemId];
       } else {
         outletAvailability[data.outletId][data.itemId] = false;
+        if (data.availableAt) {
+          if (!outletItemAvailableAt[data.outletId]) outletItemAvailableAt[data.outletId] = {};
+          outletItemAvailableAt[data.outletId][data.itemId] = data.availableAt;
+        }
       }
       socket.to(`outlet:${tid}:${data.outletId}`).emit("item:availability", data);
       if (tid !== "default") {
@@ -279,6 +285,11 @@ io.on("connection", (socket) => {
 // Lost on server restart (devices re-broadcast their state on reconnect).
 const outletAvailability = {};
 
+// ── Per-outlet item timer cache ──────────────────────────────────────────────
+// Parallel to outletAvailability. { [outletId]: { [itemId]: ISO_STRING } }
+// Only populated when the sold-out has an auto-restore time.
+const outletItemAvailableAt = {};
+
 // ── Per-outlet category availability cache ───────────────────────────────────
 // Keyed by outletId, then categoryId. Value: { available: false, availableAt }
 // — only stores disabled categories. Lost on server restart (same caveat as
@@ -293,10 +304,13 @@ app.locals.outletAvailability         = outletAvailability;
 app.locals.outletCategoryAvailability = outletCategoryAvailability;
 app.locals.outletOnlineEnabled        = outletOnlineEnabled;
 
-// Every minute, auto re-enable any category whose cashier-chosen "next
-// availability" time has passed — e.g. "out of CO2, back in 1 hour".
+// Every minute, auto re-enable categories and items whose cashier-chosen
+// "next availability" time has passed — e.g. "out of CO2, back in 1 hour".
+// Also restores owner-console timed sold-out (salesAvailability + soldOutUntil).
 setInterval(() => {
   const now = Date.now();
+
+  // ── Category auto-restore (socket cache) ───────────────────────────────────
   for (const [outletId, categories] of Object.entries(outletCategoryAvailability)) {
     for (const [categoryId, state] of Object.entries(categories)) {
       if (!state.availableAt || new Date(state.availableAt).getTime() > now) continue;
@@ -311,6 +325,52 @@ setInterval(() => {
         }).catch(() => {});
       }
       console.log(`[category-availability] auto re-enabled | outlet=${outletId} | category=${categoryId}`);
+    }
+  }
+
+  // ── Item auto-restore (socket cache) ───────────────────────────────────────
+  for (const [outletId, itemTimers] of Object.entries(outletItemAvailableAt)) {
+    for (const [itemId, availableAt] of Object.entries(itemTimers)) {
+      if (!availableAt || new Date(availableAt).getTime() > now) continue;
+      delete itemTimers[itemId];
+      if (outletAvailability[outletId]) delete outletAvailability[outletId][itemId];
+      const tid = resolveTenantByOutlet(outletId);
+      io.to(`outlet:${tid}:${outletId}`).emit("item:availability", { outletId, itemId, available: true });
+      if (tid !== "default") {
+        runWithTenant(tid, async () => {
+          const tenantData = getOwnerSetupData();
+          await toggleItemAvailability(itemId, true, tenantData);
+        }).catch(() => {});
+      }
+      console.log(`[item-availability] auto re-enabled | outlet=${outletId} | item=${itemId}`);
+    }
+  }
+
+  // ── Owner-console salesAvailability auto-restore ────────────────────────────
+  // Restores items marked sold-out with a timer from the owner web console.
+  for (const [tenantId, tenantData] of getAllCachedTenants()) {
+    if (tenantId === "default") continue;
+    const items = tenantData?.menu?.items || [];
+    const toRestore = items.filter(i =>
+      i.salesAvailability === "Sold Out" &&
+      i.soldOutUntil &&
+      new Date(i.soldOutUntil).getTime() <= now
+    );
+    if (!toRestore.length) continue;
+    const restoreIds = new Set(toRestore.map(i => i.id));
+    runWithTenant(tenantId, () => {
+      updateOwnerSetupData(current => ({
+        ...current,
+        menu: {
+          ...current.menu,
+          items: (current.menu?.items || []).map(i =>
+            restoreIds.has(i.id) ? { ...i, salesAvailability: "Available", soldOutUntil: null } : i
+          ),
+        },
+      }));
+    }).catch(() => {});
+    for (const i of toRestore) {
+      console.log(`[sales-availability] auto re-enabled | tenant=${tenantId} | item=${i.id} | name=${i.name}`);
     }
   }
 }, 60_000);
