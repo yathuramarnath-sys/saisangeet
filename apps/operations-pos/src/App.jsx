@@ -444,6 +444,16 @@ export default function App() {
     showWhatsNew,
   ]);
 
+  // ── Device heartbeat — keeps online/offline status current on owner dashboard ─
+  useEffect(() => {
+    const deviceId = localStorage.getItem("pos_device_id");
+    if (!deviceId || !branchConfig) return;
+    const tick = () => api.patch(`/devices/${deviceId}/ping`, {}).catch(() => {});
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, [branchConfig]);
+
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!branchConfig) return;   // wait — BranchSetupScreen handles this first

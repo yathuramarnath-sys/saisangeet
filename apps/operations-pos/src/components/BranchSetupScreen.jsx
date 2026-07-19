@@ -126,6 +126,18 @@ export function BranchSetupScreen({ onComplete }) {
     if (result.kitchenStations?.length) {
       localStorage.setItem("pos_kitchen_stations", JSON.stringify(result.kitchenStations));
     }
+
+    // Register this device in the backend (fire-and-forget — non-blocking)
+    const isElectron = typeof window !== "undefined" && !!window.__ELECTRON__;
+    api.post("/devices/link", {
+      outletId:   result.outletId,
+      deviceType: "pos",
+      deviceName: "POS Terminal",
+      platform:   isElectron ? "windows" : "web",
+    }).then((device) => {
+      if (device?.id) localStorage.setItem("pos_device_id", device.id);
+    }).catch(() => {});
+
     onComplete(config);
   }
 

@@ -74,6 +74,20 @@ async function runMigrations() {
     ALTER TABLE pending_link_tokens ADD COLUMN IF NOT EXISTS outlet_id TEXT NOT NULL DEFAULT ''
   `);
 
+  await queryFn(`
+    CREATE TABLE IF NOT EXISTS device_registry (
+      id           TEXT PRIMARY KEY,
+      tenant_id    TEXT NOT NULL,
+      outlet_id    TEXT NOT NULL DEFAULT '',
+      device_type  TEXT NOT NULL DEFAULT 'pos',
+      device_name  TEXT,
+      platform     TEXT,
+      status       TEXT NOT NULL DEFAULT 'active',
+      last_seen_at TIMESTAMPTZ,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   console.log("[migrate] Tables verified.");
 
   // ── 2. Seed tenant_settings from JSON files ─────────────────────────────────

@@ -5,7 +5,14 @@ const { getOwnerSetupData, updateOwnerSetupData, updateOwnerSetupDataNow } = req
 const { getCurrentTenantId, runWithTenant } = require("../../data/tenant-context");
 
 async function fetchDevices() {
-  return getOwnerSetupData().devices;
+  const tenantId = getCurrentTenantId();
+  try {
+    const { listDevicesByTenant } = require("./devices.repository");
+    return await listDevicesByTenant(tenantId);
+  } catch (err) {
+    console.warn("[devices] DB unavailable for fetchDevices:", err.message);
+    return getOwnerSetupData().devices || [];
+  }
 }
 
 async function createLinkToken(payload) {
@@ -50,21 +57,43 @@ async function createLinkToken(payload) {
 }
 
 async function linkDevice(payload) {
-  const device = {
-    id: `device-${Date.now()}`,
-    deviceName: payload.deviceName,
-    deviceType: payload.deviceType || "POS Terminal",
-    outletName: payload.outletName || "Outlet pending",
-    status: "active",
-    linkCode: payload.linkCode || ""
-  };
+  const tenantId = getCurrentTenantId();
+  try {
+    const { registerDevice } = require("./devices.repository");
+    return await registerDevice({
+      tenantId,
+      outletId:   payload.outletId   || "",
+      deviceType: payload.deviceType || "pos",
+      deviceName: payload.deviceName || null,
+      platform:   payload.platform   || null,
+    });
+  } catch (err) {
+    console.warn("[devices] DB unavailable for linkDevice:", err.message);
+    const device = {
+      id:         `device-${Date.now()}`,
+      deviceName: payload.deviceName,
+      deviceType: payload.deviceType || "POS Terminal",
+      outletId:   payload.outletId   || "",
+      status:     "active",
+    };
+    updateOwnerSetupData((current) => ({
+      ...current,
+      devices: [...(current.devices || []), device],
+    }));
+    return device;
+  }
+}
 
-  updateOwnerSetupData((current) => ({
-    ...current,
-    devices: [...current.devices, device]
-  }));
-
-  return device;
+async function pingDevice(id) {
+  const tenantId = getCurrentTenantId();
+  try {
+    const { pingDevice: pingRepo } = require("./devices.repository");
+    const result = await pingRepo(id, tenantId);
+    return result || { ok: true };
+  } catch (err) {
+    console.warn("[devices] DB unavailable for pingDevice:", err.message);
+    return { ok: true };
+  }
 }
 
 async function updateDeviceStatus(id, payload) {
@@ -322,10 +351,14 @@ async function resolveLinkCode(payload) {
 
   // Include kitchen stations so POS can populate the printer-setup dropdown immediately
   const kitchenStations = (data.menu?.stations || []).map((s) => ({
-    id:         s.id,
-    name:       s.name,
-    outletId:   s.outletId || "all",
-    categories: s.categories || []
+    id:           s.id,
+    name:         s.name,
+    outletId:     s.outletId     || "all",
+    categories:   s.categories   || [],
+    stationType:  s.stationType  || "kot",
+    copies:       s.copies       || 1,
+    fontSize:     s.fontSize     || "medium",
+    combineItems: s.combineItems === true,
   }));
 
   // ── 6. Issue a device token so the POS can call authenticated API routes ─────
@@ -399,6 +432,7 @@ module.exports = {
   fetchDevices,
   createLinkToken,
   linkDevice,
+  pingDevice,
   updateDeviceStatus,
   resolveLinkCode,
   fetchStaffForDevice,
