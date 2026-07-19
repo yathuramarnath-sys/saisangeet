@@ -13,7 +13,6 @@ import {
   createCustomMenuItem,
   createMenuCategory,
   createMenuGroup,
-  createMenuStation,
   createPricingProfile,
   deleteMenuCategory,
   deleteCustomMenuItem,
@@ -189,7 +188,6 @@ export function MenuPage() {
   const [editingCategorySelectedAreas, setEditingCategorySelectedAreas] = useState([]);
   const [editingCategoryOutletName, setEditingCategoryOutletName] = useState("");
   const [editingCategoryOnline, setEditingCategoryOnline] = useState(false);
-  const [stationName, setStationName] = useState("");
   const [itemDraft, setItemDraft] = useState({ categoryName: "", station: "" });
   const [editingItemId, setEditingItemId] = useState("");
   const [editDraft, setEditDraft] = useState(null);
@@ -727,28 +725,6 @@ export function MenuPage() {
       setSaveMessage("Category deleted.");
     } catch (error) {
       setSaveError(error.message || "Unable to delete category.");
-    }
-  }
-
-  async function handleCreateStation(event) {
-    event.preventDefault();
-    const form = event.currentTarget;
-
-    if (!stationName.trim()) {
-      setSaveError("Kitchen station name is required.");
-      return;
-    }
-
-    try {
-      setSaveError("");
-      setSaveMessage("");
-      await createMenuStation(stationName.trim());
-      setStationName("");
-      await reloadMenu();
-      form.reset();
-      setSaveMessage("New kitchen station created.");
-    } catch (error) {
-      setSaveError(error.message || "Unable to create kitchen station.");
     }
   }
 
@@ -2206,39 +2182,6 @@ export function MenuPage() {
             saveMessage={saveMessage}
             saveError={saveError}
           />
-        </article>
-
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Kitchen Setup</p>
-              <h3>Kitchen Stations</h3>
-            </div>
-          </div>
-
-          <form className="simple-form" onSubmit={handleCreateStation}>
-            <label>
-              New kitchen station
-              <input
-                type="text"
-                value={stationName}
-                onChange={(event) => setStationName(event.target.value)}
-                placeholder="Tandoor station"
-              />
-            </label>
-            <button type="submit" className="secondary-btn full-width">
-              Add New Station
-            </button>
-          </form>
-
-          <div className="mini-stack">
-            {menuData.stations.map((station) => (
-              <div key={station.id} className="mini-card">
-                <span>Station</span>
-                <strong>{station.name}</strong>
-              </div>
-            ))}
-          </div>
         </article>
 
         <article className="panel">
