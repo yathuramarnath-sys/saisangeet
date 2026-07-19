@@ -13,15 +13,19 @@ async function listKitchenStations() {
   return getStations();
 }
 
-async function createKitchenStation({ name, outletId, categories }) {
+async function createKitchenStation({ name, outletId, categories, stationType, copies, fontSize, combineItems }) {
   const trimmed = String(name || "").trim();
   if (!trimmed) throw Object.assign(new Error("Station name is required."), { status: 400 });
 
   const station = {
-    id:         `station-${Date.now()}`,
-    name:       trimmed,
-    outletId:   outletId || "all",
-    categories: Array.isArray(categories) ? categories : []
+    id:           `station-${Date.now()}`,
+    name:         trimmed,
+    outletId:     outletId || "all",
+    categories:   Array.isArray(categories) ? categories : [],
+    stationType:  stationType  || "kot",
+    copies:       Number(copies) || 1,
+    fontSize:     fontSize     || "medium",
+    combineItems: combineItems === true,
   };
 
   await updateOwnerSetupDataNow((data) => ({
@@ -35,7 +39,7 @@ async function createKitchenStation({ name, outletId, categories }) {
   return station;
 }
 
-async function updateKitchenStation(id, { name, outletId, categories }) {
+async function updateKitchenStation(id, { name, outletId, categories, stationType, copies, fontSize, combineItems }) {
   let updated = null;
 
   await updateOwnerSetupDataNow((data) => {
@@ -43,9 +47,13 @@ async function updateKitchenStation(id, { name, outletId, categories }) {
       if (s.id !== id) return s;
       updated = {
         ...s,
-        ...(name      !== undefined && { name:       String(name).trim() }),
-        ...(outletId  !== undefined && { outletId }),
-        ...(categories !== undefined && { categories: Array.isArray(categories) ? categories : [] })
+        ...(name         !== undefined && { name:        String(name).trim() }),
+        ...(outletId     !== undefined && { outletId }),
+        ...(categories   !== undefined && { categories:  Array.isArray(categories) ? categories : [] }),
+        ...(stationType  !== undefined && { stationType }),
+        ...(copies       !== undefined && { copies:      Number(copies) || 1 }),
+        ...(fontSize     !== undefined && { fontSize }),
+        ...(combineItems !== undefined && { combineItems: combineItems === true }),
       };
       return updated;
     });

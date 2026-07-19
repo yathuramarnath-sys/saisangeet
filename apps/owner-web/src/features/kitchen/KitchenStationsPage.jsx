@@ -3,7 +3,7 @@ import { api } from "../../lib/api";
 
 /* ── helpers ──────────────────────────────────────────────────────────────── */
 function blankDraft() {
-  return { name: "", outletId: "all", categories: [] };
+  return { name: "", outletId: "all", categories: [], stationType: "kot", copies: 1, fontSize: "medium", combineItems: false };
 }
 
 function toggleArr(arr, val) {
@@ -60,10 +60,17 @@ export function KitchenStationsPage() {
 
   function startEdit(st) {
     setEditId(st.id);
-    // Strip stale/orphaned category IDs (those that no longer exist in the category list)
     const validCatIds = new Set(categories.map((c) => c.id));
     const cleanCats   = (st.categories || []).filter((cid) => validCatIds.has(cid));
-    setDraft({ name: st.name, outletId: st.outletId || "all", categories: cleanCats });
+    setDraft({
+      name:        st.name,
+      outletId:    st.outletId    || "all",
+      categories:  cleanCats,
+      stationType: st.stationType || "kot",
+      copies:      st.copies      || 1,
+      fontSize:    st.fontSize    || "medium",
+      combineItems: st.combineItems === true,
+    });
     setFormErr("");
   }
 
@@ -147,14 +154,25 @@ export function KitchenStationsPage() {
                 .map((cid) => categories.find((c) => c.id === cid)?.name)
                 .filter(Boolean);
 
+              const stType = st.stationType || "kot";
               return (
                 <div
                   key={st.id}
                   className={`ks-card${editId === st.id ? " active" : ""}`}
                 >
                   <div className="ks-card-body">
-                    <div className="ks-card-name">{st.name}</div>
+                    <div className="ks-card-name">
+                      {st.name}
+                      <span className={`ks-type-badge ks-type-${stType}`}>
+                        {stType === "bill" ? "Bill" : "KOT"}
+                      </span>
+                    </div>
                     <div className="ks-card-outlet">{outletLabel}</div>
+                    <div className="ks-card-spec">
+                      {st.copies > 1 && <span>{st.copies} copies</span>}
+                      {st.fontSize && st.fontSize !== "medium" && <span>{st.fontSize} font</span>}
+                      {st.combineItems && <span>Combine items</span>}
+                    </div>
                     {catNames.length > 0 ? (
                       <div className="ks-cat-chips">
                         {catNames.map((cn) => (
@@ -211,6 +229,56 @@ export function KitchenStationsPage() {
                     <option key={o.id} value={o.id}>{o.name}</option>
                   ))}
                 </select>
+              </label>
+
+              {/* Station type */}
+              <label className="ks-field">
+                Station type
+                <select
+                  className="ks-select"
+                  value={draft.stationType}
+                  onChange={(e) => setDraft((d) => ({ ...d, stationType: e.target.value }))}
+                >
+                  <option value="kot">KOT — prints kitchen order tickets</option>
+                  <option value="bill">Bill — prints customer bills</option>
+                </select>
+              </label>
+
+              {/* Print settings row */}
+              <div className="ks-print-row">
+                <label className="ks-field ks-field-inline">
+                  Copies
+                  <select
+                    className="ks-select"
+                    value={draft.copies}
+                    onChange={(e) => setDraft((d) => ({ ...d, copies: Number(e.target.value) }))}
+                  >
+                    <option value={1}>1 copy</option>
+                    <option value={2}>2 copies</option>
+                    <option value={3}>3 copies</option>
+                  </select>
+                </label>
+                <label className="ks-field ks-field-inline">
+                  Font size
+                  <select
+                    className="ks-select"
+                    value={draft.fontSize}
+                    onChange={(e) => setDraft((d) => ({ ...d, fontSize: e.target.value }))}
+                  >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </select>
+                </label>
+              </div>
+
+              <label className="ks-checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={draft.combineItems}
+                  onChange={(e) => setDraft((d) => ({ ...d, combineItems: e.target.checked }))}
+                />
+                Combine duplicate items on KOT
               </label>
 
               {/* Categories */}

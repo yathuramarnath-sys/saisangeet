@@ -187,6 +187,16 @@ export function App() {
     getDeviceLocalIp().then(setDeviceIp);
   }, []);
 
+  // ── Device heartbeat — keeps online/offline status current on owner dashboard ─
+  useEffect(() => {
+    const deviceId = localStorage.getItem("captain_device_id");
+    if (!deviceId || !branchConfig) return;
+    const tick = () => api.patch(`/devices/${deviceId}/ping`, {}).catch(() => {});
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, [branchConfig]);
+
   // ── Refresh staff from backend on every boot ──────────────────────────────
   // Also updates loggedInStaff so the printed name is always from owner console,
   // not from a stale cached entry (e.g. fallback "Priya" instead of real "Sundar")

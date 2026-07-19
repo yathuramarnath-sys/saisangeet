@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
-import { DEVICES_SHARED_KEY } from "./devices.seed";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    DEVICES PAGE  ·  Owner / Manager  ·  READ-ONLY status board
@@ -117,19 +116,27 @@ function StationRoutingPanel({ stations, stationMap }) {
   );
 }
 
+const DEVICE_TYPE_ICONS = { pos: "🖥️", captain: "📱", kds: "📺", kiosk: "📲" };
+const DEVICE_TYPE_LABELS = { pos: "POS Terminal", captain: "Captain App", kds: "KDS", kiosk: "Kiosk" };
+
 // ── Device Status Card (read-only) ───────────────────────────────────────────
 function DeviceCard({ device }) {
-  const isOffline = device.status === "offline";
+  const isOffline   = device.status === "offline";
+  const typeKey     = (device.deviceType || "pos").toLowerCase();
+  const icon        = DEVICE_TYPE_ICONS[typeKey]  || "🖥️";
+  const typeLabel   = DEVICE_TYPE_LABELS[typeKey] || device.deviceType;
+  const displayName = device.deviceName || typeLabel;
 
   return (
-    <div className={`device-card${isOffline ? " device-offline" : ""}${device.paperLow && !isOffline ? " device-warning" : ""}`}>
+    <div className={`device-card${isOffline ? " device-offline" : ""}`}>
       <div className="device-card-top">
         <div className="device-card-left">
-          <span className="device-icon">{device.type === "printer" ? "🖨️" : "🖥️"}</span>
+          <span className="device-icon">{icon}</span>
           <div className="device-card-info">
-            <strong>{device.name}</strong>
+            <strong>{displayName}</strong>
             <span className="device-meta">
-              {device.model}{device.ip ? ` · ${device.ip}` : ""}
+              {typeLabel}
+              {device.platform ? ` · ${device.platform}` : ""}
             </span>
           </div>
         </div>
@@ -141,28 +148,43 @@ function DeviceCard({ device }) {
         </div>
       </div>
 
-      {isOffline && (
-        <div className="device-alert offline-alert">
-          ⚠️ Offline {timeAgo(device.lastSeen)} — POS &amp; Captain app alerted
-        </div>
-      )}
-      {device.paperLow && !isOffline && (
-        <div className="device-alert paper-alert">
-          🧻 Paper low — reload soon
-        </div>
-      )}
-
       <div className="device-assignment">
-        {device.station ? (
-          <span className="device-role-chip">📍 {device.station}</span>
-        ) : (
-          <span className="device-role-chip unassigned-chip">⚠️ No station assigned</span>
-        )}
         {device.outlet && (
           <span className="device-outlet-badge">🏠 {device.outlet}</span>
         )}
-        <span className="device-last-seen">Last seen {timeAgo(device.lastSeen)}</span>
+        <span className="device-last-seen">Last seen {timeAgo(device.lastSeenAt)}</span>
       </div>
+    </div>
+  );
+}
+
+// ── Link Code Card ───────────────────────────────────────────────────────────
+function LinkCodeCard({ data, onDismiss }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    navigator.clipboard.writeText(data.linkCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="link-code-card">
+      <div className="link-code-card-top">
+        <div>
+          <p className="link-code-label">Link code for <strong>{data.outletName}</strong></p>
+          <p className="link-code-hint">Enter this on the POS or Captain app to connect the device</p>
+        </div>
+        <button className="ghost-btn sm" onClick={onDismiss}>✕</button>
+      </div>
+      <div className="link-code-display">
+        <span className="link-code-value">{data.linkCode}</span>
+        <button className="primary-btn sm" onClick={handleCopy}>
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      <p className="link-code-expiry">Expires in 24 hours · Works for POS and Captain app</p>
     </div>
   );
 }
@@ -174,18 +196,38 @@ export function DevicesPage() {
   const [outlets, setOutlets]           = useState([]);
   const [activeOutlet, setActiveOutlet] = useState("all");
   const [devices, setDevices]           = useState([]);
-  const [stationMap, setStationMap]     = useState({});
-  const [lastSync, setLastSync]         = useState(null);
+  const [stationMap]                    = useState({});
+  const [loading, setLoading]           = useState(true);
+  const [linkCodeData, setLinkCodeData] = useState(null);
+  const [linkGenerating, setLinkGenerating] = useState(false);
+  const refreshRef                      = useRef(null);
 
   const isOwner   = (user?.roles || []).includes("Owner");
   const isManager = !isOwner && (user?.roles || []).includes("Manager");
 
-  // Load outlets + stations from API
+  const outletsRef = useRef([]);
+
+  function loadDevices() {
+    api.get("/devices").then((list) => {
+      const rows = (list || []).map((d) => {
+        const outletName = outletsRef.current.find(o => o.id === d.outletId)?.name || d.outletId;
+        return {
+          ...d,
+          status: d.onlineStatus || "offline",
+          outlet: outletName,
+        };
+      });
+      setDevices(rows);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }
+
+  // Load outlets + stations + devices from API
   useEffect(() => {
     Promise.all([
       api.get("/outlets").catch(() => []),
-      api.get("/menu/stations").catch(() => [])
+      api.get("/kitchen-stations").catch(() => [])
     ]).then(([outletList, stationList]) => {
+      outletsRef.current = outletList || [];
       setOutlets(outletList || []);
       setStations(stationList || []);
 
@@ -193,35 +235,37 @@ export function DevicesPage() {
         const mine = (outletList || []).find(o => o.id === user.outletId);
         if (mine) setActiveOutlet(mine.name);
       }
+
+      loadDevices();
     });
+
+    // Auto-refresh devices every 30s so online/offline status stays current
+    refreshRef.current = setInterval(loadDevices, 30_000);
+    return () => clearInterval(refreshRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isManager]);
 
-  // Read device status synced from POS (via pos_devices_assignments key)
-  useEffect(() => {
-    function readPosSync() {
-      try {
-        const raw = JSON.parse(localStorage.getItem(DEVICES_SHARED_KEY) || "null");
-        if (raw) {
-          setDevices(raw.devices || []);
-          setStationMap(raw.stationMap || {});
-          setLastSync(new Date().toISOString());
-        }
-      } catch {
-        // no sync data yet
-      }
+  async function generateLinkCode() {
+    const outletObj = outlets.find(o => o.name === activeOutlet || o.id === activeOutlet);
+    if (!outletObj) return;
+    setLinkGenerating(true);
+    setLinkCodeData(null);
+    try {
+      const result = await api.post("/devices/link-token", {
+        outletCode: outletObj.code || outletObj.name,
+        outletId:   outletObj.id,
+      });
+      setLinkCodeData({ linkCode: result.linkCode, outletName: outletObj.name });
+    } catch (e) {
+      alert(e.message || "Could not generate link code.");
+    } finally {
+      setLinkGenerating(false);
     }
-
-    readPosSync();
-
-    // Re-read when storage changes (e.g. if owner-web and POS are on same machine)
-    const handler = (e) => { if (e.key === DEVICES_SHARED_KEY) readPosSync(); };
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
-  }, []);
+  }
 
   const visibleDevices = activeOutlet === "all"
     ? devices
-    : devices.filter(d => d.outlet === activeOutlet);
+    : devices.filter(d => d.outlet === activeOutlet || d.outletId === activeOutlet);
 
   const total   = visibleDevices.length;
   const online  = visibleDevices.filter(d => d.status === "online").length;
@@ -235,57 +279,75 @@ export function DevicesPage() {
           <p className="eyebrow">Owner Setup</p>
           <h2>Devices &amp; Printer Routing</h2>
         </div>
-        {lastSync && (
-          <span className="devices-sync-badge">
-            🔄 Synced from POS {timeAgo(lastSync)}
-          </span>
-        )}
+        <button
+          className="ghost-btn sm"
+          onClick={() => { setLoading(true); loadDevices(); }}
+          title="Refresh device status"
+        >
+          Refresh
+        </button>
       </header>
 
       {/* ── Setup guide banner ── */}
       <div className="devices-setup-banner">
         <span className="devices-setup-icon">💡</span>
         <div>
-          <strong>How to set up printers</strong>
+          <strong>How to set up devices</strong>
           <p>
-            Printers are configured directly on your POS terminal — it's on the same
-            local network as your printers, so it can reach them.
-            Go to <strong>Settings → Printers</strong> on the POS, add each printer,
-            and set its <em>Station</em>. The routing map below will update automatically.
+            Open the POS or Captain app, enter the branch link code from <strong>App Store → Link Device</strong>,
+            and the device will appear here. Devices ping the server every 60 seconds — status shows
+            <em> Online</em> if seen in the last 2 minutes. Printers are configured on the POS terminal
+            via <strong>Settings → Printers</strong>.
           </p>
         </div>
       </div>
 
-      {/* Outlet tabs */}
+      {/* Outlet tabs + Link Device button */}
       {outlets.length > 0 && (
-        <div className="device-outlet-tabs">
-          {isOwner && (
-            <button
-              className={`device-outlet-tab${activeOutlet === "all" ? " active" : ""}`}
-              onClick={() => setActiveOutlet("all")}
-            >
-              All Outlets
-              <span className="device-outlet-tab-count">{devices.length}</span>
-            </button>
-          )}
-          {outlets.map(outlet => (
-            <button
-              key={outlet.id}
-              className={`device-outlet-tab${activeOutlet === outlet.name ? " active" : ""}${outlet.isActive === false ? " inactive-outlet" : ""}`}
-              onClick={() => !isManager && setActiveOutlet(outlet.name)}
-              disabled={isManager && activeOutlet !== outlet.name}
-            >
-              {outlet.name}
-              {outlet.isActive === false && <span className="device-outlet-tab-off"> (off)</span>}
-              <span className="device-outlet-tab-count">
-                {devices.filter(d => d.outlet === outlet.name).length}
-              </span>
-            </button>
-          ))}
-          {isManager && (
-            <span className="device-outlet-tab-locked">🔒 Your outlet only</span>
-          )}
+        <div className="device-outlet-tabs-row">
+          <div className="device-outlet-tabs">
+            {isOwner && (
+              <button
+                className={`device-outlet-tab${activeOutlet === "all" ? " active" : ""}`}
+                onClick={() => { setActiveOutlet("all"); setLinkCodeData(null); }}
+              >
+                All Outlets
+                <span className="device-outlet-tab-count">{devices.length}</span>
+              </button>
+            )}
+            {outlets.map(outlet => (
+              <button
+                key={outlet.id}
+                className={`device-outlet-tab${activeOutlet === outlet.name ? " active" : ""}${outlet.isActive === false ? " inactive-outlet" : ""}`}
+                onClick={() => { if (!isManager) { setActiveOutlet(outlet.name); setLinkCodeData(null); } }}
+                disabled={isManager && activeOutlet !== outlet.name}
+              >
+                {outlet.name}
+                {outlet.isActive === false && <span className="device-outlet-tab-off"> (off)</span>}
+                <span className="device-outlet-tab-count">
+                  {devices.filter(d => d.outlet === outlet.name).length}
+                </span>
+              </button>
+            ))}
+            {isManager && (
+              <span className="device-outlet-tab-locked">🔒 Your outlet only</span>
+            )}
+          </div>
+
+          <button
+            className="primary-btn sm link-device-btn"
+            onClick={generateLinkCode}
+            disabled={activeOutlet === "all" || linkGenerating}
+            title={activeOutlet === "all" ? "Select a branch first" : `Generate link code for ${activeOutlet}`}
+          >
+            {linkGenerating ? "Generating…" : "+ Link Device"}
+          </button>
         </div>
+      )}
+
+      {/* Link code result card */}
+      {linkCodeData && (
+        <LinkCodeCard data={linkCodeData} onDismiss={() => setLinkCodeData(null)} />
       )}
 
       {/* Stats row */}
@@ -320,15 +382,17 @@ export function DevicesPage() {
       />
 
       {/* ── Device Status Cards ── */}
-      {devices.length === 0 ? (
+      {loading ? (
         <div className="panel devices-empty">
-          <span className="devices-empty-icon">🖨️</span>
-          <p>
-            No devices synced yet.
-          </p>
+          <p className="muted-hint">Loading devices…</p>
+        </div>
+      ) : devices.length === 0 ? (
+        <div className="panel devices-empty">
+          <span className="devices-empty-icon">📱</span>
+          <p>No devices registered yet.</p>
           <p className="muted-hint">
-            Once you add printers on the POS terminal (Settings → Printers), they'll
-            appear here with live status.
+            Open the POS or Captain app and enter a branch link code — the device will appear here
+            once it connects.
           </p>
         </div>
       ) : (

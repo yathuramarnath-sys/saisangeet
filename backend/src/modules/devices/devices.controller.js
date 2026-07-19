@@ -2,6 +2,7 @@ const {
   fetchDevices,
   createLinkToken,
   linkDevice,
+  pingDevice,
   updateDeviceStatus,
   resolveLinkCode,
   fetchStaffForDevice,
@@ -64,10 +65,21 @@ async function fetchStaffHandler(req, res) {
   }
 }
 
+async function pingDeviceHandler(req, res) {
+  try {
+    const result = await pingDevice(req.params.id);
+    if (!result) return res.status(404).json({ error: { message: "Device not found." } });
+    res.json({ ok: true, lastSeenAt: result.lastSeenAt });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: { message: err.message } });
+  }
+}
+
 module.exports = {
   listDevicesHandler,
   createLinkTokenHandler,
   linkDeviceHandler,
+  pingDeviceHandler,
   updateDeviceStatusHandler,
   resolveLinkCodeHandler,
   fetchStaffHandler,

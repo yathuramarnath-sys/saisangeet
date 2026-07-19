@@ -10,6 +10,7 @@ const {
   listDevicesHandler,
   createLinkTokenHandler,
   linkDeviceHandler,
+  pingDeviceHandler,
   updateDeviceStatusHandler,
   resolveLinkCodeHandler,
   fetchStaffHandler,
@@ -37,6 +38,7 @@ devicesRouter.post(
 devicesRouter.get("/staff", requireAuth, asyncHandler(fetchStaffHandler));
 
 devicesRouter.post("/link", requireAuth, asyncHandler(linkDeviceHandler));
+devicesRouter.patch("/:id/ping", requireAuth, asyncHandler(pingDeviceHandler));
 devicesRouter.patch(
   "/:id/status",
   requireAuth,
