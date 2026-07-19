@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 
 /* ── helpers ──────────────────────────────────────────────────────────────── */
@@ -23,6 +23,8 @@ export function KitchenStationsPage() {
   const [draft,   setDraft]   = useState(blankDraft());
   const [saving,  setSaving]  = useState(false);
   const [formErr, setFormErr] = useState("");
+  const formPanelRef          = useRef(null);
+  const nameInputRef          = useRef(null);
 
   /* ── load ── */
   useEffect(() => {
@@ -72,6 +74,11 @@ export function KitchenStationsPage() {
       combineItems: st.combineItems === true,
     });
     setFormErr("");
+    setTimeout(() => {
+      formPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+    }, 50);
   }
 
   function cancelForm() {
@@ -195,7 +202,7 @@ export function KitchenStationsPage() {
 
         {/* ── Right: create / edit form ── */}
         <div className="ks-form-col">
-          <div className="ks-form-panel">
+          <div className="ks-form-panel" ref={formPanelRef}>
             <h3 className="ks-form-title">
               {editId ? "Edit Station" : "New Station"}
             </h3>
@@ -207,11 +214,11 @@ export function KitchenStationsPage() {
               <label className="ks-field">
                 Station name
                 <input
+                  ref={nameInputRef}
                   className="ks-input"
                   placeholder="e.g. Hot Kitchen, Bar, Cold Station"
                   value={draft.name}
                   onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                  autoFocus
                   required
                 />
               </label>
