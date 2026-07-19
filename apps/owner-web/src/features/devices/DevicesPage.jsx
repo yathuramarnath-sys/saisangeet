@@ -158,6 +158,37 @@ function DeviceCard({ device }) {
   );
 }
 
+// ── Link Code Card ───────────────────────────────────────────────────────────
+function LinkCodeCard({ data, onDismiss }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    navigator.clipboard.writeText(data.linkCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="link-code-card">
+      <div className="link-code-card-top">
+        <div>
+          <p className="link-code-label">Link code for <strong>{data.outletName}</strong></p>
+          <p className="link-code-hint">Enter this on the POS or Captain app to connect the device</p>
+        </div>
+        <button className="ghost-btn sm" onClick={onDismiss}>✕</button>
+      </div>
+      <div className="link-code-display">
+        <span className="link-code-value">{data.linkCode}</span>
+        <button className="primary-btn sm" onClick={handleCopy}>
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      <p className="link-code-expiry">Expires in 24 hours · Works for POS and Captain app</p>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export function DevicesPage() {
   const { user } = useAuth();
@@ -167,6 +198,8 @@ export function DevicesPage() {
   const [devices, setDevices]           = useState([]);
   const [stationMap]                    = useState({});
   const [loading, setLoading]           = useState(true);
+  const [linkCodeData, setLinkCodeData] = useState(null);
+  const [linkGenerating, setLinkGenerating] = useState(false);
   const refreshRef                      = useRef(null);
 
   const isOwner   = (user?.roles || []).includes("Owner");
@@ -212,6 +245,24 @@ export function DevicesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isManager]);
 
+  async function generateLinkCode() {
+    const outletObj = outlets.find(o => o.name === activeOutlet || o.id === activeOutlet);
+    if (!outletObj) return;
+    setLinkGenerating(true);
+    setLinkCodeData(null);
+    try {
+      const result = await api.post("/devices/link-token", {
+        outletCode: outletObj.code || outletObj.name,
+        outletId:   outletObj.id,
+      });
+      setLinkCodeData({ linkCode: result.linkCode, outletName: outletObj.name });
+    } catch (e) {
+      alert(e.message || "Could not generate link code.");
+    } finally {
+      setLinkGenerating(false);
+    }
+  }
+
   const visibleDevices = activeOutlet === "all"
     ? devices
     : devices.filter(d => d.outlet === activeOutlet || d.outletId === activeOutlet);
@@ -251,36 +302,52 @@ export function DevicesPage() {
         </div>
       </div>
 
-      {/* Outlet tabs */}
+      {/* Outlet tabs + Link Device button */}
       {outlets.length > 0 && (
-        <div className="device-outlet-tabs">
-          {isOwner && (
-            <button
-              className={`device-outlet-tab${activeOutlet === "all" ? " active" : ""}`}
-              onClick={() => setActiveOutlet("all")}
-            >
-              All Outlets
-              <span className="device-outlet-tab-count">{devices.length}</span>
-            </button>
-          )}
-          {outlets.map(outlet => (
-            <button
-              key={outlet.id}
-              className={`device-outlet-tab${activeOutlet === outlet.name ? " active" : ""}${outlet.isActive === false ? " inactive-outlet" : ""}`}
-              onClick={() => !isManager && setActiveOutlet(outlet.name)}
-              disabled={isManager && activeOutlet !== outlet.name}
-            >
-              {outlet.name}
-              {outlet.isActive === false && <span className="device-outlet-tab-off"> (off)</span>}
-              <span className="device-outlet-tab-count">
-                {devices.filter(d => d.outlet === outlet.name).length}
-              </span>
-            </button>
-          ))}
-          {isManager && (
-            <span className="device-outlet-tab-locked">🔒 Your outlet only</span>
-          )}
+        <div className="device-outlet-tabs-row">
+          <div className="device-outlet-tabs">
+            {isOwner && (
+              <button
+                className={`device-outlet-tab${activeOutlet === "all" ? " active" : ""}`}
+                onClick={() => { setActiveOutlet("all"); setLinkCodeData(null); }}
+              >
+                All Outlets
+                <span className="device-outlet-tab-count">{devices.length}</span>
+              </button>
+            )}
+            {outlets.map(outlet => (
+              <button
+                key={outlet.id}
+                className={`device-outlet-tab${activeOutlet === outlet.name ? " active" : ""}${outlet.isActive === false ? " inactive-outlet" : ""}`}
+                onClick={() => { if (!isManager) { setActiveOutlet(outlet.name); setLinkCodeData(null); } }}
+                disabled={isManager && activeOutlet !== outlet.name}
+              >
+                {outlet.name}
+                {outlet.isActive === false && <span className="device-outlet-tab-off"> (off)</span>}
+                <span className="device-outlet-tab-count">
+                  {devices.filter(d => d.outlet === outlet.name).length}
+                </span>
+              </button>
+            ))}
+            {isManager && (
+              <span className="device-outlet-tab-locked">🔒 Your outlet only</span>
+            )}
+          </div>
+
+          <button
+            className="primary-btn sm link-device-btn"
+            onClick={generateLinkCode}
+            disabled={activeOutlet === "all" || linkGenerating}
+            title={activeOutlet === "all" ? "Select a branch first" : `Generate link code for ${activeOutlet}`}
+          >
+            {linkGenerating ? "Generating…" : "+ Link Device"}
+          </button>
         </div>
+      )}
+
+      {/* Link code result card */}
+      {linkCodeData && (
+        <LinkCodeCard data={linkCodeData} onDismiss={() => setLinkCodeData(null)} />
       )}
 
       {/* Stats row */}
