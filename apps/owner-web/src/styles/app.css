@@ -5330,7 +5330,10 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
 .ks-card:hover   { border-color: #a5b4fc; }
 
 .ks-card-body     { flex: 1; min-width: 0; }
-.ks-card-name     { font-size: 15px; font-weight: 700; color: #111827; }
+.ks-card-name     { font-size: 15px; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ks-type-badge    { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.03em; flex-shrink: 0; }
+.ks-type-kot      { background: #d1fae5; color: #065f46; }
+.ks-type-bill     { background: #fef3c7; color: #92400e; }
 .ks-card-outlet   { font-size: 12px; color: #6b7280; margin: 2px 0 8px; }
 
 .ks-cat-chips     { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -11539,7 +11542,7 @@ textarea:focus {
 .ks-card:hover { border-color: #B0AEA8 !important; }
 .ks-card.active { border-color: var(--oc-teal) !important; background: rgba(15, 118, 110, 0.04) !important; }
 .ks-card-body { flex: 1; min-width: 0; }
-.ks-card-name { font-size: 14px !important; font-weight: 700 !important; color: var(--oc-ink) !important; margin-bottom: 4px !important; }
+.ks-card-name { font-size: 14px !important; font-weight: 700 !important; color: var(--oc-ink) !important; margin-bottom: 4px !important; display: flex !important; align-items: center !important; gap: 8px !important; flex-wrap: wrap !important; }
 .ks-card-outlet { font-size: 12px !important; color: var(--oc-muted) !important; margin-bottom: 8px !important; }
 .ks-cat-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .ks-cat-chip {
