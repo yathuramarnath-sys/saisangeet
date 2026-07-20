@@ -30,6 +30,7 @@ export const defaultReceiptSettings = {
   showItemDesc:       false,
   showSavings:        true,
   showQR:             true,
+  boldItemText:       false,
   showPhone:          true,
   showAddress:        true,
   showGstin:          true,

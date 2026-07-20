@@ -48,6 +48,7 @@ async function fetchOutlets() {
       upiId:          o.upiId         || "",
       showFssai:      o.showFssai     ?? true,
       showQR:         o.showQR        ?? true,
+      boldItemText:   o.boldItemText  ?? false,
       gstTreatment:   o.gstTreatment  || "exclusive",
       invoiceHeader:  o.invoiceHeader || bp.invoiceHeader || "",
       invoiceFooter:  o.invoiceFooter || bp.invoiceFooter || "",

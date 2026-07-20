@@ -48,6 +48,7 @@ export async function printBill(order, items, outletOrName, options = {}) {
   const showPhone          = outlet?.showPhone          !== false;
   const showAddress        = outlet?.showAddress        !== false;
   const showGstin          = outlet?.showGstin          !== false;
+  const boldItemText       = outlet?.boldItemText       === true;  // default off
 
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -177,7 +178,7 @@ export async function printBill(order, items, outletOrName, options = {}) {
     .items-tbl td { padding: 3px 0; vertical-align: top; }
     .items-tbl tbody tr { border-bottom: 1px dotted #eee; }
     .items-tbl tbody tr:last-child { border-bottom: none; }
-    .col-item { width: 60%; }
+    .col-item { width: 60%; ${boldItemText ? "font-weight: 700;" : ""} }
     .col-qty  { width: 8%;  text-align: right; font-weight: 700; }
     .col-rate { width: 16%; text-align: right; color: #555; }
     .col-amt  { width: 16%; text-align: right; font-weight: 700; }
