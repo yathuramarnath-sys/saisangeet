@@ -308,8 +308,24 @@ export function App() {
           setSocketConnected(true);
           if (wasOffline) {
             api.get(`/operations/orders?outletId=${target.id}`)
-              .then((orders) => {
-                if (orders.length) setOrders(Object.fromEntries(orders.map((o) => [o.tableId, o])));
+              .then((serverOrders) => {
+                if (!serverOrders.length) return;
+                setOrders((prev) => {
+                  const next = Object.fromEntries(serverOrders.map((o) => [o.tableId, o]));
+                  // Re-attach unsent local items the server doesn't know about yet
+                  for (const [tid, cur] of Object.entries(prev)) {
+                    const serverIds = new Set((next[tid]?.items || []).map(i => i.id));
+                    const localOnly = (cur.items || []).filter(
+                      i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !serverIds.has(i.id)
+                    );
+                    if (localOnly.length > 0) {
+                      next[tid] = next[tid]
+                        ? { ...next[tid], items: [...(next[tid].items || []), ...localOnly] }
+                        : cur;
+                    }
+                  }
+                  return next;
+                });
               })
               .catch(() => {});
             flushSyncQueue();  // replay queued ADD_ITEM / REMOVE_ITEM / BILL_REQUEST

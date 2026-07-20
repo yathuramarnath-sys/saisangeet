@@ -154,6 +154,7 @@ export function OrderScreen({
         categoryStockState={categoryStockState}
         outletId={outletId}
         socket={socket}
+        defaultTaxRate={defaultTaxRate}
         onUpdateOrder={onUpdateOrder}
         onItemAdded={onAddItem}
         onItemRemoved={(itemId) => onRemoveItem?.(itemId)}
