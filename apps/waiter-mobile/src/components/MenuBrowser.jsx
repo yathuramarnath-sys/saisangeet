@@ -21,7 +21,7 @@ function makeLongPress(callback, ms = 550) {
   };
 }
 
-export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, onUpdateOrder, onItemAdded, onItemRemoved, onBack, tableLabel, guests = 0, onUpdateGuests }) {
+export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, defaultTaxRate = 0, onUpdateOrder, onItemAdded, onItemRemoved, onBack, tableLabel, guests = 0, onUpdateGuests }) {
   const [guestVal, setGuestVal] = useState(guests);
   // Restrict the menu to the table's area, mirroring the POS work-area filter:
   // a category only shows here if it's explicitly tagged for this area (categories with
@@ -202,7 +202,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
   const cartItems   = (order.items || []).filter(i => !i.isVoided && !i.isComp);
   const cartSub     = cartItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const cartTax     = cartItems.reduce((s, i) => {
-    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
     return s + Math.round(i.price * i.quantity * rate / 100);
   }, 0);
   const cartTotal   = cartSub + cartTax;
