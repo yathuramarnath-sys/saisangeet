@@ -5,13 +5,14 @@ async function listDevicesByTenant(tenantId) {
   const result = await query(
     `SELECT
        id,
-       outlet_id    AS "outletId",
-       device_type  AS "deviceType",
-       device_name  AS "deviceName",
+       outlet_id       AS "outletId",
+       device_type     AS "deviceType",
+       device_name     AS "deviceName",
        platform,
        status,
-       last_seen_at AS "lastSeenAt",
-       created_at   AS "createdAt",
+       last_seen_at    AS "lastSeenAt",
+       created_at      AS "createdAt",
+       logged_in_user  AS "loggedInUser",
        CASE
          WHEN last_seen_at > NOW() - INTERVAL '2 minutes' THEN 'online'
          ELSE 'offline'
@@ -44,13 +45,14 @@ async function registerDevice({ tenantId, outletId, deviceType, deviceName, plat
   return result.rows[0];
 }
 
-async function pingDevice(id, tenantId) {
+async function pingDevice(id, tenantId, loggedInUser) {
   const result = await query(
     `UPDATE device_registry
-     SET last_seen_at = NOW()
+     SET last_seen_at = NOW(),
+         logged_in_user = COALESCE($3, logged_in_user)
      WHERE id = $1 AND tenant_id = $2
      RETURNING id, last_seen_at AS "lastSeenAt"`,
-    [id, tenantId]
+    [id, tenantId, loggedInUser ?? null]
   );
   return result.rows[0] || null;
 }

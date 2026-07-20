@@ -152,6 +152,9 @@ function DeviceCard({ device }) {
         {device.outlet && (
           <span className="device-outlet-badge">🏠 {device.outlet}</span>
         )}
+        {device.loggedInUser && (
+          <span className="device-logged-user">👤 {device.loggedInUser}</span>
+        )}
         <span className="device-last-seen">Last seen {timeAgo(device.lastSeenAt)}</span>
       </div>
     </div>

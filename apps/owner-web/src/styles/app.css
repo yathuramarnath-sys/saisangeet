@@ -10761,6 +10761,14 @@ textarea:focus {
   border-radius: 20px !important;
   color: var(--oc-ink) !important;
 }
+.device-logged-user {
+  font-size: 11.5px !important;
+  padding: 3px 10px !important;
+  background: #e8f4fd !important;
+  border: 1px solid #b3d7f5 !important;
+  border-radius: 20px !important;
+  color: #1a6fa8 !important;
+}
 .device-last-seen { font-size: 11.5px !important; color: var(--oc-muted) !important; margin-left: auto; }
 .devices-stats {
   display: grid !important;
