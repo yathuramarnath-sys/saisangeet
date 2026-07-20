@@ -88,6 +88,10 @@ async function runMigrations() {
     )
   `);
 
+  await queryFn(`
+    ALTER TABLE device_registry ADD COLUMN IF NOT EXISTS logged_in_user TEXT
+  `);
+
   console.log("[migrate] Tables verified.");
 
   // ── 2. Seed tenant_settings from JSON files ─────────────────────────────────

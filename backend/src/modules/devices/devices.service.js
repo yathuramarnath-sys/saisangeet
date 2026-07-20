@@ -84,11 +84,11 @@ async function linkDevice(payload) {
   }
 }
 
-async function pingDevice(id) {
+async function pingDevice(id, loggedInUser) {
   const tenantId = getCurrentTenantId();
   try {
     const { pingDevice: pingRepo } = require("./devices.repository");
-    const result = await pingRepo(id, tenantId);
+    const result = await pingRepo(id, tenantId, loggedInUser);
     return result || { ok: true };
   } catch (err) {
     console.warn("[devices] DB unavailable for pingDevice:", err.message);

@@ -191,11 +191,13 @@ export function App() {
   useEffect(() => {
     const deviceId = localStorage.getItem("captain_device_id");
     if (!deviceId || !branchConfig) return;
-    const tick = () => api.patch(`/devices/${deviceId}/ping`, {}).catch(() => {});
+    const tick = () => api.patch(`/devices/${deviceId}/ping`, {
+      loggedInUser: loggedInStaff?.name || null,
+    }).catch(() => {});
     tick();
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
-  }, [branchConfig]);
+  }, [branchConfig, loggedInStaff]);
 
   // ── Refresh staff from backend on every boot ──────────────────────────────
   // Also updates loggedInStaff so the printed name is always from owner console,

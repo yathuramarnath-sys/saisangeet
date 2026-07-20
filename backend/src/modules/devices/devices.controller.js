@@ -67,7 +67,10 @@ async function fetchStaffHandler(req, res) {
 
 async function pingDeviceHandler(req, res) {
   try {
-    const result = await pingDevice(req.params.id);
+    const loggedInUser = typeof req.body?.loggedInUser === "string"
+      ? req.body.loggedInUser.trim().slice(0, 100) || null
+      : null;
+    const result = await pingDevice(req.params.id, loggedInUser);
     if (!result) return res.status(404).json({ error: { message: "Device not found." } });
     res.json({ ok: true, lastSeenAt: result.lastSeenAt });
   } catch (err) {
