@@ -378,10 +378,18 @@ export function App() {
 
         socket.on("sync:config", async () => {
           try {
-            const [cats, items] = await Promise.all([
+            const [outlets, cats, items] = await Promise.all([
+              api.get("/outlets").catch(() => null),
               api.get(`/menu/categories?outletId=${target.id}`).catch(() => null),
               api.get(`/menu/items?outletId=${target.id}`).catch(() => null),
             ]);
+            if (outlets) {
+              const updated = outlets.find((o) => o.id === target.id) || outlets[0];
+              if (updated) {
+                setOutlet(updated);
+                saveCaptainCache({ outlet: updated });
+              }
+            }
             if (cats)  setCategories(cats);
             if (items) setMenuItems(items);
           } catch (_) { /* non-critical */ }
