@@ -18,7 +18,8 @@ export function printBill(order, items, outletData, options = {}) {
 
   // outletData can be a full outlet object { name, addressLine1, city, gstin, fssaiNo, ... }
   // or a plain string (legacy). Handle both.
-  const outletObj  = typeof outletData === "string" ? { name: outletData } : (outletData || {});
+  const outletObj    = typeof outletData === "string" ? { name: outletData } : (outletData || {});
+  const boldItemText = outletObj?.boldItemText === true;
   const outletName = outletObj.name || "Restaurant";
   const addrParts  = [outletObj.addressLine1, outletObj.addressLine2, outletObj.city, outletObj.state].filter(Boolean);
   const addrStr    = addrParts.join(", ");
@@ -129,7 +130,8 @@ export function printBill(order, items, outletData, options = {}) {
         })),
         summary: summaryRows,
         total:   roundedTotal.toFixed(2),
-        footer:  outletObj.invoiceFooter || "Thank you for dining with us!",
+        footer:     outletObj.invoiceFooter || "Thank you for dining with us!",
+        boldItems:  boldItemText,
       });
 
       printEnqueue(PRINT_TYPE.BILL, printerIp, escPosData, {
@@ -194,7 +196,7 @@ export function printBill(order, items, outletData, options = {}) {
     .items-tbl td { padding: 3px 0; vertical-align: top; }
     .items-tbl tbody tr { border-bottom: 1px dotted #eee; }
     .items-tbl tbody tr:last-child { border-bottom: none; }
-    .col-item { width: 60%; }
+    .col-item { width: 60%; ${boldItemText ? "font-weight: 700;" : ""} }
     .col-qty  { width: 8%;  text-align: right; font-weight: 700; }
     .col-rate { width: 16%; text-align: right; color: #555; }
     .col-amt  { width: 16%; text-align: right; font-weight: 700; }

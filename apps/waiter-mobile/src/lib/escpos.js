@@ -95,7 +95,9 @@ export function buildBillEscPos(data) {
     const qty  = String(item.qty  || "").padStart(4);   //  "   1"
     const rate = stripRupee(item.rate).padStart(8);     // "  190.00"
     const amt  = stripRupee(item.amt).padStart(8);      // "  190.00"
+    if (data.boldItems) cmd += BOLD1;
     cmd += name + qty + rate + amt + LF;
+    if (data.boldItems) cmd += BOLD0;
     if (item.note) cmd += "     >> " + safe(item.note) + LF;
   }
   cmd += DASH + LF;

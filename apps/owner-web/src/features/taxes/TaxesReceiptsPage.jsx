@@ -219,6 +219,7 @@ export function TaxesReceiptsPage() {
           showAddress:        o.showAddress        ?? defaultReceiptSettings.showAddress,
           showGstin:          o.showGstin          ?? defaultReceiptSettings.showGstin,
           showFssai:          o.showFssai          ?? defaultReceiptSettings.showFssai,
+          boldItemText:       o.boldItemText       ?? defaultReceiptSettings.boldItemText,
           footerNote:         o.footerNote         || defaultReceiptSettings.footerNote,
           gstBillingEnabled:  o.gstBillingEnabled  ?? defaultReceiptSettings.gstBillingEnabled,
           gstBillDelivery:    o.gstBillDelivery    ?? defaultReceiptSettings.gstBillDelivery,
@@ -625,6 +626,7 @@ export function TaxesReceiptsPage() {
                 { key: "showItemDesc",     label: "Show item notes",       desc: "Print item-level notes on the receipt" },
                 { key: "showSavings",      label: "Show savings row",      desc: "Print 'You saved ₹X' line when discount is applied" },
                 { key: "showQR",           label: "Show QR payment block", desc: "Print QR code at the bottom of the receipt" },
+                { key: "boldItemText",     label: "Bold item names",       desc: "Print item names in bold on KOT and bill receipts" },
               ].map(({ key, label, desc }) => (
                 <div key={key} className="tax-toggle-row">
                   <div><strong>{label}</strong><span>{desc}</span></div>
