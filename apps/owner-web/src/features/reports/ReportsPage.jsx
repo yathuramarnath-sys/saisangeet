@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from "react";
+import { io as socketIO } from "socket.io-client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { api } from "../../lib/api";
+
+const SOCKET_URL = import.meta.env.VITE_API_BASE_URL
+  ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/v1$/, "")
+  : "http://localhost:4000";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function fmt(n)     { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
@@ -1858,6 +1863,26 @@ export function ReportsPage() {
 
   // Clear cache when filters change so stale data is never served after a refresh
   useEffect(() => { reportCache.current = {}; }, [dateFrom, dateTo, month, outletId]);
+
+  // Real-time refresh: when today is in the selected date range, listen for
+  // "sales:updated" from the backend and bust the cache so the next render
+  // re-fetches fresh totals (same pattern as DashboardPage).
+  useEffect(() => {
+    if (dateTo < todayStr()) return;
+    const token = localStorage.getItem("pos_token");
+    if (!token) return;
+    const sock = socketIO(SOCKET_URL, {
+      query: { token },
+      transports: ["websocket"],
+      reconnectionDelay: 3000,
+      reconnectionDelayMax: 10000,
+    });
+    sock.on("sales:updated", () => {
+      reportCache.current = {};
+      fetchData();
+    });
+    return () => sock.disconnect();
+  }, [dateTo, fetchData]);
 
   // Validate: dateFrom must not exceed dateTo
   function handleDateFrom(val) {
