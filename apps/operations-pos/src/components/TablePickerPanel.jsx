@@ -39,10 +39,10 @@ export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSele
 
   function tableStatus(tableId) {
     const o = orders[tableId];
-    const activeItems = o?.items?.filter(i => !i.isVoided && !i.isComp);
-    // After handleSettle the order is reset to a blank order; isClosed won't exist.
-    // We only show "closed" briefly before the reset — but the table is still clickable.
-    if (!o || !activeItems?.length) return "available";
+    // Only KOT-confirmed items count — unsent items (e.g. captain browsing without sending KOT)
+    // must not show the table as occupied on the POS grid.
+    const kotItems = o?.items?.filter(i => !i.isVoided && !i.isComp && i.sentToKot);
+    if (!o || !kotItems?.length) return "available";
     if (o.isClosed)      return "available";   // brief settle flash → treat as available
     if (o.isOnHold)      return "hold";
     if (o.voidRequested) return "void";

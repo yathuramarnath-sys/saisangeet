@@ -61,6 +61,27 @@ function buildAreasFromOutlet(outlet) {
   });
 }
 
+// ─── Cache version guard ──────────────────────────────────────────────────────
+// When the app is reinstalled (Electron/APK), localStorage survives on Windows
+// because %APPDATA% is not wiped by the uninstaller. Clear stale menu/outlet
+// cache on every version change so new code always runs with fresh data.
+// Branch config and auth token are preserved so the user stays paired/logged in.
+const CAPTAIN_CACHE_KEYS_TO_CLEAR = [
+  "captain_cache_outlet",
+  "captain_cache_categories",
+  "captain_cache_menu_items",
+  "captain_cache_areas",
+  "captain_kitchen_stations",
+];
+function runCacheVersionGuard() {
+  const stored = localStorage.getItem("captain_cache_version");
+  if (stored !== APP_VERSION) {
+    CAPTAIN_CACHE_KEYS_TO_CLEAR.forEach(k => localStorage.removeItem(k));
+    localStorage.setItem("captain_cache_version", APP_VERSION);
+  }
+}
+runCacheVersionGuard();
+
 // ─── Branch config (localStorage) ────────────────────────────────────────────
 
 const CAPTAIN_LS_KEY = "captain_branch_config";

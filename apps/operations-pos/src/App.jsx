@@ -104,6 +104,27 @@ function buildAreasFromOutlet(outlet) {
   });
 }
 
+// ── Cache version guard ───────────────────────────────────────────────────
+// Electron uninstaller does NOT wipe %APPDATA%\AppName\ on Windows, so stale
+// menu/outlet/table cache can survive a reinstall and block new code paths.
+// Clear it on every version bump; operational keys (token, orders, shift) are kept.
+const POS_CACHE_KEYS_TO_CLEAR = [
+  "pos_cache_outlet",
+  "pos_cache_categories",
+  "pos_cache_menu_items",
+  "pos_cache_table_areas",
+  "pos_kitchen_stations",
+  "pos_table_config",
+  "pos_discount_rules",
+];
+(function runPosCacheVersionGuard() {
+  const stored = localStorage.getItem("pos_cache_version");
+  if (stored !== APP_VERSION) {
+    POS_CACHE_KEYS_TO_CLEAR.forEach(k => localStorage.removeItem(k));
+    localStorage.setItem("pos_cache_version", APP_VERSION);
+  }
+})();
+
 // ── KOT offline queue ─────────────────────────────────────────────────────
 const KOT_QUEUE_KEY = "pos_kot_queue";
 
@@ -612,9 +633,17 @@ export default function App() {
             api.get(`/operations/orders?outletId=${target.id}`)
               .then((liveOrders) => {
                 const apiMap = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
+                // Tables that were settled offline but haven't reached the server yet are in
+                // the closed-order queue. Don't let the server's stale "active" copy overwrite
+                // the locally-settled (blank) state — that's what causes tables to reappear
+                // after settle when internet was down during payment.
+                const pendingSettledTables = new Set(
+                  loadClosedOrderQueue().map(q => q.order?.tableId).filter(Boolean)
+                );
                 setOrders((prev) => {
                   const merged = { ...prev };
                   Object.entries(apiMap).forEach(([tableId, serverOrder]) => {
+                    if (pendingSettledTables.has(tableId)) return; // locally settled; skip server overwrite
                     const local = prev[tableId];
                     const serverItemIds  = new Set((serverOrder.items || []).map(i => i.id));
                     const sameSession    = !!(local?.orderNumber && serverOrder.orderNumber &&
