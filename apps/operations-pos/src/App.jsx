@@ -1294,6 +1294,11 @@ export default function App() {
     } catch {}
   }, [mirrorOrders]);
 
+  // Clear selectedMirrorOrder whenever the table selection is dropped
+  useEffect(() => {
+    if (!selectedTableId) setSelectedMirrorOrder(null);
+  }, [selectedTableId]);
+
   // Restrict the menu shown at this terminal to its assigned work area.
   // A "Full Access" terminal (no workArea) sees everything, as before.
   // A work-area terminal only sees categories explicitly tagged with that
@@ -1531,18 +1536,24 @@ export default function App() {
 
   const tableLabel = useMemo(() => {
     if (!selectedTableId) return "";
+    if (selectedMirrorOrder) {
+      const mn = selectedMirrorOrder.tableNumber || selectedMirrorOrder.tableId || "";
+      const ma = selectedMirrorOrder.areaName ? ` · ${selectedMirrorOrder.areaName}` : "";
+      return `Table ${mn}${ma} (Billed)`;
+    }
     if (selectedOrder?.isCounter) {
       return `${serviceMode === "delivery" ? "Delivery" : "Takeaway"} #${String(selectedOrder.ticketNumber || "").padStart(3, "0")}`;
     }
     if (selectedTable) return `Table ${selectedTable.number} · ${selectedTable.areaName}`;
     return "";
-  }, [selectedTableId, selectedTable, selectedOrder, serviceMode]);
+  }, [selectedTableId, selectedTable, selectedOrder, selectedMirrorOrder, serviceMode]);
 
   // Active (non-voided) item count in the current order — used by the order tab badge.
   const activeOrderItemCount = useMemo(() => {
-    if (!selectedOrder) return 0;
-    return (selectedOrder.items || []).filter(i => !i.isVoided).length;
-  }, [selectedOrder]);
+    const activeForCount = selectedMirrorOrder || selectedOrder;
+    if (!activeForCount) return 0;
+    return (activeForCount.items || []).filter(i => !i.isVoided).length;
+  }, [selectedOrder, selectedMirrorOrder]);
 
   // Top 8 most-ordered items (for Favourites chip)
   const favouriteItemIds = useMemo(() =>
@@ -1556,12 +1567,13 @@ export default function App() {
   // MUST be here (before any conditional returns) to obey React Rules of Hooks.
   const menuQuantities = useMemo(() => {
     const map = {};
-    if (!selectedOrder) return map;
-    (selectedOrder.items || [])
+    const activeForMenu = selectedMirrorOrder || selectedOrder;
+    if (!activeForMenu) return map;
+    (activeForMenu.items || [])
       .filter(i => !i.sentToKot && !i.isVoided)
       .forEach(i => { if (i.menuItemId) map[i.menuItemId] = (map[i.menuItemId] || 0) + i.quantity; });
     return map;
-  }, [selectedOrder]);
+  }, [selectedOrder, selectedMirrorOrder]);
 
   // ── Order mutations ───────────────────────────────────────────────────────
   function mutateOrder(tableId, updater) {
@@ -2255,7 +2267,108 @@ export default function App() {
   function handleSelectMirrorOrder(tableId, mirrorOrder) {
     setSelectedTableId(tableId);
     setSelectedMirrorOrder(mirrorOrder);
-    setShowPayment(true);
+    // Open full order screen so cashier can add/remove/void items before settling
+  }
+
+  // ── Mirror-order local mutations (no backend sync — order is already billed) ─
+  function mutateMirrorOrder(updater) {
+    if (!selectedTableId || !selectedMirrorOrder) return;
+    const tableId = selectedTableId;
+    const orderNum = selectedMirrorOrder.orderNumber;
+    setMirrorOrders(mp => {
+      const arr = (mp[tableId] || []).map(o => {
+        if (Number(o.orderNumber) !== Number(orderNum)) return o;
+        return updater(structuredClone(o));
+      });
+      return { ...mp, [tableId]: arr };
+    });
+    setSelectedMirrorOrder(prev => prev ? updater(structuredClone(prev)) : prev);
+  }
+
+  function handleMirrorChangeQty(idx, qty) {
+    mutateMirrorOrder(o => {
+      if (qty <= 0) o.items.splice(idx, 1);
+      else o.items[idx].quantity = qty;
+      return o;
+    });
+  }
+
+  function handleMirrorRemoveItem(idx) {
+    mutateMirrorOrder(o => { o.items.splice(idx, 1); return o; });
+  }
+
+  function handleMirrorNoteChange(idx, note) {
+    mutateMirrorOrder(o => { if (o.items[idx]) o.items[idx].note = note; return o; });
+  }
+
+  function handleMirrorVoidItem(idx, reason) {
+    mutateMirrorOrder(o => {
+      if (o.items[idx]) {
+        o.items[idx].isVoided   = true;
+        o.items[idx].voidReason = reason;
+        o.items[idx].sentToKot  = true;
+      }
+      return o;
+    });
+  }
+
+  function handleMirrorCompToggle(idx) {
+    mutateMirrorOrder(o => {
+      if (o.items[idx]) o.items[idx].isComp = !o.items[idx].isComp;
+      return o;
+    });
+  }
+
+  function handleMirrorDiscountChange(amount) {
+    mutateMirrorOrder(o => { o.discountAmount = amount; return o; });
+  }
+
+  function handleMirrorOrderNoteChange(note) {
+    mutateMirrorOrder(o => { o.orderNote = note; return o; });
+  }
+
+  function handleMirrorAddItem(item, overrideQty = null) {
+    const itemId = `item-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+    const itemCatName = (item.category || item.categoryName || "").trim().toLowerCase();
+    const resolvedStation = item.station ||
+      kitchenStations.find(s =>
+        (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
+        (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCatName))
+      )?.name || "";
+    mutateMirrorOrder(o => {
+      const existing = o.items.findIndex(i => i.menuItemId === item.id && !i.sentToKot);
+      if (existing >= 0) {
+        o.items[existing].quantity += overrideQty ?? 1;
+      } else {
+        const aov = item.areaOverrides?.[o.areaName || ""];
+        o.items.push({
+          id:              itemId,
+          menuItemId:      item.id,
+          name:            item.name,
+          price:           (aov && Number(aov) > 0) ? Number(aov) : parsePriceNumber(item.price || item.basePrice),
+          quantity:        overrideQty ?? 1,
+          sentToKot:       false,
+          note:            "",
+          station:         resolvedStation,
+          categoryId:      item.categoryId || "",
+          category:        (categories.find(c => c.id === item.categoryId)?.name) || item.categoryName || item.category || "",
+          taxRate:         item.taxRate != null ? Number(item.taxRate) : null,
+          unit:            item.unit || "",
+          allowDecimalQty: !!item.allowDecimalQty,
+        });
+      }
+      return o;
+    });
+  }
+
+  function handleMirrorDecrementItem(item) {
+    if (!selectedMirrorOrder) return;
+    const idx = [...(selectedMirrorOrder.items || [])]
+      .map((i, index) => ({ i, index }))
+      .reverse()
+      .find(({ i }) => i.menuItemId === item.id && !i.sentToKot)?.index;
+    if (idx == null) return;
+    handleMirrorChangeQty(idx, (selectedMirrorOrder.items[idx].quantity || 1) - 1);
   }
 
   async function handleConfirmSplit(splits) {
@@ -3397,11 +3510,11 @@ export default function App() {
           menuItems={visibleMenuItems}
           activeCategory={activeCategory || visibleCategories[0]?.name}
           onCategoryChange={setActiveCategory}
-          onAddItem={handleAddItem}
+          onAddItem={selectedMirrorOrder ? handleMirrorAddItem : handleAddItem}
           onToggleAvailability={handleToggleAvailability}
           onToggleCategoryAvailability={handleToggleCategoryAvailability}
           quantities={menuQuantities}
-          onDecrement={handleDecrementItem}
+          onDecrement={selectedMirrorOrder ? handleMirrorDecrementItem : handleDecrementItem}
           stockSnapshot={stockSnapshot}
           favouriteItemIds={favouriteItemIds}
           onSkuLookup={(sku) => {
@@ -3463,7 +3576,7 @@ export default function App() {
           />
         ) : (
         <OrderPanel
-          order={selectedOrder}
+          order={selectedMirrorOrder || selectedOrder}
           tableLabel={tableLabel}
           tableAreas={tableAreas}
           orders={orders}
@@ -3473,26 +3586,26 @@ export default function App() {
             activeStaff.find(s => s.name === cashierName || s.fullName === cashierName)
               ?.canApplyDiscount === true
           }
-          onChangeQty={handleChangeQty}
-          onRemoveItem={handleRemoveItem}
-          onNoteChange={handleNoteChange}
-          onSendKOT={handleSendKOT}
-          onRequestBill={handleRequestBill}
+          onChangeQty={selectedMirrorOrder ? handleMirrorChangeQty : handleChangeQty}
+          onRemoveItem={selectedMirrorOrder ? handleMirrorRemoveItem : handleRemoveItem}
+          onNoteChange={selectedMirrorOrder ? handleMirrorNoteChange : handleNoteChange}
+          onSendKOT={selectedMirrorOrder ? null : handleSendKOT}
+          onRequestBill={selectedMirrorOrder ? null : handleRequestBill}
           onOpenPayment={() => setShowPayment(true)}
-          onOpenSplitBill={() => setShowSplitBill(true)}
-          onGuestsChange={handleGuestsChange}
-          onDiscountChange={handleDiscountChange}
-          onHoldToggle={handleHoldToggle}
-          onCustomerForm={() => setShowCustomerForm(true)}
-          onTransferTable={handleTransferTable}
-          onOrderNoteChange={handleOrderNoteChange}
-          onCompToggle={handleCompToggle}
-          onVoidItem={handleVoidItem}
-          onCancelOrder={handleCancelOrder}
+          onOpenSplitBill={selectedMirrorOrder ? null : (() => setShowSplitBill(true))}
+          onGuestsChange={selectedMirrorOrder ? null : handleGuestsChange}
+          onDiscountChange={selectedMirrorOrder ? handleMirrorDiscountChange : handleDiscountChange}
+          onHoldToggle={selectedMirrorOrder ? null : handleHoldToggle}
+          onCustomerForm={selectedMirrorOrder ? null : (() => setShowCustomerForm(true))}
+          onTransferTable={selectedMirrorOrder ? null : handleTransferTable}
+          onOrderNoteChange={selectedMirrorOrder ? handleMirrorOrderNoteChange : handleOrderNoteChange}
+          onCompToggle={selectedMirrorOrder ? handleMirrorCompToggle : handleCompToggle}
+          onVoidItem={selectedMirrorOrder ? handleMirrorVoidItem : handleVoidItem}
+          onCancelOrder={selectedMirrorOrder ? null : handleCancelOrder}
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
-          onCounterPrintBill={handleCounterPrintAndSettle}
-          onShowHeld={() => setShowHeldOrders(true)}
+          onCounterPrintBill={selectedMirrorOrder ? null : handleCounterPrintAndSettle}
+          onShowHeld={selectedMirrorOrder ? null : (() => setShowHeldOrders(true))}
           heldCount={heldCount}
           cashierName={cashierName}
           cashierPin={cashierPin}
