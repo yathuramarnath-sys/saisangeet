@@ -117,6 +117,7 @@ function ClientsDashboard({ user, onLogout }) {
   const [error,     setError]     = useState("");
   const [search,    setSearch]    = useState("");
   const [resetting, setResetting] = useState(null);   // tenantId currently resetting
+  const [toggling,  setToggling]  = useState(null);   // tenantId currently toggling active state
   const [flash,     setFlash]     = useState(null);   // { type, message }
 
   const loadClients = useCallback(async () => {
@@ -146,7 +147,7 @@ function ClientsDashboard({ user, onLogout }) {
     setResetting(client.tenantId);
     setFlash(null);
     try {
-      const res = await apiFetch(`/admin/clients/${client.tenantId}/reset-password`, { method: "POST" });
+      await apiFetch(`/admin/clients/${client.tenantId}/reset-password`, { method: "POST" });
       setFlash({
         type: "success",
         message: `✓ Password reset for ${client.email}. New temp password sent to their inbox.`
@@ -155,6 +156,34 @@ function ClientsDashboard({ user, onLogout }) {
       setFlash({ type: "error", message: `✗ Reset failed: ${err.message}` });
     } finally {
       setResetting(null);
+    }
+  }
+
+  async function handleToggleActive(client) {
+    const nextActive = !client.isActive;
+    const label = nextActive ? "reactivate" : "deactivate";
+    if (!window.confirm(
+      `${nextActive ? "Reactivate" : "Deactivate"} ${client.restaurantName}?\n\nThis marks the account as ${nextActive ? "Active" : "Inactive"} in the admin panel.`
+    )) return;
+
+    setToggling(client.tenantId);
+    setFlash(null);
+    try {
+      await apiFetch(`/admin/clients/${client.tenantId}/set-active`, {
+        method: "PUT",
+        body: JSON.stringify({ isActive: nextActive })
+      });
+      setClients(prev => prev.map(c =>
+        c.tenantId === client.tenantId ? { ...c, isActive: nextActive } : c
+      ));
+      setFlash({
+        type: "success",
+        message: `✓ ${client.restaurantName} marked as ${nextActive ? "Active" : "Inactive"}.`
+      });
+    } catch (err) {
+      setFlash({ type: "error", message: `✗ Failed to ${label}: ${err.message}` });
+    } finally {
+      setToggling(null);
     }
   }
 
@@ -192,12 +221,12 @@ function ClientsDashboard({ user, onLogout }) {
             <span>Total Clients</span>
           </div>
           <div className="admin-stat">
-            <strong>{clients.filter(c => c.hasPassword).length}</strong>
+            <strong>{clients.filter(c => c.hasPassword && c.isActive).length}</strong>
             <span>Active Accounts</span>
           </div>
           <div className="admin-stat">
-            <strong>{clients.filter(c => !c.hasPassword).length}</strong>
-            <span>Pending Setup</span>
+            <strong>{clients.filter(c => !c.isActive).length}</strong>
+            <span>Inactive</span>
           </div>
           <div className="admin-stat">
             <strong>
@@ -269,10 +298,14 @@ function ClientsDashboard({ user, onLogout }) {
                     )}
                   </span>
                   <span>
-                    {c.hasPassword
-                      ? <span className="admin-badge active">Active</span>
-                      : <span className="admin-badge pending">Pending</span>
-                    }
+                    <button
+                      className={`admin-badge-btn ${!c.isActive ? "inactive" : c.hasPassword ? "active" : "pending"}`}
+                      onClick={() => handleToggleActive(c)}
+                      disabled={toggling === c.tenantId}
+                      title={c.isActive ? "Click to deactivate" : "Click to reactivate"}
+                    >
+                      {toggling === c.tenantId ? "…" : !c.isActive ? "Inactive" : c.hasPassword ? "Active" : "Pending"}
+                    </button>
                   </span>
                   <span>
                     <button
