@@ -97,13 +97,13 @@ function getTenantIdForIdentifier(identifier) {
 
   // Fast path: in-memory cache
   if (_index !== null) {
-    return _index[key] || "default";
+    return _index[key] || null;
   }
 
   // Cold-start fallback: read from JSON file
   const fileIndex = readIndexFromFile();
   _index = fileIndex; // cache for next call
-  return fileIndex[key] || "default";
+  return fileIndex[key] || null;
 }
 
 module.exports = {

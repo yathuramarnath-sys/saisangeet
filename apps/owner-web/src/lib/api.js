@@ -33,8 +33,13 @@ async function request(path, options = {}) {
     // Only clear session + redirect for actual auth failures, not permission issues
     if (errCode === "AUTH_REQUIRED" || errCode === "AUTH_INVALID_TOKEN" || errCode === "AUTH_TOKEN_EXPIRED") {
       localStorage.removeItem("pos_token");
-      // Small delay so any pending state saves can complete
-      setTimeout(() => { window.location.href = "/login"; }, 100);
+      // Delay so any pending state saves can complete, but only redirect if
+      // no new token was stored in the meantime (e.g. a concurrent login succeeded).
+      setTimeout(() => {
+        if (!localStorage.getItem("pos_token")) {
+          window.location.href = "/login";
+        }
+      }, 100);
       throw new Error("Session expired. Please sign in again.");
     }
 
