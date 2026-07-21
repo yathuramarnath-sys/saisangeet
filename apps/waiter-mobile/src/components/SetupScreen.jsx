@@ -37,6 +37,17 @@ export function SetupScreen({ onComplete }) {
     localStorage.setItem("captain_branch_config", JSON.stringify(config));
     if (result.deviceToken) localStorage.setItem("captain_token", result.deviceToken);
 
+    // Register this device in the backend (fire-and-forget — non-blocking)
+    const isNative = typeof window !== "undefined" && !!(window.Capacitor?.isNative);
+    api.post("/devices/link", {
+      outletId:   result.outletId,
+      deviceType: "captain",
+      deviceName: "Plato Captain",
+      platform:   isNative ? "android" : "web",
+    }).then((device) => {
+      if (device?.id) localStorage.setItem("captain_device_id", device.id);
+    }).catch(() => {});
+
     onComplete(config);
   }
 

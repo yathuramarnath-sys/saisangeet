@@ -62,11 +62,10 @@ async function linkDevice(payload) {
     const { registerDevice } = require("./devices.repository");
     return await registerDevice({
       tenantId,
-      outletId:      payload.outletId      || "",
-      deviceType:    payload.deviceType    || "pos",
-      deviceName:    payload.deviceName    || null,
-      platform:      payload.platform      || null,
-      loggedInUser:  payload.loggedInUser  || null,
+      outletId:   payload.outletId   || "",
+      deviceType: payload.deviceType || "pos",
+      deviceName: payload.deviceName || null,
+      platform:   payload.platform   || null,
     });
   } catch (err) {
     console.warn("[devices] DB unavailable for linkDevice:", err.message);
@@ -331,7 +330,6 @@ async function resolveLinkCode(payload) {
       pin:              u.pin || "",
       avatar:           (u.fullName || u.name || "?")[0].toUpperCase(),
       canApplyDiscount: u.canApplyDiscount === true,
-      canSettleBill:    u.canSettleBill    === true,
     }));
 
   // ── 5. Consume the pending token so the same code can't be reused ─────────
@@ -424,7 +422,6 @@ async function fetchStaffForDevice(outletId) {
         pin:              u.pin || "",
         avatar:           (u.fullName || u.name || "?")[0].toUpperCase(),
         canApplyDiscount: u.canApplyDiscount === true,
-        canSettleBill:    u.canSettleBill    === true,
       };
     });
 
