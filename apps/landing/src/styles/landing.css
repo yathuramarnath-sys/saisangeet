@@ -1270,8 +1270,29 @@ button.lp-btn-primary:disabled {
   text-transform: uppercase;
   letter-spacing: .04em;
 }
-.admin-badge.active  { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
-.admin-badge.pending { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+.admin-badge.active    { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+.admin-badge.pending   { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+.admin-badge.inactive  { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+
+/* Clickable badge toggle — same look as .admin-badge but interactive */
+.admin-badge-btn {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: none;
+  transition: opacity .15s, filter .15s;
+}
+.admin-badge-btn:hover:not(:disabled)  { filter: brightness(.92); }
+.admin-badge-btn:disabled              { opacity: .6; cursor: not-allowed; }
+.admin-badge-btn.active    { background: #f0fdf4; color: #166534; border-color: #86efac; }
+.admin-badge-btn.pending   { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+.admin-badge-btn.inactive  { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
 
 /* Empty state */
 .admin-empty {

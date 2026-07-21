@@ -19,10 +19,13 @@ async function listClients() {
       ui.tenant_id   AS "tenantId",
       ui.created_at  AS "signedUpAt",
       ts.value       AS setup,
-      ts.updated_at  AS "lastUpdatedAt"
+      ts.updated_at  AS "lastUpdatedAt",
+      ca.value       AS client_active
     FROM users_index ui
     LEFT JOIN tenant_settings ts
            ON ts.tenant_id = ui.tenant_id AND ts.key = 'owner_setup'
+    LEFT JOIN tenant_settings ca
+           ON ca.tenant_id = ui.tenant_id AND ca.key = 'client_active'
     WHERE ui.tenant_id != 'default'
     ORDER BY ui.tenant_id, (ui.identifier LIKE '%@%') DESC, ui.created_at ASC
   `);
@@ -30,6 +33,12 @@ async function listClients() {
   return result.rows.map((row) => {
     let setup = {};
     try { setup = typeof row.setup === "string" ? JSON.parse(row.setup) : (row.setup || {}); } catch (_) {}
+
+    let clientActive = row.client_active;
+    if (typeof clientActive === "string") {
+      try { clientActive = JSON.parse(clientActive); } catch (_) {}
+    }
+    const isActive = clientActive ? clientActive.active !== false : true;
 
     const owner = (setup.users || []).find((u) => (u.roles || []).includes("Owner")) || {};
     const bp    = setup.businessProfile || {};
@@ -48,9 +57,24 @@ async function listClients() {
       phone,
       signedUpAt:     row.signedUpAt,
       lastUpdatedAt:  row.lastUpdatedAt,
-      hasPassword:    !!owner.passwordHash
+      hasPassword:    !!owner.passwordHash,
+      isActive
     };
   });
+}
+
+/**
+ * Mark a client tenant as active or inactive.
+ * Stores a 'client_active' key in tenant_settings.
+ */
+async function setClientActive(tenantId, isActive) {
+  await query(
+    `INSERT INTO tenant_settings (tenant_id, key, value)
+     VALUES ($1, 'client_active', $2)
+     ON CONFLICT (tenant_id, key) DO UPDATE SET value = $2, updated_at = NOW()`,
+    [tenantId, JSON.stringify({ active: isActive })]
+  );
+  return { ok: true, isActive };
 }
 
 /**
@@ -105,4 +129,4 @@ async function resetClientPassword(tenantId) {
   return { ok: true, email: owner.email, tempPassword };
 }
 
-module.exports = { listClients, resetClientPassword };
+module.exports = { listClients, resetClientPassword, setClientActive };
