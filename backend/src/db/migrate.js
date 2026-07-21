@@ -277,6 +277,16 @@ async function applyOwnerPasswordOverride(queryFn) {
       const ownerEmail = users[ownerIdx].email;
       if (ownerEmail) registerUserInIndex(ownerEmail, users[ownerIdx].phone || null, row.tenant_id);
 
+      // Also update the SQL users table (used by auth.repository as primary lookup)
+      if (ownerEmail) {
+        try {
+          await queryFn(`UPDATE users SET password_hash = $1 WHERE email = $2`, [hash, ownerEmail]);
+          console.log(`[migrate] ✅ Owner password updated in users table for ${ownerEmail}`);
+        } catch (_) {
+          // users table may not exist in this deployment — JSON fallback is enough
+        }
+      }
+
       console.log(`[migrate] ✅ Owner password updated for tenant ${row.tenant_id} (${ownerEmail || "no email"})`);
     }
   } catch (err) {
