@@ -62,10 +62,11 @@ async function linkDevice(payload) {
     const { registerDevice } = require("./devices.repository");
     return await registerDevice({
       tenantId,
-      outletId:   payload.outletId   || "",
-      deviceType: payload.deviceType || "pos",
-      deviceName: payload.deviceName || null,
-      platform:   payload.platform   || null,
+      outletId:      payload.outletId      || "",
+      deviceType:    payload.deviceType    || "pos",
+      deviceName:    payload.deviceName    || null,
+      platform:      payload.platform      || null,
+      loggedInUser:  payload.loggedInUser  || null,
     });
   } catch (err) {
     console.warn("[devices] DB unavailable for linkDevice:", err.message);

@@ -25,23 +25,25 @@ async function listDevicesByTenant(tenantId) {
   return result.rows;
 }
 
-async function registerDevice({ tenantId, outletId, deviceType, deviceName, platform }) {
-  const id = `device-${crypto.randomBytes(6).toString("hex")}`;
-  const result = await query(
-    `INSERT INTO device_registry
-       (id, tenant_id, outlet_id, device_type, device_name, platform, last_seen_at)
-     VALUES ($1, $2, $3, $4, $5, $6, NOW())
-     RETURNING
-       id,
-       tenant_id   AS "tenantId",
-       outlet_id   AS "outletId",
-       device_type AS "deviceType",
-       device_name AS "deviceName",
-       platform,
-       status,
-       last_seen_at AS "lastSeenAt"`,
-    [id, tenantId, outletId || "", deviceType || "pos", deviceName || null, platform || null]
-  );
+async function registerDevice({ tenantId, outletId, deviceType, deviceName, platform, loggedInUser }) {
+  const id      = `device-${crypto.randomBytes(6).toString("hex")}`;
+  const user    = loggedInUser ? loggedInUser.trim().slice(0, 100) : null;
+  const COLS    = `id, tenant_id, outlet_id, device_type, device_name, platform, logged_in_user, last_seen_at`;
+  const VALS    = `$1, $2, $3, $4, $5, $6, $7, NOW()`;
+  const RETURN  = `id, tenant_id AS "tenantId", outlet_id AS "outletId", device_type AS "deviceType", device_name AS "deviceName", platform, status, last_seen_at AS "lastSeenAt"`;
+
+  // When a logged-in user is known, upsert on the partial unique index so that
+  // reinstalling the app never creates a duplicate row for the same captain.
+  const sql = user
+    ? `INSERT INTO device_registry (${COLS}) VALUES (${VALS})
+       ON CONFLICT (tenant_id, outlet_id, logged_in_user) WHERE logged_in_user IS NOT NULL
+       DO UPDATE SET last_seen_at = NOW(), platform = EXCLUDED.platform, device_name = EXCLUDED.device_name
+       RETURNING ${RETURN}`
+    : `INSERT INTO device_registry (${COLS}) VALUES (${VALS}) RETURNING ${RETURN}`;
+
+  const result = await query(sql, [
+    id, tenantId, outletId || "", deviceType || "pos", deviceName || null, platform || null, user,
+  ]);
   return result.rows[0];
 }
 

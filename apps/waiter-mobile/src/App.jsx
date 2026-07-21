@@ -1877,13 +1877,27 @@ export function App() {
 
   // 2. No staff logged in
   if (!loggedInStaff) {
+    const handleLogin = (member) => {
+      setLoggedInStaff(member);
+      // Register/upsert this captain's device row — one row per captain per outlet.
+      const isNative = typeof window !== "undefined" && !!(window.Capacitor?.isNative);
+      api.post("/devices/link", {
+        outletId:     outlet?.id || branchConfig?.outletId,
+        deviceType:   "captain",
+        deviceName:   "Plato Captain",
+        platform:     isNative ? "android" : "web",
+        loggedInUser: member.name,
+      }).then((device) => {
+        if (device?.id) localStorage.setItem("captain_device_id", device.id);
+      }).catch(() => {});
+    };
     return (
       <>
         <LoginScreen
           outletName={outlet?.name || branchConfig.outletName}
           outletCode={outlet?.code || ""}
           staff={branchStaff}
-          onLogin={setLoggedInStaff}
+          onLogin={handleLogin}
           onForgetDevice={() => {
             clearCaptainBranchConfig();
             setBranchConfig(null);
