@@ -27,7 +27,6 @@ const waitlistRouter       = require("../modules/operations/waitlist.routes");
 const customerOrderRouter  = require("../modules/operations/customer-order.routes");
 const { publicRouter }     = require("../modules/public/public.routes");
 const { clientsRouter } = require("../modules/clients/clients.routes");
-const { restoreRouter } = require("../modules/restore/restore.routes");
 const { billingRouter }    = require("../modules/billing/billing.routes");
 const { whatsappRouter }   = require("../modules/whatsapp/whatsapp.routes");
 const { counterRouter }    = require("../modules/counter/counter.routes");
@@ -82,9 +81,6 @@ apiRouter.use("/auth", authRouter);
 // Admin console — default-tenant owner only; mounted before requireTenant
 // because requireTenant blocks tenantId === "default".
 apiRouter.use("/admin/clients", clientsRouter);
-
-// TEMPORARY: emergency restore endpoint — remove after use
-apiRouter.use("/admin/restore-backup", restoreRouter);
 
 // Public device route — POS terminal setup, no auth required.
 // Must be mounted before requireTenant so devices can link without a JWT.
