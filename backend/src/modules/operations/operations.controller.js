@@ -501,6 +501,18 @@ async function deviceSendKotHandler(req, res) {
         actorName: req.body.actorName || req.user?.name || "Captain",
         items: items,
       });
+      // Persist waiterName atomically with the KOT so every subsequent sync from any
+      // device returns the correct assignedWaiter (the separate assign-waiter REST call
+      // is fire-and-forget on the client and can silently fail before this point).
+      const kotWaiterName = req.body.waiterName?.trim() || "";
+      if (kotWaiterName && updatedOrder) {
+        try {
+          updatedOrder = await assignWaiterToOrder(tableId, {
+            waiterName: kotWaiterName,
+            actorName: req.body.actorName || req.user?.name || "Captain",
+          }) || updatedOrder;
+        } catch (_) { /* non-critical — waiter stored on KOT record even if order update fails */ }
+      }
       // Broadcast corrected order so POS immediately picks up the reconciled quantities.
       if (io && outletId && updatedOrder) {
         io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", updatedOrder);

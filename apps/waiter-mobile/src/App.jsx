@@ -286,7 +286,17 @@ export function App() {
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         if (liveOrders.length) {
-          setOrders(Object.fromEntries(liveOrders.map((o) => [o.tableId, o])));
+          setOrders(prev => {
+            const next = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
+            // Preserve assignedWaiter from local state when server returns empty
+            // (assign-waiter REST call can fail silently before server-side fix propagates)
+            for (const [tid, cur] of Object.entries(prev)) {
+              if (next[tid] && !next[tid].assignedWaiter && cur.assignedWaiter) {
+                next[tid] = { ...next[tid], assignedWaiter: cur.assignedWaiter };
+              }
+            }
+            return next;
+          });
         }
 
         // Open socket
@@ -312,16 +322,20 @@ export function App() {
                 if (!serverOrders.length) return;
                 setOrders((prev) => {
                   const next = Object.fromEntries(serverOrders.map((o) => [o.tableId, o]));
-                  // Re-attach unsent local items the server doesn't know about yet
+                  // Re-attach unsent local items the server doesn't know about yet,
+                  // and preserve assignedWaiter from local state when server returns empty
                   for (const [tid, cur] of Object.entries(prev)) {
                     const serverIds = new Set((next[tid]?.items || []).map(i => i.id));
                     const localOnly = (cur.items || []).filter(
                       i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !serverIds.has(i.id)
                     );
-                    if (localOnly.length > 0) {
-                      next[tid] = next[tid]
-                        ? { ...next[tid], items: [...(next[tid].items || []), ...localOnly] }
-                        : cur;
+                    if (next[tid]) {
+                      const patch = {};
+                      if (localOnly.length > 0) patch.items = [...(next[tid].items || []), ...localOnly];
+                      if (!next[tid].assignedWaiter && cur.assignedWaiter) patch.assignedWaiter = cur.assignedWaiter;
+                      if (Object.keys(patch).length) next[tid] = { ...next[tid], ...patch };
+                    } else if (localOnly.length > 0) {
+                      next[tid] = cur;
                     }
                   }
                   return next;
@@ -1600,12 +1614,12 @@ export function App() {
           const merged = { ...serverMap };
           for (const [tableId, localOrder] of Object.entries(prev)) {
             const unsentItems = (localOrder.items || []).filter((i) => !i.sentToKot);
-            if (unsentItems.length > 0 && merged[tableId]) {
-              merged[tableId] = {
-                ...merged[tableId],
-                items: [...(merged[tableId].items || []), ...unsentItems],
-              };
-            } else if (unsentItems.length > 0 && !merged[tableId]) {
+            if (merged[tableId]) {
+              const patch = {};
+              if (unsentItems.length > 0) patch.items = [...(merged[tableId].items || []), ...unsentItems];
+              if (!merged[tableId].assignedWaiter && localOrder.assignedWaiter) patch.assignedWaiter = localOrder.assignedWaiter;
+              if (Object.keys(patch).length) merged[tableId] = { ...merged[tableId], ...patch };
+            } else if (unsentItems.length > 0) {
               merged[tableId] = localOrder;
             }
           }
