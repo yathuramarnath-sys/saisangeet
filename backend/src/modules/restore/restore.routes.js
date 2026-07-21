@@ -10,8 +10,8 @@ const restoreRouter = express.Router();
 // Requires RESTORE_SECRET env var to be set in Railway.
 // Remove this file and the route registration after use.
 restoreRouter.post("/", async (req, res) => {
-  const secret = process.env.RESTORE_SECRET || process.env.RESET_SECRET;
-  if (!secret || req.headers["x-restore-secret"] !== secret) {
+  const secret = (process.env.RESTORE_SECRET || process.env.RESET_SECRET || "").trim();
+  if (!secret || (req.headers["x-restore-secret"] || "").trim() !== secret) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
