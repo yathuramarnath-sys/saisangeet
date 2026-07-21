@@ -92,6 +92,14 @@ async function runMigrations() {
     ALTER TABLE device_registry ADD COLUMN IF NOT EXISTS logged_in_user TEXT
   `);
 
+  // Partial unique index so one device row per captain per outlet (upsert dedup at login).
+  // WHERE logged_in_user IS NOT NULL means POS/unnamed rows are unaffected.
+  await queryFn(`
+    CREATE UNIQUE INDEX IF NOT EXISTS device_registry_user_unique
+      ON device_registry (tenant_id, outlet_id, logged_in_user)
+      WHERE logged_in_user IS NOT NULL
+  `);
+
   console.log("[migrate] Tables verified.");
 
   // ── 2. Seed tenant_settings from JSON files ─────────────────────────────────
