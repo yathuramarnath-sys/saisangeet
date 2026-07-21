@@ -421,6 +421,21 @@ async function deviceSendKotHandler(req, res) {
     }
   }
 
+  // ── Idempotency check — deduplicate retries from the same client request ─────
+  // Captain includes clientKotId in every KOT POST. On weak WiFi the server may
+  // process the request but the response never reaches the device; the captain
+  // queues it as "failed" and retries later. Without this guard the retry creates
+  // a second KOT with a new number → kitchen prints the same items twice.
+  const clientKotId = req.body.clientKotId;
+  if (clientKotId) {
+    const existingKots = getKots(tenantId, outletId).filter(k => k.clientKotId === clientKotId);
+    if (existingKots.length > 0) {
+      console.log(`[KOT] duplicate clientKotId="${clientKotId}" — returning existing KOTs (idempotent)`);
+      const { getOrder: _getOrd } = require("./operations.memory-store");
+      return res.json({ kots: existingKots, order: tableId ? _getOrd(tableId) : null });
+    }
+  }
+
   // ── Create one KOT per station group, all sharing the same KOT number ─────
   // One "send" = one KOT number regardless of how many stations are involved.
   // Each station gets its own KOT record (unique id) so they can be bumped
@@ -434,6 +449,7 @@ async function deviceSendKotHandler(req, res) {
     const [station, stationItems] = stationEntries[stIdx];
     const kot = {
       id:            `kot-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+      clientKotId:   clientKotId || null,   // for idempotency deduplication on retry
       kotNumber:     kotNo,   // same number for all station splits from this send
       kotTime,
       kotDate,
