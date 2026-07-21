@@ -63,6 +63,7 @@ async function findUserByIdentifier(identifier) {
 
   // ── 2. Resolve which tenant owns this identifier ───────────────────────────
   const tenantId = getTenantIdForIdentifier(identifier);
+  if (!tenantId) return null; // identifier not registered in any tenant
 
   // ── 3. Search within that tenant's data ───────────────────────────────────
   return new Promise((resolve) => {
