@@ -241,18 +241,20 @@ async function runMigrations() {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function applyOwnerPasswordOverride(queryFn) {
-  const plain = process.env.OWNER_PASSWORD;
-  if (!plain) return; // env var not set — nothing to do
+  const plain      = process.env.OWNER_PASSWORD;
+  const emailPatch = process.env.OWNER_EMAIL ? process.env.OWNER_EMAIL.toLowerCase().trim() : null;
+  if (!plain && !emailPatch) return; // nothing to do
 
   try {
     const bcrypt = require("bcrypt");
     const { warmTenantCache } = require("../data/owner-setup-store");
     const { registerUserInIndex } = require("../data/users-index");
 
-    const hash = await bcrypt.hash(String(plain), 10);
-    console.log("[migrate] OWNER_PASSWORD set — applying password override to all tenants…");
+    const hash = plain ? await bcrypt.hash(String(plain), 10) : null;
+    if (hash)       console.log("[migrate] OWNER_PASSWORD set — applying password override to all tenants…");
+    if (emailPatch) console.log(`[migrate] OWNER_EMAIL set — patching owner email to ${emailPatch} in all tenants…`);
 
-    // Load every tenant, patch the owner's hash, save back to Postgres + cache
+    // Load every tenant, patch the owner's fields, save back to Postgres + cache
     const rows = await queryFn("SELECT tenant_id, value FROM tenant_settings WHERE key = 'owner_setup'");
     for (const row of rows.rows) {
       const data = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
@@ -260,7 +262,10 @@ async function applyOwnerPasswordOverride(queryFn) {
       const ownerIdx = users.findIndex(u => (u.roles || []).includes("Owner"));
       if (ownerIdx < 0) continue;
 
-      users[ownerIdx] = { ...users[ownerIdx], passwordHash: hash };
+      const patch = {};
+      if (hash)       patch.passwordHash = hash;
+      if (emailPatch) patch.email        = emailPatch;
+      users[ownerIdx] = { ...users[ownerIdx], ...patch };
       data.users = users;
 
       // Save to Postgres
@@ -273,12 +278,12 @@ async function applyOwnerPasswordOverride(queryFn) {
       // Update in-memory cache so the running server reflects the change immediately
       warmTenantCache(row.tenant_id, data);
 
-      // Ensure email is in users_index
+      // Ensure (patched) email is in users_index so login lookup finds the right tenant
       const ownerEmail = users[ownerIdx].email;
       if (ownerEmail) registerUserInIndex(ownerEmail, users[ownerIdx].phone || null, row.tenant_id);
 
       // Also update the SQL users table (used by auth.repository as primary lookup)
-      if (ownerEmail) {
+      if (hash && ownerEmail) {
         try {
           await queryFn(`UPDATE users SET password_hash = $1 WHERE email = $2`, [hash, ownerEmail]);
           console.log(`[migrate] ✅ Owner password updated in users table for ${ownerEmail}`);
@@ -287,7 +292,7 @@ async function applyOwnerPasswordOverride(queryFn) {
         }
       }
 
-      console.log(`[migrate] ✅ Owner password updated for tenant ${row.tenant_id} (${ownerEmail || "no email"})`);
+      console.log(`[migrate] ✅ Owner override applied for tenant ${row.tenant_id} (${ownerEmail || "no email"})`);
     }
   } catch (err) {
     console.error("[migrate] OWNER_PASSWORD override failed:", err.message);
