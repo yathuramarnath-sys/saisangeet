@@ -822,7 +822,10 @@ export default function App() {
 
             // Waiter copy: ALL items, only on the FIRST station event.
             // Backend emits one kot:new per station — isFirstStation prevents N partial waiter slips.
-            if (kot.isFirstStation !== false) {
+            // Only print if this device actually has a KOT printer configured — getKotPrinter()
+            // returns null when no KOT-type printer exists, preventing bill-only terminals
+            // (e.g. sweet counter USB printers) from printing every dine-in captain KOT.
+            if (kot.isFirstStation !== false && waiterPrinter) {
               const waiterItems = kot.allItems || kot.items || [];
               if (waiterItems.length) printKOT(order, waiterItems, waiterPrinter, kot.kotNumber, printOpts);
             }
