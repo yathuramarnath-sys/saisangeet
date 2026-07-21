@@ -1,6 +1,6 @@
 {
   "name": "dinex-pos",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
   "description": "Plato POS Terminal",
   "author": "Saisangeet Hospitality Pvt Ltd <hello@dinexpos.in>",
@@ -72,7 +72,7 @@
       "icon": "build/icon.ico",
       "signAndEditExecutable": true,
       "forceCodeSigning": false,
-      "artifactName": "Plato-POS-Setup.exe",
+      "artifactName": "Plato-POS-Setup-${version}.exe",
       "target": [
         {
           "target": "nsis",
@@ -87,7 +87,7 @@
       "allowToChangeInstallationDirectory": false,
       "allowElevation": true,
       "runAfterFinish": true,
-      "artifactName": "Plato-POS-Setup.exe"
+      "artifactName": "Plato-POS-Setup-${version}.exe"
     },
     "electronVersion": "32.3.3"
   }
