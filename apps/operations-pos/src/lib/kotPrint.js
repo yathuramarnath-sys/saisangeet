@@ -55,15 +55,20 @@ function isBillType(t) {
   return t === "Bill Printer" || t === "Both" || t === "Both (KOT + Bill)";
 }
 
-/** Find the best KOT printer — prefers isDefault, falls back to first KOT/Both printer */
+/** Find the best KOT printer — prefers isDefault, falls back to first KOT/Both printer.
+ *  Returns null if no KOT-capable printer is configured — do NOT fall back to a bill-only
+ *  or "default" printer, as that causes every bill printer in the outlet to receive dine-in KOTs.
+ */
 export function getKotPrinter() {
   const printers = loadPrinters();
   const kotPrinters = printers.filter(p => isKotType(p.type));
-  if (!kotPrinters.length) return printers.find(p => p.isDefault) || null;
+  if (!kotPrinters.length) return null;
   return kotPrinters.find(p => p.isDefault) || kotPrinters[0];
 }
 
-/** Find the best Bill printer (Bills & KOTs station, or Bill Printer type) */
+/** Find the best Bill printer (Bills & KOTs station, or Bill Printer type).
+ *  Returns null if no Bill-capable printer is configured — do NOT fall back to a KOT-only printer.
+ */
 export function getBillPrinter() {
   const printers = loadPrinters();
   // Prefer printer on "Bills & KOTs" station
@@ -72,7 +77,7 @@ export function getBillPrinter() {
   );
   if (billingStation) return billingStation;
   const billPrinters = printers.filter(p => isBillType(p.type));
-  if (!billPrinters.length) return printers.find(p => p.isDefault) || null;
+  if (!billPrinters.length) return null;
   return billPrinters.find(p => p.isDefault) || billPrinters[0];
 }
 
@@ -86,7 +91,10 @@ export function getBillPrinter() {
 export function printKOT(order, items, printer = null, kotSeq = null, options = {}) {
   if (!items || !items.length) return;
 
-  const resolvedPrinter = printer || getKotPrinter();
+  // If printer is explicitly passed as null/undefined and no KOT printer is configured,
+  // don't print — avoids routing KOTs to bill-only printers via the fallback.
+  const resolvedPrinter = printer !== undefined ? printer : getKotPrinter();
+  if (!resolvedPrinter) return;
   const paper        = resolvedPrinter?.paper || "80mm";
   const paperMm      = parseInt(paper) || 80;   // "80mm" → 80, "58mm" → 58, etc.
   const width        = `${paperMm}mm`;          // always a clean "NNmm" string
