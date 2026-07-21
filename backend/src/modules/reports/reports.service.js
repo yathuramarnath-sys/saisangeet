@@ -410,6 +410,48 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
 
   const discountBills = closedToday.filter(o => (o.discountAmount || 0) > 0).length;
 
+  // ── Per-outlet (area-wise) day summary ────────────────────────────────────────
+  const outletSummaryMap = {};
+  for (const order of closedToday) {
+    const outletKey = order.outletName || "—";
+    if (!outletSummaryMap[outletKey]) {
+      outletSummaryMap[outletKey] = { outlet: outletKey, totalSales: 0, totalOrders: 0, net: 0, totalTax: 0, totalDiscount: 0, cash: 0, upi: 0, card: 0 };
+    }
+    const o     = outletSummaryMap[outletKey];
+    const items = (order.items || []).filter(i => !i.isVoided);
+    const sub   = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+    const disc  = Math.min(order.discountAmount || 0, sub);
+    const net   = sub - disc;
+    let   orderTax = 0;
+    for (const item of items) {
+      const rate    = (item.taxRate != null && item.taxRate !== "") ? Number(item.taxRate) : 5;
+      const lineAmt = sub > 0 ? (item.price || 0) * (item.quantity || 1) * (net / sub) : 0;
+      orderTax += rate > 0 ? lineAmt * rate / (100 + rate) : 0;
+    }
+    o.totalSales    += sub;
+    o.totalOrders   += 1;
+    o.net           += net;
+    o.totalTax      += orderTax;
+    o.totalDiscount += disc;
+    for (const p of (order.payments || [])) {
+      const m = (p.method || "").toLowerCase();
+      if (m === "cash" || m === "upi" || m === "card") o[m] += p.amount || 0;
+    }
+  }
+  const outletSummary = Object.values(outletSummaryMap)
+    .sort((a, b) => b.totalSales - a.totalSales)
+    .map(o => ({
+      outlet:           o.outlet,
+      totalSales:       Math.round(o.totalSales),
+      totalOrders:      o.totalOrders,
+      netAfterDiscount: Math.round(o.net),
+      totalTax:         Math.round(o.totalTax),
+      totalDiscount:    Math.round(o.totalDiscount),
+      cash:             Math.round(o.cash),
+      upi:              Math.round(o.upi),
+      card:             Math.round(o.card),
+    }));
+
   return {
     dayEnd: {
       summary: {
@@ -438,6 +480,7 @@ function buildSalesData(closedToday, creditSettlements = [], { totalCancelled = 
         ? [{ type: "Manual Discount", count: discountBills, amount: Math.round(totalDiscount) }]
         : [],
       cancellations: [],
+      outlets: outletSummary,
     },
     itemSales,
     mostSoldItem,

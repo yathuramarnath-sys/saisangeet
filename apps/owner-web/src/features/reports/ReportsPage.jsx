@@ -277,6 +277,31 @@ function DayEndSummary({ outlet, date, data }) {
           foot={["", "Total", fmt(d.cancellations.reduce((s, c) => s + c.amount, 0)), "", ""]}
         />
       </div>
+
+      {d.outlets && d.outlets.length > 1 && (
+        <div className="panel rpt-panel">
+          <SectionHead title="Area-wise Summary" eyebrow="Consolidated sales per outlet after day-end" />
+          <RptTable
+            cols={["Area / Outlet", "Orders", "Gross Sales", "Discount", "Net Sales", "GST", "Cash", "UPI", "Card"]}
+            rows={d.outlets.map(o => [
+              o.outlet, o.totalOrders,
+              fmt(o.totalSales), fmt(o.totalDiscount), fmt(o.netAfterDiscount),
+              fmt(o.totalTax), fmt(o.cash), fmt(o.upi), fmt(o.card),
+            ])}
+            foot={[
+              "Total",
+              d.outlets.reduce((s, o) => s + o.totalOrders, 0),
+              fmt(d.outlets.reduce((s, o) => s + o.totalSales, 0)),
+              fmt(d.outlets.reduce((s, o) => s + o.totalDiscount, 0)),
+              fmt(d.outlets.reduce((s, o) => s + o.netAfterDiscount, 0)),
+              fmt(d.outlets.reduce((s, o) => s + o.totalTax, 0)),
+              fmt(d.outlets.reduce((s, o) => s + o.cash, 0)),
+              fmt(d.outlets.reduce((s, o) => s + o.upi, 0)),
+              fmt(d.outlets.reduce((s, o) => s + o.card, 0)),
+            ]}
+          />
+        </div>
+      )}
     </div>
   );
 }
