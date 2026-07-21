@@ -347,8 +347,19 @@ export function App() {
                   // and preserve assignedWaiter from local state when server returns empty
                   for (const [tid, cur] of Object.entries(prev)) {
                     const serverIds = new Set((next[tid]?.items || []).map(i => i.id));
+                    // Also match by menuItemId for unsent server items — prevents temp-ID
+                    // items (item-${Date.now()}-xxx) from appearing as duplicates alongside
+                    // the real-UUID version the server already stored for the same dish.
+                    const serverUnsentMenuItemIds = new Set(
+                      (next[tid]?.items || [])
+                        .filter(i => !i.sentToKot)
+                        .map(i => i.menuItemId)
+                        .filter(Boolean)
+                    );
                     const localOnly = (cur.items || []).filter(
-                      i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !serverIds.has(i.id)
+                      i => !i.sentToKot && !i.isVoided && !i.isGhostVoid &&
+                           !serverIds.has(i.id) &&
+                           !serverUnsentMenuItemIds.has(i.menuItemId)
                     );
                     if (next[tid]) {
                       const patch = {};
@@ -624,8 +635,12 @@ export function App() {
           const serverOrder = await api.get(
             `/operations/order?tableId=${entry.payload.tableId}&outletId=${entry.payload.outletId || currentOutletId}`
           ).catch(() => null);
+          // entry.payload.item.id is the MENU item ID (not an order-item UUID).
+          // Server order items have `menuItemId` = menu item ID and `id` = order UUID.
+          // Must compare by menuItemId, not id, to detect already-synced items.
+          const payloadMenuItemId = entry.payload.item.menuItemId || entry.payload.item.id;
           const alreadyThere = (serverOrder?.items || []).some(
-            i => i.id === entry.payload.item.id
+            i => i.menuItemId === payloadMenuItemId
           );
           if (!alreadyThere) {
             await api.post("/operations/order/item", entry.payload);
@@ -1088,6 +1103,10 @@ export function App() {
   // waiterName = the staff member assigned to serve this table's order
   async function doSendKOT(tableId, waiterName) {
     const tid    = tableId || selectedTableId;
+    // Synchronous in-flight guard — prevents double-tap from firing two KOT requests.
+    // kotInFlightRef is set below (line ~1117) before the first await, so the second
+    // invocation always sees it and exits before any network call is made.
+    if (kotInFlightRef.current.has(tid)) return;
     const order  = orders[tid];
     if (!order) return;
     // Ensure selectedTableId is set so post-KOT state updates work correctly
@@ -1162,6 +1181,10 @@ export function App() {
     }
     const kotTableLabel = `Table ${order.tableNumber}`;
     setKotState({ phase: "sending", tableLabel: kotTableLabel, itemCount: kotItems.length });
+    // Stable ID for this KOT attempt — passed to server so it can deduplicate retries
+    // (e.g. response dropped on weak WiFi: captain queues it as failed and retries, but
+    // server may have already processed it and assigned a KOT number).
+    const clientKotId = `ckt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     let serverKots = [];
     let lastServerOrder;
     try {
@@ -1176,6 +1199,7 @@ export function App() {
         actorName:   actorName,
         waiterName:  waiterToShow || "",
         source:      "captain",
+        clientKotId,
       });
       if (result?.kots?.length)  serverKots = result.kots;
       else if (result?.kot)      serverKots = [result.kot];
@@ -1185,6 +1209,7 @@ export function App() {
       // Queue the KOT for manual retry from the drawer
       const failedKot = {
         id:          `kot-${Date.now()}`,
+        clientKotId,  // preserved so retry can be deduplicated server-side
         tableId:     order.tableId,
         tableNumber: order.tableNumber,
         areaName:    order.areaName,
@@ -1634,7 +1659,15 @@ export function App() {
           const serverMap = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
           const merged = { ...serverMap };
           for (const [tableId, localOrder] of Object.entries(prev)) {
-            const unsentItems = (localOrder.items || []).filter((i) => !i.sentToKot);
+            // Exclude local unsent items whose menuItemId is already on the server as unsent —
+            // these are temp-ID items (item-${Date.now()}-xxx) that got real UUIDs on the server.
+            const serverUnsentMids = new Set(
+              (merged[tableId]?.items || []).filter(i => !i.sentToKot).map(i => i.menuItemId).filter(Boolean)
+            );
+            const serverItemIds = new Set((merged[tableId]?.items || []).map(i => i.id));
+            const unsentItems = (localOrder.items || []).filter(
+              i => !i.sentToKot && !serverItemIds.has(i.id) && !serverUnsentMids.has(i.menuItemId)
+            );
             if (merged[tableId]) {
               const patch = {};
               if (unsentItems.length > 0) patch.items = [...(merged[tableId].items || []), ...unsentItems];
@@ -1666,6 +1699,7 @@ export function App() {
         orderId:     kot.orderId,
         actorName:   kot.actorName,
         source:      "captain",
+        clientKotId: kot.clientKotId,  // server deduplicates if it already processed this
       });
       setPendingKots((prev) => {
         const next = prev.filter((k) => k.id !== kot.id);
@@ -2118,6 +2152,7 @@ export function App() {
               </button>
               <button
                 className="wp2-done"
+                disabled={kotState?.phase === "sending"}
                 onClick={() => {
                   setShowWaiterPick(false);
                   doSendKOT(kotPendingTableId, pickedWaiter);
