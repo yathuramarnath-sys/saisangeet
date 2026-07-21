@@ -2150,7 +2150,7 @@ export function App() {
             onSplitBill={() => openOrderScreen(actionTableId, actionArea, "split")}
             onPrintBill={() => handlePrintBill(actionTableId)}
             onCustomerInfo={() => { setShowCustomerInfo(true); }}
-            canSettle={loggedInStaff?.canSettleBill === true}
+            canSettle={loggedInStaff?.canSettleBill === true && orders[actionTableId]?.billRequested === true}
             onSettleBill={() => {
               const ord      = orders[actionTableId];
               const billable = (ord?.items || []).filter(i => !i.isVoided && !i.isComp);
