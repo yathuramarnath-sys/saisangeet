@@ -215,6 +215,9 @@ export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSele
                 });
 
                 // Normal table tile
+                const staffName = st !== "available"
+                  ? (orders[table.id]?.assignedWaiter || orders[table.id]?.captainName || "")
+                  : "";
                 tiles.push(
                   <button
                     key={table.id}
@@ -225,6 +228,7 @@ export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSele
                   >
                     <span className="tpp-table-num">{table.number}</span>
                     <span className="tpp-table-status">{col.label}</span>
+                    {staffName && <span className="tpp-table-staff">{staffName}</span>}
                     {guests > 0 && <span className="tpp-table-seats">{guests} guests</span>}
                     {total !== null && <span className="tpp-table-amt">₹{total.toLocaleString("en-IN")}</span>}
                     {total === null && (table.seats || 0) > 0 && <span className="tpp-table-seats">{table.seats} seats</span>}

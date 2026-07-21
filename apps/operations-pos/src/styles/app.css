@@ -10615,6 +10615,16 @@ input, select, textarea {
   font-weight: 500 !important;
   color: #94A3B8 !important;
 }
+.tpp-table-staff {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  margin-top: 1px !important;
+}
 
 /* New order button in counter mode */
 .tpp-new-order-btn {
@@ -11064,6 +11074,7 @@ input, select, textarea {
 .pos-dark .tpp-table-num { color: #F1F5F9 !important; }
 .pos-dark .tpp-table-amt { color: #F1F5F9 !important; }
 .pos-dark .tpp-table-seats { color: #475569 !important; }
+.pos-dark .tpp-table-staff { color: #94A3B8 !important; }
 .pos-dark .order-panel { background: #1E293B !important; border-color: rgba(255,255,255,.06) !important; }
 .pos-dark .order-panel-head { background: #1E293B !important; border-color: rgba(255,255,255,.06) !important; }
 .pos-dark .order-items { background: #1E293B !important; }
