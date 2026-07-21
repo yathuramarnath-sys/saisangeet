@@ -2,7 +2,8 @@ import { tapImpact } from "../lib/haptics";
 
 export function TableActionsSheet({
   tableNumber, areaName, order, defaultTaxRate = 0,
-  onClose, onMoveTable, onPrintBill, onMarkFree, onSplitBill,
+  onClose, onMoveTable, onPrintBill, onMarkFree, onSplitBill, onSettleBill,
+  canSettle = false,
   // kept for API compatibility but not rendered in this design:
   onMerge, onCustomerInfo, onEditOrder, onSendKOT,
 }) {
@@ -61,6 +62,28 @@ export function TableActionsSheet({
                   </svg>
                 </button>
                 <div className="tas2-divider" />
+                {canSettle && (
+                  <>
+                    <button
+                      className="tas2-row tas2-row-settle"
+                      onClick={() => { tapImpact(); onSettleBill?.(); onClose(); }}
+                    >
+                      <span className="tas2-row-icon tas2-row-icon-settle">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="2" y="5" width="20" height="14" rx="2"/>
+                          <line x1="2" y1="10" x2="22" y2="10"/>
+                        </svg>
+                      </span>
+                      <span className="tas2-row-label tas2-row-label-settle">Collect Payment</span>
+                      <svg className="tas2-row-chevron" width="16" height="16" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="9 18 15 12 9 6"/>
+                      </svg>
+                    </button>
+                    <div className="tas2-divider" />
+                  </>
+                )}
                 {onSplitBill && (
                   <>
                     <button
