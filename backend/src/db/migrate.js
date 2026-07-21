@@ -268,8 +268,10 @@ async function applyOwnerPasswordOverride(queryFn) {
       if (ownerIdx < 0) continue;
 
       const patch = {};
-      if (hash)       patch.passwordHash = hash;
-      if (emailPatch) patch.email        = emailPatch;
+      if (hash) patch.passwordHash = hash;
+      // OWNER_EMAIL only applies to the platform-admin "default" tenant.
+      // Never overwrite a real restaurant tenant's owner email.
+      if (emailPatch && row.tenant_id === "default") patch.email = emailPatch;
       users[ownerIdx] = { ...users[ownerIdx], ...patch };
       data.users = users;
 
