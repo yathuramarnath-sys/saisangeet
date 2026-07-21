@@ -256,7 +256,12 @@ async function applyOwnerPasswordOverride(queryFn) {
 
     // Load every tenant, patch the owner's fields, save back to Postgres + cache
     const rows = await queryFn("SELECT tenant_id, value FROM tenant_settings WHERE key = 'owner_setup'");
+
+    let foundDefault = false;
+
     for (const row of rows.rows) {
+      if (row.tenant_id === "default") foundDefault = true;
+
       const data = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
       const users = data.users || [];
       const ownerIdx = users.findIndex(u => (u.roles || []).includes("Owner"));
@@ -293,6 +298,24 @@ async function applyOwnerPasswordOverride(queryFn) {
       }
 
       console.log(`[migrate] ✅ Owner override applied for tenant ${row.tenant_id} (${ownerEmail || "no email"})`);
+    }
+
+    // If the "default" tenant row is missing entirely (DB was wiped) and we have
+    // both OWNER_EMAIL + OWNER_PASSWORD, bootstrap a new owner record so login works.
+    if (!foundDefault && emailPatch && hash) {
+      const { createDefaultData } = require("../data/owner-setup-store");
+      const data = createDefaultData();
+      const ownerIdx = (data.users || []).findIndex(u => (u.roles || []).includes("Owner"));
+      if (ownerIdx >= 0) {
+        data.users[ownerIdx] = { ...data.users[ownerIdx], email: emailPatch, passwordHash: hash };
+      }
+      await queryFn(
+        "INSERT INTO tenant_settings (tenant_id, key, value) VALUES ('default', 'owner_setup', $1) ON CONFLICT DO NOTHING",
+        [JSON.stringify(data)]
+      );
+      warmTenantCache("default", data);
+      registerUserInIndex(emailPatch, null, "default");
+      console.log(`[migrate] ✅ Bootstrapped missing "default" tenant with owner ${emailPatch}`);
     }
   } catch (err) {
     console.error("[migrate] OWNER_PASSWORD override failed:", err.message);
