@@ -38,7 +38,6 @@ import { IncomingOrdersSheet } from "./components/IncomingOrdersSheet";
 import { KotProgressOverlay }  from "./components/KotProgressOverlay";
 import { FailedKotsScreen }    from "./components/FailedKotsScreen";
 import { ConfirmDialog }       from "./components/ConfirmDialog";
-import { SettlePaymentModal }  from "./components/SettlePaymentModal";
 
 // ─── Build areas from outlet tables ──────────────────────────────────────────
 
@@ -154,7 +153,6 @@ export function App() {
   // Table action sheet state
   const [actionTableId,   setActionTableId]   = useState(null);
   const [actionArea,      setActionArea]       = useState(null);
-  const [settleTarget,    setSettleTarget]     = useState(null); // { tableId, total }
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
   const [activeTab,       setActiveTab]        = useState("floor"); // "floor"|"kots"|"more"
   const [showLogout,      setShowLogout]       = useState(false);
@@ -1548,74 +1546,6 @@ export function App() {
     setActionTableId(null);
   }
 
-  // ── Settle bill directly from captain app (UPI / Card only) ─────────────
-  // Only captains with canSettleBill permission see this option.
-  // Flow: assign bill no → record payment → close order → clear table.
-  async function handleSettleBill(tableId, method) {
-    const tid   = tableId;
-    const order = orders[tid];
-    if (!order?.items?.length) { toast.error("No items to settle"); return; }
-
-    const billable = (order.items || []).filter(i => !i.isVoided && !i.isComp);
-    const subtotal = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
-    const tax      = billable.reduce((s, i) => {
-      const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
-      return s + Math.round((i.price || 0) * (i.quantity || 0) * r / 100);
-    }, 0);
-    const total = subtotal + tax;
-
-    setSettleTarget(null);
-
-    try {
-      // 1. Assign bill number (idempotent — returns same one if already assigned)
-      let settledOrder = { ...order };
-      try {
-        const result = await api.post("/operations/assign-bill-no", {
-          outletId: outlet?.id || branchConfig?.outletId,
-          tableId:  tid,
-        });
-        if (result?.billNo != null) {
-          settledOrder = { ...settledOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
-        }
-      } catch (err) {
-        console.warn("[captain] settle: assign-bill-no failed:", err.message);
-      }
-
-      // 2. Record the payment
-      await api.post("/operations/payment", {
-        outletId:  outlet?.id || branchConfig?.outletId,
-        tableId:   tid,
-        method,
-        amount:    total,
-        actorName: loggedInStaff?.name || null,
-      });
-
-      // 3. Close the order — this clears the table on POS + owner dashboard
-      const closedOrder = {
-        ...settledOrder,
-        closedAt:    new Date().toISOString(),
-        payments:    [...(settledOrder.payments || []), { method, amount: total }],
-        captainName: loggedInStaff?.name || null,
-      };
-      await api.post("/operations/closed-order", {
-        outletId: outlet?.id || branchConfig?.outletId,
-        order:    closedOrder,
-      });
-
-      // 4. Clear local state — captain floor shows table as free immediately
-      setOrders(prev => {
-        const { [tid]: _, ...rest } = prev;
-        return rest;
-      });
-      if (tid === selectedTableId) setSelectedTableId(null);
-
-      toast.success(`₹${total.toLocaleString("en-IN")} collected via ${method.toUpperCase()}`);
-    } catch (err) {
-      toast.error("Settlement failed — check connection and try again");
-      console.error("[captain] settle bill failed:", err);
-    }
-  }
-
   // ── Split bill print ──────────────────────────────────────────────────────
   // Called from SplitBill component when user taps "Print Person N" or "Print Full Bill".
   // Awaits bill-number assignment BEFORE printing so every slip has a number.
@@ -1947,27 +1877,13 @@ export function App() {
 
   // 2. No staff logged in
   if (!loggedInStaff) {
-    const handleLogin = (member) => {
-      setLoggedInStaff(member);
-      // Register/upsert this captain's device row — one row per captain per outlet.
-      const isNative = typeof window !== "undefined" && !!(window.Capacitor?.isNative);
-      api.post("/devices/link", {
-        outletId:     outlet?.id || branchConfig?.outletId,
-        deviceType:   "captain",
-        deviceName:   "Plato Captain",
-        platform:     isNative ? "android" : "web",
-        loggedInUser: member.name,
-      }).then((device) => {
-        if (device?.id) localStorage.setItem("captain_device_id", device.id);
-      }).catch(() => {});
-    };
     return (
       <>
         <LoginScreen
           outletName={outlet?.name || branchConfig.outletName}
           outletCode={outlet?.code || ""}
           staff={branchStaff}
-          onLogin={handleLogin}
+          onLogin={setLoggedInStaff}
           onForgetDevice={() => {
             clearCaptainBranchConfig();
             setBranchConfig(null);
@@ -2150,18 +2066,6 @@ export function App() {
             onSplitBill={() => openOrderScreen(actionTableId, actionArea, "split")}
             onPrintBill={() => handlePrintBill(actionTableId)}
             onCustomerInfo={() => { setShowCustomerInfo(true); }}
-            canSettle={loggedInStaff?.canSettleBill === true && orders[actionTableId]?.billRequested === true}
-            onSettleBill={() => {
-              const ord      = orders[actionTableId];
-              const billable = (ord?.items || []).filter(i => !i.isVoided && !i.isComp);
-              const sub      = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
-              const tax      = billable.reduce((s, i) => {
-                const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
-                return s + Math.round((i.price || 0) * (i.quantity || 0) * r / 100);
-              }, 0);
-              setSettleTarget({ tableId: actionTableId, total: sub + tax });
-              setActionTableId(null);
-            }}
             onMarkFree={() => {
               const tbl = actionArea?.tables?.find(t => t.id === actionTableId);
               const ord = orders[actionTableId];
@@ -2370,15 +2274,6 @@ export function App() {
           confirmDanger
           onCancel={() => setConfirmFreeTable(null)}
           onConfirm={() => handleMarkFree(confirmFreeTable.tableId)}
-        />
-      )}
-
-      {/* Settle Payment Modal — UPI / Card collection by captain */}
-      {settleTarget && (
-        <SettlePaymentModal
-          total={settleTarget.total}
-          onCollect={(method) => handleSettleBill(settleTarget.tableId, method)}
-          onCancel={() => setSettleTarget(null)}
         />
       )}
 

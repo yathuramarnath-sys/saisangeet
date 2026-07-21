@@ -158,11 +158,6 @@ function StaffEditDrawer({ member, draft, setDraft, outletOptions, activeRoles, 
               onChange={e => setDraft(p => ({ ...p, canApplyDiscount: e.target.checked }))} />
             Can apply discounts <span style={{ color: "#6b7280", fontSize: 12 }}>(Bulk orders)</span>
           </label>
-          <label className="sed-check-row">
-            <input type="checkbox" checked={!!draft.canSettleBill}
-              onChange={e => setDraft(p => ({ ...p, canSettleBill: e.target.checked }))} />
-            Can settle bills (UPI / Card) <span style={{ color: "#6b7280", fontSize: 12 }}>(Captain app)</span>
-          </label>
           <div className="sed-actions">
             <button type="submit" className="primary-btn" style={{ flex: 1 }}>Save Changes</button>
             <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
@@ -389,8 +384,7 @@ export function StaffPage() {
         roles: [staffDraft.role],
         pin: staffDraft.pin,
         incentivePct: Number(staffDraft.incentivePct || 0),
-        canApplyDiscount: !!staffDraft.canApplyDiscount,
-        canSettleBill:    !!staffDraft.canSettleBill,
+        canApplyDiscount: !!staffDraft.canApplyDiscount
       });
     } catch (err) {
       showErr(err?.message || "Failed to save staff — check your connection");
@@ -410,8 +404,7 @@ export function StaffPage() {
       outletName: member.outlet, role: member.role,
       pin: member.pin || "", isActive: member.status === "Active",
       incentivePct: member.incentivePct ?? 0,
-      canApplyDiscount: !!member.canApplyDiscount,
-      canSettleBill:    !!member.canSettleBill,
+      canApplyDiscount: !!member.canApplyDiscount
     });
     setError("");
   }
@@ -430,8 +423,7 @@ export function StaffPage() {
       login: editStaffDraft.pin ? "PIN" : "Password",
       status: editStaffDraft.isActive ? "Active" : "Inactive",
       incentivePct: Number(editStaffDraft.incentivePct || 0),
-      canApplyDiscount: !!editStaffDraft.canApplyDiscount,
-      canSettleBill:    !!editStaffDraft.canSettleBill,
+      canApplyDiscount: !!editStaffDraft.canApplyDiscount
     };
     try {
       await updateStaffMember(editingStaffId, {
@@ -439,8 +431,7 @@ export function StaffPage() {
         outletName: updated.outlet, roles: [updated.role],
         pin: updated.pin, isActive: updated.status === "Active",
         incentivePct: updated.incentivePct,
-        canApplyDiscount: !!updated.canApplyDiscount,
-        canSettleBill:    !!updated.canSettleBill,
+        canApplyDiscount: !!updated.canApplyDiscount
       });
     } catch (err) {
       showErr(err?.message || "Failed to update staff — check your connection");
@@ -478,7 +469,6 @@ export function StaffPage() {
         pin: member.pin || "", isActive,
         incentivePct:     member.incentivePct     || 0,
         canApplyDiscount: !!member.canApplyDiscount,
-        canSettleBill:    !!member.canSettleBill,
       });
     } catch (_) { /* offline */ }
     const updatedStaff = staffData.staff.map((m) => m.id === member.id ? updated : m);
@@ -838,15 +828,6 @@ export function StaffPage() {
                   style={{ width: 16, height: 16, accentColor: "#059669" }}
                 />
                 <span>Can apply discounts on POS <span style={{ color: "#6b7280", fontSize: 12 }}>(Bulk orders)</span></span>
-              </label>
-              <label style={{ flexDirection: "row", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={!!staffDraft.canSettleBill}
-                  onChange={(e) => setStaffDraft((p) => ({ ...p, canSettleBill: e.target.checked }))}
-                  style={{ width: 16, height: 16, accentColor: "#059669" }}
-                />
-                <span>Can settle bills (UPI / Card) <span style={{ color: "#6b7280", fontSize: 12 }}>(Captain app)</span></span>
               </label>
             </div>
             <button type="submit" className="primary-btn" style={{ marginTop: "1rem" }}>
