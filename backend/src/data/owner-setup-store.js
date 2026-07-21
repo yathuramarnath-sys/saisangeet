@@ -363,6 +363,7 @@ module.exports = {
   getAllCachedTenants,
   // Exported for migrate.js only:
   warmTenantCache,
+  createDefaultData,
   // Exported for testing only:
   _guardOwnerAuth: guardOwnerAuth,
   resetOwnerSetupForTest,
