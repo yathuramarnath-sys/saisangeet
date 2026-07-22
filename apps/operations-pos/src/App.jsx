@@ -374,8 +374,10 @@ export default function App() {
   const socketRef      = useRef(null);   // cloud socket
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
-  const ordersRef       = useRef({});
-  const mirrorOrdersRef = useRef({});
+  const ordersRef        = useRef({});
+  const mirrorOrdersRef  = useRef({});
+  // Tracks orderNumbers settled locally so stale re-broadcasts from Captain are ignored
+  const settledOrderNums = useRef(new Set());
   // Mirror (pending bill) orders waiting for cashier settlement while a new order is active
   const [mirrorOrders, setMirrorOrders] = useState(() => {
     try { return JSON.parse(localStorage.getItem(MIRROR_ORDERS_KEY) || "null") || {}; } catch { return {}; }
@@ -705,6 +707,17 @@ export default function App() {
         socket.on("order:updated", (updatedOrder) => {
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
+            // Block stale re-broadcasts of orders the POS already settled locally.
+            // Captain device may not know about the settlement yet and re-emit the
+            // old billRequested:true order; the 30s stale-write guard isn't enough
+            // because the re-broadcast can arrive within 30s of settlement.
+            if (
+              updatedOrder.orderNumber != null &&
+              settledOrderNums.current.has(updatedOrder.orderNumber) &&
+              !updatedOrder.isClosed
+            ) {
+              return prev;
+            }
             // Petpooja-style mirror table: if POS has a pending bill for this table
             // (billRequested:true, different orderNumber) the incoming update is a new
             // seating by Captain.  Preserve the pending bill as a "mirror" tile so the
@@ -2120,6 +2133,10 @@ export default function App() {
     }
 
     // ── Full settlement ───────────────────────────────────────────────────
+    // Record orderNumber so the order:updated handler can drop stale re-broadcasts
+    // from Captain (who may re-emit the old billed order before learning of settlement).
+    settledOrderNums.current.add(order.orderNumber);
+
     // Detect credit sale — payment method "credit" carries creditCustomer details
     const creditPayment    = newPayments.find(p => p.method === "credit");
     const isCreditSale     = !!creditPayment;
@@ -2834,7 +2851,7 @@ export default function App() {
     if (billPrintingRef.current) return;
     billPrintingRef.current = true;
     const tableId = selectedTableId;
-    const order   = orders[tableId];
+    const order   = ordersRef.current[tableId] || orders[tableId];
     if (!order?.items?.length) { billPrintingRef.current = false; showToast("No items to print"); return; }
 
     // Get / assign bill number from server
@@ -2902,6 +2919,21 @@ export default function App() {
       api.post("/operations/bill-request", { outletId: outlet?.id, tableId })
         .catch(err => console.warn("[POS] bill-request after print failed:", err.message));
     }
+  }
+
+  // ── Billed dine-in settle shortcut ─────────────────────────────────────
+  // When a table is in bill-requested state, the cashier picks Cash/UPI/Card
+  // directly (like Takeaway) instead of going through the full PaymentSheet.
+  // Credit still opens PaymentSheet for customer details.
+  async function handleBilledSettle(method) {
+    if (!selectedTableId) return;
+    if (method === "credit") { setShowPayment(true); return; }
+    const tableId = selectedTableId;
+    const order   = ordersRef.current[tableId] || orders[tableId];
+    if (!order?.items?.length) return;
+    const fin = getFinancials(order, { gstTreatment: outlet?.gstTreatment || "exclusive" });
+    if (!fin || fin.balance <= 0) return;
+    await handleSettle([{ method, amount: fin.balance, label: method.toUpperCase() }]);
   }
 
   // ── Counter-only checkout shortcut ──────────────────────────────────────
@@ -3673,6 +3705,7 @@ export default function App() {
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
           onCounterPrintBill={selectedMirrorOrder ? null : handleCounterPrintAndSettle}
+          onBilledSettle={selectedMirrorOrder ? null : handleBilledSettle}
           onShowHeld={selectedMirrorOrder ? null : (() => setShowHeldOrders(true))}
           heldCount={heldCount}
           cashierName={cashierName}

@@ -208,6 +208,7 @@ export function OrderPanel({
   onReprintKOT,
   onPrintBill,
   onCounterPrintBill,
+  onBilledSettle,
   onShowHeld,
   heldCount = 0,
   gstTreatment = "exclusive",
@@ -219,6 +220,8 @@ export function OrderPanel({
   const [showTransfer,    setShowTransfer]    = useState(false);
   const [counterMethod,   setCounterMethod]   = useState("cash");
   const [counterPrinting, setCounterPrinting] = useState(false);
+  const [billedMethod,    setBilledMethod]    = useState("cash");
+  const [billedSettling,  setBilledSettling]  = useState(false);
   const [showNote,        setShowNote]        = useState(false);
   const [voidingIdx,      setVoidingIdx]      = useState(null);   // index of item being voided
   const [pinForVoidIdx,   setPinForVoidIdx]   = useState(null);   // waiting PIN before VoidPicker
@@ -598,6 +601,39 @@ export function OrderPanel({
                     <rect x="6" y="14" width="12" height="8"/>
                   </svg>
                   {counterPrinting ? "Printing…" : "Print Bill & Settle"}
+                </button>
+              )}
+            </div>
+          ) : hasItems && order.billRequested && !order.isCounter && onBilledSettle ? (
+            /* Billed dine-in: same method-first chip flow as counter/takeaway */
+            <div className="order-pay-row counter-checkout-row">
+              <div className="counter-method-picker">
+                {METHODS_FOR_COUNTER.map(m => (
+                  <button key={m.id} type="button"
+                    className={`counter-method-chip${billedMethod === m.id ? " active" : ""}`}
+                    onClick={() => setBilledMethod(m.id)}>
+                    {m.icon} {m.label}
+                  </button>
+                ))}
+              </div>
+              {billedMethod === "credit" ? (
+                <button type="button" className="pos-btn pay" onClick={onOpenPayment}>
+                  Enter Credit Details
+                </button>
+              ) : (
+                <button type="button" className="pos-btn pay counter-print-settle"
+                  disabled={billedSettling}
+                  onClick={async () => {
+                    setBilledSettling(true);
+                    try { await onBilledSettle(billedMethod); }
+                    finally { setBilledSettling(false); }
+                  }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2.5">
+                    <rect x="2" y="5" width="20" height="14" rx="2"/>
+                    <line x1="2" y1="10" x2="22" y2="10"/>
+                  </svg>
+                  {billedSettling ? "Settling…" : "Settle"}
                 </button>
               )}
             </div>
