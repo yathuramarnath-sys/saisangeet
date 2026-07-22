@@ -374,7 +374,8 @@ export default function App() {
   const socketRef      = useRef(null);   // cloud socket
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
-  const ordersRef  = useRef({});
+  const ordersRef       = useRef({});
+  const mirrorOrdersRef = useRef({});
   // Mirror (pending bill) orders waiting for cashier settlement while a new order is active
   const [mirrorOrders, setMirrorOrders] = useState(() => {
     try { return JSON.parse(localStorage.getItem(MIRROR_ORDERS_KEY) || "null") || {}; } catch { return {}; }
@@ -1285,6 +1286,7 @@ export default function App() {
   }, [orders]);
 
   useEffect(() => {
+    mirrorOrdersRef.current = mirrorOrders;
     try {
       if (Object.keys(mirrorOrders).length > 0) {
         localStorage.setItem(MIRROR_ORDERS_KEY, JSON.stringify(mirrorOrders));
@@ -2465,17 +2467,35 @@ export default function App() {
 
       // Mirror tile: if local has a pending bill and server has a newer order, save pending bill
       const localSnapshot = ordersRef.current[tableId];
-      if (
+      const newMirrorDetected = (
         localSnapshot && localSnapshot.billRequested && !localSnapshot.isClosed &&
         !serverOrder.isClosed &&
         localSnapshot.orderNumber != null && serverOrder.orderNumber != null &&
         Number(localSnapshot.orderNumber) !== Number(serverOrder.orderNumber)
-      ) {
+      );
+      if (newMirrorDetected) {
         setMirrorOrders(mp => {
           const arr = mp[tableId] || [];
           if (arr.some(o => Number(o.orderNumber) === Number(localSnapshot.orderNumber))) return mp;
           return { ...mp, [tableId]: [...arr, localSnapshot] };
         });
+        // Auto-select the pending bill so cashier immediately sees the billed order's items
+        // instead of the new (often empty) order that just arrived from the server.
+        setSelectedMirrorOrder(localSnapshot);
+      } else {
+        // Mirror orders may already exist from a prior socket event. If the table's main
+        // order is now a new session (different orderNumber) and there are pending bills
+        // waiting, show the latest pending bill automatically — cashier clicked this table
+        // to settle or review the bill, not to see the new (possibly empty) order.
+        const existingMirrors = mirrorOrdersRef.current[tableId] || [];
+        const isNewSession = (
+          localSnapshot && serverOrder &&
+          localSnapshot.orderNumber != null && serverOrder.orderNumber != null &&
+          Number(localSnapshot.orderNumber) !== Number(serverOrder.orderNumber)
+        );
+        if (isNewSession && existingMirrors.length > 0) {
+          setSelectedMirrorOrder(existingMirrors[existingMirrors.length - 1]);
+        }
       }
 
       setOrders((prev) => {
@@ -3533,26 +3553,74 @@ export default function App() {
       <div className="pos-right">
 
         {/* Tab bar — shown whenever a table / counter order is active */}
-        {selectedTableId && (
-          <div className="pos-order-tabs">
-            <div className="pos-order-tab active">
-              <span className="pot-label">{tableLabel}</span>
-              {activeOrderItemCount > 0 && (
-                <span className="pot-badge">{activeOrderItemCount}</span>
-              )}
+        {selectedTableId && (() => {
+          const pendingBills = mirrorOrders[selectedTableId] || [];
+          const hasMirror    = selectedMirrorOrder || pendingBills.length > 0;
+          const mirrorForTab = selectedMirrorOrder || pendingBills[pendingBills.length - 1];
+          const mirrorItemCt = (mirrorForTab?.items || []).filter(i => !i.isVoided).length;
+          const newOrderItemCt = selectedMirrorOrder
+            ? (selectedOrder?.items || []).filter(i => !i.isVoided).length
+            : activeOrderItemCount;
+
+          if (hasMirror) {
+            return (
+              <div className="pos-order-tabs">
+                {/* Pending bill tab */}
+                <button
+                  type="button"
+                  className={`pos-order-tab${selectedMirrorOrder ? " active" : ""}`}
+                  onClick={() => {
+                    const bill = mirrorForTab;
+                    if (bill) { setSelectedTableId(selectedTableId); setSelectedMirrorOrder(bill); }
+                  }}
+                >
+                  <span className="pot-label" style={{ color: selectedMirrorOrder ? "#2563EB" : undefined }}>
+                    💳 Pending Bill
+                  </span>
+                  {mirrorItemCt > 0 && <span className="pot-badge">{mirrorItemCt}</span>}
+                </button>
+                {/* New order tab */}
+                <button
+                  type="button"
+                  className={`pos-order-tab${!selectedMirrorOrder ? " active" : ""}`}
+                  onClick={() => setSelectedMirrorOrder(null)}
+                >
+                  <span className="pot-label">New Order</span>
+                  {newOrderItemCt > 0 && <span className="pot-badge">{newOrderItemCt}</span>}
+                </button>
+                <button
+                  type="button"
+                  className="pos-order-tab new-order"
+                  onClick={() => setSelectedTableId(null)}
+                  style={{ marginLeft: "auto" }}
+                >
+                  ← Tables
+                </button>
+              </div>
+            );
+          }
+
+          return (
+            <div className="pos-order-tabs">
+              <div className="pos-order-tab active">
+                <span className="pot-label">{tableLabel}</span>
+                {activeOrderItemCount > 0 && (
+                  <span className="pot-badge">{activeOrderItemCount}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="pos-order-tab new-order"
+                onClick={() => setSelectedTableId(null)}
+              >
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                  <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                New Order
+              </button>
             </div>
-            <button
-              type="button"
-              className="pos-order-tab new-order"
-              onClick={() => setSelectedTableId(null)}
-            >
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-                <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-              New Order
-            </button>
-          </div>
-        )}
+          );
+        })()}
 
         {!selectedTableId ? (
           isCounterMode ? null : (
