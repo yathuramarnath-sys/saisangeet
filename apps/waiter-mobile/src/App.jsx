@@ -17,8 +17,9 @@ import {
 } from "./lib/syncQueue";
 import {
   startPrintWorker,
-  flushQueue     as printFlushQueue,
-  getFailedCount as printFailedCount,
+  flushQueue          as printFlushQueue,
+  getFailedCount      as printFailedCount,
+  clearBillJobsByTable,
 } from "./lib/printQueue";
 import {
   mobileAreas      as seedAreas,
@@ -920,6 +921,12 @@ export function App() {
       });
       if (tableId === selectedTableId) setSelectedTableId(null);
       toast.success(`₹${total.toLocaleString("en-IN")} collected via ${method.toUpperCase()}`);
+
+      // Prune any stale queued bill print jobs for this table so they don't auto-fire later
+      const tLabel = order.isCounter
+        ? (order.onlinePlatform ? `${order.onlinePlatform} #${order.ticketNumber}` : `Token #${order.ticketNumber}`)
+        : `${order.tableNumber}${order.areaName ? " · " + order.areaName : ""}`;
+      clearBillJobsByTable(tLabel);
     } catch (err) {
       toast.error("Settlement failed — check connection and try again");
       console.error("[captain] settle bill failed:", err);
@@ -2073,6 +2080,8 @@ export function App() {
             tableAreas={areas}
             onSync={handleSync}
             onSignOut={() => setShowLogout(true)}
+            canSettleBill={loggedInStaff?.canSettleBill === true}
+            onSettleBill={(tid) => setSettleTarget({ tableId: tid, order: orders[tid] || billAlerts[tid] })}
           />
         )}
       </main>

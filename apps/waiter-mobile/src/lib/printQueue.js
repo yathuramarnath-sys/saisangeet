@@ -175,6 +175,21 @@ export async function flushQueue(sendFn) {
 let _timer = null;
 
 /**
+ * Remove all non-FAILED BILL jobs for a specific table from the queue.
+ * Call when an order is settled so stale queued bill prints don't auto-fire later.
+ * @param {string} tableLabel — same label stored in meta.table by printBill.js
+ */
+export function clearBillJobsByTable(tableLabel) {
+  if (!tableLabel) return;
+  const q = load().filter(e =>
+    !(e.type === PRINT_TYPE.BILL &&
+      e.meta?.table === tableLabel &&
+      e.status !== PRINT_STATUS.FAILED)
+  );
+  save(q);
+}
+
+/**
  * Start the background print retry worker.
  * Fires every RETRY_MS while there are PENDING entries.
  * Call resetStuck() first so app-restart entries get picked up.
