@@ -2061,11 +2061,11 @@ export default function App() {
     // Per-item tax — must match getFinancials exactly so "amount due" on screen == settlement total.
     // Falls back to 0 (not outlet defaultTaxRate) so display and settlement always agree.
     const inclusive    = outlet?.gstTreatment === "inclusive";
-    const taxAmt       = billableItems.reduce((s, i) => {
+    const taxAmt       = Math.round(billableItems.reduce((s, i) => {
       const lineAfter = subtotal > 0 ? (i.price * i.quantity) * (afterDisc / subtotal) : 0;
       const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 0;
-      return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
-    }, 0);
+      return s + lineAfter * rate / (inclusive ? (100 + rate) : 100);
+    }, 0));
     const total        = inclusive ? afterDisc : afterDisc + taxAmt;
     const paid         = allPayments.reduce((s, p) => s + p.amount, 0);
 

@@ -107,32 +107,45 @@ export function OrderScreen({
   const unsentItems   = items.filter(i => !i.sentToKot && !i.isVoided);
   const billableItems = items.filter(i => !i.isVoided && !i.isComp);
   const totalSub    = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
-  const totalTax    = billableItems.reduce((s, i) => {
+  const totalTax    = Math.round(billableItems.reduce((s, i) => {
     const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
-    return s + Math.round(i.price * i.quantity * rate / 100);
-  }, 0);
+    return s + i.price * i.quantity * rate / 100;
+  }, 0));
   const totalAmount = totalSub + totalTax;
   const hasItems    = items.length > 0;
 
   function changeQty(idx, delta) {
-    const next = [...items];
-    const item  = next[idx];
-    const newQty = (item?.quantity || 1) + delta;
-    if (newQty <= 0) {
-      // Show confirm dialog if available; otherwise remove directly
-      if (onRequestRemoveItem && item?.id) {
+    const item = items[idx];
+    if (!item) return;
+    const wouldRemove = (item.quantity || 1) + delta <= 0;
+
+    if (wouldRemove) {
+      if (onRequestRemoveItem && item.id) {
         onRequestRemoveItem({ itemId: item.id, itemName: item.name, isSent: !!item.sentToKot });
-      } else if (onRemoveItem && item?.id) {
-        // Use dedicated remove handler so backend memory store is updated too
-        // (socket order:update alone doesn't update backend — causes stuck item bug)
+      } else if (onRemoveItem && item.id) {
         onRemoveItem(item.id);
       } else {
-        next.splice(idx, 1);
-        onUpdateOrder({ ...order, items: next });
+        onUpdateOrder((prevOrders) => {
+          const prevOrder = prevOrders[order.tableId];
+          if (!prevOrder) return { tableId: order.tableId, order };
+          const next = [...(prevOrder.items || [])];
+          next.splice(idx, 1);
+          return { tableId: order.tableId, order: { ...prevOrder, items: next } };
+        });
       }
     } else {
-      next[idx] = { ...item, quantity: newQty };
-      onUpdateOrder({ ...order, items: next });
+      // Use functional updater to avoid stale closure on rapid taps
+      onUpdateOrder((prevOrders) => {
+        const prevOrder = prevOrders[order.tableId];
+        if (!prevOrder) return { tableId: order.tableId, order };
+        const next = [...(prevOrder.items || [])];
+        const cur = next[idx];
+        if (!cur) return { tableId: order.tableId, order: prevOrder };
+        const newQty = (cur.quantity || 1) + delta;
+        if (newQty <= 0) return { tableId: order.tableId, order: prevOrder };
+        next[idx] = { ...cur, quantity: newQty };
+        return { tableId: order.tableId, order: { ...prevOrder, items: next } };
+      });
     }
     tapImpact();
   }

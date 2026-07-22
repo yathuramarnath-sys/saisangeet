@@ -15,15 +15,13 @@ export function getFinancials(order, { gstTreatment = "exclusive" } = {}) {
   const discountAmt   = Math.min(order.discountAmount || 0, subtotal);
   const afterDiscount = subtotal - discountAmt;
 
-  const tax = billable.reduce((s, i) => {
+  const tax = Math.round(billable.reduce((s, i) => {
     const lineAfter = subtotal > 0
       ? (i.price * i.quantity) * (afterDiscount / subtotal)
       : 0;
     const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
-    // Exclusive: tax added on top  → tax = base × rate/100
-    // Inclusive: tax extracted      → tax = price × rate/(100+rate)
-    return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
-  }, 0);
+    return s + lineAfter * rate / (inclusive ? (100 + rate) : 100);
+  }, 0));
 
   // Exclusive: customer pays subtotal - disc + tax
   // Inclusive: customer pays subtotal - disc  (tax already inside)
