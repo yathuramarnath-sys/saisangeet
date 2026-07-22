@@ -330,6 +330,7 @@ async function resolveLinkCode(payload) {
       pin:              u.pin || "",
       avatar:           (u.fullName || u.name || "?")[0].toUpperCase(),
       canApplyDiscount: u.canApplyDiscount === true,
+      canSettleBill:    u.canSettleBill    === true,
     }));
 
   // ── 5. Consume the pending token so the same code can't be reused ─────────
@@ -422,6 +423,7 @@ async function fetchStaffForDevice(outletId) {
         pin:              u.pin || "",
         avatar:           (u.fullName || u.name || "?")[0].toUpperCase(),
         canApplyDiscount: u.canApplyDiscount === true,
+        canSettleBill:    u.canSettleBill    === true,
       };
     });
 

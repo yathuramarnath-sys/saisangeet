@@ -31,6 +31,7 @@ import { LoginScreen, avatarBg } from "./components/LoginScreen";
 import { TableFloor }          from "./components/TableFloor";
 import { OrderScreen }         from "./components/OrderScreen";
 import { TableActionsSheet }   from "./components/TableActionsSheet";
+import { SettlePaymentModal }  from "./components/SettlePaymentModal";
 import { CustomerInfoSheet }   from "./components/CustomerInfoSheet";
 import { MoreScreen }          from "./components/MoreScreen";
 import { LogoutModal }         from "./components/LogoutModal";
@@ -167,6 +168,7 @@ export function App() {
   const [sentKots, setSentKots] = useState(() => loadSentKots());
   const [socketConnected,  setSocketConnected]  = useState(false);
   const [confirmFreeTable,  setConfirmFreeTable]  = useState(null); // null | { tableId, tableNumber, amount }
+  const [settleTarget,      setSettleTarget]      = useState(null); // null | { tableId, order }
   const [confirmRemoveItem, setConfirmRemoveItem] = useState(null); // null | { itemId, itemName, isSent }
   const socketRef             = useRef(null);
   const localSocketRef        = useRef(null);
@@ -860,6 +862,66 @@ export function App() {
     localSocketRef.current?.emit("order:update", { order: nextOrder });
   }
 
+  // ── Settle bill from captain (UPI / Card only, permission-gated) ────────
+  // Flow mirrors cashier settlement: assign bill no → record payment → close order.
+  async function handleSettleBill(tableId, method) {
+    const order = orders[tableId];
+    if (!order?.items?.length) { toast.error("No items to settle"); return; }
+    setSettleTarget(null);
+
+    const billable = (order.items || []).filter(i => !i.isVoided && !i.isComp);
+    const subtotal = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+    const tax      = Math.round(billable.reduce((s, i) => {
+      const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
+      return s + (i.price || 0) * (i.quantity || 0) * r / 100;
+    }, 0));
+    const total = subtotal + tax;
+
+    try {
+      let settledOrder = { ...order };
+      try {
+        const result = await api.post("/operations/assign-bill-no", {
+          outletId: outlet?.id || branchConfig?.outletId,
+          tableId,
+        });
+        if (result?.billNo != null) {
+          settledOrder = { ...settledOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
+        }
+      } catch (err) {
+        console.warn("[captain] settle: assign-bill-no failed:", err.message);
+      }
+
+      await api.post("/operations/payment", {
+        outletId:  outlet?.id || branchConfig?.outletId,
+        tableId,
+        method,
+        amount:    total,
+        actorName: loggedInStaff?.name || null,
+      });
+
+      const closedOrder = {
+        ...settledOrder,
+        closedAt:    new Date().toISOString(),
+        payments:    [...(settledOrder.payments || []), { method, amount: total }],
+        captainName: loggedInStaff?.name || null,
+      };
+      await api.post("/operations/closed-order", {
+        outletId: outlet?.id || branchConfig?.outletId,
+        order:    closedOrder,
+      });
+
+      setOrders(prev => {
+        const { [tableId]: _, ...rest } = prev;
+        return rest;
+      });
+      if (tableId === selectedTableId) setSelectedTableId(null);
+      toast.success(`₹${total.toLocaleString("en-IN")} collected via ${method.toUpperCase()}`);
+    } catch (err) {
+      toast.error("Settlement failed — check connection and try again");
+      console.error("[captain] settle bill failed:", err);
+    }
+  }
+
   // ── Persist guest count to backend so it survives syncs ──────────────────
   async function handleUpdateGuests(tableId, guests) {
     const order = orders[tableId];
@@ -990,7 +1052,6 @@ export function App() {
       // Local state is the source of truth for qty, note, taxRate (GST).
       // Server response is used ONLY to resolve temp IDs → real server UUIDs,
       // and to pick up items added by another device (e.g. POS) while in flight.
-      let mergedForBroadcast = null;
       setOrders((prev) => {
         const local = prev[tableId];
         if (!local) return prev;
@@ -1036,15 +1097,14 @@ export function App() {
           // clock, which causes POS to reject the post-KOT order:updated broadcast.
           updatedAt: serverOrder.updatedAt || Date.now(),
         };
-        mergedForBroadcast = newTableState;
         return { ...prev, [tableId]: newTableState };
       });
-      // Broadcast the local-authoritative state to POS so it receives the correct
-      // qty, note, and taxRate (GST) — not the server's accumulated version.
-      if (mergedForBroadcast) {
-        socketRef.current?.emit("order:update", { outletId: outlet?.id, order: mergedForBroadcast });
-        localSocketRef.current?.emit("order:update", { order: mergedForBroadcast });
-      }
+      // Broadcast serverOrder to POS — it has the correct items, qty, and taxRate
+      // already processed by the backend. (The previous mergedForBroadcast pattern
+      // was broken: the functional updater runs asynchronously, so the variable was
+      // always null at the point of the emit check.)
+      socketRef.current?.emit("order:update", { outletId: outlet?.id, order: serverOrder });
+      localSocketRef.current?.emit("order:update", { order: serverOrder });
       // Unblock after a short delay to absorb any late-arriving server echo.
       // The reconciled state is already set above; the delay just ensures the echo
       // (which may be in transit) is discarded rather than overwriting our merged state.
@@ -2066,21 +2126,37 @@ export function App() {
             onSplitBill={() => openOrderScreen(actionTableId, actionArea, "split")}
             onPrintBill={() => handlePrintBill(actionTableId)}
             onCustomerInfo={() => { setShowCustomerInfo(true); }}
+            canSettle={loggedInStaff?.canSettleBill === true && !!(actionOrder?.billRequested)}
+            onSettleBill={() => {
+              setSettleTarget({ tableId: actionTableId, order: orders[actionTableId] });
+              setActionTableId(null);
+              setActionArea(null);
+            }}
             onMarkFree={() => {
               const tbl = actionArea?.tables?.find(t => t.id === actionTableId);
               const ord = orders[actionTableId];
               const items = (ord?.items || []).filter(i => !i.isVoided && !i.isComp);
               const sub = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
-              const tax = items.reduce((s, i) => {
+              const tax = Math.round(items.reduce((s, i) => {
                 const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
-                return s + Math.round((i.price || 0) * (i.quantity || 0) * r / 100);
-              }, 0);
+                return s + (i.price || 0) * (i.quantity || 0) * r / 100;
+              }, 0));
               setConfirmFreeTable({ tableId: actionTableId, tableNumber: tbl?.number || actionTableId, amount: sub + tax });
               setActionTableId(null);
             }}
           />
         );
       })()}
+
+      {/* Settle Payment Modal — UPI / Card collection by captain (permission-gated) */}
+      {settleTarget && (
+        <SettlePaymentModal
+          order={settleTarget.order}
+          defaultTaxRate={outlet?.defaultTaxRate ?? 0}
+          onCollect={(method) => handleSettleBill(settleTarget.tableId, method)}
+          onCancel={() => setSettleTarget(null)}
+        />
+      )}
 
       {/* Customer Info Sheet — optional; reachable from the action sheet (occupied
           tables, long-press) or directly from the order screen (before KOT too) */}
