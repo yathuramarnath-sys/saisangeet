@@ -2834,7 +2834,7 @@ export default function App() {
     if (billPrintingRef.current) return;
     billPrintingRef.current = true;
     const tableId = selectedTableId;
-    const order   = orders[tableId];
+    const order   = ordersRef.current[tableId] || orders[tableId];
     if (!order?.items?.length) { billPrintingRef.current = false; showToast("No items to print"); return; }
 
     // Get / assign bill number from server
@@ -2902,6 +2902,21 @@ export default function App() {
       api.post("/operations/bill-request", { outletId: outlet?.id, tableId })
         .catch(err => console.warn("[POS] bill-request after print failed:", err.message));
     }
+  }
+
+  // ── Billed dine-in settle shortcut ─────────────────────────────────────
+  // When a table is in bill-requested state, the cashier picks Cash/UPI/Card
+  // directly (like Takeaway) instead of going through the full PaymentSheet.
+  // Credit still opens PaymentSheet for customer details.
+  async function handleBilledSettle(method) {
+    if (!selectedTableId) return;
+    if (method === "credit") { setShowPayment(true); return; }
+    const tableId = selectedTableId;
+    const order   = ordersRef.current[tableId] || orders[tableId];
+    if (!order?.items?.length) return;
+    const fin = getFinancials(order, { gstTreatment: outlet?.gstTreatment || "exclusive" });
+    if (!fin || fin.balance <= 0) return;
+    await handleSettle([{ method, amount: fin.balance, label: method.toUpperCase() }]);
   }
 
   // ── Counter-only checkout shortcut ──────────────────────────────────────
@@ -3673,6 +3688,7 @@ export default function App() {
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
           onCounterPrintBill={selectedMirrorOrder ? null : handleCounterPrintAndSettle}
+          onBilledSettle={selectedMirrorOrder ? null : handleBilledSettle}
           onShowHeld={selectedMirrorOrder ? null : (() => setShowHeldOrders(true))}
           heldCount={heldCount}
           cashierName={cashierName}
