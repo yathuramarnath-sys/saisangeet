@@ -65,7 +65,7 @@ async function sendOrderKot(tableId, payload = {}) {
 }
 
 async function requestBillForOrder(tableId, payload = {}) {
-  return requestOrderBill(tableId, resolveActor(payload.actorName, payload.actorRole), payload.isSplit);
+  return requestOrderBill(tableId, resolveActor(payload.actorName, payload.actorRole), payload.isSplit, payload.hasNextOrder);
 }
 
 async function assignWaiterToOrder(tableId, payload = {}) {

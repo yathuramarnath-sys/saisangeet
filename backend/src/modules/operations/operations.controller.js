@@ -604,7 +604,7 @@ async function deviceUpdateKotStatusHandler(req, res) {
  * Response: { ok: true, order? } — order present for dine-in tables.
  */
 async function deviceBillRequestHandler(req, res) {
-  const { outletId, tableId, isSplit } = req.body;
+  const { outletId, tableId, isSplit, hasNextOrder } = req.body;
   const tenantId = req.user?.tenantId || "default";
   const io = req.app.locals.io;
   if (io && outletId) {
@@ -614,7 +614,7 @@ async function deviceBillRequestHandler(req, res) {
   let updatedOrder;
   if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
     try {
-      updatedOrder = await requestBillForOrder(tableId, { actorName: req.user?.name || "POS", isSplit: !!isSplit });
+      updatedOrder = await requestBillForOrder(tableId, { actorName: req.user?.name || "POS", isSplit: !!isSplit, hasNextOrder: !!hasNextOrder });
     } catch (err) {
       console.warn(`[bill-request] requestBill skipped for ${tableId}:`, err.message);
     }
@@ -766,7 +766,9 @@ async function deviceGetOrCreateOrderHandler(req, res) {
   // is wiped before the cashier settles it.
   if (captain === 'true') {
     const hasActiveItems = (result.items || []).some(i => !i.isVoided && !i.isGhostVoid);
-    if (result.billRequested && !result.isClosed && hasActiveItems) {
+    // Only auto-advance when captain explicitly printed the bill (hasNextOrder set by captain app).
+    // Ignore billRequested set by POS or customer QR — those must not clear the active order.
+    if (result.billRequested && result.hasNextOrder && !result.isClosed && hasActiveItems) {
       await clearTableAfterSettle(tableId);
       result = await getOrder(tableId);
     }

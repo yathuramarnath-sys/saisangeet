@@ -817,13 +817,14 @@ function stampBillNo(tableId, billNo, billNoMode, billNoFY, billNoDate) {
   return clone(order);
 }
 
-function requestBill(tableId, actor = "Waiter", isSplit = false) {
+function requestBill(tableId, actor = "Waiter", isSplit = false, hasNextOrder = false) {
   const order = findOrder(tableId);
   assertOrderOpen(order, "request bill");
   order.billRequested = true;
   order.billRequestedAt = new Date().toISOString();
   order.notes = "Bill requested from service floor";
   if (isSplit) order.isSplitBill = true;
+  if (hasNextOrder) order.hasNextOrder = true;
   appendAudit(order, buildAuditEntry("Bill requested", actor, "Now"));
   return clone(order);
 }

@@ -1596,14 +1596,13 @@ export function App() {
     handleUpdateOrder({ ...printOrder, billRequested: true, hasNextOrder: true });
     toast("Printing bill…", { icon: "🖨️" });
 
-    // Await bill-request so the backend marks this order billRequested:true before
-    // we clear the captain's local slot.  When captain opens the table again,
-    // deviceGetOrCreateOrderHandler auto-advances to a fresh empty order on-demand
-    // (sees billRequested:true + items → creates Order 2).  This way Order 2 stays
-    // in backend memory until it is actually settled — not wiped by a speculative
-    // advance called at print time.
+    // Await bill-request so the backend marks billRequested+hasNextOrder before we clear
+    // the captain's local slot. hasNextOrder:true tells deviceGetOrCreateOrderHandler
+    // to auto-advance to a fresh empty order when captain next opens this table.
+    // (billRequested alone is also set by POS/QR — without hasNextOrder the backend
+    //  must NOT clear the active order, so the flag is the disambiguator.)
     try {
-      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid });
+      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true });
     } catch (err) {
       console.warn("[captain] bill-request failed:", err.message);
     }
