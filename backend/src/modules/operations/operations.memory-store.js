@@ -817,9 +817,16 @@ function stampBillNo(tableId, billNo, billNoMode, billNoFY, billNoDate) {
   return clone(order);
 }
 
-function requestBill(tableId, actor = "Waiter", isSplit = false, hasNextOrder = false) {
+function requestBill(tableId, actor = "Waiter", isSplit = false, hasNextOrder = false, orderNumber = null) {
   const order = findOrder(tableId);
   assertOrderOpen(order, "request bill");
+  // Guard: if the caller included the orderNumber they're targeting and it doesn't match
+  // the current order, this is a stale retry from the captain's sync queue after the
+  // original order was settled and a new customer was seated. Drop it silently.
+  if (orderNumber != null && order.orderNumber != null &&
+      String(order.orderNumber) !== String(orderNumber)) {
+    return clone(order);
+  }
   order.billRequested = true;
   order.billRequestedAt = new Date().toISOString();
   order.notes = "Bill requested from service floor";

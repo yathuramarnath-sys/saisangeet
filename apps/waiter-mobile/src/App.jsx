@@ -10,10 +10,11 @@ import { isNativeAndroid } from "./lib/thermalPrint";
 import { getDeviceLocalIp } from "./lib/deviceIp";
 import {
   ACTION as SYNC_ACTION,
-  enqueue       as syncEnqueue,
-  flushQueue    as syncFlushQueue,
+  enqueue            as syncEnqueue,
+  flushQueue         as syncFlushQueue,
   startRetryWorker,
-  getFailedCount as syncFailedCount,
+  getFailedCount     as syncFailedCount,
+  clearBillRequestsByTable,
 } from "./lib/syncQueue";
 import {
   startPrintWorker,
@@ -922,11 +923,13 @@ export function App() {
       if (tableId === selectedTableId) setSelectedTableId(null);
       toast.success(`₹${total.toLocaleString("en-IN")} collected via ${method.toUpperCase()}`);
 
-      // Prune any stale queued bill print jobs for this table so they don't auto-fire later
+      // Prune stale queued bill print jobs so they don't auto-fire on printer reconnect
       const tLabel = order.isCounter
         ? (order.onlinePlatform ? `${order.onlinePlatform} #${order.ticketNumber}` : `Token #${order.ticketNumber}`)
         : `${order.tableNumber}${order.areaName ? " · " + order.areaName : ""}`;
       clearBillJobsByTable(tLabel);
+      // Prune stale BILL_REQUEST sync queue entries so they can't turn a new order blue
+      clearBillRequestsByTable(tableId);
     } catch (err) {
       toast.error("Settlement failed — check connection and try again");
       console.error("[captain] settle bill failed:", err);
@@ -1497,7 +1500,8 @@ export function App() {
     const tMatch = String(tNum).trim().match(/(\d+)\s*$/);
     const tLabel = tMatch ? `Table ${tMatch[1]}` : (String(tNum) || "the table");
     setBillRequestedLabel(tLabel);
-    const billReqPayload = { outletId: outlet?.id, tableId: tid };
+    // Include orderNumber so the backend can reject stale retries that target a new order.
+    const billReqPayload = { outletId: outlet?.id, tableId: tid, orderNumber: order.orderNumber };
     try {
       await api.post("/operations/bill-request", billReqPayload);
     } catch (err) {

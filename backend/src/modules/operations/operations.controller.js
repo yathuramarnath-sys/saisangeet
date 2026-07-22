@@ -604,7 +604,7 @@ async function deviceUpdateKotStatusHandler(req, res) {
  * Response: { ok: true, order? } — order present for dine-in tables.
  */
 async function deviceBillRequestHandler(req, res) {
-  const { outletId, tableId, isSplit, hasNextOrder } = req.body;
+  const { outletId, tableId, isSplit, hasNextOrder, orderNumber } = req.body;
   const tenantId = req.user?.tenantId || "default";
   const io = req.app.locals.io;
   if (io && outletId) {
@@ -614,7 +614,7 @@ async function deviceBillRequestHandler(req, res) {
   let updatedOrder;
   if (tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
     try {
-      updatedOrder = await requestBillForOrder(tableId, { actorName: req.user?.name || "POS", isSplit: !!isSplit, hasNextOrder: !!hasNextOrder });
+      updatedOrder = await requestBillForOrder(tableId, { actorName: req.user?.name || "POS", isSplit: !!isSplit, hasNextOrder: !!hasNextOrder, orderNumber: orderNumber ?? null });
     } catch (err) {
       console.warn(`[bill-request] requestBill skipped for ${tableId}:`, err.message);
     }
