@@ -875,13 +875,21 @@ export function App() {
     if (!order?.items?.length) { toast.error("No items to settle"); return; }
     setSettleTarget(null);
 
-    const billable = (order.items || []).filter(i => !i.isVoided && !i.isComp);
-    const subtotal = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
-    const tax      = Math.round(billable.reduce((s, i) => {
-      const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
-      return s + (i.price || 0) * (i.quantity || 0) * r / 100;
-    }, 0));
-    const total = subtotal + tax;
+    const billable   = (order.items || []).filter(i => !i.isVoided && !i.isComp);
+    const subtotal   = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+    const discount   = Math.min(order.discountAmount || 0, subtotal);
+    const afterDisc  = subtotal - discount;
+    const inclusive  = outlet?.gstTreatment === "inclusive";
+    const defTaxRate = outlet?.defaultTaxRate ?? 0;
+    const taxTotal   = billable.reduce((s, i) => {
+      const lineAmt   = (i.price || 0) * (i.quantity || 0);
+      const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defTaxRate;
+      return s + lineAfter * rate / (inclusive ? (100 + rate) : 100);
+    }, 0);
+    const baseTotal  = inclusive ? afterDisc : afterDisc + taxTotal;
+    const roundOff   = outlet?.roundOff !== false ? Math.round(baseTotal) - baseTotal : 0;
+    const total      = Math.round((baseTotal + roundOff) * 100) / 100;
 
     try {
       let settledOrder = { ...order };
@@ -1113,12 +1121,9 @@ export function App() {
         };
         return { ...prev, [tableId]: newTableState };
       });
-      // Broadcast serverOrder to POS — it has the correct items, qty, and taxRate
-      // already processed by the backend. (The previous mergedForBroadcast pattern
-      // was broken: the functional updater runs asynchronously, so the variable was
-      // always null at the point of the emit check.)
-      socketRef.current?.emit("order:update", { outletId: outlet?.id, order: serverOrder });
-      localSocketRef.current?.emit("order:update", { order: serverOrder });
+      // Do NOT broadcast to POS here — unsent items must not appear on POS
+      // before KOT is sent. doSendKOT emits the reconciled order to POS after
+      // KOT is confirmed, which is the correct trigger.
       // Unblock after a short delay to absorb any late-arriving server echo.
       // The reconciled state is already set above; the delay just ensures the echo
       // (which may be in transit) is discarded rather than overwriting our merged state.
@@ -1208,6 +1213,7 @@ export function App() {
     // handler can also emit order:updated with a server-clock timestamp that would pass
     // the stale-write guard and overwrite captain's locally-adjusted quantities).
     kotInFlightRef.current.add(tid);
+    try {
 
     // Update captain's local state only — mark all items sentToKot optimistically.
     // Do NOT broadcast to POS here: broadcasting with Date.now() (captain's device clock)
@@ -1481,7 +1487,9 @@ export function App() {
         localSocketRef.current?.emit("order:update", { order: reconciledOrder });
       }
     }
-    kotInFlightRef.current.delete(tid);
+    } finally {
+      kotInFlightRef.current.delete(tid);
+    }
 
     setActionTableId(null);    // close action sheet if it was open
     // Note: setSelectedTableId(null) is deferred to KotProgressOverlay onClose / onAddMore
@@ -1606,7 +1614,7 @@ export function App() {
     // (billRequested alone is also set by POS/QR — without hasNextOrder the backend
     //  must NOT clear the active order, so the flag is the disambiguator.)
     try {
-      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true });
+      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true, orderNumber: printOrder.orderNumber ?? null });
     } catch (err) {
       console.warn("[captain] bill-request failed:", err.message);
     }
