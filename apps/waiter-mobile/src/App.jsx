@@ -870,8 +870,10 @@ export function App() {
 
   // ── Settle bill from captain (UPI / Card only, permission-gated) ────────
   // Flow mirrors cashier settlement: assign bill no → record payment → close order.
-  async function handleSettleBill(tableId, method) {
-    const order = orders[tableId];
+  async function handleSettleBill(tableId, method, orderOverride) {
+    // Use the order captured when the captain tapped "Collect" (orderOverride), not
+    // orders[tableId] which may already be blank Order 2 by the time UPI/Card is tapped.
+    const order = orderOverride || orders[tableId];
     if (!order?.items?.length) { toast.error("No items to settle"); return; }
     setSettleTarget(null);
 
@@ -2190,7 +2192,7 @@ export function App() {
         <SettlePaymentModal
           order={settleTarget.order}
           defaultTaxRate={outlet?.defaultTaxRate ?? 0}
-          onCollect={(method) => handleSettleBill(settleTarget.tableId, method)}
+          onCollect={(method) => handleSettleBill(settleTarget.tableId, method, settleTarget.order)}
           onCancel={() => setSettleTarget(null)}
         />
       )}
