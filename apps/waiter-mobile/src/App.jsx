@@ -1701,6 +1701,17 @@ export function App() {
   // Returns to the staff PIN selection screen, not the setup/sync code screen.
   function handleSignOut() {
     setLoggedInStaff(null);   // goes back to PIN login (branchConfig stays intact)
+    // Refresh staff list so any permission changes made in owner web are visible
+    // immediately on the next login (avoids stale canSettleBill / canApplyDiscount).
+    api.get("/devices/staff")
+      .then((res) => {
+        if (Array.isArray(res.staff) && res.staff.length) {
+          const updated = { ...branchConfig, staff: res.staff };
+          setBranchConfig(updated);
+          saveCaptainBranchConfig(updated);
+        }
+      })
+      .catch(() => {});
   }
 
   // ── Sync data (called from MoreScreen) ──────────────────────────────────
