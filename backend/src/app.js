@@ -83,6 +83,10 @@ function createApp() {
       dbStatus = "error";
     }
 
+    const { getAllCachedTenants } = require("./data/owner-setup-store");
+    const tenantCache = getAllCachedTenants();
+    const cachedTenantCount = tenantCache.size;
+
     // Always return 200 — the server is up regardless of DB state because
     // we have JSON-file fallback storage. Returning 503 on DB latency caused
     // Railway healthcheck to kill every deploy even when the app was healthy.
@@ -93,6 +97,7 @@ function createApp() {
       version:     process.env.npm_package_version || "1.0.0",
       environment: process.env.NODE_ENV || "production",
       db:          { status: dbStatus, latencyMs: dbLatencyMs },
+      cache:       { tenants: cachedTenantCount, warm: cachedTenantCount > 0 },
       uptime:      Math.floor(process.uptime()),
       timestamp:   new Date().toISOString(),
     });
