@@ -251,11 +251,16 @@ async function applyOwnerPasswordOverride(queryFn) {
     const { registerUserInIndex } = require("../data/users-index");
 
     const hash = plain ? await bcrypt.hash(String(plain), 10) : null;
-    if (hash)       console.log("[migrate] OWNER_PASSWORD set — applying password override to all tenants…");
-    if (emailPatch) console.log(`[migrate] OWNER_EMAIL set — patching owner email to ${emailPatch} in all tenants…`);
+    // Both OWNER_PASSWORD and OWNER_EMAIL only ever touch the platform-admin
+    // "default" tenant. Never apply them to real restaurant tenants — that would
+    // reset all client passwords on every deploy (the original incident root cause).
+    if (hash)       console.log("[migrate] OWNER_PASSWORD set — applying to default tenant only…");
+    if (emailPatch) console.log(`[migrate] OWNER_EMAIL set — patching owner email for default tenant only…`);
 
-    // Load every tenant, patch the owner's fields, save back to Postgres + cache
-    const rows = await queryFn("SELECT tenant_id, value FROM tenant_settings WHERE key = 'owner_setup'");
+    // Only load the "default" tenant row — never touch client tenant data here.
+    const rows = await queryFn(
+      "SELECT tenant_id, value FROM tenant_settings WHERE tenant_id = 'default' AND key = 'owner_setup'"
+    );
 
     let foundDefault = false;
 
@@ -268,10 +273,8 @@ async function applyOwnerPasswordOverride(queryFn) {
       if (ownerIdx < 0) continue;
 
       const patch = {};
-      if (hash) patch.passwordHash = hash;
-      // OWNER_EMAIL only applies to the platform-admin "default" tenant.
-      // Never overwrite a real restaurant tenant's owner email.
-      if (emailPatch && row.tenant_id === "default") patch.email = emailPatch;
+      if (hash)       patch.passwordHash = hash;
+      if (emailPatch) patch.email        = emailPatch;
       users[ownerIdx] = { ...users[ownerIdx], ...patch };
       data.users = users;
 
@@ -443,12 +446,23 @@ async function warmCachesFromDB(queryFn) {
     const { warmTenantCache }   = require("../data/owner-setup-store");
     const { warmUsersIndexCache } = require("../data/users-index");
 
-    // Load all tenant data into owner-setup-store cache
+    // Load all tenant data into owner-setup-store cache.
+    // Each tenant is isolated — one bad record can't block the rest from loading.
     const rows = await queryFn("SELECT tenant_id, value FROM tenant_settings WHERE key = 'owner_setup'");
+    let warmed = 0, warnedTenants = [];
     for (const row of rows.rows) {
-      warmTenantCache(row.tenant_id, row.value);
+      try {
+        warmTenantCache(row.tenant_id, row.value);
+        warmed++;
+      } catch (err) {
+        console.error(`[migrate] Cache warm failed for tenant ${row.tenant_id}:`, err.message);
+        warnedTenants.push(row.tenant_id);
+      }
     }
-    console.log(`[migrate] Warmed ${rows.rows.length} tenant(s) in memory.`);
+    if (warnedTenants.length) {
+      console.error(`[migrate] ${warnedTenants.length} tenant(s) failed to warm: ${warnedTenants.join(", ")}`);
+    }
+    console.log(`[migrate] Warmed ${warmed}/${rows.rows.length} tenant(s) in memory.`);
 
     // Load users index
     const idx = await queryFn("SELECT identifier, tenant_id FROM users_index");

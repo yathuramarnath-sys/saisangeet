@@ -15,9 +15,21 @@ const _cache = new Map();
 
 /**
  * Called by migrate.js at startup to pre-populate the cache from DB or JSON.
+ * Errors in normalization are isolated per-tenant so one bad tenant can't block
+ * all others from loading.
  */
 function warmTenantCache(tenantId, rawData) {
-  const normalized = normalizeOwnerSetupData(rawData);
+  let normalized;
+  try {
+    normalized = normalizeOwnerSetupData(rawData);
+  } catch (err) {
+    console.error(`[store] warmTenantCache: normalization failed for ${tenantId}:`, err.message);
+    // Store the raw data so the tenant isn't completely locked out.
+    // They may get slightly stale/un-healed data, but logins will still work.
+    const raw = typeof rawData === "string" ? (() => { try { return JSON.parse(rawData); } catch (_) { return {}; } })() : (rawData || {});
+    _cache.set(tenantId, raw);
+    return;
+  }
   _cache.set(tenantId, normalized);
 
   // ── Detect any self-heal changes and persist them back to Postgres ───────────
