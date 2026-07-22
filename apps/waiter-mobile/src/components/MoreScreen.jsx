@@ -25,7 +25,8 @@ function formatSyncAge(ts) {
 
 export function MoreScreen({
   loggedInStaff, outletName, serverId, localPosIp, deviceIp,
-  serverUrl, updateInfo, orders = {}, billAlerts = {}, tableAreas = [], onSync, onSignOut,
+  serverUrl, updateInfo, orders = {}, billAlerts = {}, tableAreas = [],
+  onSync, onSignOut, canSettleBill = false, onSettleBill,
 }) {
   const [sub,        setSub]        = useState(null); // null | 'findPos' | 'settings' | 'pendingBills'
   const [syncSteps,  setSyncSteps]  = useState(null);
@@ -110,6 +111,14 @@ export function MoreScreen({
                 <div key={t.id} className="more2-pending-tile">
                   <span className="more2-pending-tile-num">{t.number || t.id}</span>
                   {amt > 0 && <span className="more2-pending-tile-amt">₹{amt.toLocaleString("en-IN")}</span>}
+                  {canSettleBill && (
+                    <button
+                      className="more2-pb-collect-btn"
+                      onClick={(e) => { e.stopPropagation(); tapImpact(); onSettleBill?.(t.id); }}
+                    >
+                      Collect
+                    </button>
+                  )}
                 </div>
               );
             })}

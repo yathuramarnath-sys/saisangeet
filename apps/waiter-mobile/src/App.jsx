@@ -10,15 +10,17 @@ import { isNativeAndroid } from "./lib/thermalPrint";
 import { getDeviceLocalIp } from "./lib/deviceIp";
 import {
   ACTION as SYNC_ACTION,
-  enqueue       as syncEnqueue,
-  flushQueue    as syncFlushQueue,
+  enqueue            as syncEnqueue,
+  flushQueue         as syncFlushQueue,
   startRetryWorker,
-  getFailedCount as syncFailedCount,
+  getFailedCount     as syncFailedCount,
+  clearBillRequestsByTable,
 } from "./lib/syncQueue";
 import {
   startPrintWorker,
-  flushQueue     as printFlushQueue,
-  getFailedCount as printFailedCount,
+  flushQueue          as printFlushQueue,
+  getFailedCount      as printFailedCount,
+  clearBillJobsByTable,
 } from "./lib/printQueue";
 import {
   mobileAreas      as seedAreas,
@@ -873,13 +875,21 @@ export function App() {
     if (!order?.items?.length) { toast.error("No items to settle"); return; }
     setSettleTarget(null);
 
-    const billable = (order.items || []).filter(i => !i.isVoided && !i.isComp);
-    const subtotal = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
-    const tax      = Math.round(billable.reduce((s, i) => {
-      const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
-      return s + (i.price || 0) * (i.quantity || 0) * r / 100;
-    }, 0));
-    const total = subtotal + tax;
+    const billable   = (order.items || []).filter(i => !i.isVoided && !i.isComp);
+    const subtotal   = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+    const discount   = Math.min(order.discountAmount || 0, subtotal);
+    const afterDisc  = subtotal - discount;
+    const inclusive  = outlet?.gstTreatment === "inclusive";
+    const defTaxRate = outlet?.defaultTaxRate ?? 0;
+    const taxTotal   = billable.reduce((s, i) => {
+      const lineAmt   = (i.price || 0) * (i.quantity || 0);
+      const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defTaxRate;
+      return s + lineAfter * rate / (inclusive ? (100 + rate) : 100);
+    }, 0);
+    const baseTotal  = inclusive ? afterDisc : afterDisc + taxTotal;
+    const roundOff   = outlet?.roundOff !== false ? Math.round(baseTotal) - baseTotal : 0;
+    const total      = Math.round((baseTotal + roundOff) * 100) / 100;
 
     try {
       let settledOrder = { ...order };
@@ -920,6 +930,14 @@ export function App() {
       });
       if (tableId === selectedTableId) setSelectedTableId(null);
       toast.success(`₹${total.toLocaleString("en-IN")} collected via ${method.toUpperCase()}`);
+
+      // Prune stale queued bill print jobs so they don't auto-fire on printer reconnect
+      const tLabel = order.isCounter
+        ? (order.onlinePlatform ? `${order.onlinePlatform} #${order.ticketNumber}` : `Token #${order.ticketNumber}`)
+        : `${order.tableNumber}${order.areaName ? " · " + order.areaName : ""}`;
+      clearBillJobsByTable(tLabel);
+      // Prune stale BILL_REQUEST sync queue entries so they can't turn a new order blue
+      clearBillRequestsByTable(tableId);
     } catch (err) {
       toast.error("Settlement failed — check connection and try again");
       console.error("[captain] settle bill failed:", err);
@@ -1103,12 +1121,9 @@ export function App() {
         };
         return { ...prev, [tableId]: newTableState };
       });
-      // Broadcast serverOrder to POS — it has the correct items, qty, and taxRate
-      // already processed by the backend. (The previous mergedForBroadcast pattern
-      // was broken: the functional updater runs asynchronously, so the variable was
-      // always null at the point of the emit check.)
-      socketRef.current?.emit("order:update", { outletId: outlet?.id, order: serverOrder });
-      localSocketRef.current?.emit("order:update", { order: serverOrder });
+      // Do NOT broadcast to POS here — unsent items must not appear on POS
+      // before KOT is sent. doSendKOT emits the reconciled order to POS after
+      // KOT is confirmed, which is the correct trigger.
       // Unblock after a short delay to absorb any late-arriving server echo.
       // The reconciled state is already set above; the delay just ensures the echo
       // (which may be in transit) is discarded rather than overwriting our merged state.
@@ -1198,6 +1213,7 @@ export function App() {
     // handler can also emit order:updated with a server-clock timestamp that would pass
     // the stale-write guard and overwrite captain's locally-adjusted quantities).
     kotInFlightRef.current.add(tid);
+    try {
 
     // Update captain's local state only — mark all items sentToKot optimistically.
     // Do NOT broadcast to POS here: broadcasting with Date.now() (captain's device clock)
@@ -1471,7 +1487,9 @@ export function App() {
         localSocketRef.current?.emit("order:update", { order: reconciledOrder });
       }
     }
-    kotInFlightRef.current.delete(tid);
+    } finally {
+      kotInFlightRef.current.delete(tid);
+    }
 
     setActionTableId(null);    // close action sheet if it was open
     // Note: setSelectedTableId(null) is deferred to KotProgressOverlay onClose / onAddMore
@@ -1490,7 +1508,8 @@ export function App() {
     const tMatch = String(tNum).trim().match(/(\d+)\s*$/);
     const tLabel = tMatch ? `Table ${tMatch[1]}` : (String(tNum) || "the table");
     setBillRequestedLabel(tLabel);
-    const billReqPayload = { outletId: outlet?.id, tableId: tid };
+    // Include orderNumber so the backend can reject stale retries that target a new order.
+    const billReqPayload = { outletId: outlet?.id, tableId: tid, orderNumber: order.orderNumber };
     try {
       await api.post("/operations/bill-request", billReqPayload);
     } catch (err) {
@@ -1589,14 +1608,13 @@ export function App() {
     handleUpdateOrder({ ...printOrder, billRequested: true, hasNextOrder: true });
     toast("Printing bill…", { icon: "🖨️" });
 
-    // Await bill-request so the backend marks this order billRequested:true before
-    // we clear the captain's local slot.  When captain opens the table again,
-    // deviceGetOrCreateOrderHandler auto-advances to a fresh empty order on-demand
-    // (sees billRequested:true + items → creates Order 2).  This way Order 2 stays
-    // in backend memory until it is actually settled — not wiped by a speculative
-    // advance called at print time.
+    // Await bill-request so the backend marks billRequested+hasNextOrder before we clear
+    // the captain's local slot. hasNextOrder:true tells deviceGetOrCreateOrderHandler
+    // to auto-advance to a fresh empty order when captain next opens this table.
+    // (billRequested alone is also set by POS/QR — without hasNextOrder the backend
+    //  must NOT clear the active order, so the flag is the disambiguator.)
     try {
-      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid });
+      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true, orderNumber: printOrder.orderNumber ?? null });
     } catch (err) {
       console.warn("[captain] bill-request failed:", err.message);
     }
@@ -2073,6 +2091,8 @@ export function App() {
             tableAreas={areas}
             onSync={handleSync}
             onSignOut={() => setShowLogout(true)}
+            canSettleBill={loggedInStaff?.canSettleBill === true}
+            onSettleBill={(tid) => setSettleTarget({ tableId: tid, order: orders[tid] || billAlerts[tid] })}
           />
         )}
       </main>

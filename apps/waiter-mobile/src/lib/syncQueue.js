@@ -84,6 +84,19 @@ function dequeue(id) {
   save(load().filter(e => e.id !== id));
 }
 
+/**
+ * Remove all PENDING BILL_REQUEST entries for a specific tableId.
+ * Call when an order is settled so stale queued bill requests can't
+ * fire against a new customer's fresh order on the same table.
+ * @param {string} tableId
+ */
+export function clearBillRequestsByTable(tableId) {
+  if (!tableId) return;
+  save(load().filter(e =>
+    !(e.action === ACTION.BILL_REQUEST && e.payload?.tableId === tableId && e.status === STATUS.PENDING)
+  ));
+}
+
 /** Count of entries that haven't been synced yet (PENDING + FAILED). */
 export function getPendingCount() {
   return load().length;
