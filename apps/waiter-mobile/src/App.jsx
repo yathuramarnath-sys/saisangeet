@@ -427,9 +427,11 @@ export function App() {
             const localOnly   = (current.items || []).filter(
               i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
             );
-            if (localOnly.length > 0) {
-              merged = { ...o, items: [...(o.items || []), ...localOnly] };
-            }
+            merged = {
+              ...o,
+              assignedWaiter: o.assignedWaiter || current.assignedWaiter || null,
+              ...(localOnly.length > 0 ? { items: [...(o.items || []), ...localOnly] } : {}),
+            };
           }
           return { ...p, [o.tableId]: merged };
           });
@@ -575,9 +577,11 @@ export function App() {
               const localOnly   = (current.items || []).filter(
                 i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
               );
-              if (localOnly.length > 0) {
-                merged = { ...o, items: [...(o.items || []), ...localOnly] };
-              }
+              merged = {
+                ...o,
+                assignedWaiter: o.assignedWaiter || current.assignedWaiter || null,
+                ...(localOnly.length > 0 ? { items: [...(o.items || []), ...localOnly] } : {}),
+              };
             }
             return { ...p, [o.tableId]: merged };
           }));
@@ -1311,6 +1315,7 @@ export function App() {
     // of truth) to print waiter copy + per-station copies. Falls back to local
     // printing if POS is unreachable.
     let posDelegated = false;
+    let captainPrinted = false;
     try {
       const { printKOT, getWaiterKotPrinter, getKotPrinterForStation, kotAutoSendEnabled } =
         await import("./lib/kotPrint.js");
@@ -1352,6 +1357,7 @@ export function App() {
               printKOT(order, stItems.length ? stItems : kot.items, stPrinter, kotNumber, { sentBy: actorName, waiter: waiterToShow });
             }
           });
+          captainPrinted = true;
         }
       }
     } catch (_) { /* printer not configured — KDS still receives it */ }
@@ -1375,7 +1381,7 @@ export function App() {
         }),
       actorName:         actorName,
       waiterName:        waiterToShow || "",
-      skipPrint:         posDelegated,
+      skipPrint:         posDelegated || captainPrinted,
       backendKotNumber:  serverKotNumber,
     });
 
