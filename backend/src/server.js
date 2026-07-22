@@ -391,15 +391,15 @@ server.listen(env.port, () => {
         hydrateShifts(),         // open/closed shifts + cash movements
       ]).catch(err => console.error("[startup] Hydration error (non-fatal):", err.message));
 
-      // Auto-save active order state to DB every 60 seconds
-      // so a crash in the middle of service loses at most 1 minute of data
+      // Auto-save active order state to DB every 10 seconds
+      // so a crash in the middle of service loses at most 10 seconds of data
       if (env.enableDatabase) {
         setInterval(() => {
           persistOperationsState().catch(err =>
             console.error("[auto-save] Error:", err.message)
           );
-        }, 60_000);
-        console.log("[auto-save] Active order state will be saved every 60 s");
+        }, 10_000);
+        console.log("[auto-save] Active order state will be saved every 10 s");
       }
 
       // Schedule nightly backup email at midnight IST
