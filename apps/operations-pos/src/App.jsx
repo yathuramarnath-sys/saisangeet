@@ -374,8 +374,10 @@ export default function App() {
   const socketRef      = useRef(null);   // cloud socket
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
-  const ordersRef       = useRef({});
-  const mirrorOrdersRef = useRef({});
+  const ordersRef        = useRef({});
+  const mirrorOrdersRef  = useRef({});
+  // Tracks orderNumbers settled locally so stale re-broadcasts from Captain are ignored
+  const settledOrderNums = useRef(new Set());
   // Mirror (pending bill) orders waiting for cashier settlement while a new order is active
   const [mirrorOrders, setMirrorOrders] = useState(() => {
     try { return JSON.parse(localStorage.getItem(MIRROR_ORDERS_KEY) || "null") || {}; } catch { return {}; }
@@ -705,6 +707,17 @@ export default function App() {
         socket.on("order:updated", (updatedOrder) => {
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
+            // Block stale re-broadcasts of orders the POS already settled locally.
+            // Captain device may not know about the settlement yet and re-emit the
+            // old billRequested:true order; the 30s stale-write guard isn't enough
+            // because the re-broadcast can arrive within 30s of settlement.
+            if (
+              updatedOrder.orderNumber != null &&
+              settledOrderNums.current.has(updatedOrder.orderNumber) &&
+              !updatedOrder.isClosed
+            ) {
+              return prev;
+            }
             // Petpooja-style mirror table: if POS has a pending bill for this table
             // (billRequested:true, different orderNumber) the incoming update is a new
             // seating by Captain.  Preserve the pending bill as a "mirror" tile so the
@@ -2120,6 +2133,10 @@ export default function App() {
     }
 
     // ── Full settlement ───────────────────────────────────────────────────
+    // Record orderNumber so the order:updated handler can drop stale re-broadcasts
+    // from Captain (who may re-emit the old billed order before learning of settlement).
+    settledOrderNums.current.add(order.orderNumber);
+
     // Detect credit sale — payment method "credit" carries creditCustomer details
     const creditPayment    = newPayments.find(p => p.method === "credit");
     const isCreditSale     = !!creditPayment;
