@@ -13,13 +13,33 @@ import { api } from "../lib/api";
  *   onConfirmed — called when payment is confirmed
  *   onClose     — called when cashier manually closes (cancel / use different method)
  */
-export function PhonePeQRModal({ order, outletId, socket, onConfirmed, onClose }) {
+export function PhonePeQRModal({ order, outletId, socket, defaultTaxRate = 0, outlet, onConfirmed, onClose }) {
   const [state,   setState]   = useState("loading"); // loading | ready | confirmed | error
   const [qr,      setQr]      = useState(null);      // { qrDataUrl, amount, txnId, expiresInSecs }
   const [elapsed, setElapsed] = useState(0);
   const [errMsg,  setErrMsg]  = useState("");
 
-  const amount     = order?.totalAmount ?? order?.total ?? 0;
+  // Captain order objects don't have totalAmount/total — compute from items
+  const amount = (() => {
+    if (order?.totalAmount) return order.totalAmount;
+    if (order?.total)       return order.total;
+    const billable  = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
+    const subtotal  = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+    const discount  = Math.min(order?.discountAmount || 0, subtotal);
+    const afterDisc = subtotal - discount;
+    const inclusive = outlet?.gstTreatment === "inclusive";
+    const defRate   = outlet?.defaultTaxRate ?? defaultTaxRate;
+    const tax       = billable.reduce((s, i) => {
+      const lineAmt   = (i.price || 0) * (i.quantity || 0);
+      const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
+      const r         = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defRate;
+      return s + lineAfter * r / (inclusive ? (100 + r) : 100);
+    }, 0);
+    const baseTotal = inclusive ? afterDisc : afterDisc + tax;
+    const roundOff  = outlet?.roundOff !== false ? Math.round(baseTotal) - baseTotal : 0;
+    return Math.round((baseTotal + roundOff) * 100) / 100;
+  })();
+
   const tableLabel = order?.tableLabel  ?? order?.areaName
     ? `${order.areaName} — Table ${order.tableNumber}`
     : `Table ${order?.tableNumber || ""}`;

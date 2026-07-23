@@ -118,32 +118,34 @@ export function OrderScreen({
     const item = items[idx];
     if (!item) return;
     const wouldRemove = (item.quantity || 1) + delta <= 0;
+    // Capture id at tap-time so the functional updaters below look up by stable id,
+    // not by render-time index which may be stale if items were concurrently added.
+    const itemId = item.id;
 
     if (wouldRemove) {
-      if (onRequestRemoveItem && item.id) {
-        onRequestRemoveItem({ itemId: item.id, itemName: item.name, isSent: !!item.sentToKot });
-      } else if (onRemoveItem && item.id) {
-        onRemoveItem(item.id);
+      if (onRequestRemoveItem && itemId) {
+        onRequestRemoveItem({ itemId, itemName: item.name, isSent: !!item.sentToKot });
+      } else if (onRemoveItem && itemId) {
+        onRemoveItem(itemId);
       } else {
         onUpdateOrder((prevOrders) => {
           const prevOrder = prevOrders[order.tableId];
           if (!prevOrder) return { tableId: order.tableId, order };
-          const next = [...(prevOrder.items || [])];
-          next.splice(idx, 1);
+          const next = (prevOrder.items || []).filter(i => i.id !== itemId);
           return { tableId: order.tableId, order: { ...prevOrder, items: next } };
         });
       }
     } else {
-      // Use functional updater to avoid stale closure on rapid taps
+      // Use functional updater + id lookup to avoid stale-index on rapid taps
       onUpdateOrder((prevOrders) => {
         const prevOrder = prevOrders[order.tableId];
         if (!prevOrder) return { tableId: order.tableId, order };
-        const next = [...(prevOrder.items || [])];
-        const cur = next[idx];
-        if (!cur) return { tableId: order.tableId, order: prevOrder };
-        const newQty = (cur.quantity || 1) + delta;
-        if (newQty <= 0) return { tableId: order.tableId, order: prevOrder };
-        next[idx] = { ...cur, quantity: newQty };
+        const next = (prevOrder.items || []).map(cur => {
+          if (cur.id !== itemId) return cur;
+          const newQty = (cur.quantity || 1) + delta;
+          if (newQty <= 0) return cur;
+          return { ...cur, quantity: newQty };
+        });
         return { tableId: order.tableId, order: { ...prevOrder, items: next } };
       });
     }
@@ -151,9 +153,16 @@ export function OrderScreen({
   }
 
   function saveNote(idx, val) {
-    const next = [...items];
-    next[idx] = { ...next[idx], note: val };
-    onUpdateOrder({ ...order, items: next });
+    const targetId = items[idx]?.id;
+    onUpdateOrder((prevOrders) => {
+      const prevOrder = prevOrders[order.tableId];
+      if (!prevOrder) return { tableId: order.tableId, order };
+      const next = (prevOrder.items || []).map((it, i) => {
+        if (targetId ? it.id === targetId : i === idx) return { ...it, note: val };
+        return it;
+      });
+      return { tableId: order.tableId, order: { ...prevOrder, items: next } };
+    });
     setNoteItemIdx(null);
   }
 
@@ -194,6 +203,7 @@ export function OrderScreen({
       <SplitBill
         order={order}
         outletName={outletName}
+        defaultTaxRate={defaultTaxRate}
         onBack={() => setScreen("order")}
         onPrint={(items, seatLabel) => onPrintSplitBill?.(order.tableId, items, seatLabel)}
       />
@@ -509,6 +519,7 @@ export function OrderScreen({
           order={order}
           outletId={outletId}
           socket={socket}
+          defaultTaxRate={defaultTaxRate}
           onConfirmed={() => {
             // Payment confirmed — table will clear via socket "order:updated"
             // broadcast from the backend webhook. Just close the modal.

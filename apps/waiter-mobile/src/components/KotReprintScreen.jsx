@@ -5,7 +5,7 @@ function formatTime(isoStr) {
   return new Date(isoStr).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
-export function KotReprintScreen({ kot, onReprint, onRetry, onVoid, onClose }) {
+export function KotReprintScreen({ kot, defaultTaxRate = 0, onReprint, onRetry, onVoid, onClose }) {
   if (!kot) return null;
 
   const isSent   = !!kot.kotNumber && !kot.failedAt;
@@ -16,7 +16,7 @@ export function KotReprintScreen({ kot, onReprint, onRetry, onVoid, onClose }) {
   const items = (kot.items || []).filter(i => !i.isVoided);
   const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
   const tax      = items.reduce((s, i) => {
-    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
     return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
   }, 0);
   const total = subtotal + tax;

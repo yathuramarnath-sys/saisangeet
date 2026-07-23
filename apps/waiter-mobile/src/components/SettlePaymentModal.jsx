@@ -1,13 +1,21 @@
 import { tapImpact } from "../lib/haptics";
 
-export function SettlePaymentModal({ order, defaultTaxRate = 0, onCollect, onCancel }) {
-  const billable = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
-  const subtotal = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
-  const tax      = Math.round(billable.reduce((s, i) => {
-    const r = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
-    return s + (i.price || 0) * (i.quantity || 0) * r / 100;
+export function SettlePaymentModal({ order, defaultTaxRate = 0, outlet, onCollect, onCancel }) {
+  const billable  = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
+  const subtotal  = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+  const discount  = Math.min(order?.discountAmount || 0, subtotal);
+  const afterDisc = subtotal - discount;
+  const inclusive = outlet?.gstTreatment === "inclusive";
+  const defRate   = outlet?.defaultTaxRate ?? defaultTaxRate;
+  const tax       = Math.round(billable.reduce((s, i) => {
+    const lineAmt   = (i.price || 0) * (i.quantity || 0);
+    const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
+    const r         = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defRate;
+    return s + lineAfter * r / (inclusive ? (100 + r) : 100);
   }, 0));
-  const total    = subtotal + tax;
+  const baseTotal = inclusive ? afterDisc : afterDisc + tax;
+  const roundOff  = outlet?.roundOff !== false ? Math.round(baseTotal) - baseTotal : 0;
+  const total     = Math.round((baseTotal + roundOff) * 100) / 100;
 
   return (
     <>
@@ -31,10 +39,22 @@ export function SettlePaymentModal({ order, defaultTaxRate = 0, onCollect, onCan
               <span>Subtotal</span>
               <span>₹{subtotal.toLocaleString("en-IN")}</span>
             </div>
+            {discount > 0 && (
+              <div className="spm-subtotal-row">
+                <span>Discount</span>
+                <span>−₹{discount.toLocaleString("en-IN")}</span>
+              </div>
+            )}
             {tax > 0 && (
               <div className="spm-subtotal-row">
                 <span>GST</span>
                 <span>₹{tax.toLocaleString("en-IN")}</span>
+              </div>
+            )}
+            {roundOff !== 0 && (
+              <div className="spm-subtotal-row">
+                <span>Round Off</span>
+                <span>{roundOff >= 0 ? "+" : ""}₹{roundOff.toFixed(2)}</span>
               </div>
             )}
           </div>

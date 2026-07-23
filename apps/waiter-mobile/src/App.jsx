@@ -1217,11 +1217,14 @@ export function App() {
     kotInFlightRef.current.add(tid);
     try {
 
-    // Update captain's local state only — mark all items sentToKot optimistically.
+    // Update captain's local state only — mark only THIS KOT's items sentToKot optimistically.
+    // Use the IDs captured in `unsent` (snapshot before awaits) so items added AFTER the
+    // snapshot (but before this setOrders runs) are NOT falsely marked as sent-to-kitchen.
     // Do NOT broadcast to POS here: broadcasting with Date.now() (captain's device clock)
     // poisons POS's stale-write guard, causing it to reject the post-KOT server broadcast
     // (server clock may be behind captain's clock). POS gets the correct state via the
     // post-KOT reconciliation broadcast which uses lastServerOrder.updatedAt + 1.
+    const unsentIds = new Set(unsent.map(i => i.id));
     setOrders((prev) => {
       if (!prev[tid]) return prev;
       return {
@@ -1229,7 +1232,10 @@ export function App() {
         [tid]: {
           ...prev[tid],
           assignedWaiter: waiterToShow || "",
-          items: (prev[tid].items || []).map((i) => ({ ...i, sentToKot: true })),
+          items: (prev[tid].items || []).map((i) => ({
+            ...i,
+            sentToKot: i.sentToKot || unsentIds.has(i.id),
+          })),
         },
       };
     });
@@ -1269,6 +1275,7 @@ export function App() {
     const clientKotId = `ckt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     let serverKots = [];
     let lastServerOrder;
+    let kotApiFailed = false;
     try {
       const result = await api.post("/operations/kot", {
         outletId:    effectiveOutletId,
@@ -1323,6 +1330,7 @@ export function App() {
         return next;
       });
       toast.error("KOT queued — retry from menu when back online");
+      kotApiFailed = true;
     }
 
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
@@ -1403,13 +1411,17 @@ export function App() {
       backendKotNumber:  serverKotNumber,
     });
 
-    // Show KOT success screen — replaces toast, gives captain a clean confirmation
-    setKotState({
-      phase:      "success",
-      kotNumber:  serverKotNumber,
-      tableLabel: kotTableLabel,
-      itemCount:  unsent.length,
-    });
+    // Show KOT success/failure screen — only show success when API actually succeeded
+    if (kotApiFailed) {
+      setKotState({ phase: "idle" });
+    } else {
+      setKotState({
+        phase:      "success",
+        kotNumber:  serverKotNumber,
+        tableLabel: kotTableLabel,
+        itemCount:  unsent.length,
+      });
+    }
 
     // Record in shift history so the KOTs tab can show All / Sent / Unsuccessful
     setSentKots(prev => {
@@ -1950,8 +1962,11 @@ export function App() {
 
   // ── Handle customer order accepted/rejected ───────────────────────────────
   function handleCustomerOrderHandled(orderId) {
-    setCustomerOrders((prev) => prev.filter((o) => o.id !== orderId));
-    if (customerOrders.length <= 1) setShowIncoming(false);
+    setCustomerOrders((prev) => {
+      const next = prev.filter((o) => o.id !== orderId);
+      if (next.length === 0) setShowIncoming(false);
+      return next;
+    });
   }
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -2073,6 +2088,7 @@ export function App() {
             pendingKots={pendingKots}
             sentKots={sentKots}
             outletName={outlet?.name || branchConfig?.outletName}
+            defaultTaxRate={outlet?.defaultTaxRate ?? 0}
             onRetry={handleRetryKot}
             onRetryAll={handleRetryAllKots}
             onClear={handleClearKot}
@@ -2192,6 +2208,7 @@ export function App() {
         <SettlePaymentModal
           order={settleTarget.order}
           defaultTaxRate={outlet?.defaultTaxRate ?? 0}
+          outlet={outlet}
           onCollect={(method) => handleSettleBill(settleTarget.tableId, method, settleTarget.order)}
           onCancel={() => setSettleTarget(null)}
         />

@@ -14,7 +14,7 @@ function itemsSummary(items = []) {
   return `${active.length} item${active.length !== 1 ? "s" : ""} · ${names.join(", ")}${extra}`;
 }
 
-export function FailedKotsScreen({ pendingKots, sentKots = [], outletName, onRetry, onRetryAll, onClear, onClose, onReprint }) {
+export function FailedKotsScreen({ pendingKots, sentKots = [], outletName, defaultTaxRate = 0, onRetry, onRetryAll, onClear, onClose, onReprint }) {
   const [tab,         setTab]         = useState("all"); // "all" | "sent" | "failed"
   const [selectedKot, setSelectedKot] = useState(null);
 
@@ -22,6 +22,7 @@ export function FailedKotsScreen({ pendingKots, sentKots = [], outletName, onRet
     return (
       <KotReprintScreen
         kot={selectedKot}
+        defaultTaxRate={defaultTaxRate}
         isSent={selectedKot.status === "sent"}
         onRetry={(kot) => { onRetry(kot); setSelectedKot(null); }}
         onReprint={onReprint ? (kot) => { onReprint(kot); setSelectedKot(null); } : undefined}
