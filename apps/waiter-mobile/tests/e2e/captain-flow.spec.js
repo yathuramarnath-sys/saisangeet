@@ -94,8 +94,15 @@ async function openFreeTable(page) {
   const tableNum = await freeTable.locator(".tf2-table-num").textContent();
   await freeTable.click();
 
-  // Order screen opens — allow up to 20s for the live API call to complete
-  await page.waitForSelector(".os2-page", { timeout: 20000 });
+  // Free tables use autoOpen="menu" — the app skips .os2-page and renders MenuBrowser
+  // (.mb2-page) directly. Wait for whichever appears first, then back out of the menu
+  // to land on the order screen (.os2-page) so all callers get a consistent entry point.
+  await page.waitForSelector(".os2-page, .mb2-page", { timeout: 20000 });
+  if (await page.locator(".mb2-page").isVisible()) {
+    await page.locator(".mb2-back-btn").first().click();
+    await page.waitForSelector(".os2-page", { timeout: 10000 });
+  }
+
   console.log("  Opened table:", tableNum?.trim());
   return tableNum?.trim();
 }
