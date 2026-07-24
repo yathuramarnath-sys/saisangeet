@@ -66,7 +66,12 @@ async function login(page) {
 /** Find the first free table and open it. Returns the table number text. */
 async function openFreeTable(page) {
   // Free tables have class tf2-table-free or similar; click the first one
-  const freeTable = page.locator(".tf2-table").filter({ hasNot: page.locator(".tf2-table-occ, .tf2-table-bill, .tf2-table-hold") }).first();
+  const freeTables = page.locator(".tf2-table").filter({ hasNot: page.locator(".tf2-table-occ, .tf2-table-bill, .tf2-table-hold") });
+  const count = await freeTables.count();
+  if (count === 0) {
+    test.skip(true, "No free tables available in the outlet right now — skipping table flow test");
+  }
+  const freeTable = freeTables.first();
   await expect(freeTable).toBeVisible({ timeout: 10000 });
   const tableNum = await freeTable.locator(".tf2-table-num").textContent();
   await freeTable.click();
@@ -269,8 +274,8 @@ test.describe("Captain App — Core Flow", () => {
       await page.locator(".ls2-key", { hasText: digit }).first().click();
     }
 
-    // Error state should appear — shake animation or error label
-    await expect(page.locator(".ls2-shake, .ls2-pin-label-error")).toBeVisible({ timeout: 5000 });
+    // Error state should appear — error label text
+    await expect(page.locator(".ls2-pin-label-error")).toBeVisible({ timeout: 5000 });
     // Floor plan must NOT appear
     await expect(page.locator(".tf2-page")).not.toBeVisible();
   });
@@ -282,7 +287,7 @@ test.describe("Captain App — Core Flow", () => {
     await page.fill(".su2-input", "XXXX-INVALID-CODE");
     await page.click(".su2-btn");
 
-    await expect(page.locator(".su2-error, .su2-input-error")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".su2-error")).toBeVisible({ timeout: 10000 });
   });
 
 });
