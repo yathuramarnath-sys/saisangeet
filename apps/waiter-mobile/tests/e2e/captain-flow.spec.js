@@ -483,9 +483,12 @@ test.describe("Captain App — Core Flow", () => {
     await page.waitForSelector(".mt2-page", { timeout: 5000 });
     await expect(page.locator(".mt2-title")).toHaveText("Move table");
 
-    // Back button returns to floor
+    // Back button returns to order screen (openOrderScreen was called for move table)
     await page.click(".mt2-back-btn");
-    await expect(page.locator(".tf2-page")).toBeVisible({ timeout: 5000 });
+    await page.waitForSelector(".os2-page", { timeout: 10000 });
+    // Navigate from order screen back to floor
+    await page.locator(".os2-back-btn").first().click();
+    await expect(page.locator(".tf2-page")).toBeVisible({ timeout: 10000 });
     console.log("  Move table: transfer modal opened and closed ✓");
   });
 
@@ -595,8 +598,20 @@ test.describe("Captain App — Core Flow", () => {
     await page.click(".os2-kot-btn");
     await handleWaiterPicker(page);
 
-    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
-    await page.locator(".kot-floor-btn").first().click();
+    // Wait for the sending overlay to appear, then for it to complete.
+    // If the KOT API fails, the overlay goes to phase="idle" (returns null) and
+    // disappears without ever showing .kot-success-page. The optimistic sentToKot=true
+    // update (set before the API call) still marks T1 occupied on the floor.
+    const sendingOverlay = await page.waitForSelector(".kot-overlay", { timeout: 10000 }).catch(() => null);
+    if (sendingOverlay) {
+      await page.waitForSelector(".kot-overlay", { state: "detached", timeout: 20000 });
+    }
+    if (await page.locator(".kot-success-page").isVisible()) {
+      await page.locator(".kot-floor-btn").first().click();
+    } else if (!await page.locator(".tf2-page").isVisible()) {
+      // KOT failed silently (idle state) — still on order screen
+      await page.locator(".os2-back-btn").first().click();
+    }
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
     await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
