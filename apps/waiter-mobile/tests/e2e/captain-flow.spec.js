@@ -65,8 +65,8 @@ async function login(page) {
 
 /** Find the first free table and open it. Returns the table number text. */
 async function openFreeTable(page) {
-  // Tables are .tf2-card; free tables have data-st="free"
-  const freeTables = page.locator('.tf2-card[data-st="free"]');
+  // Tables are .tf2-card; free tables have data-st="open" (TF2_LABEL["open"] = "Free")
+  const freeTables = page.locator('.tf2-card[data-st="open"]');
   const count = await freeTables.count();
   if (count === 0) {
     test.skip(true, "No free tables available in the outlet right now — skipping table flow test");
@@ -470,6 +470,169 @@ test.describe("Captain App — Core Flow", () => {
     await page.click(".mt2-back-btn");
     await expect(page.locator(".tf2-page")).toBeVisible({ timeout: 5000 });
     console.log("  Move table: transfer modal opened and closed ✓");
+  });
+
+  // ── 15. Running total on table card ─────────────────────────────────────
+  test("15. balance — table card shows ₹ running total after KOT", async ({ page }) => {
+    await clearState(page); await setupDevice(page); await login(page);
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+
+    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
+    if (waiterPickerVisible) {
+      await page.locator(".wp2-row").first().click();
+      const confirmBtn = page.locator(".wp2-done").first();
+      if (await confirmBtn.isVisible()) await confirmBtn.click();
+    }
+
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+
+    // Occupied table card bottom row must show a ₹ amount
+    const occupiedCard = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedCard).toBeVisible({ timeout: 5000 });
+    const bottomText = await occupiedCard.locator(".tf2-bottom-text").textContent();
+    expect(bottomText).toMatch(/₹/);
+    console.log("  Running total on card:", bottomText?.trim());
+  });
+
+  // ── 16. Action sheet subtitle running total ──────────────────────────────
+  test("16. balance — action sheet subtitle shows ₹ running total", async ({ page }) => {
+    await clearState(page); await setupDevice(page); await login(page);
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+
+    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
+    if (waiterPickerVisible) {
+      await page.locator(".wp2-row").first().click();
+      const confirmBtn = page.locator(".wp2-done").first();
+      if (await confirmBtn.isVisible()) await confirmBtn.click();
+    }
+
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+
+    // Long press occupied table → action sheet
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedTable).toBeVisible({ timeout: 5000 });
+    const box = await occupiedTable.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    await page.waitForSelector(".tas2-sheet", { timeout: 5000 });
+
+    // Subtitle: "Area · X guests · ₹NNN running"
+    const subtitle = await page.locator(".tas2-subtitle").textContent();
+    expect(subtitle).toMatch(/₹/);
+    expect(subtitle).toMatch(/running/i);
+    console.log("  Action sheet subtitle:", subtitle?.trim());
+
+    await page.click(".tas2-cancel");
+    await expect(page.locator(".tas2-sheet")).not.toBeVisible({ timeout: 3000 });
+  });
+
+  // ── 17. Print Bill clears captain slot ──────────────────────────────────
+  test("17. billing — Print Bill from action sheet clears table from captain view", async ({ page }) => {
+    await clearState(page); await setupDevice(page); await login(page);
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+
+    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
+    if (waiterPickerVisible) {
+      await page.locator(".wp2-row").first().click();
+      const confirmBtn = page.locator(".wp2-done").first();
+      if (await confirmBtn.isVisible()) await confirmBtn.click();
+    }
+
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+
+    // Count occupied tables before printing
+    const occupiedBefore = await page.locator(
+      '.tf2-card[data-st="running"], .tf2-card[data-st="ordering"], .tf2-card[data-st="bill"]'
+    ).count();
+
+    // Long press → action sheet
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    const box = await occupiedTable.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    await page.waitForSelector(".tas2-sheet", { timeout: 5000 });
+
+    // Click Print Bill
+    await page.locator(".tas2-row-label", { hasText: "Print Bill" }).click();
+
+    // Action sheet closes and floor is visible
+    await expect(page.locator(".tas2-sheet")).not.toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".tf2-page")).toBeVisible({ timeout: 5000 });
+
+    // Captain removes its local slot after printing — occupied count drops
+    await page.waitForTimeout(2000); // allow async handlePrintBill to finish
+    const occupiedAfter = await page.locator(
+      '.tf2-card[data-st="running"], .tf2-card[data-st="ordering"], .tf2-card[data-st="bill"]'
+    ).count();
+    expect(occupiedAfter).toBeLessThan(occupiedBefore);
+    console.log(`  Print Bill: occupied tables ${occupiedBefore} → ${occupiedAfter} ✓`);
+  });
+
+  // ── 18. Split Bill screen ────────────────────────────────────────────────
+  test("18. billing — Split Bill screen opens from action sheet with items listed", async ({ page }) => {
+    await clearState(page); await setupDevice(page); await login(page);
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+
+    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
+    if (waiterPickerVisible) {
+      await page.locator(".wp2-row").first().click();
+      const confirmBtn = page.locator(".wp2-done").first();
+      if (await confirmBtn.isVisible()) await confirmBtn.click();
+    }
+
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+
+    // Long press → action sheet
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    const box = await occupiedTable.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    await page.waitForSelector(".tas2-sheet", { timeout: 5000 });
+
+    // Click Split Bill
+    await page.locator(".tas2-row-label", { hasText: "Split Bill" }).click();
+
+    // Split Bill page opens (renders outside .os2-page)
+    await page.waitForSelector(".split-page", { timeout: 5000 });
+    await expect(page.locator(".split-title")).toHaveText("Split Bill");
+
+    // Meta row: "Table N · ₹NNN total"
+    const meta = await page.locator(".split-meta").textContent();
+    expect(meta).toMatch(/₹/);
+    console.log("  Split Bill meta:", meta?.trim());
+
+    // Items listed
+    await expect(page.locator(".split-items")).toBeVisible();
+    const itemCount = await page.locator(".split-item").count();
+    expect(itemCount).toBeGreaterThan(0);
+    console.log("  Split Bill items:", itemCount);
+
+    // Back → order screen (not floor — split's onBack sets screen="order")
+    await page.click(".icon-back-btn");
+    await expect(page.locator(".os2-page")).toBeVisible({ timeout: 5000 });
+    console.log("  Split Bill: back to order screen ✓");
   });
 
   // ── 13. Wrong PIN Rejected ────────────────────────────────────────────────
