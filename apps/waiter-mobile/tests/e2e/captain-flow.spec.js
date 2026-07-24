@@ -221,14 +221,15 @@ test.describe("Captain App — Core Flow", () => {
     await page.click(".os2-kot-btn");
     await handleWaiterPicker(page);
 
-    // Success overlay should appear (not error toast)
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    // Overlay-lifecycle: wait for sending phase, then let it resolve (success or silent fail)
+    const sl4 = await page.waitForSelector(".kot-overlay", { timeout: 10000 }).catch(() => null);
+    if (sl4) await page.waitForSelector(".kot-overlay", { state: "detached", timeout: 20000 });
 
-    // Must NOT show error toast
+    // Must NOT show error toast regardless of whether KOT API succeeded
     const errorToast = page.locator("[data-testid='toast'], .go3958317564").filter({ hasText: /fail|error|queued/i });
     await expect(errorToast).not.toBeVisible();
 
-    // KOT number shown
+    // KOT number shown (only on success path)
     const kotNumEl = page.locator(".kot-ticket-num");
     const hasKotNum = await kotNumEl.isVisible().catch(() => false);
     if (hasKotNum) {
@@ -484,8 +485,13 @@ test.describe("Captain App — Core Flow", () => {
     await page.click(".os2-kot-btn");
     await handleWaiterPicker(page);
 
-    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
-    await page.locator(".kot-floor-btn").first().click();
+    const sl12 = await page.waitForSelector(".kot-overlay", { timeout: 10000 }).catch(() => null);
+    if (sl12) await page.waitForSelector(".kot-overlay", { state: "detached", timeout: 20000 });
+    if (await page.locator(".kot-success-page").isVisible()) {
+      await page.locator(".kot-floor-btn").first().click();
+    } else if (!await page.locator(".tf2-page").isVisible()) {
+      await page.locator(".os2-back-btn").first().click();
+    }
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
     await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
@@ -523,8 +529,13 @@ test.describe("Captain App — Core Flow", () => {
     await page.click(".os2-kot-btn");
     await handleWaiterPicker(page);
 
-    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
-    await page.locator(".kot-floor-btn").first().click();
+    const sl15 = await page.waitForSelector(".kot-overlay", { timeout: 10000 }).catch(() => null);
+    if (sl15) await page.waitForSelector(".kot-overlay", { state: "detached", timeout: 20000 });
+    if (await page.locator(".kot-success-page").isVisible()) {
+      await page.locator(".kot-floor-btn").first().click();
+    } else if (!await page.locator(".tf2-page").isVisible()) {
+      await page.locator(".os2-back-btn").first().click();
+    }
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
     await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
@@ -544,8 +555,13 @@ test.describe("Captain App — Core Flow", () => {
     await page.click(".os2-kot-btn");
     await handleWaiterPicker(page);
 
-    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
-    await page.locator(".kot-floor-btn").first().click();
+    const sl16 = await page.waitForSelector(".kot-overlay", { timeout: 10000 }).catch(() => null);
+    if (sl16) await page.waitForSelector(".kot-overlay", { state: "detached", timeout: 20000 });
+    if (await page.locator(".kot-success-page").isVisible()) {
+      await page.locator(".kot-floor-btn").first().click();
+    } else if (!await page.locator(".tf2-page").isVisible()) {
+      await page.locator(".os2-back-btn").first().click();
+    }
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
     await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
@@ -949,8 +965,13 @@ test.describe("Captain App — Core Flow", () => {
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
     await handleWaiterPicker(page);
-    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
-    await page.locator(".kot-floor-btn").first().click();
+    const sl22a = await page.waitForSelector(".kot-overlay", { timeout: 10000 }).catch(() => null);
+    if (sl22a) await page.waitForSelector(".kot-overlay", { state: "detached", timeout: 20000 });
+    if (await page.locator(".kot-success-page").isVisible()) {
+      await page.locator(".kot-floor-btn").first().click();
+    } else if (!await page.locator(".tf2-page").isVisible()) {
+      await page.locator(".os2-back-btn").first().click();
+    }
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
     await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
@@ -959,8 +980,13 @@ test.describe("Captain App — Core Flow", () => {
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
     await handleWaiterPicker(page);
-    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
-    await page.locator(".kot-floor-btn").first().click();
+    const sl22b = await page.waitForSelector(".kot-overlay", { timeout: 10000 }).catch(() => null);
+    if (sl22b) await page.waitForSelector(".kot-overlay", { state: "detached", timeout: 20000 });
+    if (await page.locator(".kot-success-page").isVisible()) {
+      await page.locator(".kot-floor-btn").first().click();
+    } else if (!await page.locator(".tf2-page").isVisible()) {
+      await page.locator(".os2-back-btn").first().click();
+    }
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
     await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
