@@ -1,0 +1,58 @@
+name: Captain App — E2E Tests
+
+on:
+  pull_request:
+    paths:
+      - "apps/waiter-mobile/**"
+      - ".github/workflows/captain-e2e.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/waiter-mobile/**"
+
+jobs:
+  e2e:
+    name: Playwright E2E (captain app)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ── Node ─────────────────────────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # ── Install deps ──────────────────────────────────────────────────────
+      - name: Install dependencies
+        working-directory: apps/waiter-mobile
+        run: npm install
+
+      # ── Install Playwright browsers ───────────────────────────────────────
+      - name: Install Playwright (Chromium only)
+        working-directory: apps/waiter-mobile
+        run: npx playwright install chromium --with-deps
+
+      # ── Run E2E tests ─────────────────────────────────────────────────────
+      - name: Run Playwright tests
+        working-directory: apps/waiter-mobile
+        env:
+          CAPTAIN_URL:         https://captain.dinexpos.in
+          CAPTAIN_BRANCH_CODE: ${{ secrets.CAPTAIN_BRANCH_CODE }}
+          CAPTAIN_STAFF_NAME:  ${{ secrets.CAPTAIN_STAFF_NAME }}
+          CAPTAIN_STAFF_PIN:   ${{ secrets.CAPTAIN_STAFF_PIN }}
+        run: npm run test:e2e
+
+      # ── Upload report on failure ──────────────────────────────────────────
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: |
+            apps/waiter-mobile/playwright-report/
+            apps/waiter-mobile/test-results/
+          retention-days: 7

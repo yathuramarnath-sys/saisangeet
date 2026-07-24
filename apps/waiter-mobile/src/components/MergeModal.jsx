@@ -4,8 +4,10 @@ export function MergeModal({ currentTableId, currentOrder, areas, orders, onMerg
   const occupied = [];
   areas.forEach(area => {
     area.tables.forEach(t => {
-      if (t.id !== currentTableId && orders[t.id]?.items?.length > 0) {
-        occupied.push({ table: t, area, order: orders[t.id] });
+      const tOrder = orders[t.id];
+      const hasNonVoided = (tOrder?.items || []).some(i => !i.isVoided && !i.isComp);
+      if (t.id !== currentTableId && hasNonVoided) {
+        occupied.push({ table: t, area, order: tOrder });
       }
     });
   });

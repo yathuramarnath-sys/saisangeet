@@ -11,7 +11,7 @@ const SEAT_COLORS = [
   { bg: "#FFEDD5", text: "#C2410C" },
 ];
 
-export function SplitBill({ order, onBack, onPrint }) {
+export function SplitBill({ order, defaultTaxRate = 0, onBack, onPrint }) {
   const [assignments, setAssignments] = useState({});
 
   // Seat labels from owner console (e.g. TEST4S1, TEST4S2, TEST4S3, TEST4S4)
@@ -21,7 +21,7 @@ export function SplitBill({ order, onBack, onPrint }) {
   const items    = order.items || [];
   const billable = items.filter(i => !i.isVoided && !i.isComp);
   const total    = billable.reduce((s, i) => {
-    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
     const sub  = i.price * i.quantity;
     return s + sub + Math.round(sub * rate / 100);
   }, 0);
@@ -47,7 +47,7 @@ export function SplitBill({ order, onBack, onPrint }) {
   function seatTotal(seatIdx) {
     const seatItems = getItemsForSeat(seatIdx);
     return seatItems.reduce((s, i) => {
-      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 5;
+      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
       const sub  = i.price * i.quantity;
       return s + sub + Math.round(sub * rate / 100);
     }, 0);
