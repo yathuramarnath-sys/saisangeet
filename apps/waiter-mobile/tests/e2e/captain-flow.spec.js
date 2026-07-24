@@ -130,6 +130,19 @@ async function addFirstMenuItem(page) {
   return itemName?.trim();
 }
 
+/**
+ * Wait for the waiter-picker modal and dismiss it by selecting "None".
+ * Uses waitForSelector instead of an immediate isVisible() check so React's
+ * async state update for setShowWaiterPick(true) has time to commit to the DOM.
+ */
+async function handleWaiterPicker(page) {
+  const modal = await page.waitForSelector(".wp2-modal", { timeout: 5000 }).catch(() => null);
+  if (modal) {
+    await page.locator(".wp2-row").first().click();
+    await page.locator(".wp2-done").first().click();
+  }
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 test.describe("Captain App — Core Flow", () => {
@@ -206,15 +219,7 @@ test.describe("Captain App — Core Flow", () => {
 
     // Send KOT
     await page.click(".os2-kot-btn");
-
-    // Waiter picker may appear — select "None" or the first option
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      const noneBtn = page.locator(".wp2-row").first();
-      await noneBtn.click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
+    await handleWaiterPicker(page);
 
     // Success overlay should appear (not error toast)
     await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
@@ -240,16 +245,13 @@ test.describe("Captain App — Core Flow", () => {
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
 
-    // Handle waiter picker
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
-
-    // Wait for success, then close overlay
+    // doSendKOT marks items sentToKot=true BEFORE the KOT API call, so by the time
+    // .kot-overlay (sending phase) appears the order screen already shows the sent section.
+    // We wait for either phase; if floor button is visible we click it (success phase),
+    // otherwise the 3-second auto-close will navigate away — either way os2-section-sent
+    // is visible in the DOM while on the order screen.
     await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
     const closeBtn = page.locator(".kot-floor-btn").first();
     if (await closeBtn.isVisible()) await closeBtn.click();
@@ -269,25 +271,16 @@ test.describe("Captain App — Core Flow", () => {
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
 
-    // Handle waiter picker
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
-
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
-
-    // Click "Add More" if visible, otherwise go back to floor
-    const addMoreBtn = page.locator(".kot-addmore-btn").first();
-    if (await addMoreBtn.isVisible().catch(() => false)) {
-      await addMoreBtn.click();
-    } else {
-      const closeBtn = page.locator(".kot-floor-btn").first();
-      if (await closeBtn.isVisible()) await closeBtn.click();
-    }
+    // Wait for SUCCESS phase — the Add More button only exists in .kot-success-page,
+    // not in the .kot-overlay (sending spinner). Clicking it before success resolves
+    // would leave the overlay up and block all clicks on the order screen beneath.
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
+    await page.locator(".kot-addmore-btn").first().click();
+    // Wait for overlay to be fully removed from DOM before interacting with the order screen.
+    // onAddMore() calls setKotState(null) which unmounts KotProgressOverlay entirely.
+    await page.waitForSelector(".kot-success-page", { state: "detached", timeout: 5000 }).catch(() => null);
 
     // Add a second item
     await page.waitForSelector(".os2-page", { timeout: 10000 });
@@ -309,23 +302,21 @@ test.describe("Captain App — Core Flow", () => {
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
 
-    // Handle waiter picker
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
-
-    // Wait for success then go back to floor
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    // Wait for SUCCESS phase so the floor button is available to click.
+    // Waiting for .kot-overlay (sending phase) alone would force Playwright to
+    // wait for the button mid-sending and risk the 3-second auto-close timer
+    // firing before the click can cancel it.
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
     await page.locator(".kot-floor-btn").first().click();
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    // Wait for table cards to render before querying data-st attributes
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
     // Table should now be occupied (running or ordering)
     const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
-    await expect(occupiedTable).toBeVisible({ timeout: 5000 });
+    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
 
     // Regular tap → opens order screen for that table
     await occupiedTable.click();
@@ -344,23 +335,17 @@ test.describe("Captain App — Core Flow", () => {
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
 
-    // Handle waiter picker
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
-
-    // Go back to floor
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    // Wait for success phase before clicking floor button
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
     await page.locator(".kot-floor-btn").first().click();
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
     // Long press on occupied table (mousedown hold 600ms → fires onLongPress at 500ms)
     const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
-    await expect(occupiedTable).toBeVisible({ timeout: 5000 });
+    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
     const box = await occupiedTable.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
@@ -388,20 +373,16 @@ test.describe("Captain App — Core Flow", () => {
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
 
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
-
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
     await page.locator(".kot-floor-btn").first().click();
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
     // Long press to open action sheet
     const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
     const box = await occupiedTable.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
@@ -478,21 +459,16 @@ test.describe("Captain App — Core Flow", () => {
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
 
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
-
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
     await page.locator(".kot-floor-btn").first().click();
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
     // Long press occupied table → action sheet
     const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
-    await expect(occupiedTable).toBeVisible({ timeout: 5000 });
+    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
     const box = await occupiedTable.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
@@ -519,21 +495,16 @@ test.describe("Captain App — Core Flow", () => {
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
 
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
-
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
     await page.locator(".kot-floor-btn").first().click();
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
     // Occupied table card bottom row must show a ₹ amount
     const occupiedCard = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
-    await expect(occupiedCard).toBeVisible({ timeout: 5000 });
+    await expect(occupiedCard).toBeVisible({ timeout: 15000 });
     const bottomText = await occupiedCard.locator(".tf2-bottom-text").textContent();
     expect(bottomText).toMatch(/₹/);
     console.log("  Running total on card:", bottomText?.trim());
@@ -545,21 +516,16 @@ test.describe("Captain App — Core Flow", () => {
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
 
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
-
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
     await page.locator(".kot-floor-btn").first().click();
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
     // Long press occupied table → action sheet
     const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
-    await expect(occupiedTable).toBeVisible({ timeout: 5000 });
+    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
     const box = await occupiedTable.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
@@ -583,17 +549,12 @@ test.describe("Captain App — Core Flow", () => {
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
 
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
-
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
     await page.locator(".kot-floor-btn").first().click();
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
     // Count occupied tables before printing
     const occupiedBefore = await page.locator(
@@ -602,6 +563,7 @@ test.describe("Captain App — Core Flow", () => {
 
     // Long press → action sheet
     const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
     const box = await occupiedTable.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
@@ -631,20 +593,16 @@ test.describe("Captain App — Core Flow", () => {
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
 
-    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
-    if (waiterPickerVisible) {
-      await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-done").first();
-      if (await confirmBtn.isVisible()) await confirmBtn.click();
-    }
-
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
     await page.locator(".kot-floor-btn").first().click();
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
     // Long press → action sheet
     const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
     const box = await occupiedTable.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
