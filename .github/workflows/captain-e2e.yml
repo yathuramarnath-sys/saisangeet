@@ -10,6 +10,13 @@ on:
       - main
     paths:
       - "apps/waiter-mobile/**"
+      - ".github/workflows/captain-e2e.yml"
+  workflow_dispatch:
+    inputs:
+      captain_url:
+        description: "Captain app URL to test against"
+        required: false
+        default: "https://captain.dinexpos.in"
 
 jobs:
   e2e:
@@ -40,9 +47,7 @@ jobs:
       - name: Run Playwright tests
         working-directory: apps/waiter-mobile
         env:
-          # Vercel preview for this branch — has the new app code. captain.dinexpos.in
-          # is an older production deployment that predates .os2-page and .tas2-sheet.
-          CAPTAIN_URL:         https://saisangeet-waiter-mobile-git-claude-recover-l-9587ad-saisangeet.vercel.app
+          CAPTAIN_URL:         ${{ github.event.inputs.captain_url || 'https://captain.dinexpos.in' }}
           CAPTAIN_BRANCH_CODE: ${{ secrets.CAPTAIN_BRANCH_CODE }}
           CAPTAIN_STAFF_NAME:  ${{ secrets.CAPTAIN_STAFF_NAME }}
           CAPTAIN_STAFF_PIN:   ${{ secrets.CAPTAIN_STAFF_PIN }}
