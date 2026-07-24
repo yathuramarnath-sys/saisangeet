@@ -4,7 +4,6 @@ import { MenuBrowser } from "./MenuBrowser";
 import { NoteModal }   from "./NoteModal";
 import { SplitBill }   from "./SplitBill";
 import { TransferModal } from "./TransferModal";
-import { PhonePeQRModal } from "./PhonePeQRModal";
 import { CoursingScreen } from "./CoursingScreen";
 import {
   getStockState,
@@ -41,7 +40,6 @@ export function OrderScreen({
   const [noteItemIdx,     setNoteItemIdx]      = useState(null);
   const [showTransfer,    setShowTransfer]     = useState(autoOpen === "transfer");
   const [showMerge,       setShowMerge]        = useState(autoOpen === "merge");
-  const [showPhonePeQR,   setShowPhonePeQR]    = useState(false);
   const [showAssignModal, setShowAssignModal]  = useState(false);
   const [assignPick,      setAssignPick]       = useState(order.assignedWaiter || "");
   const [guestVal,        setGuestVal]         = useState(order.guests || "");
@@ -513,21 +511,6 @@ export function OrderScreen({
         </div>
       )}
 
-      {/* PhonePe QR modal — captain collects payment at the table */}
-      {showPhonePeQR && (
-        <PhonePeQRModal
-          order={order}
-          outletId={outletId}
-          socket={socket}
-          defaultTaxRate={defaultTaxRate}
-          onConfirmed={() => {
-            // Payment confirmed — table will clear via socket "order:updated"
-            // broadcast from the backend webhook. Just close the modal.
-            setShowPhonePeQR(false);
-          }}
-          onClose={() => setShowPhonePeQR(false)}
-        />
-      )}
     </div>
   );
 }
