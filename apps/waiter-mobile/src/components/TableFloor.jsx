@@ -31,7 +31,6 @@ export function tableStatusOf(orders, tableId) {
   const o = orders[tableId];
   const activeItems = o?.items?.filter(i => !i.isVoided && !i.isComp);
   if (!activeItems?.length) return "open";
-  if (o.isOnHold)           return "hold";
   if (o.billRequested)      return "bill";
   return "running";
 }
@@ -80,7 +79,6 @@ function useLongPress(onLongPress, onPress, ms = 500) {
 const TF2_LABEL = {
   open:     "Free",
   next:     "New order",
-  hold:     "Hold",
   bill:     "Bill ready",
   running:  "Dining",
   ordering: "Ordering",
@@ -88,7 +86,6 @@ const TF2_LABEL = {
 const TF2_COLOR = {
   open:     "#0C831F",
   next:     "#0C831F",
-  hold:     "#6B7280",
   bill:     "#2E6F9E",
   running:  "#2E6F9E",
   ordering: "#E07A1F",

@@ -4,7 +4,6 @@ import { tableStatusOf } from "./TableFloor";
 
 const OCCUPIED_STATUS_LABEL = {
   running: "Dining",
-  hold:    "On hold",
   bill:    "Bill ready",
 };
 

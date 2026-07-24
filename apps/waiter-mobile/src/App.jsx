@@ -131,7 +131,6 @@ function buildBlankOrder(table, area) {
     guests:        0,
     items:         [],
     billRequested: false,
-    isOnHold:      false,
   };
 }
 
@@ -1712,19 +1711,6 @@ export function App() {
     api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, isSplit: true }).catch(() => {});
   }
 
-  // ── Toggle hold ───────────────────────────────────────────────────────────
-  // tableId is optional — falls back to selectedTableId
-  function handleToggleHold(tableId) {
-    const tid   = tableId || selectedTableId;
-    const order = orders[tid];
-    if (!order) return;
-    const next = { ...order, isOnHold: !order.isOnHold };
-    handleUpdateOrder(next);
-    toast(next.isOnHold ? "Order placed on hold" : "Order resumed", {
-      icon: next.isOnHold ? "⏸" : "▶",
-    });
-    if (tableId) setActionTableId(null);   // close action sheet when called from it
-  }
 
   // ── Save guest info ───────────────────────────────────────────────────────
   function handleCustomerInfoSave(tableId, info) {
@@ -2061,7 +2047,6 @@ export function App() {
             onRequestBill={handleRequestBill}
             onPrintBill={handlePrintBill}
             onPrintSplitBill={handlePrintSplitBill}
-            onToggleHold={handleToggleHold}
             onUpdateOrder={handleUpdateOrder}
             onUpdateGuests={handleUpdateGuests}
             onRemoveItem={handleRemoveItem}
