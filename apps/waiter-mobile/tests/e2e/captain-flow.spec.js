@@ -65,8 +65,8 @@ async function login(page) {
 
 /** Find the first free table and open it. Returns the table number text. */
 async function openFreeTable(page) {
-  // Free tables have class tf2-table-free or similar; click the first one
-  const freeTables = page.locator(".tf2-table").filter({ hasNot: page.locator(".tf2-table-occ, .tf2-table-bill, .tf2-table-hold") });
+  // Tables are .tf2-card; free tables have data-st="free"
+  const freeTables = page.locator('.tf2-card[data-st="free"]');
   const count = await freeTables.count();
   if (count === 0) {
     test.skip(true, "No free tables available in the outlet right now — skipping table flow test");
@@ -164,23 +164,21 @@ test.describe("Captain App — Core Flow", () => {
     // Waiter picker may appear — select "None" or the first option
     const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
     if (waiterPickerVisible) {
-      // Click "None" or the first staff option
       const noneBtn = page.locator(".wp2-row").first();
       await noneBtn.click();
-      // Confirm button
-      const confirmBtn = page.locator(".wp2-confirm-btn, button:has-text('Confirm'), button:has-text('Send')").first();
+      const confirmBtn = page.locator(".wp2-done").first();
       if (await confirmBtn.isVisible()) await confirmBtn.click();
     }
 
     // Success overlay should appear (not error toast)
-    await page.waitForSelector(".kotp-success, .kotp-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
 
     // Must NOT show error toast
     const errorToast = page.locator("[data-testid='toast'], .go3958317564").filter({ hasText: /fail|error|queued/i });
     await expect(errorToast).not.toBeVisible();
 
     // KOT number shown
-    const kotNumEl = page.locator(".kotp-kot-num, .kotp-success .kotp-number");
+    const kotNumEl = page.locator(".kot-ticket-num");
     const hasKotNum = await kotNumEl.isVisible().catch(() => false);
     if (hasKotNum) {
       const kotText = await kotNumEl.textContent();
@@ -202,13 +200,13 @@ test.describe("Captain App — Core Flow", () => {
     const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
     if (waiterPickerVisible) {
       await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-confirm-btn, button:has-text('Confirm'), button:has-text('Send')").first();
+      const confirmBtn = page.locator(".wp2-done").first();
       if (await confirmBtn.isVisible()) await confirmBtn.click();
     }
 
     // Wait for success, then close overlay
-    await page.waitForSelector(".kotp-success, .kotp-overlay", { timeout: 20000 });
-    const closeBtn = page.locator(".kotp-close, .kotp-back, button:has-text('Done'), button:has-text('Back to table')").first();
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    const closeBtn = page.locator(".kot-floor-btn").first();
     if (await closeBtn.isVisible()) await closeBtn.click();
 
     // Items should now be in SENT TO KITCHEN, not NOT SENT YET
@@ -232,18 +230,18 @@ test.describe("Captain App — Core Flow", () => {
     const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
     if (waiterPickerVisible) {
       await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-confirm-btn, button:has-text('Confirm'), button:has-text('Send')").first();
+      const confirmBtn = page.locator(".wp2-done").first();
       if (await confirmBtn.isVisible()) await confirmBtn.click();
     }
 
-    await page.waitForSelector(".kotp-success, .kotp-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
 
-    // Click "Add More" if visible, otherwise close and go back
-    const addMoreBtn = page.locator("button:has-text('Add more'), button:has-text('Add More')").first();
+    // Click "Add More" if visible, otherwise go back to floor
+    const addMoreBtn = page.locator(".kot-addmore-btn").first();
     if (await addMoreBtn.isVisible().catch(() => false)) {
       await addMoreBtn.click();
     } else {
-      const closeBtn = page.locator(".kotp-close, .kotp-back, button:has-text('Done'), button:has-text('Back to table')").first();
+      const closeBtn = page.locator(".kot-floor-btn").first();
       if (await closeBtn.isVisible()) await closeBtn.click();
     }
 
@@ -259,8 +257,128 @@ test.describe("Captain App — Core Flow", () => {
     await expect(page.locator(".os2-section-sent")).toBeVisible();
   });
 
-  // ── 7. Wrong PIN Rejected ─────────────────────────────────────────────────
-  test("7. login — wrong PIN shows error, does not navigate to floor", async ({ page }) => {
+  // ── 7. Occupied Table — tap opens order screen ───────────────────────────
+  test("7. occupied table — tap opens order screen with sent items", async ({ page }) => {
+    await clearState(page);
+    await setupDevice(page);
+    await login(page);
+
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+
+    // Handle waiter picker
+    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
+    if (waiterPickerVisible) {
+      await page.locator(".wp2-row").first().click();
+      const confirmBtn = page.locator(".wp2-done").first();
+      if (await confirmBtn.isVisible()) await confirmBtn.click();
+    }
+
+    // Wait for success then go back to floor
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+
+    // Table should now be occupied (running or ordering)
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedTable).toBeVisible({ timeout: 5000 });
+
+    // Regular tap → opens order screen for that table
+    await occupiedTable.click();
+    await page.waitForSelector(".os2-page", { timeout: 10000 });
+
+    // Sent items should be visible (the KOT we just sent)
+    await expect(page.locator(".os2-section-sent")).toBeVisible({ timeout: 5000 });
+    console.log("  Occupied table tap: order screen opened with sent items ✓");
+  });
+
+  // ── 8. Action Sheet — long press on occupied table ───────────────────────
+  test("8. action sheet — long press shows Print Bill and Move Table options", async ({ page }) => {
+    await clearState(page);
+    await setupDevice(page);
+    await login(page);
+
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+
+    // Handle waiter picker
+    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
+    if (waiterPickerVisible) {
+      await page.locator(".wp2-row").first().click();
+      const confirmBtn = page.locator(".wp2-done").first();
+      if (await confirmBtn.isVisible()) await confirmBtn.click();
+    }
+
+    // Go back to floor
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+
+    // Long press on occupied table (mousedown hold 600ms → fires onLongPress at 500ms)
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedTable).toBeVisible({ timeout: 5000 });
+    const box = await occupiedTable.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+
+    // Action sheet should slide up
+    await page.waitForSelector(".tas2-sheet", { timeout: 5000 });
+
+    // Print Bill row visible (table has sent items so billable.length > 0)
+    await expect(page.locator(".tas2-row-label", { hasText: "Print Bill" })).toBeVisible();
+    // Move Table always visible
+    await expect(page.locator(".tas2-row-label", { hasText: "Move table" })).toBeVisible();
+    // Cancel button always present
+    await expect(page.locator(".tas2-cancel")).toBeVisible();
+
+    console.log("  Action sheet: Print Bill and Move table rows confirmed ✓");
+  });
+
+  // ── 9. Action Sheet — cancel dismisses it ────────────────────────────────
+  test("9. action sheet — cancel button dismisses sheet, floor stays visible", async ({ page }) => {
+    await clearState(page);
+    await setupDevice(page);
+    await login(page);
+
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+
+    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
+    if (waiterPickerVisible) {
+      await page.locator(".wp2-row").first().click();
+      const confirmBtn = page.locator(".wp2-done").first();
+      if (await confirmBtn.isVisible()) await confirmBtn.click();
+    }
+
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+
+    // Long press to open action sheet
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    const box = await occupiedTable.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    await page.waitForSelector(".tas2-sheet", { timeout: 5000 });
+
+    // Cancel dismisses the sheet
+    await page.click(".tas2-cancel");
+    await expect(page.locator(".tas2-sheet")).not.toBeVisible({ timeout: 3000 });
+
+    // Floor plan still visible
+    await expect(page.locator(".tf2-page")).toBeVisible();
+    console.log("  Action sheet cancel: sheet dismissed, floor restored ✓");
+  });
+
+  // ── 10. Wrong PIN Rejected ────────────────────────────────────────────────
+  test("10. login — wrong PIN shows error, does not navigate to floor", async ({ page }) => {
     await clearState(page);
     await setupDevice(page);
 
@@ -280,8 +398,8 @@ test.describe("Captain App — Core Flow", () => {
     await expect(page.locator(".tf2-page")).not.toBeVisible();
   });
 
-  // ── 8. Invalid Branch Code ────────────────────────────────────────────────
-  test("8. setup — invalid branch code shows error", async ({ page }) => {
+  // ── 11. Invalid Branch Code ───────────────────────────────────────────────
+  test("11. setup — invalid branch code shows error", async ({ page }) => {
     await clearState(page);
     await page.waitForSelector(".su2-input", { timeout: 15000 });
     await page.fill(".su2-input", "XXXX-INVALID-CODE");

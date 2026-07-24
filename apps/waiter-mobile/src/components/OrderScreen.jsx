@@ -29,7 +29,7 @@ export function OrderScreen({
   order, tableLabel, areas, categories, menuItems, outletName,
   orders, outletId, socket, staff = [], defaultTaxRate = 0,
   onBack, onSendKOT, onRequestBill, onPrintBill, onPrintSplitBill,
-  onToggleHold, onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
+  onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear, onCustomerInfo,
   onRequestRemoveItem,
   autoOpen = null, // "menu" | "transfer" | "merge" | "split" — open screen/modal immediately on mount
@@ -230,7 +230,6 @@ export function OrderScreen({
           {headerSub && (
             <p className="os2-subtitle">
               {headerSub}
-              {order.isOnHold && <span className="os2-hold-badge"> · Hold</span>}
             </p>
           )}
         </div>
