@@ -377,8 +377,103 @@ test.describe("Captain App — Core Flow", () => {
     console.log("  Action sheet cancel: sheet dismissed, floor restored ✓");
   });
 
-  // ── 10. Wrong PIN Rejected ────────────────────────────────────────────────
-  test("10. login — wrong PIN shows error, does not navigate to floor", async ({ page }) => {
+  // ── 10. Guest count ──────────────────────────────────────────────────────
+  test("10. guest count — stepper on empty order sets guest count", async ({ page }) => {
+    await clearState(page); await setupDevice(page); await login(page);
+    await openFreeTable(page);
+
+    // Guest stepper is visible on empty order screen
+    await expect(page.locator(".os2-guests-card")).toBeVisible({ timeout: 5000 });
+
+    // Tap + twice to set 2 guests
+    const plusBtn = page.locator(".os2-guests-stepper .os2-guest-btn").last();
+    await plusBtn.click();
+    await plusBtn.click();
+
+    // Input should show 2
+    const val = await page.locator(".os2-guest-input").inputValue();
+    expect(Number(val)).toBe(2);
+
+    // Subtitle should reflect guest count
+    await expect(page.locator(".os2-subtitle")).toContainText("2 guests");
+    console.log("  Guest count set to 2 ✓");
+  });
+
+  // ── 11. Quantity increment ────────────────────────────────────────────────
+  test("11. menu — adding same item twice shows qty 2, not two rows", async ({ page }) => {
+    await clearState(page); await setupDevice(page); await login(page);
+    await openFreeTable(page);
+
+    // Open menu browser
+    await page.click(".os2-add-btn");
+    await page.waitForSelector(".mb2-items", { timeout: 10000 });
+
+    // First tap — ADD + button visible
+    const firstItem = page.locator(".mb2-item:not(.mb2-item-unavail)").first();
+    await firstItem.locator(".mb2-add-btn").click();
+
+    // Stepper should appear with qty 1
+    await expect(firstItem.locator(".mb2-step-num")).toHaveText("1", { timeout: 3000 });
+
+    // Second tap — stepper + button
+    await firstItem.locator(".mb2-step-btn.mb2-step-plus").click();
+    await expect(firstItem.locator(".mb2-step-num")).toHaveText("2", { timeout: 3000 });
+
+    // Go back to order screen
+    await page.locator(".mb2-back-btn, .os2-back-btn, [aria-label='Back']").first().click();
+    await page.waitForSelector(".os2-page", { timeout: 10000 });
+
+    // Only 1 unsent row, and its qty shows 2
+    const unsentRows = page.locator(".os2-item-unsent");
+    await expect(unsentRows).toHaveCount(1, { timeout: 5000 });
+    await expect(page.locator(".os2-item-unsent .os2-qty-val")).toHaveText("2");
+    console.log("  Qty increment: 1 row with qty=2 ✓");
+  });
+
+  // ── 12. Move table — transfer modal ──────────────────────────────────────
+  test("12. move table — action sheet opens transfer modal, back returns to floor", async ({ page }) => {
+    await clearState(page); await setupDevice(page); await login(page);
+
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+
+    const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
+    if (waiterPickerVisible) {
+      await page.locator(".wp2-row").first().click();
+      const confirmBtn = page.locator(".wp2-done").first();
+      if (await confirmBtn.isVisible()) await confirmBtn.click();
+    }
+
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+
+    // Long press occupied table → action sheet
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedTable).toBeVisible({ timeout: 5000 });
+    const box = await occupiedTable.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    await page.waitForSelector(".tas2-sheet", { timeout: 5000 });
+
+    // Tap Move table
+    await page.locator(".tas2-row-label", { hasText: "Move table" }).click();
+
+    // Transfer modal should open
+    await page.waitForSelector(".mt2-page", { timeout: 5000 });
+    await expect(page.locator(".mt2-title")).toHaveText("Move table");
+
+    // Back button returns to floor
+    await page.click(".mt2-back-btn");
+    await expect(page.locator(".tf2-page")).toBeVisible({ timeout: 5000 });
+    console.log("  Move table: transfer modal opened and closed ✓");
+  });
+
+  // ── 13. Wrong PIN Rejected ────────────────────────────────────────────────
+  test("13. login — wrong PIN shows error, does not navigate to floor", async ({ page }) => {
     await clearState(page);
     await setupDevice(page);
 
@@ -398,8 +493,8 @@ test.describe("Captain App — Core Flow", () => {
     await expect(page.locator(".tf2-page")).not.toBeVisible();
   });
 
-  // ── 11. Invalid Branch Code ───────────────────────────────────────────────
-  test("11. setup — invalid branch code shows error", async ({ page }) => {
+  // ── 14. Invalid Branch Code ───────────────────────────────────────────────
+  test("14. setup — invalid branch code shows error", async ({ page }) => {
     await clearState(page);
     await page.waitForSelector(".su2-input", { timeout: 15000 });
     await page.fill(".su2-input", "XXXX-INVALID-CODE");
