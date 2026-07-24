@@ -192,6 +192,7 @@ export function OrderScreen({
         order={order}
         tableLabel={tableLabel}
         onBack={() => setScreen("order")}
+        onFireCourse={(itemIds) => onSendKOT(null, new Set(itemIds))}
       />
     );
   }
