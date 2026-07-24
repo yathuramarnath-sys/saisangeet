@@ -78,13 +78,13 @@ operationsRouter.post(
 operationsRouter.post(
   "/orders/:tableId/move-table",
   requireAuth,
-  requirePermission("operations.order.edit"),
+  requirePermission("operations.table.move"),
   asyncHandler(moveTableHandler)
 );
 operationsRouter.post(
   "/orders/:tableId/merge-from",
   requireAuth,
-  requirePermission("operations.order.edit"),
+  requirePermission("operations.table.move"),
   asyncHandler(mergeTablesHandler)
 );
 operationsRouter.post(

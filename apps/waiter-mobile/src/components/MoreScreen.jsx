@@ -35,9 +35,15 @@ export function MoreScreen({
   const [appOpen,    setAppOpen]    = useState(true);
 
   // Compute pending bills once — used in nav row and sub-screen
+  // billAlerts is keyed by orderNumber (not tableId) so a new order on the same table
+  // doesn't overwrite the old pending bill. Build a tableId → alert lookup from values.
+  const billAlertByTable = Object.values(billAlerts).reduce((acc, b) => {
+    if (!acc[b.tableId] || b.orderNumber > acc[b.tableId].orderNumber) acc[b.tableId] = b;
+    return acc;
+  }, {});
   const allTables = tableAreas.flatMap(a => (a.tables || []).map(t => ({ ...t, areaName: a.name })));
   const pendingBills = allTables.filter(t => {
-    const o = orders[t.id] || billAlerts[t.id];
+    const o = orders[t.id] || billAlertByTable[t.id];
     return o && o.billRequested && !o.isClosed &&
            (o.items || []).some(i => !i.isVoided && !i.isComp);
   });
@@ -104,7 +110,7 @@ export function MoreScreen({
         <div className="more2-scroll">
           <div className="more2-pending-grid">
             {pendingBills.map((t) => {
-              const o = orders[t.id] || billAlerts[t.id];
+              const o = orders[t.id] || billAlertByTable[t.id];
               const billable = (o.items || []).filter(i => !i.isVoided && !i.isComp);
               const amt = billable.reduce((s, i) => s + i.price * i.quantity, 0);
               return (
