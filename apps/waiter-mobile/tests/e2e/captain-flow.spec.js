@@ -691,7 +691,11 @@ test.describe("Captain App — Core Flow", () => {
 
   // ── 14. Invalid Branch Code ───────────────────────────────────────────────
   test("14. setup — invalid branch code shows error", async ({ page }) => {
-    await clearState(page);
+    // Need a completely fresh localStorage (no device config) to reach the setup screen,
+    // not the login screen that clearState() would produce.
+    await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".su2-input", { timeout: 15000 });
     await page.fill(".su2-input", "XXXX-INVALID-CODE");
     await page.click(".su2-btn");

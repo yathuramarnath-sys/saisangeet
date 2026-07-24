@@ -40,7 +40,9 @@ jobs:
       - name: Run Playwright tests
         working-directory: apps/waiter-mobile
         env:
-          CAPTAIN_URL:         https://captain.dinexpos.in
+          # Vercel preview for this branch — has the new app code. captain.dinexpos.in
+          # is an older production deployment that predates .os2-page and .tas2-sheet.
+          CAPTAIN_URL:         https://saisangeet-waiter-mobile-git-claude-recover-l-9587ad-saisangeet.vercel.app
           CAPTAIN_BRANCH_CODE: ${{ secrets.CAPTAIN_BRANCH_CODE }}
           CAPTAIN_STAFF_NAME:  ${{ secrets.CAPTAIN_STAFF_NAME }}
           CAPTAIN_STAFF_PIN:   ${{ secrets.CAPTAIN_STAFF_PIN }}
