@@ -12,7 +12,7 @@ function saveCourses(tableId, courses) {
   localStorage.setItem(`captain_courses_${tableId}`, JSON.stringify(courses));
 }
 
-export function CoursingScreen({ order, tableLabel, onBack }) {
+export function CoursingScreen({ order, tableLabel, onBack, onFireCourse }) {
   const items = (order.items || []).filter(i => !i.isVoided);
 
   const [courses, setCourses] = useState(() => {
@@ -21,16 +21,21 @@ export function CoursingScreen({ order, tableLabel, onBack }) {
     return [{ id: 1, name: "STARTERS", itemIds: items.map(i => i.id), firedAt: null }];
   });
 
+  // item being moved between courses — shows the assignment sheet
+  const [assigningItemId, setAssigningItemId] = useState(null);
+
   const itemIdKey = items.map(i => i.id).join(",");
   const prevItemIdKey = useRef(itemIdKey);
 
+  // Auto-assign newly added items to the last unfired course (or a new one)
   useEffect(() => {
     if (prevItemIdKey.current === itemIdKey) return;
     prevItemIdKey.current = itemIdKey;
-    const allAssigned = new Set(courses.flatMap(c => c.itemIds));
-    const unassigned  = items.filter(i => !allAssigned.has(i.id));
-    if (!unassigned.length) return;
+    const currentItemIds = new Set(items.map(i => i.id));
     setCourses(prev => {
+      const allAssigned = new Set(prev.flatMap(c => c.itemIds));
+      const unassigned  = items.filter(i => !allAssigned.has(i.id));
+      if (!unassigned.length) return prev;
       const lastUnfired = [...prev].reverse().find(c => !c.firedAt);
       if (lastUnfired) {
         return prev.map(c =>
@@ -47,7 +52,12 @@ export function CoursingScreen({ order, tableLabel, onBack }) {
         firedAt: null,
       }];
     });
-  }, [itemIdKey]);
+    // Also clean up IDs from courses that no longer exist in the order
+    setCourses(prev => prev.map(c => ({
+      ...c,
+      itemIds: c.itemIds.filter(id => currentItemIds.has(id)),
+    })));
+  }, [itemIdKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     saveCourses(order.tableId, courses);
@@ -55,24 +65,57 @@ export function CoursingScreen({ order, tableLabel, onBack }) {
 
   function fireCourse(courseId) {
     tapImpact();
+    // Find which unsent item IDs belong to this course
+    const course = courses.find(c => c.id === courseId);
+    if (!course) return;
+    const unsentIdsInCourse = (order.items || [])
+      .filter(i => !i.isVoided && !i.sentToKot && course.itemIds.includes(i.id))
+      .map(i => i.id);
+    if (!unsentIdsInCourse.length) return;
+
+    // Mark as fired locally
     const now = new Date();
     const h   = String(now.getHours()).padStart(2, "0");
     const m   = String(now.getMinutes()).padStart(2, "0");
     setCourses(prev =>
       prev.map(c => c.id === courseId ? { ...c, firedAt: `${h}:${m}` } : c)
     );
+
+    // Send KOT for only these items — triggers waiter picker then API call
+    onFireCourse(unsentIdsInCourse);
   }
 
   function addCourse() {
     tapImpact();
-    const nextId = Math.max(...courses.map(c => c.id), 0) + 1;
-    setCourses(prev => [...prev, {
-      id: nextId,
-      name: DEFAULT_NAMES[nextId - 1] || `COURSE ${nextId}`,
-      itemIds: [],
-      firedAt: null,
-    }]);
+    setCourses(prev => {
+      const nextId = Math.max(...prev.map(c => c.id), 0) + 1;
+      return [...prev, {
+        id: nextId,
+        name: DEFAULT_NAMES[nextId - 1] || `COURSE ${nextId}`,
+        itemIds: [],
+        firedAt: null,
+      }];
+    });
   }
+
+  function moveItemToCourse(itemId, targetCourseId) {
+    tapImpact();
+    setCourses(prev => prev.map(c => {
+      if (c.itemIds.includes(itemId)) {
+        return { ...c, itemIds: c.itemIds.filter(id => id !== itemId) };
+      }
+      if (c.id === targetCourseId) {
+        return { ...c, itemIds: [...c.itemIds, itemId] };
+      }
+      return c;
+    }));
+    setAssigningItemId(null);
+  }
+
+  const assigningItem = assigningItemId ? items.find(i => i.id === assigningItemId) : null;
+  const assigningItemCourse = assigningItemId
+    ? courses.find(c => c.itemIds.includes(assigningItemId))
+    : null;
 
   const totalItems = items.length;
 
@@ -95,6 +138,7 @@ export function CoursingScreen({ order, tableLabel, onBack }) {
         {courses.map((course, ci) => {
           const courseItems = items.filter(i => course.itemIds.includes(i.id));
           const isFired = !!course.firedAt;
+          const hasUnsent = courseItems.some(i => !i.sentToKot);
           return (
             <div key={course.id} className={`crs-course-card${isFired ? " crs-fired" : " crs-onhold"}`}>
               <div className={`crs-course-header${isFired ? " crs-course-header-fired" : " crs-course-header-hold"}`}>
@@ -121,26 +165,37 @@ export function CoursingScreen({ order, tableLabel, onBack }) {
               </div>
 
               {courseItems.map(item => (
-                <div key={item.id} className="crs-item-row">
+                <div
+                  key={item.id}
+                  className="crs-item-row crs-item-tappable"
+                  onClick={() => { if (!isFired) { tapImpact(); setAssigningItemId(item.id); } }}
+                  title={isFired ? "" : "Tap to move to another course"}
+                >
                   <span className="crs-item-qty">{item.quantity}×</span>
                   <span className="crs-item-name">{item.name}</span>
                   <span className="crs-item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
+                  {!isFired && (
+                    <svg className="crs-item-move-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  )}
                 </div>
               ))}
 
               {courseItems.length === 0 && !isFired && (
                 <div className="crs-item-row" style={{ color: "#9CA3AF", fontSize: 13 }}>
-                  <span style={{ flex: 1 }}>No items in this course yet</span>
+                  <span style={{ flex: 1 }}>No items — tap items above to move here</span>
                 </div>
               )}
 
-              {!isFired && (
+              {!isFired && hasUnsent && courseItems.length > 0 && (
                 <button className="crs-fire-btn" onClick={() => fireCourse(course.id)}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/>
                   </svg>
-                  Fire this course
+                  Fire this course → Kitchen
                 </button>
               )}
             </div>
@@ -158,6 +213,34 @@ export function CoursingScreen({ order, tableLabel, onBack }) {
           Add a course
         </button>
       </div>
+
+      {/* Item assignment bottom sheet */}
+      {assigningItem && (
+        <div className="crs-assign-backdrop" onClick={() => setAssigningItemId(null)}>
+          <div className="crs-assign-sheet" onClick={e => e.stopPropagation()}>
+            <div className="crs-assign-title">
+              Move <strong>{assigningItem.name}</strong> to:
+            </div>
+            {courses.map((c, ci) => {
+              const isCurrent = c.id === assigningItemCourse?.id;
+              return (
+                <button
+                  key={c.id}
+                  className={`crs-assign-option${isCurrent ? " crs-assign-option-current" : ""}`}
+                  disabled={isCurrent}
+                  onClick={() => moveItemToCourse(assigningItem.id, c.id)}
+                >
+                  Course {ci + 1} · {c.name}
+                  {isCurrent && <span className="crs-assign-current-tag">current</span>}
+                </button>
+              );
+            })}
+            <button className="crs-assign-cancel" onClick={() => setAssigningItemId(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -182,6 +182,7 @@ export function App() {
   // Waiter assignment picker — shown before every KOT send
   const [showWaiterPick,    setShowWaiterPick]    = useState(false);
   const [kotPendingTableId, setKotPendingTableId] = useState(null);
+  const [kotPendingItemIds, setKotPendingItemIds] = useState(null);
   const [pickedWaiter,      setPickedWaiter]      = useState(null);
   // KOT progress overlay (sending → success) and transfer success modal
   const [kotState,        setKotState]        = useState(null);
@@ -835,6 +836,7 @@ export function App() {
       outletId: outlet?.id,
       order: { tableId, items: [], isClosed: false },
     });
+    localStorage.removeItem(`captain_courses_${tableId}`);
     setSelectedTableId(null);
   }
 
@@ -846,6 +848,7 @@ export function App() {
       order: { tableId, items: [], isClosed: false },
     });
     localSocketRef.current?.emit("order:update", { order: { tableId, items: [], isClosed: false } });
+    localStorage.removeItem(`captain_courses_${tableId}`);
     setActionTableId(null);
     setConfirmFreeTable(null);
   }
@@ -937,6 +940,13 @@ export function App() {
 
       setOrders(prev => {
         const { [tableId]: _, ...rest } = prev;
+        return rest;
+      });
+      // Remove this specific order's bill alert immediately — don't wait for socket echo
+      setBillAlerts(prev => {
+        const key = String(order.orderNumber);
+        if (!prev[key]) return prev;
+        const { [key]: _, ...rest } = prev;
         return rest;
       });
       if (tableId === selectedTableId) setSelectedTableId(null);
@@ -1174,24 +1184,26 @@ export function App() {
 
   // ── Send KOT — step 1: show waiter picker ─────────────────────────────────
   // tableId is optional — falls back to selectedTableId (existing call sites unaffected)
-  function handleSendKOT(tableId) {
+  // itemIds (Set) is optional — when provided, only those items are sent (coursing)
+  function handleSendKOT(tableId, itemIds = null) {
     const tid   = tableId || selectedTableId;
     const order = orders[tid];
     if (!order) return;
-    const unsent = (order.items || []).filter((i) => !i.sentToKot);
+    const allUnsent = (order.items || []).filter((i) => !i.sentToKot);
+    const unsent = itemIds ? allUnsent.filter((i) => itemIds.has(i.id)) : allUnsent;
     if (!unsent.length) return;
-    // Pre-select the order's current waiter if they're still in the waiter list,
-    // otherwise start with no selection (captain is NOT a default waiter)
     const currentWaiter = order.assignedWaiter || null;
     const stillValid = waiterStaff.some((s) => s.name === currentWaiter);
     setPickedWaiter(stillValid ? currentWaiter : null);
     setKotPendingTableId(tid);
+    setKotPendingItemIds(itemIds || null);
     setShowWaiterPick(true);
   }
 
   // ── Send KOT — step 2: actually send after waiter is confirmed ─────────────
   // waiterName = the staff member assigned to serve this table's order
-  async function doSendKOT(tableId, waiterName) {
+  // itemIds (Set) is optional — when provided (coursing), only those items are sent
+  async function doSendKOT(tableId, waiterName, itemIds = null) {
     const tid    = tableId || selectedTableId;
     // Synchronous in-flight guard — prevents double-tap from firing two KOT requests.
     // kotInFlightRef is set below (line ~1117) before the first await, so the second
@@ -1201,7 +1213,8 @@ export function App() {
     if (!order) return;
     // Ensure selectedTableId is set so post-KOT state updates work correctly
     if (tid !== selectedTableId) setSelectedTableId(tid);
-    const unsent = (order.items || []).filter((i) => !i.sentToKot);
+    const allUnsent = (order.items || []).filter((i) => !i.sentToKot);
+    const unsent = itemIds ? allUnsent.filter((i) => itemIds.has(i.id)) : allUnsent;
     if (!unsent.length) return;
 
     // Guard: outletId must be present — KOT API rejects without it (no KDS delivery)
@@ -2105,7 +2118,12 @@ export function App() {
             onSync={handleSync}
             onSignOut={() => setShowLogout(true)}
             canSettleBill={loggedInStaff?.canSettleBill === true}
-            onSettleBill={(tid) => setSettleTarget({ tableId: tid, order: orders[tid] || Object.values(billAlerts).find(b => b.tableId === tid) })}
+            onSettleBill={(tid) => {
+              const latestAlert = Object.values(billAlerts)
+                .filter(b => b.tableId === tid)
+                .sort((a, b) => (b.orderNumber || 0) - (a.orderNumber || 0))[0];
+              setSettleTarget({ tableId: tid, order: orders[tid] || latestAlert });
+            }}
           />
         )}
       </main>
@@ -2267,7 +2285,7 @@ export function App() {
             <div className="wp2-actions">
               <button
                 className="wp2-cancel"
-                onClick={() => { setShowWaiterPick(false); setKotPendingTableId(null); }}
+                onClick={() => { setShowWaiterPick(false); setKotPendingTableId(null); setKotPendingItemIds(null); }}
               >
                 Cancel
               </button>
@@ -2276,7 +2294,8 @@ export function App() {
                 disabled={kotState?.phase === "sending"}
                 onClick={() => {
                   setShowWaiterPick(false);
-                  doSendKOT(kotPendingTableId, pickedWaiter);
+                  doSendKOT(kotPendingTableId, pickedWaiter, kotPendingItemIds);
+                  setKotPendingItemIds(null);
                 }}
               >
                 Send to Kitchen
