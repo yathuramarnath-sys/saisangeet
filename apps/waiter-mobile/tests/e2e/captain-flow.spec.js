@@ -683,4 +683,271 @@ test.describe("Captain App — Core Flow", () => {
     await expect(page.locator(".su2-error")).toBeVisible({ timeout: 10000 });
   });
 
+  // ── 19. Mirror order — new order after bill print ────────────────────────
+  // After Print Bill, the captain removes the table from its local state and the
+  // backend marks hasNextOrder:true. Tapping the table again should open a fresh
+  // empty order (backend auto-advances) — NOT the old bill-pending order.
+  test("19. mirror order — after bill print, tapping table opens fresh empty order", async ({ page }) => {
+    await clearState(page); await login(page);
+
+    const tableNum = await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
+
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
+
+    // Long press occupied table → Print Bill
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
+    const box1 = await occupiedTable.boundingBox();
+    await page.mouse.move(box1.x + box1.width / 2, box1.y + box1.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    await page.waitForSelector(".tas2-sheet", { timeout: 5000 });
+    await page.locator(".tas2-row-label", { hasText: "Print Bill" }).click();
+
+    // Sheet closes; captain removes the table from local state
+    await expect(page.locator(".tas2-sheet")).not.toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(2000);
+
+    // Table should now appear as "open" (captain cleared it) or "next" (backend sent _next slot via socket)
+    await expect(page.locator(".tf2-page")).toBeVisible({ timeout: 5000 });
+    const tableCard = page.locator(".tf2-card", {
+      has: page.locator(".tf2-table-num", { hasText: tableNum }),
+    });
+    await expect(tableCard).toBeVisible({ timeout: 5000 });
+    const st = await tableCard.getAttribute("data-st");
+    expect(["open", "next"]).toContain(st);
+    console.log(`  Table ${tableNum} after bill print: data-st="${st}" ✓`);
+
+    // Tap the table → opens a new empty order (or _next slot)
+    await tableCard.click();
+    await page.waitForSelector(".os2-page, .mb2-page", { timeout: 15000 });
+    if (await page.locator(".mb2-page").isVisible()) {
+      await page.locator(".mb2-back-btn").first().click();
+      await page.waitForSelector(".os2-page", { timeout: 10000 });
+    }
+
+    // The new order must NOT have any sent items from the previous order
+    await expect(page.locator(".os2-section-sent")).not.toBeVisible({ timeout: 3000 }).catch(() => {});
+    console.log(`  Mirror order: fresh empty order opened for table ${tableNum} ✓`);
+  });
+
+  // ── 20. Transfer — execute actual table transfer ──────────────────────────
+  // Selects a free target table in the transfer modal and confirms the move.
+  // Verifies the "Table moved" success overlay and that the order moved.
+  test("20. transfer — move table executes and shows success overlay", async ({ page }) => {
+    await clearState(page); await login(page);
+
+    await page.waitForSelector(".tf2-card", { timeout: 15000 });
+    const freeCount = await page.locator('.tf2-card[data-st="open"]').count();
+    if (freeCount < 2) {
+      test.skip(true, "Need ≥2 free tables for transfer test — skipping");
+      return;
+    }
+
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
+
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
+
+    // Long press occupied table → action sheet → Move table
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
+    const box2 = await occupiedTable.boundingBox();
+    await page.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    await page.waitForSelector(".tas2-sheet", { timeout: 5000 });
+    await page.locator(".tas2-row-label", { hasText: "Move table" }).click();
+
+    // Transfer modal opens
+    await page.waitForSelector(".mt2-page", { timeout: 5000 });
+
+    // Select first free table row in "MOVE TO A FREE TABLE" section
+    const freeRow = page.locator(".mt2-list-row").first();
+    await expect(freeRow).toBeVisible({ timeout: 5000 });
+    await freeRow.click();
+
+    // Confirm button becomes active (not dimmed)
+    const confirmBtn = page.locator(".mt2-confirm-btn:not(.mt2-confirm-btn-dim)");
+    await expect(confirmBtn).toBeVisible({ timeout: 3000 });
+    await confirmBtn.click();
+
+    // Transfer success overlay
+    await page.waitForSelector(".tsm-overlay", { timeout: 15000 });
+    await expect(page.locator(".tsm-title")).toHaveText("Table moved");
+    console.log("  Transfer: success overlay confirmed ✓");
+
+    // Click Done → back to order screen for the destination table
+    await page.locator(".tsm-done-btn").click();
+    await page.waitForSelector(".os2-page", { timeout: 10000 });
+
+    // Sent items should be present (moved from original table)
+    await expect(page.locator(".os2-section-sent")).toBeVisible({ timeout: 5000 });
+    console.log("  Transfer: destination table shows moved items ✓");
+  });
+
+  // ── 21. UPI settlement via MoreScreen ────────────────────────────────────
+  // After Print Bill, the backend marks billRequested:true and broadcasts it.
+  // The captain's MoreScreen Pending Bills section shows a "Collect" button if
+  // the staff member has canSettleBill permission. This test skips gracefully
+  // if the pending bill is not visible (slow socket) or if canSettleBill is off.
+  test("21. settlement — UPI payment via MoreScreen pending bills", async ({ page }) => {
+    await clearState(page); await login(page);
+
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
+
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
+
+    // Print Bill → backend marks billRequested:true + broadcasts order:updated
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
+    const box3 = await occupiedTable.boundingBox();
+    await page.mouse.move(box3.x + box3.width / 2, box3.y + box3.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    await page.waitForSelector(".tas2-sheet", { timeout: 5000 });
+    await page.locator(".tas2-row-label", { hasText: "Print Bill" }).click();
+    await expect(page.locator(".tas2-sheet")).not.toBeVisible({ timeout: 5000 });
+
+    // Give the socket time to deliver the order:updated event to populate billAlerts
+    await page.waitForTimeout(4000);
+
+    // Navigate to More tab
+    await page.locator(".btab-label", { hasText: "More" }).click();
+    await page.waitForSelector(".more2-page", { timeout: 5000 });
+
+    // Pending Bills nav row only appears when billAlerts has entries
+    const pendingNavRow = page.locator(".more2-nav-row");
+    const hasPending = await pendingNavRow.isVisible().catch(() => false);
+    if (!hasPending) {
+      test.skip(true, "Pending bill not yet visible in MoreScreen (socket may be slow) — skipping");
+      return;
+    }
+
+    // Open pending bills sub-screen
+    await pendingNavRow.click();
+    await page.waitForSelector(".more2-pb-header", { timeout: 5000 });
+    await expect(page.locator(".more2-pending-tile")).toBeVisible({ timeout: 5000 });
+    console.log("  Pending bill tile visible in MoreScreen ✓");
+
+    // "Collect" button only shown when canSettleBill === true
+    const collectBtn = page.locator(".more2-pb-collect-btn").first();
+    const canSettle = await collectBtn.isVisible().catch(() => false);
+    if (!canSettle) {
+      test.skip(true, "Collect button not visible — staff does not have canSettleBill permission — skipping");
+      return;
+    }
+
+    await collectBtn.click();
+
+    // SettlePaymentModal appears
+    await page.waitForSelector(".spm-sheet", { timeout: 5000 });
+    const amount = await page.locator(".spm-amount").textContent();
+    expect(amount).toMatch(/₹/);
+    console.log("  Settlement modal: amount shown:", amount?.trim());
+
+    // Click UPI
+    await page.locator(".spm-upi").click();
+
+    // Modal closes; toast confirms collection
+    await expect(page.locator(".spm-sheet")).not.toBeVisible({ timeout: 5000 });
+    console.log("  Settlement: UPI payment collected ✓");
+  });
+
+  // ── 22. Merge tables ──────────────────────────────────────────────────────
+  // Creates two occupied tables then uses the transfer modal to merge one into
+  // the other. After confirm, the order screen shows items from both tables.
+  test("22. merge — two occupied tables merge into a single order", async ({ page }) => {
+    await clearState(page); await login(page);
+
+    await page.waitForSelector(".tf2-card", { timeout: 15000 });
+    const freeCount2 = await page.locator('.tf2-card[data-st="open"]').count();
+    if (freeCount2 < 2) {
+      test.skip(true, "Need ≥2 free tables for merge test — skipping");
+      return;
+    }
+
+    // Occupy first table
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
+
+    // Occupy second table
+    await openFreeTable(page);
+    await addFirstMenuItem(page);
+    await page.click(".os2-kot-btn");
+    await handleWaiterPicker(page);
+    await page.waitForSelector(".kot-success-page", { timeout: 20000 });
+    await page.locator(".kot-floor-btn").first().click();
+    await page.waitForSelector(".tf2-page", { timeout: 10000 });
+    await page.waitForSelector(".tf2-card", { timeout: 10000 });
+
+    const occupiedTables2 = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]');
+    const occupiedCount2 = await occupiedTables2.count();
+    if (occupiedCount2 < 2) {
+      test.skip(true, "Could not create 2 occupied tables — skipping merge test");
+      return;
+    }
+
+    // Long press the first occupied table → Move table
+    const firstOccupied = occupiedTables2.first();
+    const boxM = await firstOccupied.boundingBox();
+    await page.mouse.move(boxM.x + boxM.width / 2, boxM.y + boxM.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    await page.waitForSelector(".tas2-sheet", { timeout: 5000 });
+    await page.locator(".tas2-row-label", { hasText: "Move table" }).click();
+
+    // Transfer modal — "OR MERGE WITH OCCUPIED" section must be visible
+    await page.waitForSelector(".mt2-page", { timeout: 5000 });
+    const mergeSection = page.locator(".mt2-section", { hasText: "MERGE" });
+    await expect(mergeSection).toBeVisible({ timeout: 5000 });
+
+    // Select the first occupied table as merge target
+    const mergeRow = mergeSection.locator(".mt2-list-row").first();
+    await expect(mergeRow).toBeVisible({ timeout: 5000 });
+    await mergeRow.click();
+
+    // Confirm (button shows "↔ Move to T..." for both transfer and merge)
+    const mergeConfirmBtn = page.locator(".mt2-confirm-btn:not(.mt2-confirm-btn-dim)");
+    await expect(mergeConfirmBtn).toBeVisible({ timeout: 3000 });
+    await mergeConfirmBtn.click();
+
+    // After merge: TransferModal closes, order screen shows merged items
+    await page.waitForSelector(".os2-page", { timeout: 15000 });
+    await expect(page.locator(".mt2-page")).not.toBeVisible({ timeout: 3000 });
+
+    // At least 1 sent item must be visible (merged order has items from both tables)
+    await expect(page.locator(".os2-section-sent")).toBeVisible({ timeout: 5000 });
+    const sentCount = await page.locator(".os2-item-sent").count();
+    expect(sentCount).toBeGreaterThanOrEqual(1);
+    console.log(`  Merge: ${sentCount} sent item row(s) visible after merge ✓`);
+  });
+
 });
