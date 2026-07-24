@@ -65,8 +65,8 @@ async function login(page) {
 
 /** Find the first free table and open it. Returns the table number text. */
 async function openFreeTable(page) {
-  // Free tables have class tf2-table-free or similar; click the first one
-  const freeTables = page.locator(".tf2-table").filter({ hasNot: page.locator(".tf2-table-occ, .tf2-table-bill, .tf2-table-hold") });
+  // Tables are .tf2-card; free tables have data-st="free"
+  const freeTables = page.locator('.tf2-card[data-st="free"]');
   const count = await freeTables.count();
   if (count === 0) {
     test.skip(true, "No free tables available in the outlet right now — skipping table flow test");
@@ -164,23 +164,21 @@ test.describe("Captain App — Core Flow", () => {
     // Waiter picker may appear — select "None" or the first option
     const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
     if (waiterPickerVisible) {
-      // Click "None" or the first staff option
       const noneBtn = page.locator(".wp2-row").first();
       await noneBtn.click();
-      // Confirm button
-      const confirmBtn = page.locator(".wp2-confirm-btn, button:has-text('Confirm'), button:has-text('Send')").first();
+      const confirmBtn = page.locator(".wp2-done").first();
       if (await confirmBtn.isVisible()) await confirmBtn.click();
     }
 
     // Success overlay should appear (not error toast)
-    await page.waitForSelector(".kotp-success, .kotp-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
 
     // Must NOT show error toast
     const errorToast = page.locator("[data-testid='toast'], .go3958317564").filter({ hasText: /fail|error|queued/i });
     await expect(errorToast).not.toBeVisible();
 
     // KOT number shown
-    const kotNumEl = page.locator(".kotp-kot-num, .kotp-success .kotp-number");
+    const kotNumEl = page.locator(".kot-ticket-num");
     const hasKotNum = await kotNumEl.isVisible().catch(() => false);
     if (hasKotNum) {
       const kotText = await kotNumEl.textContent();
@@ -202,13 +200,13 @@ test.describe("Captain App — Core Flow", () => {
     const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
     if (waiterPickerVisible) {
       await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-confirm-btn, button:has-text('Confirm'), button:has-text('Send')").first();
+      const confirmBtn = page.locator(".wp2-done").first();
       if (await confirmBtn.isVisible()) await confirmBtn.click();
     }
 
     // Wait for success, then close overlay
-    await page.waitForSelector(".kotp-success, .kotp-overlay", { timeout: 20000 });
-    const closeBtn = page.locator(".kotp-close, .kotp-back, button:has-text('Done'), button:has-text('Back to table')").first();
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    const closeBtn = page.locator(".kot-floor-btn").first();
     if (await closeBtn.isVisible()) await closeBtn.click();
 
     // Items should now be in SENT TO KITCHEN, not NOT SENT YET
@@ -232,18 +230,18 @@ test.describe("Captain App — Core Flow", () => {
     const waiterPickerVisible = await page.locator(".wp2-modal").isVisible().catch(() => false);
     if (waiterPickerVisible) {
       await page.locator(".wp2-row").first().click();
-      const confirmBtn = page.locator(".wp2-confirm-btn, button:has-text('Confirm'), button:has-text('Send')").first();
+      const confirmBtn = page.locator(".wp2-done").first();
       if (await confirmBtn.isVisible()) await confirmBtn.click();
     }
 
-    await page.waitForSelector(".kotp-success, .kotp-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
 
-    // Click "Add More" if visible, otherwise close and go back
-    const addMoreBtn = page.locator("button:has-text('Add more'), button:has-text('Add More')").first();
+    // Click "Add More" if visible, otherwise go back to floor
+    const addMoreBtn = page.locator(".kot-addmore-btn").first();
     if (await addMoreBtn.isVisible().catch(() => false)) {
       await addMoreBtn.click();
     } else {
-      const closeBtn = page.locator(".kotp-close, .kotp-back, button:has-text('Done'), button:has-text('Back to table')").first();
+      const closeBtn = page.locator(".kot-floor-btn").first();
       if (await closeBtn.isVisible()) await closeBtn.click();
     }
 
