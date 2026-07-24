@@ -36,50 +36,11 @@ jobs:
         working-directory: apps/waiter-mobile
         run: npx playwright install chromium --with-deps
 
-      # ── Resolve target URL ────────────────────────────────────────────────
-      # On PRs: wait for the Vercel preview to be ready, then use it.
-      # On main push: use the production captain URL.
-      - name: Resolve captain URL
-        id: captain-url
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # Vercel preview URL pattern for waiter-mobile
-            PR_NUM="${{ github.event.number }}"
-            BRANCH_SLUG=$(echo "${{ github.head_ref }}" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]' | cut -c1-40)
-            # The preview URL Vercel generates follows this pattern:
-            PREVIEW="https://saisangeet-waiter-mobile-git-${BRANCH_SLUG}-saisangeet.vercel.app"
-            echo "url=${PREVIEW}" >> "$GITHUB_OUTPUT"
-            echo "Target URL: ${PREVIEW}"
-          else
-            echo "url=https://captain.dinexpos.in" >> "$GITHUB_OUTPUT"
-            echo "Target URL: https://captain.dinexpos.in"
-          fi
-
-      # ── Wait for Vercel preview ───────────────────────────────────────────
-      - name: Wait for Vercel preview to be ready
-        if: github.event_name == 'pull_request'
-        run: |
-          URL="${{ steps.captain-url.outputs.url }}"
-          echo "Waiting for $URL ..."
-          for i in $(seq 1 24); do
-            STATUS=$(curl -sS -o /dev/null -w "%{http_code}" "$URL" 2>/dev/null || echo "000")
-            echo "  Attempt $i: HTTP $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "Preview is ready."
-              break
-            fi
-            if [ "$i" = "24" ]; then
-              echo "Preview did not become ready in 2 minutes — using production URL as fallback"
-              echo "url=https://captain.dinexpos.in" >> "$GITHUB_OUTPUT"
-            fi
-            sleep 5
-          done
-
       # ── Run E2E tests ─────────────────────────────────────────────────────
       - name: Run Playwright tests
         working-directory: apps/waiter-mobile
         env:
-          CAPTAIN_URL:         ${{ steps.captain-url.outputs.url }}
+          CAPTAIN_URL:         https://captain.dinexpos.in
           CAPTAIN_BRANCH_CODE: ${{ secrets.CAPTAIN_BRANCH_CODE }}
           CAPTAIN_STAFF_NAME:  ${{ secrets.CAPTAIN_STAFF_NAME }}
           CAPTAIN_STAFF_PIN:   ${{ secrets.CAPTAIN_STAFF_PIN }}
