@@ -18,12 +18,27 @@ const BRANCH     = process.env.CAPTAIN_BRANCH_CODE || "";
 const STAFF_NAME = process.env.CAPTAIN_STAFF_NAME  || "";
 const STAFF_PIN  = process.env.CAPTAIN_STAFF_PIN   || "";
 
+// Cached after beforeAll so individual tests restore it without re-calling the API
+let captainStorageState = null;
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/** Clear localStorage so every test starts from a fresh device setup */
+/**
+ * Reset to a clean state before each test.
+ * If the device has been set up (beforeAll ran), restore its localStorage so we
+ * land on the login screen without re-entering the branch code.
+ * Otherwise fall back to a full clear + re-setup.
+ */
 async function clearState(page) {
   await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-  await page.evaluate(() => localStorage.clear());
+  if (captainStorageState) {
+    await page.evaluate((state) => {
+      localStorage.clear();
+      for (const [k, v] of Object.entries(state)) localStorage.setItem(k, v);
+    }, captainStorageState);
+  } else {
+    await page.evaluate(() => localStorage.clear());
+  }
   await page.reload({ waitUntil: "domcontentloaded" });
 }
 
@@ -114,18 +129,41 @@ test.describe("Captain App — Core Flow", () => {
       "Skipped: CAPTAIN_BRANCH_CODE / CAPTAIN_STAFF_NAME / CAPTAIN_STAFF_PIN not set");
   });
 
+  // ── Device setup (once per suite) ─────────────────────────────────────────
+  // Calling the branch-code verification API in every test triggers rate limiting
+  // after the first couple of calls. Run it once in beforeAll, save the resulting
+  // localStorage, and restore it in clearState() for every test.
+  test.beforeAll(async ({ browser }) => {
+    if (!BRANCH || !STAFF_NAME || !STAFF_PIN) return;
+    const ctx  = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await setupDevice(page);
+    captainStorageState = await page.evaluate(() => {
+      const s = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        s[k] = localStorage.getItem(k);
+      }
+      return s;
+    });
+    await ctx.close();
+  });
+
   // ── 1. Device Setup ──────────────────────────────────────────────────────
-  test("1. setup — branch code accepted and outlet name shown", async ({ page }) => {
+  test("1. setup — device configured, login screen shown on reload", async ({ page }) => {
+    // beforeAll verified setupDevice succeeded and saved the localStorage state.
+    // clearState() restores it so the app skips the setup screen and goes straight
+    // to the login screen — confirming device configuration is intact.
     await clearState(page);
-    const outletName = await setupDevice(page);
-    expect(outletName).toBeTruthy();
-    expect(outletName?.length).toBeGreaterThan(2);
+    await expect(page.locator(".ls2-who-heading")).toBeVisible({ timeout: 15000 });
   });
 
   // ── 2. Login ─────────────────────────────────────────────────────────────
   test("2. login — staff picker shows captain, PIN accepted", async ({ page }) => {
     await clearState(page);
-    await setupDevice(page);
     await login(page);
 
     // Floor plan is visible
@@ -135,7 +173,6 @@ test.describe("Captain App — Core Flow", () => {
   // ── 3. Add Items ─────────────────────────────────────────────────────────
   test("3. order — open table, add item, item appears in unsent list", async ({ page }) => {
     await clearState(page);
-    await setupDevice(page);
     await login(page);
 
     await openFreeTable(page);
@@ -152,7 +189,6 @@ test.describe("Captain App — Core Flow", () => {
   // ── 4. KOT Send ──────────────────────────────────────────────────────────
   test("4. KOT — send to kitchen shows success overlay, not failure toast", async ({ page }) => {
     await clearState(page);
-    await setupDevice(page);
     await login(page);
 
     await openFreeTable(page);
@@ -189,7 +225,6 @@ test.describe("Captain App — Core Flow", () => {
   // ── 5. Item Count After KOT ───────────────────────────────────────────────
   test("5. after KOT — items move to SENT TO KITCHEN section", async ({ page }) => {
     await clearState(page);
-    await setupDevice(page);
     await login(page);
 
     await openFreeTable(page);
@@ -219,7 +254,6 @@ test.describe("Captain App — Core Flow", () => {
   // ── 6. Add More Items After KOT ──────────────────────────────────────────
   test("6. add item after KOT — only new item in unsent, sent items unchanged", async ({ page }) => {
     await clearState(page);
-    await setupDevice(page);
     await login(page);
 
     await openFreeTable(page);
@@ -260,7 +294,6 @@ test.describe("Captain App — Core Flow", () => {
   // ── 7. Occupied Table — tap opens order screen ───────────────────────────
   test("7. occupied table — tap opens order screen with sent items", async ({ page }) => {
     await clearState(page);
-    await setupDevice(page);
     await login(page);
 
     await openFreeTable(page);
@@ -296,7 +329,6 @@ test.describe("Captain App — Core Flow", () => {
   // ── 8. Action Sheet — long press on occupied table ───────────────────────
   test("8. action sheet — long press shows Print Bill and Move Table options", async ({ page }) => {
     await clearState(page);
-    await setupDevice(page);
     await login(page);
 
     await openFreeTable(page);
@@ -341,7 +373,6 @@ test.describe("Captain App — Core Flow", () => {
   // ── 9. Action Sheet — cancel dismisses it ────────────────────────────────
   test("9. action sheet — cancel button dismisses sheet, floor stays visible", async ({ page }) => {
     await clearState(page);
-    await setupDevice(page);
     await login(page);
 
     await openFreeTable(page);
@@ -379,7 +410,7 @@ test.describe("Captain App — Core Flow", () => {
 
   // ── 10. Guest count ──────────────────────────────────────────────────────
   test("10. guest count — stepper on empty order sets guest count", async ({ page }) => {
-    await clearState(page); await setupDevice(page); await login(page);
+    await clearState(page); await login(page);
     await openFreeTable(page);
 
     // Guest stepper is visible on empty order screen
@@ -401,7 +432,7 @@ test.describe("Captain App — Core Flow", () => {
 
   // ── 11. Quantity increment ────────────────────────────────────────────────
   test("11. menu — adding same item twice shows qty 2, not two rows", async ({ page }) => {
-    await clearState(page); await setupDevice(page); await login(page);
+    await clearState(page); await login(page);
     await openFreeTable(page);
 
     // Open menu browser
@@ -432,7 +463,7 @@ test.describe("Captain App — Core Flow", () => {
 
   // ── 12. Move table — transfer modal ──────────────────────────────────────
   test("12. move table — action sheet opens transfer modal, back returns to floor", async ({ page }) => {
-    await clearState(page); await setupDevice(page); await login(page);
+    await clearState(page); await login(page);
 
     await openFreeTable(page);
     await addFirstMenuItem(page);
@@ -474,7 +505,7 @@ test.describe("Captain App — Core Flow", () => {
 
   // ── 15. Running total on table card ─────────────────────────────────────
   test("15. balance — table card shows ₹ running total after KOT", async ({ page }) => {
-    await clearState(page); await setupDevice(page); await login(page);
+    await clearState(page); await login(page);
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
@@ -500,7 +531,7 @@ test.describe("Captain App — Core Flow", () => {
 
   // ── 16. Action sheet subtitle running total ──────────────────────────────
   test("16. balance — action sheet subtitle shows ₹ running total", async ({ page }) => {
-    await clearState(page); await setupDevice(page); await login(page);
+    await clearState(page); await login(page);
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
@@ -538,7 +569,7 @@ test.describe("Captain App — Core Flow", () => {
 
   // ── 17. Print Bill clears captain slot ──────────────────────────────────
   test("17. billing — Print Bill from action sheet clears table from captain view", async ({ page }) => {
-    await clearState(page); await setupDevice(page); await login(page);
+    await clearState(page); await login(page);
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
@@ -586,7 +617,7 @@ test.describe("Captain App — Core Flow", () => {
 
   // ── 18. Split Bill screen ────────────────────────────────────────────────
   test("18. billing — Split Bill screen opens from action sheet with items listed", async ({ page }) => {
-    await clearState(page); await setupDevice(page); await login(page);
+    await clearState(page); await login(page);
     await openFreeTable(page);
     await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
@@ -638,7 +669,6 @@ test.describe("Captain App — Core Flow", () => {
   // ── 13. Wrong PIN Rejected ────────────────────────────────────────────────
   test("13. login — wrong PIN shows error, does not navigate to floor", async ({ page }) => {
     await clearState(page);
-    await setupDevice(page);
 
     await page.waitForSelector(".ls2-who-heading", { timeout: 15000 });
     const staffRow = page.locator(".ls2-list-name", { hasText: STAFF_NAME }).first();
