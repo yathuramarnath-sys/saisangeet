@@ -4,7 +4,7 @@ export default defineConfig({
   testDir:    "./tests/e2e",
   testMatch:  "**/*.spec.js",
   timeout:    60_000,   // 1 min per test (KOT send includes network + print)
-  retries:    1,        // retry once on flaky network
+  retries:    0,        // no retries — retries re-run beforeAll and hit API rate limits
   workers:    1,        // serial — one device state at a time
 
   use: {

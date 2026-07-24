@@ -80,6 +80,9 @@ async function login(page) {
 
 /** Find the first free table and open it. Returns the table number text. */
 async function openFreeTable(page) {
+  // Wait for table cards to render before counting (floor plan may still be loading)
+  await page.waitForSelector(".tf2-card", { timeout: 15000 });
+
   // Tables are .tf2-card; free tables have data-st="open" (TF2_LABEL["open"] = "Free")
   const freeTables = page.locator('.tf2-card[data-st="open"]');
   const count = await freeTables.count();
@@ -91,8 +94,8 @@ async function openFreeTable(page) {
   const tableNum = await freeTable.locator(".tf2-table-num").textContent();
   await freeTable.click();
 
-  // Order screen opens
-  await page.waitForSelector(".os2-page", { timeout: 10000 });
+  // Order screen opens — allow up to 20s for the live API call to complete
+  await page.waitForSelector(".os2-page", { timeout: 20000 });
   console.log("  Opened table:", tableNum?.trim());
   return tableNum?.trim();
 }
