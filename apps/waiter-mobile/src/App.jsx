@@ -408,6 +408,15 @@ export function App() {
           // This prevents "Bill ready" appearing for tables outside the captain's local state.
           if (o.billRequested && !p[o.tableId]) return p;
 
+          // Protect the blank "next order" slot created by openOrderScreen after bill print.
+          // When handlePrintBill clears the captain's slot, tapping the now-free table
+          // immediately creates a blank order (items:[], billRequested:false). A socket echo
+          // from the bill-print broadcast carries the old order (billRequested:true, full items)
+          // and would restore it, turning the table blue again with the old order visible.
+          if (o.billRequested && p[o.tableId] &&
+              !(p[o.tableId].items || []).some(i => !i.isVoided) &&
+              !p[o.tableId].billRequested) return p;
+
           if (!o.items?.length || o.isClosed) {
             // Protect a live order: if captain already has active items on this table,
             // don't wipe it via a server blank.
@@ -2166,12 +2175,6 @@ export function App() {
             onSplitBill={() => openOrderScreen(actionTableId, actionArea, "split")}
             onPrintBill={() => handlePrintBill(actionTableId)}
             onCustomerInfo={() => { setShowCustomerInfo(true); }}
-            canSettle={loggedInStaff?.canSettleBill === true && !!(actionOrder?.billRequested)}
-            onSettleBill={() => {
-              setSettleTarget({ tableId: actionTableId, order: orders[actionTableId] });
-              setActionTableId(null);
-              setActionArea(null);
-            }}
             onMarkFree={() => {
               const tbl = actionArea?.tables?.find(t => t.id === actionTableId);
               const ord = orders[actionTableId];
