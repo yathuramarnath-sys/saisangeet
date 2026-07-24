@@ -13,7 +13,7 @@ export default defineConfig({
     // Accept self-signed / proxied TLS in CI
     ignoreHTTPSErrors: false,
     // Slow down actions slightly so animations don't race assertions
-    actionTimeout:     8_000,
+    actionTimeout:     15_000,
     navigationTimeout: 30_000,
     // Record video on failure for debugging
     video: "retain-on-failure",

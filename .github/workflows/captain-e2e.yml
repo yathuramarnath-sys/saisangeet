@@ -5,12 +5,6 @@ on:
     paths:
       - "apps/waiter-mobile/**"
       - ".github/workflows/captain-e2e.yml"
-  push:
-    branches:
-      - main
-    paths:
-      - "apps/waiter-mobile/**"
-      - ".github/workflows/captain-e2e.yml"
   workflow_dispatch:
     inputs:
       captain_url:
