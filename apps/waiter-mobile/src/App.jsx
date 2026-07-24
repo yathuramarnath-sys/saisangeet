@@ -388,12 +388,13 @@ export function App() {
         socket.on("order:updated", (o) => {
           // Track bill-requested orders for More screen (all tables, regardless of local state)
           setBillAlerts((prev) => {
+            const key = String(o.orderNumber);
             if (o.isClosed || !o.billRequested) {
-              if (!prev[o.tableId]) return prev;
-              const { [o.tableId]: _, ...rest } = prev;
+              if (!prev[key]) return prev;
+              const { [key]: _, ...rest } = prev;
               return rest;
             }
-            return { ...prev, [o.tableId]: o };
+            return { ...prev, [key]: o };
           });
 
           setOrders((p) => {
@@ -2104,7 +2105,7 @@ export function App() {
             onSync={handleSync}
             onSignOut={() => setShowLogout(true)}
             canSettleBill={loggedInStaff?.canSettleBill === true}
-            onSettleBill={(tid) => setSettleTarget({ tableId: tid, order: orders[tid] || billAlerts[tid] })}
+            onSettleBill={(tid) => setSettleTarget({ tableId: tid, order: orders[tid] || Object.values(billAlerts).find(b => b.tableId === tid) })}
           />
         )}
       </main>
