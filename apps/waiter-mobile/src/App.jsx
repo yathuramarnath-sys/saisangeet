@@ -1612,27 +1612,27 @@ export function App() {
     handleUpdateOrder({ ...printOrder, billRequested: true, hasNextOrder: true });
     toast("Printing bill…", { icon: "🖨️" });
 
-    // Await bill-request so the backend marks billRequested+hasNextOrder before we clear
-    // the captain's local slot. hasNextOrder:true tells deviceGetOrCreateOrderHandler
-    // to auto-advance to a fresh empty order when captain next opens this table.
-    // (billRequested alone is also set by POS/QR — without hasNextOrder the backend
-    //  must NOT clear the active order, so the flag is the disambiguator.)
-    try {
-      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true, orderNumber: printOrder.orderNumber ?? null });
-    } catch (err) {
-      console.warn("[captain] bill-request failed:", err.message);
-    }
-
-    // Remove table from captain's local state — floor plan shows it as free so
-    // captain can seat the next customer without waiting for cashier settlement.
+    // Remove table from captain's local state immediately — floor plan shows it as free
+    // so captain can seat the next customer without waiting for the API round-trip.
+    // handleUpdateOrder (above) already sent billRequested+hasNextOrder via socket, so the
+    // backend already knows. The api.post below persists hasNextOrder in the DB so
+    // deviceGetOrCreateOrderHandler auto-advances to a fresh empty order next open.
     setOrders(prev => {
       const { [tid]: _, ...rest } = prev;
       return rest;
     });
     localStorage.removeItem(`captain_courses_${tid}`);
-
     if (tid === selectedTableId) setSelectedTableId(null);
     setActionTableId(null);
+
+    // Persist hasNextOrder to DB in background (fire-and-forget after local clear).
+    // billRequested alone is also set by POS/QR — without hasNextOrder the backend
+    // must NOT clear the active order, so the flag is the disambiguator.
+    try {
+      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true, orderNumber: printOrder.orderNumber ?? null });
+    } catch (err) {
+      console.warn("[captain] bill-request failed:", err.message);
+    }
   }
 
   // ── Split bill print ──────────────────────────────────────────────────────
