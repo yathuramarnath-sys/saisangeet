@@ -821,6 +821,7 @@ export function App() {
       outletId: outlet?.id,
       order: { tableId, items: [], isClosed: false },
     });
+    localSocketRef.current?.emit("order:update", { order: { tableId, items: [], isClosed: false } });
     localStorage.removeItem(`captain_courses_${tableId}`);
     setSelectedTableId(null);
   }
