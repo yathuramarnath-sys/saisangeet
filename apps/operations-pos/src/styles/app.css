@@ -9650,6 +9650,48 @@ input, select, textarea {
 }
 .order-item-void-btn:hover { opacity: 1; }
 
+/* ── Batch KOT cancel staging ─────────────────────────────────────────────── */
+.qty-value.qty-cancel-pending {
+  color: #dc2626;
+  text-decoration: line-through;
+}
+.qty-btn.qty-btn-cancel-kot {
+  background: #fff0f0; border-color: #fca5a5; color: #dc2626;
+}
+.qty-btn.qty-btn-cancel-kot:hover { background: #fee2e2; border-color: #f87171; }
+
+.cancel-stage-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; margin: 4px 0;
+  background: #fff7ed; border-top: 1px solid #fed7aa;
+  border-bottom: 1px solid #fed7aa;
+}
+.cancel-stage-info {
+  flex: 1; font-size: 12px; font-weight: 700; color: #c2410c;
+}
+.cancel-stage-clear {
+  padding: 5px 10px; border-radius: 7px;
+  border: 1.5px solid #fed7aa; background: #fff;
+  font-size: 11px; font-weight: 700; color: #9a3412; cursor: pointer;
+}
+.cancel-stage-clear:hover { background: #fee2e2; border-color: #fca5a5; }
+
+.cancel-stage-confirm {
+  padding: 5px 12px; border-radius: 7px;
+  border: none; background: #ea580c; color: #fff;
+  font-size: 12px; font-weight: 800; cursor: pointer;
+  transition: background 0.15s;
+}
+.cancel-stage-confirm:hover { background: #c2410c; }
+
+.cancel-modal-reason {
+  width: 100%; box-sizing: border-box;
+  padding: 8px 10px; border-radius: 8px;
+  border: 1.5px solid #d1d5db; font-size: 13px;
+  margin-bottom: 4px; outline: none;
+}
+.cancel-modal-reason:focus { border-color: #ea580c; }
+
 /* ── Waitlist Panel ───────────────────────────────────────────────────────── */
 .wl-overlay {
   position: fixed; inset: 0; z-index: 1100;
