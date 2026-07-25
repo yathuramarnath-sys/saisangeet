@@ -181,7 +181,6 @@ export function App() {
   const [kotState,        setKotState]        = useState(null);
   // null | { phase: 'sending'|'success', tableLabel, itemCount, kotNumber }
   const [transferSuccess,    setTransferSuccess]    = useState(null);
-  const [billRequestedLabel, setBillRequestedLabel] = useState(null);
   // null | { fromNum, toNum }
 
   // Incoming customer (QR) orders
@@ -1520,27 +1519,6 @@ export function App() {
 
   // ── Request bill ──────────────────────────────────────────────────────────
   // tableId is optional — falls back to selectedTableId
-  async function handleRequestBill(tableId) {
-    const tid   = tableId || selectedTableId;
-    const order = orders[tid];
-    if (!order) return;
-    handleUpdateOrder({ ...order, billRequested: true });
-    if (tableId) setActionTableId(null);   // close action sheet when called from it
-    // Compute short label, e.g. "Table 5" from "TABLE 5"
-    const tNum = order.tableNumber || "";
-    const tMatch = String(tNum).trim().match(/(\d+)\s*$/);
-    const tLabel = tMatch ? `Table ${tMatch[1]}` : (String(tNum) || "the table");
-    setBillRequestedLabel(tLabel);
-    // Include orderNumber so the backend can reject stale retries that target a new order.
-    const billReqPayload = { outletId: outlet?.id, tableId: tid, orderNumber: order.orderNumber };
-    try {
-      await api.post("/operations/bill-request", billReqPayload);
-    } catch (err) {
-      console.warn("[captain] bill-request sync failed — queuing for retry:", err.message);
-      syncEnqueue(SYNC_ACTION.BILL_REQUEST, billReqPayload);
-    }
-  }
-
   // ── Print bill (works from OrderScreen inline or from long-press action sheet)
   async function handlePrintBill(tableId) {
     const tid   = tableId || selectedTableId;
@@ -2055,8 +2033,6 @@ export function App() {
             autoOpen={autoOpenAction}
             onBack={() => { setSelectedTableId(null); setAutoOpenAction(null); }}
             onSendKOT={handleSendKOT}
-            onRequestBill={handleRequestBill}
-            onPrintBill={handlePrintBill}
             onPrintSplitBill={handlePrintSplitBill}
             onUpdateOrder={handleUpdateOrder}
             onUpdateGuests={handleUpdateGuests}
@@ -2346,27 +2322,6 @@ export function App() {
               </div>
             </div>
             <button className="tsm-done-btn" onClick={() => setTransferSuccess(null)}>
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Bill requested success modal */}
-      {billRequestedLabel && (
-        <div className="brm-overlay">
-          <div className="brm-card">
-            <div className="brm-icon-wrap">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-                stroke="#0C831F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            </div>
-            <h2 className="brm-title">Bill requested</h2>
-            <p className="brm-body">
-              The cashier has been notified to prepare the bill for {billRequestedLabel}.
-            </p>
-            <button className="brm-done-btn" onClick={() => setBillRequestedLabel(null)}>
               Done
             </button>
           </div>

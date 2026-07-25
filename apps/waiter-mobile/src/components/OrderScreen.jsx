@@ -28,7 +28,7 @@ function elapsedLabel(ts) {
 export function OrderScreen({
   order, tableLabel, areas, categories, menuItems, outletName,
   orders, outletId, socket, staff = [], defaultTaxRate = 0,
-  onBack, onSendKOT, onRequestBill, onPrintBill, onPrintSplitBill,
+  onBack, onSendKOT, onPrintSplitBill,
   onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear, onCustomerInfo,
   onRequestRemoveItem,
