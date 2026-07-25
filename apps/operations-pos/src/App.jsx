@@ -772,6 +772,19 @@ export default function App() {
 
             const next = { ...prev, [updatedOrder.tableId]: merged };
             saveOrdersToStorage(next);
+
+            // When the captain settles (isClosed:true), clear any mirror tiles for this
+            // table so the POS floor doesn't keep showing stale "Bill" slots.
+            if (updatedOrder.isClosed) {
+              setTimeout(() => {
+                setMirrorOrders(mp => {
+                  if (!mp[updatedOrder.tableId]?.length) return mp;
+                  const { [updatedOrder.tableId]: _, ...rest } = mp;
+                  return rest;
+                });
+              }, 0);
+            }
+
             return next;
           });
         });
@@ -964,6 +977,13 @@ export default function App() {
             saveOrdersToStorage(next);
             return next;
           });
+          if (updatedOrder.isClosed) {
+            setMirrorOrders(mp => {
+              if (!mp[updatedOrder.tableId]?.length) return mp;
+              const { [updatedOrder.tableId]: _, ...rest } = mp;
+              return rest;
+            });
+          }
         });
 
         // KOT sent by Captain via local WiFi → print it + mark items sent
