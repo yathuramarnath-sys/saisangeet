@@ -928,6 +928,7 @@ export function App() {
         const { [tableId]: _, ...rest } = prev;
         return rest;
       });
+      localStorage.removeItem(`captain_courses_${tableId}`);
       // Remove this specific order's bill alert immediately — don't wait for socket echo
       setBillAlerts(prev => {
         const key = String(order.orderNumber);
@@ -1647,6 +1648,7 @@ export function App() {
       const { [tid]: _, ...rest } = prev;
       return rest;
     });
+    localStorage.removeItem(`captain_courses_${tid}`);
 
     if (tid === selectedTableId) setSelectedTableId(null);
     setActionTableId(null);
