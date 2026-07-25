@@ -445,8 +445,8 @@ export function OrderPanel({
                             onChangeQty(idx, next);
                           }}>−</button>
                       )}
-                      {/* Post-KOT: staging minus (permission-gated, batched) */}
-                      {item.sentToKot && !item.isComp && canCancelKotItem && (
+                      {/* Post-KOT: staging minus (batched cancel) */}
+                      {item.sentToKot && !item.isComp && (
                         <button type="button" className="qty-btn qty-btn-cancel-kot"
                           title="Stage a cancel (confirm all at once)"
                           onClick={() => {
@@ -496,7 +496,7 @@ export function OrderPanel({
                           }}>+</button>
                       )}
                       {/* Post-KOT: un-stage plus (only when something is staged) */}
-                      {item.sentToKot && !item.isComp && canCancelKotItem && (cancelStaging[item.id] || 0) > 0 && (
+                      {item.sentToKot && !item.isComp && (cancelStaging[item.id] || 0) > 0 && (
                         <button type="button" className="qty-btn"
                           title="Undo staged cancel"
                           onClick={() => {
@@ -516,17 +516,6 @@ export function OrderPanel({
                       {!item.sentToKot && !item.isComp && (
                         <button type="button" className="order-item-remove"
                           onClick={() => onRemoveItem(idx)}>✕</button>
-                      )}
-                      {/* Post-KOT: full void requires cashier PIN */}
-                      {item.sentToKot && !item.isComp && (
-                        <button type="button" className="order-item-void-btn"
-                          title="Void item (PIN required)"
-                          onClick={() => {
-                            if (needsPin) { setPinForVoidIdx(idx); }
-                            else          { setVoidingIdx(idx); }
-                          }}>
-                          🚫
-                        </button>
                       )}
                     </div>
                   )}

@@ -718,6 +718,34 @@ export default function App() {
             ) {
               return prev;
             }
+            // Mirror-close guard: captain settled an OLDER/MIRROR order for this table
+            // (different orderNumber than what's in the main slot).  Remove only that
+            // entry from mirrorOrders and leave the active order untouched — without
+            // this guard the closing event overwrites the active order, causing the POS
+            // to lose it and re-settle it (duplicate bill numbers).
+            if (
+              updatedOrder.isClosed &&
+              current &&
+              updatedOrder.orderNumber != null &&
+              current.orderNumber != null &&
+              Number(updatedOrder.orderNumber) !== Number(current.orderNumber)
+            ) {
+              setTimeout(() => {
+                setMirrorOrders(mp => {
+                  const arr = mp[updatedOrder.tableId] || [];
+                  const filtered = arr.filter(
+                    o => Number(o.orderNumber) !== Number(updatedOrder.orderNumber)
+                  );
+                  if (filtered.length === arr.length) return mp;
+                  if (!filtered.length) {
+                    const { [updatedOrder.tableId]: _, ...rest } = mp;
+                    return rest;
+                  }
+                  return { ...mp, [updatedOrder.tableId]: filtered };
+                });
+              }, 0);
+              return prev; // active order preserved — don't overwrite with closed mirror
+            }
             // Petpooja-style mirror table: if POS has a pending bill for this table
             // (billRequested:true, different orderNumber) the incoming update is a new
             // seating by Captain.  Preserve the pending bill as a "mirror" tile so the
@@ -772,6 +800,19 @@ export default function App() {
 
             const next = { ...prev, [updatedOrder.tableId]: merged };
             saveOrdersToStorage(next);
+
+            // When the captain settles (isClosed:true), clear any mirror tiles for this
+            // table so the POS floor doesn't keep showing stale "Bill" slots.
+            if (updatedOrder.isClosed) {
+              setTimeout(() => {
+                setMirrorOrders(mp => {
+                  if (!mp[updatedOrder.tableId]?.length) return mp;
+                  const { [updatedOrder.tableId]: _, ...rest } = mp;
+                  return rest;
+                });
+              }, 0);
+            }
+
             return next;
           });
         });
@@ -930,9 +971,34 @@ export default function App() {
 
         // Order update from Captain via local WiFi → update POS table state
         localSock.on("order:updated", (updatedOrder) => {
+          const currentForMirror = ordersRef.current[updatedOrder.tableId];
+
+          // Mirror-close guard: captain settled an older mirror bill for this table.
+          // Remove just that entry from mirrorOrders; leave the active order intact.
+          if (
+            updatedOrder.isClosed &&
+            currentForMirror &&
+            updatedOrder.orderNumber != null &&
+            currentForMirror.orderNumber != null &&
+            Number(updatedOrder.orderNumber) !== Number(currentForMirror.orderNumber)
+          ) {
+            setMirrorOrders(mp => {
+              const arr = mp[updatedOrder.tableId] || [];
+              const filtered = arr.filter(
+                o => Number(o.orderNumber) !== Number(updatedOrder.orderNumber)
+              );
+              if (filtered.length === arr.length) return mp;
+              if (!filtered.length) {
+                const { [updatedOrder.tableId]: _, ...rest } = mp;
+                return rest;
+              }
+              return { ...mp, [updatedOrder.tableId]: filtered };
+            });
+            return; // don't call setOrders — active order is preserved
+          }
+
           // Mirror tile: push pending bill to mirrorOrders when a newer order arrives.
           // Must run OUTSIDE setOrders updater — side-effects inside updaters fire twice in StrictMode.
-          const currentForMirror = ordersRef.current[updatedOrder.tableId];
           if (
             currentForMirror && currentForMirror.billRequested && !currentForMirror.isClosed &&
             !updatedOrder.isClosed &&
@@ -964,6 +1030,14 @@ export default function App() {
             saveOrdersToStorage(next);
             return next;
           });
+          // Main order closed — clear all mirror tiles for this table
+          if (updatedOrder.isClosed) {
+            setMirrorOrders(mp => {
+              if (!mp[updatedOrder.tableId]?.length) return mp;
+              const { [updatedOrder.tableId]: _, ...rest } = mp;
+              return rest;
+            });
+          }
         });
 
         // KOT sent by Captain via local WiFi → print it + mark items sent
