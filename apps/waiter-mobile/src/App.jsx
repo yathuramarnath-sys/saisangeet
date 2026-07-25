@@ -381,7 +381,7 @@ export function App() {
         socket.on("order:updated", (o) => {
           // Track bill-requested orders for More screen (all tables, regardless of local state)
           setBillAlerts((prev) => {
-            const key = String(o.orderNumber);
+            const key = String(o.orderNumber ?? o.id);
             if (o.isClosed || !o.billRequested) {
               if (!prev[key]) return prev;
               const { [key]: _, ...rest } = prev;
@@ -931,7 +931,7 @@ export function App() {
       localStorage.removeItem(`captain_courses_${tableId}`);
       // Remove this specific order's bill alert immediately — don't wait for socket echo
       setBillAlerts(prev => {
-        const key = String(order.orderNumber);
+        const key = String(order.orderNumber ?? order.id);
         if (!prev[key]) return prev;
         const { [key]: _, ...rest } = prev;
         return rest;
@@ -1433,21 +1433,23 @@ export function App() {
     }
 
     // Record in shift history so the KOTs tab can show All / Sent / Unsuccessful
-    setSentKots(prev => {
-      const record = {
-        id:          `sent-${Date.now()}`,
-        kotNumber:   serverKotNumber,
-        tableId:     order.tableId,
-        tableNumber: order.tableNumber,
-        areaName:    order.areaName,
-        items:       kotItems,
-        sentAt:      new Date().toISOString(),
-        status:      "sent",
-      };
-      const next = [record, ...prev];
-      saveSentKots(next);
-      return next;
-    });
+    if (!kotApiFailed) {
+      setSentKots(prev => {
+        const record = {
+          id:          `sent-${Date.now()}`,
+          kotNumber:   serverKotNumber,
+          tableId:     order.tableId,
+          tableNumber: order.tableNumber,
+          areaName:    order.areaName,
+          items:       kotItems,
+          sentAt:      new Date().toISOString(),
+          status:      "sent",
+        };
+        const next = [record, ...prev];
+        saveSentKots(next);
+        return next;
+      });
+    }
 
     if (lastServerOrder) {
       // Compute reconciled order inside the setOrders updater so we read the freshest
