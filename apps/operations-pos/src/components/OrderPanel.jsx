@@ -349,7 +349,6 @@ export function OrderPanel({
             </>
           )}
           {order.isOnHold      && <span className="order-badge hold">On Hold</span>}
-          {order.billRequested && <span className="order-badge bill">Bill Req.</span>}
           {order.voidRequested && <span className="order-badge void">Void</span>}
           {order.isClosed      && <span className="order-badge closed">Closed</span>}
         </div>
