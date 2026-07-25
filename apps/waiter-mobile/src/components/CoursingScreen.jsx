@@ -33,30 +33,31 @@ export function CoursingScreen({ order, tableLabel, onBack, onFireCourse }) {
     prevItemIdKey.current = itemIdKey;
     const currentItemIds = new Set(items.map(i => i.id));
     setCourses(prev => {
+      // Assign newly added items to the last unfired course (or create a new one)
       const allAssigned = new Set(prev.flatMap(c => c.itemIds));
       const unassigned  = items.filter(i => !allAssigned.has(i.id));
-      if (!unassigned.length) return prev;
-      const lastUnfired = [...prev].reverse().find(c => !c.firedAt);
-      if (lastUnfired) {
-        return prev.map(c =>
-          c.id === lastUnfired.id
-            ? { ...c, itemIds: [...c.itemIds, ...unassigned.map(i => i.id)] }
-            : c
-        );
+      let next = prev;
+      if (unassigned.length) {
+        const lastUnfired = [...prev].reverse().find(c => !c.firedAt);
+        if (lastUnfired) {
+          next = prev.map(c =>
+            c.id === lastUnfired.id
+              ? { ...c, itemIds: [...c.itemIds, ...unassigned.map(i => i.id)] }
+              : c
+          );
+        } else {
+          const nextId = Math.max(...prev.map(c => c.id), 0) + 1;
+          next = [...prev, {
+            id: nextId,
+            name: DEFAULT_NAMES[nextId - 1] || `COURSE ${nextId}`,
+            itemIds: unassigned.map(i => i.id),
+            firedAt: null,
+          }];
+        }
       }
-      const nextId = Math.max(...prev.map(c => c.id), 0) + 1;
-      return [...prev, {
-        id: nextId,
-        name: DEFAULT_NAMES[nextId - 1] || `COURSE ${nextId}`,
-        itemIds: unassigned.map(i => i.id),
-        firedAt: null,
-      }];
+      // Also remove stale IDs that no longer exist in the order
+      return next.map(c => ({ ...c, itemIds: c.itemIds.filter(id => currentItemIds.has(id)) }));
     });
-    // Also clean up IDs from courses that no longer exist in the order
-    setCourses(prev => prev.map(c => ({
-      ...c,
-      itemIds: c.itemIds.filter(id => currentItemIds.has(id)),
-    })));
   }, [itemIdKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

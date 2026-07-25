@@ -1935,6 +1935,15 @@ export function App() {
     handleUpdateOrder({ ...mergedOrder, updatedAt: now });
     if (blankMergeFrom) handleUpdateOrder(blankMergeFrom);
 
+    // Also remove any _next virtual slot for mergeFrom so the floor plan
+    // doesn't show a ghost "next order" badge after the source table is blanked.
+    setOrders((p) => {
+      const nextKey = `${mergeFromId}_next`;
+      if (!(nextKey in p)) return p;
+      const { [nextKey]: _, ...rest } = p;
+      return rest;
+    });
+
     toast.success(`Table ${fromNum} merged into this order`, { id: tid });
   }
 
@@ -2262,6 +2271,7 @@ export function App() {
                 onClick={() => {
                   setShowWaiterPick(false);
                   doSendKOT(kotPendingTableId, pickedWaiter, kotPendingItemIds);
+                  setKotPendingTableId(null);
                   setKotPendingItemIds(null);
                 }}
               >
