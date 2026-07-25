@@ -253,13 +253,13 @@ export function MenuPage() {
           current.categoryName || current.station ? current : buildDefaultItemDraft(result)
         );
         setConfigDraft({
-          defaultPricingMode: result.menuConfig.defaultPricingMode || "Area + order type",
-          pricingZones: (result.menuConfig.pricingZones || []).join(", "),
-          orderTypes: (result.menuConfig.orderTypes || []).join(", "),
-          defaultTaxProfileId: result.menuConfig.defaultTaxProfileId || result.taxProfiles[0]?.id || "",
+          defaultPricingMode: result.menuConfig?.defaultPricingMode || "Area + order type",
+          pricingZones: (result.menuConfig?.pricingZones || []).join(", "),
+          orderTypes: (result.menuConfig?.orderTypes || []).join(", "),
+          defaultTaxProfileId: result.menuConfig?.defaultTaxProfileId || result.taxProfiles?.[0]?.id || "",
           defaultPricingProfileId:
-            result.menuConfig.defaultPricingProfileId || result.pricingProfiles?.find((profile) => profile.isActive)?.id || "",
-          menuStructureNote: result.menuConfig.menuStructureNote || "One page, simple assignment"
+            result.menuConfig?.defaultPricingProfileId || result.pricingProfiles?.find((profile) => profile.isActive)?.id || "",
+          menuStructureNote: result.menuConfig?.menuStructureNote || "One page, simple assignment"
         });
         setGroupDraft(buildDefaultGroupDraft(result));
         setAssignmentDraft(buildDefaultAssignmentDraft(result));
@@ -547,13 +547,13 @@ export function MenuPage() {
       return next;
     });
     setConfigDraft({
-      defaultPricingMode: result.menuConfig.defaultPricingMode || "Area + order type",
-      pricingZones: (result.menuConfig.pricingZones || []).join(", "),
-      orderTypes: (result.menuConfig.orderTypes || []).join(", "),
-      defaultTaxProfileId: result.menuConfig.defaultTaxProfileId || result.taxProfiles[0]?.id || "",
+      defaultPricingMode: result.menuConfig?.defaultPricingMode || "Area + order type",
+      pricingZones: (result.menuConfig?.pricingZones || []).join(", "),
+      orderTypes: (result.menuConfig?.orderTypes || []).join(", "),
+      defaultTaxProfileId: result.menuConfig?.defaultTaxProfileId || result.taxProfiles?.[0]?.id || "",
       defaultPricingProfileId:
-        result.menuConfig.defaultPricingProfileId || result.pricingProfiles?.find((profile) => profile.isActive)?.id || "",
-      menuStructureNote: result.menuConfig.menuStructureNote || "One page, simple assignment"
+        result.menuConfig?.defaultPricingProfileId || result.pricingProfiles?.find((profile) => profile.isActive)?.id || "",
+      menuStructureNote: result.menuConfig?.menuStructureNote || "One page, simple assignment"
     });
     setGroupDraft((current) => (current.id ? current : buildDefaultGroupDraft(result)));
     setAssignmentDraft((current) => (current.id ? current : buildDefaultAssignmentDraft(result)));

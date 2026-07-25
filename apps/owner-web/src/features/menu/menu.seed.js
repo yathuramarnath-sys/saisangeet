@@ -1,4 +1,18 @@
 export const menuSeedData = {
+  menuConfig: {
+    defaultPricingMode: "Area + order type",
+    pricingZones: ["AC", "Non-AC", "Self Service"],
+    orderTypes: ["Dine-In", "Takeaway", "Delivery"],
+    defaultTaxProfileId: "",
+    defaultPricingProfileId: "",
+    menuStructureNote: "One page, simple assignment"
+  },
+  taxProfiles: [],
+  pricingProfiles: [],
+  outlets: [],
+  stations: [],
+  menuGroups: [],
+  menuAssignments: [],
   categories: [
     { id: "starters", name: "Starters", count: 22, active: true },
     { id: "main-course", name: "Main Course", count: 48, active: false },

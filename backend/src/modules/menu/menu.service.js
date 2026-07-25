@@ -121,7 +121,7 @@ async function fetchMenuItems(outletId) {
 }
 
 async function fetchMenuConfig() {
-  return getOwnerSetupData().menu.config || {};
+  return getOwnerSetupData().menu?.config || {};
 }
 
 async function fetchMenuGroups() {
