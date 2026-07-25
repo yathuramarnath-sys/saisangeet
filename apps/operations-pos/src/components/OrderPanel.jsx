@@ -175,26 +175,6 @@ function VoidPicker({ onVoid, onCancel }) {
   );
 }
 
-function CancelKotPicker({ onConfirm, onDismiss }) {
-  const [reason, setReason] = useState(VOID_REASONS[0]);
-  return (
-    <div className="void-picker">
-      <p className="void-picker-label">Cancel reason (−1 qty from kitchen)</p>
-      <div className="void-picker-reasons">
-        {VOID_REASONS.map(r => (
-          <button key={r} type="button"
-            className={`void-reason-pill${reason === r ? " active" : ""}`}
-            onClick={() => setReason(r)}>{r}</button>
-        ))}
-      </div>
-      <div className="void-picker-actions">
-        <button type="button" className="sm-btn-cancel" onClick={onDismiss}>Cancel</button>
-        <button type="button" className="void-confirm-btn" onClick={() => onConfirm(reason)}>Confirm Cancel</button>
-      </div>
-    </div>
-  );
-}
-
 // ── Counter checkout — payment-method-first quick flow ─────────────────────────
 const METHODS_FOR_COUNTER = [
   { id: "cash",   label: "Cash",   icon: "₹"  },
@@ -249,8 +229,13 @@ export function OrderPanel({
   const [pinForVoidIdx,   setPinForVoidIdx]   = useState(null);   // waiting PIN before VoidPicker
   const [showCancelPin,   setShowCancelPin]   = useState(false);  // waiting PIN before cancel order
   const [showCancelConfirm, setShowCancelConfirm] = useState(false); // "Are you sure?" after PIN
-  const [pinForCancelKotIdx, setPinForCancelKotIdx] = useState(null); // waiting PIN before CancelKotPicker
-  const [cancelingKotIdx, setCancelingKotIdx]   = useState(null);   // showing CancelKotPicker for this idx
+  // Batch cancel staging — itemId → pending cancel qty; confirmed all at once with one PIN
+  const [cancelStaging,   setCancelStaging]   = useState({});
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason,    setCancelReason]    = useState("");
+  const [cancelPinVal,    setCancelPinVal]    = useState("");
+  const [cancelPinErr,    setCancelPinErr]    = useState("");
+  const [cancelPinShake,  setCancelPinShake]  = useState(false);
   const [editingQtyIdx,   setEditingQtyIdx]   = useState(null);   // index of item whose qty is being typed
   const [editingQtyVal,  setEditingQtyVal]  = useState("");     // current typed value
 
@@ -266,6 +251,48 @@ export function OrderPanel({
     }
     setEditingQtyIdx(null);
     setEditingQtyVal("");
+  }
+
+  // Batch cancel derived values
+  const cancelStagingEntries = Object.entries(cancelStaging);
+  const totalStagedQty = cancelStagingEntries.reduce((s, [, q]) => s + q, 0);
+  const totalStagedAmt = cancelStagingEntries.reduce((s, [itemId, q]) => {
+    const it = (order.items || []).find(i => i.id === itemId);
+    return s + (it ? it.price * q : 0);
+  }, 0);
+
+  const CANCEL_PAD_KEYS = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
+
+  function handleCancelPin(k) {
+    if (k === "⌫") { setCancelPinVal(p => p.slice(0, -1)); setCancelPinErr(""); return; }
+    if (!k || cancelPinVal.length >= 4) return;
+    const next = cancelPinVal + k;
+    setCancelPinVal(next);
+    setCancelPinErr("");
+    if (next.length === 4) {
+      setTimeout(() => {
+        if (next === cashierPin) {
+          confirmBatchCancel();
+        } else {
+          setCancelPinShake(true);
+          setTimeout(() => setCancelPinShake(false), 500);
+          setCancelPinErr("Wrong PIN — try again");
+          setTimeout(() => setCancelPinVal(""), 400);
+        }
+      }, 120);
+    }
+  }
+
+  function confirmBatchCancel() {
+    const reason = cancelReason.trim() || "Customer changed mind";
+    Object.entries(cancelStaging).forEach(([itemId, qty]) => {
+      onCancelKotItem?.(itemId, reason, qty);
+    });
+    setCancelStaging({});
+    setShowCancelModal(false);
+    setCancelPinVal("");
+    setCancelReason("");
+    setCancelPinErr("");
   }
 
   if (!order) {
@@ -349,7 +376,6 @@ export function OrderPanel({
             </>
           )}
           {order.isOnHold      && <span className="order-badge hold">On Hold</span>}
-          {order.billRequested && <span className="order-badge bill">Bill Req.</span>}
           {order.voidRequested && <span className="order-badge void">Void</span>}
           {order.isClosed      && <span className="order-badge closed">Closed</span>}
         </div>
@@ -386,15 +412,7 @@ export function OrderPanel({
               />
             )}
 
-            {/* Cancel KOT item picker — shown after PIN confirmed (reduce qty by 1) */}
-            {cancelingKotIdx === idx && (
-              <CancelKotPicker
-                onConfirm={reason => { onCancelKotItem?.(idx, reason); setCancelingKotIdx(null); }}
-                onDismiss={() => setCancelingKotIdx(null)}
-              />
-            )}
-
-            {voidingIdx !== idx && cancelingKotIdx !== idx && (
+            {voidingIdx !== idx && (
               <>
                 {/* Name + controls on one row */}
                 <div className="order-item-row">
@@ -418,6 +436,7 @@ export function OrderPanel({
 
                   {!item.isVoided && (
                     <div className="order-item-controls">
+                      {/* Pre-KOT: free minus */}
                       {!item.sentToKot && (
                         <button type="button" className="qty-btn"
                           onClick={() => {
@@ -426,7 +445,17 @@ export function OrderPanel({
                             onChangeQty(idx, next);
                           }}>−</button>
                       )}
-                      {/* Tap qty number to type a value directly */}
+                      {/* Post-KOT: staging minus (permission-gated, batched) */}
+                      {item.sentToKot && !item.isComp && canCancelKotItem && (
+                        <button type="button" className="qty-btn qty-btn-cancel-kot"
+                          title="Stage a cancel (confirm all at once)"
+                          onClick={() => {
+                            const staged = cancelStaging[item.id] || 0;
+                            if (staged < item.quantity)
+                              setCancelStaging(p => ({ ...p, [item.id]: staged + 1 }));
+                          }}>−</button>
+                      )}
+                      {/* Qty display */}
                       {!item.sentToKot && editingQtyIdx === idx ? (
                         <input
                           className="qty-edit-input"
@@ -444,21 +473,38 @@ export function OrderPanel({
                         />
                       ) : (
                         <span
-                          className={`qty-value${!item.sentToKot ? " qty-value-tap" : ""}`}
+                          className={`qty-value${!item.sentToKot ? " qty-value-tap" : ""}${(cancelStaging[item.id] || 0) > 0 ? " qty-cancel-pending" : ""}`}
                           title={!item.sentToKot ? "Tap to edit quantity" : ""}
                           onClick={() => {
                             if (item.sentToKot) return;
                             setEditingQtyIdx(idx);
                             setEditingQtyVal(String(item.quantity));
                           }}
-                        >{item.allowDecimalQty ? item.quantity.toFixed(3).replace(/\.?0+$/, "") : item.quantity}</span>
+                        >
+                          {item.allowDecimalQty
+                            ? (item.quantity - (cancelStaging[item.id] || 0)).toFixed(3).replace(/\.?0+$/, "")
+                            : item.quantity - (cancelStaging[item.id] || 0)}
+                        </span>
                       )}
+                      {/* Pre-KOT: free plus */}
                       {!item.sentToKot && (
                         <button type="button" className="qty-btn"
                           onClick={() => {
                             const step = item.allowDecimalQty ? 0.1 : 1;
                             const next = Math.round((item.quantity + step) * 1000) / 1000;
                             onChangeQty(idx, next);
+                          }}>+</button>
+                      )}
+                      {/* Post-KOT: un-stage plus (only when something is staged) */}
+                      {item.sentToKot && !item.isComp && canCancelKotItem && (cancelStaging[item.id] || 0) > 0 && (
+                        <button type="button" className="qty-btn"
+                          title="Undo staged cancel"
+                          onClick={() => {
+                            const staged = cancelStaging[item.id] || 0;
+                            setCancelStaging(p => {
+                              if (staged <= 1) { const { [item.id]: _, ...r } = p; return r; }
+                              return { ...p, [item.id]: staged - 1 };
+                            });
                           }}>+</button>
                       )}
                       <span className="order-item-price"
@@ -470,15 +516,6 @@ export function OrderPanel({
                       {!item.sentToKot && !item.isComp && (
                         <button type="button" className="order-item-remove"
                           onClick={() => onRemoveItem(idx)}>✕</button>
-                      )}
-                      {/* Post-KOT: −1 cancel (permission-gated, PIN required) */}
-                      {item.sentToKot && !item.isComp && canCancelKotItem && (
-                        <button type="button" className="qty-btn qty-btn-cancel-kot"
-                          title="Cancel 1 qty from kitchen (PIN required)"
-                          onClick={() => {
-                            if (needsPin) { setPinForCancelKotIdx(idx); }
-                            else          { setCancelingKotIdx(idx); }
-                          }}>−</button>
                       )}
                       {/* Post-KOT: full void requires cashier PIN */}
                       {item.sentToKot && !item.isComp && (
@@ -511,6 +548,15 @@ export function OrderPanel({
           </div>
         ))}
       </div>
+
+      {/* ── Cancel staging bar — appears when any KOT'd qty is staged ────── */}
+      {totalStagedQty > 0 && (
+        <div className="cancel-stage-bar">
+          <span className="cancel-stage-info">{totalStagedQty} to cancel · ₹{totalStagedAmt.toFixed(0)}</span>
+          <button type="button" className="cancel-stage-clear" onClick={() => setCancelStaging({})}>Clear</button>
+          <button type="button" className="cancel-stage-confirm" onClick={() => setShowCancelModal(true)}>Confirm ›</button>
+        </div>
+      )}
 
       {/* ── Totals + Discount inline ──────────────────────────────────────── */}
       {hasItems && fin && (
@@ -727,15 +773,60 @@ export function OrderPanel({
         />
       )}
 
-      {/* ── PIN confirm for cancel KOT item ──────────────────────────────── */}
-      {pinForCancelKotIdx !== null && (
-        <PinConfirm
-          cashierName={cashierName}
-          cashierPin={cashierPin}
-          title="Cancel KOT Item — Confirm PIN"
-          onConfirm={() => { setCancelingKotIdx(pinForCancelKotIdx); setPinForCancelKotIdx(null); }}
-          onCancel={() => setPinForCancelKotIdx(null)}
-        />
+      {/* ── Batch cancel confirm modal ───────────────────────────────────── */}
+      {showCancelModal && (
+        <div className="pin-confirm-overlay"
+          onClick={() => { setShowCancelModal(false); setCancelPinVal(""); setCancelPinErr(""); }}>
+          <div
+            className={`pin-confirm-card${cancelPinShake ? " pin-shake" : ""}`}
+            onClick={e => e.stopPropagation()}
+            style={{ gap: 10 }}
+          >
+            <p className="pin-confirm-title" style={{ color: "#dc2626" }}>Confirm Cancellation</p>
+            <p className="pin-confirm-sub">
+              {totalStagedQty} item{totalStagedQty !== 1 ? "s" : ""} to cancel · ₹{totalStagedAmt.toFixed(0)}
+            </p>
+            <p className="pin-confirm-sub" style={{ marginTop: 0, fontWeight: 600, color: "var(--sq-text)" }}>Reason</p>
+            <input
+              className="cancel-modal-reason"
+              type="text"
+              placeholder="Customer changed mind…"
+              value={cancelReason}
+              onChange={e => setCancelReason(e.target.value)}
+              onClick={e => e.stopPropagation()}
+            />
+            {needsPin && (
+              <>
+                <p className="pin-confirm-sub" style={{ marginTop: 4, fontWeight: 600, color: "var(--sq-text)" }}>Enter your PIN</p>
+                <div className="pin-confirm-dots">
+                  {[0,1,2,3].map(i => (
+                    <span key={i} className={`pin-dot${cancelPinVal.length > i ? " filled" : ""}`} />
+                  ))}
+                </div>
+                {cancelPinErr && <p className="pin-confirm-error">{cancelPinErr}</p>}
+                <div className="pin-confirm-numpad">
+                  {CANCEL_PAD_KEYS.map((k, i) => (
+                    <button key={i} type="button"
+                      className={`pin-key${k === "" ? " pin-key-blank" : ""}${k === "⌫" ? " pin-key-del" : ""}`}
+                      onClick={() => handleCancelPin(k)} disabled={!k}>{k}</button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div style={{ display: "flex", gap: 10, width: "100%", marginTop: needsPin ? 0 : 8 }}>
+              <button type="button" className="pin-confirm-cancel" style={{ flex: 1, margin: 0 }}
+                onClick={() => { setShowCancelModal(false); setCancelPinVal(""); setCancelPinErr(""); }}>
+                Cancel
+              </button>
+              {!needsPin && (
+                <button type="button" className="void-confirm-btn" style={{ flex: 1 }}
+                  onClick={confirmBatchCancel}>
+                  Confirm
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── PIN confirm for cancel order ─────────────────────────────────── */}
