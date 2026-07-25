@@ -217,6 +217,31 @@ button { cursor: pointer; font: inherit; border: none; background: none; color: 
   50%       { opacity: 0.5; transform: scale(0.85); }
 }
 
+/* KDS cancel alert (item:cancelled from POS) */
+.kds-cancel-alert {
+  background: #7f1d1d;
+  color: #fca5a5;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #991b1b;
+}
+.kds-cancel-alert button {
+  background: transparent;
+  border: none;
+  color: #fca5a5;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.kds-cancel-alert button:hover { color: #fff; }
+
 /* ─── Columns ─────────────────────────────────────────────────────────────── */
 
 .kds-columns {

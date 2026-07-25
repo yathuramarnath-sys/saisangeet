@@ -1,25 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
-import { UpdateBanner } from "./components/UpdateBanner";
 import { APP_VERSION } from "./lib/version";
 
 import { api }        from "./lib/api";
 import { printBill }  from "./lib/printBill";
-import { isNativeAndroid } from "./lib/thermalPrint";
 import { getDeviceLocalIp } from "./lib/deviceIp";
 import {
   ACTION as SYNC_ACTION,
   enqueue            as syncEnqueue,
   flushQueue         as syncFlushQueue,
   startRetryWorker,
-  getFailedCount     as syncFailedCount,
   clearBillRequestsByTable,
 } from "./lib/syncQueue";
 import {
   startPrintWorker,
   flushQueue          as printFlushQueue,
-  getFailedCount      as printFailedCount,
   clearBillJobsByTable,
 } from "./lib/printQueue";
 import {
@@ -176,18 +172,18 @@ export function App() {
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
   const kotInFlightRef        = useRef(new Set()); // tableIds with KOT request in flight
   const addItemInFlightRef    = useRef({});        // tableId → in-flight add-item count
-  const [localConn,      setLocalConn]      = useState(false);
-  const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
-  const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
+  // Protects unsent items from socket overwrites while the waiter picker is visible.
+  // Set to the pending table's ID in handleSendKOT, cleared in picker Done/Cancel.
+  const kotPickerTableRef     = useRef(null);
   // Waiter assignment picker — shown before every KOT send
   const [showWaiterPick,    setShowWaiterPick]    = useState(false);
   const [kotPendingTableId, setKotPendingTableId] = useState(null);
+  const [kotPendingItemIds, setKotPendingItemIds] = useState(null);
   const [pickedWaiter,      setPickedWaiter]      = useState(null);
   // KOT progress overlay (sending → success) and transfer success modal
   const [kotState,        setKotState]        = useState(null);
   // null | { phase: 'sending'|'success', tableLabel, itemCount, kotNumber }
   const [transferSuccess,    setTransferSuccess]    = useState(null);
-  const [billRequestedLabel, setBillRequestedLabel] = useState(null);
   // null | { fromNum, toNum }
 
   // Incoming customer (QR) orders
@@ -388,7 +384,7 @@ export function App() {
         socket.on("order:updated", (o) => {
           // Track bill-requested orders for More screen (all tables, regardless of local state)
           setBillAlerts((prev) => {
-            const key = String(o.orderNumber);
+            const key = String(o.orderNumber ?? o.id);
             if (o.isClosed || !o.billRequested) {
               if (!prev[key]) return prev;
               const { [key]: _, ...rest } = prev;
@@ -404,6 +400,7 @@ export function App() {
           // response arrives with the properly reconciled order.
           if (kotInFlightRef.current.has(o.tableId)) return p;
           if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
+          if (kotPickerTableRef.current === o.tableId) return p;
 
           // Don't add bill-requested tables to the floor if the captain hasn't served them.
           // This prevents "Bill ready" appearing for tables outside the captain's local state.
@@ -533,7 +530,6 @@ export function App() {
             localSocketRef.current.disconnect();
             localSocketRef.current = null;
           }
-          setLocalConn(false);
 
           const lSock = io(`http://${ip}:4001`, {
             query:                { role: "captain", outletId: target.id },
@@ -550,12 +546,9 @@ export function App() {
 
           lSock.on("connect", () => {
             errorCount = 0;
-            setLocalConn(true);
             lSock.emit("request:orders", { outletId: target.id });
           });
-          lSock.on("disconnect", () => setLocalConn(false));
           lSock.on("connect_error", () => {
-            setLocalConn(false);
             errorCount++;
             if (errorCount >= 5 && !scanning) {
               scanning = true;
@@ -668,8 +661,6 @@ export function App() {
           await api.post("/operations/bill-request", entry.payload);
         }
       });
-      // Refresh the failed-count badge in the drawer
-      setSyncFailed(syncFailedCount());
     }
 
     // ── Print queue flush function ───────────────────────────────────────────
@@ -678,7 +669,6 @@ export function App() {
     async function flushPrints() {
       const { sendToThermalPrinter } = await import("./lib/thermalPrint.js");
       await printFlushQueue(sendToThermalPrinter);
-      setPrintFailed(printFailedCount());
     }
 
     bootstrap();
@@ -835,6 +825,8 @@ export function App() {
       outletId: outlet?.id,
       order: { tableId, items: [], isClosed: false },
     });
+    localSocketRef.current?.emit("order:update", { order: { tableId, items: [], isClosed: false } });
+    localStorage.removeItem(`captain_courses_${tableId}`);
     setSelectedTableId(null);
   }
 
@@ -846,6 +838,7 @@ export function App() {
       order: { tableId, items: [], isClosed: false },
     });
     localSocketRef.current?.emit("order:update", { order: { tableId, items: [], isClosed: false } });
+    localStorage.removeItem(`captain_courses_${tableId}`);
     setActionTableId(null);
     setConfirmFreeTable(null);
   }
@@ -937,6 +930,14 @@ export function App() {
 
       setOrders(prev => {
         const { [tableId]: _, ...rest } = prev;
+        return rest;
+      });
+      localStorage.removeItem(`captain_courses_${tableId}`);
+      // Remove this specific order's bill alert immediately — don't wait for socket echo
+      setBillAlerts(prev => {
+        const key = String(order.orderNumber ?? order.id);
+        if (!prev[key]) return prev;
+        const { [key]: _, ...rest } = prev;
         return rest;
       });
       if (tableId === selectedTableId) setSelectedTableId(null);
@@ -1174,24 +1175,28 @@ export function App() {
 
   // ── Send KOT — step 1: show waiter picker ─────────────────────────────────
   // tableId is optional — falls back to selectedTableId (existing call sites unaffected)
-  function handleSendKOT(tableId) {
+  // itemIds (Set) is optional — when provided, only those items are sent (coursing)
+  function handleSendKOT(tableId, itemIds = null) {
     const tid   = tableId || selectedTableId;
     const order = orders[tid];
     if (!order) return;
-    const unsent = (order.items || []).filter((i) => !i.sentToKot);
+    const allUnsent = (order.items || []).filter((i) => !i.sentToKot);
+    const unsent = itemIds ? allUnsent.filter((i) => itemIds.has(i.id)) : allUnsent;
     if (!unsent.length) return;
-    // Pre-select the order's current waiter if they're still in the waiter list,
-    // otherwise start with no selection (captain is NOT a default waiter)
     const currentWaiter = order.assignedWaiter || null;
     const stillValid = waiterStaff.some((s) => s.name === currentWaiter);
     setPickedWaiter(stillValid ? currentWaiter : null);
     setKotPendingTableId(tid);
+    setKotPendingItemIds(itemIds || null);
+    // Protect unsent items from socket overwrites while picker is visible
+    kotPickerTableRef.current = tid;
     setShowWaiterPick(true);
   }
 
   // ── Send KOT — step 2: actually send after waiter is confirmed ─────────────
   // waiterName = the staff member assigned to serve this table's order
-  async function doSendKOT(tableId, waiterName) {
+  // itemIds (Set) is optional — when provided (coursing), only those items are sent
+  async function doSendKOT(tableId, waiterName, itemIds = null) {
     const tid    = tableId || selectedTableId;
     // Synchronous in-flight guard — prevents double-tap from firing two KOT requests.
     // kotInFlightRef is set below (line ~1117) before the first await, so the second
@@ -1201,7 +1206,8 @@ export function App() {
     if (!order) return;
     // Ensure selectedTableId is set so post-KOT state updates work correctly
     if (tid !== selectedTableId) setSelectedTableId(tid);
-    const unsent = (order.items || []).filter((i) => !i.sentToKot);
+    const allUnsent = (order.items || []).filter((i) => !i.sentToKot);
+    const unsent = itemIds ? allUnsent.filter((i) => itemIds.has(i.id)) : allUnsent;
     if (!unsent.length) return;
 
     // Guard: outletId must be present — KOT API rejects without it (no KDS delivery)
@@ -1433,21 +1439,23 @@ export function App() {
     }
 
     // Record in shift history so the KOTs tab can show All / Sent / Unsuccessful
-    setSentKots(prev => {
-      const record = {
-        id:          `sent-${Date.now()}`,
-        kotNumber:   serverKotNumber,
-        tableId:     order.tableId,
-        tableNumber: order.tableNumber,
-        areaName:    order.areaName,
-        items:       kotItems,
-        sentAt:      new Date().toISOString(),
-        status:      "sent",
-      };
-      const next = [record, ...prev];
-      saveSentKots(next);
-      return next;
-    });
+    if (!kotApiFailed) {
+      setSentKots(prev => {
+        const record = {
+          id:          `sent-${Date.now()}`,
+          kotNumber:   serverKotNumber,
+          tableId:     order.tableId,
+          tableNumber: order.tableNumber,
+          areaName:    order.areaName,
+          items:       kotItems,
+          sentAt:      new Date().toISOString(),
+          status:      "sent",
+        };
+        const next = [record, ...prev];
+        saveSentKots(next);
+        return next;
+      });
+    }
 
     if (lastServerOrder) {
       // Compute reconciled order inside the setOrders updater so we read the freshest
@@ -1520,27 +1528,6 @@ export function App() {
 
   // ── Request bill ──────────────────────────────────────────────────────────
   // tableId is optional — falls back to selectedTableId
-  async function handleRequestBill(tableId) {
-    const tid   = tableId || selectedTableId;
-    const order = orders[tid];
-    if (!order) return;
-    handleUpdateOrder({ ...order, billRequested: true });
-    if (tableId) setActionTableId(null);   // close action sheet when called from it
-    // Compute short label, e.g. "Table 5" from "TABLE 5"
-    const tNum = order.tableNumber || "";
-    const tMatch = String(tNum).trim().match(/(\d+)\s*$/);
-    const tLabel = tMatch ? `Table ${tMatch[1]}` : (String(tNum) || "the table");
-    setBillRequestedLabel(tLabel);
-    // Include orderNumber so the backend can reject stale retries that target a new order.
-    const billReqPayload = { outletId: outlet?.id, tableId: tid, orderNumber: order.orderNumber };
-    try {
-      await api.post("/operations/bill-request", billReqPayload);
-    } catch (err) {
-      console.warn("[captain] bill-request sync failed — queuing for retry:", err.message);
-      syncEnqueue(SYNC_ACTION.BILL_REQUEST, billReqPayload);
-    }
-  }
-
   // ── Print bill (works from OrderScreen inline or from long-press action sheet)
   async function handlePrintBill(tableId) {
     const tid   = tableId || selectedTableId;
@@ -1631,26 +1618,27 @@ export function App() {
     handleUpdateOrder({ ...printOrder, billRequested: true, hasNextOrder: true });
     toast("Printing bill…", { icon: "🖨️" });
 
-    // Await bill-request so the backend marks billRequested+hasNextOrder before we clear
-    // the captain's local slot. hasNextOrder:true tells deviceGetOrCreateOrderHandler
-    // to auto-advance to a fresh empty order when captain next opens this table.
-    // (billRequested alone is also set by POS/QR — without hasNextOrder the backend
-    //  must NOT clear the active order, so the flag is the disambiguator.)
+    // Remove table from captain's local state immediately — floor plan shows it as free
+    // so captain can seat the next customer without waiting for the API round-trip.
+    // handleUpdateOrder (above) already sent billRequested+hasNextOrder via socket, so the
+    // backend already knows. The api.post below persists hasNextOrder in the DB so
+    // deviceGetOrCreateOrderHandler auto-advances to a fresh empty order next open.
+    setOrders(prev => {
+      const { [tid]: _, ...rest } = prev;
+      return rest;
+    });
+    localStorage.removeItem(`captain_courses_${tid}`);
+    if (tid === selectedTableId) setSelectedTableId(null);
+    setActionTableId(null);
+
+    // Persist hasNextOrder to DB in background (fire-and-forget after local clear).
+    // billRequested alone is also set by POS/QR — without hasNextOrder the backend
+    // must NOT clear the active order, so the flag is the disambiguator.
     try {
       await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true, orderNumber: printOrder.orderNumber ?? null });
     } catch (err) {
       console.warn("[captain] bill-request failed:", err.message);
     }
-
-    // Remove table from captain's local state — floor plan shows it as free so
-    // captain can seat the next customer without waiting for cashier settlement.
-    setOrders(prev => {
-      const { [tid]: _, ...rest } = prev;
-      return rest;
-    });
-
-    if (tid === selectedTableId) setSelectedTableId(null);
-    setActionTableId(null);
   }
 
   // ── Split bill print ──────────────────────────────────────────────────────
@@ -1953,6 +1941,15 @@ export function App() {
     handleUpdateOrder({ ...mergedOrder, updatedAt: now });
     if (blankMergeFrom) handleUpdateOrder(blankMergeFrom);
 
+    // Also remove any _next virtual slot for mergeFrom so the floor plan
+    // doesn't show a ghost "next order" badge after the source table is blanked.
+    setOrders((p) => {
+      const nextKey = `${mergeFromId}_next`;
+      if (!(nextKey in p)) return p;
+      const { [nextKey]: _, ...rest } = p;
+      return rest;
+    });
+
     toast.success(`Table ${fromNum} merged into this order`, { id: tid });
   }
 
@@ -2054,8 +2051,6 @@ export function App() {
             autoOpen={autoOpenAction}
             onBack={() => { setSelectedTableId(null); setAutoOpenAction(null); }}
             onSendKOT={handleSendKOT}
-            onRequestBill={handleRequestBill}
-            onPrintBill={handlePrintBill}
             onPrintSplitBill={handlePrintSplitBill}
             onUpdateOrder={handleUpdateOrder}
             onUpdateGuests={handleUpdateGuests}
@@ -2105,7 +2100,12 @@ export function App() {
             onSync={handleSync}
             onSignOut={() => setShowLogout(true)}
             canSettleBill={loggedInStaff?.canSettleBill === true}
-            onSettleBill={(tid) => setSettleTarget({ tableId: tid, order: orders[tid] || Object.values(billAlerts).find(b => b.tableId === tid) })}
+            onSettleBill={(tid) => {
+              const latestAlert = Object.values(billAlerts)
+                .filter(b => b.tableId === tid)
+                .sort((a, b) => (b.orderNumber || 0) - (a.orderNumber || 0))[0];
+              setSettleTarget({ tableId: tid, order: orders[tid] || latestAlert });
+            }}
           />
         )}
       </main>
@@ -2220,7 +2220,7 @@ export function App() {
 
       {/* ── Waiter assignment picker — shown before every KOT send ────────────── */}
       {showWaiterPick && (
-        <div className="wp2-backdrop" onClick={() => setShowWaiterPick(false)}>
+        <div className="wp2-backdrop" onClick={() => { kotPickerTableRef.current = null; setShowWaiterPick(false); }}>
           <div className="wp2-modal" onClick={(e) => e.stopPropagation()}>
             <div className="wp2-title">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2267,7 +2267,7 @@ export function App() {
             <div className="wp2-actions">
               <button
                 className="wp2-cancel"
-                onClick={() => { setShowWaiterPick(false); setKotPendingTableId(null); }}
+                onClick={() => { kotPickerTableRef.current = null; setShowWaiterPick(false); setKotPendingTableId(null); setKotPendingItemIds(null); }}
               >
                 Cancel
               </button>
@@ -2275,8 +2275,11 @@ export function App() {
                 className="wp2-done"
                 disabled={kotState?.phase === "sending"}
                 onClick={() => {
+                  kotPickerTableRef.current = null;
                   setShowWaiterPick(false);
-                  doSendKOT(kotPendingTableId, pickedWaiter);
+                  doSendKOT(kotPendingTableId, pickedWaiter, kotPendingItemIds);
+                  setKotPendingTableId(null);
+                  setKotPendingItemIds(null);
                 }}
               >
                 Send to Kitchen
@@ -2339,27 +2342,6 @@ export function App() {
               </div>
             </div>
             <button className="tsm-done-btn" onClick={() => setTransferSuccess(null)}>
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Bill requested success modal */}
-      {billRequestedLabel && (
-        <div className="brm-overlay">
-          <div className="brm-card">
-            <div className="brm-icon-wrap">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-                stroke="#0C831F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            </div>
-            <h2 className="brm-title">Bill requested</h2>
-            <p className="brm-body">
-              The cashier has been notified to prepare the bill for {billRequestedLabel}.
-            </p>
-            <button className="brm-done-btn" onClick={() => setBillRequestedLabel(null)}>
               Done
             </button>
           </div>

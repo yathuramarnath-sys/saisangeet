@@ -163,6 +163,11 @@ function StaffEditDrawer({ member, draft, setDraft, outletOptions, activeRoles, 
               onChange={e => setDraft(p => ({ ...p, canSettleBill: e.target.checked }))} />
             Can settle bills (UPI / Card) <span style={{ color: "#6b7280", fontSize: 12 }}>(Captain app)</span>
           </label>
+          <label className="sed-check-row">
+            <input type="checkbox" checked={!!draft.canCancelKotItem}
+              onChange={e => setDraft(p => ({ ...p, canCancelKotItem: e.target.checked }))} />
+            Can cancel KOT'd items <span style={{ color: "#6b7280", fontSize: 12 }}>(POS − button on sent items)</span>
+          </label>
           <div className="sed-actions">
             <button type="submit" className="primary-btn" style={{ flex: 1 }}>Save Changes</button>
             <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
@@ -389,8 +394,9 @@ export function StaffPage() {
         roles: [staffDraft.role],
         pin: staffDraft.pin,
         incentivePct: Number(staffDraft.incentivePct || 0),
-        canApplyDiscount: !!staffDraft.canApplyDiscount,
-        canSettleBill:    !!staffDraft.canSettleBill,
+        canApplyDiscount:  !!staffDraft.canApplyDiscount,
+        canSettleBill:     !!staffDraft.canSettleBill,
+        canCancelKotItem:  !!staffDraft.canCancelKotItem,
       });
     } catch (err) {
       showErr(err?.message || "Failed to save staff — check your connection");
@@ -410,8 +416,9 @@ export function StaffPage() {
       outletName: member.outlet, role: member.role,
       pin: member.pin || "", isActive: member.status === "Active",
       incentivePct: member.incentivePct ?? 0,
-      canApplyDiscount: !!member.canApplyDiscount,
-      canSettleBill:    !!member.canSettleBill,
+      canApplyDiscount:  !!member.canApplyDiscount,
+      canSettleBill:     !!member.canSettleBill,
+      canCancelKotItem:  !!member.canCancelKotItem,
     });
     setError("");
   }
@@ -430,8 +437,9 @@ export function StaffPage() {
       login: editStaffDraft.pin ? "PIN" : "Password",
       status: editStaffDraft.isActive ? "Active" : "Inactive",
       incentivePct: Number(editStaffDraft.incentivePct || 0),
-      canApplyDiscount: !!editStaffDraft.canApplyDiscount,
-      canSettleBill:    !!editStaffDraft.canSettleBill,
+      canApplyDiscount:  !!editStaffDraft.canApplyDiscount,
+      canSettleBill:     !!editStaffDraft.canSettleBill,
+      canCancelKotItem:  !!editStaffDraft.canCancelKotItem,
     };
     try {
       await updateStaffMember(editingStaffId, {
@@ -439,8 +447,9 @@ export function StaffPage() {
         outletName: updated.outlet, roles: [updated.role],
         pin: updated.pin, isActive: updated.status === "Active",
         incentivePct: updated.incentivePct,
-        canApplyDiscount: !!updated.canApplyDiscount,
-        canSettleBill:    !!updated.canSettleBill,
+        canApplyDiscount:  !!updated.canApplyDiscount,
+        canSettleBill:     !!updated.canSettleBill,
+        canCancelKotItem:  !!updated.canCancelKotItem,
       });
     } catch (err) {
       showErr(err?.message || "Failed to update staff — check your connection");

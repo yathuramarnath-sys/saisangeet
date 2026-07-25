@@ -7900,6 +7900,46 @@ html, body, #root {
 }
 .crs-courses-btn:active { background: #ECEAE3; }
 
+/* Tappable item row (move to another course) */
+.crs-item-tappable {
+  cursor: pointer; touch-action: manipulation; border-radius: 10px;
+  transition: background 0.12s;
+}
+.crs-item-tappable:active { background: #F0EDE7; }
+.crs-item-move-icon { color: #C4C4C4; flex-shrink: 0; }
+
+/* Item assignment bottom sheet */
+.crs-assign-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200;
+  display: flex; align-items: flex-end;
+}
+.crs-assign-sheet {
+  width: 100%; background: #fff; border-radius: 20px 20px 0 0;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 8px;
+}
+.crs-assign-title {
+  font-size: 15px; color: #1C1C1C; padding: 0 4px 6px;
+  border-bottom: 1px solid #F0EDE7; margin-bottom: 4px;
+}
+.crs-assign-option {
+  width: 100%; padding: 14px 16px; border-radius: 14px; border: 1.5px solid #ECEAE3;
+  background: #fff; font-size: 15px; color: #1C1C1C; text-align: left;
+  cursor: pointer; touch-action: manipulation; display: flex; align-items: center; gap: 8px;
+}
+.crs-assign-option:active { background: #F0EDE7; }
+.crs-assign-option-current { background: #F7F6F2; border-color: #C4C4C4; cursor: default; }
+.crs-assign-current-tag {
+  margin-left: auto; font-size: 11px; color: #6B7280;
+  background: #ECEAE3; border-radius: 6px; padding: 2px 8px;
+}
+.crs-assign-cancel {
+  width: 100%; padding: 14px; border-radius: 14px; border: none;
+  background: #F3F4F6; font-size: 15px; color: #6B7280; cursor: pointer;
+  touch-action: manipulation; margin-top: 4px;
+}
+.crs-assign-cancel:active { background: #E5E7EB; }
+
 /* ═══════════════════════════════════════════════════════════════════════════
    Captain App — Designer UI v2 overrides
    All correctness overrides live here to keep them auditable in one place.

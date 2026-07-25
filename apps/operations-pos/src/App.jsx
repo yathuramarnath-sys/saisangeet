@@ -930,24 +930,23 @@ export default function App() {
 
         // Order update from Captain via local WiFi → update POS table state
         localSock.on("order:updated", (updatedOrder) => {
+          // Mirror tile: push pending bill to mirrorOrders when a newer order arrives.
+          // Must run OUTSIDE setOrders updater — side-effects inside updaters fire twice in StrictMode.
+          const currentForMirror = ordersRef.current[updatedOrder.tableId];
+          if (
+            currentForMirror && currentForMirror.billRequested && !currentForMirror.isClosed &&
+            !updatedOrder.isClosed &&
+            currentForMirror.orderNumber != null && updatedOrder.orderNumber != null &&
+            Number(currentForMirror.orderNumber) !== Number(updatedOrder.orderNumber)
+          ) {
+            setMirrorOrders(mp => {
+              const arr = mp[currentForMirror.tableId] || [];
+              if (arr.some(o => Number(o.orderNumber) === Number(currentForMirror.orderNumber))) return mp;
+              return { ...mp, [currentForMirror.tableId]: [...arr, currentForMirror] };
+            });
+          }
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
-            // Mirror tile: push pending bill to mirrorOrders when a newer order arrives.
-            // Use prev (authoritative) to avoid stale-ref race when two events arrive in the same tick.
-            if (
-              current && current.billRequested && !current.isClosed &&
-              !updatedOrder.isClosed &&
-              current.orderNumber != null && updatedOrder.orderNumber != null &&
-              Number(current.orderNumber) !== Number(updatedOrder.orderNumber)
-            ) {
-              setTimeout(() => {
-                setMirrorOrders(mp => {
-                  const arr = mp[current.tableId] || [];
-                  if (arr.some(o => Number(o.orderNumber) === Number(current.orderNumber))) return mp;
-                  return { ...mp, [current.tableId]: [...arr, current] };
-                });
-              }, 0);
-            }
             if (current && !updatedOrder.isClosed &&
                 new Date(current.updatedAt || 0).getTime() -
                   new Date(updatedOrder.updatedAt || 0).getTime() > 30_000) return prev;
@@ -1087,7 +1086,7 @@ export default function App() {
             if (order.isClosed) return true; // keep closed (for history)
             const hasItems = (order.items || []).some(i => !i.isVoided && !i.isGhostVoid);
             if (!hasItems) return true; // empty order — keep
-            const lastActivity = order.updatedAt || order.createdAt || 0;
+            const lastActivity = Number(new Date(order.updatedAt || order.createdAt || 0)) || 0;
             if (lastActivity < cutoff) { staleCount++; return false; }
             return true;
           })
@@ -2879,40 +2878,46 @@ export default function App() {
       return;
     }
 
-    // Mark bill as requested — changes table to blue on POS + notifies Captain
-    mutateOrder(tableId, (o) => {
-      o.billRequested   = true;
-      o.billRequestedAt = new Date().toISOString();
-      return o;
-    });
+    try {
+      // Mark bill as requested — changes table to blue on POS + notifies Captain
+      mutateOrder(tableId, (o) => {
+        o.billRequested   = true;
+        o.billRequestedAt = new Date().toISOString();
+        return o;
+      });
 
-    const assignedWaiter = printOrder.assignedWaiter || null;
-    // Trust whatever the captain app assigned — same as KOT printing does
-    const validWaiter = assignedWaiter;
+      const assignedWaiter = printOrder.assignedWaiter || null;
+      // Trust whatever the captain app assigned — same as KOT printing does
+      const validWaiter = assignedWaiter;
 
-    printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
-      cashierName,
-      captainName: printOrder.captainName || null,
-      waiterName:  validWaiter,
-    });
+      printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
+        cashierName,
+        captainName: printOrder.captainName || null,
+        waiterName:  validWaiter,
+      });
 
-    // Log every bill print (1st print + reprints) for Owner Console audit trail
-    api.post("/operations/reprint-log", {
-      source:      "pos",
-      cashier:     cashierName,
-      outletName:  outlet?.name,
-      tableLabel:  printOrder.tableNumber || printOrder.tableId,
-      orderNumber: printOrder.orderNumber,
-      billNo:      printOrder.billNo || null,
-    }).catch(() => {});
+      // Log every bill print (1st print + reprints) for Owner Console audit trail
+      api.post("/operations/reprint-log", {
+        source:      "pos",
+        cashier:     cashierName,
+        outletName:  outlet?.name,
+        tableLabel:  printOrder.tableNumber || printOrder.tableId,
+        orderNumber: printOrder.orderNumber,
+        billNo:      printOrder.billNo || null,
+      }).catch(() => {});
 
-    showToast("🖨️ Bill printed · Collect payment");
+      showToast("🖨️ Bill printed · Collect payment");
 
-    setSelectedTableId(null);
+      setSelectedTableId(null);
 
-    // Release the guard after a 3-second window — long enough to block accidental
-    // double-click but short enough to allow a genuine reprint if needed.
-    setTimeout(() => { billPrintingRef.current = false; }, 3000);
+      // Release the guard after a 3-second window — long enough to block accidental
+      // double-click but short enough to allow a genuine reprint if needed.
+      setTimeout(() => { billPrintingRef.current = false; }, 3000);
+    } catch (err) {
+      billPrintingRef.current = false;
+      console.error("[POS] handlePrintBill error:", err.message);
+      showToast("Print failed — please try again");
+    }
 
     // Persist billRequested to backend (fire-and-forget)
     if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
@@ -2970,24 +2975,30 @@ export default function App() {
     const payment = { method, amount };
     const printOrder = { ...order, billNo, billNoMode, billNoFY, payments: [...(order.payments || []), payment] };
 
-    printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
-      cashierName,
-      captainName: printOrder.captainName || null,
-      waiterName:  null,
-    });
+    try {
+      printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
+        cashierName,
+        captainName: printOrder.captainName || null,
+        waiterName:  null,
+      });
 
-    api.post("/operations/reprint-log", {
-      source:      "pos",
-      cashier:     cashierName,
-      outletName:  outlet?.name,
-      tableLabel:  printOrder.tableNumber || printOrder.tableId,
-      orderNumber: printOrder.orderNumber,
-      billNo:      billNo || null,
-    }).catch(() => {});
+      api.post("/operations/reprint-log", {
+        source:      "pos",
+        cashier:     cashierName,
+        outletName:  outlet?.name,
+        tableLabel:  printOrder.tableNumber || printOrder.tableId,
+        orderNumber: printOrder.orderNumber,
+        billNo:      billNo || null,
+      }).catch(() => {});
 
-    setTimeout(() => { billPrintingRef.current = false; }, 3000);
+      setTimeout(() => { billPrintingRef.current = false; }, 3000);
 
-    await handleSettle(payment);
+      await handleSettle(payment);
+    } catch (err) {
+      billPrintingRef.current = false;
+      console.error("[POS] handleCounterPrintAndSettle error:", err.message);
+      showToast("Print failed — please try again");
+    }
   }
 
   // ── Waitlist auto-suggest ─────────────────────────────────────────────────
@@ -3060,15 +3071,14 @@ export default function App() {
     undoBannerTimerRef.current = setTimeout(() => {
       undoBannerTimerRef.current = null;
       setUndoBanner(null);
+      const liveOrder = ordersRef.current[tableId];
       api.post("/operations/void-log", {
         type:        "void_item",
         cashier:     cashierName || "POS",
         outletName:  outlet?.name || "",
         tableId,
-        tableLabel:  orders[tableId]?.tableNumber
-                       ? `T${orders[tableId].tableNumber}`
-                       : tableId,
-        orderNumber: orders[tableId]?.orderNumber || "",
+        tableLabel:  liveOrder?.tableNumber ? `T${liveOrder.tableNumber}` : tableId,
+        orderNumber: liveOrder?.orderNumber || "",
         items:       [{ name: item?.name, qty: item?.quantity || 1, price: item?.price || 0, reason: reason || "Voided" }],
       }).catch(() => {});
 
@@ -3106,6 +3116,54 @@ export default function App() {
         showToast("Void undone");
       },
     });
+  }
+
+  // ── Cancel 1 qty of a KOT'd item (PIN already verified by OrderPanel) ──────
+  function handleCancelKotItem(idx, reason) {
+    if (!selectedTableId) return;
+    const tableId = selectedTableId;
+    const item = orders[tableId]?.items?.[idx];
+    if (!item || item.isVoided || !item.sentToKot) return;
+
+    const newQty = Math.round((item.quantity - 1) * 1000) / 1000;
+    const willVoid = newQty <= 0;
+
+    // Decrement qty (or void if qty reaches 0)
+    mutateOrder(tableId, o => {
+      if (!o.items[idx]) return o;
+      if (willVoid) {
+        o.items[idx].isVoided   = true;
+        o.items[idx].voidReason = reason;
+      } else {
+        o.items[idx].quantity = newQty;
+      }
+      return o;
+    });
+
+    // Post cancel log + notify kitchen via socket
+    const liveOrder = ordersRef.current[tableId];
+    const cancelPayload = {
+      type:        "cancel_kot_item",
+      cashier:     cashierName || "POS",
+      outletName:  outlet?.name || "",
+      tableId,
+      tableLabel:  liveOrder?.tableNumber ? `T${liveOrder.tableNumber}` : tableId,
+      orderNumber: liveOrder?.orderNumber || "",
+      items:       [{ name: item.name, qty: 1, price: item.price, reason: reason || "Cancelled" }],
+    };
+    api.post("/operations/void-log", cancelPayload).catch(() => {});
+
+    // Notify KDS — kitchen needs to know to stop making 1 unit
+    socketRef.current?.emit("item:cancelled", {
+      outletId:    outlet?.id,
+      tableId,
+      tableLabel:  liveOrder?.tableNumber ? `T${liveOrder.tableNumber}` : tableId,
+      orderNumber: liveOrder?.orderNumber || "",
+      itemName:    item.name,
+      reason:      reason || "Cancelled",
+    });
+
+    showToast(`1× ${item.name} cancelled from kitchen`);
   }
 
   // ── Cancel entire order (PIN + confirmation already verified by OrderPanel) ─
@@ -3701,6 +3759,12 @@ export default function App() {
           onOrderNoteChange={selectedMirrorOrder ? handleMirrorOrderNoteChange : handleOrderNoteChange}
           onCompToggle={selectedMirrorOrder ? handleMirrorCompToggle : handleCompToggle}
           onVoidItem={selectedMirrorOrder ? handleMirrorVoidItem : handleVoidItem}
+          onCancelKotItem={selectedMirrorOrder ? null : handleCancelKotItem}
+          canCancelKotItem={
+            !selectedMirrorOrder &&
+            activeStaff.find(s => s.name === cashierName || s.fullName === cashierName)
+              ?.canCancelKotItem === true
+          }
           onCancelOrder={selectedMirrorOrder ? null : handleCancelOrder}
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
