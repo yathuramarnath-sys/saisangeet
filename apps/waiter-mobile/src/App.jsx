@@ -1,25 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
-import { UpdateBanner } from "./components/UpdateBanner";
 import { APP_VERSION } from "./lib/version";
 
 import { api }        from "./lib/api";
 import { printBill }  from "./lib/printBill";
-import { isNativeAndroid } from "./lib/thermalPrint";
 import { getDeviceLocalIp } from "./lib/deviceIp";
 import {
   ACTION as SYNC_ACTION,
   enqueue            as syncEnqueue,
   flushQueue         as syncFlushQueue,
   startRetryWorker,
-  getFailedCount     as syncFailedCount,
   clearBillRequestsByTable,
 } from "./lib/syncQueue";
 import {
   startPrintWorker,
   flushQueue          as printFlushQueue,
-  getFailedCount      as printFailedCount,
   clearBillJobsByTable,
 } from "./lib/printQueue";
 import {
@@ -176,9 +172,6 @@ export function App() {
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
   const kotInFlightRef        = useRef(new Set()); // tableIds with KOT request in flight
   const addItemInFlightRef    = useRef({});        // tableId → in-flight add-item count
-  const [localConn,      setLocalConn]      = useState(false);
-  const [syncFailed,   setSyncFailed]   = useState(() => syncFailedCount());
-  const [printFailed,  setPrintFailed]  = useState(() => printFailedCount());
   // Waiter assignment picker — shown before every KOT send
   const [showWaiterPick,    setShowWaiterPick]    = useState(false);
   const [kotPendingTableId, setKotPendingTableId] = useState(null);
@@ -534,7 +527,6 @@ export function App() {
             localSocketRef.current.disconnect();
             localSocketRef.current = null;
           }
-          setLocalConn(false);
 
           const lSock = io(`http://${ip}:4001`, {
             query:                { role: "captain", outletId: target.id },
@@ -551,12 +543,9 @@ export function App() {
 
           lSock.on("connect", () => {
             errorCount = 0;
-            setLocalConn(true);
             lSock.emit("request:orders", { outletId: target.id });
           });
-          lSock.on("disconnect", () => setLocalConn(false));
           lSock.on("connect_error", () => {
-            setLocalConn(false);
             errorCount++;
             if (errorCount >= 5 && !scanning) {
               scanning = true;
@@ -669,8 +658,6 @@ export function App() {
           await api.post("/operations/bill-request", entry.payload);
         }
       });
-      // Refresh the failed-count badge in the drawer
-      setSyncFailed(syncFailedCount());
     }
 
     // ── Print queue flush function ───────────────────────────────────────────
@@ -679,7 +666,6 @@ export function App() {
     async function flushPrints() {
       const { sendToThermalPrinter } = await import("./lib/thermalPrint.js");
       await printFlushQueue(sendToThermalPrinter);
-      setPrintFailed(printFailedCount());
     }
 
     bootstrap();
