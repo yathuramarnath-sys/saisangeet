@@ -61,7 +61,7 @@ async function fetchMenuCategories(outletId) {
 }
 
 async function fetchMenuStations() {
-  return getOwnerSetupData().menu.stations || [];
+  return getOwnerSetupData().menu?.stations || [];
 }
 
 function extractPrice(str) {
@@ -121,19 +121,19 @@ async function fetchMenuItems(outletId) {
 }
 
 async function fetchMenuConfig() {
-  return getOwnerSetupData().menu.config || {};
+  return getOwnerSetupData().menu?.config || {};
 }
 
 async function fetchMenuGroups() {
-  return getOwnerSetupData().menu.menuGroups || [];
+  return getOwnerSetupData().menu?.menuGroups || [];
 }
 
 async function fetchMenuAssignments() {
-  return getOwnerSetupData().menu.menuAssignments || [];
+  return getOwnerSetupData().menu?.menuAssignments || [];
 }
 
 async function fetchPricingProfiles() {
-  return getOwnerSetupData().menu.pricingProfiles || [];
+  return getOwnerSetupData().menu?.pricingProfiles || [];
 }
 
 async function createMenuStation(payload) {
@@ -828,11 +828,11 @@ async function lookupItemBySku(sku) {
 }
 
 function fetchMenuStationsSync() {
-  return getOwnerSetupData().menu.stations || [];
+  return getOwnerSetupData().menu?.stations || [];
 }
 
 function fetchMenuCategoriesSync() {
-  return getOwnerSetupData().menu.categories || [];
+  return getOwnerSetupData().menu?.categories || [];
 }
 
 module.exports = {
