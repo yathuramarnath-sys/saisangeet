@@ -172,6 +172,9 @@ export function App() {
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
   const kotInFlightRef        = useRef(new Set()); // tableIds with KOT request in flight
   const addItemInFlightRef    = useRef({});        // tableId → in-flight add-item count
+  // Protects unsent items from socket overwrites while the waiter picker is visible.
+  // Set to the pending table's ID in handleSendKOT, cleared in picker Done/Cancel.
+  const kotPickerTableRef     = useRef(null);
   // Waiter assignment picker — shown before every KOT send
   const [showWaiterPick,    setShowWaiterPick]    = useState(false);
   const [kotPendingTableId, setKotPendingTableId] = useState(null);
@@ -397,6 +400,7 @@ export function App() {
           // response arrives with the properly reconciled order.
           if (kotInFlightRef.current.has(o.tableId)) return p;
           if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
+          if (kotPickerTableRef.current === o.tableId) return p;
 
           // Don't add bill-requested tables to the floor if the captain hasn't served them.
           // This prevents "Bill ready" appearing for tables outside the captain's local state.
@@ -1184,6 +1188,8 @@ export function App() {
     setPickedWaiter(stillValid ? currentWaiter : null);
     setKotPendingTableId(tid);
     setKotPendingItemIds(itemIds || null);
+    // Protect unsent items from socket overwrites while picker is visible
+    kotPickerTableRef.current = tid;
     setShowWaiterPick(true);
   }
 
@@ -2214,7 +2220,7 @@ export function App() {
 
       {/* ── Waiter assignment picker — shown before every KOT send ────────────── */}
       {showWaiterPick && (
-        <div className="wp2-backdrop" onClick={() => setShowWaiterPick(false)}>
+        <div className="wp2-backdrop" onClick={() => { kotPickerTableRef.current = null; setShowWaiterPick(false); }}>
           <div className="wp2-modal" onClick={(e) => e.stopPropagation()}>
             <div className="wp2-title">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2261,7 +2267,7 @@ export function App() {
             <div className="wp2-actions">
               <button
                 className="wp2-cancel"
-                onClick={() => { setShowWaiterPick(false); setKotPendingTableId(null); setKotPendingItemIds(null); }}
+                onClick={() => { kotPickerTableRef.current = null; setShowWaiterPick(false); setKotPendingTableId(null); setKotPendingItemIds(null); }}
               >
                 Cancel
               </button>
@@ -2269,6 +2275,7 @@ export function App() {
                 className="wp2-done"
                 disabled={kotState?.phase === "sending"}
                 onClick={() => {
+                  kotPickerTableRef.current = null;
                   setShowWaiterPick(false);
                   doSendKOT(kotPendingTableId, pickedWaiter, kotPendingItemIds);
                   setKotPendingTableId(null);
