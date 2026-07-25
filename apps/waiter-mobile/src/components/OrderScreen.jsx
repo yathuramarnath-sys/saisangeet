@@ -43,8 +43,7 @@ export function OrderScreen({
   const [showAssignModal, setShowAssignModal]  = useState(false);
   const [assignPick,      setAssignPick]       = useState(order.assignedWaiter || "");
   const [guestVal,        setGuestVal]         = useState(order.guests || "");
-  // Only show Waiter/Server/Steward roles in the assign modal (not Captains)
-  const waiterStaff = staff.filter(s => /waiter|server|steward/i.test(s.role || ""));
+  const waiterStaff = staff;
   const [stockState,      setStockState]       = useState(() => getStockState());
   const [categoryStockState, setCategoryStockState] = useState(() => getCategoryStockState());
 
