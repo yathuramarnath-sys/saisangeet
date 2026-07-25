@@ -152,7 +152,7 @@ function DiscountPicker({ discountRules, subtotal, currentAmount, onSelect }) {
   );
 }
 
-// ── VoidReasonPicker ─────────────────────────────────────────────────────────
+// ── VoidReasonPicker / CancelKotPicker ───────────────────────────────────────
 const VOID_REASONS = ["Wrong order","Customer changed mind","Item unavailable","Duplicate entry","Other"];
 
 function VoidPicker({ onVoid, onCancel }) {
@@ -170,6 +170,26 @@ function VoidPicker({ onVoid, onCancel }) {
       <div className="void-picker-actions">
         <button type="button" className="sm-btn-cancel" onClick={onCancel}>Cancel</button>
         <button type="button" className="void-confirm-btn" onClick={() => onVoid(reason)}>Void Item</button>
+      </div>
+    </div>
+  );
+}
+
+function CancelKotPicker({ onConfirm, onDismiss }) {
+  const [reason, setReason] = useState(VOID_REASONS[0]);
+  return (
+    <div className="void-picker">
+      <p className="void-picker-label">Cancel reason (−1 qty from kitchen)</p>
+      <div className="void-picker-reasons">
+        {VOID_REASONS.map(r => (
+          <button key={r} type="button"
+            className={`void-reason-pill${reason === r ? " active" : ""}`}
+            onClick={() => setReason(r)}>{r}</button>
+        ))}
+      </div>
+      <div className="void-picker-actions">
+        <button type="button" className="sm-btn-cancel" onClick={onDismiss}>Cancel</button>
+        <button type="button" className="void-confirm-btn" onClick={() => onConfirm(reason)}>Confirm Cancel</button>
       </div>
     </div>
   );
@@ -204,6 +224,8 @@ export function OrderPanel({
   onOrderNoteChange,
   onCompToggle,
   onVoidItem,
+  onCancelKotItem,
+  canCancelKotItem = false,
   onCancelOrder,
   onReprintKOT,
   onPrintBill,
@@ -227,6 +249,8 @@ export function OrderPanel({
   const [pinForVoidIdx,   setPinForVoidIdx]   = useState(null);   // waiting PIN before VoidPicker
   const [showCancelPin,   setShowCancelPin]   = useState(false);  // waiting PIN before cancel order
   const [showCancelConfirm, setShowCancelConfirm] = useState(false); // "Are you sure?" after PIN
+  const [pinForCancelKotIdx, setPinForCancelKotIdx] = useState(null); // waiting PIN before CancelKotPicker
+  const [cancelingKotIdx, setCancelingKotIdx]   = useState(null);   // showing CancelKotPicker for this idx
   const [editingQtyIdx,   setEditingQtyIdx]   = useState(null);   // index of item whose qty is being typed
   const [editingQtyVal,  setEditingQtyVal]  = useState("");     // current typed value
 
@@ -362,7 +386,15 @@ export function OrderPanel({
               />
             )}
 
-            {voidingIdx !== idx && (
+            {/* Cancel KOT item picker — shown after PIN confirmed (reduce qty by 1) */}
+            {cancelingKotIdx === idx && (
+              <CancelKotPicker
+                onConfirm={reason => { onCancelKotItem?.(idx, reason); setCancelingKotIdx(null); }}
+                onDismiss={() => setCancelingKotIdx(null)}
+              />
+            )}
+
+            {voidingIdx !== idx && cancelingKotIdx !== idx && (
               <>
                 {/* Name + controls on one row */}
                 <div className="order-item-row">
@@ -439,7 +471,16 @@ export function OrderPanel({
                         <button type="button" className="order-item-remove"
                           onClick={() => onRemoveItem(idx)}>✕</button>
                       )}
-                      {/* Post-KOT: void requires cashier PIN */}
+                      {/* Post-KOT: −1 cancel (permission-gated, PIN required) */}
+                      {item.sentToKot && !item.isComp && canCancelKotItem && (
+                        <button type="button" className="qty-btn qty-btn-cancel-kot"
+                          title="Cancel 1 qty from kitchen (PIN required)"
+                          onClick={() => {
+                            if (needsPin) { setPinForCancelKotIdx(idx); }
+                            else          { setCancelingKotIdx(idx); }
+                          }}>−</button>
+                      )}
+                      {/* Post-KOT: full void requires cashier PIN */}
                       {item.sentToKot && !item.isComp && (
                         <button type="button" className="order-item-void-btn"
                           title="Void item (PIN required)"
@@ -683,6 +724,17 @@ export function OrderPanel({
           title="Void Item — Confirm PIN"
           onConfirm={() => { setVoidingIdx(pinForVoidIdx); setPinForVoidIdx(null); }}
           onCancel={() => setPinForVoidIdx(null)}
+        />
+      )}
+
+      {/* ── PIN confirm for cancel KOT item ──────────────────────────────── */}
+      {pinForCancelKotIdx !== null && (
+        <PinConfirm
+          cashierName={cashierName}
+          cashierPin={cashierPin}
+          title="Cancel KOT Item — Confirm PIN"
+          onConfirm={() => { setCancelingKotIdx(pinForCancelKotIdx); setPinForCancelKotIdx(null); }}
+          onCancel={() => setPinForCancelKotIdx(null)}
         />
       )}
 

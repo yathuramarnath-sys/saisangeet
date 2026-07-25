@@ -921,6 +921,7 @@ export function App() {
   const [showRecall,    setShowRecall]    = useState(false);   // recall panel
   const [newIds,        setNewIds]        = useState(new Set());
   const [connState,     setConnState]     = useState("connecting"); // connecting | live | offline | reconnected
+  const [cancelAlerts,  setCancelAlerts]  = useState([]); // [{id, itemName, tableLabel, reason}]
   const prevConnRef = useRef("connecting");
   const socketRef      = useRef(null);
   const localSocketRef = useRef(null);
@@ -1039,6 +1040,13 @@ export function App() {
     // ── Item availability sync from POS ──────────────────────────────────────
     socket.on("item:availability", (data) => {
       setItemAvailability(data.itemId, data.available);
+    });
+
+    // ── KOT item cancellation alert from POS ─────────────────────────────────
+    socket.on("item:cancelled", (data) => {
+      const alert = { id: Date.now(), itemName: data.itemName, tableLabel: data.tableLabel, reason: data.reason };
+      setCancelAlerts(prev => [...prev, alert]);
+      setTimeout(() => setCancelAlerts(prev => prev.filter(a => a.id !== alert.id)), 8000);
     });
     socket.on("item:availability:state", (state) => {
       Object.entries(state || {}).forEach(([id, val]) => setItemAvailability(id, val !== false));
@@ -1462,6 +1470,14 @@ export function App() {
           <span>✓ Connected</span>
         </div>
       )}
+
+      {/* ── KOT item cancel alerts from POS ─────────────────────── */}
+      {cancelAlerts.map(a => (
+        <div key={a.id} className="kds-cancel-alert">
+          <span>🚫 CANCEL: <strong>{a.itemName}</strong> — {a.tableLabel} ({a.reason})</span>
+          <button onClick={() => setCancelAlerts(prev => prev.filter(x => x.id !== a.id))}>✕</button>
+        </div>
+      ))}
 
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className="kds-header">

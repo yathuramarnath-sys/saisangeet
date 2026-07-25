@@ -3118,6 +3118,54 @@ export default function App() {
     });
   }
 
+  // ── Cancel 1 qty of a KOT'd item (PIN already verified by OrderPanel) ──────
+  function handleCancelKotItem(idx, reason) {
+    if (!selectedTableId) return;
+    const tableId = selectedTableId;
+    const item = orders[tableId]?.items?.[idx];
+    if (!item || item.isVoided || !item.sentToKot) return;
+
+    const newQty = Math.round((item.quantity - 1) * 1000) / 1000;
+    const willVoid = newQty <= 0;
+
+    // Decrement qty (or void if qty reaches 0)
+    mutateOrder(tableId, o => {
+      if (!o.items[idx]) return o;
+      if (willVoid) {
+        o.items[idx].isVoided   = true;
+        o.items[idx].voidReason = reason;
+      } else {
+        o.items[idx].quantity = newQty;
+      }
+      return o;
+    });
+
+    // Post cancel log + notify kitchen via socket
+    const liveOrder = ordersRef.current[tableId];
+    const cancelPayload = {
+      type:        "cancel_kot_item",
+      cashier:     cashierName || "POS",
+      outletName:  outlet?.name || "",
+      tableId,
+      tableLabel:  liveOrder?.tableNumber ? `T${liveOrder.tableNumber}` : tableId,
+      orderNumber: liveOrder?.orderNumber || "",
+      items:       [{ name: item.name, qty: 1, price: item.price, reason: reason || "Cancelled" }],
+    };
+    api.post("/operations/void-log", cancelPayload).catch(() => {});
+
+    // Notify KDS — kitchen needs to know to stop making 1 unit
+    socketRef.current?.emit("item:cancelled", {
+      outletId:    outlet?.id,
+      tableId,
+      tableLabel:  liveOrder?.tableNumber ? `T${liveOrder.tableNumber}` : tableId,
+      orderNumber: liveOrder?.orderNumber || "",
+      itemName:    item.name,
+      reason:      reason || "Cancelled",
+    });
+
+    showToast(`1× ${item.name} cancelled from kitchen`);
+  }
+
   // ── Cancel entire order (PIN + confirmation already verified by OrderPanel) ─
   function handleCancelOrder() {
     if (!selectedTableId) return;
@@ -3711,6 +3759,12 @@ export default function App() {
           onOrderNoteChange={selectedMirrorOrder ? handleMirrorOrderNoteChange : handleOrderNoteChange}
           onCompToggle={selectedMirrorOrder ? handleMirrorCompToggle : handleCompToggle}
           onVoidItem={selectedMirrorOrder ? handleMirrorVoidItem : handleVoidItem}
+          onCancelKotItem={selectedMirrorOrder ? null : handleCancelKotItem}
+          canCancelKotItem={
+            !selectedMirrorOrder &&
+            activeStaff.find(s => s.name === cashierName || s.fullName === cashierName)
+              ?.canCancelKotItem === true
+          }
           onCancelOrder={selectedMirrorOrder ? null : handleCancelOrder}
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
