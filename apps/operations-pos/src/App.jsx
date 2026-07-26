@@ -813,6 +813,24 @@ export default function App() {
               }, 0);
             }
 
+            // Blank-settle clear: backend resets the table slot after captain settles
+            // by broadcasting an empty order (isClosed:false, items:[]).
+            // Also clear any stale mirror tiles so the POS floor doesn't keep showing
+            // old "Bill" tiles after the table is free.
+            if (
+              !updatedOrder.isClosed &&
+              !updatedOrder.billRequested &&
+              (!updatedOrder.items || updatedOrder.items.length === 0)
+            ) {
+              setTimeout(() => {
+                setMirrorOrders(mp => {
+                  if (!mp[updatedOrder.tableId]?.length) return mp;
+                  const { [updatedOrder.tableId]: _, ...rest } = mp;
+                  return rest;
+                });
+              }, 0);
+            }
+
             return next;
           });
         });
@@ -1032,6 +1050,19 @@ export default function App() {
           });
           // Main order closed — clear all mirror tiles for this table
           if (updatedOrder.isClosed) {
+            setMirrorOrders(mp => {
+              if (!mp[updatedOrder.tableId]?.length) return mp;
+              const { [updatedOrder.tableId]: _, ...rest } = mp;
+              return rest;
+            });
+          }
+          // Blank-settle clear: backend reset the table slot (empty order, not closed).
+          // Clear stale mirror tiles so the POS floor shows the table as free.
+          if (
+            !updatedOrder.isClosed &&
+            !updatedOrder.billRequested &&
+            (!updatedOrder.items || updatedOrder.items.length === 0)
+          ) {
             setMirrorOrders(mp => {
               if (!mp[updatedOrder.tableId]?.length) return mp;
               const { [updatedOrder.tableId]: _, ...rest } = mp;
