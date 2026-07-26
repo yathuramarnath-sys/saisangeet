@@ -679,6 +679,22 @@ export default function App() {
                       };
                     }
                   });
+                  // Clear tables that the captain settled while POS was offline.
+                  // Settled orders vanish from the server's live-orders response, so they won't
+                  // appear in apiMap above. Any local table still showing billRequested:true that
+                  // is absent from the server response (and not pending in our own settle queue)
+                  // was settled remotely — clear it so the POS grid shows it as free.
+                  Object.keys(prev).forEach((tableId) => {
+                    const local = prev[tableId];
+                    if (
+                      local?.billRequested &&
+                      !local.isClosed &&
+                      !apiMap[tableId] &&
+                      !pendingSettledTables.has(tableId)
+                    ) {
+                      merged[tableId] = { tableId, items: [], isClosed: false, billRequested: false };
+                    }
+                  });
                   return merged;
                 });
               })
@@ -774,6 +790,7 @@ export default function App() {
             // stale in-transit duplicates.
             if (
               current &&
+              !current.isClosed &&      // settle-blank legitimately follows isClosed:true — don't block it
               !updatedOrder.isClosed &&
               new Date(current.updatedAt || 0).getTime() -
                 new Date(updatedOrder.updatedAt || 0).getTime() > 30_000
