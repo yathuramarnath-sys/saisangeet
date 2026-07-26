@@ -258,7 +258,8 @@ test.describe("Captain App — Core Flow", () => {
     if (await closeBtn.isVisible()) await closeBtn.click();
 
     // Items should now be in SENT TO KITCHEN, not NOT SENT YET
-    await expect(page.locator(".os2-section-sent")).toBeVisible({ timeout: 5000 });
+    // Live backend KOT propagation can take longer than 5s (increased from 5000).
+    await expect(page.locator(".os2-section-sent")).toBeVisible({ timeout: 15000 });
     await expect(page.locator(".os2-section-unsent")).not.toBeVisible();
     // Send KOT button should be gone (no unsent items)
     await expect(page.locator(".os2-kot-btn")).not.toBeVisible();
