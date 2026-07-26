@@ -1166,6 +1166,13 @@ async function deviceAdvanceTableHandler(req, res) {
   try {
     await clearTableAfterSettle(tableId);
     const newOrder = await getOrder(tableId);
+    // Broadcast the blank new order so all devices (captain/POS) clear stale
+    // bill alerts for this table immediately after advance.
+    const io       = req.app.locals.io;
+    const tenantId = req.user?.tenantId || "default";
+    if (io && outletId) {
+      io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", newOrder);
+    }
     res.json(newOrder);
   } catch (err) {
     res.status(err.statusCode || 500).json({ error: err.message || "advance-table failed" });

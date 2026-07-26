@@ -386,9 +386,20 @@ export function App() {
           setBillAlerts((prev) => {
             const key = String(o.orderNumber ?? o.id);
             if (o.isClosed || !o.billRequested) {
-              if (!prev[key]) return prev;
-              const { [key]: _, ...rest } = prev;
-              return rest;
+              // Remove by orderNumber key
+              let next = key in prev ? (() => { const { [key]: _, ...r } = prev; return r; })() : prev;
+              // If the incoming order is blank (table was advanced/settled), also sweep any
+              // stale alerts keyed to older order numbers that still point to this tableId.
+              // This happens when a captain prints bill → advance → moves a new order from
+              // the same table: the old billAlert persists because the orderNumber changed.
+              if (!o.items?.length) {
+                const stale = Object.keys(next).filter(k => next[k].tableId === o.tableId);
+                if (stale.length) {
+                  next = { ...next };
+                  stale.forEach(k => delete next[k]);
+                }
+              }
+              return next === prev ? prev : next;
             }
             return { ...prev, [key]: o };
           });
