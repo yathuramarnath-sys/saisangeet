@@ -307,7 +307,13 @@ export function App() {
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         if (liveOrders.length) {
           setOrders(prev => {
-            const next = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
+            // Skip POS-only staging orders (items present but none KOT'd) — captain only
+            // cares after first KOT is sent, so unsent POS carts don't mark tables occupied.
+            const visibleOrders = liveOrders.filter(o => {
+              const items = o.items || [];
+              return !items.length || items.some(i => i.sentToKot) || o.billRequested || o.isClosed;
+            });
+            const next = Object.fromEntries(visibleOrders.map((o) => [o.tableId, o]));
             // Preserve assignedWaiter from local state when server returns empty
             // (assign-waiter REST call can fail silently before server-side fix propagates)
             for (const [tid, cur] of Object.entries(prev)) {
@@ -435,6 +441,11 @@ export function App() {
           if (o.billRequested && p[o.tableId] &&
               !(p[o.tableId].items || []).some(i => !i.isVoided) &&
               !p[o.tableId].billRequested) return p;
+
+          // Ignore POS-only staging: items exist but none KOT'd yet.
+          // Cashier adds items to cart → captain should only see after first KOT is sent.
+          { const _it = o.items || [];
+            if (_it.length > 0 && !_it.some(i => i.sentToKot) && !o.billRequested && !o.isClosed) return p; }
 
           if (!o.items?.length || o.isClosed) {
             // Protect a live order: if captain already has active items on this table,
@@ -587,6 +598,9 @@ export function App() {
             if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
             // Mirror-table: don't re-add a table captain already freed after printing bill
             if (o.billRequested && !p[o.tableId]) return p;
+            // Ignore POS-only staging: items exist but none KOT'd yet
+            { const _it = o.items || [];
+              if (_it.length > 0 && !_it.some(i => i.sentToKot) && !o.billRequested && !o.isClosed) return p; }
               if (!o.items?.length || o.isClosed) {
               const cur = p[o.tableId];
               if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
@@ -1770,7 +1784,13 @@ export function App() {
         // Merge server orders with local state — preserve any unsent items that
         // haven't been KOT'd yet (items not in the server response).
         setOrders((prev) => {
-          const serverMap = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
+          // Skip POS-only staging orders (same logic as login) so sync doesn't
+          // restore pre-KOT POS carts that the captain correctly hid.
+          const visibleOrders = liveOrders.filter(o => {
+            const items = o.items || [];
+            return !items.length || items.some(i => i.sentToKot) || o.billRequested || o.isClosed;
+          });
+          const serverMap = Object.fromEntries(visibleOrders.map((o) => [o.tableId, o]));
           const merged = { ...serverMap };
           for (const [tableId, localOrder] of Object.entries(prev)) {
             // Exclude local unsent items whose menuItemId is already on the server as unsent —
