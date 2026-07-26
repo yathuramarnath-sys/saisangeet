@@ -211,6 +211,7 @@ export function OrderPanel({
   onPrintBill,
   onCounterPrintBill,
   onBilledSettle,
+  onAddItem,
   onShowHeld,
   heldCount = 0,
   gstTreatment = "exclusive",
@@ -506,6 +507,22 @@ export function OrderPanel({
                               return { ...p, [item.id]: staged - 1 };
                             });
                           }}>+</button>
+                      )}
+                      {/* Post-KOT: add-more plus (only when nothing is staged) */}
+                      {item.sentToKot && !item.isComp && onAddItem && (cancelStaging[item.id] || 0) === 0 && (
+                        <button type="button" className="qty-btn"
+                          title="Add one more to order"
+                          onClick={() => onAddItem({
+                            id:             item.menuItemId,
+                            name:           item.name,
+                            price:          item.price,
+                            station:        item.station,
+                            categoryId:     item.categoryId,
+                            category:       item.category,
+                            categoryName:   item.categoryName,
+                            taxRate:        item.taxRate,
+                            allowDecimalQty: item.allowDecimalQty,
+                          })}>+</button>
                       )}
                       <span className="order-item-price"
                         style={{ textDecoration: item.isComp ? "line-through" : "none", opacity: item.isComp ? 0.45 : 1 }}>
