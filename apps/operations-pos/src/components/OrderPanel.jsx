@@ -555,15 +555,6 @@ export function OrderPanel({
                         <button type="button" className="order-item-remove"
                           onClick={() => onRemoveItem(idx)}>✕</button>
                       )}
-                      {/* Post-KOT: void item — opens PIN gate (if cashier has a PIN) then VoidPicker */}
-                      {item.sentToKot && !item.isComp && onVoidItem && (
-                        <button type="button" className="order-item-void-btn"
-                          title="Void item"
-                          onClick={() => {
-                            if (needsPin) { setPinForVoidIdx(idx); }
-                            else          { setVoidingIdx(idx); }
-                          }}>⊘</button>
-                      )}
                     </div>
                   )}
                 </div>
