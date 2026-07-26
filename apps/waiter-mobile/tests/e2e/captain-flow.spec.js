@@ -663,8 +663,10 @@ test.describe("Captain App — Core Flow", () => {
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
     await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
-    // Long press → action sheet
-    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    // Long press → action sheet.
+    // Include "bill" state: test 17 (Print Bill) leaves T1 with billRequested=true;
+    // when test 18 sends a KOT on the same T1, the table shows data-st="bill" not "running".
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"], .tf2-card[data-st="bill"]').first();
     await expect(occupiedTable).toBeVisible({ timeout: 15000 });
     const box = await occupiedTable.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
