@@ -293,9 +293,10 @@ test.describe("Captain App — Core Flow", () => {
     // Wait for any order item (unsent or sent) — a socket update from the live backend
     // can briefly replace local state causing a transient dip before re-settling.
     // We only need to confirm the screen has order content, not the exact item count.
+    // Live backend state recovery can take longer than 12s in practice (increased from 12000).
     await page.waitForFunction(
       () => document.querySelector(".os2-item-unsent, .os2-item-sent") !== null,
-      { timeout: 12000 }
+      { timeout: 20000 }
     );
 
     // Sent section should also have items (from first KOT)
