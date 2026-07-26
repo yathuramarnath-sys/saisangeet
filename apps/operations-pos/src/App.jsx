@@ -781,6 +781,31 @@ export default function App() {
               return prev; // our version is >30 s newer — discard incoming
             }
 
+            // Advance-blank guard: captain advanced the table slot after printing
+            // (clearTableAfterSettle → new empty slot → we now broadcast it).
+            // The POS still holds the OLD order as a pending bill for cashier to
+            // settle — don't let the blank wipe it.  We still clear mirror tiles
+            // because those are from even-older orders, not the pending one.
+            // Distinguish advance-blank from settle-blank: settle first broadcasts
+            // isClosed:true (which updates current to closed), so by the time the
+            // blank arrives current.isClosed is true → this guard won't fire.
+            if (
+              !updatedOrder.isClosed &&
+              !updatedOrder.billRequested &&
+              (!updatedOrder.items || updatedOrder.items.length === 0) &&
+              current?.billRequested && !current?.isClosed &&
+              (current?.items || []).some(i => !i.isVoided && !i.isComp)
+            ) {
+              setTimeout(() => {
+                setMirrorOrders(mp => {
+                  if (!mp[updatedOrder.tableId]?.length) return mp;
+                  const { [updatedOrder.tableId]: _, ...rest } = mp;
+                  return rest;
+                });
+              }, 0);
+              return prev; // pending bill preserved — cashier must still settle it
+            }
+
             // ── Concurrent-edit merge ─────────────────────────────────────────
             // The incoming order is the server's authoritative state but it may
             // not include items the POS just added locally (e.g. cashier tapped
@@ -1029,6 +1054,23 @@ export default function App() {
               return { ...mp, [currentForMirror.tableId]: [...arr, currentForMirror] };
             });
           }
+          // Advance-blank guard (local WiFi): same logic as cloud socket.
+          // Captain advanced the slot; POS still has the pending bill — don't wipe it.
+          if (
+            !updatedOrder.isClosed &&
+            !updatedOrder.billRequested &&
+            (!updatedOrder.items || updatedOrder.items.length === 0) &&
+            currentForMirror?.billRequested && !currentForMirror?.isClosed &&
+            (currentForMirror?.items || []).some(i => !i.isVoided && !i.isComp)
+          ) {
+            setMirrorOrders(mp => {
+              if (!mp[updatedOrder.tableId]?.length) return mp;
+              const { [updatedOrder.tableId]: _, ...rest } = mp;
+              return rest;
+            });
+            return; // pending bill preserved
+          }
+
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
             if (current && !updatedOrder.isClosed &&
