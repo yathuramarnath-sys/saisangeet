@@ -806,6 +806,33 @@ export default function App() {
               return prev; // pending bill preserved — cashier must still settle it
             }
 
+            // Mirror-settle guard: the isClosed:true signal belongs to an OLD order
+            // (captain settled from Pending Bills) while the current active order
+            // for this table is already a NEWER seating.  Applying the closed order
+            // would briefly overwrite the live order and open the wrong data when
+            // the cashier taps the tile.  Instead: prune only the specific mirror
+            // entry and leave orders[tableId] untouched.
+            if (
+              updatedOrder.isClosed &&
+              current && !current.isClosed &&
+              current.orderNumber != null && updatedOrder.orderNumber != null &&
+              Number(current.orderNumber) !== Number(updatedOrder.orderNumber)
+            ) {
+              setTimeout(() => {
+                setMirrorOrders(mp => {
+                  const arr = mp[updatedOrder.tableId] || [];
+                  const filtered = arr.filter(
+                    o => Number(o.orderNumber) !== Number(updatedOrder.orderNumber)
+                  );
+                  if (filtered.length === arr.length) return mp;
+                  return filtered.length
+                    ? { ...mp, [updatedOrder.tableId]: filtered }
+                    : (({ [updatedOrder.tableId]: _, ...rest }) => rest)(mp);
+                });
+              }, 0);
+              return prev; // live order preserved — don't overwrite with closed mirror
+            }
+
             // ── Concurrent-edit merge ─────────────────────────────────────────
             // The incoming order is the server's authoritative state but it may
             // not include items the POS just added locally (e.g. cashier tapped
