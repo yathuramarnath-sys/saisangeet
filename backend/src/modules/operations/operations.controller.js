@@ -1006,13 +1006,35 @@ async function deviceCloseOrderHandler(req, res) {
           liveOrder.orderNumber !== order.orderNumber;
 
         if (hasNewerOrder) {
-          // Newer order is already active — broadcast it so POS and Captain show it.
+          // First: signal devices that the settled order is closed so POS releases
+          // its advance-blank guard and captain removes the billAlert immediately.
+          if (io) {
+            io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", {
+              tableId:     order.tableId,
+              orderNumber: order.orderNumber,
+              items:       order.items || [],
+              payments:    order.payments || [],
+              isClosed:    true,
+              closedAt:    order.closedAt,
+            });
+          }
+          // Then: broadcast the live newer order so all devices switch to it.
           if (io) {
             io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", liveOrder);
           }
         } else {
           await clearTableAfterSettle(order.tableId);
           if (io) {
+            // First: signal that the settled order is now closed.
+            io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", {
+              tableId:     order.tableId,
+              orderNumber: order.orderNumber,
+              items:       order.items || [],
+              payments:    order.payments || [],
+              isClosed:    true,
+              closedAt:    order.closedAt,
+            });
+            // Then: broadcast the fresh blank slot so POS and captain show Free.
             io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", {
               tableId:        order.tableId,
               items:          [],
