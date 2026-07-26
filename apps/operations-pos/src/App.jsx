@@ -3127,6 +3127,16 @@ export default function App() {
     await handleSettle([{ method, amount: fin.balance, label: method.toUpperCase() }]);
   }
 
+  async function handleMirrorBilledSettle(method) {
+    if (!selectedMirrorOrder) return;
+    if (method === "credit") { setShowPayment(true); return; }
+    const order = selectedMirrorOrder;
+    if (!order?.items?.length) return;
+    const fin = getFinancials(order, { gstTreatment: outlet?.gstTreatment || "exclusive" });
+    if (!fin || fin.balance <= 0) return;
+    await handleSettle([{ method, amount: fin.balance, label: method.toUpperCase() }]);
+  }
+
   // ── Counter-only checkout shortcut ──────────────────────────────────────
   // Takeaway/Delivery/Self-Service/Bakery/Sweet-Counter orders (order.isCounter)
   // pick a payment method first, then this single action prints the bill AND
@@ -3956,7 +3966,8 @@ export default function App() {
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
           onCounterPrintBill={selectedMirrorOrder ? null : handleCounterPrintAndSettle}
-          onBilledSettle={selectedMirrorOrder ? null : handleBilledSettle}
+          onBilledSettle={selectedMirrorOrder ? handleMirrorBilledSettle : handleBilledSettle}
+          onAddItem={selectedMirrorOrder ? handleMirrorAddItem : handleAddItem}
           onShowHeld={selectedMirrorOrder ? null : (() => setShowHeldOrders(true))}
           heldCount={heldCount}
           cashierName={cashierName}
