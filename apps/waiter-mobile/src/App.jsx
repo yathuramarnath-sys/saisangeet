@@ -388,12 +388,14 @@ export function App() {
             if (o.isClosed || !o.billRequested) {
               // Remove by orderNumber key
               let next = key in prev ? (() => { const { [key]: _, ...r } = prev; return r; })() : prev;
-              // If the incoming order is blank (table was advanced/settled), also sweep any
-              // stale alerts keyed to older order numbers that still point to this tableId.
-              // This happens when a captain prints bill → advance → moves a new order from
-              // the same table: the old billAlert persists because the orderNumber changed.
+              // If the incoming order is blank (advance signal), also sweep any stale alerts
+              // for this tableId that are NOT actively pending payment. A pending alert
+              // (billRequested:true && !isClosed) belongs to an unpaid customer and must
+              // survive until they actually pay — only sweep resolved/non-billing entries.
               if (!o.items?.length) {
-                const stale = Object.keys(next).filter(k => next[k].tableId === o.tableId);
+                const stale = Object.keys(next).filter(
+                  k => next[k].tableId === o.tableId && (!next[k].billRequested || next[k].isClosed)
+                );
                 if (stale.length) {
                   next = { ...next };
                   stale.forEach(k => delete next[k]);
