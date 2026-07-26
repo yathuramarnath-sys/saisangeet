@@ -317,6 +317,14 @@ export function App() {
             }
             return next;
           });
+          // Rebuild billAlerts from server state so settled bills don't reappear on login.
+          const alerts = {};
+          for (const o of liveOrders) {
+            if (o.billRequested && !o.isClosed && (o.items || []).some(i => !i.isVoided && !i.isComp)) {
+              alerts[String(o.orderNumber ?? o.id)] = o;
+            }
+          }
+          setBillAlerts(alerts);
         }
 
         // Open socket
@@ -1785,6 +1793,14 @@ export function App() {
           }
           return merged;
         });
+        // Rebuild billAlerts from server state so settled bills don't persist after sync.
+        const alerts = {};
+        for (const o of liveOrders) {
+          if (o.billRequested && !o.isClosed && (o.items || []).some(i => !i.isVoided && !i.isComp)) {
+            alerts[String(o.orderNumber ?? o.id)] = o;
+          }
+        }
+        setBillAlerts(alerts);
       }
       if (cats)  setCategories(cats);
       if (items) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
