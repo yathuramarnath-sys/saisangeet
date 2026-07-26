@@ -34,19 +34,15 @@ export function MoreScreen({
   const [syncOpen,   setSyncOpen]   = useState(true);
   const [appOpen,    setAppOpen]    = useState(true);
 
-  // Compute pending bills once — used in nav row and sub-screen
-  // billAlerts is keyed by orderNumber (not tableId) so a new order on the same table
-  // doesn't overwrite the old pending bill. Build a tableId → alert lookup from values.
-  const billAlertByTable = Object.values(billAlerts).reduce((acc, b) => {
-    if (!acc[b.tableId] || b.orderNumber > acc[b.tableId].orderNumber) acc[b.tableId] = b;
-    return acc;
-  }, {});
+  // One entry per bill (billAlerts keyed by orderNumber) — a table with 2 printed bills shows 2 rows.
   const allTables = tableAreas.flatMap(a => (a.tables || []).map(t => ({ ...t, areaName: a.name })));
-  const pendingBills = allTables.filter(t => {
-    const o = orders[t.id] || billAlertByTable[t.id];
-    return o && o.billRequested && !o.isClosed &&
-           (o.items || []).some(i => !i.isVoided && !i.isComp);
-  });
+  const pendingBills = Object.values(billAlerts)
+    .filter(b => b.billRequested && !b.isClosed &&
+      (b.items || []).some(i => !i.isVoided && !i.isComp))
+    .sort((a, b) => {
+      const tc = String(a.tableId) < String(b.tableId) ? -1 : String(a.tableId) > String(b.tableId) ? 1 : 0;
+      return tc || (a.orderNumber || 0) - (b.orderNumber || 0);
+    });
 
   async function handleSync() {
     tapImpact();
@@ -109,18 +105,18 @@ export function MoreScreen({
         </div>
         <div className="more2-scroll">
           <div className="more2-pending-grid">
-            {pendingBills.map((t) => {
-              const o = orders[t.id] || billAlertByTable[t.id];
-              const billable = (o.items || []).filter(i => !i.isVoided && !i.isComp);
+            {pendingBills.map((b) => {
+              const tableInfo = allTables.find(t => t.id === b.tableId);
+              const billable = (b.items || []).filter(i => !i.isVoided && !i.isComp);
               const amt = billable.reduce((s, i) => s + i.price * i.quantity, 0);
               return (
-                <div key={t.id} className="more2-pending-tile">
-                  <span className="more2-pending-tile-num">{t.number || t.id}</span>
+                <div key={b.orderNumber || b.id} className="more2-pending-tile">
+                  <span className="more2-pending-tile-num">{tableInfo?.number || b.tableId}</span>
                   {amt > 0 && <span className="more2-pending-tile-amt">₹{amt.toLocaleString("en-IN")}</span>}
                   {canSettleBill && (
                     <button
                       className="more2-pb-collect-btn"
-                      onClick={(e) => { e.stopPropagation(); tapImpact(); onSettleBill?.(t.id); }}
+                      onClick={(e) => { e.stopPropagation(); tapImpact(); onSettleBill?.(b); }}
                     >
                       Collect
                     </button>
