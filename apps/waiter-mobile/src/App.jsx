@@ -2113,11 +2113,8 @@ export function App() {
             onSync={handleSync}
             onSignOut={() => setShowLogout(true)}
             canSettleBill={loggedInStaff?.canSettleBill === true}
-            onSettleBill={(tid) => {
-              const latestAlert = Object.values(billAlerts)
-                .filter(b => b.tableId === tid)
-                .sort((a, b) => (b.orderNumber || 0) - (a.orderNumber || 0))[0];
-              setSettleTarget({ tableId: tid, order: orders[tid] || latestAlert });
+            onSettleBill={(bill) => {
+              setSettleTarget({ tableId: bill.tableId, order: bill });
             }}
           />
         )}

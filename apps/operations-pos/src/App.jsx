@@ -798,9 +798,13 @@ export default function App() {
             ) {
               setTimeout(() => {
                 setMirrorOrders(mp => {
-                  if (!mp[updatedOrder.tableId]?.length) return mp;
-                  const { [updatedOrder.tableId]: _, ...rest } = mp;
-                  return rest;
+                  const arr = mp[updatedOrder.tableId] || [];
+                  const kept = arr.filter(o => o.billRequested && !o.isClosed &&
+                    (o.items || []).some(i => !i.isVoided && !i.isComp));
+                  if (kept.length === arr.length) return mp;
+                  return kept.length
+                    ? { ...mp, [updatedOrder.tableId]: kept }
+                    : (({ [updatedOrder.tableId]: _, ...rest }) => rest)(mp);
                 });
               }, 0);
               return prev; // pending bill preserved — cashier must still settle it
@@ -853,22 +857,26 @@ export default function App() {
             const next = { ...prev, [updatedOrder.tableId]: merged };
             saveOrdersToStorage(next);
 
-            // When the captain settles (isClosed:true), clear any mirror tiles for this
-            // table so the POS floor doesn't keep showing stale "Bill" slots.
+            // When the captain settles (isClosed:true), prune only this specific order
+            // from mirrors — other pending-bill mirrors for the same table must survive.
             if (updatedOrder.isClosed) {
               setTimeout(() => {
                 setMirrorOrders(mp => {
-                  if (!mp[updatedOrder.tableId]?.length) return mp;
-                  const { [updatedOrder.tableId]: _, ...rest } = mp;
-                  return rest;
+                  const arr = mp[updatedOrder.tableId] || [];
+                  const filtered = arr.filter(
+                    o => Number(o.orderNumber) !== Number(updatedOrder.orderNumber)
+                  );
+                  if (filtered.length === arr.length) return mp;
+                  return filtered.length
+                    ? { ...mp, [updatedOrder.tableId]: filtered }
+                    : (({ [updatedOrder.tableId]: _, ...rest }) => rest)(mp);
                 });
               }, 0);
             }
 
             // Blank-settle clear: backend resets the table slot after captain settles
             // by broadcasting an empty order (isClosed:false, items:[]).
-            // Also clear any stale mirror tiles so the POS floor doesn't keep showing
-            // old "Bill" tiles after the table is free.
+            // Clear stale non-pending mirrors, but keep any that still have a pending bill.
             if (
               !updatedOrder.isClosed &&
               !updatedOrder.billRequested &&
@@ -876,9 +884,13 @@ export default function App() {
             ) {
               setTimeout(() => {
                 setMirrorOrders(mp => {
-                  if (!mp[updatedOrder.tableId]?.length) return mp;
-                  const { [updatedOrder.tableId]: _, ...rest } = mp;
-                  return rest;
+                  const arr = mp[updatedOrder.tableId] || [];
+                  const kept = arr.filter(o => o.billRequested && !o.isClosed &&
+                    (o.items || []).some(i => !i.isVoided && !i.isComp));
+                  if (kept.length === arr.length) return mp;
+                  return kept.length
+                    ? { ...mp, [updatedOrder.tableId]: kept }
+                    : (({ [updatedOrder.tableId]: _, ...rest }) => rest)(mp);
                 });
               }, 0);
             }
