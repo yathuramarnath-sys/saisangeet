@@ -624,6 +624,18 @@ export function App() {
             }
             return { ...p, [o.tableId]: merged };
           }));
+
+          // POS Electron server re-broadcasts "order:cleared" when a table is settled
+          // via the local WiFi socket. Without this handler, the captain's floor stays
+          // green/occupied for a settled table whenever the cloud socket is offline.
+          lSock.on("order:cleared", ({ tableId }) => {
+            setOrders(p => {
+              if (!p[tableId]) return p;
+              const { [tableId]: _, ...rest } = p;
+              return rest;
+            });
+            localStorage.removeItem("captain_courses_" + tableId);
+          });
         }
 
         const savedLocalIp = localStorage.getItem("captain_local_server_ip")?.trim();

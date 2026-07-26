@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PinConfirm } from "./PinConfirm";
 
 // ── Financials ─────────────────────────────────────────────────────────────────
@@ -239,6 +239,27 @@ export function OrderPanel({
   const [cancelPinShake,  setCancelPinShake]  = useState(false);
   const [editingQtyIdx,   setEditingQtyIdx]   = useState(null);   // index of item whose qty is being typed
   const [editingQtyVal,  setEditingQtyVal]  = useState("");     // current typed value
+
+  // Reset all modal/staging state whenever the active order switches.
+  // Without this, cancelStaging accumulates item IDs from the previous order and
+  // applies cancels to the wrong table; editingQtyIdx fires commitQtyEdit on a
+  // different order's item; transfer/void modals stay open across table changes.
+  const orderKey = order?.id ?? order?.tableId ?? null;
+  useEffect(() => {
+    setCancelStaging({});
+    setShowCancelModal(false);
+    setCancelReason("");
+    setCancelPinVal("");
+    setCancelPinErr("");
+    setEditingQtyIdx(null);
+    setEditingQtyVal("");
+    setShowTransfer(false);
+    setVoidingIdx(null);
+    setPinForVoidIdx(null);
+    setShowCancelPin(false);
+    setShowCancelConfirm(false);
+    setShowNote(false);
+  }, [orderKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helper: does this cashier have a PIN set?
   const needsPin = !!cashierPin;
