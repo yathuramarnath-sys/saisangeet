@@ -208,7 +208,6 @@ export function OrderScreen({
     return (
       <SplitBill
         order={order}
-        outletName={outletName}
         defaultTaxRate={defaultTaxRate}
         onBack={() => setScreen("order")}
         onPrint={(items, seatLabel) => onPrintSplitBill?.(order.tableId, items, seatLabel)}
