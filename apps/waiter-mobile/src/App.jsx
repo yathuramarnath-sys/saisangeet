@@ -736,6 +736,12 @@ export function App() {
     // 10 s worker only handles retries after failure.
     window.addEventListener("dinex:flush-prints", flushPrints);
 
+    // Sync queue detected a 401 — device token expired, retries stopped.
+    function onAuthExpired() {
+      toast.error("Device session expired. Please re-pair your device.", { duration: 7000 });
+    }
+    window.addEventListener("dinex:auth-expired", onAuthExpired);
+
     // When user manually saves POS IP in Settings, reconnect the local socket immediately
     // so live order sync works without an app restart.
     function onPosIpChanged(e) {
@@ -750,6 +756,7 @@ export function App() {
       stopWorker();
       stopPrintWorker();
       window.removeEventListener("dinex:flush-prints", flushPrints);
+      window.removeEventListener("dinex:auth-expired", onAuthExpired);
       window.removeEventListener("dinex:pos-ip-changed", onPosIpChanged);
     };
   }, [branchConfig]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -990,12 +997,19 @@ export function App() {
       // Notify POS on local WiFi immediately without waiting for cloud socket re-broadcast
       localSocketRef.current?.emit("order:update", { order: closedOrder });
       localStorage.removeItem(`captain_courses_${tableId}`);
-      // Remove this specific order's bill alert immediately — don't wait for socket echo
+      // Remove this specific order's bill alert immediately — don't wait for socket echo.
+      // Sweep by tableId+orderNumber to catch both the expected key and any orphaned
+      // UUID-keyed entry created when orderNumber was null during initial set.
       setBillAlerts(prev => {
-        const key = String(order.orderNumber ?? order.id);
-        if (!prev[key]) return prev;
-        const { [key]: _, ...rest } = prev;
-        return rest;
+        const num = order.orderNumber;
+        const tid = order.tableId;
+        const cleaned = Object.fromEntries(
+          Object.entries(prev).filter(([, v]) =>
+            !(v.tableId === tid &&
+              (num == null || v.orderNumber == null || String(v.orderNumber) === String(num)))
+          )
+        );
+        return Object.keys(cleaned).length === Object.keys(prev).length ? prev : cleaned;
       });
       if (tableId === selectedTableId) setSelectedTableId(null);
       toast.success(`₹${total.toLocaleString("en-IN")} collected via ${method.toUpperCase()}`);
@@ -1403,6 +1417,20 @@ export function App() {
       });
       toast.error("KOT queued — retry from menu when back online");
       kotApiFailed = true;
+      // Rollback optimistic sentToKot=true so the captain can see and re-send these items
+      setOrders((prev) => {
+        if (!prev[tid]) return prev;
+        return {
+          ...prev,
+          [tid]: {
+            ...prev[tid],
+            items: (prev[tid].items || []).map((i) => ({
+              ...i,
+              sentToKot: unsentIds.has(i.id) ? false : i.sentToKot,
+            })),
+          },
+        };
+      });
     }
 
     const serverKotNumber = serverKots.length ? serverKots[0].kotNumber : null;
@@ -1695,6 +1723,13 @@ export function App() {
       await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true, orderNumber: printOrder.orderNumber ?? null });
     } catch (err) {
       console.warn("[captain] bill-request failed:", err.message);
+      // Local state is already cleared — queue for retry so hasNextOrder reaches the server.
+      syncEnqueue(SYNC_ACTION.BILL_REQUEST, {
+        outletId:    outlet?.id,
+        tableId:     tid,
+        hasNextOrder: true,
+        orderNumber: printOrder.orderNumber ?? null,
+      });
     }
   }
 

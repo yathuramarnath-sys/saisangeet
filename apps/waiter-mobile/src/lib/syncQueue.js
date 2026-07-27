@@ -125,6 +125,18 @@ export async function flushQueue(handler) {
       await handler(entry);
       dequeue(entry.id);                    // success — remove from queue
     } catch (err) {
+      // 401 = device token expired — retrying will never succeed; mark all pending
+      // as failed immediately and signal the app so the user knows to re-pair.
+      if (err?.status === 401) {
+        save(load().map(e =>
+          e.status !== STATUS.PENDING ? e :
+            { ...e, retryCount: MAX_RETRIES, status: STATUS.FAILED, error: "auth-expired" }
+        ));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("dinex:auth-expired"));
+        }
+        break;
+      }
       const next = e => {
         if (e.id !== entry.id) return e;
         const nextCount = e.retryCount + 1;

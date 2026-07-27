@@ -177,25 +177,32 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
 
   function removeItem(menuItemId) {
     tapImpact();
-    // Use functional updater so rapid double-taps always see the latest committed state,
-    // not a stale snapshot of the `order` prop from the last render.
+    // Find the item synchronously from the current prop so we can call onItemRemoved
+    // outside the updater (side effects must not live inside functional updaters).
+    const syncItem = (order.items || []).find(
+      i => String(i.menuItemId) === String(menuItemId) && !i.sentToKot
+    );
+    const willRemove = syncItem && (syncItem.quantity || 1) <= 1;
+
     onUpdateOrder((prevOrders) => {
       const prevOrder = prevOrders[order.tableId];
-      if (!prevOrder) return { tableId: order.tableId, order: null };
+      if (!prevOrder) return { tableId: order.tableId, order: prevOrder || order };
       const items    = [...(prevOrder.items || [])];
       const idx      = items.findIndex(i => String(i.menuItemId) === String(menuItemId) && !i.sentToKot);
-      if (idx < 0) return { tableId: order.tableId, order: null };
+      if (idx < 0) return { tableId: order.tableId, order: prevOrder };
       const cartItem = items[idx];
       const wasLast  = (cartItem.quantity || 1) <= 1;
       if (wasLast) {
         items.splice(idx, 1);
-        // Tell backend to DELETE the item so it doesn't reappear on sync
-        onItemRemoved?.(cartItem.id);
       } else {
         items[idx] = { ...items[idx], quantity: items[idx].quantity - 1 };
       }
       return { tableId: order.tableId, order: { ...prevOrder, items } };
     });
+
+    // Call backend DELETE outside the updater — side effects inside updaters are wrong
+    // (React StrictMode invokes them twice) and they're skipped when idx < 0 above.
+    if (willRemove && syncItem?.id) onItemRemoved?.(syncItem.id);
   }
 
   const unsentCount = (order.items || []).filter(i => !i.sentToKot && !i.isVoided).length;

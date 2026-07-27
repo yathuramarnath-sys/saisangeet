@@ -56,11 +56,12 @@ export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSele
     const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
     const disc      = Math.min(o?.discountAmount || 0, sub);
     const afterDisc = sub - disc;
-    const tax       = billable.reduce((s, i) => {
+    // Round after accumulating — matches getFinancials exactly to avoid rounding drift.
+    const tax = Math.round(billable.reduce((s, i) => {
       const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
       const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
-      return s + Math.round(lineAfter * rate / (inclusive ? (100 + rate) : 100));
-    }, 0);
+      return s + lineAfter * rate / (inclusive ? (100 + rate) : 100);
+    }, 0));
     return inclusive ? afterDisc : afterDisc + tax;
   }
 
