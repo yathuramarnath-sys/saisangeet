@@ -241,146 +241,10 @@ function buildInitialState() {
       "cashier-discount-limit-percent": 5,
       "cashier-void-limit-amount": 200
     },
-    orders: {
-      t1: {
-        tableId: "t1",
-        tableNumber: "T1",
-        orderNumber: 10031,
-        kotNumber: "KOT-10031",
-        outletName: "Indiranagar",
-        areaName: "AC Hall 1",
-        captain: "Captain Karthik",
-        assignedWaiter: "",
-        guests: 3,
-        pickupStatus: "ready",
-        payments: [],
-        billSplitCount: 1,
-        printCount: 0,
-        lastPrintLabel: "Not printed yet",
-        isClosed: false,
-        closedAt: null,
-        serviceChargeEnabled: false,
-        serviceChargeRate: 0.1,
-        billRequested: false,
-        billRequestedAt: null,
-        notes: "Ready for pickup",
-        discountAmount: 0,
-        discountOverrideRequested: false,
-        discountApprovalStatus: "Within cashier 5% limit",
-        discountApprovedBy: "Not needed",
-        voidRequested: false,
-        voidReason: "Not requested",
-        voidApprovedBy: "Pending",
-        reprintReason: "Not requested",
-        reprintApprovedBy: "Not needed",
-        reprintLog: [],
-        deletedBillLog: [],
-        controlAlerts: [],
-        auditTrail: [
-          buildAuditEntry("KOT sent", "Captain Karthik", "7:28 PM"),
-          buildAuditEntry("Marked ready", "Chef Manoj", "7:31 PM")
-        ],
-        items: [
-          {
-            id: "line-1",
-            name: "Paneer Tikka",
-            quantity: 1,
-            price: 220,
-            sentToKot: true
-          }
-        ]
-      },
-      t2: {
-        tableId: "t2",
-        tableNumber: "T2",
-        orderNumber: 10032,
-        kotNumber: "KOT-10032",
-        outletName: "Koramangala",
-        areaName: "AC Hall 1",
-        captain: "Captain Karthik",
-        assignedWaiter: "",
-        guests: 4,
-        pickupStatus: "preparing",
-        payments: [],
-        billSplitCount: 1,
-        printCount: 0,
-        lastPrintLabel: "Not printed yet",
-        isClosed: false,
-        closedAt: null,
-        serviceChargeEnabled: false,
-        serviceChargeRate: 0.1,
-        billRequested: false,
-        billRequestedAt: null,
-        notes: "Discount above cashier limit needs manager approval",
-        discountAmount: 25,
-        discountOverrideRequested: true,
-        discountApprovalStatus: "Manager/Owner approval pending",
-        discountApprovedBy: "Pending manager",
-        voidRequested: false,
-        voidReason: "Not requested",
-        voidApprovedBy: "Pending",
-        reprintReason: "Not requested",
-        reprintApprovedBy: "Not needed",
-        reprintLog: [],
-        deletedBillLog: [],
-        controlAlerts: ["Discount above 5% requested"],
-        auditTrail: [buildAuditEntry("Discount override requested", "Cashier Anita", "7:42 PM")],
-        items: [
-          {
-            id: "line-2",
-            name: "Veg Biryani",
-            quantity: 1,
-            price: 240,
-            sentToKot: true
-          }
-        ]
-      },
-      t3: {
-        tableId: "t3",
-        tableNumber: "T3",
-        orderNumber: 10033,
-        kotNumber: "KOT-10033",
-        outletName: "HSR Layout",
-        areaName: "Non-AC Hall",
-        captain: "Captain Karthik",
-        assignedWaiter: "",
-        guests: 2,
-        pickupStatus: "delivered",
-        payments: [],
-        billSplitCount: 1,
-        printCount: 0,
-        lastPrintLabel: "Not printed yet",
-        isClosed: false,
-        closedAt: null,
-        serviceChargeEnabled: false,
-        serviceChargeRate: 0.1,
-        billRequested: true,
-        billRequestedAt: "7:48 PM",
-        notes: "Void above cashier limit needs manager/owner OTP approval",
-        discountAmount: 0,
-        discountOverrideRequested: false,
-        discountApprovalStatus: "Within cashier 5% limit",
-        discountApprovedBy: "Not needed",
-        voidRequested: true,
-        voidReason: "Duplicate bill",
-        voidApprovedBy: "Pending OTP",
-        reprintReason: "Not requested",
-        reprintApprovedBy: "Not needed",
-        reprintLog: [],
-        deletedBillLog: [],
-        controlAlerts: ["Void above Rs 200 requested"],
-        auditTrail: [buildAuditEntry("Void requested", "Cashier Anita", "7:51 PM")],
-        items: [
-          {
-            id: "line-3",
-            name: "Paneer Tikka",
-            quantity: 2,
-            price: 220,
-            sentToKot: true
-          }
-        ]
-      }
-    }
+    // Real table orders are populated by _current() via getTableCatalog().
+    // Seed/demo orders were removed to prevent stale "t1"-style phantom orders
+    // from persisting across restarts and appearing in captain Pending Bills.
+    orders: {}
   };
 }
 
@@ -486,11 +350,24 @@ function hydrateState(nextState) {
   const tid = getCurrentTenantId();
   const s = clone(nextState);
   try {
-    getTableCatalog().forEach((table, index) => {
+    const catalog = getTableCatalog();
+    catalog.forEach((table, index) => {
       if (!s.orders[table.tableId]) {
         s.orders[table.tableId] = buildEmptyOrder(table.tableId, 10040 + index);
       }
     });
+    // Remove stale/seed orders for table IDs that no longer exist in the catalog.
+    // This cleans up old demo entries ("t1", "t2", "t3", etc.) that were persisted
+    // to the DB on first startup and would otherwise survive every restart.
+    // Counter/online order IDs are created dynamically and must be preserved.
+    if (catalog.length > 0) {
+      const validIds = new Set(catalog.map(t => t.tableId));
+      Object.keys(s.orders).forEach(key => {
+        if (!validIds.has(key) && !key.startsWith("counter-") && !key.startsWith("online-")) {
+          delete s.orders[key];
+        }
+      });
+    }
   } catch (_) {}
   _tenantStates.set(tid, s);
   return clone(s);
