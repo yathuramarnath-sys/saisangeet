@@ -248,17 +248,14 @@ test.describe("Captain App — Core Flow", () => {
     await page.click(".os2-kot-btn");
     await handleWaiterPicker(page);
 
-    // doSendKOT marks items sentToKot=true BEFORE the KOT API call, so by the time
-    // .kot-overlay (sending phase) appears the order screen already shows the sent section.
-    // We wait for either phase; if floor button is visible we click it (success phase),
-    // otherwise the 3-second auto-close will navigate away — either way os2-section-sent
-    // is visible in the DOM while on the order screen.
+    // doSendKOT marks items sentToKot=true BEFORE the KOT API call, so the order
+    // screen already shows the sent section while the overlay is present.
+    // Check os2-section-sent while the overlay is still showing — Playwright sees
+    // elements behind overlays. Do NOT click the floor button here: that calls
+    // onClose() → setSelectedTableId(null) → navigates away from the order screen.
     await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
-    const closeBtn = page.locator(".kot-floor-btn").first();
-    if (await closeBtn.isVisible()) await closeBtn.click();
 
     // Items should now be in SENT TO KITCHEN, not NOT SENT YET
-    // Live backend KOT propagation can take longer than 5s (increased from 5000).
     await expect(page.locator(".os2-section-sent")).toBeVisible({ timeout: 15000 });
     await expect(page.locator(".os2-section-unsent")).not.toBeVisible();
     // Send KOT button should be gone (no unsent items)
@@ -663,8 +660,10 @@ test.describe("Captain App — Core Flow", () => {
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
     await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
-    // Long press → action sheet
-    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+    // Long press → action sheet.
+    // Include "bill" state: test 17 (Print Bill) leaves T1 with billRequested=true;
+    // when test 18 sends a KOT on the same T1, the table shows data-st="bill" not "running".
+    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"], .tf2-card[data-st="bill"]').first();
     await expect(occupiedTable).toBeVisible({ timeout: 15000 });
     const box = await occupiedTable.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
