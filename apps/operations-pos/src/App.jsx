@@ -3996,7 +3996,6 @@ export default function App() {
           onRemoveItem={selectedMirrorOrder ? handleMirrorRemoveItem : handleRemoveItem}
           onNoteChange={selectedMirrorOrder ? handleMirrorNoteChange : handleNoteChange}
           onSendKOT={selectedMirrorOrder ? null : handleSendKOT}
-          onRequestBill={selectedMirrorOrder ? null : handleRequestBill}
           onOpenPayment={() => setShowPayment(true)}
           onOpenSplitBill={selectedMirrorOrder ? null : (() => setShowSplitBill(true))}
           onGuestsChange={selectedMirrorOrder ? null : handleGuestsChange}
@@ -4005,7 +4004,6 @@ export default function App() {
           onCustomerForm={selectedMirrorOrder ? null : (() => setShowCustomerForm(true))}
           onTransferTable={selectedMirrorOrder ? null : handleTransferTable}
           onOrderNoteChange={selectedMirrorOrder ? handleMirrorOrderNoteChange : handleOrderNoteChange}
-          onCompToggle={selectedMirrorOrder ? handleMirrorCompToggle : handleCompToggle}
           onVoidItem={selectedMirrorOrder ? handleMirrorVoidItem : handleVoidItem}
           onCancelKotItem={selectedMirrorOrder ? null : handleCancelKotItem}
           canCancelKotItem={
