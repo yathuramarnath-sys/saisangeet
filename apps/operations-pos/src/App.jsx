@@ -216,7 +216,6 @@ async function flushClosedOrderQueue(outletId) {
 // ── Active orders persistence ─────────────────────────────────────────────
 const ORDERS_KEY        = "pos_active_orders";
 const ORDERS_OUTLET_KEY = "pos_active_orders_outlet"; // guards against cross-outlet data bleed
-const MIRROR_ORDERS_KEY = "pos_mirror_orders";
 
 // When the server returns order items it may omit taxRate (not stored in DB).
 // Preserve taxRate from the local version so GST never disappears.
@@ -375,15 +374,10 @@ export default function App() {
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
   const ordersRef        = useRef({});
-  const mirrorOrdersRef  = useRef({});
   // Tracks orderNumbers settled locally so stale re-broadcasts from Captain are ignored
   const settledOrderNums    = useRef(new Set());
   const cancelledTablesRef  = useRef(new Map()); // tableId → orderNumber, blocks socket restores during cancel window
   // Mirror (pending bill) orders waiting for cashier settlement while a new order is active
-  const [mirrorOrders, setMirrorOrders] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(MIRROR_ORDERS_KEY) || "null") || {}; } catch { return {}; }
-  });
-  const [selectedMirrorOrder, setSelectedMirrorOrder] = useState(null);
   // Refs for barcode scanner listener — always hold latest values without re-subscribing
   const selectedTableIdRef = useRef(null);
   const outletRef          = useRef(null);
@@ -761,11 +755,9 @@ export default function App() {
                 cancelledTablesRef.current.delete(updatedOrder.tableId); // new order, lift block
               }
             }
-            // Mirror-close guard: captain settled an OLDER/MIRROR order for this table
-            // (different orderNumber than what's in the main slot).  Remove only that
-            // entry from mirrorOrders and leave the active order untouched — without
-            // this guard the closing event overwrites the active order, causing the POS
-            // to lose it and re-settle it (duplicate bill numbers).
+            // Mirror-close guard: captain settled an OLDER order for this table
+            // (different orderNumber than what's in the main slot). Leave the active
+            // order untouched — don't let the closed old order overwrite the new one.
             if (
               updatedOrder.isClosed &&
               current &&
@@ -773,41 +765,7 @@ export default function App() {
               current.orderNumber != null &&
               Number(updatedOrder.orderNumber) !== Number(current.orderNumber)
             ) {
-              setTimeout(() => {
-                setMirrorOrders(mp => {
-                  const arr = mp[updatedOrder.tableId] || [];
-                  const filtered = arr.filter(
-                    o => Number(o.orderNumber) !== Number(updatedOrder.orderNumber)
-                  );
-                  if (filtered.length === arr.length) return mp;
-                  if (!filtered.length) {
-                    const { [updatedOrder.tableId]: _, ...rest } = mp;
-                    return rest;
-                  }
-                  return { ...mp, [updatedOrder.tableId]: filtered };
-                });
-              }, 0);
-              return prev; // active order preserved — don't overwrite with closed mirror
-            }
-            // Petpooja-style mirror table: if POS has a pending bill for this table
-            // (billRequested:true, different orderNumber) the incoming update is a new
-            // seating by Captain.  Preserve the pending bill as a "mirror" tile so the
-            // cashier can settle it independently; let Order 2 through into main state.
-            // Use prev (authoritative) not ordersRef (may be stale) to avoid race conditions
-            // when two socket events arrive in the same JS tick.
-            if (
-              current && current.billRequested && !current.isClosed &&
-              !updatedOrder.isClosed &&
-              current.orderNumber != null && updatedOrder.orderNumber != null &&
-              Number(current.orderNumber) !== Number(updatedOrder.orderNumber)
-            ) {
-              setTimeout(() => {
-                setMirrorOrders(mp => {
-                  const arr = mp[current.tableId] || [];
-                  if (arr.some(o => Number(o.orderNumber) === Number(current.orderNumber))) return mp;
-                  return { ...mp, [current.tableId]: [...arr, current] };
-                });
-              }, 0);
+              return prev; // active order preserved — don't overwrite with closed old order
             }
             // Stale-write guard: ignore events that are more than 30 s older than our
             // local copy. A strict timestamp comparison breaks when the Captain device
@@ -841,45 +799,17 @@ export default function App() {
               current?.billRequested && !current?.isClosed &&
               (current?.items || []).some(i => !i.isVoided && !i.isComp)
             ) {
-              setTimeout(() => {
-                setMirrorOrders(mp => {
-                  const arr = mp[updatedOrder.tableId] || [];
-                  const kept = arr.filter(o => o.billRequested && !o.isClosed &&
-                    (o.items || []).some(i => !i.isVoided && !i.isComp));
-                  if (kept.length === arr.length) return mp;
-                  return kept.length
-                    ? { ...mp, [updatedOrder.tableId]: kept }
-                    : (({ [updatedOrder.tableId]: _, ...rest }) => rest)(mp);
-                });
-              }, 0);
               return prev; // pending bill preserved — cashier must still settle it
             }
 
-            // Mirror-settle guard: the isClosed:true signal belongs to an OLD order
-            // (captain settled from Pending Bills) while the current active order
-            // for this table is already a NEWER seating.  Applying the closed order
-            // would briefly overwrite the live order and open the wrong data when
-            // the cashier taps the tile.  Instead: prune only the specific mirror
-            // entry and leave orders[tableId] untouched.
+            // Mirror-settle guard: isClosed for an OLD order while active is a NEWER seating.
             if (
               updatedOrder.isClosed &&
               current && !current.isClosed &&
               current.orderNumber != null && updatedOrder.orderNumber != null &&
               Number(current.orderNumber) !== Number(updatedOrder.orderNumber)
             ) {
-              setTimeout(() => {
-                setMirrorOrders(mp => {
-                  const arr = mp[updatedOrder.tableId] || [];
-                  const filtered = arr.filter(
-                    o => Number(o.orderNumber) !== Number(updatedOrder.orderNumber)
-                  );
-                  if (filtered.length === arr.length) return mp;
-                  return filtered.length
-                    ? { ...mp, [updatedOrder.tableId]: filtered }
-                    : (({ [updatedOrder.tableId]: _, ...rest }) => rest)(mp);
-                });
-              }, 0);
-              return prev; // live order preserved — don't overwrite with closed mirror
+              return prev; // live order preserved — don't overwrite with closed old order
             }
 
             // ── Concurrent-edit merge ─────────────────────────────────────────
@@ -901,45 +831,6 @@ export default function App() {
 
             const next = { ...prev, [updatedOrder.tableId]: merged };
             saveOrdersToStorage(next);
-
-            // When the captain settles (isClosed:true), prune only this specific order
-            // from mirrors — other pending-bill mirrors for the same table must survive.
-            if (updatedOrder.isClosed) {
-              setTimeout(() => {
-                setMirrorOrders(mp => {
-                  const arr = mp[updatedOrder.tableId] || [];
-                  const filtered = arr.filter(
-                    o => Number(o.orderNumber) !== Number(updatedOrder.orderNumber)
-                  );
-                  if (filtered.length === arr.length) return mp;
-                  return filtered.length
-                    ? { ...mp, [updatedOrder.tableId]: filtered }
-                    : (({ [updatedOrder.tableId]: _, ...rest }) => rest)(mp);
-                });
-              }, 0);
-            }
-
-            // Blank-settle clear: backend resets the table slot after captain settles
-            // by broadcasting an empty order (isClosed:false, items:[]).
-            // Clear stale non-pending mirrors, but keep any that still have a pending bill.
-            if (
-              !updatedOrder.isClosed &&
-              !updatedOrder.billRequested &&
-              (!updatedOrder.items || updatedOrder.items.length === 0)
-            ) {
-              setTimeout(() => {
-                setMirrorOrders(mp => {
-                  const arr = mp[updatedOrder.tableId] || [];
-                  const kept = arr.filter(o => o.billRequested && !o.isClosed &&
-                    (o.items || []).some(i => !i.isVoided && !i.isComp));
-                  if (kept.length === arr.length) return mp;
-                  return kept.length
-                    ? { ...mp, [updatedOrder.tableId]: kept }
-                    : (({ [updatedOrder.tableId]: _, ...rest }) => rest)(mp);
-                });
-              }, 0);
-            }
-
             return next;
           });
         });
@@ -1118,8 +1009,7 @@ export default function App() {
 
           const currentForMirror = ordersRef.current[updatedOrder.tableId];
 
-          // Mirror-close guard: captain settled an older mirror bill for this table.
-          // Remove just that entry from mirrorOrders; leave the active order intact.
+          // Mirror-close guard: captain settled an older order — leave active order intact.
           if (
             updatedOrder.isClosed &&
             currentForMirror &&
@@ -1127,39 +1017,10 @@ export default function App() {
             currentForMirror.orderNumber != null &&
             Number(updatedOrder.orderNumber) !== Number(currentForMirror.orderNumber)
           ) {
-            setMirrorOrders(mp => {
-              const arr = mp[updatedOrder.tableId] || [];
-              const filtered = arr.filter(
-                o => Number(o.orderNumber) !== Number(updatedOrder.orderNumber)
-              );
-              if (filtered.length === arr.length) return mp;
-              if (!filtered.length) {
-                const { [updatedOrder.tableId]: _, ...rest } = mp;
-                return rest;
-              }
-              return { ...mp, [updatedOrder.tableId]: filtered };
-            });
             return; // don't call setOrders — active order is preserved
           }
 
-          // Mirror tile: push pending bill to mirrorOrders when a newer order arrives.
-          // Must run OUTSIDE setOrders updater — side-effects inside updaters fire twice in StrictMode.
-          if (
-            currentForMirror && currentForMirror.billRequested && !currentForMirror.isClosed &&
-            !updatedOrder.isClosed &&
-            currentForMirror.orderNumber != null && updatedOrder.orderNumber != null &&
-            Number(currentForMirror.orderNumber) !== Number(updatedOrder.orderNumber) &&
-            (currentForMirror.items || []).some(i => !i.isVoided && !i.isGhostVoid)
-          ) {
-            setMirrorOrders(mp => {
-              const arr = mp[currentForMirror.tableId] || [];
-              if (arr.some(o => Number(o.orderNumber) === Number(currentForMirror.orderNumber))) return mp;
-              return { ...mp, [currentForMirror.tableId]: [...arr, currentForMirror] };
-            });
-          }
-          // Advance-blank guard (local WiFi): captain advanced the slot; POS still has
-          // the pending bill — don't wipe it. Prune only stale (non-bill-requested)
-          // mirror entries, matching the cloud socket behaviour exactly.
+          // Advance-blank guard: captain advanced the slot; POS still has the pending bill.
           if (
             !updatedOrder.isClosed &&
             !updatedOrder.billRequested &&
@@ -1167,15 +1028,6 @@ export default function App() {
             currentForMirror?.billRequested && !currentForMirror?.isClosed &&
             (currentForMirror?.items || []).some(i => !i.isVoided && !i.isComp)
           ) {
-            setMirrorOrders(mp => {
-              const arr = mp[updatedOrder.tableId] || [];
-              const kept = arr.filter(o => o.billRequested && !o.isClosed &&
-                (o.items || []).some(i => !i.isVoided && !i.isComp));
-              if (kept.length === arr.length) return mp;
-              return kept.length
-                ? { ...mp, [updatedOrder.tableId]: kept }
-                : (({ [updatedOrder.tableId]: _, ...rest }) => rest)(mp);
-            });
             return; // pending bill preserved
           }
 
@@ -1198,27 +1050,6 @@ export default function App() {
             saveOrdersToStorage(next);
             return next;
           });
-          // Main order closed — clear all mirror tiles for this table
-          if (updatedOrder.isClosed) {
-            setMirrorOrders(mp => {
-              if (!mp[updatedOrder.tableId]?.length) return mp;
-              const { [updatedOrder.tableId]: _, ...rest } = mp;
-              return rest;
-            });
-          }
-          // Blank-settle clear: backend reset the table slot (empty order, not closed).
-          // Clear stale mirror tiles so the POS floor shows the table as free.
-          if (
-            !updatedOrder.isClosed &&
-            !updatedOrder.billRequested &&
-            (!updatedOrder.items || updatedOrder.items.length === 0)
-          ) {
-            setMirrorOrders(mp => {
-              if (!mp[updatedOrder.tableId]?.length) return mp;
-              const { [updatedOrder.tableId]: _, ...rest } = mp;
-              return rest;
-            });
-          }
         });
 
         // KOT sent by Captain via local WiFi → print it + mark items sent
@@ -1552,21 +1383,7 @@ export default function App() {
     ordersRef.current = orders; // keep ref in sync for socket callbacks
   }, [orders]);
 
-  useEffect(() => {
-    mirrorOrdersRef.current = mirrorOrders;
-    try {
-      if (Object.keys(mirrorOrders).length > 0) {
-        localStorage.setItem(MIRROR_ORDERS_KEY, JSON.stringify(mirrorOrders));
-      } else {
-        localStorage.removeItem(MIRROR_ORDERS_KEY);
-      }
-    } catch {}
-  }, [mirrorOrders]);
 
-  // Clear selectedMirrorOrder whenever the table selection is dropped
-  useEffect(() => {
-    if (!selectedTableId) setSelectedMirrorOrder(null);
-  }, [selectedTableId]);
 
   // Restrict the menu shown at this terminal to its assigned work area.
   // A "Full Access" terminal (no workArea) sees everything, as before.
@@ -1805,24 +1622,18 @@ export default function App() {
 
   const tableLabel = useMemo(() => {
     if (!selectedTableId) return "";
-    if (selectedMirrorOrder) {
-      const mn = selectedMirrorOrder.tableNumber || selectedMirrorOrder.tableId || "";
-      const ma = selectedMirrorOrder.areaName ? ` · ${selectedMirrorOrder.areaName}` : "";
-      return `Table ${mn}${ma} (Billed)`;
-    }
     if (selectedOrder?.isCounter) {
       return `${serviceMode === "delivery" ? "Delivery" : "Takeaway"} #${String(selectedOrder.ticketNumber || "").padStart(3, "0")}`;
     }
     if (selectedTable) return `Table ${selectedTable.number} · ${selectedTable.areaName}`;
     return "";
-  }, [selectedTableId, selectedTable, selectedOrder, selectedMirrorOrder, serviceMode]);
+  }, [selectedTableId, selectedTable, selectedOrder, serviceMode]);
 
   // Active (non-voided) item count in the current order — used by the order tab badge.
   const activeOrderItemCount = useMemo(() => {
-    const activeForCount = selectedMirrorOrder || selectedOrder;
-    if (!activeForCount) return 0;
-    return (activeForCount.items || []).filter(i => !i.isVoided).length;
-  }, [selectedOrder, selectedMirrorOrder]);
+    if (!selectedOrder) return 0;
+    return (selectedOrder.items || []).filter(i => !i.isVoided).length;
+  }, [selectedOrder]);
 
   // Top 8 most-ordered items (for Favourites chip)
   const favouriteItemIds = useMemo(() =>
@@ -1836,13 +1647,12 @@ export default function App() {
   // MUST be here (before any conditional returns) to obey React Rules of Hooks.
   const menuQuantities = useMemo(() => {
     const map = {};
-    const activeForMenu = selectedMirrorOrder || selectedOrder;
-    if (!activeForMenu) return map;
-    (activeForMenu.items || [])
+    if (!selectedOrder) return map;
+    (selectedOrder.items || [])
       .filter(i => !i.sentToKot && !i.isVoided)
       .forEach(i => { if (i.menuItemId) map[i.menuItemId] = (map[i.menuItemId] || 0) + i.quantity; });
     return map;
-  }, [selectedOrder, selectedMirrorOrder]);
+  }, [selectedOrder]);
 
   // ── Order mutations ───────────────────────────────────────────────────────
   function mutateOrder(tableId, updater) {
@@ -2320,13 +2130,12 @@ export default function App() {
   }
 
   async function handleSettle(paymentsInput) {
-    if (!selectedTableId && !selectedMirrorOrder) return;
+    if (!selectedTableId) return;
     if (settlingRef.current) return;
     settlingRef.current = true;
     try {
-    const isMirrorSettle = !!selectedMirrorOrder;
-    const order       = selectedMirrorOrder || orders[selectedTableId];
-    const tableId     = selectedTableId || order?.tableId;
+    const order   = orders[selectedTableId];
+    const tableId = selectedTableId;
     if (!order || !tableId) return;
     const newPayments = Array.isArray(paymentsInput) ? paymentsInput : [paymentsInput];
 
@@ -2348,27 +2157,11 @@ export default function App() {
     const paid         = allPayments.reduce((s, p) => s + p.amount, 0);
 
     if (paid < total) {
-      // Partial payment — for mirror orders update in mirrorOrders; for normal use mutateOrder.
-      if (isMirrorSettle) {
-        const updatedMirror = { ...order, payments: allPayments };
-        setMirrorOrders(mp => {
-          const arr = (mp[tableId] || []).map(o =>
-            o.orderNumber === order.orderNumber ? updatedMirror : o
-          );
-          return { ...mp, [tableId]: arr };
-        });
-        setSelectedMirrorOrder(updatedMirror);
-      } else {
-        mutateOrder(tableId, (o) => { o.payments = allPayments; return o; });
-      }
+      mutateOrder(tableId, (o) => { o.payments = allPayments; return o; });
       setShowPayment(false);
-      if (!isMirrorSettle) setSelectedMirrorOrder(null);
       showToast(`Payment recorded · ₹${newPayments.reduce((s,p)=>s+p.amount,0)}`);
 
-      // Backend partial sync only for normal (non-mirror) orders.
-      // Mirror orders are settled in full via /closed-order — partial backend sync
-      // would target the wrong in-memory slot (which holds the newer active order).
-      if (!isMirrorSettle && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+      if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
         (async () => {
           let lastServerOrder = null;
           for (const p of newPayments) {
@@ -2406,8 +2199,7 @@ export default function App() {
     const creditCustomer   = creditPayment?.creditCustomer || null;
 
     // Stamp creditCustomer on the live order NOW so any reprint includes the customer name.
-    // For mirror settle, the live orders[tableId] is the NEW order — don't stamp it.
-    if (isCreditSale && creditCustomer && !isMirrorSettle) {
+    if (isCreditSale && creditCustomer) {
       mutateOrder(tableId, o => { o.creditCustomer = creditCustomer; o.isCreditSale = true; return o; });
     }
 
@@ -2434,15 +2226,12 @@ export default function App() {
       localStorage.setItem("pos_closed_orders", JSON.stringify(prev.slice(0, 500)));
     } catch {}
 
-    // 2. For normal settle: temporarily mark table closed for the 1.5 s UI flash.
-    //    For mirror settle: orders[tableId] holds the ACTIVE new order — don't touch it.
-    if (!isMirrorSettle) {
-      setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
-      // Notify Captain App + KDS that this table's bill is settled
-      socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
-      localSocketRef.current?.emit("order:clear", { tableId });
-      window.electronAPI?.pushOrdersToLocal?.([]);
-    }
+    // 2. Temporarily mark table closed for the 1.5 s UI flash.
+    setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
+    // Notify Captain App + KDS that this table's bill is settled
+    socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
+    localSocketRef.current?.emit("order:clear", { tableId });
+    window.electronAPI?.pushOrdersToLocal?.([]);
 
     // 3. Push full closed order to backend so Owner Web shows real sales figures.
     // For mirror settle: backend detects hasNewerOrder (Order 2 in memory != Order 1 being
@@ -2486,7 +2275,6 @@ export default function App() {
     }
 
     setShowPayment(false);
-    setSelectedMirrorOrder(null);
     setSelectedTableId(null);
 
     // Trigger cash drawer if any payment was cash (Electron only, silent on web)
@@ -2498,167 +2286,39 @@ export default function App() {
         : "⚠ Settled offline — queued for sync when connected"
     );
 
-    if (isMirrorSettle) {
-      // Notify cloud + LAN KDS that the mirror order (Order 1) is now closed.
-      // Cloud backend's hasNewerOrder guard will re-broadcast Order 2 to cloud KDS clients.
-      socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
-      // LAN KDS tablets (local WiFi socket) don't receive the cloud re-broadcast,
-      // so clear the table display explicitly; Order 2's KOTs are already on KDS.
-      localSocketRef.current?.emit("order:clear", { tableId });
-      // Remove this mirror order from the mirrorOrders tile — the active new order stays.
-      const settledNum = order.orderNumber;
-      setMirrorOrders(mp => {
-        const arr = (mp[tableId] || []).filter(o => o.orderNumber !== settledNum);
-        if (!arr.length) {
-          const next = { ...mp };
+    // Drop billRequested before backend's Order 2 broadcast lands.
+    setOrders(prev => {
+      const cur = prev[tableId];
+      if (!cur) return prev;
+      return { ...prev, [tableId]: { ...cur, billRequested: false } };
+    });
+
+    // Local safety-net reset after 1.5 s (no-op when backend broadcast already landed).
+    setTimeout(() => {
+      const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
+      const table = area?.tables.find(t => t.id === tableId);
+
+      if (!table || !area) {
+        setOrders(prev => {
+          if (!prev[tableId]?.isClosed) return prev;
+          const next = { ...prev };
           delete next[tableId];
           return next;
-        }
-        return { ...mp, [tableId]: arr };
-      });
-      // Backend's hasNewerOrder guard re-broadcasts the active new order — no local reset needed.
-    } else {
-      // Normal settle: drop billRequested before backend's Order 2 broadcast lands.
-      setOrders(prev => {
-        const cur = prev[tableId];
-        if (!cur) return prev;
-        return { ...prev, [tableId]: { ...cur, billRequested: false } };
-      });
-
-      // Local safety-net reset after 1.5 s (no-op when backend broadcast already landed).
-      setTimeout(() => {
-        const area  = tableAreas.find(a => a.tables.some(t => t.id === tableId));
-        const table = area?.tables.find(t => t.id === tableId);
-
-        if (!table || !area) {
-          setOrders(prev => {
-            if (!prev[tableId]?.isClosed) return prev;
-            const next = { ...prev };
-            delete next[tableId];
-            return next;
-          });
-          return;
-        }
-
-        setOrders(prev => {
-          if (prev[tableId]?.orderNumber !== order.orderNumber) return prev;
-          const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
-          const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
-          return { ...prev, [tableId]: fresh };
         });
-        checkWaitlistSuggest(tableId);
-      }, 1500);
-    }
+        return;
+      }
+
+      setOrders(prev => {
+        if (prev[tableId]?.orderNumber !== order.orderNumber) return prev;
+        const maxNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
+        const fresh  = buildBlankOrder(table, area, outlet?.name || "Outlet", maxNum);
+        return { ...prev, [tableId]: fresh };
+      });
+      checkWaitlistSuggest(tableId);
+    }, 1500);
     } finally {
       settlingRef.current = false;
     }
-  }
-
-  function handleSelectMirrorOrder(tableId, mirrorOrder) {
-    setSelectedTableId(tableId);
-    setSelectedMirrorOrder(mirrorOrder);
-    // Open full order screen so cashier can add/remove/void items before settling
-  }
-
-  // ── Mirror-order local mutations (no backend sync — order is already billed) ─
-  function mutateMirrorOrder(updater) {
-    if (!selectedTableId || !selectedMirrorOrder) return;
-    const tableId = selectedTableId;
-    const orderNum = selectedMirrorOrder.orderNumber;
-    setMirrorOrders(mp => {
-      const arr = (mp[tableId] || []).map(o => {
-        if (Number(o.orderNumber) !== Number(orderNum)) return o;
-        return updater(structuredClone(o));
-      });
-      return { ...mp, [tableId]: arr };
-    });
-    setSelectedMirrorOrder(prev => prev ? updater(structuredClone(prev)) : prev);
-  }
-
-  function handleMirrorChangeQty(idx, qty) {
-    mutateMirrorOrder(o => {
-      if (qty <= 0) o.items.splice(idx, 1);
-      else o.items[idx].quantity = qty;
-      return o;
-    });
-  }
-
-  function handleMirrorRemoveItem(idx) {
-    mutateMirrorOrder(o => { o.items.splice(idx, 1); return o; });
-  }
-
-  function handleMirrorNoteChange(idx, note) {
-    mutateMirrorOrder(o => { if (o.items[idx]) o.items[idx].note = note; return o; });
-  }
-
-  function handleMirrorVoidItem(idx, reason) {
-    mutateMirrorOrder(o => {
-      if (o.items[idx]) {
-        o.items[idx].isVoided   = true;
-        o.items[idx].voidReason = reason;
-        o.items[idx].sentToKot  = true;
-      }
-      return o;
-    });
-  }
-
-  function handleMirrorCompToggle(idx) {
-    mutateMirrorOrder(o => {
-      if (o.items[idx]) o.items[idx].isComp = !o.items[idx].isComp;
-      return o;
-    });
-  }
-
-  function handleMirrorDiscountChange(amount) {
-    mutateMirrorOrder(o => { o.discountAmount = amount; return o; });
-  }
-
-  function handleMirrorOrderNoteChange(note) {
-    mutateMirrorOrder(o => { o.orderNote = note; return o; });
-  }
-
-  function handleMirrorAddItem(item, overrideQty = null) {
-    const itemId = `item-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-    const itemCatName = (item.category || item.categoryName || "").trim().toLowerCase();
-    const resolvedStation = item.station ||
-      kitchenStations.find(s =>
-        (Array.isArray(s.categories) && s.categories.some(cid => String(cid) === String(item.categoryId))) ||
-        (Array.isArray(s.categoryNames) && s.categoryNames.some(n => n.trim().toLowerCase() === itemCatName))
-      )?.name || "";
-    mutateMirrorOrder(o => {
-      const existing = o.items.findIndex(i => i.menuItemId === item.id && !i.sentToKot);
-      if (existing >= 0) {
-        o.items[existing].quantity += overrideQty ?? 1;
-      } else {
-        const aov = item.areaOverrides?.[o.areaName || ""];
-        o.items.push({
-          id:              itemId,
-          menuItemId:      item.id,
-          name:            item.name,
-          price:           (aov && Number(aov) > 0) ? Number(aov) : parsePriceNumber(item.price || item.basePrice),
-          quantity:        overrideQty ?? 1,
-          sentToKot:       false,
-          note:            "",
-          station:         resolvedStation,
-          categoryId:      item.categoryId || "",
-          category:        (categories.find(c => c.id === item.categoryId)?.name) || item.categoryName || item.category || "",
-          taxRate:         item.taxRate != null ? Number(item.taxRate) : null,
-          unit:            item.unit || "",
-          allowDecimalQty: !!item.allowDecimalQty,
-        });
-      }
-      return o;
-    });
-  }
-
-  function handleMirrorDecrementItem(item) {
-    if (!selectedMirrorOrder) return;
-    const idx = [...(selectedMirrorOrder.items || [])]
-      .map((i, index) => ({ i, index }))
-      .reverse()
-      .find(({ i }) => i.menuItemId === item.id && !i.sentToKot)?.index;
-    if (idx == null) return;
-    handleMirrorChangeQty(idx, (selectedMirrorOrder.items[idx].quantity || 1) - 1);
   }
 
   async function handleConfirmSplit(splits) {
@@ -2746,7 +2406,6 @@ export default function App() {
   //    does not know (offline-added) are appended on top.
   // Counter/takeaway/online tickets are skipped — they have no backend table entry.
   async function handleSelectTable(tableId) {
-    setSelectedMirrorOrder(null); // always clear stale mirror order when selecting a table
     setSelectedTableId(tableId);
 
     if (!tableId || !outlet?.id) return;
@@ -2755,39 +2414,6 @@ export default function App() {
     try {
       const serverOrder = await api.get(`/operations/order?tableId=${tableId}&outletId=${outlet.id}`);
       if (!serverOrder || serverOrder.skipped) return;
-
-      // Mirror tile: if local has a pending bill and server has a newer order, save pending bill
-      const localSnapshot = ordersRef.current[tableId];
-      const newMirrorDetected = (
-        localSnapshot && localSnapshot.billRequested && !localSnapshot.isClosed &&
-        !serverOrder.isClosed &&
-        localSnapshot.orderNumber != null && serverOrder.orderNumber != null &&
-        Number(localSnapshot.orderNumber) !== Number(serverOrder.orderNumber)
-      );
-      if (newMirrorDetected) {
-        setMirrorOrders(mp => {
-          const arr = mp[tableId] || [];
-          if (arr.some(o => Number(o.orderNumber) === Number(localSnapshot.orderNumber))) return mp;
-          return { ...mp, [tableId]: [...arr, localSnapshot] };
-        });
-        // Auto-select the pending bill so cashier immediately sees the billed order's items
-        // instead of the new (often empty) order that just arrived from the server.
-        setSelectedMirrorOrder(localSnapshot);
-      } else {
-        // Mirror orders may already exist from a prior socket event. If the table's main
-        // order is now a new session (different orderNumber) and there are pending bills
-        // waiting, show the latest pending bill automatically — cashier clicked this table
-        // to settle or review the bill, not to see the new (possibly empty) order.
-        const existingMirrors = mirrorOrdersRef.current[tableId] || [];
-        const isNewSession = (
-          localSnapshot && serverOrder &&
-          localSnapshot.orderNumber != null && serverOrder.orderNumber != null &&
-          Number(localSnapshot.orderNumber) !== Number(serverOrder.orderNumber)
-        );
-        if (isNewSession && existingMirrors.length > 0) {
-          setSelectedMirrorOrder(existingMirrors[existingMirrors.length - 1]);
-        }
-      }
 
       setOrders((prev) => {
         const localOrder = prev[tableId];
@@ -3233,16 +2859,6 @@ export default function App() {
     await handleSettle([{ method, amount: fin.balance, label: method.toUpperCase() }]);
   }
 
-  async function handleMirrorBilledSettle(method) {
-    if (!selectedMirrorOrder) return;
-    if (method === "credit") { setShowPayment(true); return; }
-    const order = selectedMirrorOrder;
-    if (!order?.items?.length) return;
-    const fin = getFinancials(order, { gstTreatment: outlet?.gstTreatment || "exclusive" });
-    if (!fin || fin.balance <= 0) return;
-    await handleSettle([{ method, amount: fin.balance, label: method.toUpperCase() }]);
-  }
-
   // ── Counter-only checkout shortcut ──────────────────────────────────────
   // Takeaway/Delivery/Self-Service/Bakery/Sweet-Counter orders (order.isCounter)
   // pick a payment method first, then this single action prints the bill AND
@@ -3560,42 +3176,6 @@ export default function App() {
         showToast("Cancellation undone");
       },
     });
-  }
-
-  // Cancel a mirror (pending-bill) order — removes it from the mirror tile and notifies captain.
-  // Called when Cancel Order is pressed while the "Pending Bill" tab is active (selectedMirrorOrder set).
-  function handleCancelMirrorOrder() {
-    if (!selectedTableId || !selectedMirrorOrder) return;
-    const tableId   = selectedTableId;
-    const mirror    = selectedMirrorOrder;
-
-    setMirrorOrders(mp => {
-      const arr = mp[tableId] || [];
-      const filtered = arr.filter(o => Number(o.orderNumber) !== Number(mirror.orderNumber));
-      if (!filtered.length) {
-        const { [tableId]: _removed, ...rest } = mp;
-        return rest;
-      }
-      return { ...mp, [tableId]: filtered };
-    });
-    setSelectedMirrorOrder(null);
-
-    // Notify captain to remove this specific pending bill (billRequested:false clears setBillAlerts)
-    const voidedMirror = {
-      ...mirror,
-      items: (mirror.items || []).map(i => ({
-        ...i,
-        isVoided:    true,
-        voidReason:  "Order cancelled",
-        isGhostVoid: !i.sentToKot,
-        sentToKot:   true,
-      })),
-      billRequested: false,
-      isOnHold:      false,
-      updatedAt:     Date.now(),
-    };
-    socketRef.current?.emit("order:update", { outletId: outlet?.id, order: voidedMirror });
-    localSocketRef.current?.emit("order:update", { order: voidedMirror });
   }
 
   // ── Shift callbacks ───────────────────────────────────────────────────────
@@ -3992,11 +3572,11 @@ export default function App() {
           menuItems={visibleMenuItems}
           activeCategory={activeCategory || visibleCategories[0]?.name}
           onCategoryChange={setActiveCategory}
-          onAddItem={selectedMirrorOrder ? handleMirrorAddItem : handleAddItem}
+          onAddItem={handleAddItem}
           onToggleAvailability={handleToggleAvailability}
           onToggleCategoryAvailability={handleToggleCategoryAvailability}
           quantities={menuQuantities}
-          onDecrement={selectedMirrorOrder ? handleMirrorDecrementItem : handleDecrementItem}
+          onDecrement={handleDecrementItem}
           stockSnapshot={stockSnapshot}
           favouriteItemIds={favouriteItemIds}
           onSkuLookup={(sku) => {
@@ -4016,52 +3596,6 @@ export default function App() {
 
         {/* Tab bar — shown whenever a table / counter order is active */}
         {selectedTableId && (() => {
-          const pendingBills = mirrorOrders[selectedTableId] || [];
-          const hasMirror    = selectedMirrorOrder || pendingBills.length > 0;
-          const mirrorForTab = selectedMirrorOrder || pendingBills[pendingBills.length - 1];
-          const mirrorItemCt = (mirrorForTab?.items || []).filter(i => !i.isVoided).length;
-          const newOrderItemCt = selectedMirrorOrder
-            ? (selectedOrder?.items || []).filter(i => !i.isVoided).length
-            : activeOrderItemCount;
-
-          if (hasMirror) {
-            return (
-              <div className="pos-order-tabs">
-                {/* Pending bill tab */}
-                <button
-                  type="button"
-                  className={`pos-order-tab${selectedMirrorOrder ? " active" : ""}`}
-                  onClick={() => {
-                    const bill = mirrorForTab;
-                    if (bill) { setSelectedTableId(selectedTableId); setSelectedMirrorOrder(bill); }
-                  }}
-                >
-                  <span className="pot-label" style={{ color: selectedMirrorOrder ? "#2563EB" : undefined }}>
-                    💳 Pending Bill
-                  </span>
-                  {mirrorItemCt > 0 && <span className="pot-badge">{mirrorItemCt}</span>}
-                </button>
-                {/* New order tab */}
-                <button
-                  type="button"
-                  className={`pos-order-tab${!selectedMirrorOrder ? " active" : ""}`}
-                  onClick={() => setSelectedMirrorOrder(null)}
-                >
-                  <span className="pot-label">New Order</span>
-                  {newOrderItemCt > 0 && <span className="pot-badge">{newOrderItemCt}</span>}
-                </button>
-                <button
-                  type="button"
-                  className="pos-order-tab new-order"
-                  onClick={() => setSelectedTableId(null)}
-                  style={{ marginLeft: "auto" }}
-                >
-                  ← Tables
-                </button>
-              </div>
-            );
-          }
-
           return (
             <div className="pos-order-tabs">
               <div className="pos-order-tab active">
@@ -4089,9 +3623,7 @@ export default function App() {
           <TablePickerPanel
             tableAreas={workAreaScopedTableAreas}
             orders={orders}
-            mirrorOrders={mirrorOrders}
             onSelectTable={handleSelectTable}
-            onSelectMirrorOrder={handleSelectMirrorOrder}
             serviceMode={serviceMode}
             onNewCounterOrder={handleNewCounterOrder}
             onDeleteCounterOrder={handleDeleteCounterOrder}
@@ -4106,7 +3638,7 @@ export default function App() {
           />
         ) : (
         <OrderPanel
-          order={selectedMirrorOrder || selectedOrder}
+          order={selectedOrder}
           tableLabel={tableLabel}
           tableAreas={tableAreas}
           orders={orders}
@@ -4116,28 +3648,28 @@ export default function App() {
             activeStaff.find(s => s.name === cashierName || s.fullName === cashierName)
               ?.canApplyDiscount === true
           }
-          onChangeQty={selectedMirrorOrder ? handleMirrorChangeQty : handleChangeQty}
-          onRemoveItem={selectedMirrorOrder ? handleMirrorRemoveItem : handleRemoveItem}
-          onNoteChange={selectedMirrorOrder ? handleMirrorNoteChange : handleNoteChange}
-          onSendKOT={selectedMirrorOrder ? null : handleSendKOT}
+          onChangeQty={handleChangeQty}
+          onRemoveItem={handleRemoveItem}
+          onNoteChange={handleNoteChange}
+          onSendKOT={handleSendKOT}
           onOpenPayment={() => setShowPayment(true)}
-          onOpenSplitBill={selectedMirrorOrder ? null : (() => setShowSplitBill(true))}
-          onGuestsChange={selectedMirrorOrder ? null : handleGuestsChange}
-          onDiscountChange={selectedMirrorOrder ? handleMirrorDiscountChange : handleDiscountChange}
-          onHoldToggle={selectedMirrorOrder ? null : handleHoldToggle}
-          onCustomerForm={selectedMirrorOrder ? null : (() => setShowCustomerForm(true))}
-          onTransferTable={selectedMirrorOrder ? null : handleTransferTable}
-          onOrderNoteChange={selectedMirrorOrder ? handleMirrorOrderNoteChange : handleOrderNoteChange}
-          onVoidItem={selectedMirrorOrder ? handleMirrorVoidItem : handleVoidItem}
-          onCancelKotItem={selectedMirrorOrder ? null : handleCancelKotItem}
-          canCancelKotItem={!selectedMirrorOrder}
-          onCancelOrder={selectedMirrorOrder ? handleCancelMirrorOrder : handleCancelOrder}
+          onOpenSplitBill={() => setShowSplitBill(true)}
+          onGuestsChange={handleGuestsChange}
+          onDiscountChange={handleDiscountChange}
+          onHoldToggle={handleHoldToggle}
+          onCustomerForm={() => setShowCustomerForm(true)}
+          onTransferTable={handleTransferTable}
+          onOrderNoteChange={handleOrderNoteChange}
+          onVoidItem={handleVoidItem}
+          onCancelKotItem={handleCancelKotItem}
+          canCancelKotItem={true}
+          onCancelOrder={handleCancelOrder}
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
-          onCounterPrintBill={selectedMirrorOrder ? null : handleCounterPrintAndSettle}
-          onBilledSettle={selectedMirrorOrder ? handleMirrorBilledSettle : handleBilledSettle}
-          onAddItem={selectedMirrorOrder ? handleMirrorAddItem : handleAddItem}
-          onShowHeld={selectedMirrorOrder ? null : (() => setShowHeldOrders(true))}
+          onCounterPrintBill={handleCounterPrintAndSettle}
+          onBilledSettle={handleBilledSettle}
+          onAddItem={handleAddItem}
+          onShowHeld={() => setShowHeldOrders(true)}
           heldCount={heldCount}
           cashierName={cashierName}
           cashierPin={cashierPin}
@@ -4146,22 +3678,22 @@ export default function App() {
       </div>
 
       {/* ── Payment sheet ─────────────────────────────────────────────────── */}
-      {showPayment && (selectedMirrorOrder || selectedOrder) && (
+      {showPayment && selectedOrder && (
         <PaymentSheet
-          order={selectedMirrorOrder || selectedOrder}
+          order={selectedOrder}
           tableLabel={tableLabel}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
           outletId={outlet?.id || branchConfig?.outletId}
-          onClose={() => { setShowPayment(false); setSelectedMirrorOrder(null); }}
+          onClose={() => setShowPayment(false)}
           onSettle={handleSettle}
-          onPhonePeQR={() => { setShowPayment(false); setShowPhonePeQR(true); setSelectedMirrorOrder(null); }}
+          onPhonePeQR={() => { setShowPayment(false); setShowPhonePeQR(true); }}
         />
       )}
 
       {/* ── PhonePe QR payment modal ──────────────────────────────────────── */}
-      {showPhonePeQR && (selectedMirrorOrder || selectedOrder) && (
+      {showPhonePeQR && selectedOrder && (
         <PhonePeQRModal
-          order={selectedMirrorOrder || selectedOrder}
+          order={selectedOrder}
           outletId={outlet?.id}
           socket={socketRef.current}
           onConfirmed={(payload) => {
