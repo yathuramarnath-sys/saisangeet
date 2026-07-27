@@ -3485,6 +3485,27 @@ export default function App() {
       isClosed:       false,
     }));
     cancelledTablesRef.current.set(tableId, String(order.orderNumber ?? ""));
+
+    // Notify captain to clear the pending bill immediately.
+    // Send voided items (not a blank) so the captain's "protect live order" guard
+    // is bypassed — that guard only fires on empty-items events. billRequested:false
+    // triggers setBillAlerts to remove the pending bill entry.
+    const voidedOrder = {
+      ...savedOrder,
+      items: savedOrder.items.map(i => ({
+        ...i,
+        isVoided:    true,
+        voidReason:  "Order cancelled",
+        isGhostVoid: !i.sentToKot,
+        sentToKot:   true,
+      })),
+      billRequested:  false,
+      isOnHold:       false,
+      updatedAt:      Date.now(),
+    };
+    socketRef.current?.emit("order:update", { outletId: outlet?.id, order: voidedOrder });
+    localSocketRef.current?.emit("order:update", { order: voidedOrder });
+
     setSelectedTableId(null);
 
     // 5-second undo window — backend calls fire only after window expires
