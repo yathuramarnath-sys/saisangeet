@@ -802,8 +802,6 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   font-weight: 800;
   letter-spacing: 0.02em;
 }
-.order-badge.bill   { background: var(--color-bill-bg);   color: var(--color-bill); }
-.order-badge.split  { background: #ede9fe; color: #6d28d9; }
 .order-badge.void   { background: var(--color-void-bg);   color: var(--color-void); }
 .order-badge.closed { background: var(--color-closed-bg); color: var(--color-closed); }
 
@@ -1162,20 +1160,6 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   border: 1.5px solid rgba(0,102,255,0.2);
 }
 .pos-btn.kot:hover { background: #dbeafe; border-color: var(--sq-blue); }
-
-.pos-btn.split {
-  background: #f5f5f5;
-  color: var(--sq-text);
-  border: 1.5px solid var(--sq-border-strong);
-}
-.pos-btn.split:hover { background: #ebebeb; }
-
-.pos-btn.bill-req {
-  background: #f5f5f5;
-  color: var(--sq-text);
-  border: 1.5px solid var(--sq-border-strong);
-}
-.pos-btn.bill-req:hover { background: #ebebeb; }
 
 .pos-btn.pay {
   background: var(--bp-teal, #059669);
@@ -6293,15 +6277,6 @@ body { background: var(--sq-bg); }
 }
 .pos-btn.kot:hover { background: #DBEAFE !important; border-color: #1D4ED8 !important; }
 
-/* Split / Bill req */
-.pos-btn.split, .pos-btn.bill-req {
-  background: #F8FAFC !important;
-  border-color: #E2E8F0 !important;
-  color: #475569 !important;
-  font-weight: 800 !important;
-}
-.pos-btn.split:hover, .pos-btn.bill-req:hover { background: #F1F4F9 !important; }
-
 /* Print Bill button */
 .pos-btn.print-bill {
   background: #F0FDF4 !important;
@@ -7878,18 +7853,6 @@ body {
 .pos-btn.kot:hover {
   background:    #DBEAFE !important;
   border-color:  #93C5FD !important;
-}
-
-/* Secondary buttons */
-.pos-btn.split,
-.pos-btn.bill-req {
-  background:    var(--v2-surface2) !important;
-  color:         var(--v2-text) !important;
-  border:        1.5px solid var(--v2-border-md) !important;
-}
-.pos-btn.split:hover,
-.pos-btn.bill-req:hover {
-  background:    #E8ECF2 !important;
 }
 
 /* Pay / Settle — primary amber CTA */
