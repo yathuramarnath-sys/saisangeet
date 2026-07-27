@@ -156,13 +156,9 @@ async function updateGuestsHandler(req, res) {
   // Broadcast updated order to all devices
   const io = req.app.get("io");
   if (io && outletId) {
-    const { runWithTenant } = require("../../data/tenant-context");
-    const { resolveTenantByOutlet } = require("../../data/owner-setup-store");
-    const tid = resolveTenantByOutlet(outletId);
-    if (tid) {
-      runWithTenant(tid, () => {
-        io.to(`outlet:${tid}:${outletId}`).emit("order:updated", result);
-      });
+    const tid = req.user?.tenantId;
+    if (tid && tid !== "default") {
+      io.to(`outlet:${tid}:${outletId}`).emit("order:updated", result);
     }
   }
   res.json(result);

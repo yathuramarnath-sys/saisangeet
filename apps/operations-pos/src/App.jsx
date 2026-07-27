@@ -359,7 +359,6 @@ export default function App() {
     return loadSavedOrders(cfg?.outletId || null);
   });
   const [selectedTableId, setSelectedTableId] = useState(null);
-  const [isOnline,        setIsOnline]        = useState(() => navigator.onLine);
   const [showPayment,     setShowPayment]     = useState(false);
   const [showDrawer,      setShowDrawer]      = useState(false);
   const [darkMode,        setDarkMode]        = useState(() => localStorage.getItem("pos_dark_mode") === "true");
@@ -397,7 +396,6 @@ export default function App() {
   // Tracks whether any modal is open — barcode scanner is suppressed when true
   const modalOpenRef = useRef(false);
   const [serverConn,  setServerConn]  = useState("connecting"); // for UI banner
-  const [localConn,   setLocalConn]   = useState(false);        // local WiFi server status
 
   // ── Shift state ───────────────────────────────────────────────────────────
   const [activeShift,      setActiveShift]      = useState(() => loadActiveShift());
@@ -409,7 +407,6 @@ export default function App() {
   const [showCloseShift,   setShowCloseShift]   = useState(false);
   const [showDayEnd,       setShowDayEnd]       = useState(false);
   const [dayEndPostShift,  setDayEndPostShift]  = useState(false);
-  const [showAdvanceOrder, setShowAdvanceOrder] = useState(false); // legacy — replaced by panel
   const [showAdvancePanel, setShowAdvancePanel] = useState(false);
   const [counterTicketNum,   setCounterTicketNum]   = useState(() => {
     try { return parseInt(localStorage.getItem("pos_counter_ticket_num") || "1", 10); }
@@ -980,13 +977,10 @@ export default function App() {
         localSocketRef.current = localSock;
 
         localSock.on("connect", () => {
-          setLocalConn(true);
           // Push current order state so tablets get it immediately on connect
           const active = Object.values(ordersRef.current).filter(o => !o.isClosed);
           localSock.emit("pos:sync-orders", active);
         });
-        localSock.on("disconnect", () => setLocalConn(false));
-
         // Order update from Captain via local WiFi → update POS table state
         localSock.on("order:updated", (updatedOrder) => {
           // Same guard as cloud socket: drop stale re-broadcasts of already-settled orders.
@@ -1434,7 +1428,6 @@ export default function App() {
   // network change — useful as a supplement to the socket disconnect handler.
   useEffect(() => {
     const goOnline = () => {
-      setIsOnline(true);
       // Socket reconnect handler is the primary queue-flush trigger.
       // This is a safety-net in case the socket reconnect fires before the outlet
       // state is set (race at startup).
@@ -1443,15 +1436,9 @@ export default function App() {
         flushClosedOrderQueue(outlet.id).catch(() => {});
       }
     };
-    const goOffline = () => {
-      setIsOnline(false);
-      // Don't override socket-based serverConn — socket handles its own state
-    };
-    window.addEventListener("online",  goOnline);
-    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
     return () => {
-      window.removeEventListener("online",  goOnline);
-      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", goOnline);
     };
   }, [outlet]);
 
