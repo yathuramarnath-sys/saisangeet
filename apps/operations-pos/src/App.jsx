@@ -390,6 +390,8 @@ export default function App() {
   const menuItemsRef       = useRef([]);   // latest menuItems for scale PLU lookup
   // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
   const billPrintingRef = useRef(false);
+  const kotSendingRef   = useRef(false);
+  const settlingRef     = useRef(false);
   // KOT numbers printed via HTTP /print-kot — used to skip cloud kot:new double-print
   const printedViaHttpRef = useRef(new Set());
   // Guard: only auto-open a counter ticket once per "no table selected" episode,
@@ -1070,6 +1072,13 @@ export default function App() {
 
         // Order update from Captain via local WiFi → update POS table state
         localSock.on("order:updated", (updatedOrder) => {
+          // Same guard as cloud socket: drop stale re-broadcasts of already-settled orders.
+          if (
+            updatedOrder.orderNumber != null &&
+            settledOrderNums.current.has(updatedOrder.orderNumber) &&
+            !updatedOrder.isClosed
+          ) return;
+
           const currentForMirror = ordersRef.current[updatedOrder.tableId];
 
           // Mirror-close guard: captain settled an older mirror bill for this table.
@@ -2058,6 +2067,9 @@ export default function App() {
 
   async function handleSendKOT() {
     if (!selectedTableId) return;
+    if (kotSendingRef.current) return;
+    kotSendingRef.current = true;
+    try {
     const order  = orders[selectedTableId];
     const unsent = (order.items || []).filter((i) => !i.sentToKot && !i.isVoided);
     if (!unsent.length) { showToast("No new items to send"); return; }
@@ -2199,6 +2211,9 @@ export default function App() {
     // when in counter/takeaway/delivery mode (prevents blank screen after KOT).
     autoCounterOpenedRef.current = false;
     setSelectedTableId(null);
+    } finally {
+      kotSendingRef.current = false;
+    }
   }
 
   function handleReprintKOT() {
@@ -2263,6 +2278,9 @@ export default function App() {
 
   async function handleSettle(paymentsInput) {
     if (!selectedTableId && !selectedMirrorOrder) return;
+    if (settlingRef.current) return;
+    settlingRef.current = true;
+    try {
     const isMirrorSettle = !!selectedMirrorOrder;
     const order       = selectedMirrorOrder || orders[selectedTableId];
     const tableId     = selectedTableId || order?.tableId;
@@ -2276,11 +2294,11 @@ export default function App() {
     const disc         = Math.min(order.discountAmount || 0, subtotal);
     const afterDisc    = subtotal - disc;
     // Per-item tax — must match getFinancials exactly so "amount due" on screen == settlement total.
-    // Falls back to 0 (not outlet defaultTaxRate) so display and settlement always agree.
     const inclusive    = outlet?.gstTreatment === "inclusive";
+    const defTaxRate   = outlet?.defaultTaxRate ?? 0;
     const taxAmt       = Math.round(billableItems.reduce((s, i) => {
       const lineAfter = subtotal > 0 ? (i.price * i.quantity) * (afterDisc / subtotal) : 0;
-      const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : 0;
+      const rate      = i.taxRate != null && i.taxRate !== "" ? Number(i.taxRate) : defTaxRate;
       return s + lineAfter * rate / (inclusive ? (100 + rate) : 100);
     }, 0));
     const total        = inclusive ? afterDisc : afterDisc + taxAmt;
@@ -2406,8 +2424,9 @@ export default function App() {
         // Overwrite the localStorage record with the stamped version
         try {
           const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-          if (prev.length && prev[0].orderNumber === closedOrder.orderNumber) {
-            prev[0] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
+          const prevIdx = prev.findIndex(r => r.orderNumber === closedOrder.orderNumber);
+          if (prevIdx >= 0) {
+            prev[prevIdx] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
           }
           localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
         } catch {}
@@ -2482,6 +2501,9 @@ export default function App() {
         });
         checkWaitlistSuggest(tableId);
       }, 1500);
+    }
+    } finally {
+      settlingRef.current = false;
     }
   }
 
@@ -2786,10 +2808,20 @@ export default function App() {
   async function handleTransferTable(toTableId) {
     if (!selectedTableId || !toTableId || selectedTableId === toTableId) return;
     const fromOrder = orders[selectedTableId];
-    const toOrder   = orders[toTableId];
-    if (!fromOrder || !toOrder) return;
+    if (!fromOrder) return;
 
-    const toTableNumber = toOrder.tableNumber || toTableId;
+    // Resolve target table metadata — free tables have no entry in orders,
+    // so fall back to the floor-plan data in tableAreas.
+    let toMeta = orders[toTableId];
+    if (!toMeta) {
+      for (const area of tableAreas) {
+        const t = area.tables.find(t => t.id === toTableId);
+        if (t) { toMeta = { tableNumber: t.tableNumber, areaName: area.name }; break; }
+      }
+    }
+    if (!toMeta) return;
+
+    const toTableNumber = toMeta.tableNumber || toTableId;
 
     // Call backend first — same pattern as Captain app to avoid race conditions
     try {
@@ -2807,8 +2839,8 @@ export default function App() {
     // Backend confirmed — update local state and navigate to new table
     setOrders(prev => {
       const from = prev[selectedTableId];
-      const to   = prev[toTableId];
-      if (!from || !to) return prev;
+      if (!from) return prev;
+      const to = prev[toTableId] || toMeta;
       const next = { ...prev };
       next[toTableId]       = { ...from, tableId: toTableId, tableNumber: to.tableNumber, areaName: to.areaName };
       next[selectedTableId] = {
@@ -2984,6 +3016,7 @@ export default function App() {
     } catch {}
 
     // 2. Optimistic close + broadcast to Captain / KDS
+    settledOrderNums.current.add(order.orderNumber);
     setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
     socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
     localSocketRef.current?.emit("order:clear", { tableId });
@@ -3005,8 +3038,9 @@ export default function App() {
         closedOrder.closedAt   = closeResult.closedAt    || closedOrder.closedAt;
         try {
           const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-          if (prev.length && prev[0].orderNumber === closedOrder.orderNumber) {
-            prev[0] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
+          const prevIdx = prev.findIndex(r => r.orderNumber === closedOrder.orderNumber);
+          if (prevIdx >= 0) {
+            prev[prevIdx] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
           }
           localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
         } catch {}

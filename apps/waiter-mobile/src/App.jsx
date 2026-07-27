@@ -379,8 +379,15 @@ export function App() {
                       if (localOnly.length > 0) patch.items = [...(next[tid].items || []), ...localOnly];
                       if (!next[tid].assignedWaiter && cur.assignedWaiter) patch.assignedWaiter = cur.assignedWaiter;
                       if (Object.keys(patch).length) next[tid] = { ...next[tid], ...patch };
-                    } else if (localOnly.length > 0) {
-                      next[tid] = cur;
+                    } else {
+                      // Server doesn't know this table yet. Preserve local state when the
+                      // table has any active (non-voided) items — including ones already marked
+                      // sentToKot=true by the optimistic update — so a socket reconnect during
+                      // a KOT API call doesn't wipe the captain's in-flight order.
+                      const hasActiveItems = (cur.items || []).some(i => !i.isVoided && !i.isGhostVoid);
+                      if (localOnly.length > 0 || hasActiveItems) {
+                        next[tid] = cur;
+                      }
                     }
                   }
                   return next;
@@ -697,7 +704,7 @@ export function App() {
           // Must compare by menuItemId, not id, to detect already-synced items.
           const payloadMenuItemId = entry.payload.item.menuItemId || entry.payload.item.id;
           const alreadyThere = (serverOrder?.items || []).some(
-            i => i.menuItemId === payloadMenuItemId
+            i => String(i.menuItemId) === String(payloadMenuItemId)
           );
           if (!alreadyThere) {
             await api.post("/operations/order/item", entry.payload);
@@ -966,6 +973,7 @@ export function App() {
 
       const closedOrder = {
         ...settledOrder,
+        isClosed:    true,
         closedAt:    new Date().toISOString(),
         payments:    [...(settledOrder.payments || []), { method, amount: total }],
         captainName: loggedInStaff?.name || null,
@@ -979,6 +987,8 @@ export function App() {
         const { [tableId]: _, ...rest } = prev;
         return rest;
       });
+      // Notify POS on local WiFi immediately without waiting for cloud socket re-broadcast
+      localSocketRef.current?.emit("order:update", { order: closedOrder });
       localStorage.removeItem(`captain_courses_${tableId}`);
       // Remove this specific order's bill alert immediately — don't wait for socket echo
       setBillAlerts(prev => {
@@ -1087,7 +1097,7 @@ export function App() {
       const local = prev[tableId];
       if (!local) return prev;
       const items = [...(local.items || [])];
-      const idx = items.findIndex(i => i.menuItemId === item.id && !i.sentToKot && !i.isVoided);
+      const idx = items.findIndex(i => String(i.menuItemId) === String(item.id) && !i.sentToKot && !i.isVoided);
       if (idx >= 0) {
         items[idx] = { ...items[idx], quantity: (items[idx].quantity || 1) + 1 };
       } else {
@@ -1579,7 +1589,7 @@ export function App() {
   async function handlePrintBill(tableId) {
     const tid   = tableId || selectedTableId;
     const order = orders[tid];
-    if (!order?.items?.length) { toast.error("No items to print"); return; }
+    if (!order?.items?.length || order.isClosed) { toast.error("No items to print"); return; }
 
     // Assign bill number from server (FY or daily, per owner-console setting).
     // Idempotent: if POS already printed and assigned a number, returns the same one.
