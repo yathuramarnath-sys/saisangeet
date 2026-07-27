@@ -133,16 +133,19 @@ export function OrderScreen({
         });
       }
     } else {
-      // Use functional updater + id lookup to avoid stale-index on rapid taps
+      // Use functional updater + id lookup to avoid stale-index on rapid taps.
+      // If current qty (from fresh state) would hit 0 after delta, remove the item
+      // rather than silently swallowing the tap — render-time qty may have been stale.
       onUpdateOrder((prevOrders) => {
         const prevOrder = prevOrders[order.tableId];
         if (!prevOrder) return { tableId: order.tableId, order };
-        const next = (prevOrder.items || []).map(cur => {
-          if (cur.id !== itemId) return cur;
+        const next = (prevOrder.items || []).reduce((acc, cur) => {
+          if (cur.id !== itemId) { acc.push(cur); return acc; }
           const newQty = (cur.quantity || 1) + delta;
-          if (newQty <= 0) return cur;
-          return { ...cur, quantity: newQty };
-        });
+          if (newQty > 0) acc.push({ ...cur, quantity: newQty });
+          // newQty <= 0: drop the item (stale render showed higher qty than current)
+          return acc;
+        }, []);
         return { tableId: order.tableId, order: { ...prevOrder, items: next } };
       });
     }

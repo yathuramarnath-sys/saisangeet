@@ -1589,7 +1589,7 @@ export function App() {
   async function handlePrintBill(tableId) {
     const tid   = tableId || selectedTableId;
     const order = orders[tid];
-    if (!order?.items?.length) { toast.error("No items to print"); return; }
+    if (!order?.items?.length || order.isClosed) { toast.error("No items to print"); return; }
 
     // Assign bill number from server (FY or daily, per owner-console setting).
     // Idempotent: if POS already printed and assigned a number, returns the same one.

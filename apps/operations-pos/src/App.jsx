@@ -2808,10 +2808,20 @@ export default function App() {
   async function handleTransferTable(toTableId) {
     if (!selectedTableId || !toTableId || selectedTableId === toTableId) return;
     const fromOrder = orders[selectedTableId];
-    const toOrder   = orders[toTableId];
-    if (!fromOrder || !toOrder) return;
+    if (!fromOrder) return;
 
-    const toTableNumber = toOrder.tableNumber || toTableId;
+    // Resolve target table metadata — free tables have no entry in orders,
+    // so fall back to the floor-plan data in tableAreas.
+    let toMeta = orders[toTableId];
+    if (!toMeta) {
+      for (const area of tableAreas) {
+        const t = area.tables.find(t => t.id === toTableId);
+        if (t) { toMeta = { tableNumber: t.tableNumber, areaName: area.name }; break; }
+      }
+    }
+    if (!toMeta) return;
+
+    const toTableNumber = toMeta.tableNumber || toTableId;
 
     // Call backend first — same pattern as Captain app to avoid race conditions
     try {
@@ -2829,8 +2839,8 @@ export default function App() {
     // Backend confirmed — update local state and navigate to new table
     setOrders(prev => {
       const from = prev[selectedTableId];
-      const to   = prev[toTableId];
-      if (!from || !to) return prev;
+      if (!from) return prev;
+      const to = prev[toTableId] || toMeta;
       const next = { ...prev };
       next[toTableId]       = { ...from, tableId: toTableId, tableNumber: to.tableNumber, areaName: to.areaName };
       next[selectedTableId] = {
