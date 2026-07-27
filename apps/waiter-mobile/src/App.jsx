@@ -379,8 +379,15 @@ export function App() {
                       if (localOnly.length > 0) patch.items = [...(next[tid].items || []), ...localOnly];
                       if (!next[tid].assignedWaiter && cur.assignedWaiter) patch.assignedWaiter = cur.assignedWaiter;
                       if (Object.keys(patch).length) next[tid] = { ...next[tid], ...patch };
-                    } else if (localOnly.length > 0) {
-                      next[tid] = cur;
+                    } else {
+                      // Server doesn't know this table yet. Preserve local state when the
+                      // table has any active (non-voided) items — including ones already marked
+                      // sentToKot=true by the optimistic update — so a socket reconnect during
+                      // a KOT API call doesn't wipe the captain's in-flight order.
+                      const hasActiveItems = (cur.items || []).some(i => !i.isVoided && !i.isGhostVoid);
+                      if (localOnly.length > 0 || hasActiveItems) {
+                        next[tid] = cur;
+                      }
                     }
                   }
                   return next;
@@ -966,6 +973,7 @@ export function App() {
 
       const closedOrder = {
         ...settledOrder,
+        isClosed:    true,
         closedAt:    new Date().toISOString(),
         payments:    [...(settledOrder.payments || []), { method, amount: total }],
         captainName: loggedInStaff?.name || null,
@@ -979,6 +987,8 @@ export function App() {
         const { [tableId]: _, ...rest } = prev;
         return rest;
       });
+      // Notify POS on local WiFi immediately without waiting for cloud socket re-broadcast
+      localSocketRef.current?.emit("order:update", { order: closedOrder });
       localStorage.removeItem(`captain_courses_${tableId}`);
       // Remove this specific order's bill alert immediately — don't wait for socket echo
       setBillAlerts(prev => {
