@@ -1105,6 +1105,17 @@ export default function App() {
             !updatedOrder.isClosed
           ) return;
 
+          // Cancel guard: same as cloud socket — block restores of the order POS just cancelled.
+          {
+            const localCancelledNum = cancelledTablesRef.current.get(updatedOrder.tableId);
+            if (localCancelledNum !== undefined) {
+              if (!updatedOrder.orderNumber || String(updatedOrder.orderNumber) === localCancelledNum) {
+                return; // same cancelled order bouncing back — skip
+              }
+              cancelledTablesRef.current.delete(updatedOrder.tableId); // new order, lift block
+            }
+          }
+
           const currentForMirror = ordersRef.current[updatedOrder.tableId];
 
           // Mirror-close guard: captain settled an older mirror bill for this table.
@@ -3551,6 +3562,42 @@ export default function App() {
     });
   }
 
+  // Cancel a mirror (pending-bill) order — removes it from the mirror tile and notifies captain.
+  // Called when Cancel Order is pressed while the "Pending Bill" tab is active (selectedMirrorOrder set).
+  function handleCancelMirrorOrder() {
+    if (!selectedTableId || !selectedMirrorOrder) return;
+    const tableId   = selectedTableId;
+    const mirror    = selectedMirrorOrder;
+
+    setMirrorOrders(mp => {
+      const arr = mp[tableId] || [];
+      const filtered = arr.filter(o => Number(o.orderNumber) !== Number(mirror.orderNumber));
+      if (!filtered.length) {
+        const { [tableId]: _removed, ...rest } = mp;
+        return rest;
+      }
+      return { ...mp, [tableId]: filtered };
+    });
+    setSelectedMirrorOrder(null);
+
+    // Notify captain to remove this specific pending bill (billRequested:false clears setBillAlerts)
+    const voidedMirror = {
+      ...mirror,
+      items: (mirror.items || []).map(i => ({
+        ...i,
+        isVoided:    true,
+        voidReason:  "Order cancelled",
+        isGhostVoid: !i.sentToKot,
+        sentToKot:   true,
+      })),
+      billRequested: false,
+      isOnHold:      false,
+      updatedAt:     Date.now(),
+    };
+    socketRef.current?.emit("order:update", { outletId: outlet?.id, order: voidedMirror });
+    localSocketRef.current?.emit("order:update", { order: voidedMirror });
+  }
+
   // ── Shift callbacks ───────────────────────────────────────────────────────
   function handleShiftStarted(shift) {
     setActiveShift(shift);
@@ -4084,7 +4131,7 @@ export default function App() {
           onVoidItem={selectedMirrorOrder ? handleMirrorVoidItem : handleVoidItem}
           onCancelKotItem={selectedMirrorOrder ? null : handleCancelKotItem}
           canCancelKotItem={!selectedMirrorOrder}
-          onCancelOrder={selectedMirrorOrder ? null : handleCancelOrder}
+          onCancelOrder={selectedMirrorOrder ? handleCancelMirrorOrder : handleCancelOrder}
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
           onCounterPrintBill={selectedMirrorOrder ? null : handleCounterPrintAndSettle}
