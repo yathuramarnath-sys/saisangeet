@@ -1175,6 +1175,30 @@ async function clearAllOrdersHandler(req, res) {
   }
 }
 
+// POS calls this after the 5-second undo window when a cashier cancels a billed order.
+// Clears the backend in-memory slot so the order cannot come back on reconnect/refresh,
+// and broadcasts a blank order:updated to all devices (captain, KDS) to clear pending bill.
+async function deviceCancelOrderHandler(req, res) {
+  const { tableId, outletId } = req.body;
+  if (!tableId) return res.status(400).json({ error: "tableId is required" });
+  // Counter/online orders don't have a persistent backend slot to clear.
+  if (tableId.startsWith("counter-") || tableId.startsWith("online-")) {
+    return res.json({ ok: true, skipped: true });
+  }
+  try {
+    await clearTableAfterSettle(tableId);
+    const newOrder  = await getOrder(tableId);
+    const io        = req.app.locals.io;
+    const tenantId  = req.user?.tenantId || "default";
+    if (io && outletId) {
+      io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", newOrder);
+    }
+    res.json({ ok: true, tableId, newOrder });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message || "cancel-order failed" });
+  }
+}
+
 // Captain calls this immediately after printing a bill so the backend advances the
 // in-memory slot to a fresh Order 2, allowing captain to seat the next customer on
 // the same physical table before cashier settles the old bill.
@@ -1240,5 +1264,6 @@ module.exports = {
   deviceVoidOrderItemHandler,
   deviceCloseOrderHandler,
   deviceAdvanceTableHandler,
+  deviceCancelOrderHandler,
   correctClosedOrderPaymentsHandler,
 };
