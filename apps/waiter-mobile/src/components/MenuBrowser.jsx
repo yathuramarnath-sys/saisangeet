@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { tapImpact } from "../lib/haptics";
 import { api } from "../lib/api";
 
@@ -21,7 +21,7 @@ function makeLongPress(callback, ms = 550) {
   };
 }
 
-export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, defaultTaxRate = 0, onUpdateOrder, onItemAdded, onItemRemoved, onBack, tableLabel, guests = 0, onUpdateGuests }) {
+export function MenuBrowser({ order, categories, menuItems, stockState = {}, categoryStockState = {}, outletId, socket, defaultTaxRate = 0, gstTreatment = "exclusive", onUpdateOrder, onItemAdded, onItemRemoved, onBack, tableLabel, guests = 0, onUpdateGuests }) {
   const [guestVal, setGuestVal] = useState(guests);
   // Restrict the menu to the table's area, mirroring the POS work-area filter:
   // a category only shows here if it's explicitly tagged for this area (categories with
@@ -41,13 +41,22 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
     if (avail.length === 0) return true;
     return avail.some((a) => a.area === workArea && a.enabled !== false);
   }
-  const visibleCategories = workArea ? categories.filter(categoryVisibleInWorkArea) : categories;
-  const visibleCatIds     = new Set(visibleCategories.map((c) => c.id));
+  const visibleCategories = useMemo(
+    () => workArea ? categories.filter(categoryVisibleInWorkArea) : categories,
+    [categories, workArea] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const visibleCatIds = useMemo(
+    () => new Set(visibleCategories.map((c) => c.id)),
+    [visibleCategories]
+  );
   // Items explicitly hidden from the Captain app (exposeInCaptain: false) never show here.
-  const captainMenuItems = menuItems.filter((item) =>
-    item.exposeInCaptain !== false &&
-    itemVisibleInWorkArea(item) &&
-    (!workArea || !item.categoryId || visibleCatIds.has(item.categoryId))
+  const captainMenuItems = useMemo(
+    () => menuItems.filter((item) =>
+      item.exposeInCaptain !== false &&
+      itemVisibleInWorkArea(item) &&
+      (!workArea || !item.categoryId || visibleCatIds.has(item.categoryId))
+    ),
+    [menuItems, workArea, visibleCatIds] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const [activeCat, setActiveCat] = useState(visibleCategories[0]?.id || visibleCategories[0]?.name || "");
@@ -109,14 +118,14 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
 
   // Apply the captain's saved chip order; any category not yet in the saved
   // order (new categories) keeps its default position appended at the end.
-  const orderedCategories = (() => {
+  const orderedCategories = useMemo(() => {
     const byKey = {};
     visibleCategories.forEach(c => { byKey[c.id || c.name] = c; });
     const known   = categoryOrder.map(id => byKey[id]).filter(Boolean);
     const knownIds = new Set(categoryOrder);
     const rest    = visibleCategories.filter(c => !knownIds.has(c.id || c.name));
     return [...known, ...rest];
-  })();
+  }, [visibleCategories, categoryOrder]);
 
   // When real categories load from API (seed → real transition), reset activeCat to the
   // first real category so a chip is always properly highlighted.
@@ -134,37 +143,45 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
 
   // Build robust category lookup maps so items match by BOTH id and name.
   // Handles seed categoryId ("cat-soups") vs real ID ("cat-17769…") mismatches.
-  const catIdToName = {};
-  const catNameToId = {};
-  visibleCategories.forEach(c => {
-    if (c.id) catIdToName[String(c.id).toLowerCase()] = (c.name || "").toLowerCase();
-    catNameToId[(c.name || "").toLowerCase()] = String(c.id || c.name).toLowerCase();
-  });
+  const { catIdToName, catNameToId } = useMemo(() => {
+    const catIdToName = {};
+    const catNameToId = {};
+    visibleCategories.forEach(c => {
+      if (c.id) catIdToName[String(c.id).toLowerCase()] = (c.name || "").toLowerCase();
+      catNameToId[(c.name || "").toLowerCase()] = String(c.id || c.name).toLowerCase();
+    });
+    return { catIdToName, catNameToId };
+  }, [visibleCategories]);
+
   const activeLower    = activeCat.toLowerCase();
   const activeCatName  = catIdToName[activeLower] || activeLower; // resolved name of active cat
 
   const searchTrimmed   = search.trim();
   const isNumericSearch = /^\d+$/.test(searchTrimmed);
 
-  const displayItems = searchTrimmed
-    ? captainMenuItems.filter(i =>
+  const displayItems = useMemo(() => {
+    if (searchTrimmed) {
+      return captainMenuItems.filter(i =>
         isNumericSearch
           ? (i.sku || "").toLowerCase().startsWith(searchTrimmed.toLowerCase())
           : i.name.toLowerCase().includes(searchTrimmed.toLowerCase()) ||
             (i.sku || "").toLowerCase().includes(searchTrimmed.toLowerCase())
-      )
-    : activeCat === FAVORITES_CHIP_ID
-    ? captainMenuItems.filter(i => favoriteIds.includes(i.id) && i.isActive !== false)
-    : captainMenuItems.filter(i => {
-        const itemCatId   = (i.categoryId  || "").toLowerCase();
-        const itemCatName = (i.category || i.categoryName || "").toLowerCase();
-        return (
-          itemCatId   === activeLower   ||   // ID exact match
-          itemCatName === activeLower   ||   // name matches the activeCat value
-          itemCatName === activeCatName ||   // name matches resolved active cat name
-          itemCatId   === (catNameToId[activeLower] || "")  // ID matches when activeCat is a name
-        ) && i.isActive !== false;
-      });
+      );
+    }
+    if (activeCat === FAVORITES_CHIP_ID) {
+      return captainMenuItems.filter(i => favoriteIds.includes(i.id) && i.isActive !== false);
+    }
+    return captainMenuItems.filter(i => {
+      const itemCatId   = (i.categoryId  || "").toLowerCase();
+      const itemCatName = (i.category || i.categoryName || "").toLowerCase();
+      return (
+        itemCatId   === activeLower   ||   // ID exact match
+        itemCatName === activeLower   ||   // name matches the activeCat value
+        itemCatName === activeCatName ||   // name matches resolved active cat name
+        itemCatId   === (catNameToId[activeLower] || "")  // ID matches when activeCat is a name
+      ) && i.isActive !== false;
+    });
+  }, [captainMenuItems, searchTrimmed, isNumericSearch, activeCat, activeLower, activeCatName, favoriteIds, catNameToId]);
 
   function addItem(item) {
     tapImpact();
@@ -177,35 +194,46 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
 
   function removeItem(menuItemId) {
     tapImpact();
-    // Use functional updater so rapid double-taps always see the latest committed state,
-    // not a stale snapshot of the `order` prop from the last render.
+    // Find the item synchronously from the current prop so we can call onItemRemoved
+    // outside the updater (side effects must not live inside functional updaters).
+    const syncItem = (order.items || []).find(
+      i => String(i.menuItemId) === String(menuItemId) && !i.sentToKot
+    );
+    const willRemove = syncItem && (syncItem.quantity || 1) <= 1;
+
     onUpdateOrder((prevOrders) => {
       const prevOrder = prevOrders[order.tableId];
-      if (!prevOrder) return { tableId: order.tableId, order: null };
+      if (!prevOrder) return { tableId: order.tableId, order: prevOrder || order };
       const items    = [...(prevOrder.items || [])];
       const idx      = items.findIndex(i => String(i.menuItemId) === String(menuItemId) && !i.sentToKot);
-      if (idx < 0) return { tableId: order.tableId, order: null };
+      if (idx < 0) return { tableId: order.tableId, order: prevOrder };
       const cartItem = items[idx];
       const wasLast  = (cartItem.quantity || 1) <= 1;
       if (wasLast) {
         items.splice(idx, 1);
-        // Tell backend to DELETE the item so it doesn't reappear on sync
-        onItemRemoved?.(cartItem.id);
       } else {
         items[idx] = { ...items[idx], quantity: items[idx].quantity - 1 };
       }
       return { tableId: order.tableId, order: { ...prevOrder, items } };
     });
+
+    // Call backend DELETE outside the updater — side effects inside updaters are wrong
+    // (React StrictMode invokes them twice) and they're skipped when idx < 0 above.
+    if (willRemove && syncItem?.id) onItemRemoved?.(syncItem.id);
   }
 
   const unsentCount = (order.items || []).filter(i => !i.sentToKot && !i.isVoided).length;
   const cartItems   = (order.items || []).filter(i => !i.isVoided && !i.isComp);
   const cartSub     = cartItems.reduce((s, i) => s + i.price * i.quantity, 0);
-  const cartTax     = cartItems.reduce((s, i) => {
+  const cartDisc    = Math.min(order.discountAmount || 0, cartSub);
+  const cartAfter   = cartSub - cartDisc;
+  const cartIncl    = gstTreatment === "inclusive";
+  const cartTax     = Math.round(cartItems.reduce((s, i) => {
+    const lineAfter = cartSub > 0 ? i.price * i.quantity * (cartAfter / cartSub) : 0;
     const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
-    return s + Math.round(i.price * i.quantity * rate / 100);
-  }, 0);
-  const cartTotal   = cartSub + cartTax;
+    return s + lineAfter * rate / (cartIncl ? (100 + rate) : 100);
+  }, 0));
+  const cartTotal   = cartIncl ? cartAfter : cartAfter + cartTax;
 
   return (
     <div className="menu-page mb2-page">

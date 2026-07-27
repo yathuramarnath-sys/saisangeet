@@ -694,7 +694,19 @@ export default function App() {
                       !apiMap[tableId] &&
                       !pendingSettledTables.has(tableId)
                     ) {
-                      merged[tableId] = { tableId, items: [], isClosed: false, billRequested: false };
+                      // Preserve table identity fields (tableNumber, areaName, outletName)
+                      // so the POS tile still renders correctly after the remote settle.
+                      merged[tableId] = {
+                        ...(local || {}),
+                        tableId,
+                        items:          [],
+                        payments:       [],
+                        billSplitCount: 1,
+                        isClosed:       false,
+                        billRequested:  false,
+                        discountAmount: 0,
+                        orderNumber:    null,
+                      };
                     }
                   });
                   return merged;
@@ -1119,8 +1131,9 @@ export default function App() {
               return { ...mp, [currentForMirror.tableId]: [...arr, currentForMirror] };
             });
           }
-          // Advance-blank guard (local WiFi): same logic as cloud socket.
-          // Captain advanced the slot; POS still has the pending bill — don't wipe it.
+          // Advance-blank guard (local WiFi): captain advanced the slot; POS still has
+          // the pending bill — don't wipe it. Prune only stale (non-bill-requested)
+          // mirror entries, matching the cloud socket behaviour exactly.
           if (
             !updatedOrder.isClosed &&
             !updatedOrder.billRequested &&
@@ -1129,9 +1142,13 @@ export default function App() {
             (currentForMirror?.items || []).some(i => !i.isVoided && !i.isComp)
           ) {
             setMirrorOrders(mp => {
-              if (!mp[updatedOrder.tableId]?.length) return mp;
-              const { [updatedOrder.tableId]: _, ...rest } = mp;
-              return rest;
+              const arr = mp[updatedOrder.tableId] || [];
+              const kept = arr.filter(o => o.billRequested && !o.isClosed &&
+                (o.items || []).some(i => !i.isVoided && !i.isComp));
+              if (kept.length === arr.length) return mp;
+              return kept.length
+                ? { ...mp, [updatedOrder.tableId]: kept }
+                : (({ [updatedOrder.tableId]: _, ...rest }) => rest)(mp);
             });
             return; // pending bill preserved
           }
@@ -2415,18 +2432,22 @@ export default function App() {
 
       // ── Stamp server-assigned bill number onto the local record ────────────
       if (closeResult?.billNo != null) {
-        closedOrder.billNo     = closeResult.billNo;
-        closedOrder.billNoMode = closeResult.billNoMode  || null;
-        closedOrder.billNoFY   = closeResult.billNoFY    || null;
-        closedOrder.billNoDate = closeResult.billNoDate  || null;
-        closedOrder.closedAt   = closeResult.closedAt    || closedOrder.closedAt;
+        // Build a new object — closedOrder is already in React state so it must not be mutated.
+        const stamped = {
+          ...closedOrder,
+          billNo:     closeResult.billNo,
+          billNoMode: closeResult.billNoMode  || null,
+          billNoFY:   closeResult.billNoFY    || null,
+          billNoDate: closeResult.billNoDate  || null,
+          closedAt:   closeResult.closedAt    || closedOrder.closedAt,
+        };
 
         // Overwrite the localStorage record with the stamped version
         try {
           const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-          const prevIdx = prev.findIndex(r => r.orderNumber === closedOrder.orderNumber);
+          const prevIdx = prev.findIndex(r => r.orderNumber === stamped.orderNumber);
           if (prevIdx >= 0) {
-            prev[prevIdx] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
+            prev[prevIdx] = { ...stamped, _outletId: outlet?.id || branchConfig?.outletId };
           }
           localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
         } catch {}
@@ -2448,7 +2469,7 @@ export default function App() {
     showToast(
       backendConfirmed
         ? "✓ Bill settled · Table is ready"
-        : "✓ Bill settled · Syncing in background"
+        : "⚠ Settled offline — queued for sync when connected"
     );
 
     if (isMirrorSettle) {
@@ -2677,15 +2698,18 @@ export default function App() {
     const areaName = branchConfig?.workArea || (serviceMode === "delivery" ? "Delivery" : "Takeaway");
     const area      = { id: "counter", name: areaName };
     const fakeTable = { id: ticketId, number: String(ticketNum).padStart(3, "0") };
-    const orderNum  = Math.max(10050, ...Object.values(orders).map(o => o.orderNumber || 10050)) + 1;
 
-    const newOrder = {
-      ...buildBlankOrder(fakeTable, area, outlet?.name || "Outlet", orderNum),
-      isCounter:    true,
-      ticketNumber: ticketNum
-    };
-
-    setOrders(prev => ({ ...prev, [ticketId]: newOrder }));
+    // Compute orderNum inside the updater so rapid calls can't both read the same
+    // stale `orders` closure and produce duplicate order numbers.
+    setOrders(prev => {
+      const orderNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
+      const newOrder = {
+        ...buildBlankOrder(fakeTable, area, outlet?.name || "Outlet", orderNum),
+        isCounter:    true,
+        ticketNumber: ticketNum
+      };
+      return { ...prev, [ticketId]: newOrder };
+    });
     setSelectedTableId(ticketId);
   }
 
@@ -3090,19 +3114,23 @@ export default function App() {
     const order   = ordersRef.current[tableId] || orders[tableId];
     if (!order?.items?.length) { billPrintingRef.current = false; showToast("No items to print"); return; }
 
-    // Get / assign bill number from server
+    // Get / assign bill number from server.
+    // If billNo is already on the order (from a previous failed print attempt), reuse it —
+    // assigning a new number would create a gap in the sequential bill register.
     let printOrder = { ...order };
-    try {
-      const result = await api.post("/operations/assign-bill-no", {
-        outletId: outlet?.id,
-        tableId,
-      });
-      if (result?.billNo != null) {
-        printOrder = { ...printOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
-        mutateOrder(tableId, o => { o.billNo = result.billNo; return o; });
+    if (printOrder.billNo == null) {
+      try {
+        const result = await api.post("/operations/assign-bill-no", {
+          outletId: outlet?.id,
+          tableId,
+        });
+        if (result?.billNo != null) {
+          printOrder = { ...printOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
+          mutateOrder(tableId, o => { o.billNo = result.billNo; return o; });
+        }
+      } catch (err) {
+        console.warn("[POS] assign-bill-no failed:", err.message);
       }
-    } catch (err) {
-      console.warn("[POS] assign-bill-no failed:", err.message);
     }
 
     // ── Race-condition guard ──────────────────────────────────────────────────
@@ -3116,21 +3144,22 @@ export default function App() {
     }
 
     try {
-      // Mark bill as requested — changes table to blue on POS + notifies Captain
-      mutateOrder(tableId, (o) => {
-        o.billRequested   = true;
-        o.billRequestedAt = new Date().toISOString();
-        return o;
-      });
-
       const assignedWaiter = printOrder.assignedWaiter || null;
       // Trust whatever the captain app assigned — same as KOT printing does
       const validWaiter = assignedWaiter;
 
+      // Print BEFORE marking billRequested — a throw here leaves the table state clean.
       printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
         cashierName,
         captainName: printOrder.captainName || null,
         waiterName:  validWaiter,
+      });
+
+      // Mark bill as requested AFTER print attempt — changes table to blue on POS + notifies Captain
+      mutateOrder(tableId, (o) => {
+        o.billRequested   = true;
+        o.billRequestedAt = new Date().toISOString();
+        return o;
       });
 
       // Log every bill print (1st print + reprints) for Owner Console audit trail

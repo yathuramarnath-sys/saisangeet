@@ -318,6 +318,15 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       display: block;
       margin-top: 2px;
     }
+    .kot-order-note {
+      font-size: 11px;
+      font-weight: 800;
+      border: 1px solid #000;
+      border-radius: 3px;
+      padding: 3px 5px;
+      margin: 4px 0;
+      word-break: break-word;
+    }
 
     .kot-footer {
       margin-top: 8px;
@@ -371,6 +380,8 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       <span>${order.guests}</span>
     </div>` : ""}
   </div>
+
+  ${order.orderNote ? `<div class="kot-order-note">&#9888; ${order.orderNote}</div>` : ""}
 
   <div class="kot-items">
     <div class="kot-items-header">

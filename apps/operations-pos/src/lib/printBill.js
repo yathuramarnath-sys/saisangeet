@@ -183,6 +183,7 @@ export async function printBill(order, items, outletOrName, options = {}) {
     .col-rate { width: 16%; text-align: right; color: #555; }
     .col-amt  { width: 16%; text-align: right; font-weight: 700; }
     .item-note { font-size: 10px; color: #999; margin-top: 1px; }
+    .order-note-block { font-size: 10px; font-weight: 700; border: 1px dashed #888; border-radius: 2px; padding: 3px 5px; margin: 4px 0; word-break: break-word; color: #333; }
 
     /* ── Summary rows — aligned under AMT column via table ── */
     .sum-lbl  { font-size: 11px; color: #444; text-align: right; padding-right: 6px; }
@@ -259,6 +260,8 @@ export async function printBill(order, items, outletOrName, options = {}) {
     ${waiterStr  ? `<div class="right"><span class="info-lbl">Waiter</span><span class="info-sep">:</span><span class="info-val">${waiterStr}</span></div>` : ""}
   </div>` : ""}
   <hr class="div-dash">
+
+  ${order.orderNote ? `<div class="order-note-block">&#9888; ${order.orderNote}</div>` : ""}
 
   <!-- Items -->
   <table class="items-tbl">

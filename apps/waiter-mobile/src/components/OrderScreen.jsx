@@ -27,7 +27,7 @@ function elapsedLabel(ts) {
 
 export function OrderScreen({
   order, tableLabel, areas, categories, menuItems, outletName,
-  orders, outletId, socket, staff = [], defaultTaxRate = 0,
+  orders, outletId, socket, staff = [], defaultTaxRate = 0, gstTreatment = "exclusive",
   onBack, onSendKOT, onPrintSplitBill,
   onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear, onCustomerInfo,
@@ -104,11 +104,15 @@ export function OrderScreen({
   const unsentItems   = items.filter(i => !i.sentToKot && !i.isVoided);
   const billableItems = items.filter(i => !i.isVoided && !i.isComp);
   const totalSub    = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const totalDisc   = Math.min(order.discountAmount || 0, totalSub);
+  const totalAfter  = totalSub - totalDisc;
+  const totalIncl   = gstTreatment === "inclusive";
   const totalTax    = Math.round(billableItems.reduce((s, i) => {
+    const lineAfter = totalSub > 0 ? i.price * i.quantity * (totalAfter / totalSub) : 0;
     const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
-    return s + i.price * i.quantity * rate / 100;
+    return s + lineAfter * rate / (totalIncl ? (100 + rate) : 100);
   }, 0));
-  const totalAmount = totalSub + totalTax;
+  const totalAmount = totalIncl ? totalAfter : totalAfter + totalTax;
   const hasItems    = items.length > 0;
 
   function changeQty(idx, delta) {
@@ -177,6 +181,7 @@ export function OrderScreen({
         outletId={outletId}
         socket={socket}
         defaultTaxRate={defaultTaxRate}
+        gstTreatment={gstTreatment}
         onUpdateOrder={onUpdateOrder}
         onItemAdded={onAddItem}
         onItemRemoved={(itemId) => onRemoveItem?.(itemId)}
@@ -407,8 +412,16 @@ export function OrderScreen({
               <span className="os2-total-label">Sub total</span>
               <span className="os2-total-val">₹{totalSub.toLocaleString("en-IN")}</span>
             </div>
+            {totalDisc > 0 && (
+              <div className="os2-total-row">
+                <span className="os2-total-label">Discount</span>
+                <span className="os2-total-val" style={{ color: "var(--color-success, #16a34a)" }}>
+                  −₹{totalDisc.toLocaleString("en-IN")}
+                </span>
+              </div>
+            )}
             <div className="os2-total-row">
-              <span className="os2-total-label">Tax</span>
+              <span className="os2-total-label">Tax{totalIncl ? " (incl.)" : ""}</span>
               <span className="os2-total-val">₹{totalTax.toLocaleString("en-IN")}</span>
             </div>
             <div className="os2-total-row os2-total-grand">
