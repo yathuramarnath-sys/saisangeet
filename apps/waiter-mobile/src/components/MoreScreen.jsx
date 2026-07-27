@@ -36,9 +36,14 @@ export function MoreScreen({
 
   // One entry per bill (billAlerts keyed by orderNumber) — a table with 2 printed bills shows 2 rows.
   const allTables = tableAreas.flatMap(a => (a.tables || []).map(t => ({ ...t, areaName: a.name })));
+  // Only show bills for tables that exist in this outlet. When allTables is non-empty (real outlet
+  // data loaded), reject any alert whose tableId is not in the outlet's table list — this prevents
+  // seed/stale backend orders (e.g. "t1") from appearing as phantom pending bills.
+  const knownTableIds = allTables.length > 0 ? new Set(allTables.map(t => t.id)) : null;
   const pendingBills = Object.values(billAlerts)
     .filter(b => b.billRequested && !b.isClosed &&
-      (b.items || []).some(i => !i.isVoided && !i.isComp))
+      (b.items || []).some(i => !i.isVoided && !i.isComp) &&
+      (!knownTableIds || knownTableIds.has(b.tableId)))
     .sort((a, b) => {
       const tc = String(a.tableId) < String(b.tableId) ? -1 : String(a.tableId) > String(b.tableId) ? 1 : 0;
       return tc || (a.orderNumber || 0) - (b.orderNumber || 0);
