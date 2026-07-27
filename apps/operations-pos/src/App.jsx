@@ -377,7 +377,8 @@ export default function App() {
   const ordersRef        = useRef({});
   const mirrorOrdersRef  = useRef({});
   // Tracks orderNumbers settled locally so stale re-broadcasts from Captain are ignored
-  const settledOrderNums = useRef(new Set());
+  const settledOrderNums    = useRef(new Set());
+  const cancelledTablesRef  = useRef(new Map()); // tableId → orderNumber, blocks socket restores during cancel window
   // Mirror (pending bill) orders waiting for cashier settlement while a new order is active
   const [mirrorOrders, setMirrorOrders] = useState(() => {
     try { return JSON.parse(localStorage.getItem(MIRROR_ORDERS_KEY) || "null") || {}; } catch { return {}; }
@@ -747,6 +748,18 @@ export default function App() {
               !updatedOrder.isClosed
             ) {
               return prev;
+            }
+            // Cancel-window guard: cashier cancelled this order locally; block server from
+            // restoring it via socket (backend DELETE fires 5s later).  A different orderNumber
+            // means a new order started on the same table — let it through and lift the block.
+            {
+              const cancelledNum = cancelledTablesRef.current.get(updatedOrder.tableId);
+              if (cancelledNum !== undefined) {
+                if (!updatedOrder.orderNumber || String(updatedOrder.orderNumber) === cancelledNum) {
+                  return prev; // same order being restored from server — skip
+                }
+                cancelledTablesRef.current.delete(updatedOrder.tableId); // new order, lift block
+              }
             }
             // Mirror-close guard: captain settled an OLDER/MIRROR order for this table
             // (different orderNumber than what's in the main slot).  Remove only that
@@ -1124,7 +1137,8 @@ export default function App() {
             currentForMirror && currentForMirror.billRequested && !currentForMirror.isClosed &&
             !updatedOrder.isClosed &&
             currentForMirror.orderNumber != null && updatedOrder.orderNumber != null &&
-            Number(currentForMirror.orderNumber) !== Number(updatedOrder.orderNumber)
+            Number(currentForMirror.orderNumber) !== Number(updatedOrder.orderNumber) &&
+            (currentForMirror.items || []).some(i => !i.isVoided && !i.isGhostVoid)
           ) {
             setMirrorOrders(mp => {
               const arr = mp[currentForMirror.tableId] || [];
@@ -3451,19 +3465,26 @@ export default function App() {
     if (!order?.items?.length) return;
 
     const tableId = selectedTableId;
-    const savedItems   = order.items.map(i => ({ ...i })); // snapshot for undo
+    const savedOrder = { ...order, items: order.items.map(i => ({ ...i })) }; // full snapshot for undo
     const cancelledItems = order.items
       .filter(i => !i.isVoided)
       .map(i => ({ name: i.name, qty: i.quantity, price: i.price, reason: "Order cancelled" }));
 
-    // Void all items immediately in memory so UI clears at once
-    mutateOrder(tableId, o => {
-      o.items = o.items.map(i => i.isVoided ? i : {
-        ...i, isVoided: true, voidReason: "Order cancelled", sentToKot: true,
-        isGhostVoid: !i.sentToKot,
-      });
-      return o;
-    });
+    // Blank the slot immediately — clears DayEnd/CloseShift blocks and prevents mirror push.
+    // Server still has the order; the cancel-window guard blocks socket restores until DELETE fires.
+    mutateOrder(tableId, o => ({
+      tableId:        o.tableId,
+      tableNumber:    o.tableNumber,
+      areaId:         o.areaId,
+      seats:          o.seats,
+      items:          [],
+      billRequested:  false,
+      isOnHold:       false,
+      discountAmount: 0,
+      payments:       [],
+      isClosed:       false,
+    }));
+    cancelledTablesRef.current.set(tableId, String(order.orderNumber ?? ""));
     setSelectedTableId(null);
 
     // 5-second undo window — backend calls fire only after window expires
@@ -3471,6 +3492,7 @@ export default function App() {
     undoBannerTimerRef.current = setTimeout(() => {
       undoBannerTimerRef.current = null;
       setUndoBanner(null);
+      cancelledTablesRef.current.delete(tableId);
       api.post("/operations/void-log", {
         type:        "cancel_order",
         cashier:     cashierName || "POS",
@@ -3493,10 +3515,14 @@ export default function App() {
         clearTimeout(undoBannerTimerRef.current);
         undoBannerTimerRef.current = null;
         setUndoBanner(null);
-        // Restore all items from the pre-cancel snapshot
+        cancelledTablesRef.current.delete(tableId);
+        // Restore full order from snapshot; skip if a new order already started
         mutateOrder(tableId, o => {
-          o.items = savedItems;
-          return o;
+          if (o.orderNumber && savedOrder.orderNumber &&
+              Number(o.orderNumber) !== Number(savedOrder.orderNumber)) {
+            return o; // new order started on this table, can't undo
+          }
+          return savedOrder;
         });
         setSelectedTableId(tableId);
         showToast("Cancellation undone");
@@ -4036,11 +4062,7 @@ export default function App() {
           onOrderNoteChange={selectedMirrorOrder ? handleMirrorOrderNoteChange : handleOrderNoteChange}
           onVoidItem={selectedMirrorOrder ? handleMirrorVoidItem : handleVoidItem}
           onCancelKotItem={selectedMirrorOrder ? null : handleCancelKotItem}
-          canCancelKotItem={
-            !selectedMirrorOrder &&
-            activeStaff.find(s => s.name === cashierName || s.fullName === cashierName)
-              ?.canCancelKotItem === true
-          }
+          canCancelKotItem={!selectedMirrorOrder}
           onCancelOrder={selectedMirrorOrder ? null : handleCancelOrder}
           onReprintKOT={handleReprintKOT}
           onPrintBill={handlePrintBill}
