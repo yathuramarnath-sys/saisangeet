@@ -2469,7 +2469,7 @@ export default function App() {
     showToast(
       backendConfirmed
         ? "✓ Bill settled · Table is ready"
-        : "✓ Bill settled · Syncing in background"
+        : "⚠ Settled offline — queued for sync when connected"
     );
 
     if (isMirrorSettle) {
@@ -3114,19 +3114,23 @@ export default function App() {
     const order   = ordersRef.current[tableId] || orders[tableId];
     if (!order?.items?.length) { billPrintingRef.current = false; showToast("No items to print"); return; }
 
-    // Get / assign bill number from server
+    // Get / assign bill number from server.
+    // If billNo is already on the order (from a previous failed print attempt), reuse it —
+    // assigning a new number would create a gap in the sequential bill register.
     let printOrder = { ...order };
-    try {
-      const result = await api.post("/operations/assign-bill-no", {
-        outletId: outlet?.id,
-        tableId,
-      });
-      if (result?.billNo != null) {
-        printOrder = { ...printOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
-        mutateOrder(tableId, o => { o.billNo = result.billNo; return o; });
+    if (printOrder.billNo == null) {
+      try {
+        const result = await api.post("/operations/assign-bill-no", {
+          outletId: outlet?.id,
+          tableId,
+        });
+        if (result?.billNo != null) {
+          printOrder = { ...printOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
+          mutateOrder(tableId, o => { o.billNo = result.billNo; return o; });
+        }
+      } catch (err) {
+        console.warn("[POS] assign-bill-no failed:", err.message);
       }
-    } catch (err) {
-      console.warn("[POS] assign-bill-no failed:", err.message);
     }
 
     // ── Race-condition guard ──────────────────────────────────────────────────
@@ -3140,21 +3144,22 @@ export default function App() {
     }
 
     try {
-      // Mark bill as requested — changes table to blue on POS + notifies Captain
-      mutateOrder(tableId, (o) => {
-        o.billRequested   = true;
-        o.billRequestedAt = new Date().toISOString();
-        return o;
-      });
-
       const assignedWaiter = printOrder.assignedWaiter || null;
       // Trust whatever the captain app assigned — same as KOT printing does
       const validWaiter = assignedWaiter;
 
+      // Print BEFORE marking billRequested — a throw here leaves the table state clean.
       printBill(printOrder, printOrder.items, outlet || branchConfig?.outletName, {
         cashierName,
         captainName: printOrder.captainName || null,
         waiterName:  validWaiter,
+      });
+
+      // Mark bill as requested AFTER print attempt — changes table to blue on POS + notifies Captain
+      mutateOrder(tableId, (o) => {
+        o.billRequested   = true;
+        o.billRequestedAt = new Date().toISOString();
+        return o;
       });
 
       // Log every bill print (1st print + reprints) for Owner Console audit trail

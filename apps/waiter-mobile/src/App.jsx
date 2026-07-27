@@ -95,6 +95,10 @@ function saveCaptainBranchConfig(cfg) {
 function clearCaptainBranchConfig() {
   localStorage.removeItem(CAPTAIN_LS_KEY);
   localStorage.removeItem("captain_token");
+  // Clear any order data from the old tenant so a re-paired device starts fresh.
+  localStorage.removeItem("captain_sync_queue");
+  localStorage.removeItem("captain_pending_kots");
+  localStorage.removeItem("captain_sent_kots");
 }
 
 // ─── KOT queue helpers ────────────────────────────────────────────────────────
@@ -172,6 +176,7 @@ export function App() {
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
   const kotInFlightRef        = useRef(new Set()); // tableIds with KOT request in flight
   const addItemInFlightRef    = useRef({});        // tableId → in-flight add-item count
+  const outletRef             = useRef(outlet);    // always-current outlet for async closures
   // Protects unsent items from socket overwrites while the waiter picker is visible.
   // Set to the pending table's ID in handleSendKOT, cleared in picker Done/Cancel.
   const kotPickerTableRef     = useRef(null);
@@ -201,6 +206,10 @@ export function App() {
   const waiterStaff = allStaff.filter(
     (s) => WAITER_ROLES.includes((s.role || "").toLowerCase())
   );
+
+  // Keep outletRef current so async closures captured in long-lived effects always
+  // see the latest outlet without re-running those effects.
+  useEffect(() => { outletRef.current = outlet; }, [outlet]);
 
   // ── Detect this device's own LAN IP for the drawer's Device IP footer ─────
   useEffect(() => {
@@ -691,7 +700,7 @@ export function App() {
     // Retries any ADD_ITEM / REMOVE_ITEM / BILL_REQUEST entries that failed
     // while the device was offline.  Called on reconnect and every 30 s.
     async function flushSyncQueue() {
-      const currentOutletId = outlet?.id || branchConfig?.outletId;
+      const currentOutletId = outletRef.current?.id || branchConfig?.outletId;
       await syncFlushQueue(async (entry) => {
         if (entry.action === SYNC_ACTION.ADD_ITEM) {
           // Check server first — item may have arrived via a later socket update.
@@ -1029,10 +1038,15 @@ export function App() {
 
   // ── Persist guest count to backend so it survives syncs ──────────────────
   async function handleUpdateGuests(tableId, guests) {
-    const order = orders[tableId];
-    if (!order) return;
-    const updated = { ...order, guests };
-    setOrders((p) => ({ ...p, [tableId]: updated }));
+    if (!tableId) return;
+    // Build the updated order inside the functional updater so concurrent socket
+    // updates (e.g. KOT status) received between the last render and this call
+    // are not silently overwritten by a stale `orders[tableId]` snapshot.
+    setOrders((prev) => {
+      const order = prev[tableId];
+      if (!order) return prev;
+      return { ...prev, [tableId]: { ...order, guests } };
+    });
     try {
       await api.post(`/operations/orders/${tableId}/guests`, {
         outletId: outlet?.id || branchConfig?.outletId,
@@ -1400,21 +1414,18 @@ export function App() {
         return next;
       });
       // Also log in shift history as "failed" so the KOTs tab shows it under Unsuccessful
-      setSentKots(prev => {
-        const record = {
-          id:          failedKot.id,
-          kotNumber:   null,
-          tableId:     order.tableId,
-          tableNumber: order.tableNumber,
-          areaName:    order.areaName,
-          items:       kotItems,
-          sentAt:      failedKot.failedAt,
-          status:      "failed",
-        };
-        const next = [record, ...prev];
-        saveSentKots(next);
-        return next;
-      });
+      const failedKotRecord = {
+        id:          failedKot.id,
+        kotNumber:   null,
+        tableId:     order.tableId,
+        tableNumber: order.tableNumber,
+        areaName:    order.areaName,
+        items:       kotItems,
+        sentAt:      failedKot.failedAt,
+        status:      "failed",
+      };
+      setSentKots(prev => [failedKotRecord, ...prev]);
+      saveSentKots([failedKotRecord, ...loadSentKots()]);
       toast.error("KOT queued — retry from menu when back online");
       kotApiFailed = true;
       // Rollback optimistic sentToKot=true so the captain can see and re-send these items
@@ -1525,21 +1536,18 @@ export function App() {
 
     // Record in shift history so the KOTs tab can show All / Sent / Unsuccessful
     if (!kotApiFailed) {
-      setSentKots(prev => {
-        const record = {
-          id:          `sent-${Date.now()}`,
-          kotNumber:   serverKotNumber,
-          tableId:     order.tableId,
-          tableNumber: order.tableNumber,
-          areaName:    order.areaName,
-          items:       kotItems,
-          sentAt:      new Date().toISOString(),
-          status:      "sent",
-        };
-        const next = [record, ...prev];
-        saveSentKots(next);
-        return next;
-      });
+      const sentKotRecord = {
+        id:          `sent-${Date.now()}`,
+        kotNumber:   serverKotNumber,
+        tableId:     order.tableId,
+        tableNumber: order.tableNumber,
+        areaName:    order.areaName,
+        items:       kotItems,
+        sentAt:      new Date().toISOString(),
+        status:      "sent",
+      };
+      setSentKots(prev => [sentKotRecord, ...prev]);
+      saveSentKots([sentKotRecord, ...loadSentKots()]);
     }
 
     if (lastServerOrder) {
@@ -1887,7 +1895,7 @@ export function App() {
   }
 
   // ── Drawer: Retry a pending KOT ──────────────────────────────────────────
-  async function handleRetryKot(kot) {
+  async function handleRetryKot(kot, { silent = false } = {}) {
     try {
       await api.post("/operations/kot", {
         outletId:    kot.outletId,
@@ -1905,17 +1913,17 @@ export function App() {
         savePendingKots(next);
         return next;
       });
-      toast.success(`KOT for Table ${kot.tableNumber} sent`);
+      if (!silent) toast.success(`KOT for Table ${kot.tableNumber} sent`);
     } catch (_) {
-      toast.error("Retry failed — still offline");
+      if (!silent) toast.error("Retry failed — still offline");
     }
   }
 
   async function handleRetryAllKots() {
-    // handleRetryKot catches its own errors internally (shows toast.error, never rejects),
-    // so we track success by comparing pendingKots count before and after.
+    // handleRetryKot is called with silent=true to suppress per-KOT toasts;
+    // the summary toast below is the only user-visible feedback.
     const countBefore = pendingKots.length;
-    await Promise.allSettled(pendingKots.map(handleRetryKot));
+    await Promise.allSettled(pendingKots.map(k => handleRetryKot(k, { silent: true })));
     // pendingKots state is updated asynchronously — read the latest value via ref pattern
     setPendingKots((current) => {
       const sent   = countBefore - current.length;
@@ -2168,6 +2176,7 @@ export function App() {
             onForceClear={() => handleForceClearTable(selectedTableId)}
             onCustomerInfo={() => setShowCustomerInfo(true)}
             defaultTaxRate={outlet?.defaultTaxRate ?? 0}
+            gstTreatment={outlet?.gstTreatment || "exclusive"}
           />
         ) : activeTab === "floor" ? (
           <TableFloor
@@ -2178,6 +2187,7 @@ export function App() {
             loggedInStaff={loggedInStaff}
             isOffline={!socketConnected}
             defaultTaxRate={outlet?.defaultTaxRate ?? 0}
+            gstTreatment={outlet?.gstTreatment || "exclusive"}
           />
         ) : activeTab === "kots" ? (
           <FailedKotsScreen

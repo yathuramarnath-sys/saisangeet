@@ -3578,6 +3578,37 @@ html, body, #root {
   color: #059669;
 }
 
+.tf2-syncing-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #FFF7ED;
+  border: 1px solid #FED7AA;
+  border-radius: 20px;
+  padding: 5px 10px;
+  flex-shrink: 0;
+}
+
+.tf2-syncing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #EA580C;
+  flex-shrink: 0;
+  animation: tf2-sync-pulse 1.4s ease-in-out infinite;
+}
+
+.tf2-syncing-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #EA580C;
+}
+
+@keyframes tf2-sync-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 .tf2-user-avatar {
   width: 36px;
   height: 36px;
@@ -8665,6 +8696,11 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .tf2-synced-pill  { background: #E7F3E9; border-color: #0C831F; }
 .tf2-synced-dot   { background: #0C831F; }
 .tf2-synced-label { color: #0C831F; }
+
+/* Syncing pill (pending queue) */
+.tf2-syncing-pill  { background: #FFF0E0; border-color: #E07A1F; }
+.tf2-syncing-dot   { background: #E07A1F; }
+.tf2-syncing-label { color: #E07A1F; }
 
 /* Bill-ready tag on table tile — official --color-dining */
 .tf2-bill-tag { background: #2E6F9E; }

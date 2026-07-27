@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { tapImpact } from "../lib/haptics";
 import { avatarBg } from "./LoginScreen";
+import { getPendingCount } from "../lib/syncQueue";
 
 // Calculates "25 min" or "1h 10m" from a timestamp
 function elapsedLabel(ts) {
@@ -97,18 +98,22 @@ const TF2_COLOR = {
 
 // Each table card is its own component so useLongPress (which calls useRef)
 // is always called at the top level — never inside a .map() loop.
-function TableCard({ table, area, orders, onSelectTable, onLongPressTable, defaultTaxRate = 0 }) {
+function TableCard({ table, area, orders, onSelectTable, onLongPressTable, defaultTaxRate = 0, gstTreatment = "exclusive" }) {
   const st          = tableStatusOf(orders, table.id);
   // Mirror-table: when status is "next", tap opens the _next virtual slot
   const activeTableId = st === "next" ? `${table.id}_next` : table.id;
   const order       = orders[table.id];
   const _items      = (order?.items || []).filter(i => !i.isVoided && !i.isComp);
   const _sub        = _items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
-  const _tax        = _items.reduce((s, i) => {
+  const _disc       = Math.min(order?.discountAmount || 0, _sub);
+  const _after      = _sub - _disc;
+  const _incl       = gstTreatment === "inclusive";
+  const _tax        = Math.round(_items.reduce((s, i) => {
+    const lineAfter = _sub > 0 ? (i.price || 0) * (i.quantity || 0) * (_after / _sub) : 0;
     const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
-    return s + Math.round((i.price || 0) * (i.quantity || 0) * rate / 100);
-  }, 0);
-  const amount      = _sub + _tax;
+    return s + lineAfter * rate / (_incl ? (100 + rate) : 100);
+  }, 0));
+  const amount      = _incl ? _after : _after + _tax;
   const unsentCount = (order?.items || []).filter(i => !i.sentToKot && !i.isVoided).length;
   const seatedTs    = order?.seatedAt || order?.createdAt || order?.openedAt;
   const timer       = (st !== "open" && st !== "next") ? elapsedLabel(seatedTs) : null;
@@ -190,7 +195,7 @@ function getHeaderTime() {
   return `${day} · ${time}`;
 }
 
-export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, loggedInStaff, isOffline, defaultTaxRate = 0 }) {
+export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, loggedInStaff, isOffline, defaultTaxRate = 0, gstTreatment = "exclusive" }) {
   const [activeArea, setActiveArea] = useState(null);
   const [tick, setTick] = useState(0); // triggers re-render every minute for timers
   const visible = activeArea ? areas.filter((a) => a.id === activeArea) : areas;
@@ -210,6 +215,8 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, log
   const activeTables = totalTables - freeTables;
   const billTables   = allTables.filter(t => tableStatusOf(orders, t.id) === "bill").length;
   const pct          = totalTables ? Math.round((activeTables / totalTables) * 100) : 0;
+  // Re-evaluated every tick (every 60 s) to reflect queue draining between renders
+  const syncPending  = getPendingCount();
 
   return (
     <div className="floor-page tf2-page">
@@ -224,6 +231,11 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, log
             <div className="tf2-offline-pill">
               <span className="tf2-offline-dot" />
               <span className="tf2-offline-label">Offline</span>
+            </div>
+          ) : syncPending > 0 ? (
+            <div className="tf2-syncing-pill">
+              <span className="tf2-syncing-dot" />
+              <span className="tf2-syncing-label">Syncing {syncPending}</span>
             </div>
           ) : (
             <div className="tf2-synced-pill">
@@ -310,6 +322,7 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, log
                   onSelectTable={onSelectTable}
                   onLongPressTable={onLongPressTable}
                   defaultTaxRate={defaultTaxRate}
+                  gstTreatment={gstTreatment}
                 />
               ))}
             </div>
