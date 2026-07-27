@@ -468,7 +468,7 @@ export function OrderPanel({
                           }}>−</button>
                       )}
                       {/* Post-KOT: staging minus (batched cancel) */}
-                      {item.sentToKot && !item.isComp && (
+                      {item.sentToKot && !item.isComp && canCancelKotItem && (
                         <button type="button" className="qty-btn qty-btn-cancel-kot"
                           title="Stage a cancel (confirm all at once)"
                           onClick={() => {

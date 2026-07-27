@@ -183,7 +183,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
       const prevOrder = prevOrders[order.tableId];
       if (!prevOrder) return { tableId: order.tableId, order: null };
       const items    = [...(prevOrder.items || [])];
-      const idx      = items.findIndex(i => i.menuItemId === menuItemId && !i.sentToKot);
+      const idx      = items.findIndex(i => String(i.menuItemId) === String(menuItemId) && !i.sentToKot);
       if (idx < 0) return { tableId: order.tableId, order: null };
       const cartItem = items[idx];
       const wasLast  = (cartItem.quantity || 1) <= 1;
@@ -198,7 +198,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
     });
   }
 
-  const unsentCount = (order.items || []).filter(i => !i.sentToKot).length;
+  const unsentCount = (order.items || []).filter(i => !i.sentToKot && !i.isVoided).length;
   const cartItems   = (order.items || []).filter(i => !i.isVoided && !i.isComp);
   const cartSub     = cartItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const cartTax     = cartItems.reduce((s, i) => {
@@ -336,7 +336,7 @@ export function MenuBrowser({ order, categories, menuItems, stockState = {}, cat
           const soldOut     = stockState[item.id]?.available === false;
           const catDisabled = categoryStockState[item.categoryId]?.available === false;
           const unavailable = soldOut || catDisabled;
-          const cartItem    = (order.items || []).find(i => i.menuItemId === item.id && !i.sentToKot);
+          const cartItem    = (order.items || []).find(i => String(i.menuItemId) === String(item.id) && !i.sentToKot);
           const cartQty     = cartItem ? cartItem.quantity : 0;
           const isFavorite  = favoriteIds.includes(item.id);
           const isVeg       = item.isVeg === true;

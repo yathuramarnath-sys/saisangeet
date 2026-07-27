@@ -390,6 +390,7 @@ export default function App() {
   const menuItemsRef       = useRef([]);   // latest menuItems for scale PLU lookup
   // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
   const billPrintingRef = useRef(false);
+  const kotSendingRef  = useRef(false);
   // KOT numbers printed via HTTP /print-kot — used to skip cloud kot:new double-print
   const printedViaHttpRef = useRef(new Set());
   // Guard: only auto-open a counter ticket once per "no table selected" episode,
@@ -2058,6 +2059,9 @@ export default function App() {
 
   async function handleSendKOT() {
     if (!selectedTableId) return;
+    if (kotSendingRef.current) return;
+    kotSendingRef.current = true;
+    try {
     const order  = orders[selectedTableId];
     const unsent = (order.items || []).filter((i) => !i.sentToKot && !i.isVoided);
     if (!unsent.length) { showToast("No new items to send"); return; }
@@ -2199,6 +2203,9 @@ export default function App() {
     // when in counter/takeaway/delivery mode (prevents blank screen after KOT).
     autoCounterOpenedRef.current = false;
     setSelectedTableId(null);
+    } finally {
+      kotSendingRef.current = false;
+    }
   }
 
   function handleReprintKOT() {
@@ -2406,8 +2413,9 @@ export default function App() {
         // Overwrite the localStorage record with the stamped version
         try {
           const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-          if (prev.length && prev[0].orderNumber === closedOrder.orderNumber) {
-            prev[0] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
+          const prevIdx = prev.findIndex(r => r.orderNumber === closedOrder.orderNumber);
+          if (prevIdx >= 0) {
+            prev[prevIdx] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
           }
           localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
         } catch {}
@@ -3005,8 +3013,9 @@ export default function App() {
         closedOrder.closedAt   = closeResult.closedAt    || closedOrder.closedAt;
         try {
           const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-          if (prev.length && prev[0].orderNumber === closedOrder.orderNumber) {
-            prev[0] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
+          const prevIdx = prev.findIndex(r => r.orderNumber === closedOrder.orderNumber);
+          if (prevIdx >= 0) {
+            prev[prevIdx] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
           }
           localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
         } catch {}

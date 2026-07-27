@@ -39,9 +39,12 @@ export function tableStatusOf(orders, tableId) {
 // movedRef tracks whether the touch scrolled; if it did, onTouchEnd won't fire
 // the press action, preventing table selection when the user scrolls the floor.
 function useLongPress(onLongPress, onPress, ms = 500) {
-  const timerRef = useRef(null);
-  const firedRef = useRef(false);
-  const movedRef = useRef(false);
+  const timerRef       = useRef(null);
+  const firedRef       = useRef(false);
+  const movedRef       = useRef(false);
+  // Browsers synthesize mouse events ~300ms after touch events. Guard against
+  // the resulting double-fire by tracking whether touch is active.
+  const touchActiveRef = useRef(false);
 
   function start(e) {
     firedRef.current = false;
@@ -67,11 +70,11 @@ function useLongPress(onLongPress, onPress, ms = 500) {
   }
 
   return {
-    onTouchStart: start,
-    onTouchEnd:   end,
+    onTouchStart: (e) => { touchActiveRef.current = true; start(e); },
+    onTouchEnd:   (e) => { end(e); setTimeout(() => { touchActiveRef.current = false; }, 500); },
     onTouchMove:  cancel,
-    onMouseDown:  start,
-    onMouseUp:    end,
+    onMouseDown:  (e) => { if (touchActiveRef.current) return; start(e); },
+    onMouseUp:    (e) => { if (touchActiveRef.current) return; end(e); },
     onMouseLeave: cancel,
   };
 }

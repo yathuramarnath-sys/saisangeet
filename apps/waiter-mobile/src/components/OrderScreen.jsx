@@ -99,7 +99,7 @@ export function OrderScreen({
   }, [socket]);
 
   const items         = order.items || [];
-  const unsentCount   = items.filter(i => !i.sentToKot).length;
+  const unsentCount   = items.filter(i => !i.sentToKot && !i.isVoided).length;
   const sentItems     = items.filter(i =>  i.sentToKot && !i.isVoided);
   const unsentItems   = items.filter(i => !i.sentToKot && !i.isVoided);
   const billableItems = items.filter(i => !i.isVoided && !i.isComp);

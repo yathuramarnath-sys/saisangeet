@@ -697,7 +697,7 @@ export function App() {
           // Must compare by menuItemId, not id, to detect already-synced items.
           const payloadMenuItemId = entry.payload.item.menuItemId || entry.payload.item.id;
           const alreadyThere = (serverOrder?.items || []).some(
-            i => i.menuItemId === payloadMenuItemId
+            i => String(i.menuItemId) === String(payloadMenuItemId)
           );
           if (!alreadyThere) {
             await api.post("/operations/order/item", entry.payload);
@@ -1087,7 +1087,7 @@ export function App() {
       const local = prev[tableId];
       if (!local) return prev;
       const items = [...(local.items || [])];
-      const idx = items.findIndex(i => i.menuItemId === item.id && !i.sentToKot && !i.isVoided);
+      const idx = items.findIndex(i => String(i.menuItemId) === String(item.id) && !i.sentToKot && !i.isVoided);
       if (idx >= 0) {
         items[idx] = { ...items[idx], quantity: (items[idx].quantity || 1) + 1 };
       } else {
