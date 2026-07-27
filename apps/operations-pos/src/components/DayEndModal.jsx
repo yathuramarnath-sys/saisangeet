@@ -29,7 +29,7 @@ const METHOD_LABELS = {
   online:  "Online",
 };
 
-export function DayEndModal({ orders, outlet, outletId: outletIdProp, onClose, onPrint }) {
+export function DayEndModal({ orders, outlet, outletId: outletIdProp, tableAreas, onClose, onPrint }) {
   const [stage,   setStage]   = useState("checking"); // checking | blocked | loading | ready | error
   const [blocks,  setBlocks]  = useState([]);
   const [report,  setReport]  = useState(null);
@@ -43,8 +43,19 @@ export function DayEndModal({ orders, outlet, outletId: outletIdProp, onClose, o
     setStage("checking");
     const issues = [];
 
+    const knownTableIds = tableAreas?.length
+      ? new Set(tableAreas.flatMap(a => a.tables.map(t => t.id)))
+      : null;
+
     for (const [tableId, order] of Object.entries(orders)) {
       if (order.isClosed) continue;
+      // Skip ghost orders — IDs that aren't a real table, counter, or online order
+      if (
+        !tableId.startsWith("counter-") &&
+        !tableId.startsWith("online-") &&
+        knownTableIds?.size > 0 &&
+        !knownTableIds.has(tableId)
+      ) continue;
       const activeItems = (order.items || []).filter(i => !i.isVoided && !i.isGhostVoid);
       if (activeItems.length === 0) continue;
 

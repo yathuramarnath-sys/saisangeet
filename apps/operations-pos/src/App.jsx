@@ -823,6 +823,7 @@ export default function App() {
             if (
               !updatedOrder.isClosed &&
               !updatedOrder.billRequested &&
+              !updatedOrder.isSettleBlank &&
               (!updatedOrder.items || updatedOrder.items.length === 0) &&
               current?.billRequested && !current?.isClosed &&
               (current?.items || []).some(i => !i.isVoided && !i.isComp)
@@ -4276,6 +4277,7 @@ export default function App() {
           orders={orders}
           outlet={outlet}
           outletId={outlet?.id || branchConfig?.outletId}
+          tableAreas={tableAreas}
           onClose={() => {
             setShowDayEnd(false);
             if (dayEndPostShift) {
