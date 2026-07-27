@@ -1043,6 +1043,7 @@ async function deviceCloseOrderHandler(req, res) {
               billRequested:  false,
               isOnHold:       false,
               discountAmount: 0,
+              isSettleBlank:  true,
             });
           }
         }
