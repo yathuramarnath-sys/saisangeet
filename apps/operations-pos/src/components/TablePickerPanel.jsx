@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSelectTable, onSelectMirrorOrder, serviceMode, onNewCounterOrder, onDeleteCounterOrder, gstTreatment = "exclusive" }) {
+export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder, gstTreatment = "exclusive" }) {
   const [activeArea, setActiveArea] = useState(null);
   const [tick, setTick] = useState(0);
   const inclusive = gstTreatment === "inclusive";
@@ -67,10 +67,6 @@ export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSele
 
   function tableTotal(tableId) {
     return calcOrderTotal(orders[tableId]);
-  }
-
-  function mirrorOrderTotal(o) {
-    return calcOrderTotal(o);
   }
 
   const filtered = activeArea
@@ -188,38 +184,16 @@ export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSele
           <div key={area.id} className="tpp-area">
             <p className="tpp-area-label">{area.name}</p>
             <div className="tpp-table-grid">
-              {area.tables.flatMap(table => {
+              {area.tables.map(table => {
                 const st     = tableStatus(table.id);
                 const col    = STATUS_COLORS[st] || STATUS_COLORS.available;
                 const total  = tableTotal(table.id);
                 const guests = orders[table.id]?.guests || 0;
-                const mirrors = mirrorOrders[table.id] || [];
-                const tiles = [];
 
-                // Mirror tiles (pending bills from earlier seatings) — rendered first as blue
-                mirrors.forEach(mirrorOrder => {
-                  const mTotal = mirrorOrderTotal(mirrorOrder);
-                  const mCol   = STATUS_COLORS.bill;
-                  tiles.push(
-                    <button
-                      key={`mirror-${mirrorOrder.orderNumber}`}
-                      type="button"
-                      className="tpp-table-btn"
-                      data-st="bill"
-                      onClick={() => onSelectMirrorOrder && onSelectMirrorOrder(table.id, mirrorOrder)}
-                    >
-                      <span className="tpp-table-num">{table.number}</span>
-                      <span className="tpp-table-status">{mCol.label}</span>
-                      {mTotal !== null && <span className="tpp-table-amt">₹{mTotal.toLocaleString("en-IN")}</span>}
-                    </button>
-                  );
-                });
-
-                // Normal table tile
                 const staffName = st !== "available"
                   ? (orders[table.id]?.assignedWaiter || orders[table.id]?.captainName || "")
                   : "";
-                tiles.push(
+                return (
                   <button
                     key={table.id}
                     type="button"
@@ -246,8 +220,6 @@ export function TablePickerPanel({ tableAreas, orders, mirrorOrders = {}, onSele
                     })()}
                   </button>
                 );
-
-                return tiles;
               })}
             </div>
           </div>
