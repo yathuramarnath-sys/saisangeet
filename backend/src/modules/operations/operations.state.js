@@ -55,6 +55,13 @@ function _scope() {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 async function syncOperationsState() {
+  const tid = getCurrentTenantId();
+  // Skip when called outside a real tenant context (e.g. server startup with no
+  // runWithTenant() wrapper). "default" is not a real tenant and its state must
+  // never be loaded or saved — doing so caused stale demo data ("Family Hall",
+  // "Main Kitchen") to persist in the DB and bleed into real client accounts.
+  if (tid === "default") return getState();
+
   if (isDatabaseEnabled()) {
     // Postgres path: load from DB on every call (DB is source of truth)
     const persistedState = await loadRuntimeState(_scope());
@@ -68,7 +75,6 @@ async function syncOperationsState() {
   }
 
   // JSON fallback path: hydrate once per tenant per process lifetime
-  const tid = getCurrentTenantId();
   if (!_snapshotHydrated.has(tid)) {
     _snapshotHydrated.add(tid);
     const snapshot = _loadFallbackSnapshot(tid);
@@ -79,8 +85,10 @@ async function syncOperationsState() {
 }
 
 async function persistOperationsState() {
-  const currentState = getState();
   const tid          = getCurrentTenantId();
+  // Same guard as syncOperationsState — never persist for the "default" sentinel.
+  if (tid === "default") return;
+  const currentState = getState();
 
   if (isDatabaseEnabled()) {
     await saveRuntimeState(_scope(), currentState);
