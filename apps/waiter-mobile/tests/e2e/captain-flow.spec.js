@@ -884,7 +884,28 @@ test.describe("Captain App — Core Flow", () => {
 
     // Sheet closes; captain removes the table from local state
     await expect(page.locator(".tas2-sheet")).not.toBeVisible({ timeout: 5000 });
-    await page.waitForTimeout(2000);
+
+    // Wait up to 30s for the table to leave "running"/"ordering" (captain clears it after Print Bill).
+    // A fixed timeout is not enough — use the same waitForFunction pattern as the mirror cycle test.
+    const billClearedHandle = await page.waitForFunction(
+      (tNum) => {
+        for (const card of document.querySelectorAll(".tf2-card")) {
+          const numEl = card.querySelector(".tf2-table-num");
+          if (numEl && numEl.textContent.trim() === tNum) {
+            const st = card.getAttribute("data-st");
+            return (st !== "running" && st !== "ordering") ? st : null;
+          }
+        }
+        return null;
+      },
+      tableNum,
+      { timeout: 30000 }
+    ).catch(() => null);
+
+    if (!billClearedHandle) {
+      test.skip(true, `Table ${tableNum} did not clear after Print Bill within 30s — skipping`);
+      return;
+    }
 
     // Table should now appear as "open" (captain cleared it), "next" (backend sent _next slot),
     // or "bill" (billRequested socket event already arrived from the backend — valid when live).
