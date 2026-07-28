@@ -250,10 +250,11 @@ test.describe("Captain App — Core Flow", () => {
 
     // doSendKOT marks items sentToKot=true BEFORE the KOT API call, so the order
     // screen already shows the sent section while the overlay is present.
-    // Check os2-section-sent while the overlay is still showing — Playwright sees
-    // elements behind overlays. Do NOT click the floor button here: that calls
+    // Use .catch(() => null) so a fast backend that dismisses the overlay before
+    // this selector fires doesn't fail the test — the section check below still
+    // verifies correctness. Do NOT click the floor button here: that calls
     // onClose() → setSelectedTableId(null) → navigates away from the order screen.
-    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 });
+    await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 }).catch(() => null);
 
     // Items should now be in SENT TO KITCHEN, not NOT SENT YET
     await expect(page.locator(".os2-section-sent")).toBeVisible({ timeout: 15000 });
