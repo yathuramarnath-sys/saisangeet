@@ -3809,7 +3809,19 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   gap: 10px;
 }
 
-.past-items-list { display: flex; flex-direction: column; gap: 3px; }
+.past-items-list { display: flex; flex-direction: column; gap: 0; }
+.past-kot-group { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
+.past-kot-group:last-child { margin-bottom: 0; }
+.past-kot-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--sq-muted);
+  padding: 3px 0 2px;
+  border-bottom: 1px solid var(--sq-border);
+  margin-bottom: 3px;
+}
 .past-item-row {
   display: flex;
   justify-content: space-between;

@@ -513,6 +513,7 @@ async function deviceSendKotHandler(req, res) {
       updatedOrder = await sendOrderKot(tableId, {
         actorName: req.body.actorName || req.user?.name || "Captain",
         items: items,
+        kotNo,
       });
       // Persist waiterName atomically with the KOT so every subsequent sync from any
       // device returns the correct assignedWaiter (the separate assign-waiter REST call
