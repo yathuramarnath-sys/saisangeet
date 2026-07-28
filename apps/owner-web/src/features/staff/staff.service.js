@@ -138,10 +138,12 @@ function normalizeStaff(users) {
     warning: user.isActive === false,
     pin: user.pin || "",
     mobileNumber: user.mobileNumber || "",
-    // ── MUST be preserved — used by POS (canApplyDiscount) and Reports (incentivePct)
-    // Previously missing, causing the checkbox to reset to unchecked on every page reload
-    canApplyDiscount: user.canApplyDiscount === true,
-    incentivePct:     user.incentivePct     ?? 0,
+    // ── MUST be preserved — used by POS (canApplyDiscount), Captain (canSettleBill, canCancelKotItem), Reports (incentivePct)
+    // Previously missing, causing checkboxes to reset to unchecked on every page reload
+    canApplyDiscount:   user.canApplyDiscount   === true,
+    canSettleBill:      user.canSettleBill      === true,
+    canCancelKotItem:   user.canCancelKotItem   === true,
+    incentivePct:       user.incentivePct       ?? 0,
   }));
 }
 
