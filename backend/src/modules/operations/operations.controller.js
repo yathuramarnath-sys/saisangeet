@@ -27,6 +27,7 @@ const { getOwnerSetupData, updateOwnerSetupData } = require("../../data/owner-se
 const { runWithTenant }     = require("../../data/tenant-context");
 const { ApiError }          = require("../../utils/api-error");
 const { ACTION, logAction } = require("../action-log/actionLog.service");
+const { addPendingBill, removePendingBill, getPendingBills } = require("./pending-bills-store");
 
 /**
  * Validate the manager PIN from a request body against the PIN stored in
@@ -611,6 +612,17 @@ async function deviceBillRequestHandler(req, res) {
     return res.json({ ok: true, _idempotent: true });
   }
 
+  const { expectedVersion: billExpectedVersion } = req.body;
+  if (billExpectedVersion != null && tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+    const { getOrder: _getOrdV } = require("./operations.memory-store");
+    try {
+      const cur = _getOrdV(tableId);
+      if (cur.orderVersion != null && Number(cur.orderVersion) !== Number(billExpectedVersion)) {
+        return res.status(409).json({ ok: false, error: "VERSION_CONFLICT", currentOrder: cur });
+      }
+    } catch (_) {}
+  }
+
   if (io && outletId) {
     // Include orderNumber so POS can drop stale retries from the sync queue that target
     // a different seating (the backend's requestBill already guards this, but the socket
@@ -764,7 +776,7 @@ async function devicePaymentHandler(req, res) {
  * for a valid table; throws TABLE_NOT_FOUND (404) only if the tableId is unknown.
  */
 async function deviceGetOrCreateOrderHandler(req, res) {
-  const { tableId, captain } = req.query;
+  const { tableId, captain, outletId: qOutletId } = req.query;
   if (!tableId) {
     return res.status(400).json({ error: "tableId query parameter is required" });
   }
@@ -778,8 +790,23 @@ async function deviceGetOrCreateOrderHandler(req, res) {
     // Only auto-advance when captain explicitly printed the bill (hasNextOrder set by captain app).
     // Ignore billRequested set by POS or customer QR — those must not clear the active order.
     if (result.billRequested && result.hasNextOrder && !result.isClosed && hasActiveItems) {
+      const tenantId = req.user?.tenantId || "default";
+      const outletId = qOutletId || null;
+
+      // Save displaced bill to server store so ALL POS terminals see it.
+      addPendingBill(tenantId, outletId, result);
+
       await clearTableAfterSettle(tableId);
       result = await getOrder(tableId);
+
+      // Notify POS terminals that the pending-bills list changed.
+      const io = req.app.locals.io;
+      if (io && outletId) {
+        io.to(`outlet:${tenantId}:${outletId}`).emit("pending-bills:updated", {
+          outletId,
+          bills: getPendingBills(tenantId, outletId),
+        });
+      }
     }
   }
 
@@ -806,6 +833,20 @@ async function deviceAddOrderItemHandler(req, res) {
   // If this id was already processed, return success without re-applying the mutation.
   if (isProcessed(mutationId)) {
     return res.status(201).json({ ok: true, _idempotent: true });
+  }
+  // Version conflict guard: captain sends expectedVersion from its local tracking.
+  // If the server order is at a different version, the captain's write is stale — return
+  // the current order so the captain can update and retry with the correct version.
+  // Skip if expectedVersion not sent (older clients, sync-queue replays).
+  const { expectedVersion } = req.body;
+  if (expectedVersion != null) {
+    const { getOrder: _getOrdV } = require("./operations.memory-store");
+    try {
+      const cur = _getOrdV(tableId);
+      if (cur.orderVersion != null && Number(cur.orderVersion) !== Number(expectedVersion)) {
+        return res.status(409).json({ ok: false, error: "VERSION_CONFLICT", currentOrder: cur });
+      }
+    } catch (_) { /* TABLE_NOT_FOUND — let addItemToOrder handle it */ }
   }
   // Prefer actorName from request body (Captain App sends logged-in staff name).
   // req.user?.type is "device" for Captain App tokens — never use it as a display name.
@@ -841,6 +882,16 @@ async function deviceRemoveOrderItemHandler(req, res) {
   }
   if (isProcessed(mutationId)) {
     return res.json({ ok: true, _idempotent: true });
+  }
+  const { expectedVersion: removeExpectedVersion } = req.body;
+  if (removeExpectedVersion != null) {
+    const { getOrder: _getOrdV } = require("./operations.memory-store");
+    try {
+      const cur = _getOrdV(tableId);
+      if (cur.orderVersion != null && Number(cur.orderVersion) !== Number(removeExpectedVersion)) {
+        return res.status(409).json({ ok: false, error: "VERSION_CONFLICT", currentOrder: cur });
+      }
+    } catch (_) {}
   }
   const actor = req.user?.name || req.user?.type || "POS";
   const result = await removeItemFromOrder(tableId, itemId, actor);
@@ -1015,6 +1066,16 @@ async function deviceCloseOrderHandler(req, res) {
   const io = req.app.locals.io;
   if (io) {
     io.to(`tenant:${tenantId}`).emit("sales:updated", { outletId });
+  }
+
+  // Remove this order from the server-side pending-bills store (set when captain
+  // auto-advanced the table) and notify all POS terminals so they drop the entry.
+  removePendingBill(tenantId, outletId, order.orderNumber);
+  if (io && outletId) {
+    io.to(`outlet:${tenantId}:${outletId}`).emit("pending-bills:updated", {
+      outletId,
+      bills: getPendingBills(tenantId, outletId),
+    });
   }
 
   // Reset the in-memory table slot so the next table-open gets a fresh empty order.
@@ -1260,6 +1321,19 @@ async function deviceAdvanceTableHandler(req, res) {
   }
 }
 
+/**
+ * GET /operations/pending-bills?outletId=...
+ * Returns the server-side list of displaced pending bills for this outlet.
+ * POS calls this on startup to seed its Pending Bills panel from the server
+ * instead of relying solely on local mirror-bill state.
+ */
+async function getPendingBillsHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const { outletId } = req.query;
+  if (!outletId) return res.status(400).json({ error: "outletId query parameter is required" });
+  res.json(getPendingBills(tenantId, outletId));
+}
+
 module.exports = {
   clearTableOrderHandler,
   clearAllOrdersHandler,
@@ -1300,4 +1374,5 @@ module.exports = {
   deviceAdvanceTableHandler,
   deviceCancelOrderHandler,
   correctClosedOrderPaymentsHandler,
+  getPendingBillsHandler,
 };

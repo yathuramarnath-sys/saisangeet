@@ -24,6 +24,7 @@ async function request(path, options = {}) {
     } catch (_) {}
     const err = new Error(message);
     err.status = response.status;
+    err.body = body;
     throw err;
   }
 
