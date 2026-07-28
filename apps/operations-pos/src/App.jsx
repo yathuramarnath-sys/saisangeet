@@ -752,6 +752,18 @@ export default function App() {
                 cancelledTablesRef.current.delete(updatedOrder.tableId); // new order, lift block
               }
             }
+            // Mirror-bill cleanup: settled Order 1 arrives as isClosed — remove its virtual slot.
+            // Must run BEFORE the mirror-close guard — when Order 2 is already live on the real
+            // table slot, the guard (different orderNumber) would return prev first and the _mb_
+            // entry would never be removed. Same fix already applied to the local socket handler.
+            const mbCleanKey = `_mb_${updatedOrder.orderNumber}`;
+            if (updatedOrder.isClosed && prev[mbCleanKey]) {
+              const cleaned = { ...prev };
+              delete cleaned[mbCleanKey];
+              saveOrdersToStorage(cleaned);
+              return cleaned; // T1 already holds Order 2 — don't overwrite with closed Order 1
+            }
+
             // Mirror-close guard: captain settled an OLDER order for this table
             // (different orderNumber than what's in the main slot). Leave the active
             // order untouched — don't let the closed old order overwrite the new one.
@@ -778,15 +790,6 @@ export default function App() {
                 new Date(updatedOrder.updatedAt || 0).getTime() > 30_000
             ) {
               return prev; // our version is >30 s newer — discard incoming
-            }
-
-            // Mirror-bill cleanup: settled Order 1 arrives as isClosed — remove its virtual slot.
-            const mbCleanKey = `_mb_${updatedOrder.orderNumber}`;
-            if (updatedOrder.isClosed && prev[mbCleanKey]) {
-              const cleaned = { ...prev };
-              delete cleaned[mbCleanKey];
-              saveOrdersToStorage(cleaned);
-              return cleaned; // T1 already holds Order 2 — don't overwrite with closed Order 1
             }
 
             // Mirror-bill: Order 2 (new seating) arrives while Order 1 is still a pending bill.
@@ -2288,6 +2291,19 @@ export default function App() {
           }
           localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
         } catch {}
+      }
+
+      // Mirror-bill settled from POS: immediately remove the _mb_ key so the Pending
+      // Bills section clears without waiting for the cloud socket event (which may be
+      // blocked by the mirror-close guard until the next broadcast arrives).
+      if (tableId.startsWith("_mb_")) {
+        setOrders(prev => {
+          if (!prev[tableId]) return prev;
+          const next = { ...prev };
+          delete next[tableId];
+          saveOrdersToStorage(next);
+          return next;
+        });
       }
     } catch (err) {
       console.warn("[POS] closed-order sync failed (offline?) — queuing for retry:", err.message);

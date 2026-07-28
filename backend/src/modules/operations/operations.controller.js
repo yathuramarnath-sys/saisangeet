@@ -958,7 +958,21 @@ async function deviceCloseOrderHandler(req, res) {
   }
   order.closedAt = new Date().toISOString();
 
-  addClosedOrder(tenantId, outletId, order);
+  const recorded = addClosedOrder(tenantId, outletId, order);
+
+  // Idempotent duplicate — bill with this billNo was already settled.
+  // Return the existing bill number without re-running logAction or clearing the table.
+  if (!recorded) {
+    console.warn(`[close-order] duplicate settlement skipped — billNo=${order.billNo} outletId=${outletId}`);
+    return res.json({
+      ok:         true,
+      billNo:     order.billNo,
+      billNoMode: order.billNoMode || null,
+      billNoFY:   order.billNoFY   || null,
+      billNoDate: order.billNoDate || null,
+      closedAt:   order.closedAt,
+    });
+  }
 
   logAction({
     tenantId,
