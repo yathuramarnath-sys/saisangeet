@@ -5,6 +5,50 @@ import { api } from "../lib/api";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Credit", "Zomato Pay", "Swiggy Pay"];
 
+const EVENT_LABELS = {
+  ITEM_ADDED:        "Item added",
+  ITEM_REMOVED:      "Item removed",
+  ITEM_VOIDED:       "Item voided",
+  ITEM_UPDATED:      "Item updated",
+  KOT_SENT:         "KOT sent",
+  BILL_REQUESTED:    "Bill requested",
+  PAYMENT_ADDED:     "Payment recorded",
+  ORDER_CLOSED:      "Order closed",
+  DISCOUNT_APPROVED: "Discount approved",
+  VOID_REQUESTED:    "Void requested",
+  VOID_APPROVED:     "Void approved",
+  WAITER_ASSIGNED:   "Waiter assigned",
+  BILL_REPRINTED:    "Bill reprinted",
+  TABLE_MOVED:       "Table moved",
+};
+
+function eventDetail(ev) {
+  switch (ev.type) {
+    case "ITEM_ADDED":
+      return ev.itemName ? `${ev.itemName} × ${ev.qty ?? 1}` : null;
+    case "ITEM_REMOVED":
+    case "ITEM_VOIDED":
+    case "ITEM_UPDATED":
+      return ev.itemName || null;
+    case "KOT_SENT":
+      return ev.kotNumber != null
+        ? `KOT #${String(ev.kotNumber).padStart(4, "0")} · ${ev.itemCount ?? "?"} item${ev.itemCount !== 1 ? "s" : ""}`
+        : null;
+    case "PAYMENT_ADDED":
+      return ev.method && ev.amount != null ? `${ev.method} · ₹${ev.amount}` : null;
+    case "ORDER_CLOSED":
+      return ev.total != null ? `₹${ev.total}` : null;
+    case "WAITER_ASSIGNED":
+      return ev.waiterName || null;
+    case "TABLE_MOVED":
+      return ev.from && ev.to ? `${ev.from} → ${ev.to}` : null;
+    case "BILL_REPRINTED":
+      return ev.reason || null;
+    default:
+      return null;
+  }
+}
+
 /* ── Edit Payment Modal ───────────────────────────────────────────────────── */
 function EditPaymentModal({ order, fin, onSave, onClose, saving }) {
   const existing = (order.payments || []);
@@ -309,6 +353,25 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
                           <span key={i} className="past-pay-pill">{p.method} · ₹{p.amount}</span>
                         ))}
                       </div>
+                      {(order.events || []).length > 0 && (
+                        <div className="past-event-log">
+                          <div className="past-event-log-label">Event log</div>
+                          {order.events.map((ev, i) => {
+                            const detail = eventDetail(ev);
+                            const timeStr = ev.at
+                              ? new Date(ev.at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })
+                              : null;
+                            return (
+                              <div key={ev.id ?? i} className="past-event-row">
+                                <span className="past-event-time">{timeStr ?? "—"}</span>
+                                <span className="past-event-type">{EVENT_LABELS[ev.type] ?? ev.type}</span>
+                                {detail && <span className="past-event-detail">{detail}</span>}
+                                <span className="past-event-actor">{ev.actor}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                       <div className="past-actions">
                         <button type="button" className="past-action-btn"
                           onClick={() => printBill(

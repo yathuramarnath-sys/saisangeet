@@ -3861,6 +3861,53 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   border: 1px solid rgba(41,128,185,0.2);
 }
 
+/* ── Event log ───────────────────────────────────────────── */
+.past-event-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--sq-border);
+  padding-top: 8px;
+}
+.past-event-log-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--sq-muted);
+  margin-bottom: 4px;
+}
+.past-event-row {
+  display: grid;
+  grid-template-columns: 72px 1fr auto auto;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  padding: 2px 0;
+  border-bottom: 1px solid transparent;
+}
+.past-event-row:last-child { border-bottom: none; }
+.past-event-time {
+  color: var(--sq-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.past-event-type {
+  color: var(--sq-text);
+  font-weight: 500;
+}
+.past-event-detail {
+  color: var(--sq-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.past-event-actor {
+  color: var(--sq-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 .past-actions { display: flex; gap: 8px; }
 .past-action-btn {
   padding: 7px 14px;

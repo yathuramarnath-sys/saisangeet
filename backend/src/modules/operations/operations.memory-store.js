@@ -21,6 +21,21 @@ function appendAudit(order, entry) {
   order.auditTrail = [entry, ...(order.auditTrail || [])].slice(0, 10);
 }
 
+// Append a structured event to the order's event log. Events are never capped
+// (unlike auditTrail which stops at 10) and survive to closed_orders.order_data JSONB.
+// `payload` fields are spread directly onto the event object — keep them flat.
+function appendEvent(order, type, actor, payload = {}) {
+  if (!order.events) order.events = [];
+  order.events.push({
+    id:      `ev-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    type,
+    actor,
+    at:      new Date().toISOString(),
+    version: order.orderVersion || 1,
+    ...payload,
+  });
+}
+
 function appendDeletedBill(order, actor) {
   order.deletedBillLog = [
     {
@@ -132,6 +147,7 @@ function buildEmptyOrder(tableIdOrMeta, fallbackOrderNumber = 10030) {
     auditTrail: [],
     items: [],
     kots: [],                  // [{kotNumber, sentAt, actorName, itemIds}] — one entry per Send KOT
+    events: [],                // [{id, type, actor, at, version, ...payload}] — full event log; never capped
     orderVersion: 1,          // monotonic counter — incremented on every mutation for conflict detection
     updatedAt: Date.now(),  // millisecond timestamp — used for stale-write detection
     _deletedItemIds: [],    // tombstone: item IDs deleted before KOT — addOrderItem rejects these
@@ -514,6 +530,7 @@ function moveTable(sourceTableId, targetTableId, actor = "System") {
     notes: `Moved from ${sourceOrder.tableNumber} to ${targetMeta.tableNumber}`
   };
   appendAudit(movedOrder, buildAuditEntry("Table moved", actor, "Now"));
+  appendEvent(movedOrder, "TABLE_MOVED", actor, { from: sourceOrder.tableNumber, to: targetMeta.tableNumber });
 
   state.orders[targetTableId] = movedOrder;
   // Reset source table — pass the source order's metadata directly so we don't
@@ -615,6 +632,7 @@ function markKotSent(tableId, actor = "Captain", captainItems = null, kotNo = nu
     if (!order.captainName) order.captainName = actor;
   }
   appendAudit(order, buildAuditEntry("KOT sent", actor, "Now"));
+  appendEvent(order, "KOT_SENT", actor, { kotNumber: kotNo, itemCount: sentIds.length });
   order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
@@ -651,6 +669,7 @@ function requestBill(tableId, actor = "Waiter", isSplit = false, hasNextOrder = 
   if (isSplit) order.isSplitBill = true;
   if (hasNextOrder) order.hasNextOrder = true;
   appendAudit(order, buildAuditEntry("Bill requested", actor, "Now"));
+  appendEvent(order, "BILL_REQUESTED", actor);
   order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
@@ -683,6 +702,8 @@ function assignWaiter(tableId, waiterName, actor = "Captain") {
   order.assignedWaiter = waiterName;
   order.notes = `${waiterName} assigned`;
   appendAudit(order, buildAuditEntry("Waiter assigned", actor, "Now"));
+  appendEvent(order, "WAITER_ASSIGNED", actor, { waiterName });
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
@@ -742,6 +763,11 @@ function addOrderItem(tableId, payload, actor = "System") {
     if (!order.captainName) order.captainName = actor;
   }
   appendAudit(order, buildAuditEntry("Item added", actor, "Now"));
+  appendEvent(order, "ITEM_ADDED", actor, {
+    itemName: payload.name,
+    qty:      payload.quantity || 1,
+    price:    payload.price || 0,
+  });
   order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
@@ -766,8 +792,10 @@ function removeOrderItem(tableId, itemId, actor = "System") {
   }
 
   if (idx === -1) return clone(order); // item not found yet — tombstone recorded, no-op on items
+  const removedItem = order.items[idx];
   order.items.splice(idx, 1);
   appendAudit(order, buildAuditEntry("Item removed", actor, "Now"));
+  appendEvent(order, "ITEM_REMOVED", actor, { itemName: removedItem?.name });
   order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
@@ -834,6 +862,12 @@ function updateOrderItem(tableId, itemId, payload, actor = "System") {
   const auditLabel = payload.isVoided ? "Item voided" : payload.note ? "Kitchen note added" : "Order item updated";
   order.notes = payload.isVoided ? `Item voided: ${item.name || itemId}` : payload.note ? `Instruction added: ${payload.note}` : "Order updated";
   appendAudit(order, buildAuditEntry(auditLabel, actor, "Now"));
+  if (payload.isVoided) {
+    appendEvent(order, "ITEM_VOIDED", actor, { itemName: item.name, reason: payload.voidReason });
+  } else {
+    appendEvent(order, "ITEM_UPDATED", actor, { itemName: item.name });
+  }
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
@@ -902,6 +936,8 @@ function addOrderPayment(tableId, payload, actor = "System") {
   });
   order.notes = "Payment collected";
   appendAudit(order, buildAuditEntry("Payment added", actor, "Now"));
+  appendEvent(order, "PAYMENT_ADDED", actor, { method: payload.method || "cash", amount });
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
@@ -918,6 +954,8 @@ function closeOrder(tableId, actor = "System") {
   order.billRequested = false;
   order.notes = "Invoice ready and settled";
   appendAudit(order, buildAuditEntry("Order settled", actor, "Now"));
+  appendEvent(order, "ORDER_CLOSED", actor, { total: totals.total });
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
@@ -933,6 +971,8 @@ function approveDiscount(tableId, actor = "Manager OTP") {
   order.discountApprovedBy = actor;
   order.notes = "Discount approved by manager/owner";
   appendAudit(order, buildAuditEntry("Discount approved", actor, "Now"));
+  appendEvent(order, "DISCOUNT_APPROVED", actor);
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
@@ -948,6 +988,8 @@ function approveVoid(tableId, actor = "Manager OTP") {
   order.notes = "Void approved via OTP";
   appendDeletedBill(order, actor);
   appendAudit(order, buildAuditEntry("Void approved", actor, "Now"));
+  appendEvent(order, "VOID_APPROVED", actor);
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
@@ -959,6 +1001,8 @@ function recordReprint(tableId, reason, actor = "Manager") {
   order.reprintApprovedBy = actor;
   appendReprintLog(order, actor, order.reprintReason);
   appendAudit(order, buildAuditEntry("Bill reprinted", actor, "Now"));
+  appendEvent(order, "BILL_REPRINTED", actor, { reason: order.reprintReason });
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
@@ -973,6 +1017,8 @@ function requestVoidApproval(tableId, reason, actor = "Cashier") {
     ...(order.controlAlerts || []).filter((message) => !message.startsWith("Void above Rs "))
   ].slice(0, 4);
   appendAudit(order, buildAuditEntry("Void requested", actor, "Now"));
+  appendEvent(order, "VOID_REQUESTED", actor, { reason: order.voidReason });
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
