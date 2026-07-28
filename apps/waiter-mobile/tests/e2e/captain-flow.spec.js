@@ -324,17 +324,19 @@ test.describe("Captain App — Core Flow", () => {
     // doSendKOT marks items sentToKot=true BEFORE the KOT API call, so the order
     // screen already shows the sent section while the overlay is present.
     // Use .catch(() => null) so a fast backend that dismisses the overlay before
-    // this selector fires doesn't fail the test — the section check below still
-    // verifies correctness. Do NOT click the floor button here: that calls
-    // onClose() → setSelectedTableId(null) → navigates away from the order screen.
+    // this selector fires doesn't fail the test. Do NOT click the floor button here:
+    // that calls onClose() → setSelectedTableId(null) → navigates away from the order screen.
     await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 }).catch(() => null);
 
     // Verify the KOT moved items from unsent → sent by checking the COUNT DELTA.
     // Simple presence checks fail when T1 has accumulated items from prior tests:
     // the same item name may exist in BOTH sections from earlier accumulated state.
-    await expect(page.locator(".os2-section-sent")).toBeVisible({ timeout: 15000 });
+    // Single 25s poll covers both waiting for the sent section to appear AND for
+    // the count to shift — avoids consuming timeout budget on the visibility check.
     const kotReflected5 = await page.waitForFunction(
       ({ name, sentBefore, unsentBefore }) => {
+        const sentSection = document.querySelector(".os2-section-sent");
+        if (!sentSection) return null;
         const sentEls = document.querySelectorAll(".os2-item-sent .os2-item-name");
         const unsentEls = document.querySelectorAll(".os2-item-unsent .os2-item-name");
         const sentCount = [...sentEls].filter(el => el.textContent.includes(name)).length;
@@ -342,7 +344,7 @@ test.describe("Captain App — Core Flow", () => {
         return (sentCount > sentBefore && unsentCount < unsentBefore) ? { sentCount, unsentCount } : null;
       },
       { name: itemName5, sentBefore: countsBefore5.sent, unsentBefore: countsBefore5.unsent },
-      { timeout: 10000 }
+      { timeout: 25000 }
     ).catch(() => null);
     if (!kotReflected5) throw new Error(
       `After KOT: "${itemName5}" count did not shift from unsent to sent ` +
