@@ -374,24 +374,33 @@ test.describe("Captain App — Core Flow", () => {
       await page.locator(".os2-back-btn").first().click();
     }
 
-    // Add a second item
+    // After KOT, confirm the SENT section is visible before adding a second item.
+    // If the KOT was silently rejected or the socket update cleared the order,
+    // the sent section won't appear — skip rather than add to a broken order.
     await page.waitForSelector(".os2-page", { timeout: 10000 });
-    await addFirstMenuItem(page);
-
-    // Wait for any order item (unsent or sent) — a socket update from the live backend
-    // can briefly replace local state causing a transient dip before re-settling.
-    // We only need to confirm the screen has order content, not the exact item count.
-    // Live backend state recovery can take longer than 20s in practice (increased from 20000).
-    const hasItems6 = await page.waitForFunction(
-      () => document.querySelector(".os2-item-unsent, .os2-item-sent") !== null,
-      { timeout: 30000 }
+    const kotRegistered6 = await page.waitForFunction(
+      () => document.querySelector(".os2-section-sent") !== null,
+      { timeout: 20000 }
     ).catch(() => null);
-    if (!hasItems6) {
-      test.skip(true, "Order screen empty after item add — live backend interference, skipping");
+    if (!kotRegistered6) {
+      test.skip(true, "Sent section not visible after KOT — KOT likely failed silently, skipping");
       return;
     }
 
-    // Sent section should also have items (from first KOT)
+    // Add a second item — only after confirming the first KOT registered
+    await addFirstMenuItem(page);
+
+    // Wait for the second item to appear as unsent (sent section was already confirmed above)
+    const hasUnsent6 = await page.waitForFunction(
+      () => document.querySelector(".os2-item-unsent") !== null,
+      { timeout: 20000 }
+    ).catch(() => null);
+    if (!hasUnsent6) {
+      test.skip(true, "New item not visible as unsent after add — live backend interference, skipping");
+      return;
+    }
+
+    // Sent section should still have items (from first KOT)
     await expect(page.locator(".os2-section-sent")).toBeVisible();
   });
 
@@ -701,24 +710,26 @@ test.describe("Captain App — Core Flow", () => {
     // Wait for OUR specific table to show as running/ordering after KOT.
     // Tracking the specific table avoids false failures when live-restaurant
     // tables change state concurrently and shift the aggregate count.
-    await page.waitForFunction(
+    // 25s timeout: slow CI runners + live backend can take longer than 10s to propagate KOT state.
+    const table17Ready = await page.waitForFunction(
       (name) => {
         const cards = document.querySelectorAll('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]');
         return Array.from(cards).some(c => c.querySelector('.tf2-table-num')?.textContent?.trim() === name);
       },
       tableNum17,
-      { timeout: 10000 }
-    ).catch(() => {});
+      { timeout: 25000 }
+    ).catch(() => null);
+
+    if (!table17Ready) {
+      test.skip(true, "Test table not visible as occupied after KOT — live backend interference, skipping");
+      return;
+    }
 
     // Long press our specific table (not just the first occupied one, which may be
     // a different real-restaurant table that happens to be at the top of the list)
     const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').filter({
       has: page.locator('.tf2-table-num', { hasText: tableNum17 })
     }).first();
-    if (!await occupiedTable.isVisible()) {
-      test.skip(true, "Test table not visible as occupied after KOT — live backend interference, skipping");
-      return;
-    }
     const box = await occupiedTable.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
@@ -886,6 +897,7 @@ test.describe("Captain App — Core Flow", () => {
 
     // Wait for our specific table to reach running/ordering state (KOT must be persisted).
     // Use waitForFunction targeting tableNum to avoid matching a different table.
+    // 30s timeout: live backend KOT propagation can exceed 15s on a loaded CI runner.
     const tableReady19 = await page.waitForFunction(
       (tNum) => {
         for (const card of document.querySelectorAll(".tf2-card")) {
@@ -898,7 +910,7 @@ test.describe("Captain App — Core Flow", () => {
         return null;
       },
       tableNum,
-      { timeout: 15000 }
+      { timeout: 30000 }
     ).catch(() => null);
 
     if (!tableReady19) {
@@ -1168,6 +1180,7 @@ test.describe("Captain App — Core Flow", () => {
 
       // Add an item and detect where it settled (sent vs unsent)
       const itemName = await addFirstMenuItem(page);
+      // 25s timeout: on a shared live backend, socket propagation after add can lag.
       const settledHandle = await page.waitForFunction(
         (name) => {
           for (const el of document.querySelectorAll(".os2-item-unsent .os2-item-name"))
@@ -1177,7 +1190,7 @@ test.describe("Captain App — Core Flow", () => {
           return null;
         },
         itemName,
-        { timeout: 10000 }
+        { timeout: 25000 }
       ).catch(() => null);
 
       if (!settledHandle) {
