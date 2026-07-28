@@ -588,6 +588,23 @@ export default function App() {
           );
         });
 
+        // Seed server-backed pending bills so every POS terminal sees displaced
+        // orders even on a fresh start (not just the terminal that was open when
+        // the captain triggered auto-advance).
+        api.get(`/operations/pending-bills?outletId=${target.id}`)
+          .then(bills => {
+            if (!bills?.length) return;
+            setOrders(prev => {
+              const next = { ...prev };
+              bills.forEach(bill => {
+                const key = `_mb_${bill.orderNumber}`;
+                if (!next[key]) next[key] = bill;
+              });
+              return next;
+            });
+          })
+          .catch(() => {});
+
         // Load stock snapshot for this outlet and merge lowStockLevel from menu items
         api.get(`/inventory/stock/snapshot?outletId=${target.id}`)
           .then(snap => {
@@ -707,6 +724,21 @@ export default function App() {
               .catch(() => {});
             flushKotQueue(target.id).catch(() => {});
             flushClosedOrderQueue(target.id).catch(() => {});
+            // Re-seed server-backed pending bills after reconnect
+            api.get(`/operations/pending-bills?outletId=${target.id}`)
+              .then(bills => {
+                if (!bills?.length) return;
+                setOrders(prev => {
+                  const next = { ...prev };
+                  Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
+                  bills.forEach(bill => {
+                    if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
+                  });
+                  saveOrdersToStorage(next);
+                  return next;
+                });
+              })
+              .catch(() => {});
           } else {
             // Cold-start: flush KOT/settle queues from any previous session that crashed offline
             flushKotQueue(target.id).catch(() => {});
@@ -792,23 +824,6 @@ export default function App() {
               return prev; // our version is >30 s newer — discard incoming
             }
 
-            // Mirror-bill: Order 2 (new seating) arrives while Order 1 is still a pending bill.
-            // Save Order 1 into a virtual "_mb_<orderNumber>" slot so the cashier can see and
-            // settle both. Order 2 then takes over the real table slot below.
-            let mirrorToSave = null;
-            if (
-              !updatedOrder.isClosed &&
-              !updatedOrder.isSettleBlank &&
-              current?.billRequested && !current?.isClosed &&
-              (current?.items || []).some(i => !i.isVoided && !i.isComp) &&
-              updatedOrder.orderNumber != null &&
-              Number(updatedOrder.orderNumber) !== Number(current?.orderNumber)
-            ) {
-              const pendingKey = `_mb_${current.orderNumber}`;
-              if (!prev[pendingKey]) mirrorToSave = { key: pendingKey, order: current };
-              // Fall through — let Order 2 update the real table slot below
-            }
-
             // Mirror-settle guard: isClosed for an OLD order while active is a NEWER seating.
             if (
               updatedOrder.isClosed &&
@@ -838,7 +853,6 @@ export default function App() {
             }
 
             const next = { ...prev, [updatedOrder.tableId]: merged };
-            if (mirrorToSave) next[mirrorToSave.key] = mirrorToSave.order;
             saveOrdersToStorage(next);
             return next;
           });
@@ -1044,20 +1058,6 @@ export default function App() {
             return; // don't call setOrders — active order is preserved
           }
 
-          // Mirror-bill (local socket): save pending bill before new seating takes over slot.
-          let mirrorKeyL = null;
-          if (
-            !updatedOrder.isClosed &&
-            !updatedOrder.isSettleBlank &&
-            currentForMirror?.billRequested && !currentForMirror?.isClosed &&
-            (currentForMirror?.items || []).some(i => !i.isVoided && !i.isComp) &&
-            updatedOrder.orderNumber != null &&
-            Number(updatedOrder.orderNumber) !== Number(currentForMirror?.orderNumber)
-          ) {
-            const pk = `_mb_${currentForMirror.orderNumber}`;
-            if (!ordersRef.current[pk]) mirrorKeyL = { key: pk, order: currentForMirror };
-          }
-
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
             if (current && !updatedOrder.isClosed &&
@@ -1078,7 +1078,6 @@ export default function App() {
               merged = { ...updatedOrder, items: [...incomingWithTax, ...localOnly] };
             }
             const next = { ...prev, [updatedOrder.tableId]: merged };
-            if (mirrorKeyL && !prev[mirrorKeyL.key]) next[mirrorKeyL.key] = mirrorKeyL.order;
             saveOrdersToStorage(next);
             return next;
           });
@@ -1137,6 +1136,22 @@ export default function App() {
         socket.on("customer:order:new", (order) => {
           setPendingQRCount(n => n + 1);
           showToast(`📲 QR Order — Table ${order.tableLabel || order.tableId} (${order.customerName})`);
+        });
+
+        // ── Server-backed pending bills (captain auto-advance) ────────────────
+        // Authoritative list from server — replace all _mb_ slots so every POS
+        // terminal (including those that weren't open when the auto-advance fired)
+        // shows the displaced pending bill.
+        socket.on("pending-bills:updated", ({ bills }) => {
+          setOrders((prev) => {
+            const next = { ...prev };
+            Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
+            (bills || []).forEach(bill => {
+              if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
+            });
+            saveOrdersToStorage(next);
+            return next;
+          });
         });
 
         // ── Waiter called from customer QR page ───────────────────────────────
