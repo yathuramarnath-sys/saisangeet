@@ -780,24 +780,30 @@ export default function App() {
               return prev; // our version is >30 s newer — discard incoming
             }
 
-            // Pending-bill guard: the captain printed a bill and the POS is holding
-            // it for the cashier to settle.  Block ANY incoming order for the same
-            // table that (a) is not the bill itself (billRequested=false) and
-            // (b) belongs to a different seating (different or absent orderNumber).
-            // This covers both the blank advance-slot broadcast AND the captain's
-            // fresh KOT events — the cashier must settle the pending bill first.
-            // Distinguish from settle-blank: settle first broadcasts isClosed:true
-            // so by the time the blank arrives current.isClosed is true → guard won't fire.
+            // Mirror-bill cleanup: settled Order 1 arrives as isClosed — remove its virtual slot.
+            const mbCleanKey = `_mb_${updatedOrder.orderNumber}`;
+            if (updatedOrder.isClosed && prev[mbCleanKey]) {
+              const cleaned = { ...prev };
+              delete cleaned[mbCleanKey];
+              saveOrdersToStorage(cleaned);
+              return cleaned; // T1 already holds Order 2 — don't overwrite with closed Order 1
+            }
+
+            // Mirror-bill: Order 2 (new seating) arrives while Order 1 is still a pending bill.
+            // Save Order 1 into a virtual "_mb_<orderNumber>" slot so the cashier can see and
+            // settle both. Order 2 then takes over the real table slot below.
+            let mirrorToSave = null;
             if (
               !updatedOrder.isClosed &&
-              !updatedOrder.billRequested &&
               !updatedOrder.isSettleBlank &&
               current?.billRequested && !current?.isClosed &&
               (current?.items || []).some(i => !i.isVoided && !i.isComp) &&
-              (updatedOrder.orderNumber == null ||
-                Number(updatedOrder.orderNumber) !== Number(current?.orderNumber))
+              updatedOrder.orderNumber != null &&
+              Number(updatedOrder.orderNumber) !== Number(current?.orderNumber)
             ) {
-              return prev; // pending bill preserved — cashier must still settle it
+              const pendingKey = `_mb_${current.orderNumber}`;
+              if (!prev[pendingKey]) mirrorToSave = { key: pendingKey, order: current };
+              // Fall through — let Order 2 update the real table slot below
             }
 
             // Mirror-settle guard: isClosed for an OLD order while active is a NEWER seating.
@@ -810,14 +816,15 @@ export default function App() {
               return prev; // live order preserved — don't overwrite with closed old order
             }
 
-            // ── Concurrent-edit merge ─────────────────────────────────────────
-            // The incoming order is the server's authoritative state but it may
-            // not include items the POS just added locally (e.g. cashier tapped
-            // an item a split-second before the Captain's socket event arrived).
-            // Preserve any local unsent items that are absent from the incoming
-            // order so they aren't silently dropped.
+            // ── Concurrent-edit merge (same seating only) ─────────────────────
+            // Merge unsent local items only within the same order session.
+            // Different orderNumber = new seating; never mix items across seatings.
             let merged = updatedOrder;
-            if (current && !updatedOrder.isClosed) {
+            if (
+              current && !updatedOrder.isClosed &&
+              current.orderNumber != null && updatedOrder.orderNumber != null &&
+              Number(current.orderNumber) === Number(updatedOrder.orderNumber)
+            ) {
               const incomingWithTax = withLocalTaxRate(updatedOrder.items || [], current.items, menuItemsRef.current);
               const incomingIds  = new Set(incomingWithTax.map(i => i.id));
               const deletedIds   = new Set(updatedOrder._deletedItemIds || []);
@@ -828,6 +835,7 @@ export default function App() {
             }
 
             const next = { ...prev, [updatedOrder.tableId]: merged };
+            if (mirrorToSave) next[mirrorToSave.key] = mirrorToSave.order;
             saveOrdersToStorage(next);
             return next;
           });
@@ -1015,17 +1023,31 @@ export default function App() {
             return; // don't call setOrders — active order is preserved
           }
 
-          // Pending-bill guard: same logic as cloud socket — block any new-seating
-          // order from overwriting the pending bill the cashier must still settle.
+          // Mirror-bill cleanup (local socket): settled Order 1 → remove virtual slot.
+          const mbKeyL = `_mb_${updatedOrder.orderNumber}`;
+          if (updatedOrder.isClosed && ordersRef.current[mbKeyL]) {
+            setOrders(prev => {
+              if (!prev[mbKeyL]) return prev;
+              const cleaned = { ...prev };
+              delete cleaned[mbKeyL];
+              saveOrdersToStorage(cleaned);
+              return cleaned;
+            });
+            return;
+          }
+
+          // Mirror-bill (local socket): save pending bill before new seating takes over slot.
+          let mirrorKeyL = null;
           if (
             !updatedOrder.isClosed &&
-            !updatedOrder.billRequested &&
+            !updatedOrder.isSettleBlank &&
             currentForMirror?.billRequested && !currentForMirror?.isClosed &&
             (currentForMirror?.items || []).some(i => !i.isVoided && !i.isComp) &&
-            (updatedOrder.orderNumber == null ||
-              Number(updatedOrder.orderNumber) !== Number(currentForMirror?.orderNumber))
+            updatedOrder.orderNumber != null &&
+            Number(updatedOrder.orderNumber) !== Number(currentForMirror?.orderNumber)
           ) {
-            return; // pending bill preserved
+            const pk = `_mb_${currentForMirror.orderNumber}`;
+            if (!ordersRef.current[pk]) mirrorKeyL = { key: pk, order: currentForMirror };
           }
 
           setOrders((prev) => {
@@ -1034,7 +1056,11 @@ export default function App() {
                 new Date(current.updatedAt || 0).getTime() -
                   new Date(updatedOrder.updatedAt || 0).getTime() > 30_000) return prev;
             let merged = updatedOrder;
-            if (current && !updatedOrder.isClosed) {
+            if (
+              current && !updatedOrder.isClosed &&
+              current.orderNumber != null && updatedOrder.orderNumber != null &&
+              Number(current.orderNumber) === Number(updatedOrder.orderNumber)
+            ) {
               const incomingWithTax = withLocalTaxRate(updatedOrder.items || [], current.items, menuItemsRef.current);
               const incomingIds  = new Set(incomingWithTax.map(i => i.id));
               const deletedIds   = new Set(updatedOrder._deletedItemIds || []);
@@ -1044,6 +1070,7 @@ export default function App() {
               merged = { ...updatedOrder, items: [...incomingWithTax, ...localOnly] };
             }
             const next = { ...prev, [updatedOrder.tableId]: merged };
+            if (mirrorKeyL && !prev[mirrorKeyL.key]) next[mirrorKeyL.key] = mirrorKeyL.order;
             saveOrdersToStorage(next);
             return next;
           });
@@ -2220,7 +2247,7 @@ export default function App() {
     setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
     // Notify Captain App + KDS that this table's bill is settled
     socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
-    localSocketRef.current?.emit("order:clear", { tableId });
+    localSocketRef.current?.emit("order:clear", { tableId: tableId.startsWith("_mb_") ? order.tableId : tableId });
     window.electronAPI?.pushOrdersToLocal?.([]);
 
     // 3. Push full closed order to backend so Owner Web shows real sales figures.
@@ -2399,7 +2426,7 @@ export default function App() {
     setSelectedTableId(tableId);
 
     if (!tableId || !outlet?.id) return;
-    if (tableId.startsWith("counter-") || tableId.startsWith("online-")) return;
+    if (tableId.startsWith("counter-") || tableId.startsWith("online-") || tableId.startsWith("_mb_")) return;
 
     try {
       const serverOrder = await api.get(`/operations/order?tableId=${tableId}&outletId=${outlet.id}`);
