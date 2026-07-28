@@ -86,6 +86,15 @@ function addClosedOrder(tenantId, outletId, order) {
 
   // ── 1. In-memory (today-only POS view) ─────────────────────────────────────
   const list = _getOutletList(tenantId, outletId);
+
+  // Idempotency: if this bill number was already recorded (duplicate settlement
+  // from POS retry or double-click), skip the insert entirely.  billNo is stamped
+  // at print-time and is the most reliable per-session unique key.
+  // Returns false so the caller (deviceCloseOrderHandler) can skip the table clear too.
+  if (order.billNo != null && list.some(o => String(o.billNo) === String(order.billNo))) {
+    return false;
+  }
+
   list.unshift(stamped);
   if (list.length > 1000) list.splice(1000);
   _persist();   // runtime-state JSONB fallback (short-lived)
@@ -94,6 +103,7 @@ function addClosedOrder(tenantId, outletId, order) {
   insertClosedOrder(tenantId, outletId, stamped).catch((err) =>
     console.error("[closed-orders-store] Postgres write error:", err.message)
   );
+  return true;
 }
 
 /**
