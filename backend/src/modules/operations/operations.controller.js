@@ -600,9 +600,17 @@ async function deviceUpdateKotStatusHandler(req, res) {
  * Response: { ok: true, order? } — order present for dine-in tables.
  */
 async function deviceBillRequestHandler(req, res) {
-  const { outletId, tableId, isSplit, hasNextOrder, orderNumber } = req.body;
+  const { outletId, tableId, isSplit, hasNextOrder, orderNumber, mutationId } = req.body;
   const tenantId = req.user?.tenantId || "default";
   const io = req.app.locals.io;
+
+  // Idempotency: a sync-queue retry for the same bill-request carries the same mutationId.
+  // Return success immediately — the first call already set billRequested on the order and
+  // broadcast via socket, so all devices are already updated.
+  if (isProcessed(mutationId)) {
+    return res.json({ ok: true, _idempotent: true });
+  }
+
   if (io && outletId) {
     // Include orderNumber so POS can drop stale retries from the sync queue that target
     // a different seating (the backend's requestBill already guards this, but the socket
@@ -623,6 +631,8 @@ async function deviceBillRequestHandler(req, res) {
   if (io && outletId && updatedOrder) {
     io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", updatedOrder);
   }
+
+  markProcessed(mutationId);
 
   logAction({
     tenantId:  req.user?.tenantId || "default",
@@ -784,7 +794,7 @@ async function deviceGetOrCreateOrderHandler(req, res) {
  * Counter/takeaway orders (tableId starts with "counter-") are skipped gracefully.
  */
 async function deviceAddOrderItemHandler(req, res) {
-  const { tableId, item } = req.body;
+  const { tableId, item, mutationId } = req.body;
   if (!tableId || !item?.menuItemId) {
     return res.status(400).json({ error: "tableId and item.menuItemId are required" });
   }
@@ -792,10 +802,16 @@ async function deviceAddOrderItemHandler(req, res) {
   if (tableId.startsWith("counter-")) {
     return res.json({ ok: true, skipped: true });
   }
+  // Idempotency: sync-queue retries carry the same mutationId as the original request.
+  // If this id was already processed, return success without re-applying the mutation.
+  if (isProcessed(mutationId)) {
+    return res.status(201).json({ ok: true, _idempotent: true });
+  }
   // Prefer actorName from request body (Captain App sends logged-in staff name).
   // req.user?.type is "device" for Captain App tokens — never use it as a display name.
   const actor = req.body.actorName || req.user?.name || "Captain";
   const result = await addItemToOrder(tableId, { ...item, actorName: actor });
+  markProcessed(mutationId);
 
   logAction({
     tenantId:  req.user?.tenantId || "default",
@@ -816,15 +832,19 @@ async function deviceAddOrderItemHandler(req, res) {
  * Removes an unsent item from the in-memory order (no-op if already KOT'd).
  */
 async function deviceRemoveOrderItemHandler(req, res) {
-  const { tableId, itemId } = req.body;
+  const { tableId, itemId, mutationId } = req.body;
   if (!tableId || !itemId) {
     return res.status(400).json({ error: "tableId and itemId are required" });
   }
   if (tableId.startsWith("counter-") || tableId.startsWith("online-")) {
     return res.json({ ok: true, skipped: true });
   }
+  if (isProcessed(mutationId)) {
+    return res.json({ ok: true, _idempotent: true });
+  }
   const actor = req.user?.name || req.user?.type || "POS";
   const result = await removeItemFromOrder(tableId, itemId, actor);
+  markProcessed(mutationId);
 
   logAction({
     tenantId:  req.user?.tenantId || "default",
@@ -874,6 +894,7 @@ async function deviceVoidOrderItemHandler(req, res) {
 
 const { addClosedOrder } = require("./closed-orders-store");
 const { stampBillNo }   = require("./operations.memory-store");
+const { isProcessed, markProcessed } = require("./mutation-log");
 
 /**
  * POST /operations/assign-bill-no
