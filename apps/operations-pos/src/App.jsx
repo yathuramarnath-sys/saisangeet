@@ -1969,8 +1969,16 @@ export default function App() {
 
     // ── 1. Mark items as sent optimistically ─────────────────────────────
     const kotSeq = (order.kotCount || 0) + 1;
+    const unsentIds = new Set(unsent.map(i => i.id));
     mutateOrder(selectedTableId, (o) => {
-      o.items    = o.items.map((i) => ({ ...i, sentToKot: true }));
+      o.items    = o.items.map((i) => ({
+        ...i,
+        sentToKot: true,
+        // Stamp local sequence number so offline orders still show KOT grouping.
+        // The server's actual kotNumber (from filteredServerItems) overwrites this
+        // in the reconciliation block below when the request succeeds.
+        ...(unsentIds.has(i.id) && !i.kotNumber ? { kotNumber: kotSeq } : {}),
+      }));
       o.kotCount = kotSeq;
       return o;
     });

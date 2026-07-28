@@ -131,6 +131,7 @@ function buildEmptyOrder(tableIdOrMeta, fallbackOrderNumber = 10030) {
     controlAlerts: [],
     auditTrail: [],
     items: [],
+    kots: [],                  // [{kotNumber, sentAt, actorName, itemIds}] — one entry per Send KOT
     orderVersion: 1,          // monotonic counter — incremented on every mutation for conflict detection
     updatedAt: Date.now(),  // millisecond timestamp — used for stale-write detection
     _deletedItemIds: [],    // tombstone: item IDs deleted before KOT — addOrderItem rejects these
@@ -573,7 +574,7 @@ function mergeTables(currentTableId, sourceTableId, actor = "System") {
   return { mergedOrder: clone(mergedOrder), clearedTableId: sourceTableId };
 }
 
-function markKotSent(tableId, actor = "Captain", captainItems = null) {
+function markKotSent(tableId, actor = "Captain", captainItems = null, kotNo = null) {
   const order = findOrder(tableId);
   assertOrderOpen(order, "send KOT");
   // Apply captain's reduced quantities before marking sentToKot.
@@ -588,7 +589,24 @@ function markKotSent(tableId, actor = "Captain", captainItems = null) {
       return captainQty != null ? { ...item, quantity: captainQty } : item;
     });
   }
-  order.items = order.items.map((item) => ({ ...item, sentToKot: true }));
+  // Track which item IDs are being sent in this KOT round for the kots[] log.
+  const sentIds = (order.items || []).filter(i => !i.sentToKot).map(i => i.id);
+  order.items = order.items.map((item) => ({
+    ...item,
+    sentToKot: true,
+    // Stamp kotNumber only when first sent — never overwrite a prior KOT round's number.
+    ...(item.sentToKot ? {} : { kotNumber: kotNo }),
+  }));
+  // Record this KOT round on the order so closed-orders-store captures the history.
+  if (!order.kots) order.kots = [];
+  if (kotNo != null) {
+    order.kots.push({
+      kotNumber: kotNo,
+      sentAt:    new Date().toISOString(),
+      actorName: actor,
+      itemIds:   sentIds,
+    });
+  }
   order.pickupStatus = "new";
   order.notes = "KOT sent to kitchen";
   // Fallback: capture captainName here too in case addOrderItem wasn't called

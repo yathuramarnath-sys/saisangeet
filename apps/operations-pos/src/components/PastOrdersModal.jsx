@@ -268,12 +268,35 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
                   {isExpanded && (
                     <div className="past-order-detail">
                       <div className="past-items-list">
-                        {(order.items || []).filter(i => !i.isVoided).map((item, i) => (
-                          <div key={i} className="past-item-row">
-                            <span>{item.name}{item.isComp ? " 🎁" : ""} × {item.quantity}</span>
-                            <span>{item.isComp ? "COMP" : `₹${item.price * item.quantity}`}</span>
-                          </div>
-                        ))}
+                        {(() => {
+                          const validItems = (order.items || []).filter(i => !i.isVoided);
+                          // Group by kotNumber when present; old orders land in a single un-labelled group.
+                          const groups = [];
+                          const groupMap = new Map();
+                          validItems.forEach(item => {
+                            const key = item.kotNumber != null ? String(item.kotNumber) : "__none__";
+                            if (!groupMap.has(key)) {
+                              groupMap.set(key, []);
+                              groups.push({ kotNumber: item.kotNumber, items: groupMap.get(key) });
+                            }
+                            groupMap.get(key).push(item);
+                          });
+                          return groups.map(({ kotNumber, items: gItems }) => (
+                            <div key={kotNumber ?? "__none__"} className="past-kot-group">
+                              {kotNumber != null && (
+                                <div className="past-kot-label">
+                                  KOT #{String(kotNumber).padStart(4, "0")}
+                                </div>
+                              )}
+                              {gItems.map((item, i) => (
+                                <div key={i} className="past-item-row">
+                                  <span>{item.name}{item.isComp ? " 🎁" : ""} × {item.quantity}</span>
+                                  <span>{item.isComp ? "COMP" : `₹${item.price * item.quantity}`}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ));
+                        })()}
                       </div>
                       <div className="past-fin-rows">
                         <div className="past-fin-row"><span>Subtotal</span><span>₹{fin.subtotal}</span></div>
