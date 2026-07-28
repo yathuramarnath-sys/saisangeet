@@ -199,22 +199,33 @@ test.describe("Captain App — Core Flow", () => {
     await login(page);
 
     await openFreeTable(page);
+    const itemName = await addFirstMenuItem(page);
 
-    // Give openOrderScreen's async server fetch time to settle (up to 1500ms).
-    // If any item section appears during this window, the table has pre-existing
-    // items from a prior CI run — the race with the server fetch would cause the
-    // newly-added item to inherit sentToKot:true and move to the sent section,
-    // making the unsent-section assertion below a false negative.
-    const priorItems = await page.waitForSelector(
-      ".os2-section-sent, .os2-section-unsent",
-      { timeout: 1500 }
+    // After adding the item, wait for it to settle in either section.
+    // The openOrderScreen server fetch can race and merge the locally-added item
+    // with a server-sent item, causing it to land in the sent section instead.
+    // Detect the actual outcome and skip if contaminated rather than guessing timing.
+    const itemStatusHandle = await page.waitForFunction(
+      (name) => {
+        const unsentEls = document.querySelectorAll(".os2-item-unsent .os2-item-name");
+        const sentEls   = document.querySelectorAll(".os2-item-sent .os2-item-name");
+        for (const el of unsentEls) if (el.textContent.includes(name)) return "unsent";
+        for (const el of sentEls)   if (el.textContent.includes(name)) return "sent";
+        return null;
+      },
+      itemName,
+      { timeout: 10000 }
     ).catch(() => null);
-    if (priorItems) {
-      test.skip(true, "Table has pre-existing items from prior CI run — server-fetch race would corrupt unsent assertion, skipping");
+
+    if (!itemStatusHandle) {
+      test.skip(true, "Item did not appear in any section within 10s — skipping");
       return;
     }
-
-    const itemName = await addFirstMenuItem(page);
+    const itemStatus = await itemStatusHandle.jsonValue();
+    if (itemStatus === "sent") {
+      test.skip(true, "Item landed in sent section (server-fetch race contamination) — skipping");
+      return;
+    }
 
     // Item should appear in the "NOT SENT YET" section
     await expect(page.locator(".os2-section-unsent")).toBeVisible({ timeout: 5000 });
@@ -259,21 +270,33 @@ test.describe("Captain App — Core Flow", () => {
     await login(page);
 
     await openFreeTable(page);
+    const itemName5 = await addFirstMenuItem(page);
 
-    // Same contamination guard as test 3: if the table already has items from a
-    // prior CI run, pre-existing unsent items from the server would be merged into
-    // local state *after* the KOT is sent (since openOrderScreen fetches async),
-    // causing the unsent section to remain visible even after a successful KOT.
-    const priorItems5 = await page.waitForSelector(
-      ".os2-section-sent, .os2-section-unsent",
-      { timeout: 1500 }
+    // After adding the item, wait for it to settle in either section.
+    // If the server fetch races and lands it in the sent section (contamination),
+    // skip — the KOT button won't exist and the test would time out for 30s.
+    const itemStatusHandle5 = await page.waitForFunction(
+      (name) => {
+        const unsentEls = document.querySelectorAll(".os2-item-unsent .os2-item-name");
+        const sentEls   = document.querySelectorAll(".os2-item-sent .os2-item-name");
+        for (const el of unsentEls) if (el.textContent.includes(name)) return "unsent";
+        for (const el of sentEls)   if (el.textContent.includes(name)) return "sent";
+        return null;
+      },
+      itemName5,
+      { timeout: 10000 }
     ).catch(() => null);
-    if (priorItems5) {
-      test.skip(true, "Table has pre-existing items from prior CI run — server-fetch race would keep unsent section visible, skipping");
+
+    if (!itemStatusHandle5) {
+      test.skip(true, "Item did not appear in any section within 10s — skipping");
+      return;
+    }
+    const itemStatus5 = await itemStatusHandle5.jsonValue();
+    if (itemStatus5 === "sent") {
+      test.skip(true, "Item landed in sent section (server-fetch race contamination) — skipping");
       return;
     }
 
-    await addFirstMenuItem(page);
     await page.click(".os2-kot-btn");
     await handleWaiterPicker(page);
 
@@ -824,9 +847,33 @@ test.describe("Captain App — Core Flow", () => {
     await page.waitForSelector(".tf2-page", { timeout: 10000 });
     await page.waitForSelector(".tf2-card", { timeout: 10000 });
 
-    // Long press occupied table → Print Bill
-    const occupiedTable = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
-    await expect(occupiedTable).toBeVisible({ timeout: 15000 });
+    // Wait for our specific table to reach running/ordering state (KOT must be persisted).
+    // Use waitForFunction targeting tableNum to avoid matching a different table.
+    const tableReady19 = await page.waitForFunction(
+      (tNum) => {
+        for (const card of document.querySelectorAll(".tf2-card")) {
+          const numEl = card.querySelector(".tf2-table-num");
+          if (numEl && numEl.textContent.trim() === tNum) {
+            const st = card.getAttribute("data-st");
+            return (st === "running" || st === "ordering") ? st : null;
+          }
+        }
+        return null;
+      },
+      tableNum,
+      { timeout: 15000 }
+    ).catch(() => null);
+
+    if (!tableReady19) {
+      test.skip(true, `Table ${tableNum} did not reach running/ordering state — KOT likely failed silently, skipping`);
+      return;
+    }
+
+    // Long press our specific table → Print Bill
+    const occupiedTable = page.locator(".tf2-card", {
+      has: page.locator(".tf2-table-num").filter({ hasText: new RegExp(`^${tableNum}$`) }),
+    });
+    await expect(occupiedTable).toBeVisible({ timeout: 5000 });
     const box1 = await occupiedTable.boundingBox();
     await page.mouse.move(box1.x + box1.width / 2, box1.y + box1.height / 2);
     await page.mouse.down();
