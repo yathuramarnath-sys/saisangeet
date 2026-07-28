@@ -614,6 +614,11 @@ function markKotSent(tableId, actor = "Captain", captainItems = null, kotNo = nu
     // Stamp kotNumber only when first sent — never overwrite a prior KOT round's number.
     ...(item.sentToKot ? {} : { kotNumber: kotNo }),
   }));
+  // New items going to kitchen invalidate any pending bill request.
+  // Without this, the server returns billRequested:true after KOT which gets
+  // broadcast to POS and captain, flipping both apps to "Bill ready" even
+  // when nobody touched bill print.
+  if (sentIds.length > 0) order.billRequested = false;
   // Record this KOT round on the order so closed-orders-store captures the history.
   if (!order.kots) order.kots = [];
   if (kotNo != null) {

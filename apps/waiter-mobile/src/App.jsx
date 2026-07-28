@@ -1633,11 +1633,17 @@ export function App() {
         }
         // updatedAt + 1 ensures the reconciled order is always exactly 1ms newer than
         // the backend's own timestamp so both captain and POS reject the stale echo.
+        // billRequested: preserve captain's LOCAL knowledge — do NOT inherit from the server
+        // response. If the server's order had billRequested:true from any prior state (stale
+        // sync-queue replay, previous order, etc.), spreading lastServerOrder would broadcast
+        // billRequested:true to POS (with updatedAt+1 winning the stale-write guard), causing
+        // both apps to show "Bill ready" even when nobody requested a bill.
         const rec = {
           ...lastServerOrder,
           assignedWaiter: waiterToShow,
           items: deduplicatedItems,
           updatedAt: (lastServerOrder.updatedAt || 0) + 1,
+          billRequested: prev[tid]?.billRequested ?? false,
         };
         reconciledOrder = rec;
         return { ...prev, [tid]: rec };
