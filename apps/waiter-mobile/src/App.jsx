@@ -1711,27 +1711,16 @@ export function App() {
     handleUpdateOrder({ ...printOrder, billRequested: true, hasNextOrder: true });
     toast("Printing bill…", { icon: "🖨️" });
 
-    // Remove table from captain's local state immediately — floor plan shows it as free
-    // so captain can seat the next customer without waiting for the API round-trip.
-    // handleUpdateOrder (above) already sent billRequested+hasNextOrder via socket, so the
-    // backend already knows. The api.post below persists hasNextOrder in the DB so
-    // deviceGetOrCreateOrderHandler auto-advances to a fresh empty order next open.
-    setOrders(prev => {
-      const { [tid]: _, ...rest } = prev;
-      return rest;
-    });
-    localStorage.removeItem(`captain_courses_${tid}`);
-    if (tid === selectedTableId) setSelectedTableId(null);
-    setActionTableId(null);
-
-    // Persist hasNextOrder to DB in background (fire-and-forget after local clear).
-    // billRequested alone is also set by POS/QR — without hasNextOrder the backend
-    // must NOT clear the active order, so the flag is the disambiguator.
+    // Persist hasNextOrder to the backend BEFORE clearing the floor plan.
+    // If we cleared first (old approach), the captain could tap the now-free table before
+    // the API call landed — the backend would still have hasNextOrder=false and return the
+    // old billed order instead of auto-advancing to Order 2. The captain would unknowingly
+    // work on the old order and POS would show "Bill" after KOT. Awaiting first prevents
+    // this race at the cost of ~200ms delay before the floor plan updates.
     try {
       await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true, orderNumber: printOrder.orderNumber ?? null });
     } catch (err) {
       console.warn("[captain] bill-request failed:", err.message);
-      // Local state is already cleared — queue for retry so hasNextOrder reaches the server.
       syncEnqueue(SYNC_ACTION.BILL_REQUEST, {
         outletId:    outlet?.id,
         tableId:     tid,
@@ -1739,6 +1728,16 @@ export function App() {
         orderNumber: printOrder.orderNumber ?? null,
       });
     }
+
+    // Remove table from captain's local state — floor plan shows it as free.
+    // Backend now has hasNextOrder=true so the next openOrderScreen auto-advances.
+    setOrders(prev => {
+      const { [tid]: _, ...rest } = prev;
+      return rest;
+    });
+    localStorage.removeItem(`captain_courses_${tid}`);
+    if (tid === selectedTableId) setSelectedTableId(null);
+    setActionTableId(null);
   }
 
   // ── Split bill print ──────────────────────────────────────────────────────

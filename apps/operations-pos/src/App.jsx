@@ -859,10 +859,13 @@ export default function App() {
           });
         });
 
-        socket.on("bill:requested", ({ tableId, isSplit }) => {
+        socket.on("bill:requested", ({ tableId, isSplit, orderNumber }) => {
           setOrders((prev) => {
             const order = prev[tableId];
             if (!order) return prev;
+            // Drop stale sync-queue retries that target a different seating.
+            if (orderNumber != null && order.orderNumber != null &&
+                String(order.orderNumber) !== String(orderNumber)) return prev;
             const updated = {
               ...order,
               billRequested: true,
@@ -1012,18 +1015,9 @@ export default function App() {
 
           const currentForMirror = ordersRef.current[updatedOrder.tableId];
 
-          // Mirror-close guard: captain settled an older order — leave active order intact.
-          if (
-            updatedOrder.isClosed &&
-            currentForMirror &&
-            updatedOrder.orderNumber != null &&
-            currentForMirror.orderNumber != null &&
-            Number(updatedOrder.orderNumber) !== Number(currentForMirror.orderNumber)
-          ) {
-            return; // don't call setOrders — active order is preserved
-          }
-
           // Mirror-bill cleanup (local socket): settled Order 1 → remove virtual slot.
+          // Must run BEFORE the mirror-close guard so the _mb_ entry is cleaned up even when
+          // Order 2 is already active on the same table (the guard would otherwise return first).
           const mbKeyL = `_mb_${updatedOrder.orderNumber}`;
           if (updatedOrder.isClosed && ordersRef.current[mbKeyL]) {
             setOrders(prev => {
@@ -1034,6 +1028,17 @@ export default function App() {
               return cleaned;
             });
             return;
+          }
+
+          // Mirror-close guard: captain settled an older order — leave active order intact.
+          if (
+            updatedOrder.isClosed &&
+            currentForMirror &&
+            updatedOrder.orderNumber != null &&
+            currentForMirror.orderNumber != null &&
+            Number(updatedOrder.orderNumber) !== Number(currentForMirror.orderNumber)
+          ) {
+            return; // don't call setOrders — active order is preserved
           }
 
           // Mirror-bill (local socket): save pending bill before new seating takes over slot.
