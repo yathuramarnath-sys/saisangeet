@@ -1088,6 +1088,7 @@ export function App() {
       outletId:  outlet?.id || branchConfig?.outletId,
       itemId,
       actorName: loggedInStaff?.name || "Captain",
+      mutationId: `mut-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     };
     try {
       await api.delete(`/operations/order/item`, removePayload);
@@ -1149,6 +1150,8 @@ export function App() {
     // Block order:updated socket events for this table while REST call is in flight.
     // Server echoes back order:updated after processing the add — without this guard,
     // the echo (with server qty) overwrites the captain's local qty adjustments.
+    // Generate mutationId once — reused in syncEnqueue on failure so retries carry the same id.
+    const addMutationId = `mut-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     addItemInFlightRef.current[tableId] = (addItemInFlightRef.current[tableId] || 0) + 1;
     try {
       const serverOrder = await api.post("/operations/order/item", {
@@ -1166,7 +1169,8 @@ export function App() {
           categoryName: item.categoryName || item.category || "",  // for backend name-based routing
           taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
         },
-        actorName: loggedInStaff?.name || "Captain",
+        actorName:  loggedInStaff?.name || "Captain",
+        mutationId: addMutationId,
       });
       // Local state is the source of truth for qty, note, taxRate (GST).
       // Server response is used ONLY to resolve temp IDs → real server UUIDs,
@@ -1253,7 +1257,8 @@ export function App() {
           categoryName: item.categoryName || item.category || "",
           taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
         },
-        actorName: loggedInStaff?.name || "Captain",
+        actorName:  loggedInStaff?.name || "Captain",
+        mutationId: addMutationId,
       });
     }
   }
@@ -1717,15 +1722,17 @@ export function App() {
     // old billed order instead of auto-advancing to Order 2. The captain would unknowingly
     // work on the old order and POS would show "Bill" after KOT. Awaiting first prevents
     // this race at the cost of ~200ms delay before the floor plan updates.
+    const billReqMutationId = `mut-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     try {
-      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true, orderNumber: printOrder.orderNumber ?? null });
+      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true, orderNumber: printOrder.orderNumber ?? null, mutationId: billReqMutationId });
     } catch (err) {
       console.warn("[captain] bill-request failed:", err.message);
       syncEnqueue(SYNC_ACTION.BILL_REQUEST, {
-        outletId:    outlet?.id,
-        tableId:     tid,
+        outletId:     outlet?.id,
+        tableId:      tid,
         hasNextOrder: true,
-        orderNumber: printOrder.orderNumber ?? null,
+        orderNumber:  printOrder.orderNumber ?? null,
+        mutationId:   billReqMutationId,
       });
     }
 
