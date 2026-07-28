@@ -297,6 +297,18 @@ test.describe("Captain App — Core Flow", () => {
       return;
     }
 
+    // Capture baseline counts BEFORE clicking KOT — accumulated T1 items from
+    // previous tests in the same CI run may share the same item name, so we verify
+    // by DELTA (sent ↑, unsent ↓) rather than by presence/absence.
+    const countsBefore5 = await page.evaluate((name) => {
+      const sentEls = document.querySelectorAll(".os2-item-sent .os2-item-name");
+      const unsentEls = document.querySelectorAll(".os2-item-unsent .os2-item-name");
+      return {
+        sent: [...sentEls].filter(el => el.textContent.includes(name)).length,
+        unsent: [...unsentEls].filter(el => el.textContent.includes(name)).length,
+      };
+    }, itemName5);
+
     await page.click(".os2-kot-btn");
     await handleWaiterPicker(page);
 
@@ -308,27 +320,25 @@ test.describe("Captain App — Core Flow", () => {
     // onClose() → setSelectedTableId(null) → navigates away from the order screen.
     await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 }).catch(() => null);
 
-    // Our specific item should now be in SENT TO KITCHEN.
-    // Do NOT check that the whole unsent section is gone — the shared test backend
-    // accumulates state across CI runs, so other unsent items may persist on T1.
+    // Verify the KOT moved items from unsent → sent by checking the COUNT DELTA.
+    // Simple presence checks fail when T1 has accumulated items from prior tests:
+    // the same item name may exist in BOTH sections from earlier accumulated state.
     await expect(page.locator(".os2-section-sent")).toBeVisible({ timeout: 15000 });
-    const itemInSent5 = await page.waitForFunction(
-      (name) => {
+    const kotReflected5 = await page.waitForFunction(
+      ({ name, sentBefore, unsentBefore }) => {
         const sentEls = document.querySelectorAll(".os2-item-sent .os2-item-name");
-        for (const el of sentEls) if (el.textContent.includes(name)) return true;
-        return null;
+        const unsentEls = document.querySelectorAll(".os2-item-unsent .os2-item-name");
+        const sentCount = [...sentEls].filter(el => el.textContent.includes(name)).length;
+        const unsentCount = [...unsentEls].filter(el => el.textContent.includes(name)).length;
+        return (sentCount > sentBefore && unsentCount < unsentBefore) ? { sentCount, unsentCount } : null;
       },
-      itemName5,
-      { timeout: 5000 }
+      { name: itemName5, sentBefore: countsBefore5.sent, unsentBefore: countsBefore5.unsent },
+      { timeout: 10000 }
     ).catch(() => null);
-    if (!itemInSent5) throw new Error(`"${itemName5}" did not appear in sent section after KOT`);
-
-    const ourItemStillUnsent5 = await page.evaluate((name) => {
-      const unsentEls = document.querySelectorAll(".os2-item-unsent .os2-item-name");
-      for (const el of unsentEls) if (el.textContent.includes(name)) return true;
-      return false;
-    }, itemName5);
-    expect(ourItemStillUnsent5).toBe(false);
+    if (!kotReflected5) throw new Error(
+      `After KOT: "${itemName5}" count did not shift from unsent to sent ` +
+      `(baseline: ${JSON.stringify(countsBefore5)})`
+    );
   });
 
   // ── 6. Add More Items After KOT ──────────────────────────────────────────
