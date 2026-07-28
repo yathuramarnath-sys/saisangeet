@@ -604,7 +604,10 @@ async function deviceBillRequestHandler(req, res) {
   const tenantId = req.user?.tenantId || "default";
   const io = req.app.locals.io;
   if (io && outletId) {
-    io.to(`outlet:${tenantId}:${outletId}`).emit("bill:requested", { tableId, requestedAt: new Date().toISOString(), isSplit: !!isSplit });
+    // Include orderNumber so POS can drop stale retries from the sync queue that target
+    // a different seating (the backend's requestBill already guards this, but the socket
+    // event fires before that check and would otherwise corrupt a newer order's billRequested).
+    io.to(`outlet:${tenantId}:${outletId}`).emit("bill:requested", { tableId, requestedAt: new Date().toISOString(), isSplit: !!isSplit, orderNumber: orderNumber ?? null });
   }
 
   let updatedOrder;
