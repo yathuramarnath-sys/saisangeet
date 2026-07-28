@@ -160,6 +160,13 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
     );
   }
 
+  // Mirror bills: pending bills from previous seatings saved under "_mb_<orderNumber>" keys.
+  // Show these as a separate "Pending Bills" section so the cashier can settle both seatings.
+  const mirrorBills = Object.entries(orders)
+    .filter(([k]) => k.startsWith("_mb_"))
+    .map(([k, o]) => ({ ...o, _mirrorKey: k }))
+    .filter(o => o.billRequested && !o.isClosed && (o.items || []).some(i => !i.isVoided && !i.isComp));
+
   return (
     <div className="tpp">
       {/* Area tabs */}
@@ -175,6 +182,28 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
               {a.name}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Pending bills from previous seatings (mirror bills) */}
+      {mirrorBills.length > 0 && (
+        <div className="tpp-area">
+          <p className="tpp-area-label" style={{ color: "#3B82F6" }}>Pending Bills</p>
+          <div className="tpp-table-grid">
+            {mirrorBills.map(bill => {
+              const total = calcOrderTotal(bill);
+              const staff = bill.assignedWaiter || bill.captainName || "";
+              return (
+                <button key={bill._mirrorKey} type="button" className="tpp-table-btn" data-st="bill"
+                  onClick={() => onSelectTable(bill._mirrorKey)}>
+                  <span className="tpp-table-num">{bill.tableNumber}</span>
+                  <span className="tpp-table-status">Bill</span>
+                  {staff && <span className="tpp-table-staff">{staff}</span>}
+                  {total !== null && <span className="tpp-table-amt">₹{total.toLocaleString("en-IN")}</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
