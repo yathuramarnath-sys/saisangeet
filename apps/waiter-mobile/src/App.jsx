@@ -1878,14 +1878,21 @@ export function App() {
           }
           return merged;
         });
-        // Rebuild billAlerts from server state so settled bills don't persist after sync.
-        const alerts = {};
-        for (const o of liveOrders) {
-          if (o.billRequested && !o.isClosed && (o.items || []).some(i => !i.isVoided && !i.isComp)) {
-            alerts[String(o.orderNumber ?? o.id)] = o;
+        // Merge billAlerts: only remove alerts the server confirms as settled (isClosed).
+        // DO NOT wipe alerts that the server has simply advanced past (clearTableAfterSettle
+        // replaces the server's in-memory slot, but the old pending bill still needs payment).
+        setBillAlerts(prev => {
+          const next = { ...prev };
+          for (const o of liveOrders) {
+            const key = String(o.orderNumber ?? o.id);
+            if (o.isClosed) {
+              delete next[key]; // server confirmed settled — safe to remove
+            } else if (o.billRequested && !o.isClosed && (o.items || []).some(i => !i.isVoided && !i.isComp)) {
+              next[key] = o; // add/refresh any active bill the server knows about
+            }
           }
-        }
-        setBillAlerts(alerts);
+          return next;
+        });
       }
       if (cats)  setCategories(cats);
       if (items) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));

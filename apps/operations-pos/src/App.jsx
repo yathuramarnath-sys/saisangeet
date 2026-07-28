@@ -780,21 +780,22 @@ export default function App() {
               return prev; // our version is >30 s newer — discard incoming
             }
 
-            // Advance-blank guard: captain advanced the table slot after printing
-            // (clearTableAfterSettle → new empty slot → we now broadcast it).
-            // The POS still holds the OLD order as a pending bill for cashier to
-            // settle — don't let the blank wipe it.  We still clear mirror tiles
-            // because those are from even-older orders, not the pending one.
-            // Distinguish advance-blank from settle-blank: settle first broadcasts
-            // isClosed:true (which updates current to closed), so by the time the
-            // blank arrives current.isClosed is true → this guard won't fire.
+            // Pending-bill guard: the captain printed a bill and the POS is holding
+            // it for the cashier to settle.  Block ANY incoming order for the same
+            // table that (a) is not the bill itself (billRequested=false) and
+            // (b) belongs to a different seating (different or absent orderNumber).
+            // This covers both the blank advance-slot broadcast AND the captain's
+            // fresh KOT events — the cashier must settle the pending bill first.
+            // Distinguish from settle-blank: settle first broadcasts isClosed:true
+            // so by the time the blank arrives current.isClosed is true → guard won't fire.
             if (
               !updatedOrder.isClosed &&
               !updatedOrder.billRequested &&
               !updatedOrder.isSettleBlank &&
-              (!updatedOrder.items || updatedOrder.items.length === 0) &&
               current?.billRequested && !current?.isClosed &&
-              (current?.items || []).some(i => !i.isVoided && !i.isComp)
+              (current?.items || []).some(i => !i.isVoided && !i.isComp) &&
+              (updatedOrder.orderNumber == null ||
+                Number(updatedOrder.orderNumber) !== Number(current?.orderNumber))
             ) {
               return prev; // pending bill preserved — cashier must still settle it
             }
@@ -1014,13 +1015,15 @@ export default function App() {
             return; // don't call setOrders — active order is preserved
           }
 
-          // Advance-blank guard: captain advanced the slot; POS still has the pending bill.
+          // Pending-bill guard: same logic as cloud socket — block any new-seating
+          // order from overwriting the pending bill the cashier must still settle.
           if (
             !updatedOrder.isClosed &&
             !updatedOrder.billRequested &&
-            (!updatedOrder.items || updatedOrder.items.length === 0) &&
             currentForMirror?.billRequested && !currentForMirror?.isClosed &&
-            (currentForMirror?.items || []).some(i => !i.isVoided && !i.isComp)
+            (currentForMirror?.items || []).some(i => !i.isVoided && !i.isComp) &&
+            (updatedOrder.orderNumber == null ||
+              Number(updatedOrder.orderNumber) !== Number(currentForMirror?.orderNumber))
           ) {
             return; // pending bill preserved
           }
