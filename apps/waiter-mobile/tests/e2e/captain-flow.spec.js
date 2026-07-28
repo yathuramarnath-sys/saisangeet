@@ -308,11 +308,27 @@ test.describe("Captain App — Core Flow", () => {
     // onClose() → setSelectedTableId(null) → navigates away from the order screen.
     await page.waitForSelector(".kot-success-page, .kot-overlay", { timeout: 20000 }).catch(() => null);
 
-    // Items should now be in SENT TO KITCHEN, not NOT SENT YET
+    // Our specific item should now be in SENT TO KITCHEN.
+    // Do NOT check that the whole unsent section is gone — the shared test backend
+    // accumulates state across CI runs, so other unsent items may persist on T1.
     await expect(page.locator(".os2-section-sent")).toBeVisible({ timeout: 15000 });
-    await expect(page.locator(".os2-section-unsent")).not.toBeVisible();
-    // Send KOT button should be gone (no unsent items)
-    await expect(page.locator(".os2-kot-btn")).not.toBeVisible();
+    const itemInSent5 = await page.waitForFunction(
+      (name) => {
+        const sentEls = document.querySelectorAll(".os2-item-sent .os2-item-name");
+        for (const el of sentEls) if (el.textContent.includes(name)) return true;
+        return null;
+      },
+      itemName5,
+      { timeout: 5000 }
+    ).catch(() => null);
+    if (!itemInSent5) throw new Error(`"${itemName5}" did not appear in sent section after KOT`);
+
+    const ourItemStillUnsent5 = await page.evaluate((name) => {
+      const unsentEls = document.querySelectorAll(".os2-item-unsent .os2-item-name");
+      for (const el of unsentEls) if (el.textContent.includes(name)) return true;
+      return false;
+    }, itemName5);
+    expect(ourItemStillUnsent5).toBe(false);
   });
 
   // ── 6. Add More Items After KOT ──────────────────────────────────────────
