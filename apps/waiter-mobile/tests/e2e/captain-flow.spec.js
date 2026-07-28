@@ -5,18 +5,22 @@
  * They exercise the real backend at api.dinexpos.in using a dedicated test outlet.
  *
  * Required env vars (set as GitHub Actions secrets):
- *   CAPTAIN_URL          — e.g. https://captain.dinexpos.in or Vercel preview URL
- *   CAPTAIN_BRANCH_CODE  — test outlet branch code (e.g. KANC-1001-FD5FE320)
- *   CAPTAIN_STAFF_NAME   — staff name to log in as (e.g. Murugan)
- *   CAPTAIN_STAFF_PIN    — 4-digit PIN (e.g. 5546)
+ *   CAPTAIN_URL           — e.g. https://captain.dinexpos.in or Vercel preview URL
+ *   CAPTAIN_BRANCH_CODE   — test outlet branch code (e.g. VNB2-B413368C)
+ *   CAPTAIN_STAFF_NAME    — staff name for most tests (e.g. Murugan)
+ *   CAPTAIN_STAFF_PIN     — 4-digit PIN (e.g. 5546)
+ *   CAPTAIN_SETTLER_NAME  — staff who has canSettleBill (for test 21); falls back to CAPTAIN_STAFF_NAME
+ *   CAPTAIN_SETTLER_PIN   — PIN for settler staff; falls back to CAPTAIN_STAFF_PIN
  */
 
 import { test, expect } from "@playwright/test";
 
-const BASE_URL   = process.env.CAPTAIN_URL        || "https://captain.dinexpos.in";
-const BRANCH     = process.env.CAPTAIN_BRANCH_CODE || "";
-const STAFF_NAME = process.env.CAPTAIN_STAFF_NAME  || "";
-const STAFF_PIN  = process.env.CAPTAIN_STAFF_PIN   || "";
+const BASE_URL      = process.env.CAPTAIN_URL          || "https://captain.dinexpos.in";
+const BRANCH        = process.env.CAPTAIN_BRANCH_CODE  || "";
+const STAFF_NAME    = process.env.CAPTAIN_STAFF_NAME   || "";
+const STAFF_PIN     = process.env.CAPTAIN_STAFF_PIN    || "";
+const SETTLER_NAME  = process.env.CAPTAIN_SETTLER_NAME || STAFF_NAME;
+const SETTLER_PIN   = process.env.CAPTAIN_SETTLER_PIN  || STAFF_PIN;
 
 // Cached after beforeAll so individual tests restore it without re-calling the API
 let captainStorageState = null;
@@ -60,22 +64,27 @@ async function setupDevice(page) {
 }
 
 /** Select staff and enter PIN */
-async function login(page) {
+async function login(page, name = STAFF_NAME, pin = STAFF_PIN) {
   // Wait for staff picker
   await page.waitForSelector(".ls2-who-heading", { timeout: 15000 });
 
   // Find and click the staff row
-  const staffRow = page.locator(".ls2-list-name", { hasText: STAFF_NAME }).first();
+  const staffRow = page.locator(".ls2-list-name", { hasText: name }).first();
   await expect(staffRow).toBeVisible({ timeout: 10000 });
   await staffRow.click();
 
   // Enter PIN digit by digit on the numpad
-  for (const digit of STAFF_PIN) {
+  for (const digit of pin) {
     await page.locator(".ls2-key", { hasText: digit }).first().click();
   }
 
   // Wait for floor plan (login success)
   await page.waitForSelector(".tf2-page", { timeout: 15000 });
+}
+
+/** Log in as the settler staff (canSettleBill). Falls back to main staff if not separately configured. */
+async function loginAsSettler(page) {
+  return login(page, SETTLER_NAME, SETTLER_PIN);
 }
 
 /** Find the first free table and open it. Returns the table number text. */
@@ -1045,7 +1054,7 @@ test.describe("Captain App — Core Flow", () => {
   // the staff member has canSettleBill permission. This test skips gracefully
   // if the pending bill is not visible (slow socket) or if canSettleBill is off.
   test("21. settlement — UPI payment via MoreScreen pending bills", async ({ page }) => {
-    await clearState(page); await login(page);
+    await clearState(page); await loginAsSettler(page);
 
     await openFreeTable(page);
     await addFirstMenuItem(page);

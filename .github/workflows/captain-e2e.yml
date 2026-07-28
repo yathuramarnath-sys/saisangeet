@@ -44,10 +44,12 @@ jobs:
           # PR events: test against this branch's Vercel preview so branch fixes are exercised.
           # Update the preview URL below when creating a new branch.
           # workflow_dispatch: override via captain_url input (defaults to preview URL below).
-          CAPTAIN_URL:         ${{ github.event.inputs.captain_url || 'https://saisangeet-waiter-mobile-git-claude-recover-l-9587ad-saisangeet.vercel.app' }}
-          CAPTAIN_BRANCH_CODE: ${{ secrets.CAPTAIN_BRANCH_CODE }}
-          CAPTAIN_STAFF_NAME:  ${{ secrets.CAPTAIN_STAFF_NAME }}
-          CAPTAIN_STAFF_PIN:   ${{ secrets.CAPTAIN_STAFF_PIN }}
+          CAPTAIN_URL:          ${{ github.event.inputs.captain_url || 'https://saisangeet-waiter-mobile-git-claude-recover-l-9587ad-saisangeet.vercel.app' }}
+          CAPTAIN_BRANCH_CODE:  ${{ secrets.CAPTAIN_BRANCH_CODE }}
+          CAPTAIN_STAFF_NAME:   ${{ secrets.CAPTAIN_STAFF_NAME }}
+          CAPTAIN_STAFF_PIN:    ${{ secrets.CAPTAIN_STAFF_PIN }}
+          CAPTAIN_SETTLER_NAME: ${{ secrets.CAPTAIN_SETTLER_NAME }}
+          CAPTAIN_SETTLER_PIN:  ${{ secrets.CAPTAIN_SETTLER_PIN }}
         run: npm run test:e2e
 
       # ── Upload report on failure ──────────────────────────────────────────
