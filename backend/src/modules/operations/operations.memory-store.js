@@ -131,6 +131,7 @@ function buildEmptyOrder(tableIdOrMeta, fallbackOrderNumber = 10030) {
     controlAlerts: [],
     auditTrail: [],
     items: [],
+    orderVersion: 1,          // monotonic counter — incremented on every mutation for conflict detection
     updatedAt: Date.now(),  // millisecond timestamp — used for stale-write detection
     _deletedItemIds: [],    // tombstone: item IDs deleted before KOT — addOrderItem rejects these
   };
@@ -258,6 +259,7 @@ function resetStateForTest() {
         controlAlerts: [],
         auditTrail: [],
         items: [],
+        orderVersion: 1,
         updatedAt: Date.now()
       };
     }
@@ -595,6 +597,7 @@ function markKotSent(tableId, actor = "Captain", captainItems = null) {
     if (!order.captainName) order.captainName = actor;
   }
   appendAudit(order, buildAuditEntry("KOT sent", actor, "Now"));
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
@@ -630,6 +633,7 @@ function requestBill(tableId, actor = "Waiter", isSplit = false, hasNextOrder = 
   if (isSplit) order.isSplitBill = true;
   if (hasNextOrder) order.hasNextOrder = true;
   appendAudit(order, buildAuditEntry("Bill requested", actor, "Now"));
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
@@ -720,6 +724,7 @@ function addOrderItem(tableId, payload, actor = "System") {
     if (!order.captainName) order.captainName = actor;
   }
   appendAudit(order, buildAuditEntry("Item added", actor, "Now"));
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 
@@ -745,6 +750,7 @@ function removeOrderItem(tableId, itemId, actor = "System") {
   if (idx === -1) return clone(order); // item not found yet — tombstone recorded, no-op on items
   order.items.splice(idx, 1);
   appendAudit(order, buildAuditEntry("Item removed", actor, "Now"));
+  order.orderVersion = (order.orderVersion || 1) + 1;
   return clone(order);
 }
 

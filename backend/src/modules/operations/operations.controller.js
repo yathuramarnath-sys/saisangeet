@@ -611,6 +611,17 @@ async function deviceBillRequestHandler(req, res) {
     return res.json({ ok: true, _idempotent: true });
   }
 
+  const { expectedVersion: billExpectedVersion } = req.body;
+  if (billExpectedVersion != null && tableId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+    const { getOrder: _getOrdV } = require("./operations.memory-store");
+    try {
+      const cur = _getOrdV(tableId);
+      if (cur.orderVersion != null && Number(cur.orderVersion) !== Number(billExpectedVersion)) {
+        return res.status(409).json({ ok: false, error: "VERSION_CONFLICT", currentOrder: cur });
+      }
+    } catch (_) {}
+  }
+
   if (io && outletId) {
     // Include orderNumber so POS can drop stale retries from the sync queue that target
     // a different seating (the backend's requestBill already guards this, but the socket
@@ -807,6 +818,20 @@ async function deviceAddOrderItemHandler(req, res) {
   if (isProcessed(mutationId)) {
     return res.status(201).json({ ok: true, _idempotent: true });
   }
+  // Version conflict guard: captain sends expectedVersion from its local tracking.
+  // If the server order is at a different version, the captain's write is stale — return
+  // the current order so the captain can update and retry with the correct version.
+  // Skip if expectedVersion not sent (older clients, sync-queue replays).
+  const { expectedVersion } = req.body;
+  if (expectedVersion != null) {
+    const { getOrder: _getOrdV } = require("./operations.memory-store");
+    try {
+      const cur = _getOrdV(tableId);
+      if (cur.orderVersion != null && Number(cur.orderVersion) !== Number(expectedVersion)) {
+        return res.status(409).json({ ok: false, error: "VERSION_CONFLICT", currentOrder: cur });
+      }
+    } catch (_) { /* TABLE_NOT_FOUND — let addItemToOrder handle it */ }
+  }
   // Prefer actorName from request body (Captain App sends logged-in staff name).
   // req.user?.type is "device" for Captain App tokens — never use it as a display name.
   const actor = req.body.actorName || req.user?.name || "Captain";
@@ -841,6 +866,16 @@ async function deviceRemoveOrderItemHandler(req, res) {
   }
   if (isProcessed(mutationId)) {
     return res.json({ ok: true, _idempotent: true });
+  }
+  const { expectedVersion: removeExpectedVersion } = req.body;
+  if (removeExpectedVersion != null) {
+    const { getOrder: _getOrdV } = require("./operations.memory-store");
+    try {
+      const cur = _getOrdV(tableId);
+      if (cur.orderVersion != null && Number(cur.orderVersion) !== Number(removeExpectedVersion)) {
+        return res.status(409).json({ ok: false, error: "VERSION_CONFLICT", currentOrder: cur });
+      }
+    } catch (_) {}
   }
   const actor = req.user?.name || req.user?.type || "POS";
   const result = await removeItemFromOrder(tableId, itemId, actor);

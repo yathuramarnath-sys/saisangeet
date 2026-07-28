@@ -176,6 +176,7 @@ export function App() {
   const connectLocalSocketRef = useRef(null);  // allows handleFindPOS to reconnect socket
   const kotInFlightRef        = useRef(new Set()); // tableIds with KOT request in flight
   const addItemInFlightRef    = useRef({});        // tableId → in-flight add-item count
+  const orderVersionsRef      = useRef({});        // tableId → last known orderVersion from server
   const outletRef             = useRef(outlet);    // always-current outlet for async closures
   // Protects unsent items from socket overwrites while the waiter picker is visible.
   // Set to the pending table's ID in handleSendKOT, cleared in picker Done/Cancel.
@@ -412,6 +413,10 @@ export function App() {
         socket.on("connect_error", () => { wasOffline = true; setSocketConnected(false); });
 
         socket.on("order:updated", (o) => {
+          // Sync the per-table version so captain can send expectedVersion with mutations.
+          if (o.tableId && o.orderVersion != null) {
+            orderVersionsRef.current[o.tableId] = o.orderVersion;
+          }
           // Track bill-requested orders for More screen (all tables, regardless of local state)
           setBillAlerts((prev) => {
             const key = String(o.orderNumber ?? o.id);
@@ -1083,18 +1088,33 @@ export function App() {
     });
 
     // Persist removal to backend — prevents item ghosting on POS after sync
+    const removeMutationId = `mut-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const removePayload = {
       tableId,
-      outletId:  outlet?.id || branchConfig?.outletId,
+      outletId:         outlet?.id || branchConfig?.outletId,
       itemId,
-      actorName: loggedInStaff?.name || "Captain",
-      mutationId: `mut-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      actorName:        loggedInStaff?.name || "Captain",
+      mutationId:       removeMutationId,
+      expectedVersion:  orderVersionsRef.current[tableId],
     };
     try {
-      await api.delete(`/operations/order/item`, removePayload);
+      const result = await api.delete(`/operations/order/item`, removePayload);
+      if (result?.orderVersion != null) orderVersionsRef.current[tableId] = result.orderVersion;
     } catch (err) {
+      if (err.status === 409 && err.body?.error === "VERSION_CONFLICT") {
+        const newVersion = err.body.currentOrder?.orderVersion;
+        if (newVersion != null) orderVersionsRef.current[tableId] = newVersion;
+        // Retry once with the server's current version — same mutationId
+        try {
+          const retryResult = await api.delete(`/operations/order/item`, { ...removePayload, expectedVersion: newVersion });
+          if (retryResult?.orderVersion != null) orderVersionsRef.current[tableId] = retryResult.orderVersion;
+          return;
+        } catch (_) { /* fall through to sync queue */ }
+      }
       console.warn("[captain] removeItem sync failed — queuing for retry:", err.message);
-      syncEnqueue(SYNC_ACTION.REMOVE_ITEM, removePayload);
+      // Strip expectedVersion so the sync-queue replay bypasses the version check
+      const { expectedVersion: _ev, ...queuePayload } = removePayload;
+      syncEnqueue(SYNC_ACTION.REMOVE_ITEM, queuePayload);
     }
   }
 
@@ -1153,24 +1173,34 @@ export function App() {
     // Generate mutationId once — reused in syncEnqueue on failure so retries carry the same id.
     const addMutationId = `mut-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     addItemInFlightRef.current[tableId] = (addItemInFlightRef.current[tableId] || 0) + 1;
+    const addItemPayload = {
+      tableId,
+      outletId: outlet?.id || branchConfig?.outletId,
+      item: {
+        id:           item.id,
+        menuItemId:   item.menuItemId || item.id,
+        name:         item.name,
+        price:        item.price,
+        quantity:     1,
+        note:         item.note || "",
+        stationName:  resolvedStation,
+        categoryId:   item.categoryId || "",
+        categoryName: item.categoryName || item.category || "",  // for backend name-based routing
+        taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
+      },
+      actorName:       loggedInStaff?.name || "Captain",
+      mutationId:      addMutationId,
+      expectedVersion: orderVersionsRef.current[tableId],
+    };
     try {
-      const serverOrder = await api.post("/operations/order/item", {
-        tableId,
-        outletId: outlet?.id || branchConfig?.outletId,
-        item: {
-          id:           item.id,
-          menuItemId:   item.menuItemId || item.id,
-          name:         item.name,
-          price:        item.price,
-          quantity:     1,
-          note:         item.note || "",
-          stationName:  resolvedStation,
-          categoryId:   item.categoryId || "",
-          categoryName: item.categoryName || item.category || "",  // for backend name-based routing
-          taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
-        },
-        actorName:  loggedInStaff?.name || "Captain",
-        mutationId: addMutationId,
+      let serverOrder = await api.post("/operations/order/item", addItemPayload).catch(async (err) => {
+        if (err.status === 409 && err.body?.error === "VERSION_CONFLICT") {
+          const newVersion = err.body.currentOrder?.orderVersion;
+          if (newVersion != null) orderVersionsRef.current[tableId] = newVersion;
+          // Retry once with the server's current version — same mutationId
+          return await api.post("/operations/order/item", { ...addItemPayload, expectedVersion: newVersion });
+        }
+        throw err;
       });
       // Local state is the source of truth for qty, note, taxRate (GST).
       // Server response is used ONLY to resolve temp IDs → real server UUIDs,
@@ -1222,6 +1252,8 @@ export function App() {
         };
         return { ...prev, [tableId]: newTableState };
       });
+      // Track server version for conflict detection on next mutation.
+      if (serverOrder?.orderVersion != null) orderVersionsRef.current[tableId] = serverOrder.orderVersion;
       // Do NOT broadcast to POS here — unsent items must not appear on POS
       // before KOT is sent. doSendKOT emits the reconciled order to POS after
       // KOT is confirmed, which is the correct trigger.
@@ -1723,17 +1755,33 @@ export function App() {
     // work on the old order and POS would show "Bill" after KOT. Awaiting first prevents
     // this race at the cost of ~200ms delay before the floor plan updates.
     const billReqMutationId = `mut-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const billReqPayload = {
+      outletId:        outlet?.id,
+      tableId:         tid,
+      hasNextOrder:    true,
+      orderNumber:     printOrder.orderNumber ?? null,
+      mutationId:      billReqMutationId,
+      expectedVersion: orderVersionsRef.current[tid],
+    };
     try {
-      await api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, hasNextOrder: true, orderNumber: printOrder.orderNumber ?? null, mutationId: billReqMutationId });
+      await api.post("/operations/bill-request", billReqPayload);
     } catch (err) {
-      console.warn("[captain] bill-request failed:", err.message);
-      syncEnqueue(SYNC_ACTION.BILL_REQUEST, {
-        outletId:     outlet?.id,
-        tableId:      tid,
-        hasNextOrder: true,
-        orderNumber:  printOrder.orderNumber ?? null,
-        mutationId:   billReqMutationId,
-      });
+      if (err.status === 409 && err.body?.error === "VERSION_CONFLICT") {
+        const newVersion = err.body.currentOrder?.orderVersion;
+        if (newVersion != null) orderVersionsRef.current[tid] = newVersion;
+        try {
+          await api.post("/operations/bill-request", { ...billReqPayload, expectedVersion: newVersion });
+          // retry succeeded — skip sync queue
+        } catch (_) {
+          // Retry also failed — queue without expectedVersion
+          const { expectedVersion: _ev, ...queueBillPayload } = billReqPayload;
+          syncEnqueue(SYNC_ACTION.BILL_REQUEST, queueBillPayload);
+        }
+      } else {
+        console.warn("[captain] bill-request failed:", err.message);
+        const { expectedVersion: _ev, ...queueBillPayload } = billReqPayload;
+        syncEnqueue(SYNC_ACTION.BILL_REQUEST, queueBillPayload);
+      }
     }
 
     // Remove table from captain's local state — floor plan shows it as free.
