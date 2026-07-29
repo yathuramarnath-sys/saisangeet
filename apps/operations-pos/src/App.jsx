@@ -3689,6 +3689,7 @@ export default function App() {
             onNewCounterOrder={handleNewCounterOrder}
             onDeleteCounterOrder={handleDeleteCounterOrder}
             gstTreatment={outlet?.gstTreatment || "exclusive"}
+            defaultTaxRate={outlet?.defaultTaxRate ?? 0}
           />
           )
         ) : selectedOrder?.isSplitBill && selectedOrder?.splitBills?.length > 0 ? (

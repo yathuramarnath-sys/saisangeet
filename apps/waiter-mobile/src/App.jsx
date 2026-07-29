@@ -468,9 +468,23 @@ export function App() {
           { const _it = o.items || [];
             if (_it.length > 0 && !_it.some(i => i.sentToKot) && !o.billRequested && !o.isClosed) return p; }
 
-          if (!o.items?.length || o.isClosed) {
-            // Protect a live order: if captain already has active items on this table,
-            // don't wipe it via a server blank.
+          if (o.isClosed) {
+            // POS settled this table — always clear it from the captain's floor.
+            // Mirror-close guard: preserve the captain's current order if it is
+            // clearly a NEW seating rather than the just-settled one.
+            const cur = p[o.tableId];
+            if (cur && !cur.isClosed) {
+              // A blank new order has no orderNumber yet — it can't be the settled order.
+              if (cur.orderNumber == null) return p;
+              // Different order number → captain already started a new seating.
+              if (o.orderNumber != null && Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
+            }
+            const { [o.tableId]: _removed, ...rest } = p;
+            return rest;
+          }
+          if (!o.items?.length) {
+            // Server sent a blank order. Protect an active order with items from
+            // being wiped by a stale server echo (e.g. after bill-print broadcast).
             const cur = p[o.tableId];
             if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
             const { [o.tableId]: _removed, ...rest } = p;
@@ -622,7 +636,16 @@ export function App() {
             // Ignore POS-only staging: items exist but none KOT'd yet
             { const _it = o.items || [];
               if (_it.length > 0 && !_it.some(i => i.sentToKot) && !o.billRequested && !o.isClosed) return p; }
-              if (!o.items?.length || o.isClosed) {
+            if (o.isClosed) {
+              const cur = p[o.tableId];
+              if (cur && !cur.isClosed) {
+                if (cur.orderNumber == null) return p;
+                if (o.orderNumber != null && Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
+              }
+              const { [o.tableId]: _r, ...rest } = p;
+              return rest;
+            }
+            if (!o.items?.length) {
               const cur = p[o.tableId];
               if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
               const { [o.tableId]: _r, ...rest } = p;
@@ -1065,11 +1088,17 @@ export function App() {
   // ── Remove unsent item from order (DELETE to backend so it doesn't ghost) ──
   // Root cause of the "stuck item" bug: socket order:update only relays to other
   // devices but never updates the backend memory store. So a removed item stays
-  // on the server and comes back on next sync. This calls DELETE /order/item to
-  // remove it from the backend store properly.
+  // on the server and comes back on next sync.
+  // For unsent items: DELETE /order/item removes from the server store entirely.
+  // For sent (KOT'd) items: DELETE is a no-op on the server — use PATCH /order/item
+  // (void) instead, which marks isVoided:true so the item never reappears on restart.
   async function handleRemoveItem(itemId) {
     const tableId = selectedTableId;
     if (!tableId || !itemId) return;
+
+    // Capture sentToKot state BEFORE the optimistic update removes the item
+    const existingItem = orders[tableId]?.items?.find(i => i.id === itemId);
+    const isSentToKot  = !!existingItem?.sentToKot;
 
     // Optimistic local remove immediately
     setOrders((prev) => {
@@ -1087,13 +1116,34 @@ export function App() {
       return { ...prev, [tableId]: next };
     });
 
+    const outletId  = outlet?.id || branchConfig?.outletId;
+    const actorName = loggedInStaff?.name || "Captain";
+
+    if (isSentToKot) {
+      // Item was already KOT'd — DELETE is a server no-op. Use void (PATCH) instead
+      // so the server marks isVoided:true and the item doesn't reappear on reconnect.
+      try {
+        await api.patch(`/operations/order/item`, {
+          tableId,
+          outletId,
+          itemId,
+          voidReason:  "Voided by captain",
+          actorName,
+          isGhostVoid: false,
+        });
+      } catch (err) {
+        console.warn("[captain] voidItem (sent) failed:", err.message);
+      }
+      return;
+    }
+
     // Persist removal to backend — prevents item ghosting on POS after sync
     const removeMutationId = `mut-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const removePayload = {
       tableId,
-      outletId:         outlet?.id || branchConfig?.outletId,
+      outletId,
       itemId,
-      actorName:        loggedInStaff?.name || "Captain",
+      actorName,
       mutationId:       removeMutationId,
       expectedVersion:  orderVersionsRef.current[tableId],
     };
@@ -1260,8 +1310,22 @@ export function App() {
       // Unblock after a short delay to absorb any late-arriving server echo.
       // The reconciled state is already set above; the delay just ensures the echo
       // (which may be in transit) is discarded rather than overwriting our merged state.
+      // After unblocking, re-check server state in case a settlement arrived during this window.
       setTimeout(() => {
         addItemInFlightRef.current[tableId] = Math.max(0, (addItemInFlightRef.current[tableId] || 1) - 1);
+        if ((addItemInFlightRef.current[tableId] || 0) === 0) {
+          api.get(`/operations/order/${tableId}`).then(sv => {
+            if (!sv?.isClosed) return;
+            setOrders(prev => {
+              const cur = prev[tableId];
+              if (!cur || cur.isClosed) return prev;
+              if (cur.orderNumber == null) return prev;
+              if (sv.orderNumber != null && Number(cur.orderNumber) !== Number(sv.orderNumber)) return prev;
+              const { [tableId]: _, ...rest } = prev;
+              return rest;
+            });
+          }).catch(() => {});
+        }
       }, 300);
     } catch (err) {
       console.warn("[captain] addItem sync failed — queuing for retry:", err.message);
@@ -1656,6 +1720,20 @@ export function App() {
     }
     } finally {
       kotInFlightRef.current.delete(tid);
+      // Re-check server state for this table — a settlement socket event may have
+      // arrived and been dropped while the KOT in-flight guard was active.
+      api.get(`/operations/order/${tid}`).then(serverOrder => {
+        if (!serverOrder?.isClosed) return;
+        setOrders(prev => {
+          const cur = prev[tid];
+          if (!cur || cur.isClosed) return prev;
+          if (cur.orderNumber == null) return prev; // blank new order — preserve
+          if (serverOrder.orderNumber != null &&
+              Number(cur.orderNumber) !== Number(serverOrder.orderNumber)) return prev; // different order — preserve
+          const { [tid]: _, ...rest } = prev;
+          return rest;
+        });
+      }).catch(() => {});
     }
 
     setActionTableId(null);    // close action sheet if it was open

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder, gstTreatment = "exclusive" }) {
+export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMode, onNewCounterOrder, onDeleteCounterOrder, gstTreatment = "exclusive", defaultTaxRate = 0 }) {
   const [activeArea, setActiveArea] = useState(null);
   const [tick, setTick] = useState(0);
   const inclusive = gstTreatment === "inclusive";
@@ -59,7 +59,7 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
     // Round after accumulating — matches getFinancials exactly to avoid rounding drift.
     const tax = Math.round(billable.reduce((s, i) => {
       const lineAfter = sub > 0 ? (i.price * i.quantity) * (afterDisc / sub) : 0;
-      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+      const rate      = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
       return s + lineAfter * rate / (inclusive ? (100 + rate) : 100);
     }, 0));
     return inclusive ? afterDisc : afterDisc + tax;
