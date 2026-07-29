@@ -468,9 +468,20 @@ export function App() {
           { const _it = o.items || [];
             if (_it.length > 0 && !_it.some(i => i.sentToKot) && !o.billRequested && !o.isClosed) return p; }
 
-          if (!o.items?.length || o.isClosed) {
-            // Protect a live order: if captain already has active items on this table,
-            // don't wipe it via a server blank.
+          if (o.isClosed) {
+            // POS settled this table — always clear it from the captain's floor.
+            // Mirror-close guard: if the captain already has a DIFFERENT active order
+            // (e.g. the table was immediately re-seated), don't wipe the new order.
+            const cur = p[o.tableId];
+            if (cur && !cur.isClosed &&
+                cur.orderNumber != null && o.orderNumber != null &&
+                Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
+            const { [o.tableId]: _removed, ...rest } = p;
+            return rest;
+          }
+          if (!o.items?.length) {
+            // Server sent a blank order. Protect an active order with items from
+            // being wiped by a stale server echo (e.g. after bill-print broadcast).
             const cur = p[o.tableId];
             if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
             const { [o.tableId]: _removed, ...rest } = p;
@@ -622,7 +633,15 @@ export function App() {
             // Ignore POS-only staging: items exist but none KOT'd yet
             { const _it = o.items || [];
               if (_it.length > 0 && !_it.some(i => i.sentToKot) && !o.billRequested && !o.isClosed) return p; }
-              if (!o.items?.length || o.isClosed) {
+            if (o.isClosed) {
+              const cur = p[o.tableId];
+              if (cur && !cur.isClosed &&
+                  cur.orderNumber != null && o.orderNumber != null &&
+                  Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
+              const { [o.tableId]: _r, ...rest } = p;
+              return rest;
+            }
+            if (!o.items?.length) {
               const cur = p[o.tableId];
               if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
               const { [o.tableId]: _r, ...rest } = p;
