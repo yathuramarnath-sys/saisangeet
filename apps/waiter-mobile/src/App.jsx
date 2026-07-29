@@ -178,6 +178,7 @@ export function App() {
   const addItemInFlightRef    = useRef({});        // tableId → in-flight add-item count
   const orderVersionsRef      = useRef({});        // tableId → last known orderVersion from server
   const outletRef             = useRef(outlet);    // always-current outlet for async closures
+  const pendingKotsRef        = useRef(pendingKots); // always-current pendingKots for reconnect retry
   // Protects unsent items from socket overwrites while the waiter picker is visible.
   // Set to the pending table's ID in handleSendKOT, cleared in picker Done/Cancel.
   const kotPickerTableRef     = useRef(null);
@@ -211,6 +212,7 @@ export function App() {
   // Keep outletRef current so async closures captured in long-lived effects always
   // see the latest outlet without re-running those effects.
   useEffect(() => { outletRef.current = outlet; }, [outlet]);
+  useEffect(() => { pendingKotsRef.current = pendingKots; }, [pendingKots]);
 
   // ── Detect this device's own LAN IP for the drawer's Device IP footer ─────
   useEffect(() => {
@@ -386,7 +388,17 @@ export function App() {
                     );
                     if (next[tid]) {
                       const patch = {};
-                      if (localOnly.length > 0) patch.items = [...(next[tid].items || []), ...localOnly];
+                      // Preserve local qty for unsent items where the captain changed qty
+                      // while offline (server has original qty, local has updated qty)
+                      const serverItems = next[tid].items || [];
+                      const localQtyPatched = serverItems.map(si => {
+                        if (si.sentToKot || si.isVoided) return si;
+                        const li = (cur.items || []).find(li => li.id === si.id && !li.isVoided);
+                        return (li && li.quantity !== si.quantity) ? { ...si, quantity: li.quantity } : si;
+                      });
+                      const baseItems = localQtyPatched;
+                      if (localOnly.length > 0) patch.items = [...baseItems, ...localOnly];
+                      else if (baseItems.some((si, i) => si.quantity !== serverItems[i]?.quantity)) patch.items = baseItems;
                       if (!next[tid].assignedWaiter && cur.assignedWaiter) patch.assignedWaiter = cur.assignedWaiter;
                       if (Object.keys(patch).length) next[tid] = { ...next[tid], ...patch };
                     } else {
@@ -406,6 +418,29 @@ export function App() {
               .catch(() => {});
             flushSyncQueue();  // replay queued ADD_ITEM / REMOVE_ITEM / BILL_REQUEST
             flushPrints();     // retry any queued print jobs
+            // Auto-retry failed KOTs — server is reachable again
+            const kotsToRetry = pendingKotsRef.current;
+            if (kotsToRetry.length > 0) {
+              for (const kot of kotsToRetry) {
+                api.post("/operations/kot", {
+                  outletId:    kot.outletId,
+                  tableId:     kot.tableId,
+                  tableNumber: kot.tableNumber,
+                  areaName:    kot.areaName,
+                  items:       kot.items,
+                  orderId:     kot.orderId,
+                  actorName:   kot.actorName,
+                  source:      "captain",
+                  clientKotId: kot.clientKotId,
+                }).then(() => {
+                  setPendingKots(prev => {
+                    const next = prev.filter(k => k.id !== kot.id);
+                    savePendingKots(next);
+                    return next;
+                  });
+                }).catch(() => {});
+              }
+            }
           }
           wasOffline = false;
         });
