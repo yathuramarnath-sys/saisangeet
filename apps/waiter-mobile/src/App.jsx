@@ -360,7 +360,10 @@ export function App() {
         // Re-fetch orders on reconnect so table state is fresh after power cut.
         // Also flush the sync queue immediately — server is reachable again.
         let wasOffline = false;
-        socket.on("connect", () => {
+        // Tracks KOTs already submitted for retry this connection session so rapid
+        // reconnects can't fire the same KOT twice before the state update propagates.
+        const retriedKotIds = new Set();
+        socket.on("connect", async () => {
           setSocketConnected(true);
           if (wasOffline) {
             api.get(`/operations/orders?outletId=${target.id}`)
@@ -416,14 +419,21 @@ export function App() {
                 });
               })
               .catch(() => {});
-            flushSyncQueue();  // replay queued ADD_ITEM / REMOVE_ITEM / BILL_REQUEST
-            flushPrints();     // retry any queued print jobs
+            // Await syncQueue flush so ADD_ITEM operations land on the server
+            // before the KOT fires — items must exist in the order before KOT creation.
+            await flushSyncQueue();
+            flushPrints();     // retry any queued print jobs (doesn't block KOT)
             // Auto-retry failed KOTs — server is reachable again
             const kotsToRetry = pendingKotsRef.current;
             if (kotsToRetry.length > 0) {
               for (const kot of kotsToRetry) {
                 // Skip if doSendKOT is already in flight for this table (prevents double-KOT)
                 if (kotInFlightRef.current.has(kot.tableId)) continue;
+                // Skip if we already submitted this KOT for retry this connection session.
+                // Rapid reconnects can fire connect twice before setPendingKots propagates
+                // to pendingKotsRef; retriedKotIds prevents a second retry on the same KOT.
+                if (retriedKotIds.has(kot.id)) continue;
+                retriedKotIds.add(kot.id);
                 kotInFlightRef.current.add(kot.tableId);
                 api.post("/operations/kot", {
                   outletId:    kot.outletId,
@@ -471,7 +481,7 @@ export function App() {
           }
           wasOffline = false;
         });
-        socket.on("disconnect",    () => { wasOffline = true; setSocketConnected(false); });
+        socket.on("disconnect",    () => { wasOffline = true; setSocketConnected(false); retriedKotIds.clear(); });
         socket.on("connect_error", () => { wasOffline = true; setSocketConnected(false); });
 
         socket.on("order:updated", (o) => {
@@ -796,10 +806,15 @@ export function App() {
     // while the device was offline.  Called on reconnect and every 30 s.
     async function flushSyncQueue() {
       const currentOutletId = outletRef.current?.id || branchConfig?.outletId;
+      // Track qty we've sent for each (tableId:menuItemId) in this flush run.
+      // When the same item is tapped multiple times offline (multiple queue entries),
+      // the first POST creates it on the server at qty=1. Without this counter the
+      // binary `alreadyThere` check would skip every subsequent entry, dropping qty.
+      // With the counter we only skip when server qty exceeds what WE sent — meaning
+      // another device already added this item independently.
+      const addsSentThisFlush = {};
       await syncFlushQueue(async (entry) => {
         if (entry.action === SYNC_ACTION.ADD_ITEM) {
-          // Check server first — item may have arrived via a later socket update.
-          // Re-add only if it's genuinely missing from the server order.
           const serverOrder = await api.get(
             `/operations/order?tableId=${entry.payload.tableId}&outletId=${entry.payload.outletId || currentOutletId}`
           ).catch(() => null);
@@ -807,11 +822,18 @@ export function App() {
           // Server order items have `menuItemId` = menu item ID and `id` = order UUID.
           // Must compare by menuItemId, not id, to detect already-synced items.
           const payloadMenuItemId = entry.payload.item.menuItemId || entry.payload.item.id;
-          const alreadyThere = (serverOrder?.items || []).some(
+          const dedupeKey = `${entry.payload.tableId}:${payloadMenuItemId}`;
+          const ourSentQty = addsSentThisFlush[dedupeKey] || 0;
+          const serverQty = (serverOrder?.items || []).find(
             i => String(i.menuItemId) === String(payloadMenuItemId)
-          );
-          if (!alreadyThere) {
+          )?.quantity || 0;
+          // Skip only when server has MORE than we've sent — that gap came from an
+          // external source (another device / previous flush), not this entry.
+          if (serverQty > ourSentQty) {
+            addsSentThisFlush[dedupeKey] = serverQty;
+          } else {
             await api.post("/operations/order/item", entry.payload);
+            addsSentThisFlush[dedupeKey] = ourSentQty + (entry.payload.item.quantity || 1);
           }
         } else if (entry.action === SYNC_ACTION.REMOVE_ITEM) {
           await api.delete("/operations/order/item", entry.payload);
