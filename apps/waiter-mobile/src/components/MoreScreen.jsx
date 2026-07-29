@@ -27,6 +27,7 @@ export function MoreScreen({
   loggedInStaff, outletName, serverId, localPosIp, deviceIp,
   serverUrl, updateInfo, orders = {}, billAlerts = {}, tableAreas = [],
   onSync, onSignOut, canSettleBill = false, onSettleBill,
+  outlet, defaultTaxRate = 0,
 }) {
   const [sub,        setSub]        = useState(null); // null | 'findPos' | 'settings' | 'pendingBills'
   const [syncSteps,  setSyncSteps]  = useState(null);
@@ -112,8 +113,21 @@ export function MoreScreen({
           <div className="more2-pending-grid">
             {pendingBills.map((b) => {
               const tableInfo = allTables.find(t => t.id === b.tableId);
-              const billable = (b.items || []).filter(i => !i.isVoided && !i.isComp);
-              const amt = billable.reduce((s, i) => s + i.price * i.quantity, 0);
+              const billable  = (b.items || []).filter(i => !i.isVoided && !i.isComp);
+              const subtotal  = billable.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+              const discount  = Math.min(b.discountAmount || 0, subtotal);
+              const afterDisc = subtotal - discount;
+              const inclusive = outlet?.gstTreatment === "inclusive";
+              const defRate   = outlet?.defaultTaxRate ?? defaultTaxRate;
+              const tax       = Math.round(billable.reduce((s, i) => {
+                const lineAmt   = (i.price || 0) * (i.quantity || 0);
+                const lineAfter = subtotal > 0 ? lineAmt * (afterDisc / subtotal) : lineAmt;
+                const r         = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defRate;
+                return s + lineAfter * r / (inclusive ? (100 + r) : 100);
+              }, 0));
+              const baseTotal = inclusive ? afterDisc : afterDisc + tax;
+              const roundOff  = outlet?.roundOff !== false ? Math.round(baseTotal) - baseTotal : 0;
+              const amt       = Math.round((baseTotal + roundOff) * 100) / 100;
               return (
                 <div key={b.orderNumber || b.id} className="more2-pending-tile">
                   <span className="more2-pending-tile-num">{tableInfo?.number || b.tableId}</span>

@@ -1,10 +1,9 @@
 name: Captain App — E2E Tests
 
 on:
-  pull_request:
-    paths:
-      - "apps/waiter-mobile/**"
-      - ".github/workflows/captain-e2e.yml"
+  # Tests run against the live production backend — they create and settle real orders.
+  # Do NOT enable pull_request auto-trigger: each run pollutes the outlet's table state.
+  # Always trigger manually via workflow_dispatch and verify the outlet is clear first.
   workflow_dispatch:
     inputs:
       captain_url:

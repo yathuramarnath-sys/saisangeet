@@ -184,6 +184,79 @@ test.describe("Captain App — Core Flow", () => {
     await ctx.close();
   });
 
+  // ── Post-suite cleanup ────────────────────────────────────────────────────
+  // The tests create real orders on the live backend. afterAll settles them
+  // so the outlet's table state is clean for normal operations.
+  // Requires CAPTAIN_SETTLER_NAME / CAPTAIN_SETTLER_PIN to have canSettleBill=true.
+  test.afterAll(async ({ browser }) => {
+    if (!captainStorageState || !SETTLER_NAME || !SETTLER_PIN) return;
+    const ctx  = await browser.newContext();
+    const page = await ctx.newPage();
+    try {
+      await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+      await page.evaluate((state) => {
+        localStorage.clear();
+        for (const [k, v] of Object.entries(state)) localStorage.setItem(k, v);
+      }, captainStorageState);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await login(page, SETTLER_NAME, SETTLER_PIN);
+      await page.waitForSelector(".tf2-page", { timeout: 20000 });
+      await page.waitForTimeout(2000); // let orders load from socket
+
+      // Phase 1 — request bill on all still-running tables
+      for (let i = 0; i < 15; i++) {
+        await page.waitForTimeout(1500);
+        const runningCard = page.locator('.tf2-card[data-st="running"], .tf2-card[data-st="ordering"]').first();
+        if (!await runningCard.isVisible().catch(() => false)) break;
+        const box = await runningCard.boundingBox().catch(() => null);
+        if (!box) break;
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.waitForTimeout(700);
+        await page.mouse.up();
+        const sheet = await page.waitForSelector(".tas2-sheet", { timeout: 4000 }).catch(() => null);
+        if (!sheet) break;
+        const printRow = page.locator(".tas2-row-label", { hasText: "Print Bill" });
+        if (await printRow.isVisible().catch(() => false)) {
+          await printRow.click();
+          await page.waitForTimeout(2500);
+        } else {
+          await page.keyboard.press("Escape");
+          break;
+        }
+      }
+
+      // Phase 2 — settle all pending bills from More → Pending Bills
+      const moreTab = page.locator(".btab-label", { hasText: "More" });
+      if (!await moreTab.isVisible({ timeout: 5000 }).catch(() => false)) return;
+      await moreTab.click();
+      await page.waitForSelector(".more2-page", { timeout: 5000 }).catch(() => {});
+
+      const pendingNavRow = page.locator(".more2-nav-row");
+      if (!await pendingNavRow.isVisible().catch(() => false)) return;
+      await pendingNavRow.click();
+      await page.waitForSelector(".more2-pb-header", { timeout: 5000 }).catch(() => {});
+
+      for (let i = 0; i < 20; i++) {
+        await page.waitForTimeout(800);
+        const collectBtn = page.locator(".more2-pb-collect-btn").first();
+        if (!await collectBtn.isVisible().catch(() => false)) break;
+        await collectBtn.click();
+        const spm = await page.waitForSelector(".spm-sheet", { timeout: 5000 }).catch(() => null);
+        if (!spm) break;
+        await page.locator(".spm-cash").click().catch(() =>
+          page.locator(".spm-method-btn").first().click().catch(() => {})
+        );
+        await page.waitForTimeout(1500);
+      }
+      console.log("  afterAll cleanup: pending bills settled ✓");
+    } catch (_) {
+      // Best-effort — never fail the suite over cleanup
+    } finally {
+      await ctx.close();
+    }
+  });
+
   // ── 1. Device Setup ──────────────────────────────────────────────────────
   test("1. setup — device configured, login screen shown on reload", async ({ page }) => {
     // beforeAll verified setupDevice succeeded and saved the localStorage state.

@@ -2286,6 +2286,8 @@ export function App() {
             onSettleBill={(bill) => {
               setSettleTarget({ tableId: bill.tableId, order: bill });
             }}
+            outlet={outlet}
+            defaultTaxRate={outlet?.defaultTaxRate ?? 0}
           />
         )}
       </main>
