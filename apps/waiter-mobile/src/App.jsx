@@ -438,6 +438,11 @@ export function App() {
                     savePendingKots(next);
                     return next;
                   });
+                  setSentKots(prev => {
+                    const next = prev.map(k => k.id === kot.id ? { ...k, status: "sent" } : k);
+                    saveSentKots(next);
+                    return next;
+                  });
                   // Mark items as sentToKot on captain's local state so order screen
                   // reflects the successful KOT immediately without waiting for order:updated
                   const kotItemIds = new Set((kot.items || []).map(i => i.id).filter(Boolean));
@@ -1676,7 +1681,7 @@ export function App() {
 
     // Show KOT success/failure screen — only show success when API actually succeeded
     if (kotApiFailed) {
-      setKotState({ phase: "idle" });
+      setKotState(null);
     } else {
       setKotState({
         phase:      "success",
@@ -2107,6 +2112,11 @@ export function App() {
       setPendingKots((prev) => {
         const next = prev.filter((k) => k.id !== kot.id);
         savePendingKots(next);
+        return next;
+      });
+      setSentKots(prev => {
+        const next = prev.map(k => k.id === kot.id ? { ...k, status: "sent" } : k);
+        saveSentKots(next);
         return next;
       });
       // Mark items as sentToKot on captain's local state so order screen reflects
