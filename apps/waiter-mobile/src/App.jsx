@@ -438,6 +438,22 @@ export function App() {
                     savePendingKots(next);
                     return next;
                   });
+                  // Mark items as sentToKot on captain's local state so order screen
+                  // reflects the successful KOT immediately without waiting for order:updated
+                  const kotItemIds = new Set((kot.items || []).map(i => i.id).filter(Boolean));
+                  setOrders(prev => {
+                    const cur = prev[kot.tableId];
+                    if (!cur) return prev;
+                    return {
+                      ...prev,
+                      [kot.tableId]: {
+                        ...cur,
+                        items: (cur.items || []).map(i =>
+                          kotItemIds.has(i.id) ? { ...i, sentToKot: true } : i
+                        ),
+                      },
+                    };
+                  });
                 }).catch(() => {});
               }
             }
@@ -2092,6 +2108,22 @@ export function App() {
         const next = prev.filter((k) => k.id !== kot.id);
         savePendingKots(next);
         return next;
+      });
+      // Mark items as sentToKot on captain's local state so order screen reflects
+      // the successful retry immediately (server order:updated may lag or be deduped)
+      const retryItemIds = new Set((kot.items || []).map(i => i.id).filter(Boolean));
+      setOrders((prev) => {
+        const cur = prev[kot.tableId];
+        if (!cur) return prev;
+        return {
+          ...prev,
+          [kot.tableId]: {
+            ...cur,
+            items: (cur.items || []).map(i =>
+              retryItemIds.has(i.id) ? { ...i, sentToKot: true } : i
+            ),
+          },
+        };
       });
       if (!silent) toast.success(`KOT for Table ${kot.tableNumber} sent`);
     } catch (_) {
