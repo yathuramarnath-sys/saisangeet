@@ -422,6 +422,9 @@ export function App() {
             const kotsToRetry = pendingKotsRef.current;
             if (kotsToRetry.length > 0) {
               for (const kot of kotsToRetry) {
+                // Skip if doSendKOT is already in flight for this table (prevents double-KOT)
+                if (kotInFlightRef.current.has(kot.tableId)) continue;
+                kotInFlightRef.current.add(kot.tableId);
                 api.post("/operations/kot", {
                   outletId:    kot.outletId,
                   tableId:     kot.tableId,
@@ -433,6 +436,7 @@ export function App() {
                   source:      "captain",
                   clientKotId: kot.clientKotId,
                 }).then(() => {
+                  kotInFlightRef.current.delete(kot.tableId);
                   setPendingKots(prev => {
                     const next = prev.filter(k => k.id !== kot.id);
                     savePendingKots(next);
@@ -459,7 +463,9 @@ export function App() {
                       },
                     };
                   });
-                }).catch(() => {});
+                }).catch(() => {
+                  kotInFlightRef.current.delete(kot.tableId);
+                });
               }
             }
           }
@@ -546,10 +552,15 @@ export function App() {
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
           }
-          // Stale-write guard: ignore events older than our current local copy
+          // Stale-write guard: ignore events older than our current local copy.
+          // Normalize both timestamps to ms integers — local updatedAt is Date.now()
+          // (number) while server sends ISO strings; mixing them makes JS coerce the
+          // string to NaN, causing the comparison to always return false.
           const current = p[o.tableId];
-          if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) {
-            return p; // our version is newer — discard
+          if (current) {
+            const curMs = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
+            const srvMs = o.updatedAt       ? new Date(o.updatedAt).getTime()       : 0;
+            if (curMs > srvMs) return p; // our version is newer — discard
           }
           // Concurrent-edit merge: preserve local unsent items not in the incoming order
           let merged = o;
@@ -2000,7 +2011,17 @@ export function App() {
       total:     subtotal + tax,
     }).catch(() => {});
 
-    api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, isSplit: true }).catch(() => {});
+    api.post("/operations/bill-request", {
+      outletId: outlet?.id || branchConfig?.outletId,
+      tableId:  tid,
+      isSplit:  true,
+    }).catch(() => {
+      syncEnqueue(SYNC_ACTION.BILL_REQUEST, {
+        outletId: outlet?.id || branchConfig?.outletId,
+        tableId:  tid,
+        isSplit:  true,
+      });
+    });
   }
 
 
@@ -2384,6 +2405,7 @@ export function App() {
             outletId={outlet?.id}
             socket={socketRef.current}
             staff={branchStaff}
+            isOffline={!socketConnected}
             autoOpen={autoOpenAction}
             onBack={() => { setSelectedTableId(null); setAutoOpenAction(null); }}
             onSendKOT={handleSendKOT}
