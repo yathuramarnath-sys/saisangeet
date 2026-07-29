@@ -912,9 +912,9 @@ async function deviceRemoveOrderItemHandler(req, res) {
 }
 
 // PATCH /operations/order/item  — void a sent item (marks isVoided=true on the backend)
-// Body: { tableId, itemId, voidReason }
+// Body: { tableId, itemId, voidReason, outletId }
 async function deviceVoidOrderItemHandler(req, res) {
-  const { tableId, itemId, voidReason } = req.body;
+  const { tableId, itemId, voidReason, outletId } = req.body;
   if (!tableId || !itemId) {
     return res.status(400).json({ error: "tableId and itemId are required" });
   }
@@ -923,8 +923,9 @@ async function deviceVoidOrderItemHandler(req, res) {
   }
   // Server-side PIN check — only enforced when a PIN is configured
   assertManagerPin(req.body);
-  const actor = req.user?.name || req.user?.type || "POS";
-  const result = await updateOrderItemDetails(tableId, itemId, {
+  const actor    = req.user?.name || req.user?.type || "POS";
+  const tenantId = req.user?.tenantId || "default";
+  const result   = await updateOrderItemDetails(tableId, itemId, {
     isVoided:    true,
     voidReason:  voidReason || "Voided by POS",
     isGhostVoid: req.body.isGhostVoid === true, // item voided before any KOT was sent
@@ -932,14 +933,21 @@ async function deviceVoidOrderItemHandler(req, res) {
   });
 
   logAction({
-    tenantId:  req.user?.tenantId || "default",
-    outletId:  null,
+    tenantId,
+    outletId:  outletId || null,
     tableId,
     action:    ACTION.ITEM_VOIDED,
     actorName: actor,
     device:    req.body.source || "pos",
     details:   { itemId, voidReason: voidReason || "Voided by POS" },
   });
+
+  // Broadcast the updated order so POS and other captain tabs receive the void
+  // without waiting for their next full sync.
+  if (outletId) {
+    const io = req.app.locals.io;
+    if (io) io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", result);
+  }
 
   res.json(result);
 }
