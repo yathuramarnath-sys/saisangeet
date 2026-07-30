@@ -543,6 +543,11 @@ export function App() {
             // being wiped by a stale server echo (e.g. after bill-print broadcast).
             const cur = p[o.tableId];
             if (cur && !cur.isClosed && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
+            // Preserve if captain is already on this exact order (same orderNumber) and
+            // the blank arrived as an echo of the auto-advance broadcast — captain's
+            // local blank Order #2 should not be deleted just because the server also
+            // broadcast the blank Order #2 to the outlet room.
+            if (cur && !cur.isClosed && cur.orderNumber != null && cur.orderNumber === o.orderNumber) return p;
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
           }

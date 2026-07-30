@@ -49,6 +49,9 @@ export function DayEndModal({ orders, outlet, outletId: outletIdProp, tableAreas
 
     for (const [tableId, order] of Object.entries(orders)) {
       if (order.isClosed) continue;
+      // Mirror-bill slots (_mb_N) are pending-bill display entries, not real orders.
+      // Always skip them — they should never block Day End.
+      if (tableId.startsWith("_mb_")) continue;
       // Skip ghost orders — IDs that aren't a real table, counter, or online order
       if (
         !tableId.startsWith("counter-") &&
