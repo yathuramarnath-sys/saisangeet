@@ -856,9 +856,17 @@ function CashierTab({ cashierName, activeShift }) {
         })()}
         <button
           className="pset-forget-btn"
-          onClick={() => {
-            if (window.confirm("Unlink this device? You will need a new branch code on next launch.")) {
-              localStorage.removeItem("pos_branch_config");
+          onClick={async () => {
+            if (window.confirm("Unlink this device? You will need a new branch code on next launch.\n\nAll cached orders, shifts, menus and settings on this device will be cleared.")) {
+              // Wipe every pos_* key
+              Object.keys(localStorage)
+                .filter(k => k.startsWith("pos_"))
+                .forEach(k => localStorage.removeItem(k));
+              // Clear service worker caches
+              if ("caches" in window) {
+                const names = await caches.keys();
+                await Promise.all(names.map(n => caches.delete(n)));
+              }
               window.location.reload();
             }
           }}
@@ -876,25 +884,37 @@ function CashierTab({ cashierName, activeShift }) {
       </div>
       <div className="pset-device-info">
         <p style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
-          ⚠️ Clears active order cache only. Printers, settings, and branch link are <strong>not</strong> affected.
+          ⚠️ Clears orders, menus, KOT queues and app cache. Branch link, printers, and display settings are <strong>kept</strong>.
         </p>
         <button
           className="pset-forget-btn"
           style={{ background: "#fef2f2", color: "#dc2626", borderColor: "#fca5a5" }}
-          onClick={() => {
-            if (window.confirm("Clear all cached order data on this device?\n\nThis removes ghost items from local storage. Settings, printers, and branch link are kept.")) {
-              // Wipe order-related keys only — keep config/printers/settings
-              [
-                "pos_active_orders",
-                "pos_kot_queue",
-                "pos_closed_order_queue",
-                "pos_closed_orders",
-              ].forEach(k => localStorage.removeItem(k));
+          onClick={async () => {
+            if (window.confirm("Clear all cached data on this device?\n\nThis removes ghost orders, stale menus, KOT queues and browser cache. Branch link, printers, and display settings are kept.")) {
+              const KEEP = new Set([
+                "pos_branch_config",
+                "pos_token",
+                "pos_device_id",
+                "pos_printers",
+                "pos_display_settings",
+                "pos_dark_mode",
+                "pos_devices_assignments",
+                "pos_label_printer",
+                "pos_last_label_printer",
+              ]);
+              Object.keys(localStorage)
+                .filter(k => k.startsWith("pos_") && !KEEP.has(k))
+                .forEach(k => localStorage.removeItem(k));
+              // Clear service worker caches so stale assets are re-fetched
+              if ("caches" in window) {
+                const names = await caches.keys();
+                await Promise.all(names.map(n => caches.delete(n)));
+              }
               window.location.reload();
             }
           }}
         >
-          🗑️ Clear Order Cache &amp; Reload
+          🗑️ Clear Cache &amp; Reload
         </button>
       </div>
     </div>

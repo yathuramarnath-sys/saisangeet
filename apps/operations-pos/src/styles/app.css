@@ -9586,4 +9586,162 @@ input, select, textarea {
   cursor: pointer;
 }
 
+/* ─── Live Order Board ───────────────────────────────────────────────────────
+   Horizontal scroll strip at the top of TablePickerPanel showing all active
+   table orders, sorted by urgency (void → bill → hold → running) then time.
+   ─────────────────────────────────────────────────────────────────────────── */
+.lob {
+  flex-shrink: 0;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--sq-border);
+}
+
+.lob-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.lob-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--sq-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.lob-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sq-muted);
+  background: var(--sq-bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.lob-scroll {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+}
+.lob-scroll::-webkit-scrollbar { height: 3px; }
+.lob-scroll::-webkit-scrollbar-thumb { background: var(--sq-border); border-radius: 2px; }
+
+.lob-card {
+  flex-shrink: 0;
+  width: 92px;
+  border-radius: 9px;
+  border: 1.5px solid var(--sq-border);
+  background: var(--sq-surface);
+  padding: 7px 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 80ms, box-shadow 80ms;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lob-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
+.lob-card.lob-st-bill     { border-color: #3B82F6; background: #EFF6FF; }
+.lob-card.lob-st-void     { border-color: #EF4444; background: #FEF2F2; }
+.lob-card.lob-st-hold     { border-color: #F59E0B; background: #FFFBEB; }
+.lob-card.lob-st-occupied { border-color: #FF6600; background: #FFF7F0; }
+
+.lob-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+}
+
+.lob-tnum {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--sq-text);
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.lob-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  line-height: 1.4;
+}
+.lob-badge-bill { background: #2563EB; color: #fff; }
+.lob-badge-void { background: #DC2626; color: #fff; }
+.lob-badge-hold { background: #D97706; color: #fff; }
+
+.lob-area {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--sq-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lob-order-num {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--sq-muted);
+  opacity: 0.7;
+}
+
+.lob-meta {
+  display: flex;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--sq-muted);
+  font-weight: 600;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.lob-pending-kot {
+  background: #FEF3C7;
+  color: #92400E;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.lob-total {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--sq-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.lob-time {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 4px;
+  align-self: flex-start;
+  line-height: 1.3;
+}
+
+/* Dark mode overrides */
+.pos-dark .lob { border-color: rgba(255,255,255,.06) !important; }
+.pos-dark .lob-count { background: rgba(255,255,255,.06) !important; color: #64748B !important; }
+.pos-dark .lob-card { background: #1E293B !important; border-color: rgba(255,255,255,.08) !important; }
+.pos-dark .lob-card.lob-st-bill     { background: #1E3A5F !important; border-color: #2563EB !important; }
+.pos-dark .lob-card.lob-st-void     { background: #4C1A1A !important; border-color: #DC2626 !important; }
+.pos-dark .lob-card.lob-st-hold     { background: #3D2900 !important; border-color: #D97706 !important; }
+.pos-dark .lob-card.lob-st-occupied { background: #3D1F00 !important; border-color: #FF6600 !important; }
+.pos-dark .lob-tnum { color: #F1F5F9 !important; }
+.pos-dark .lob-total { color: #F1F5F9 !important; }
+.pos-dark .lob-area { color: #64748B !important; }
+.pos-dark .lob-order-num { color: #475569 !important; }
+.pos-dark .lob-pending-kot { background: rgba(254,243,199,.1) !important; color: #FBBF24 !important; }
+
 

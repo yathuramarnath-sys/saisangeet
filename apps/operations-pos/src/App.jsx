@@ -340,7 +340,7 @@ function Clock() {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
-export default function App() {
+export function App() {
   const [branchConfig,    setBranchConfig]    = useState(() => loadBranchConfig());
   const [outlet,          setOutlet]          = useState(null);
   const [activeStaff,     setActiveStaff]     = useState([]);
