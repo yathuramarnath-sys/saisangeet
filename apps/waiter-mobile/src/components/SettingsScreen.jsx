@@ -299,6 +299,49 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
           </div>
         </div>
 
+        <div className="ss3-section-head" style={{ marginTop: 16 }}>DANGER ZONE</div>
+        <div className="ss3-card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            className="ss3-test-btn"
+            style={{ width: "100%", background: "#fef2f2", color: "#dc2626", borderColor: "#fca5a5" }}
+            onClick={async () => {
+              if (!window.confirm("Clear all cached data on this device?\n\nThis removes stale menus, ghost orders, and KOT queues. Your branch link and printer settings are kept.")) return;
+              const KEEP = new Set([
+                "captain_token", "captain_device_id", "captain_branch_config",
+                "captain_last_staff_id", "captain_printers", "captain_printer_ip",
+                "captain_paper_size", "captain_local_server_ip",
+              ]);
+              Object.keys(localStorage)
+                .filter(k => k.startsWith("captain_") && !KEEP.has(k))
+                .forEach(k => localStorage.removeItem(k));
+              if ("caches" in window) {
+                const names = await caches.keys();
+                await Promise.all(names.map(n => caches.delete(n)));
+              }
+              window.location.reload();
+            }}
+          >
+            Clear Cache &amp; Reload
+          </button>
+          <button
+            className="ss3-test-btn ss3-test-fail"
+            style={{ width: "100%" }}
+            onClick={async () => {
+              if (!window.confirm("Forget this device? You will need to re-pair with a branch code.\n\nAll cached data, orders, and settings on this device will be cleared.")) return;
+              Object.keys(localStorage)
+                .filter(k => k.startsWith("captain_"))
+                .forEach(k => localStorage.removeItem(k));
+              if ("caches" in window) {
+                const names = await caches.keys();
+                await Promise.all(names.map(n => caches.delete(n)));
+              }
+              window.location.reload();
+            }}
+          >
+            Forget this device &amp; re-pair
+          </button>
+        </div>
+
       </div>
     </div>
   );
