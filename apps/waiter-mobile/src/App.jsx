@@ -367,8 +367,18 @@ export function App() {
           if (wasOffline) {
             api.get(`/operations/orders?outletId=${target.id}`)
               .then((serverOrders) => {
-                if (!serverOrders.length) return;
                 setOrders((prev) => {
+                  if (!serverOrders.length) {
+                    // Server confirms no active orders (all tables settled while offline).
+                    // Clear stale occupied tables but keep purely-local unsent orders
+                    // (items the captain added that haven't reached the server yet).
+                    const next = {};
+                    for (const [tid, cur] of Object.entries(prev)) {
+                      const hasUnsent = (cur.items || []).some(i => !i.sentToKot && !i.isVoided && !i.isGhostVoid);
+                      if (hasUnsent) next[tid] = cur;
+                    }
+                    return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+                  }
                   const next = Object.fromEntries(
                     serverOrders.filter(o => !(o.billRequested && !o.isClosed)).map((o) => [o.tableId, o])
                   );
@@ -560,7 +570,21 @@ export function App() {
           // Stale-write guard: ignore events older than our current local copy
           const current = p[o.tableId];
           if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) {
-            return p; // our version is newer — discard
+            // Still propagate sentToKot:true upgrades — KOT confirmation is monotonic.
+            const localItems = current.items || [];
+            const localIdSet = new Set(localItems.map(i => i.id).filter(Boolean));
+            const incoming   = o.items || [];
+            const kotted     = new Set(incoming.filter(i => i.sentToKot && i.id).map(i => i.id));
+            if (!kotted.size) return p;
+            let changed = false;
+            const upgraded = localItems.map(i => {
+              if (i.id && kotted.has(i.id) && !i.sentToKot) { changed = true; return { ...i, sentToKot: true }; }
+              return i;
+            });
+            const brandNew = incoming.filter(i => i.sentToKot && i.id && !localIdSet.has(i.id));
+            if (brandNew.length) changed = true;
+            if (!changed) return p;
+            return { ...p, [o.tableId]: { ...current, items: [...upgraded, ...brandNew] } };
           }
           // Concurrent-edit merge: preserve local unsent items not in the incoming order
           let merged = o;
@@ -719,7 +743,23 @@ export function App() {
               return rest;
             }
             const current = p[o.tableId];
-            if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) return p;
+            if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) {
+              // Still propagate sentToKot:true upgrades — KOT confirmation is monotonic.
+              const localItems = current.items || [];
+              const localIdSet = new Set(localItems.map(i => i.id).filter(Boolean));
+              const incoming   = o.items || [];
+              const kotted     = new Set(incoming.filter(i => i.sentToKot && i.id).map(i => i.id));
+              if (!kotted.size) return p;
+              let changed = false;
+              const upgraded = localItems.map(i => {
+                if (i.id && kotted.has(i.id) && !i.sentToKot) { changed = true; return { ...i, sentToKot: true }; }
+                return i;
+              });
+              const brandNew = incoming.filter(i => i.sentToKot && i.id && !localIdSet.has(i.id));
+              if (brandNew.length) changed = true;
+              if (!changed) return p;
+              return { ...p, [o.tableId]: { ...current, items: [...upgraded, ...brandNew] } };
+            }
             // Concurrent-edit merge: preserve local unsent items not in the incoming order
             let merged = o;
             if (current) {
@@ -929,8 +969,14 @@ export function App() {
         const serverItems = serverOrder.items || [];
         const localItems = localState?.items || [];
 
-        if (localItems.length === 0) {
-          // No local items yet (first open) — use server as base
+        // Use server as base when: no local items, OR the local order is from a
+        // different seating (different orderNumber). Never mix items across seatings.
+        const differentSeating =
+          localState?.orderNumber != null &&
+          serverOrder.orderNumber != null &&
+          Number(localState.orderNumber) !== Number(serverOrder.orderNumber);
+
+        if (localItems.length === 0 || differentSeating) {
           return {
             ...prev,
             [tableId]: {
@@ -1995,11 +2041,17 @@ export function App() {
 
     // 4. Send split bill record to backend → POS shows settlement panel
     const billableItems = (items || []).filter(i => !i.isVoided && !i.isComp);
-    const subtotal = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
-    const tax = billableItems.reduce((s, i) => {
-      const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
-      return s + Math.round(i.price * i.quantity * rate / 100);
-    }, 0);
+    const inclusive     = outlet?.gstTreatment === "inclusive";
+    const rawSub        = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
+    const disc          = Math.min(printOrder.discountAmount || 0, rawSub);
+    const afterDisc     = rawSub - disc;
+    const tax = Math.round(billableItems.reduce((s, i) => {
+      const rate     = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : (outlet?.defaultTaxRate ?? 0);
+      const lineAfter = rawSub > 0 ? i.price * i.quantity * (afterDisc / rawSub) : 0;
+      return s + lineAfter * rate / (inclusive ? (100 + rate) : 100);
+    }, 0));
+    const subtotal = afterDisc;
+    const total    = inclusive ? afterDisc : afterDisc + tax;
     api.post("/operations/split-bill-record", {
       outletId:  outlet?.id || branchConfig?.outletId,
       tableId:   tid,
@@ -2008,7 +2060,7 @@ export function App() {
       items:     billableItems,
       subtotal,
       tax,
-      total:     subtotal + tax,
+      total,
     }).catch(() => {});
 
     api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, isSplit: true }).catch(() => {});
@@ -2076,7 +2128,17 @@ export function App() {
             );
             if (merged[tableId]) {
               const patch = {};
-              if (unsentItems.length > 0) patch.items = [...(merged[tableId].items || []), ...unsentItems];
+              // Preserve local qty for unsent items where the captain changed qty
+              // while offline (server has original qty, local has updated qty).
+              const serverItems = merged[tableId].items || [];
+              const localQtyPatched = serverItems.map(si => {
+                if (si.sentToKot || si.isVoided) return si;
+                const li = (localOrder.items || []).find(li => li.id === si.id && !li.isVoided);
+                return (li && li.quantity !== si.quantity) ? { ...si, quantity: li.quantity } : si;
+              });
+              const qtyChanged = localQtyPatched.some((si, i) => si.quantity !== serverItems[i]?.quantity);
+              if (unsentItems.length > 0) patch.items = [...localQtyPatched, ...unsentItems];
+              else if (qtyChanged) patch.items = localQtyPatched;
               if (!merged[tableId].assignedWaiter && localOrder.assignedWaiter) patch.assignedWaiter = localOrder.assignedWaiter;
               if (Object.keys(patch).length) merged[tableId] = { ...merged[tableId], ...patch };
             } else if (unsentItems.length > 0) {
@@ -2412,6 +2474,7 @@ export function App() {
             onCustomerInfo={() => setShowCustomerInfo(true)}
             defaultTaxRate={outlet?.defaultTaxRate ?? 0}
             gstTreatment={outlet?.gstTreatment || "exclusive"}
+            roundOffEnabled={outlet?.roundOff !== false}
           />
         ) : activeTab === "floor" ? (
           <TableFloor
