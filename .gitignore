@@ -28,3 +28,11 @@ apps/owner-web/dist/
 # Runtime data — tenant snapshots and test fixtures must never be deployed
 backend/.data/tenants/
 backend/.data/active-orders-*.json
+.data/
+
+# App dist directories — built artifacts, not source
+apps/operations-pos/dist/
+apps/waiter-mobile/dist/
+apps/kitchen-display/dist/
+apps/tablet-pos/dist/
+apps/customer-web/dist/
