@@ -366,6 +366,12 @@ export function App() {
         socket.on("connect", async () => {
           setSocketConnected(true);
           if (wasOffline) {
+            // Flush pending mutations FIRST — ADD_ITEM ops must reach the server before
+            // we fetch server state for reconciliation or before KOT retry fires.
+            // (Previously the fetch ran concurrently with flush, so the merge used stale
+            // server data that predated the items we were about to post.)
+            await flushSyncQueue();
+            // NOW fetch server orders — all synced mutations have landed.
             api.get(`/operations/orders?outletId=${target.id}`)
               .then((serverOrders) => {
                 if (!serverOrders.length) return;
@@ -391,17 +397,28 @@ export function App() {
                     );
                     if (next[tid]) {
                       const patch = {};
-                      // Preserve local qty for unsent items where the captain changed qty
-                      // while offline (server has original qty, local has updated qty)
+                      // Preserve local qty AND local optimistic sentToKot for items the
+                      // captain already marked as sent (KOT retry may have fired after this
+                      // fetch started but before the server processed it — without this,
+                      // the merge resets sentToKot:false from server, items flip back to
+                      // "unsent" on screen even though the KOT was already submitted).
                       const serverItems = next[tid].items || [];
                       const localQtyPatched = serverItems.map(si => {
-                        if (si.sentToKot || si.isVoided) return si;
+                        if (si.isVoided) return si;
                         const li = (cur.items || []).find(li => li.id === si.id && !li.isVoided);
-                        return (li && li.quantity !== si.quantity) ? { ...si, quantity: li.quantity } : si;
+                        if (!li) return si;
+                        return {
+                          ...si,
+                          sentToKot: si.sentToKot || li.sentToKot,
+                          quantity:  !si.sentToKot && li.quantity !== si.quantity ? li.quantity : si.quantity,
+                        };
                       });
                       const baseItems = localQtyPatched;
                       if (localOnly.length > 0) patch.items = [...baseItems, ...localOnly];
-                      else if (baseItems.some((si, i) => si.quantity !== serverItems[i]?.quantity)) patch.items = baseItems;
+                      else if (baseItems.some((si, i) =>
+                        si.sentToKot !== serverItems[i]?.sentToKot ||
+                        si.quantity  !== serverItems[i]?.quantity
+                      )) patch.items = baseItems;
                       if (!next[tid].assignedWaiter && cur.assignedWaiter) patch.assignedWaiter = cur.assignedWaiter;
                       if (Object.keys(patch).length) next[tid] = { ...next[tid], ...patch };
                     } else {
@@ -419,9 +436,6 @@ export function App() {
                 });
               })
               .catch(() => {});
-            // Await syncQueue flush so ADD_ITEM operations land on the server
-            // before the KOT fires — items must exist in the order before KOT creation.
-            await flushSyncQueue();
             flushPrints();     // retry any queued print jobs (doesn't block KOT)
             // Auto-retry failed KOTs — server is reachable again
             const kotsToRetry = pendingKotsRef.current;
@@ -572,12 +586,19 @@ export function App() {
             const srvMs = o.updatedAt       ? new Date(o.updatedAt).getTime()       : 0;
             if (curMs > srvMs) return p; // our version is newer — discard
           }
-          // Concurrent-edit merge: preserve local unsent items not in the incoming order
+          // Concurrent-edit merge: preserve local unsent items not in the incoming order.
+          // Also exclude by menuItemId: temp-ID local items (item-${Date.now()}-xxx) that
+          // the server returned with real UUIDs look different by id but are the same dish.
+          // Without the menuItemId check the merge appends the temp-ID version alongside
+          // the real-UUID version — doubling the item on screen.
           let merged = o;
           if (current) {
             const incomingIds = new Set((o.items || []).map(i => i.id));
+            const incomingMenuItemIds = new Set((o.items || []).map(i => i.menuItemId).filter(Boolean));
             const localOnly   = (current.items || []).filter(
-              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid &&
+                   !incomingIds.has(i.id) &&
+                   !(i.menuItemId && incomingMenuItemIds.has(i.menuItemId))
             );
             merged = {
               ...o,
@@ -729,13 +750,24 @@ export function App() {
               return rest;
             }
             const current = p[o.tableId];
-            if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) return p;
-            // Concurrent-edit merge: preserve local unsent items not in the incoming order
+            // Stale-write guard: normalize both timestamps to ms so number vs ISO-string
+            // comparisons don't silently produce NaN (same fix as cloud socket handler).
+            if (current) {
+              const curMs = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
+              const srvMs = o.updatedAt       ? new Date(o.updatedAt).getTime()       : 0;
+              if (curMs > srvMs) return p;
+            }
+            // Concurrent-edit merge: preserve local unsent items not in the incoming order.
+            // Also deduplicate by menuItemId so temp-ID offline items don't double up when
+            // the server returns them with real UUIDs (same fix as cloud socket handler).
             let merged = o;
             if (current) {
               const incomingIds = new Set((o.items || []).map(i => i.id));
+              const incomingMenuItemIds = new Set((o.items || []).map(i => i.menuItemId).filter(Boolean));
               const localOnly   = (current.items || []).filter(
-                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid &&
+                     !incomingIds.has(i.id) &&
+                     !(i.menuItemId && incomingMenuItemIds.has(i.menuItemId))
               );
               merged = {
                 ...o,
