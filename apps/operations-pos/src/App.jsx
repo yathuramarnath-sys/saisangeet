@@ -852,6 +852,18 @@ export function App() {
               merged = { ...updatedOrder, items: [...incomingWithTax, ...localOnly] };
             }
 
+            // If the incoming order has bill requested (captain-initiated or server echo),
+            // free the table immediately — track pending payment under _mb_ key.
+            // Split bills stay in the main slot (SplitSettlementPanel handles them there).
+            if (merged.billRequested && !merged.isClosed && merged.orderNumber && !merged.isSplitBill) {
+              const mbKey = `_mb_${merged.orderNumber}`;
+              const next = { ...prev };
+              delete next[updatedOrder.tableId];
+              next[mbKey] = merged;
+              saveOrdersToStorage(next);
+              return next;
+            }
+
             const next = { ...prev, [updatedOrder.tableId]: merged };
             saveOrdersToStorage(next);
             return next;
@@ -880,6 +892,7 @@ export function App() {
           setOrders((prev) => {
             const order = prev[tableId];
             if (!order) return prev;
+            const effNum = orderNumber ?? order.orderNumber;
             // Drop stale sync-queue retries that target a different seating.
             if (orderNumber != null && order.orderNumber != null &&
                 String(order.orderNumber) !== String(orderNumber)) return prev;
@@ -888,6 +901,15 @@ export function App() {
               billRequested: true,
               ...(isSplit ? { isSplitBill: true } : {}),
             };
+            // Regular bills: free the table immediately — pending payment tracks under _mb_ key.
+            // Split bills stay in the main slot so SplitSettlementPanel can open normally.
+            if (!isSplit && effNum) {
+              const next = { ...prev };
+              delete next[tableId];
+              next[`_mb_${effNum}`] = updated;
+              saveOrdersToStorage(next);
+              return next;
+            }
             saveOrdersToStorage({ ...prev, [tableId]: updated });
             return { ...prev, [tableId]: updated };
           });
@@ -2868,11 +2890,22 @@ export function App() {
         waiterName:  validWaiter,
       });
 
-      // Mark bill as requested AFTER print attempt — changes table to blue on POS + notifies Captain
+      // Mark bill as requested AFTER print attempt, then immediately free the table
+      // by moving the order to a pending-bills slot (_mb_). Table shows free for next seating;
+      // cashier settles from the Pending Bills strip.
       mutateOrder(tableId, (o) => {
         o.billRequested   = true;
         o.billRequestedAt = new Date().toISOString();
         return o;
+      });
+      setOrders(prev => {
+        const order = prev[tableId];
+        if (!order?.orderNumber) return prev;
+        const next = { ...prev };
+        delete next[tableId];
+        next[`_mb_${order.orderNumber}`] = { ...order, billRequested: true, billRequestedAt: new Date().toISOString() };
+        saveOrdersToStorage(next);
+        return next;
       });
 
       // Log every bill print (1st print + reprints) for Owner Console audit trail
@@ -2898,9 +2931,10 @@ export function App() {
       showToast("Print failed — please try again");
     }
 
-    // Persist billRequested to backend (fire-and-forget)
+    // Persist billRequested + hasNextOrder to backend (fire-and-forget).
+    // hasNextOrder:true tells backend to auto-advance to new seating if captain taps table.
     if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
-      api.post("/operations/bill-request", { outletId: outlet?.id, tableId })
+      api.post("/operations/bill-request", { outletId: outlet?.id, tableId, hasNextOrder: true })
         .catch(err => console.warn("[POS] bill-request after print failed:", err.message));
     }
   }

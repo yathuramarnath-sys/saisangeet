@@ -32,7 +32,6 @@ export function tableStatusOf(orders, tableId) {
   const o = orders[tableId];
   const activeItems = o?.items?.filter(i => !i.isVoided && !i.isComp);
   if (!activeItems?.length) return "open";
-  if (o.billRequested)      return "bill";
   return "running";
 }
 
@@ -83,14 +82,12 @@ function useLongPress(onLongPress, onPress, ms = 500) {
 const TF2_LABEL = {
   open:     "Free",
   next:     "New order",
-  bill:     "Bill ready",
   running:  "Dining",
   ordering: "Ordering",
 };
 const TF2_COLOR = {
   open:     "#0C831F",
   next:     "#0C831F",
-  bill:     "#2E6F9E",
   running:  "#2E6F9E",
   ordering: "#E07A1F",
   danger:   "#D92D20",
@@ -152,14 +149,10 @@ function TableCard({ table, area, orders, onSelectTable, onLongPressTable, defau
       {/* Top row: table number + status */}
       <div className="tf2-card-top">
         <span className="tf2-table-num">{table.number}</span>
-        {displaySt === "bill" ? (
-          <span className="tf2-bill-tag">Bill ready</span>
-        ) : (
-          <span className="tf2-status-dot-row" style={{ color: statusColor }}>
+        <span className="tf2-status-dot-row" style={{ color: statusColor }}>
             <span className="tf2-status-dot" style={{ background: statusColor }} />
             {isNoOrderAlert ? `No order ${timer || ""}` : TF2_LABEL[displaySt]}
           </span>
-        )}
       </div>
 
       {/* Middle row: waiter chip + guests · time (occupied tables only) */}
@@ -213,7 +206,6 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, log
     return s === "open" || s === "next";
   }).length;
   const activeTables = totalTables - freeTables;
-  const billTables   = allTables.filter(t => tableStatusOf(orders, t.id) === "bill").length;
   const pct          = totalTables ? Math.round((activeTables / totalTables) * 100) : 0;
   // Re-evaluated every tick (every 60 s) to reflect queue draining between renders
   const syncPending  = getPendingCount();
@@ -277,14 +269,6 @@ export function TableFloor({ areas, orders, onSelectTable, onLongPressTable, log
         <div className="tf2-occ-bar-track">
           <div className="tf2-occ-bar-fill" style={{ width: `${pct}%` }} />
         </div>
-        {billTables > 0 && (
-          <div className="tf2-occ-alert">
-            <span className="tf2-occ-alert-dot" />
-            <span className="tf2-occ-alert-text">
-              {billTables} table{billTables > 1 ? "s" : ""} need attention
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Area tabs — pill style */}
