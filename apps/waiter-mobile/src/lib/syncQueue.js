@@ -97,9 +97,9 @@ export function clearBillRequestsByTable(tableId) {
   ));
 }
 
-/** Count of entries that haven't been synced yet (PENDING + FAILED). */
+/** Count of entries still pending sync (PENDING only, not FAILED). */
 export function getPendingCount() {
-  return load().length;
+  return load().filter(e => e.status === STATUS.PENDING).length;
 }
 
 /** Count of permanently-failed entries (retried MAX_RETRIES times). */
