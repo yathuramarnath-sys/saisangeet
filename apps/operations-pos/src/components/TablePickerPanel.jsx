@@ -167,13 +167,13 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
     .map(([k, o]) => ({ ...o, _mirrorKey: k }))
     .filter(o => o.billRequested && !o.isClosed && (o.items || []).some(i => !i.isVoided && !i.isComp));
 
-  // Live Order Board: all active dine-in tables, sorted by urgency then time
-  const URGENCY = { void: 0, bill: 1, hold: 2, occupied: 3 };
+  // Live Order Board: active dine-in tables only — billed tables are in Pending Bills strip.
+  const URGENCY = { void: 0, hold: 1, occupied: 2 };
   const liveOrders = tableAreas
     .flatMap(a => a.tables.map(t => ({ ...t, areaName: a.name })))
     .map(t => {
       const st = tableStatus(t.id);
-      if (st === "available") return null;
+      if (st === "available" || st === "bill") return null;
       const o = orders[t.id];
       const total = tableTotal(t.id);
       const mins = elapsedMinutes(t.id);
@@ -193,6 +193,48 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
 
   return (
     <div className="tpp">
+      {/* ── Pending Bills strip — billed tables awaiting payment ──────── */}
+      {mirrorBills.length > 0 && (
+        <div className="lob lob-pending">
+          <div className="lob-header">
+            <span className="lob-title lob-title-bill">Pending Bills</span>
+            <span className="lob-count">{mirrorBills.length} awaiting payment</span>
+          </div>
+          <div className="lob-scroll">
+            {mirrorBills.map(bill => {
+              const total = calcOrderTotal(bill);
+              const staff = bill.assignedWaiter || bill.captainName || "";
+              const mins  = (() => {
+                if (!bill.billRequestedAt) return null;
+                return Math.floor((Date.now() - new Date(bill.billRequestedAt).getTime()) / 60_000);
+              })();
+              return (
+                <button key={bill._mirrorKey} type="button"
+                  className="lob-card lob-st-bill"
+                  onClick={() => onSelectTable(bill._mirrorKey)}>
+                  <div className="lob-card-top">
+                    <span className="lob-tnum">{bill.tableNumber || "—"}</span>
+                    <span className="lob-badge lob-badge-bill">Bill</span>
+                  </div>
+                  {bill.orderNumber && <div className="lob-order-num">#{bill.orderNumber}</div>}
+                  {staff && <div className="lob-area">{staff}</div>}
+                  <div className="lob-meta">
+                    {(bill.items || []).filter(i => !i.isVoided && !i.isComp).reduce((s, i) => s + i.quantity, 0)} items
+                  </div>
+                  {total !== null && <div className="lob-total">₹{total.toLocaleString("en-IN")}</div>}
+                  {mins !== null && (
+                    <div className="lob-time"
+                      style={{ color: elapsedColor(mins), background: elapsedBg(mins) }}>
+                      {elapsedLabel(mins)}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Live Order Board ─────────────────────────────────────────── */}
       {liveOrders.length > 0 && (
         <div className="lob">
@@ -245,28 +287,6 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
               {a.name}
             </button>
           ))}
-        </div>
-      )}
-
-      {/* Pending bills from previous seatings (mirror bills) */}
-      {mirrorBills.length > 0 && (
-        <div className="tpp-area">
-          <p className="tpp-area-label" style={{ color: "#3B82F6" }}>Pending Bills</p>
-          <div className="tpp-table-grid">
-            {mirrorBills.map(bill => {
-              const total = calcOrderTotal(bill);
-              const staff = bill.assignedWaiter || bill.captainName || "";
-              return (
-                <button key={bill._mirrorKey} type="button" className="tpp-table-btn" data-st="bill"
-                  onClick={() => onSelectTable(bill._mirrorKey)}>
-                  <span className="tpp-table-num">{bill.tableNumber}</span>
-                  <span className="tpp-table-status">Bill</span>
-                  {staff && <span className="tpp-table-staff">{staff}</span>}
-                  {total !== null && <span className="tpp-table-amt">₹{total.toLocaleString("en-IN")}</span>}
-                </button>
-              );
-            })}
-          </div>
         </div>
       )}
 

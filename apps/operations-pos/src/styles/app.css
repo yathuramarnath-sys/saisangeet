@@ -9611,6 +9611,15 @@ input, select, textarea {
   text-transform: uppercase;
 }
 
+.lob-title-bill {
+  color: #2563EB;
+}
+
+.lob-pending {
+  border-top: 2px solid #BFDBFE;
+  padding-top: 4px;
+}
+
 .lob-count {
   font-size: 11px;
   font-weight: 700;
