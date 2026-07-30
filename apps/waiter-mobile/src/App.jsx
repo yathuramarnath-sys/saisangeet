@@ -321,9 +321,11 @@ export function App() {
           setOrders(prev => {
             // Skip POS-only staging orders (items present but none KOT'd) — captain only
             // cares after first KOT is sent, so unsent POS carts don't mark tables occupied.
+            // Also skip billed orders — bill printed = table free on captain's floor.
             const visibleOrders = liveOrders.filter(o => {
+              if (o.billRequested && !o.isClosed) return false;
               const items = o.items || [];
-              return !items.length || items.some(i => i.sentToKot) || o.billRequested || o.isClosed;
+              return !items.length || items.some(i => i.sentToKot) || o.isClosed;
             });
             const next = Object.fromEntries(visibleOrders.map((o) => [o.tableId, o]));
             // Preserve assignedWaiter from local state when server returns empty
@@ -367,7 +369,9 @@ export function App() {
               .then((serverOrders) => {
                 if (!serverOrders.length) return;
                 setOrders((prev) => {
-                  const next = Object.fromEntries(serverOrders.map((o) => [o.tableId, o]));
+                  const next = Object.fromEntries(
+                    serverOrders.filter(o => !(o.billRequested && !o.isClosed)).map((o) => [o.tableId, o])
+                  );
                   // Re-attach unsent local items the server doesn't know about yet,
                   // and preserve assignedWaiter from local state when server returns empty
                   for (const [tid, cur] of Object.entries(prev)) {
@@ -506,18 +510,20 @@ export function App() {
           if ((addItemInFlightRef.current[o.tableId] || 0) > 0) return p;
           if (kotPickerTableRef.current === o.tableId) return p;
 
-          // Don't add bill-requested tables to the floor if the captain hasn't served them.
-          // This prevents "Bill ready" appearing for tables outside the captain's local state.
-          if (o.billRequested && !p[o.tableId]) return p;
-
-          // Protect the blank "next order" slot created by openOrderScreen after bill print.
-          // When handlePrintBill clears the captain's slot, tapping the now-free table
-          // immediately creates a blank order (items:[], billRequested:false). A socket echo
-          // from the bill-print broadcast carries the old order (billRequested:true, full items)
-          // and would restore it, turning the table blue again with the old order visible.
-          if (o.billRequested && p[o.tableId] &&
-              !(p[o.tableId].items || []).some(i => !i.isVoided) &&
-              !p[o.tableId].billRequested) return p;
+          // Bill printed (by POS or captain) — free the table on the floor.
+          // Pending payment is tracked in billAlerts (More → Pending Bills).
+          if (o.billRequested && !o.isClosed) {
+            const cur = p[o.tableId];
+            if (!cur) return p; // don't add billed table captain doesn't know about
+            // Protect blank "next order" slot: captain already cleared and started new seating.
+            if (!cur.billRequested && !(cur.items || []).some(i => !i.isVoided)) return p;
+            // Protect genuinely different order: captain already started a new seating.
+            if (!cur.billRequested && o.orderNumber != null && cur.orderNumber != null &&
+                Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
+            // Remove from floor — table is free for the next seating.
+            const { [o.tableId]: _removed, ...rest } = p;
+            return rest;
+          }
 
           // Ignore POS-only staging: items exist but none KOT'd yet.
           // Cashier adds items to cart → captain should only see after first KOT is sent.
@@ -2050,9 +2056,11 @@ export function App() {
         setOrders((prev) => {
           // Skip POS-only staging orders (same logic as login) so sync doesn't
           // restore pre-KOT POS carts that the captain correctly hid.
+          // Also skip billed orders — bill printed = table free on captain's floor.
           const visibleOrders = liveOrders.filter(o => {
+            if (o.billRequested && !o.isClosed) return false;
             const items = o.items || [];
-            return !items.length || items.some(i => i.sentToKot) || o.billRequested || o.isClosed;
+            return !items.length || items.some(i => i.sentToKot) || o.isClosed;
           });
           const serverMap = Object.fromEntries(visibleOrders.map((o) => [o.tableId, o]));
           const merged = { ...serverMap };
