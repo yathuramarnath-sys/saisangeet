@@ -237,13 +237,38 @@ function resetState() {
 function resetStateForTest() {
   const tid = getCurrentTenantId();
   const s = buildInitialState();
+
+  // Seed-specific overrides per table so test assertions have stable expectations.
+  // Order numbers: t1=10031, t2=10032, t3=10033, f1=10034, f2=10035, s3=10036, s4=10037
+  // t1/t2/t3 have items so createDemoOrder() skips them and picks f1 (first empty table).
+  // t1 total is 200 (taxRate:0) so payment tests work with simple round numbers.
+  const overrides = {
+    t1: {
+      // Use "sweet-lime" so paneer-tikka tests (stationName: "Hot") always get a fresh line
+      items: [{ id: "t1-line-1", menuItemId: "sweet-lime", name: "Sweet Lime", price: 200, quantity: 1, taxRate: 0, sentToKot: true, stationId: "drinks", stationName: "Beverages", categoryId: "drinks", categoryName: "Drinks", category: "Drinks", note: "", seatLabel: "", isVoided: false, isComp: false }],
+      notes: "Order in progress", occupiedAt: Date.now(),
+    },
+    t2: {
+      items: [{ id: "t2-line-1", menuItemId: "butter-naan", name: "Butter Naan", price: 45, quantity: 2, taxRate: 5, sentToKot: true, stationId: "main", stationName: "Main Kitchen", categoryId: "mains", categoryName: "Mains", category: "Mains", note: "", seatLabel: "", isVoided: false, isComp: false }],
+      notes: "Order in progress", occupiedAt: Date.now(),
+      discountOverrideRequested: true, discountApprovalStatus: "Manager approval required", discountApprovedBy: "Pending OTP",
+    },
+    t3: {
+      items: [{ id: "t3-line-1", menuItemId: "crispy-corn", name: "Crispy Corn", price: 180, quantity: 1, taxRate: 5, sentToKot: true, stationId: "grill", stationName: "Grill", categoryId: "starters", categoryName: "Starters", category: "Starters", note: "", seatLabel: "", isVoided: false, isComp: false }],
+      notes: "Order in progress", occupiedAt: Date.now(),
+      voidRequested: true, voidReason: "Wrong table", voidApprovedBy: "Pending OTP",
+    },
+    f1: { billRequested: true, billRequestedAt: new Date().toISOString(), notes: "Bill requested" },
+  };
+
   defaultTableCatalog.forEach((table, index) => {
     if (!s.orders[table.tableId]) {
+      const orderNumber = 10031 + index;
       s.orders[table.tableId] = {
         tableId:   table.tableId,
         tableNumber: table.tableNumber,
-        orderNumber: 10040 + index,
-        kotNumber: `KOT-${10040 + index}`,
+        orderNumber,
+        kotNumber: `KOT-${orderNumber}`,
         outletName: table.outletName,
         areaName:   table.areaName,
         captain:    table.captain,
@@ -261,6 +286,7 @@ function resetStateForTest() {
         serviceChargeRate: 0.1,
         billRequested: false,
         billRequestedAt: null,
+        hasNextOrder: false,
         notes: "Ready for new guests",
         discountAmount: 0,
         discountOverrideRequested: false,
@@ -276,8 +302,12 @@ function resetStateForTest() {
         controlAlerts: [],
         auditTrail: [],
         items: [],
+        kots: [],
+        events: [],
+        _deletedItemIds: [],
         orderVersion: 1,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        ...(overrides[table.tableId] || {}),
       };
     }
   });
