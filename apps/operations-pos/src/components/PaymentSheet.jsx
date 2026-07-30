@@ -15,8 +15,8 @@ const ONLINE_METHOD = { id: "online", label: "Online (Swiggy/Zomato)", icon: "ðŸ
 
 const BLANK_CREDIT = { name: "", gstin: "", address: "", phone: "", poNumber: "" };
 
-export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR, gstTreatment = "exclusive", outletId }) {
-  const fin = getFinancials(order, { gstTreatment });
+export function PaymentSheet({ order, tableLabel, onClose, onSettle, onPhonePeQR, gstTreatment = "exclusive", defaultTaxRate = 0, outletId }) {
+  const fin = getFinancials(order, { gstTreatment, defaultTaxRate });
   const isOnlineOrder = !!order.isOnlineOrder;
 
   const [localPayments, setLocalPayments] = useState([]);

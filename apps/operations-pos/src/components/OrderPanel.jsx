@@ -4,7 +4,7 @@ import { PinConfirm } from "./PinConfirm";
 // ── Financials ─────────────────────────────────────────────────────────────────
 // gstTreatment: "exclusive" (default) — GST added on top of price
 //               "inclusive"           — GST extracted from price (customer pays same)
-export function getFinancials(order, { gstTreatment = "exclusive" } = {}) {
+export function getFinancials(order, { gstTreatment = "exclusive", defaultTaxRate = 0 } = {}) {
   if (!order) return null;
   const inclusive     = gstTreatment === "inclusive";
   const items         = order.items || [];
@@ -19,7 +19,7 @@ export function getFinancials(order, { gstTreatment = "exclusive" } = {}) {
     const lineAfter = subtotal > 0
       ? (i.price * i.quantity) * (afterDiscount / subtotal)
       : 0;
-    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : 0;
+    const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
     return s + lineAfter * rate / (inclusive ? (100 + rate) : 100);
   }, 0));
 
@@ -213,6 +213,7 @@ export function OrderPanel({
   onShowHeld,
   heldCount = 0,
   gstTreatment = "exclusive",
+  defaultTaxRate = 0,
   discountRules = [],
   canApplyDiscount = false,
   cashierName = "",
@@ -329,7 +330,7 @@ export function OrderPanel({
     );
   }
 
-  const fin         = getFinancials(order, { gstTreatment });
+  const fin         = getFinancials(order, { gstTreatment, defaultTaxRate });
   const activeItems = (order.items || []).filter(i => !i.isVoided);
   const hasItems    = activeItems.length > 0;
   const unsentItems = activeItems.filter(i => !i.sentToKot && !i.isComp);

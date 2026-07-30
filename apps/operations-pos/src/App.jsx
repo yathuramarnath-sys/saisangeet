@@ -701,7 +701,8 @@ export function App() {
                       local?.billRequested &&
                       !local.isClosed &&
                       !apiMap[tableId] &&
-                      !pendingSettledTables.has(tableId)
+                      !pendingSettledTables.has(tableId) &&
+                      !tableId.startsWith("_mb_")   // mirror-bill slots managed by /pending-bills fetch below
                     ) {
                       // Preserve table identity fields (tableNumber, areaName, outletName)
                       // so the POS tile still renders correctly after the remote settle.
@@ -1103,7 +1104,26 @@ export function App() {
             const current = prev[updatedOrder.tableId];
             if (current && !updatedOrder.isClosed &&
                 new Date(current.updatedAt || 0).getTime() -
-                  new Date(updatedOrder.updatedAt || 0).getTime() > 30_000) return prev;
+                  new Date(updatedOrder.updatedAt || 0).getTime() > 30_000) {
+              // Same upgrade path as cloud socket: even when the overall event is stale,
+              // propagate sentToKot:true upgrades — KOT confirmation is monotonic.
+              const localItems = current.items || [];
+              const localIdSet = new Set(localItems.map(i => i.id).filter(Boolean));
+              const incoming   = updatedOrder.items || [];
+              const kotted     = new Set(incoming.filter(i => i.sentToKot && i.id).map(i => i.id));
+              if (!kotted.size) return prev;
+              let changed = false;
+              const upgraded = localItems.map(i => {
+                if (i.id && kotted.has(i.id) && !i.sentToKot) { changed = true; return { ...i, sentToKot: true }; }
+                return i;
+              });
+              const brandNew = incoming.filter(i => i.sentToKot && i.id && !localIdSet.has(i.id));
+              if (brandNew.length) changed = true;
+              if (!changed) return prev;
+              const next = { ...prev, [updatedOrder.tableId]: { ...current, items: [...upgraded, ...brandNew] } };
+              saveOrdersToStorage(next);
+              return next;
+            }
             let merged = updatedOrder;
             if (
               current && !updatedOrder.isClosed &&
@@ -2968,7 +2988,7 @@ export function App() {
     const tableId = selectedTableId;
     const order   = ordersRef.current[tableId] || orders[tableId];
     if (!order?.items?.length) return;
-    const fin = getFinancials(order, { gstTreatment: outlet?.gstTreatment || "exclusive" });
+    const fin = getFinancials(order, { gstTreatment: outlet?.gstTreatment || "exclusive", defaultTaxRate: outlet?.defaultTaxRate ?? 0 });
     if (!fin || fin.balance <= 0) return;
     await handleSettle([{ method, amount: fin.balance, label: method.toUpperCase() }]);
   }
@@ -3002,7 +3022,7 @@ export function App() {
     // Same race-condition guard as handlePrintBill — bail if settled meanwhile.
     if (ordersRef.current[tableId]?.isClosed) { billPrintingRef.current = false; return; }
 
-    const fin     = getFinancials(order, { gstTreatment: outlet?.gstTreatment || "exclusive" });
+    const fin     = getFinancials(order, { gstTreatment: outlet?.gstTreatment || "exclusive", defaultTaxRate: outlet?.defaultTaxRate ?? 0 });
     const amount  = fin.balance > 0 ? fin.balance : fin.total;
     const payment = { method, amount };
     const printOrder = { ...order, billNo, billNoMode, billNoFY, payments: [...(order.payments || []), payment] };
@@ -3758,6 +3778,7 @@ export function App() {
           tableAreas={tableAreas}
           orders={orders}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
+          defaultTaxRate={outlet?.defaultTaxRate ?? 0}
           discountRules={discountRules}
           canApplyDiscount={
             activeStaff.find(s => s.name === cashierName || s.fullName === cashierName)
@@ -3798,6 +3819,7 @@ export function App() {
           order={selectedOrder}
           tableLabel={tableLabel}
           gstTreatment={outlet?.gstTreatment || "exclusive"}
+          defaultTaxRate={outlet?.defaultTaxRate ?? 0}
           outletId={outlet?.id || branchConfig?.outletId}
           onClose={() => setShowPayment(false)}
           onSettle={handleSettle}

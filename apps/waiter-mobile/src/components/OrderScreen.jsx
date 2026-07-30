@@ -27,7 +27,7 @@ function elapsedLabel(ts) {
 
 export function OrderScreen({
   order, tableLabel, areas, categories, menuItems, outletName,
-  orders, outletId, socket, staff = [], defaultTaxRate = 0, gstTreatment = "exclusive",
+  orders, outletId, socket, staff = [], defaultTaxRate = 0, gstTreatment = "exclusive", roundOffEnabled = false,
   onBack, onSendKOT, onPrintSplitBill,
   onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear, onCustomerInfo,
@@ -112,7 +112,9 @@ export function OrderScreen({
     const rate = (i.taxRate != null && i.taxRate !== "") ? Number(i.taxRate) : defaultTaxRate;
     return s + lineAfter * rate / (totalIncl ? (100 + rate) : 100);
   }, 0));
-  const totalAmount = totalIncl ? totalAfter : totalAfter + totalTax;
+  const totalBase   = totalIncl ? totalAfter : totalAfter + totalTax;
+  const totalRound  = roundOffEnabled ? Math.round(totalBase) - totalBase : 0;
+  const totalAmount = Math.round((totalBase + totalRound) * 100) / 100;
   const hasItems    = items.length > 0;
 
   function changeQty(idx, delta) {
