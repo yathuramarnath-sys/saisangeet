@@ -208,7 +208,6 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
       const q = search.trim().toLowerCase();
       list = list.filter(o =>
         String(o.orderNumber).includes(q) ||
-        String(o.billNo || "").toLowerCase().includes(q) ||
         String(o.tableNumber).toLowerCase().includes(q) ||
         (o.customer?.name || "").toLowerCase().includes(q) ||
         (o.items || []).some(i => i.name.toLowerCase().includes(q))

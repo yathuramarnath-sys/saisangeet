@@ -41,23 +41,14 @@ export function MoreScreen({
   // data loaded), reject any alert whose tableId is not in the outlet's table list — this prevents
   // seed/stale backend orders (e.g. "t1") from appearing as phantom pending bills.
   const knownTableIds = allTables.length > 0 ? new Set(allTables.map(t => t.id)) : null;
-  // Deduplicate by tableId — when a second order starts on the same table before the
-  // first bill is collected, both entries appear in billAlerts. Captain's screen should
-  // show one row per table (the newest order) so the cashier isn't confused by duplicates.
-  const allBills = Object.values(billAlerts).filter(b =>
-    b.billRequested && !b.isClosed &&
-    (b.items || []).some(i => !i.isVoided && !i.isComp) &&
-    (!knownTableIds || knownTableIds.has(b.tableId))
-  );
-  const byTable = new Map();
-  allBills.forEach(b => {
-    const existing = byTable.get(b.tableId);
-    if (!existing || (b.orderNumber ?? 0) > (existing.orderNumber ?? 0)) byTable.set(b.tableId, b);
-  });
-  const pendingBills = Array.from(byTable.values()).sort((a, b) => {
-    const tc = String(a.tableId) < String(b.tableId) ? -1 : String(a.tableId) > String(b.tableId) ? 1 : 0;
-    return tc || (a.orderNumber || 0) - (b.orderNumber || 0);
-  });
+  const pendingBills = Object.values(billAlerts)
+    .filter(b => b.billRequested && !b.isClosed &&
+      (b.items || []).some(i => !i.isVoided && !i.isComp) &&
+      (!knownTableIds || knownTableIds.has(b.tableId)))
+    .sort((a, b) => {
+      const tc = String(a.tableId) < String(b.tableId) ? -1 : String(a.tableId) > String(b.tableId) ? 1 : 0;
+      return tc || (a.orderNumber || 0) - (b.orderNumber || 0);
+    });
 
   async function handleSync() {
     tapImpact();

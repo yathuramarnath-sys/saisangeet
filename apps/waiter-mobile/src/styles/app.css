@@ -2698,10 +2698,6 @@ html, body, #root {
   color: #16A34A;
 }
 
-.os2-synced-pill--offline .os2-synced-dot  { background: #D97706; }
-.os2-synced-pill--offline .os2-synced-label { color: #D97706; }
-.os2-synced-pill--offline { background: #FEF3C7; border-color: #D97706; }
-
 .os2-scroll {
   flex: 1;
   overflow-y: auto;

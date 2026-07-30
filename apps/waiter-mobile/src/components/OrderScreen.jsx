@@ -32,7 +32,6 @@ export function OrderScreen({
   onUpdateOrder, onUpdateGuests, onRemoveItem, onAddItem,
   onTransfer, onMerge, onForceClear, onCustomerInfo,
   onRequestRemoveItem,
-  isOffline = false,
   autoOpen = null, // "menu" | "transfer" | "merge" | "split" — open screen/modal immediately on mount
 }) {
   const [screen,          setScreen]          = useState(
@@ -271,9 +270,9 @@ export function OrderScreen({
               <polyline points="19 9 22 12 19 15"/>
             </svg>
           </button>
-          <div className={`os2-synced-pill${isOffline ? " os2-synced-pill--offline" : ""}`}>
+          <div className="os2-synced-pill">
             <span className="os2-synced-dot"/>
-            <span className="os2-synced-label">{isOffline ? "Offline" : "Synced"}</span>
+            <span className="os2-synced-label">Synced</span>
           </div>
         </div>
       </div>

@@ -360,18 +360,9 @@ export function App() {
         // Re-fetch orders on reconnect so table state is fresh after power cut.
         // Also flush the sync queue immediately — server is reachable again.
         let wasOffline = false;
-        // Tracks KOTs already submitted for retry this connection session so rapid
-        // reconnects can't fire the same KOT twice before the state update propagates.
-        const retriedKotIds = new Set();
-        socket.on("connect", async () => {
+        socket.on("connect", () => {
           setSocketConnected(true);
           if (wasOffline) {
-            // Flush pending mutations FIRST — ADD_ITEM ops must reach the server before
-            // we fetch server state for reconciliation or before KOT retry fires.
-            // (Previously the fetch ran concurrently with flush, so the merge used stale
-            // server data that predated the items we were about to post.)
-            await flushSyncQueue();
-            // NOW fetch server orders — all synced mutations have landed.
             api.get(`/operations/orders?outletId=${target.id}`)
               .then((serverOrders) => {
                 if (!serverOrders.length) return;
@@ -397,28 +388,17 @@ export function App() {
                     );
                     if (next[tid]) {
                       const patch = {};
-                      // Preserve local qty AND local optimistic sentToKot for items the
-                      // captain already marked as sent (KOT retry may have fired after this
-                      // fetch started but before the server processed it — without this,
-                      // the merge resets sentToKot:false from server, items flip back to
-                      // "unsent" on screen even though the KOT was already submitted).
+                      // Preserve local qty for unsent items where the captain changed qty
+                      // while offline (server has original qty, local has updated qty)
                       const serverItems = next[tid].items || [];
                       const localQtyPatched = serverItems.map(si => {
-                        if (si.isVoided) return si;
+                        if (si.sentToKot || si.isVoided) return si;
                         const li = (cur.items || []).find(li => li.id === si.id && !li.isVoided);
-                        if (!li) return si;
-                        return {
-                          ...si,
-                          sentToKot: si.sentToKot || li.sentToKot,
-                          quantity:  !si.sentToKot && li.quantity !== si.quantity ? li.quantity : si.quantity,
-                        };
+                        return (li && li.quantity !== si.quantity) ? { ...si, quantity: li.quantity } : si;
                       });
                       const baseItems = localQtyPatched;
                       if (localOnly.length > 0) patch.items = [...baseItems, ...localOnly];
-                      else if (baseItems.some((si, i) =>
-                        si.sentToKot !== serverItems[i]?.sentToKot ||
-                        si.quantity  !== serverItems[i]?.quantity
-                      )) patch.items = baseItems;
+                      else if (baseItems.some((si, i) => si.quantity !== serverItems[i]?.quantity)) patch.items = baseItems;
                       if (!next[tid].assignedWaiter && cur.assignedWaiter) patch.assignedWaiter = cur.assignedWaiter;
                       if (Object.keys(patch).length) next[tid] = { ...next[tid], ...patch };
                     } else {
@@ -434,33 +414,14 @@ export function App() {
                   }
                   return next;
                 });
-                // Full replace from server: prior merge left stale alerts for orders
-                // settled by POS while captain was offline (settled orders are removed
-                // from the server's active list and never appear in serverOrders, so a
-                // merge would leave them in billAlerts forever). flushSyncQueue ran first,
-                // so any offline bill requests are already on the server — a full replace is safe.
-                const freshAlerts = {};
-                for (const o of serverOrders) {
-                  if (!o.isClosed && o.billRequested && (o.items || []).some(i => !i.isVoided && !i.isComp)) {
-                    freshAlerts[String(o.orderNumber ?? o.id)] = o;
-                  }
-                }
-                setBillAlerts(freshAlerts);
               })
               .catch(() => {});
-            flushPrints();     // retry any queued print jobs (doesn't block KOT)
+            flushSyncQueue();  // replay queued ADD_ITEM / REMOVE_ITEM / BILL_REQUEST
+            flushPrints();     // retry any queued print jobs
             // Auto-retry failed KOTs — server is reachable again
             const kotsToRetry = pendingKotsRef.current;
             if (kotsToRetry.length > 0) {
               for (const kot of kotsToRetry) {
-                // Skip if doSendKOT is already in flight for this table (prevents double-KOT)
-                if (kotInFlightRef.current.has(kot.tableId)) continue;
-                // Skip if we already submitted this KOT for retry this connection session.
-                // Rapid reconnects can fire connect twice before setPendingKots propagates
-                // to pendingKotsRef; retriedKotIds prevents a second retry on the same KOT.
-                if (retriedKotIds.has(kot.id)) continue;
-                retriedKotIds.add(kot.id);
-                kotInFlightRef.current.add(kot.tableId);
                 api.post("/operations/kot", {
                   outletId:    kot.outletId,
                   tableId:     kot.tableId,
@@ -472,7 +433,6 @@ export function App() {
                   source:      "captain",
                   clientKotId: kot.clientKotId,
                 }).then(() => {
-                  kotInFlightRef.current.delete(kot.tableId);
                   setPendingKots(prev => {
                     const next = prev.filter(k => k.id !== kot.id);
                     savePendingKots(next);
@@ -499,15 +459,13 @@ export function App() {
                       },
                     };
                   });
-                }).catch(() => {
-                  kotInFlightRef.current.delete(kot.tableId);
-                });
+                }).catch(() => {});
               }
             }
           }
           wasOffline = false;
         });
-        socket.on("disconnect",    () => { wasOffline = true; setSocketConnected(false); retriedKotIds.clear(); });
+        socket.on("disconnect",    () => { wasOffline = true; setSocketConnected(false); });
         socket.on("connect_error", () => { wasOffline = true; setSocketConnected(false); });
 
         socket.on("order:updated", (o) => {
@@ -588,33 +546,17 @@ export function App() {
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
           }
-          // Stale-write guard: ignore events older than our current local copy.
-          // Normalize both timestamps to ms integers — local updatedAt is Date.now()
-          // (number) while server sends ISO strings; mixing them makes JS coerce the
-          // string to NaN, causing the comparison to always return false.
+          // Stale-write guard: ignore events older than our current local copy
           const current = p[o.tableId];
-          if (current) {
-            const curMs = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
-            const srvMs = o.updatedAt       ? new Date(o.updatedAt).getTime()       : 0;
-            if (curMs > srvMs) return p; // our version is newer — discard
+          if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) {
+            return p; // our version is newer — discard
           }
-          // Concurrent-edit merge: preserve local unsent items not in the incoming order.
-          // Also exclude by menuItemId — but ONLY against server's UNSENT items.
-          // A temp-ID offline item (item-${Date.now()}-xxx) that got a real UUID on the
-          // server is unsent on both sides → correct to deduplicate by menuItemId.
-          // But if the customer already had Biryani KOT'd (sentToKot=true) and orders
-          // Biryani again (new unsent row), using ALL server menuItemIds would drop the
-          // second order entirely — causing amount mismatch between captain and POS.
+          // Concurrent-edit merge: preserve local unsent items not in the incoming order
           let merged = o;
           if (current) {
             const incomingIds = new Set((o.items || []).map(i => i.id));
-            const incomingUnsentMenuItemIds = new Set(
-              (o.items || []).filter(i => !i.sentToKot).map(i => i.menuItemId).filter(Boolean)
-            );
             const localOnly   = (current.items || []).filter(
-              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid &&
-                   !incomingIds.has(i.id) &&
-                   !(i.menuItemId && incomingUnsentMenuItemIds.has(i.menuItemId))
+              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
             );
             merged = {
               ...o,
@@ -766,26 +708,13 @@ export function App() {
               return rest;
             }
             const current = p[o.tableId];
-            // Stale-write guard: normalize both timestamps to ms so number vs ISO-string
-            // comparisons don't silently produce NaN (same fix as cloud socket handler).
-            if (current) {
-              const curMs = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
-              const srvMs = o.updatedAt       ? new Date(o.updatedAt).getTime()       : 0;
-              if (curMs > srvMs) return p;
-            }
-            // Concurrent-edit merge: preserve local unsent items not in the incoming order.
-            // Same menuItemId dedup as cloud socket handler — only against UNSENT server
-            // items so a second order of the same dish (already KOT'd) is not dropped.
+            if (current && (current.updatedAt || 0) > (o.updatedAt || 0)) return p;
+            // Concurrent-edit merge: preserve local unsent items not in the incoming order
             let merged = o;
             if (current) {
               const incomingIds = new Set((o.items || []).map(i => i.id));
-              const incomingUnsentMenuItemIds = new Set(
-                (o.items || []).filter(i => !i.sentToKot).map(i => i.menuItemId).filter(Boolean)
-              );
               const localOnly   = (current.items || []).filter(
-                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid &&
-                     !incomingIds.has(i.id) &&
-                     !(i.menuItemId && incomingUnsentMenuItemIds.has(i.menuItemId))
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
               );
               merged = {
                 ...o,
@@ -856,15 +785,10 @@ export function App() {
     // while the device was offline.  Called on reconnect and every 30 s.
     async function flushSyncQueue() {
       const currentOutletId = outletRef.current?.id || branchConfig?.outletId;
-      // Track qty we've sent for each (tableId:menuItemId) in this flush run.
-      // When the same item is tapped multiple times offline (multiple queue entries),
-      // the first POST creates it on the server at qty=1. Without this counter the
-      // binary `alreadyThere` check would skip every subsequent entry, dropping qty.
-      // With the counter we only skip when server qty exceeds what WE sent — meaning
-      // another device already added this item independently.
-      const addsSentThisFlush = {};
       await syncFlushQueue(async (entry) => {
         if (entry.action === SYNC_ACTION.ADD_ITEM) {
+          // Check server first — item may have arrived via a later socket update.
+          // Re-add only if it's genuinely missing from the server order.
           const serverOrder = await api.get(
             `/operations/order?tableId=${entry.payload.tableId}&outletId=${entry.payload.outletId || currentOutletId}`
           ).catch(() => null);
@@ -872,18 +796,11 @@ export function App() {
           // Server order items have `menuItemId` = menu item ID and `id` = order UUID.
           // Must compare by menuItemId, not id, to detect already-synced items.
           const payloadMenuItemId = entry.payload.item.menuItemId || entry.payload.item.id;
-          const dedupeKey = `${entry.payload.tableId}:${payloadMenuItemId}`;
-          const ourSentQty = addsSentThisFlush[dedupeKey] || 0;
-          const serverQty = (serverOrder?.items || []).find(
+          const alreadyThere = (serverOrder?.items || []).some(
             i => String(i.menuItemId) === String(payloadMenuItemId)
-          )?.quantity || 0;
-          // Skip only when server has MORE than we've sent — that gap came from an
-          // external source (another device / previous flush), not this entry.
-          if (serverQty > ourSentQty) {
-            addsSentThisFlush[dedupeKey] = serverQty;
-          } else {
+          );
+          if (!alreadyThere) {
             await api.post("/operations/order/item", entry.payload);
-            addsSentThisFlush[dedupeKey] = ourSentQty + (entry.payload.item.quantity || 1);
           }
         } else if (entry.action === SYNC_ACTION.REMOVE_ITEM) {
           await api.delete("/operations/order/item", entry.payload);
@@ -1820,11 +1737,6 @@ export function App() {
             ...li,
             id: si.id,
             sentToKot: si.sentToKot ?? li.sentToKot,
-            // kotNumber from server — captain's local copy lacks it because order:updated
-            // from markKotSent is blocked by kotInFlightRef while KOT call is in flight.
-            // Without this, the reconciled broadcast to POS strips kotNumber and POS closes
-            // the order without it, so PastOrdersModal shows no KOT grouping.
-            ...(si.kotNumber != null ? { kotNumber: si.kotNumber } : {}),
           };
         });
         // Deduplicate by ID (same rapid double-tap protection as handleAddItem).
@@ -2088,17 +2000,7 @@ export function App() {
       total:     subtotal + tax,
     }).catch(() => {});
 
-    api.post("/operations/bill-request", {
-      outletId: outlet?.id || branchConfig?.outletId,
-      tableId:  tid,
-      isSplit:  true,
-    }).catch(() => {
-      syncEnqueue(SYNC_ACTION.BILL_REQUEST, {
-        outletId: outlet?.id || branchConfig?.outletId,
-        tableId:  tid,
-        isSplit:  true,
-      });
-    });
+    api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, isSplit: true }).catch(() => {});
   }
 
 
@@ -2482,7 +2384,6 @@ export function App() {
             outletId={outlet?.id}
             socket={socketRef.current}
             staff={branchStaff}
-            isOffline={!socketConnected}
             autoOpen={autoOpenAction}
             onBack={() => { setSelectedTableId(null); setAutoOpenAction(null); }}
             onSendKOT={handleSendKOT}
