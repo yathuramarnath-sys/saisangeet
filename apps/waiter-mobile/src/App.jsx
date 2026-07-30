@@ -434,6 +434,22 @@ export function App() {
                   }
                   return next;
                 });
+                // Rebuild billAlerts from the fresh server fetch.
+                // Server doesn't re-broadcast order:updated on reconnect, so any bill
+                // requested while offline won't appear in the More-screen pending list
+                // unless we explicitly sync it here from the fetched orders.
+                setBillAlerts(prev => {
+                  const next = { ...prev };
+                  for (const o of serverOrders) {
+                    const key = String(o.orderNumber ?? o.id);
+                    if (o.isClosed) {
+                      delete next[key];
+                    } else if (o.billRequested && (o.items || []).some(i => !i.isVoided && !i.isComp)) {
+                      next[key] = o;
+                    }
+                  }
+                  return next;
+                });
               })
               .catch(() => {});
             flushPrints();     // retry any queued print jobs (doesn't block KOT)
@@ -587,18 +603,22 @@ export function App() {
             if (curMs > srvMs) return p; // our version is newer — discard
           }
           // Concurrent-edit merge: preserve local unsent items not in the incoming order.
-          // Also exclude by menuItemId: temp-ID local items (item-${Date.now()}-xxx) that
-          // the server returned with real UUIDs look different by id but are the same dish.
-          // Without the menuItemId check the merge appends the temp-ID version alongside
-          // the real-UUID version — doubling the item on screen.
+          // Also exclude by menuItemId — but ONLY against server's UNSENT items.
+          // A temp-ID offline item (item-${Date.now()}-xxx) that got a real UUID on the
+          // server is unsent on both sides → correct to deduplicate by menuItemId.
+          // But if the customer already had Biryani KOT'd (sentToKot=true) and orders
+          // Biryani again (new unsent row), using ALL server menuItemIds would drop the
+          // second order entirely — causing amount mismatch between captain and POS.
           let merged = o;
           if (current) {
             const incomingIds = new Set((o.items || []).map(i => i.id));
-            const incomingMenuItemIds = new Set((o.items || []).map(i => i.menuItemId).filter(Boolean));
+            const incomingUnsentMenuItemIds = new Set(
+              (o.items || []).filter(i => !i.sentToKot).map(i => i.menuItemId).filter(Boolean)
+            );
             const localOnly   = (current.items || []).filter(
               i => !i.sentToKot && !i.isVoided && !i.isGhostVoid &&
                    !incomingIds.has(i.id) &&
-                   !(i.menuItemId && incomingMenuItemIds.has(i.menuItemId))
+                   !(i.menuItemId && incomingUnsentMenuItemIds.has(i.menuItemId))
             );
             merged = {
               ...o,
@@ -758,16 +778,18 @@ export function App() {
               if (curMs > srvMs) return p;
             }
             // Concurrent-edit merge: preserve local unsent items not in the incoming order.
-            // Also deduplicate by menuItemId so temp-ID offline items don't double up when
-            // the server returns them with real UUIDs (same fix as cloud socket handler).
+            // Same menuItemId dedup as cloud socket handler — only against UNSENT server
+            // items so a second order of the same dish (already KOT'd) is not dropped.
             let merged = o;
             if (current) {
               const incomingIds = new Set((o.items || []).map(i => i.id));
-              const incomingMenuItemIds = new Set((o.items || []).map(i => i.menuItemId).filter(Boolean));
+              const incomingUnsentMenuItemIds = new Set(
+                (o.items || []).filter(i => !i.sentToKot).map(i => i.menuItemId).filter(Boolean)
+              );
               const localOnly   = (current.items || []).filter(
                 i => !i.sentToKot && !i.isVoided && !i.isGhostVoid &&
                      !incomingIds.has(i.id) &&
-                     !(i.menuItemId && incomingMenuItemIds.has(i.menuItemId))
+                     !(i.menuItemId && incomingUnsentMenuItemIds.has(i.menuItemId))
               );
               merged = {
                 ...o,
