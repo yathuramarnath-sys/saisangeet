@@ -434,22 +434,18 @@ export function App() {
                   }
                   return next;
                 });
-                // Rebuild billAlerts from the fresh server fetch.
-                // Server doesn't re-broadcast order:updated on reconnect, so any bill
-                // requested while offline won't appear in the More-screen pending list
-                // unless we explicitly sync it here from the fetched orders.
-                setBillAlerts(prev => {
-                  const next = { ...prev };
-                  for (const o of serverOrders) {
-                    const key = String(o.orderNumber ?? o.id);
-                    if (o.isClosed) {
-                      delete next[key];
-                    } else if (o.billRequested && (o.items || []).some(i => !i.isVoided && !i.isComp)) {
-                      next[key] = o;
-                    }
+                // Full replace from server: prior merge left stale alerts for orders
+                // settled by POS while captain was offline (settled orders are removed
+                // from the server's active list and never appear in serverOrders, so a
+                // merge would leave them in billAlerts forever). flushSyncQueue ran first,
+                // so any offline bill requests are already on the server — a full replace is safe.
+                const freshAlerts = {};
+                for (const o of serverOrders) {
+                  if (!o.isClosed && o.billRequested && (o.items || []).some(i => !i.isVoided && !i.isComp)) {
+                    freshAlerts[String(o.orderNumber ?? o.id)] = o;
                   }
-                  return next;
-                });
+                }
+                setBillAlerts(freshAlerts);
               })
               .catch(() => {});
             flushPrints();     // retry any queued print jobs (doesn't block KOT)
@@ -1824,6 +1820,11 @@ export function App() {
             ...li,
             id: si.id,
             sentToKot: si.sentToKot ?? li.sentToKot,
+            // kotNumber from server — captain's local copy lacks it because order:updated
+            // from markKotSent is blocked by kotInFlightRef while KOT call is in flight.
+            // Without this, the reconciled broadcast to POS strips kotNumber and POS closes
+            // the order without it, so PastOrdersModal shows no KOT grouping.
+            ...(si.kotNumber != null ? { kotNumber: si.kotNumber } : {}),
           };
         });
         // Deduplicate by ID (same rapid double-tap protection as handleAddItem).
