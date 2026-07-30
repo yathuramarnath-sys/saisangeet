@@ -821,7 +821,26 @@ export function App() {
               new Date(current.updatedAt || 0).getTime() -
                 new Date(updatedOrder.updatedAt || 0).getTime() > 30_000
             ) {
-              return prev; // our version is >30 s newer — discard incoming
+              // Even when the overall event is stale, still propagate sentToKot:true
+              // upgrades. KOT confirmation is monotonic (false→true only) so it is
+              // always safe to apply even against a newer local copy.
+              const localItems = current.items || [];
+              const localIdSet = new Set(localItems.map(i => i.id).filter(Boolean));
+              const incoming   = updatedOrder.items || [];
+              const kotted     = new Set(incoming.filter(i => i.sentToKot && i.id).map(i => i.id));
+              if (!kotted.size) return prev; // nothing KOT-confirmed — discard
+              let changed = false;
+              const upgraded = localItems.map(i => {
+                if (i.id && kotted.has(i.id) && !i.sentToKot) { changed = true; return { ...i, sentToKot: true }; }
+                return i;
+              });
+              // Also add brand-new KOT'd items POS hasn't seen yet (captain added + KOT'd before POS got the add event)
+              const brandNew = incoming.filter(i => i.sentToKot && i.id && !localIdSet.has(i.id));
+              if (brandNew.length) changed = true;
+              if (!changed) return prev;
+              const next = { ...prev, [updatedOrder.tableId]: { ...current, items: [...upgraded, ...brandNew] } };
+              saveOrdersToStorage(next);
+              return next;
             }
 
             // Mirror-settle guard: isClosed for an OLD order while active is a NEWER seating.
