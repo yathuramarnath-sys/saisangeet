@@ -167,8 +167,71 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
     .map(([k, o]) => ({ ...o, _mirrorKey: k }))
     .filter(o => o.billRequested && !o.isClosed && (o.items || []).some(i => !i.isVoided && !i.isComp));
 
+  // Live Order Board: all active dine-in tables, sorted by urgency then time
+  const URGENCY = { void: 0, bill: 1, hold: 2, occupied: 3 };
+  const liveOrders = tableAreas
+    .flatMap(a => a.tables.map(t => ({ ...t, areaName: a.name })))
+    .map(t => {
+      const st = tableStatus(t.id);
+      if (st === "available") return null;
+      const o = orders[t.id];
+      const total = tableTotal(t.id);
+      const mins = elapsedMinutes(t.id);
+      const activeItems = (o?.items || []).filter(i => !i.isVoided && !i.isComp);
+      const pendingKot = activeItems.filter(i => !i.sentToKot).length;
+      return {
+        ...t, status: st, total, mins, orderNumber: o?.orderNumber,
+        itemCount: activeItems.length, pendingKot,
+        occupiedAt: o?.occupiedAt || 0,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const d = (URGENCY[a.status] ?? 9) - (URGENCY[b.status] ?? 9);
+      return d !== 0 ? d : a.occupiedAt - b.occupiedAt;
+    });
+
   return (
     <div className="tpp">
+      {/* ── Live Order Board ─────────────────────────────────────────── */}
+      {liveOrders.length > 0 && (
+        <div className="lob">
+          <div className="lob-header">
+            <span className="lob-title">Live Orders</span>
+            <span className="lob-count">{liveOrders.length} active</span>
+          </div>
+          <div className="lob-scroll">
+            {liveOrders.map(t => (
+              <button key={t.id} type="button"
+                className={`lob-card lob-st-${t.status}`}
+                onClick={() => onSelectTable(t.id)}>
+                <div className="lob-card-top">
+                  <span className="lob-tnum">{t.number}</span>
+                  {t.status === "bill" && <span className="lob-badge lob-badge-bill">Bill</span>}
+                  {t.status === "void" && <span className="lob-badge lob-badge-void">Void</span>}
+                  {t.status === "hold" && <span className="lob-badge lob-badge-hold">Hold</span>}
+                </div>
+                <div className="lob-area">{t.areaName}</div>
+                {t.orderNumber && <div className="lob-order-num">#{t.orderNumber}</div>}
+                <div className="lob-meta">
+                  <span>{t.itemCount} item{t.itemCount !== 1 ? "s" : ""}</span>
+                  {t.pendingKot > 0 && <span className="lob-pending-kot">{t.pendingKot} unsent</span>}
+                </div>
+                {t.total !== null && (
+                  <div className="lob-total">₹{t.total.toLocaleString("en-IN")}</div>
+                )}
+                {t.mins !== null && (
+                  <div className="lob-time"
+                    style={{ color: elapsedColor(t.mins), background: elapsedBg(t.mins) }}>
+                    {elapsedLabel(t.mins)}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Area tabs */}
       {tableAreas.length > 1 && (
         <div className="tpp-area-tabs">
