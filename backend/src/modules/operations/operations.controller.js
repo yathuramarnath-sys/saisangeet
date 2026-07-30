@@ -800,8 +800,16 @@ async function deviceGetOrCreateOrderHandler(req, res) {
       await clearTableAfterSettle(tableId);
       result = await getOrder(tableId);
 
-      // Notify POS terminals that the pending-bills list changed.
+      // Notify all outlet devices that a new seating has started on this table.
+      // Without this, POS keeps showing the old billed order (Order #1) until the
+      // captain sends KOT for the new order — causing the table to appear stuck as
+      // "Billed" and blocking proper settlement on POS at day-end.
       const io = req.app.locals.io;
+      if (io && outletId) {
+        io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", result);
+      }
+
+      // Notify POS terminals that the pending-bills list changed.
       if (io && outletId) {
         io.to(`outlet:${tenantId}:${outletId}`).emit("pending-bills:updated", {
           outletId,
