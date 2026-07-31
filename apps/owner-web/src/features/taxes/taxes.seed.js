@@ -41,6 +41,7 @@ export const defaultReceiptSettings = {
   receiptFont:        "default",
   billFontSize:       "normal",
   kotFontSize:        "normal",
+  receiptLogoUrl:     "",
 };
 
 // Outlet GST profiles loaded from API

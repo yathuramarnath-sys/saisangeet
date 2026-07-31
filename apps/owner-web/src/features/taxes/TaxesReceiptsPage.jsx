@@ -226,6 +226,7 @@ export function TaxesReceiptsPage() {
           receiptFont:        o.receiptFont        || defaultReceiptSettings.receiptFont,
           billFontSize:       o.billFontSize       || defaultReceiptSettings.billFontSize,
           kotFontSize:        o.kotFontSize        || defaultReceiptSettings.kotFontSize,
+          receiptLogoUrl:     o.receiptLogoUrl     || defaultReceiptSettings.receiptLogoUrl,
         };
         setReceipt(fromOutlet);
         localStorage.setItem(RECEIPT_SETTINGS_KEY, JSON.stringify(fromOutlet));
@@ -519,7 +520,10 @@ export function TaxesReceiptsPage() {
           <div className="trp-shell">
             <div className="trp-paper" style={{ fontFamily: pvFontFamily, '--trp-fs': `${pvBillSize}px`, ...(pvBoldBoost ? { fontWeight: 600 } : {}) }}>
 
-              <div className="trp-logo-circle">{pvName[0] || "R"}</div>
+              {receipt.receiptLogoUrl
+                ? <img src={receipt.receiptLogoUrl} alt="" className="trp-logo-img" onError={e => { e.currentTarget.style.display = "none"; }} />
+                : <div className="trp-logo-circle">{pvName[0] || "R"}</div>
+              }
               <div className="trp-brand">{pvName}</div>
               {receipt.showAddress && pvAddr  && <div className="trp-brand-sub">{pvAddr}</div>}
               {receipt.showPhone   && pvPhone && <div className="trp-brand-sub">Ph: {pvPhone}</div>}
@@ -653,6 +657,37 @@ export function TaxesReceiptsPage() {
               <span className="rb-field-value">{pvName}</span>
             </div>
             <p className="rb-hint">Set in Business Profile → Trade Name</p>
+
+            <div className="rb-divider" />
+
+            <div className="rb-logo-group">
+              <p className="ps-group-label">Receipt logo</p>
+              <p className="ps-group-desc">Paste an image URL — shown at the top of printed bills</p>
+              <input
+                className="rb-logo-input"
+                type="url"
+                placeholder="https://yoursite.com/logo.png"
+                value={receipt.receiptLogoUrl || ""}
+                onChange={e => setReceipt(r => ({ ...r, receiptLogoUrl: e.target.value }))}
+                onBlur={e => { updateReceipt("receiptLogoUrl", e.target.value.trim()); flash("Logo URL saved."); }}
+              />
+              {receipt.receiptLogoUrl && (
+                <div className="rb-logo-preview-wrap">
+                  <img
+                    src={receipt.receiptLogoUrl}
+                    alt="logo preview"
+                    className="rb-logo-preview-img"
+                    onError={e => { e.currentTarget.style.display = "none"; }}
+                  />
+                </div>
+              )}
+              {receipt.receiptLogoUrl && (
+                <button className="ghost-chip" style={{ marginTop: 6 }}
+                  onClick={() => { updateReceipt("receiptLogoUrl", ""); flash("Logo removed."); }}>
+                  Remove logo
+                </button>
+              )}
+            </div>
           </RbSection>
 
           {/* Print Style */}

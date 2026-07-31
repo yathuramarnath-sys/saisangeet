@@ -233,6 +233,7 @@ export async function printBill(order, items, outletOrName, options = {}) {
   <!-- Header -->
   <div class="hdr">
     ${invoiceHeader ? `<div class="invoice-header">${invoiceHeader}</div>` : ""}
+    ${outlet?.receiptLogoUrl ? `<img src="${outlet.receiptLogoUrl}" alt="" style="display:block;margin:0 auto 4px;max-width:80px;max-height:40px;object-fit:contain;" onerror="this.style.display='none'"/>` : ""}
     <div class="outlet-name">${outletName || "Restaurant"}</div>
     ${showAddress && (outletAddr1 || outletAddr2 || outletCity || outletState) ? `<div class="outlet-addr">${[outletAddr1, outletAddr2, outletCity, outletState].filter(Boolean).join(", ")}</div>` : ""}
     ${(showPhone && outletPhone) || (showGstin && outletGstin) ? `<div class="outlet-meta">${showPhone && outletPhone ? `Ph: ${outletPhone}` : ""}${showPhone && outletPhone && showGstin && outletGstin ? " &nbsp;|&nbsp; " : ""}${showGstin && outletGstin ? `GSTIN: ${outletGstin}` : ""}</div>` : ""}
