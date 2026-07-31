@@ -22,12 +22,19 @@ function areasToApiTables(areas) {
 const PRINTER_TYPES  = ["KOT Printer", "Bill Printer", "Both (KOT + Bill)", "Bar Printer", "Dessert Printer"];
 const PRINTER_CONNS  = ["Network (IP)", "USB", "Bluetooth"];
 const PAPER_SIZES    = ["80mm", "76mm", "72mm", "58mm"];
-const PRINTER_MODELS = ["Epson TM-T82", "Epson TM-T88", "TVS RP 3160 Gold", "TVS RP 45 Shoppe", "Other"];
+const PRINTER_MODELS = [
+  "Epson TM-T82", "Epson TM-T88",
+  "Bixolon SRP-350", "Bixolon SRP-380",
+  "TVS RP 3160 Gold", "TVS RP 45 Shoppe",
+  "Other",
+];
 
 // Default paper width per model — auto-filled when model is selected
 const MODEL_PAPER = {
   "Epson TM-T82":    "80mm",
   "Epson TM-T88":    "80mm",
+  "Bixolon SRP-350": "80mm",
+  "Bixolon SRP-380": "80mm",
   "TVS RP 3160 Gold":"80mm",
   "TVS RP 45 Shoppe":"58mm",
 };
@@ -36,10 +43,12 @@ const MODEL_PAPER = {
 function guessModelFromBanner(name) {
   if (!name) return null;
   const n = name.toLowerCase();
-  if (n.includes("t82") || n.includes("tm-t82")) return "Epson TM-T82";
-  if (n.includes("t88") || n.includes("tm-t88")) return "Epson TM-T88";
-  if (n.includes("rp 3160") || n.includes("rp3160")) return "TVS RP 3160 Gold";
-  if (n.includes("rp 45") || n.includes("rp45"))    return "TVS RP 45 Shoppe";
+  if (n.includes("t82") || n.includes("tm-t82"))        return "Epson TM-T82";
+  if (n.includes("t88") || n.includes("tm-t88"))        return "Epson TM-T88";
+  if (n.includes("srp-350") || n.includes("srp350"))    return "Bixolon SRP-350";
+  if (n.includes("srp-380") || n.includes("srp380"))    return "Bixolon SRP-380";
+  if (n.includes("rp 3160") || n.includes("rp3160"))    return "TVS RP 3160 Gold";
+  if (n.includes("rp 45")   || n.includes("rp45"))      return "TVS RP 45 Shoppe";
   return null;
 }
 
@@ -70,6 +79,8 @@ function PrinterTab() {
   const [autoInstallMsg,  setAutoInstallMsg]  = useState(null);
   // Health status for saved network printers: { [printerId]: "checking"|"online"|"offline" }
   const [printerHealth,   setPrinterHealth]   = useState({});
+  const [proStep,         setProStep]         = useState(1);
+  const [showAdvanced,    setShowAdvanced]    = useState(false);
   // Kitchen stations — fetch fresh from API on mount; fall back to localStorage cache
   const [kitchenStations, setKitchenStations] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pos_kitchen_stations") || "[]"); }
@@ -188,10 +199,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
     }
   }
 
-  function openAdd() { setForm(BLANK_FORM); setEditId(null); setScanResults(null); setAdding(true); }
+  function openAdd() { setForm(BLANK_FORM); setEditId(null); setScanResults(null); setProStep(1); setShowAdvanced(false); setAdding(true); }
   function openEdit(p) {
     setForm({ name: p.name, type: p.type, conn: p.conn, ip: p.ip || "", paper: p.paper, model: p.model || "Epson TM-T82", station: p.station || "", winName: p.winName || "", marginAdjust: p.marginAdjust || 0 });
-    setEditId(p.id); setScanResults(null); setAdding(true);
+    setEditId(p.id); setScanResults(null); setShowAdvanced(false); setAdding(true);
   }
 
   function savePrinter() {
@@ -477,216 +488,405 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
         <div className="pset-add-form">
           <h5 className="pset-form-title">{editId ? "Edit Printer" : "Add Printer"}</h5>
 
-          {/* ── Printer discovery row ── */}
-          {IS_ELECTRON ? (
-            <div className="pset-scan-row">
-              {/* Network / USB scan via port-9100 + wmic/lpstat */}
-              <button type="button" className="pset-scan-btn" onClick={handleScan} disabled={scanning}>
-                {scanning ? "Scanning…" : "🔍 Scan Network & USB"}
-              </button>
-              {/* List Windows-installed printers for winName selection */}
-              <button type="button" className="pset-scan-btn" onClick={handleListWindowsPrinters} disabled={loadingWinPrinters}
-                style={{ marginLeft: 8 }}>
-                {loadingWinPrinters ? "Loading…" : "📋 List Windows Printers"}
-              </button>
-            </div>
-          ) : (
-            // Browser / web mode — printer auto-detect is not supported.
-            // Explain the correct setup path to the staff member.
-            <div className="pset-scan-note">
-              <strong>Windows Electron app required for auto-detect.</strong><br />
-              For network printers: enter the IP address manually below.<br />
-              For USB printers: install the Epson / TVS driver on Windows, then enter
-              the exact printer name shown in <em>Windows → Devices and Printers</em>.
-            </div>
-          )}
-
-          {/* Network scan results */}
-          {scanResults !== null && (
-            scanResults.length === 0 ? (
-              <div className="pset-scan-empty">No printers found on port 9100. Enter IP manually for network printers, or use "List Windows Printers" for USB.</div>
-            ) : (
-              <div className="pset-scan-results">
-                <p className="pset-scan-results-label">Found {scanResults.length} printer{scanResults.length !== 1 ? "s" : ""} — tap to select:</p>
-                {scanResults.map((p, i) => (
-                  <button key={i} type="button" className="pset-scan-result-item" onClick={() => pickScannedPrinter(p)}>
-                    <span className="pset-scan-result-icon">🖨️</span>
-                    <span>
-                      <strong>{p.name}</strong>
-                      <span className="pset-scan-result-ip">{p.ip}{p.usb ? " (USB)" : ""}</span>
-                    </span>
-                  </button>
-                ))}
+          {editId ? (
+            /* ═══ EDIT: full form ═══════════════════════════════════════════ */
+            <>
+              {/* IP / Connection */}
+              <div className="pset-form-row">
+                <div className="pset-form-field">
+                  <label>Printer name</label>
+                  <input className="pset-input" value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+                </div>
+                <div className="pset-form-field">
+                  <label>Network IP address</label>
+                  <input className="pset-input" placeholder="192.168.1.xxx"
+                    value={form.ip} onChange={e => setForm(f => ({ ...f, ip: e.target.value }))} />
+                </div>
               </div>
-            )
-          )}
 
-          {/* Windows printer list (from getPrinters IPC) */}
-          {winPrinterList !== null && (
-            winPrinterList.length === 0 ? (
-              <div className="pset-scan-empty">No printers found in Windows. Install the printer driver first.</div>
-            ) : (
-              <div className="pset-scan-results">
-                <p className="pset-scan-results-label">
-                  Windows printers — tap to set as the print target:
-                </p>
-                {winPrinterList.map((p, i) => (
-                  <button key={i} type="button" className="pset-scan-result-item" onClick={() => pickWindowsPrinter(p)}>
-                    <span className="pset-scan-result-icon">🖨️</span>
-                    <span>
-                      <strong>{p.name}</strong>
-                      {p.isDefault && <span className="pset-default-badge" style={{ marginLeft: 6 }}>Default</span>}
-                    </span>
-                  </button>
-                ))}
+              {/* Role cards */}
+              <div className="pset-form-field" style={{ marginTop: 4 }}>
+                <label>Role</label>
+                <div className="pset-role-cards">
+                  {[
+                    { role: "Bill Printer",      icon: "🧾", label: "Bills",   sub: "Receipts" },
+                    { role: "KOT Printer",       icon: "📋", label: "KOT",     sub: "Kitchen orders" },
+                    { role: "Both (KOT + Bill)", icon: "🍽️", label: "Both",    sub: "Bills + KOT" },
+                  ].map(({ role, icon, label, sub }) => (
+                    <button key={role} type="button"
+                      className={`pset-role-card${form.type === role ? " selected" : ""}`}
+                      onClick={() => setForm(f => ({ ...f, type: role }))}>
+                      <span className="pset-role-icon">{icon}</span>
+                      <span className="pset-role-label">{label}</span>
+                      <span className="pset-role-sub">{sub}</span>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  {["Bar Printer", "Dessert Printer"].map(t => (
+                    <button key={t} type="button"
+                      className={`pset-paper-chip${form.type === t ? " selected" : ""}`}
+                      onClick={() => setForm(f => ({ ...f, type: t }))}>
+                      {t === "Bar Printer" ? "🍺" : "🍰"} {t}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )
-          )}
 
-          <div className="pset-form-row">
-            <div className="pset-form-field">
-              <label>Printer name</label>
-              <input className="pset-input" placeholder="e.g. Hot Kitchen Printer"
-                value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
-            </div>
-            <div className="pset-form-field">
-              <label>Type</label>
-              <select className="pset-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                {PRINTER_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Kitchen station — dropdown from Owner Web stations */}
-          <div className="pset-form-row">
-            <div className="pset-form-field">
-              <label>Kitchen station</label>
-              <select className="pset-select" value={form.station} onChange={e => setForm(f => ({ ...f, station: e.target.value }))}>
-                <option value="">— select station —</option>
-                {kitchenStations.map(s => (
-                  <option key={s.id} value={s.name}>{s.name}</option>
-                ))}
-                <option value="Bills & KOTs">Bills &amp; KOTs</option>
-              </select>
-              <span className="pset-field-hint">
-                {kitchenStations.length === 0
-                  ? "No stations found — create them in Owner Web → Kitchen Stations first"
-                  : "KOTs for this station's categories route to this printer"}
-              </span>
-            </div>
-          </div>
-
-          <div className="pset-form-row">
-            <div className="pset-form-field">
-              <label>Connection</label>
-              <select className="pset-select" value={form.conn} onChange={e => setForm(f => ({ ...f, conn: e.target.value }))}>
-                {PRINTER_CONNS.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="pset-form-field">
-              <label>
-                Network IP address
-                {form.conn !== "Network (IP)" && (
-                  <span style={{ fontWeight: 400, color: "#999", marginLeft: 4 }}>(optional)</span>
-                )}
-              </label>
-              <input className="pset-input" placeholder="192.168.1.xxx"
-                value={form.ip} onChange={e => setForm(f => ({ ...f, ip: e.target.value }))} />
-              {form.conn !== "Network (IP)" && (
-                <span className="pset-field-hint">
-                  If this is a network/WiFi printer, enter its IP here for direct printing (no Windows driver needed).
-                </span>
+              {/* Station — only for KOT-type printers */}
+              {(form.type === "KOT Printer" || form.type === "Both (KOT + Bill)" || form.type === "Bar Printer" || form.type === "Dessert Printer") && (
+                <div className="pset-form-field">
+                  <label>Kitchen station</label>
+                  <select className="pset-select" value={form.station} onChange={e => setForm(f => ({ ...f, station: e.target.value }))}>
+                    <option value="">— select station —</option>
+                    {kitchenStations.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    <option value="Bills & KOTs">Bills &amp; KOTs</option>
+                  </select>
+                  <span className="pset-field-hint">KOTs for this station route to this printer</span>
+                </div>
               )}
-            </div>
-          </div>
 
-          <div className="pset-form-row">
-            <div className="pset-form-field">
-              <label>Printer model</label>
-              <select className="pset-select" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))}>
-                {PRINTER_MODELS.map(m => <option key={m}>{m}</option>)}
-              </select>
-            </div>
-            <div className="pset-form-field">
-              <label>Paper size</label>
-              <select className="pset-select" value={form.paper} onChange={e => setForm(f => ({ ...f, paper: e.target.value }))}>
-                {PAPER_SIZES.map(s => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="pset-form-row">
-            <div className="pset-form-field">
-              <label>Right margin adjust <span style={{ fontWeight: 400, color: "#999" }}>(px)</span></label>
-              <div className="pset-margin-stepper">
-                <button type="button" className="pset-margin-btn"
-                  onClick={() => setForm(f => ({ ...f, marginAdjust: Math.max(0, (f.marginAdjust || 0) - 2) }))}>−</button>
-                <span className="pset-margin-val">{form.marginAdjust || 0} px</span>
-                <button type="button" className="pset-margin-btn"
-                  onClick={() => setForm(f => ({ ...f, marginAdjust: Math.min(20, (f.marginAdjust || 0) + 2) }))}>+</button>
-              </div>
-              <span className="pset-field-hint">
-                If bill or KOT amounts are cut off on the right edge, increase this.
-                Default 0 works for Epson. Try +4 or +6 for generic/other models.
-              </span>
-            </div>
-          </div>
-
-          {/* Network IP entered → show Auto-Setup button */}
-          {IS_ELECTRON && form.ip?.trim() && (
-            <div className="pset-form-row">
-              <div className="pset-form-field">
-                <label>Quick Windows setup (network printers)</label>
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <button type="button" className="pset-save-btn"
-                    onClick={handleAutoInstall} disabled={autoInstalling}>
-                    {autoInstalling ? "Installing…" : "🖨️ Auto-Setup in Windows"}
-                  </button>
-                  {autoInstallMsg && (
-                    <span style={{
-                      fontSize: 13, fontWeight: 700,
-                      color: autoInstallMsg.ok ? "#16a34a" : "#dc2626"
+              {/* Model + Paper */}
+              <div className="pset-form-row">
+                <div className="pset-form-field">
+                  <label>Printer model</label>
+                  <select className="pset-select" value={form.model}
+                    onChange={e => {
+                      const m = e.target.value;
+                      const ph = MODEL_PAPER[m];
+                      setForm(f => ({ ...f, model: m, ...(ph ? { paper: ph } : {}) }));
                     }}>
-                      {autoInstallMsg.msg}
-                    </span>
+                    {PRINTER_MODELS.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="pset-form-field">
+                  <label>Paper size</label>
+                  <div className="pset-paper-chips">
+                    {["80mm", "58mm"].map(s => (
+                      <button key={s} type="button"
+                        className={`pset-paper-chip${form.paper === s ? " selected" : ""}`}
+                        onClick={() => setForm(f => ({ ...f, paper: s }))}>{s}</button>
+                    ))}
+                    <button type="button"
+                      className={`pset-paper-chip${!["80mm","58mm"].includes(form.paper) ? " selected" : ""}`}
+                      onClick={() => setForm(f => ({ ...f, paper: "76mm" }))}>Other</button>
+                  </div>
+                  {!["80mm","58mm"].includes(form.paper) && (
+                    <select className="pset-select" style={{ marginTop: 6 }} value={form.paper}
+                      onChange={e => setForm(f => ({ ...f, paper: e.target.value }))}>
+                      {PAPER_SIZES.map(s => <option key={s}>{s}</option>)}
+                    </select>
                   )}
                 </div>
-                <span className="pset-field-hint">
-                  Auto-registers this printer in Windows (for USB-port apps). For network printing,
-                  just saving the IP address above is enough — no Windows driver needed.
-                  {form.winName && <> Installed as: <strong>{form.winName}</strong></>}
-                </span>
               </div>
-            </div>
-          )}
 
-          {/* USB / Bluetooth → manual Windows printer name field */}
-          {IS_ELECTRON && (
-            <div className="pset-form-row">
-              <div className="pset-form-field">
-                <label>Windows printer name <span style={{ fontWeight: 400, color: "#999" }}>(USB only, optional)</span></label>
-                <input
-                  className="pset-input"
-                  placeholder="e.g. EPSON TM-T82 Receipt"
-                  value={form.winName}
-                  onChange={e => setForm(f => ({ ...f, winName: e.target.value }))}
-                />
-                <span className="pset-field-hint">
-                  For USB printers only — must match Windows → Devices and Printers exactly.
-                  Use "List Windows Printers" above to auto-fill.
-                  Leave blank if using network (IP) printing.
-                </span>
+              {/* Advanced toggle */}
+              <button type="button" className="pset-advanced-toggle"
+                onClick={() => setShowAdvanced(v => !v)}>
+                {showAdvanced ? "▲ Hide advanced" : "▼ Advanced options"}
+              </button>
+              {showAdvanced && (
+                <div className="pset-advanced-body">
+                  <div className="pset-form-field">
+                    <label>Right margin adjust (px)</label>
+                    <div className="pset-margin-stepper">
+                      <button type="button" className="pset-margin-btn"
+                        onClick={() => setForm(f => ({ ...f, marginAdjust: Math.max(0, (f.marginAdjust||0) - 2) }))}>−</button>
+                      <span className="pset-margin-val">{form.marginAdjust || 0} px</span>
+                      <button type="button" className="pset-margin-btn"
+                        onClick={() => setForm(f => ({ ...f, marginAdjust: Math.min(20, (f.marginAdjust||0) + 2) }))}>+</button>
+                    </div>
+                    <span className="pset-field-hint">If amounts cut off on right edge, increase this. Default 0 for Epson.</span>
+                  </div>
+                  {IS_ELECTRON && (
+                    <>
+                      <div className="pset-form-field">
+                        <label>Windows printer name <span style={{ fontWeight: 400, color: "#999" }}>(USB only)</span></label>
+                        <input className="pset-input" placeholder="e.g. EPSON TM-T82 Receipt"
+                          value={form.winName} onChange={e => setForm(f => ({ ...f, winName: e.target.value }))} />
+                        <span className="pset-field-hint">Must match Windows → Devices and Printers exactly.</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <button type="button" className="pset-scan-btn" onClick={handleListWindowsPrinters} disabled={loadingWinPrinters}>
+                          {loadingWinPrinters ? "Loading…" : "📋 List Windows Printers"}
+                        </button>
+                        {form.ip?.trim() && (
+                          <button type="button" className="pset-scan-btn" onClick={handleAutoInstall} disabled={autoInstalling}>
+                            {autoInstalling ? "Installing…" : "🖨️ Auto-Setup in Windows"}
+                          </button>
+                        )}
+                        {autoInstallMsg && (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: autoInstallMsg.ok ? "#16a34a" : "#dc2626" }}>
+                            {autoInstallMsg.msg}
+                          </span>
+                        )}
+                      </div>
+                      {winPrinterList !== null && winPrinterList.length > 0 && (
+                        <div className="pset-scan-results">
+                          {winPrinterList.map((p, i) => (
+                            <button key={i} type="button" className="pset-scan-result-item" onClick={() => pickWindowsPrinter(p)}>
+                              <span className="pset-scan-result-icon">🖨️</span>
+                              <span><strong>{p.name}</strong>{p.isDefault && <span className="pset-default-badge" style={{ marginLeft: 6 }}>Default</span>}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="pset-form-actions" style={{ marginTop: 14 }}>
+                <button type="button" className="pset-cancel-btn"
+                  onClick={() => { setAdding(false); setEditId(null); setScanResults(null); setWinPrinterList(null); }}>Cancel</button>
+                <button type="button" className="pset-save-btn" onClick={savePrinter}>Save Changes</button>
               </div>
-            </div>
-          )}
+            </>
+          ) : (
+            /* ═══ ADD: 3-step wizard ════════════════════════════════════════ */
+            <>
+              {/* Step indicator */}
+              <div className="pset-wizard-steps">
+                {[["Find", 1], ["Configure", 2], ["Role", 3]].map(([label, n]) => (
+                  <div key={n} className={`pset-wstep${proStep === n ? " active" : proStep > n ? " done" : ""}`}>
+                    <span className="pset-wstep-num">{proStep > n ? "✓" : n}</span>
+                    <span className="pset-wstep-label">{label}</span>
+                  </div>
+                ))}
+              </div>
 
-          <div className="pset-form-actions">
-            <button type="button" className="pset-cancel-btn"
-              onClick={() => { setAdding(false); setEditId(null); setScanResults(null); setWinPrinterList(null); }}>Cancel</button>
-            <button type="button" className="pset-save-btn" onClick={savePrinter}>
-              {editId ? "Save Changes" : "Add Printer"}
-            </button>
-          </div>
+              {/* ─ Step 1: Find printer ──────────────────────────────────── */}
+              {proStep === 1 && (
+                <>
+                  <div className="pset-discover-grid">
+                    <button type="button" className="pset-discover-card" onClick={handleScan} disabled={scanning}>
+                      <span className="pset-discover-icon">📡</span>
+                      <span className="pset-discover-label">{scanning ? "Scanning…" : "Scan Network"}</span>
+                      <span className="pset-discover-sub">Auto-find on Wi-Fi</span>
+                    </button>
+                    <button type="button" className="pset-discover-card" onClick={() => { setForm(f => ({ ...f, conn: "Network (IP)" })); setScanResults(null); setProStep(2); }}>
+                      <span className="pset-discover-icon">⌨️</span>
+                      <span className="pset-discover-label">Enter IP</span>
+                      <span className="pset-discover-sub">Known/fixed printer</span>
+                    </button>
+                    <button type="button" className="pset-discover-card" onClick={() => { setForm(f => ({ ...f, conn: "USB" })); setScanResults(null); handleListWindowsPrinters(); setProStep(2); }}>
+                      <span className="pset-discover-icon">🖨️</span>
+                      <span className="pset-discover-label">USB Printer</span>
+                      <span className="pset-discover-sub">Connected by cable</span>
+                    </button>
+                  </div>
+
+                  {scanning && (
+                    <div className="pset-scan-empty">Scanning network… may take 15–30 seconds</div>
+                  )}
+
+                  {scanResults !== null && (
+                    scanResults.length === 0 ? (
+                      <div className="pset-scan-empty">No printers found on port 9100. Try "Enter IP" to add manually.</div>
+                    ) : (
+                      <div className="pset-scan-results">
+                        {scanResults.filter(p => !p.usb).length > 0 && (
+                          <>
+                            <p className="pset-scan-results-label">Network printers found — tap to select:</p>
+                            {scanResults.filter(p => !p.usb).map((p, i) => (
+                              <button key={i} type="button" className="pset-scan-result-item"
+                                onClick={() => { pickScannedPrinter(p); setProStep(2); }}>
+                                <span className="pset-scan-result-icon">📡</span>
+                                <span>
+                                  <strong style={{ fontFamily: "monospace" }}>{p.ip}</strong>
+                                  <span className="pset-scan-result-ip"> · Network · port 9100</span>
+                                </span>
+                                <span style={{ marginLeft: "auto", color: "#16a34a", fontWeight: 700, fontSize: 12 }}>Use this →</span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                        {scanResults.filter(p => p.usb).length > 0 && (
+                          <>
+                            <p className="pset-scan-results-label" style={{ marginTop: 8 }}>USB printers found:</p>
+                            {scanResults.filter(p => p.usb).map((p, i) => (
+                              <button key={`usb${i}`} type="button" className="pset-scan-result-item"
+                                onClick={() => { pickScannedPrinter(p); setProStep(2); }}>
+                                <span className="pset-scan-result-icon">🖨️</span>
+                                <span>
+                                  <strong>{p.name}</strong>
+                                  <span className="pset-scan-result-ip"> · USB</span>
+                                </span>
+                                <span style={{ marginLeft: "auto", color: "#16a34a", fontWeight: 700, fontSize: 12 }}>Use this →</span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )
+                  )}
+
+                  <div className="pset-form-actions" style={{ marginTop: 12 }}>
+                    <button type="button" className="pset-cancel-btn"
+                      onClick={() => { setAdding(false); setScanResults(null); }}>Cancel</button>
+                  </div>
+                </>
+              )}
+
+              {/* ─ Step 2: Configure ─────────────────────────────────────── */}
+              {proStep === 2 && (
+                <>
+                  {form.conn === "Network (IP)" ? (
+                    form.ip ? (
+                      <div className="pset-ip-chip">
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", display: "inline-block" }} />
+                        {form.ip}
+                        <button type="button" style={{ marginLeft: 8, fontSize: 11, color: "#6b7280", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+                          onClick={() => { setForm(f => ({ ...f, ip: "" })); setScanResults(null); setProStep(1); }}>change</button>
+                      </div>
+                    ) : (
+                      <div className="pset-form-field" style={{ marginBottom: 12 }}>
+                        <label>IP Address</label>
+                        <input className="pset-input" placeholder="192.168.1.xxx" value={form.ip}
+                          onChange={e => setForm(f => ({ ...f, ip: e.target.value }))} autoFocus />
+                        <span className="pset-field-hint">Enter the printer's network IP address</span>
+                      </div>
+                    )
+                  ) : (
+                    /* USB — show Windows printer list */
+                    <>
+                      {loadingWinPrinters && <div className="pset-scan-empty">Loading Windows printers…</div>}
+                      {winPrinterList !== null && (
+                        winPrinterList.length === 0 ? (
+                          <div className="pset-scan-empty">No printers found in Windows. Install the printer driver first.</div>
+                        ) : (
+                          <div className="pset-scan-results" style={{ marginBottom: 10 }}>
+                            <p className="pset-scan-results-label">Select your USB printer:</p>
+                            {winPrinterList.map((p, i) => (
+                              <button key={i} type="button" className="pset-scan-result-item" onClick={() => pickWindowsPrinter(p)}>
+                                <span className="pset-scan-result-icon">🖨️</span>
+                                <span><strong>{p.name}</strong>{p.isDefault && <span className="pset-default-badge" style={{ marginLeft: 6 }}>Default</span>}</span>
+                                <span style={{ marginLeft: "auto", color: "#16a34a", fontWeight: 700, fontSize: 12 }}>Select →</span>
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      )}
+                    </>
+                  )}
+
+                  {/* Printer name */}
+                  <div className="pset-form-field" style={{ marginBottom: 12 }}>
+                    <label>Printer name</label>
+                    <input className="pset-input" placeholder="e.g. Hot Kitchen Printer" value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      autoFocus={!!form.ip} />
+                  </div>
+
+                  {/* Model → paper auto-fill */}
+                  <div className="pset-form-row">
+                    <div className="pset-form-field">
+                      <label>Printer model</label>
+                      <select className="pset-select" value={form.model}
+                        onChange={e => {
+                          const m = e.target.value;
+                          const ph = MODEL_PAPER[m];
+                          setForm(f => ({ ...f, model: m, ...(ph ? { paper: ph } : {}) }));
+                        }}>
+                        {PRINTER_MODELS.map(m => <option key={m}>{m}</option>)}
+                      </select>
+                    </div>
+                    <div className="pset-form-field">
+                      <label>Paper size</label>
+                      <div className="pset-paper-chips">
+                        {["80mm", "58mm"].map(s => (
+                          <button key={s} type="button"
+                            className={`pset-paper-chip${form.paper === s ? " selected" : ""}`}
+                            onClick={() => setForm(f => ({ ...f, paper: s }))}>{s}</button>
+                        ))}
+                        <button type="button"
+                          className={`pset-paper-chip${!["80mm","58mm"].includes(form.paper) ? " selected" : ""}`}
+                          onClick={() => setForm(f => ({ ...f, paper: "76mm" }))}>Other</button>
+                      </div>
+                      {!["80mm","58mm"].includes(form.paper) && (
+                        <select className="pset-select" style={{ marginTop: 6 }} value={form.paper}
+                          onChange={e => setForm(f => ({ ...f, paper: e.target.value }))}>
+                          {PAPER_SIZES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pset-form-actions" style={{ marginTop: 14 }}>
+                    <button type="button" className="pset-cancel-btn" onClick={() => setProStep(1)}>← Back</button>
+                    <button type="button" className="pset-save-btn"
+                      onClick={() => { if (form.name.trim()) setProStep(3); }}
+                      disabled={!form.name.trim()}>
+                      Next →
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ─ Step 3: Role ──────────────────────────────────────────── */}
+              {proStep === 3 && (
+                <>
+                  <p style={{ fontSize: 13, color: "var(--sq-muted)", marginBottom: 12 }}>
+                    What should <strong style={{ color: "var(--sq-text)" }}>{form.name}</strong> print?
+                  </p>
+
+                  <div className="pset-role-cards">
+                    {[
+                      { role: "Bill Printer",      icon: "🧾", label: "Bills",          sub: "Receipts & settlements" },
+                      { role: "KOT Printer",       icon: "📋", label: "Kitchen Orders", sub: "KOTs to kitchen" },
+                      { role: "Both (KOT + Bill)", icon: "🍽️", label: "Both",           sub: "Bills + KOTs" },
+                    ].map(({ role, icon, label, sub }) => (
+                      <button key={role} type="button"
+                        className={`pset-role-card${form.type === role ? " selected" : ""}`}
+                        onClick={() => setForm(f => ({ ...f, type: role }))}>
+                        <span className="pset-role-icon">{icon}</span>
+                        <span className="pset-role-label">{label}</span>
+                        <span className="pset-role-sub">{sub}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Bar / Dessert specialty options */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    {["Bar Printer", "Dessert Printer"].map(t => (
+                      <button key={t} type="button"
+                        className={`pset-paper-chip${form.type === t ? " selected" : ""}`}
+                        onClick={() => setForm(f => ({ ...f, type: t }))}>
+                        {t === "Bar Printer" ? "🍺" : "🍰"} {t}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Kitchen station — only for KOT-type */}
+                  {(form.type === "KOT Printer" || form.type === "Both (KOT + Bill)" || form.type === "Bar Printer" || form.type === "Dessert Printer") && (
+                    <div className="pset-form-field" style={{ marginTop: 14 }}>
+                      <label>Kitchen station</label>
+                      <select className="pset-select" value={form.station}
+                        onChange={e => setForm(f => ({ ...f, station: e.target.value }))}>
+                        <option value="">— select station (optional) —</option>
+                        {kitchenStations.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        <option value="Bills & KOTs">Bills &amp; KOTs</option>
+                      </select>
+                      <span className="pset-field-hint">
+                        {kitchenStations.length === 0
+                          ? "No stations yet — create them in Owner Web → Kitchen Stations"
+                          : "KOTs for this station's items route to this printer"}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="pset-form-actions" style={{ marginTop: 14 }}>
+                    <button type="button" className="pset-cancel-btn" onClick={() => setProStep(2)}>← Back</button>
+                    <button type="button" className="pset-save-btn" onClick={savePrinter}
+                      disabled={!form.type}>
+                      Save Printer
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
