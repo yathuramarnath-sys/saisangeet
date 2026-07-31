@@ -81,12 +81,25 @@ const PALETTE = [
 
 const FAVOURITES_CAT = "⭐ Favourites";
 
-export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, onToggleCategoryAvailability, quantities, onDecrement, stockSnapshot, onSkuLookup, onCategoryChange, favouriteItemIds = [] }) {
+const GST_SLABS = [
+  { label: "No Tax (0%)",  value: 0  },
+  { label: "GST 5%",       value: 5  },
+  { label: "GST 12%",      value: 12 },
+  { label: "GST 18%",      value: 18 },
+];
+
+const BLANK_DRAFT = { name: "", price: "", catId: "", taxRate: "5" };
+
+export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, onToggleCategoryAvailability, quantities, onDecrement, stockSnapshot, onSkuLookup, onCategoryChange, favouriteItemIds = [], onQuickAddItem }) {
   const [search,      setSearch]      = useState("");
   const [stockState,  setStockState]  = useState(() => getStockState());
   const [categoryStockState, setCategoryStockState] = useState(() => getCategoryStockState());
   const [pendingDisableCat,  setPendingDisableCat]   = useState(null); // { id, name } | null
   const [customTime,         setCustomTime]          = useState("");
+  const [addOpen,   setAddOpen]   = useState(false);
+  const [draft,     setDraft]     = useState(BLANK_DRAFT);
+  const [saving,    setSaving]    = useState(false);
+  const [addError,  setAddError]  = useState("");
 
   // Keep stock state in sync with other tabs / windows
   useEffect(() => {
@@ -165,6 +178,37 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
         return catColors[cat.name] || PALETTE[0];
     }
     return PALETTE[0];
+  }
+
+  function openAddModal() {
+    setDraft({ ...BLANK_DRAFT, catId: categories[0]?.id || "" });
+    setAddError("");
+    setAddOpen(true);
+  }
+
+  async function handleSaveNewItem() {
+    if (!draft.name.trim()) return;
+    setSaving(true);
+    setAddError("");
+    try {
+      await onQuickAddItem({
+        name:       draft.name.trim(),
+        price:      parseFloat(draft.price) || 0,
+        categoryId: draft.catId || categories[0]?.id || "",
+        taxRate:    Number(draft.taxRate),
+      });
+      setAddOpen(false);
+      setDraft(BLANK_DRAFT);
+    } catch (err) {
+      const msg = err?.message?.toLowerCase() || "";
+      setAddError(
+        msg.includes("permission") || msg.includes("forbidden") || msg.includes("403")
+          ? "Only managers can add items. Ask your manager."
+          : err.message || "Could not save — please try again."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -365,7 +409,88 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
             </div>
           );
         })}
+
+        {/* ── Quick-add card — only when not searching ─── */}
+        {!search && onQuickAddItem && (
+          <div className="mfc-add-card" onClick={openAddModal}>
+            <span className="mfc-add-card-plus">＋</span>
+            <span className="mfc-add-card-label">New Item</span>
+          </div>
+        )}
       </div>
+
+      {/* ── Quick-add modal ─────────────────────────────── */}
+      {addOpen && (
+        <div className="quick-add-backdrop" onClick={() => { if (!saving) setAddOpen(false); }}>
+          <div className="quick-add-modal" onClick={e => e.stopPropagation()}>
+            <div className="quick-add-title">Add New Item</div>
+
+            <div className="quick-add-field">
+              <label className="quick-add-label">Item Name</label>
+              <input
+                className="quick-add-input"
+                autoFocus
+                placeholder="e.g. Special Thali"
+                value={draft.name}
+                onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                onKeyDown={e => { if (e.key === "Enter" && !saving) handleSaveNewItem(); }}
+              />
+            </div>
+
+            <div className="quick-add-row">
+              <div className="quick-add-field">
+                <label className="quick-add-label">Price (₹)</label>
+                <div className="quick-add-price-wrap">
+                  <span className="quick-add-rupee">₹</span>
+                  <input
+                    className="quick-add-input quick-add-price-input"
+                    type="number" min="0" step="0.5"
+                    placeholder="0"
+                    value={draft.price}
+                    onChange={e => setDraft(d => ({ ...d, price: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="quick-add-field">
+                <label className="quick-add-label">Tax</label>
+                <select
+                  className="quick-add-select"
+                  value={draft.taxRate}
+                  onChange={e => setDraft(d => ({ ...d, taxRate: e.target.value }))}
+                >
+                  {GST_SLABS.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="quick-add-field">
+              <label className="quick-add-label">Category</label>
+              <select
+                className="quick-add-select"
+                value={draft.catId}
+                onChange={e => setDraft(d => ({ ...d, catId: e.target.value }))}
+              >
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {addError && <div className="quick-add-error">{addError}</div>}
+
+            <div className="quick-add-actions">
+              <button className="quick-add-cancel" disabled={saving}
+                onClick={() => setAddOpen(false)}>Cancel</button>
+              <button className="quick-add-save" disabled={saving || !draft.name.trim()}
+                onClick={handleSaveNewItem}>
+                {saving ? "Saving…" : "Save Item"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
