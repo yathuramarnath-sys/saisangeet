@@ -640,6 +640,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
               <div className="pset-form-actions" style={{ marginTop: 14 }}>
                 <button type="button" className="pset-cancel-btn"
                   onClick={() => { setAdding(false); setEditId(null); setScanResults(null); setWinPrinterList(null); }}>Cancel</button>
+                {(form.ip?.trim() || form.winName?.trim()) && (
+                  <button type="button" className="pset-scan-btn"
+                    onClick={() => printTestPage({ ...form, id: "__test__" })}>
+                    🖨 Test Print
+                  </button>
+                )}
                 <button type="button" className="pset-save-btn" onClick={savePrinter}>Save Changes</button>
               </div>
             </>
@@ -659,16 +665,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
               {/* ─ Step 1: Find printer ──────────────────────────────────── */}
               {proStep === 1 && (
                 <>
-                  <div className="pset-discover-grid">
+                  <div className="pset-discover-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
                     <button type="button" className="pset-discover-card" onClick={handleScan} disabled={scanning}>
                       <span className="pset-discover-icon">📡</span>
                       <span className="pset-discover-label">{scanning ? "Scanning…" : "Scan Network"}</span>
                       <span className="pset-discover-sub">Auto-find on Wi-Fi</span>
-                    </button>
-                    <button type="button" className="pset-discover-card" onClick={() => { setForm(f => ({ ...f, conn: "Network (IP)" })); setScanResults(null); setProStep(2); }}>
-                      <span className="pset-discover-icon">⌨️</span>
-                      <span className="pset-discover-label">Enter IP</span>
-                      <span className="pset-discover-sub">Known/fixed printer</span>
                     </button>
                     <button type="button" className="pset-discover-card" onClick={() => { setForm(f => ({ ...f, conn: "USB" })); setScanResults(null); handleListWindowsPrinters(); setProStep(2); }}>
                       <span className="pset-discover-icon">🖨️</span>
@@ -683,7 +684,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
 
                   {scanResults !== null && (
                     scanResults.length === 0 ? (
-                      <div className="pset-scan-empty">No printers found on port 9100. Try "Enter IP" to add manually.</div>
+                      <div className="pset-scan-empty">No printers found on port 9100.</div>
                     ) : (
                       <div className="pset-scan-results">
                         {scanResults.filter(p => !p.usb).length > 0 && (
@@ -722,7 +723,21 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
                     )
                   )}
 
-                  <div className="pset-form-actions" style={{ marginTop: 12 }}>
+                  {/* Manual IP fallback — always shown below scan results */}
+                  <div className="pset-manual-ip-row">
+                    <span className="pset-manual-ip-label">Know the IP?</span>
+                    <input className="pset-input pset-manual-ip-input" placeholder="192.168.1.xxx"
+                      value={form.ip}
+                      onChange={e => setForm(f => ({ ...f, ip: e.target.value }))} />
+                    <button type="button" className="pset-save-btn"
+                      style={{ padding: "6px 14px", fontSize: 13 }}
+                      disabled={!form.ip.trim()}
+                      onClick={() => { setForm(f => ({ ...f, conn: "Network (IP)" })); setProStep(2); }}>
+                      Next →
+                    </button>
+                  </div>
+
+                  <div className="pset-form-actions" style={{ marginTop: 8 }}>
                     <button type="button" className="pset-cancel-btn"
                       onClick={() => { setAdding(false); setScanResults(null); }}>Cancel</button>
                   </div>
@@ -815,6 +830,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
 
                   <div className="pset-form-actions" style={{ marginTop: 14 }}>
                     <button type="button" className="pset-cancel-btn" onClick={() => setProStep(1)}>← Back</button>
+                    {(form.ip?.trim() || form.winName?.trim()) && (
+                      <button type="button" className="pset-scan-btn"
+                        onClick={() => printTestPage({ ...form, id: "__test__" })}>
+                        🖨 Test Print
+                      </button>
+                    )}
                     <button type="button" className="pset-save-btn"
                       onClick={() => { if (form.name.trim()) setProStep(3); }}
                       disabled={!form.name.trim()}>
