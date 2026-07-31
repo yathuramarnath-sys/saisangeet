@@ -484,6 +484,7 @@ export function App() {
         if (!target) return;
 
         setOutlet(target);
+        try { localStorage.setItem("pos_receipt_appearance", JSON.stringify({ receiptFont: target.receiptFont || "default", billFontSize: target.billFontSize || "normal", kotFontSize: target.kotFontSize || "normal" })); } catch (_) {}
 
         const [cats, items, kitchenStations, staffRes, discountRes] = await Promise.all([
           api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),
@@ -1402,6 +1403,7 @@ export function App() {
         setOutlet(freshOutlet);          // ← update React state so gstTreatment, tables etc. reflect immediately
         setTableAreas(freshAreas || []);
         localStorage.setItem("pos_table_config", JSON.stringify(freshAreas || []));
+        try { localStorage.setItem("pos_receipt_appearance", JSON.stringify({ receiptFont: freshOutlet.receiptFont || "default", billFontSize: freshOutlet.billFontSize || "normal", kotFontSize: freshOutlet.kotFontSize || "normal" })); } catch (_) {}
       }
       saveConfigCache({
         outlet:     freshOutlet || null,

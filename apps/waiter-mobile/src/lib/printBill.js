@@ -152,6 +152,17 @@ export function printBill(order, items, outletData, options = {}) {
     // POS proxy configured → fall through to HTML path below
   }
 
+  // ── Print appearance (font/size set in Owner Console) ─────────────────────
+  const _WM_FONTS = {
+    mono:    "'Courier New', monospace",
+    bold:    "'Segoe UI', Arial, 'Helvetica Neue', sans-serif",
+    default: "'Segoe UI', Arial, 'Helvetica Neue', sans-serif",
+  };
+  const _WM_BILL_SIZES = { small: 10, normal: 12, large: 14 };
+  const _wmFont     = _WM_FONTS[outletObj?.receiptFont] || _WM_FONTS.default;
+  const _wmBoldBoost = outletObj?.receiptFont === "bold";
+  const _wmFontSize  = _WM_BILL_SIZES[outletObj?.billFontSize] ?? (_paperWidthMm <= 58 ? 11 : 12);
+
   // ── Web fallback: HTML → POS proxy → printer ──────────────────────────────
   const itemsHtml = billableItems.map((i) => `
     <tr>
@@ -170,8 +181,9 @@ export function printBill(order, items, outletData, options = {}) {
     @page { size: ${_paperWidthMm}mm auto; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Segoe UI', Arial, 'Helvetica Neue', sans-serif;
-      font-size: ${_paperWidthMm <= 58 ? 11 : 12}px;
+      font-family: ${_wmFont};
+      font-size: ${_wmFontSize}px;
+      ${_wmBoldBoost ? "font-weight: 600;" : ""}
       color: #111;
       padding: 10px 10px 40px;
       width: ${_paperWidthMm}mm;
@@ -187,7 +199,7 @@ export function printBill(order, items, outletData, options = {}) {
     .info-lbl  { color: #666; white-space: nowrap; }
     .info-sep  { color: #aaa; }
     .info-val  { font-weight: 700; }
-    .items-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .items-tbl { width: 100%; border-collapse: collapse; font-size: ${_wmFontSize}px; }
     .items-tbl th {
       font-size: 10px; font-weight: 700; text-transform: uppercase;
       color: #888; padding: 2px 0; text-align: right; border-bottom: 1px solid #ddd;
