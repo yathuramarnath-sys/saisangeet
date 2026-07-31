@@ -517,7 +517,7 @@ export function TaxesReceiptsPage() {
         <div className="rb-preview-col">
           <p className="rb-preview-label">Live Preview</p>
           <div className="trp-shell">
-            <div className="trp-paper" style={{ fontFamily: pvFontFamily, fontSize: `${pvBillSize}px`, ...(pvBoldBoost ? { fontWeight: 600 } : {}) }}>
+            <div className="trp-paper" style={{ fontFamily: pvFontFamily, '--trp-fs': `${pvBillSize}px`, ...(pvBoldBoost ? { fontWeight: 600 } : {}) }}>
 
               <div className="trp-logo-circle">{pvName[0] || "R"}</div>
               <div className="trp-brand">{pvName}</div>
