@@ -28,6 +28,15 @@ function loadDisplaySettings() {
   }
 }
 
+/** Load print appearance settings (font, size) saved when outlet data is fetched */
+function loadReceiptAppearance() {
+  try {
+    return JSON.parse(localStorage.getItem("pos_receipt_appearance") || "{}");
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Find the printer assigned to a specific kitchen station.
  * Falls back to default KOT printer if no station match found.
@@ -100,6 +109,11 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
   const width        = `${paperMm}mm`;          // always a clean "NNmm" string
   const marginAdjust = parseInt(resolvedPrinter?.marginAdjust) || 0;
   const rightPad     = 10 + marginAdjust;
+  // KOT font size from owner-set appearance (saved to localStorage on outlet sync)
+  const _appearance = loadReceiptAppearance();
+  const _KOT_SIZES  = { small: { name: 11, qty: 16 }, normal: { name: 13, qty: 20 }, large: { name: 16, qty: 22 }, xlarge: { name: 20, qty: 26 } };
+  const _kotSz      = _KOT_SIZES[_appearance.kotFontSize] || _KOT_SIZES.normal;
+
   const outletName = order.outletName || "Restaurant";
   const tableLabel = order.isCounter
     ? `${order.areaName || "Counter"} #${String(order.ticketNumber || "").padStart(3, "0")}`
@@ -228,7 +242,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
     .kot-item-row td { padding: 5px 0; vertical-align: top; border-bottom: 1px dotted #e0e0e0; }
     .kot-item-row:last-child td { border-bottom: none; }
     .kot-qty {
-      font-size: 20px;
+      font-size: ${_kotSz.qty}px;
       font-weight: 900;
       width: 28px;
       text-align: center;
@@ -236,7 +250,7 @@ export function printKOT(order, items, printer = null, kotSeq = null, options = 
       color: #000;
     }
     .kot-item-name {
-      font-size: 13px;
+      font-size: ${_kotSz.name}px;
       font-weight: 800;
       line-height: 1.3;
       padding-left: 6px;

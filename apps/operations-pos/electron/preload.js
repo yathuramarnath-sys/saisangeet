@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Probes port 9100 across local subnets + reads USB printers from OS.
   // Returns: Array<{ name, ip, conn, usb?, source }>
   scanPrinters: () => ipcRenderer.invoke("scan-printers"),
+  checkPrinter: (payload) => ipcRenderer.invoke("check-printer", payload),
 
   // ── System printer list ───────────────────────────────────────────────────
   // Returns the printers installed in Windows (Devices and Printers).

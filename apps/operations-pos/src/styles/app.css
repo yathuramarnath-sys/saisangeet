@@ -3657,6 +3657,117 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   font-style: italic;
 }
 
+/* ── Printer tab misc ──────────────────────────────────────────────────────── */
+.pset-form-title    { font-size: 13px; font-weight: 800; color: var(--sq-text); margin-bottom: 12px; }
+.pset-field-hint    { font-size: 11px; color: var(--sq-muted); line-height: 1.4; }
+.pset-routing-note  { font-size: 12px; color: var(--sq-muted); padding: 10px 12px; background: var(--sq-surface); border-radius: 8px; line-height: 1.5; }
+.pset-printer-station { font-size: 11px; color: var(--sq-muted); margin-top: 3px; }
+.pset-scan-note     { font-size: 12px; color: var(--sq-muted); padding: 10px 12px; background: var(--sq-surface); border: 1px solid var(--sq-border); border-radius: 8px; line-height: 1.5; margin-bottom: 12px; }
+
+/* ── Add printer wizard steps ──────────────────────────────────────────────── */
+.pset-wizard-steps {
+  display: flex; align-items: flex-start; gap: 0;
+  margin-bottom: 20px;
+}
+.pset-wstep {
+  display: flex; flex-direction: column; align-items: center;
+  flex: 1; position: relative;
+}
+.pset-wstep:not(:last-child)::after {
+  content: ''; position: absolute; top: 12px; left: 50%; right: -50%;
+  height: 2px; background: var(--sq-border); z-index: 0;
+}
+.pset-wstep-num {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid var(--sq-border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; background: var(--sq-bg);
+  color: var(--sq-muted); position: relative; z-index: 1;
+  transition: all 150ms;
+}
+.pset-wstep.active .pset-wstep-num  { border-color: #27AE60; background: #27AE60; color: #fff; }
+.pset-wstep.done   .pset-wstep-num  { border-color: #27AE60; background: #E9F7EF; color: #27AE60; }
+.pset-wstep-label { font-size: 10px; color: var(--sq-muted); margin-top: 4px; text-align: center; white-space: nowrap; }
+.pset-wstep.active .pset-wstep-label { color: #27AE60; font-weight: 700; }
+
+/* ── Discover grid (step 1) ────────────────────────────────────────────────── */
+.pset-discover-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px;
+}
+.pset-discover-card {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 14px 8px; border: 1.5px solid var(--sq-border);
+  border-radius: 10px; background: var(--sq-surface);
+  cursor: pointer; text-align: center; transition: border-color 150ms, background 150ms;
+  font-family: "Manrope", sans-serif;
+}
+.pset-discover-card:hover { border-color: #27AE60; background: #E9F7EF; }
+.pset-discover-card:disabled { opacity: .6; cursor: wait; }
+.pset-discover-icon  { font-size: 22px; }
+.pset-discover-label { font-size: 12px; font-weight: 800; color: var(--sq-text); }
+.pset-discover-sub   { font-size: 10px; color: var(--sq-muted); }
+
+/* ── IP chip ───────────────────────────────────────────────────────────────── */
+.pset-ip-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--sq-surface); border: 1px solid var(--sq-border);
+  border-radius: 20px; padding: 4px 12px; font-size: 12px;
+  font-family: monospace; font-weight: 700; margin-bottom: 12px;
+}
+
+/* ── Role cards (step 3) ───────────────────────────────────────────────────── */
+.pset-role-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.pset-role-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 14px 8px; border: 1.5px solid var(--sq-border);
+  border-radius: 10px; background: var(--sq-surface);
+  cursor: pointer; text-align: center; transition: all 150ms;
+  font-family: "Manrope", sans-serif;
+}
+.pset-role-card:hover    { border-color: #27AE60; }
+.pset-role-card.selected { border-color: #27AE60; background: #E9F7EF; }
+.pset-role-icon  { font-size: 22px; }
+.pset-role-label { font-size: 12px; font-weight: 800; color: var(--sq-text); }
+.pset-role-sub   { font-size: 10px; color: var(--sq-muted); }
+
+/* ── Paper chips ───────────────────────────────────────────────────────────── */
+.pset-paper-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.pset-paper-chip {
+  padding: 7px 18px; border: 1.5px solid var(--sq-border);
+  border-radius: 8px; background: var(--sq-surface);
+  cursor: pointer; font-size: 13px; font-weight: 700;
+  font-family: "Manrope", sans-serif; transition: all 150ms;
+  color: var(--sq-text);
+}
+.pset-paper-chip:hover    { border-color: #27AE60; }
+.pset-paper-chip.selected { border-color: #27AE60; background: #E9F7EF; color: #166534; }
+
+/* ── Advanced toggle ───────────────────────────────────────────────────────── */
+.pset-advanced-toggle {
+  font-size: 11px; color: var(--sq-muted); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 8px; text-decoration: underline; background: none; border: none;
+  font-family: "Manrope", sans-serif;
+}
+.pset-advanced-body {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--sq-surface); border: 1px solid var(--sq-border);
+  border-radius: 8px; display: flex; flex-direction: column; gap: 10px;
+}
+
+/* ── Manual IP fallback row (Step 1 wizard) ───────────────────────────────── */
+.pset-manual-ip-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px; padding: 10px 12px;
+  background: var(--sq-surface); border: 1px solid var(--sq-border);
+  border-radius: 8px;
+}
+.pset-manual-ip-label {
+  font-size: 12px; color: var(--sq-muted); white-space: nowrap;
+}
+.pset-manual-ip-input {
+  flex: 1; min-width: 0;
+}
 
 /* ══════════════════════════════════════════════════════════════════════════════
    SHIFT CLOSING RECEIPT

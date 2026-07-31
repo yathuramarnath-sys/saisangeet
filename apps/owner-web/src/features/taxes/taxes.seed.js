@@ -37,7 +37,10 @@ export const defaultReceiptSettings = {
   showFssai:          true,
   footerNote:         "Thank you for dining with us! Visit again.",
   gstBillingEnabled:  true,
-  gstBillDelivery:    "both"
+  gstBillDelivery:    "both",
+  receiptFont:        "default",
+  billFontSize:       "normal",
+  kotFontSize:        "normal",
 };
 
 // Outlet GST profiles loaded from API

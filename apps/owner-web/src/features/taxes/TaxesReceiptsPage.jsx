@@ -186,7 +186,7 @@ export function TaxesReceiptsPage() {
 
   // Which sections are open
   const [open, setOpen] = useState({
-    branding: true, itemsTotal: true, discount: true, business: true, additionalText: false,
+    branding: true, printStyle: true, itemsTotal: true, discount: true, business: true, additionalText: false,
   });
 
   // ── Load tax profiles from backend on mount ──────────────────────────────────
@@ -223,6 +223,9 @@ export function TaxesReceiptsPage() {
           footerNote:         o.footerNote         || defaultReceiptSettings.footerNote,
           gstBillingEnabled:  o.gstBillingEnabled  ?? defaultReceiptSettings.gstBillingEnabled,
           gstBillDelivery:    o.gstBillDelivery    ?? defaultReceiptSettings.gstBillDelivery,
+          receiptFont:        o.receiptFont        || defaultReceiptSettings.receiptFont,
+          billFontSize:       o.billFontSize       || defaultReceiptSettings.billFontSize,
+          kotFontSize:        o.kotFontSize        || defaultReceiptSettings.kotFontSize,
         };
         setReceipt(fromOutlet);
         localStorage.setItem(RECEIPT_SETTINGS_KEY, JSON.stringify(fromOutlet));
@@ -616,6 +619,69 @@ export function TaxesReceiptsPage() {
               <span className="rb-field-value">{pvName}</span>
             </div>
             <p className="rb-hint">Set in Business Profile → Trade Name</p>
+          </RbSection>
+
+          {/* Print Style */}
+          <RbSection title="Print Style" icon="🖋️" open={open.printStyle} onToggle={() => toggleSection("printStyle")}>
+            <div className="ps-section-group">
+              <p className="ps-group-label">Font</p>
+              <p className="ps-group-desc">Applies to all bills and KOTs</p>
+              <div className="ps-font-cards">
+                {[
+                  { key: "default", label: "Default", sample: "Aa", desc: "Clean · modern",    style: {} },
+                  { key: "mono",    label: "Mono",    sample: "Aa", desc: "Classic · receipt", style: { fontFamily: "'Courier New', monospace" } },
+                  { key: "bold",    label: "Bold",    sample: "Aa", desc: "Heavy · contrast",  style: { fontWeight: "900" } },
+                ].map(f => (
+                  <button key={f.key} type="button"
+                    className={`ps-font-card${receipt.receiptFont === f.key ? " ps-font-card-on" : ""}`}
+                    onClick={() => { updateReceipt("receiptFont", f.key); flash(`Font set to ${f.label}.`); }}>
+                    <span className="ps-font-sample" style={f.style}>{f.sample}</span>
+                    <span className="ps-font-name">{f.label}</span>
+                    <span className="ps-font-desc">{f.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="ps-section-group" style={{ marginTop: 14 }}>
+              <p className="ps-group-label">🧾 Bill font size</p>
+              <p className="ps-group-desc">Affects item names and amounts on printed bills</p>
+              <div className="ps-size-chips">
+                {[
+                  { key: "small",  label: "Small" },
+                  { key: "normal", label: "Normal" },
+                  { key: "large",  label: "Large" },
+                ].map(s => (
+                  <button key={s.key} type="button"
+                    className={`ps-size-chip${receipt.billFontSize === s.key ? " ps-size-chip-on" : ""}`}
+                    onClick={() => { updateReceipt("billFontSize", s.key); flash(`Bill font size set to ${s.label}.`); }}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="ps-section-group" style={{ marginTop: 14 }}>
+              <p className="ps-group-label">📋 KOT font size</p>
+              <p className="ps-group-desc">Larger text helps kitchen staff read orders from a distance</p>
+              <div className="ps-size-chips">
+                {[
+                  { key: "small",  label: "Small" },
+                  { key: "normal", label: "Normal" },
+                  { key: "large",  label: "Large" },
+                  { key: "xlarge", label: "X-Large" },
+                ].map(s => (
+                  <button key={s.key} type="button"
+                    className={`ps-size-chip${receipt.kotFontSize === s.key ? " ps-size-chip-on" : ""}`}
+                    onClick={() => { updateReceipt("kotFontSize", s.key); flash(`KOT font size set to ${s.label}.`); }}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              {receipt.kotFontSize === "xlarge" && (
+                <p className="ps-hint-warn">X-Large recommended for 80mm paper — may clip on 58mm printers</p>
+              )}
+            </div>
           </RbSection>
 
           {/* Items & Total */}

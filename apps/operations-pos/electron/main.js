@@ -1314,6 +1314,23 @@ ipcMain.handle("scan-printers", async () => {
   return found;
 });
 
+// ── check-printer IPC ────────────────────────────────────────────────────────
+// Quick TCP ping to port 9100 to verify a saved printer is reachable.
+// Used by the Printers tab health-check dots — much faster than a full scan.
+// Payload: { ip: string, port?: number }
+// Returns: { reachable: boolean }
+ipcMain.handle("check-printer", async (_event, { ip, port = 9100 } = {}) => {
+  if (!ip) return { reachable: false };
+  return new Promise((resolve) => {
+    const sock = new net.Socket();
+    sock.setTimeout(1500);
+    sock.once("connect", () => { sock.destroy(); resolve({ reachable: true }); });
+    sock.once("timeout", () => { sock.destroy(); resolve({ reachable: false }); });
+    sock.once("error",   () => { sock.destroy(); resolve({ reachable: false }); });
+    sock.connect(port, ip);
+  });
+});
+
 // ── trigger-cash-drawer IPC ───────────────────────────────────────────────────
 // Sends the standard ESC/POS cash drawer open pulse to the configured printer.
 //

@@ -9982,6 +9982,38 @@ body {
 
 .inv-toggle-on .inv-toggle-knob { left: 19px; }
 
+/* ── Print Style section (Taxes & Receipts) ──────────────────────────────── */
+.ps-section-group { display: flex; flex-direction: column; gap: 3px; }
+.ps-group-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--oc-muted); }
+.ps-group-desc  { font-size: 12px; color: var(--oc-muted); margin-bottom: 6px; }
+
+.ps-font-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ps-font-card {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 12px 8px 10px;
+  border: 1.5px solid var(--oc-hairline); border-radius: 8px;
+  background: var(--oc-card); cursor: pointer;
+  font-family: inherit; transition: border-color 0.15s, background 0.15s;
+}
+.ps-font-card:hover { border-color: var(--oc-teal); }
+.ps-font-card.ps-font-card-on { border-color: var(--oc-teal); background: #f0fdfa; }
+.ps-font-sample { font-size: 20px; font-weight: 700; color: var(--oc-ink); line-height: 1; }
+.ps-font-name   { font-size: 12px; font-weight: 700; color: var(--oc-ink); }
+.ps-font-card-on .ps-font-name { color: var(--oc-teal); }
+.ps-font-desc   { font-size: 10px; color: var(--oc-muted); }
+
+.ps-size-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.ps-size-chip {
+  padding: 5px 16px; border-radius: 20px; font-size: 12.5px; font-weight: 600;
+  border: 1.5px solid var(--oc-hairline); background: var(--oc-card);
+  color: var(--oc-ink); cursor: pointer; font-family: inherit;
+  transition: border-color 0.13s, background 0.13s, color 0.13s;
+}
+.ps-size-chip:hover { border-color: var(--oc-teal); }
+.ps-size-chip.ps-size-chip-on { background: var(--oc-teal); color: #fff; border-color: var(--oc-teal); }
+
+.ps-hint-warn { font-size: 11px; color: #d97706; margin-top: 6px; }
+
 /* ── Sticky tax save bar ─────────────────────────────────────────────────── */
 .tax-save-bar {
   position: sticky !important;

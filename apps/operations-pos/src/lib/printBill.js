@@ -50,6 +50,17 @@ export async function printBill(order, items, outletOrName, options = {}) {
   const showGstin          = outlet?.showGstin          !== false;
   const boldItemText       = outlet?.boldItemText       === true;  // default off
 
+  // ── Print appearance (set in Owner Console → Taxes & Receipts → Print Style) ──
+  const _RECEIPT_FONTS = {
+    mono:    "'Courier New', monospace",
+    bold:    "'Segoe UI', Arial, 'Helvetica Neue', sans-serif",
+    default: "'Segoe UI', Arial, 'Helvetica Neue', sans-serif",
+  };
+  const _BILL_SIZES = { small: 10, normal: 12, large: 14 };
+  const _fontFamily   = _RECEIPT_FONTS[outlet?.receiptFont] || _RECEIPT_FONTS.default;
+  const _boldBoost    = outlet?.receiptFont === "bold";
+  const _baseFontSize = _BILL_SIZES[outlet?.billFontSize] ?? (_paperWidthMm <= 58 ? 11 : 12);
+
   const billableItems = (items || []).filter((i) => !i.isVoided && !i.isComp);
   const subtotal  = billableItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const discount  = Math.min(order.discountAmount || 0, subtotal);
@@ -137,8 +148,9 @@ export async function printBill(order, items, outletOrName, options = {}) {
     @page { size: ${_paperWidthMm}mm auto; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Segoe UI', Arial, 'Helvetica Neue', sans-serif;
-      font-size: ${_paperWidthMm <= 58 ? 11 : 12}px;
+      font-family: ${_fontFamily};
+      font-size: ${_baseFontSize}px;
+      ${_boldBoost ? "font-weight: 600;" : ""}
       color: #111;
       margin: 0;
       padding: 10px ${_rightPad}px 40px 8px;
@@ -169,7 +181,7 @@ export async function printBill(order, items, outletOrName, options = {}) {
     .info-full { font-size: 11px; display: flex; gap: 3px; margin: 2px 0; }
 
     /* ── Items table ── */
-    .items-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .items-tbl { width: 100%; border-collapse: collapse; font-size: ${_baseFontSize}px; }
     .items-tbl th {
       font-size: 10px; font-weight: 700; text-transform: uppercase;
       color: #888; padding: 2px 0; text-align: right; border-bottom: 1px solid #ddd;
