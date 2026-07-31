@@ -2469,6 +2469,19 @@ body {
 .rb-field-value { font-weight: 700; color: #1a2332; font-size: 13px; }
 .rb-hint { font-size: 11.5px; color: #bbb; margin: 4px 0 0; }
 .rb-divider { height: 1px; background: #f0f0f0; margin: 14px 0; }
+.rb-logo-group { margin-top: 2px; }
+.rb-logo-input {
+  width: 100%; margin-top: 6px; padding: 8px 10px;
+  font-size: 12.5px; border: 1px solid #e0e0e0; border-radius: 8px;
+  background: #fafafa; color: #333;
+  outline: none; transition: border-color 0.15s;
+}
+.rb-logo-input:focus { border-color: #059669; background: #fff; }
+.rb-logo-preview-wrap {
+  margin-top: 8px; padding: 8px; background: #f9f9f9;
+  border: 1px solid #eee; border-radius: 8px; text-align: center;
+}
+.rb-logo-preview-img { max-width: 120px; max-height: 56px; object-fit: contain; }
 
 /* ── Thermal Receipt Preview ─────────────────────────── */
 .trp-shell {
@@ -2511,6 +2524,11 @@ body {
   display: grid; place-items: center;
   font-size: 15px; font-weight: 800;
   margin: 0 auto 6px;
+}
+.trp-logo-img {
+  display: block; margin: 0 auto 6px;
+  max-width: 80px; max-height: 44px;
+  object-fit: contain;
 }
 .trp-brand {
   text-align: center; font-size: calc(var(--trp-fs, 11.5px) * 1.304); font-weight: 800;

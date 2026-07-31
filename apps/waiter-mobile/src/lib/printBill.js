@@ -238,6 +238,7 @@ export function printBill(order, items, outletData, options = {}) {
 <body>
   <div class="hdr">
     ${outletObj.invoiceHeader ? `<div style="font-size:10px;color:#666;margin-bottom:2px;">${outletObj.invoiceHeader}</div>` : ""}
+    ${outletObj.receiptLogoUrl ? `<img src="${outletObj.receiptLogoUrl}" alt="" style="display:block;margin:0 auto 4px;max-width:80px;max-height:40px;object-fit:contain;" onerror="this.style.display='none'"/>` : ""}
     <div class="outlet-name">${outletName}</div>
     ${addrStr ? `<div style="font-size:10px;color:#555;margin-top:2px;">${addrStr}</div>` : ""}
     ${outletObj.phone ? `<div style="font-size:10px;color:#555;">Ph: ${outletObj.phone}</div>` : ""}
