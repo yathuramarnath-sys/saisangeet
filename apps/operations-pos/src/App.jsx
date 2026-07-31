@@ -1453,6 +1453,24 @@ export function App() {
     }
   }
 
+  async function handleQuickAddItem({ name, price, categoryId, taxRate }) {
+    const created = await api.post("/menu/items", {
+      name, price, categoryId, taxRate,
+      outletId: outlet?.id,
+      status: "Live",
+    });
+    setMenuItems(prev => [...prev, {
+      ...created,
+      price:        Number(created.price || created.basePrice || 0),
+      categoryId:   created.categoryId,
+      category:     categories.find(c => c.id === created.categoryId)?.name || "",
+      categoryName: categories.find(c => c.id === created.categoryId)?.name || "",
+      isActive:     true,
+      taxRate:      created.taxRate != null ? Number(created.taxRate) : null,
+    }]);
+    return created;
+  }
+
   useEffect(() => {
     setOrders((prev) => ensureOrders(prev, tableAreas, outlet?.name || "Outlet"));
   }, [tableAreas, outlet]);
@@ -3724,6 +3742,7 @@ export function App() {
                 showToast(notFound ? `❌ Item #${sku} not found` : `❌ Lookup error — try again`);
               });
           }}
+          onQuickAddItem={handleQuickAddItem}
         />
       </div>
 
