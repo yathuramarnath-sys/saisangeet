@@ -24,6 +24,25 @@ const PRINTER_CONNS  = ["Network (IP)", "USB", "Bluetooth"];
 const PAPER_SIZES    = ["80mm", "76mm", "72mm", "58mm"];
 const PRINTER_MODELS = ["Epson TM-T82", "Epson TM-T88", "TVS RP 3160 Gold", "TVS RP 45 Shoppe", "Other"];
 
+// Default paper width per model — auto-filled when model is selected
+const MODEL_PAPER = {
+  "Epson TM-T82":    "80mm",
+  "Epson TM-T88":    "80mm",
+  "TVS RP 3160 Gold":"80mm",
+  "TVS RP 45 Shoppe":"58mm",
+};
+
+// Try to identify a known model from the ESC/POS banner text returned on connect
+function guessModelFromBanner(name) {
+  if (!name) return null;
+  const n = name.toLowerCase();
+  if (n.includes("t82") || n.includes("tm-t82")) return "Epson TM-T82";
+  if (n.includes("t88") || n.includes("tm-t88")) return "Epson TM-T88";
+  if (n.includes("rp 3160") || n.includes("rp3160")) return "TVS RP 3160 Gold";
+  if (n.includes("rp 45") || n.includes("rp45"))    return "TVS RP 45 Shoppe";
+  return null;
+}
+
 function load(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; }
   catch { return fallback; }
@@ -49,6 +68,8 @@ function PrinterTab() {
   const [scanResults,     setScanResults]     = useState(null);
   const [autoInstalling,  setAutoInstalling]  = useState(false);
   const [autoInstallMsg,  setAutoInstallMsg]  = useState(null);
+  // Health status for saved network printers: { [printerId]: "checking"|"online"|"offline" }
+  const [printerHealth,   setPrinterHealth]   = useState({});
   // Kitchen stations — fetch fresh from API on mount; fall back to localStorage cache
   const [kitchenStations, setKitchenStations] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pos_kitchen_stations") || "[]"); }
@@ -65,6 +86,32 @@ function PrinterTab() {
       })
       .catch(() => { /* keep cached value */ });
   }, []);
+
+  // Ping all saved network printers when the tab opens to show health status
+  function checkAllPrinters(list) {
+    if (!IS_ELECTRON || !window.electronAPI?.checkPrinter) return;
+    const network = list.filter(p => p.ip?.trim());
+    if (!network.length) return;
+    const init = {};
+    network.forEach(p => { init[p.id] = "checking"; });
+    setPrinterHealth(init);
+    Promise.all(network.map(async p => {
+      try {
+        const res = await window.electronAPI.checkPrinter({ ip: p.ip.trim() });
+        return { id: p.id, status: res.reachable ? "online" : "offline" };
+      } catch {
+        return { id: p.id, status: "offline" };
+      }
+    })).then(results => {
+      setPrinterHealth(prev => {
+        const next = { ...prev };
+        results.forEach(r => { next[r.id] = r.status; });
+        return next;
+      });
+    });
+  }
+
+  useEffect(() => { checkAllPrinters(printers); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function persist(updated) {
     setPrinters(updated);
@@ -229,12 +276,19 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
 
   function pickScannedPrinter(p) {
     if (p.usb) {
-      // USB printer from Windows/lpstat scan:
-      // name goes into the display label AND winName (the exact Windows device name)
       setForm(f => ({ ...f, name: f.name || p.name, conn: "USB", winName: p.name }));
     } else {
-      // Network printer found via port-9100 scan: fill IP and display name
-      setForm(f => ({ ...f, ip: p.ip || f.ip, name: f.name || p.name, conn: "Network (IP)" }));
+      const guessedModel = guessModelFromBanner(p.name);
+      const paperHint    = guessedModel ? MODEL_PAPER[guessedModel] : null;
+      const defaultName  = p.ip ? `Printer ${p.ip.split(".").pop()}` : p.name;
+      setForm(f => ({
+        ...f,
+        ip:   p.ip || f.ip,
+        name: f.name || defaultName,
+        conn: "Network (IP)",
+        ...(guessedModel ? { model: guessedModel } : {}),
+        ...(paperHint    ? { paper: paperHint }    : {}),
+      }));
     }
     setScanResults(null);
   }
@@ -295,13 +349,28 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
 
       {/* Printer list */}
       <div className="pset-printer-list">
-        {printers.map(p => (
+        {printers.map(p => {
+          const health = printerHealth[p.id];
+          const healthDot = p.ip && health ? (
+            <span
+              title={health === "online" ? "Reachable" : health === "checking" ? "Checking…" : "Not reachable — check IP or power"}
+              style={{
+                display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                marginRight: 5, verticalAlign: "middle", flexShrink: 0,
+                background: health === "online" ? "#16a34a" : health === "checking" ? "#f59e0b" : "#dc2626",
+              }}
+            />
+          ) : null;
+          return (
           <div key={p.id} className={`pset-printer-card${p.isDefault ? " default" : ""}`}>
             <div className="pset-printer-icon">🖨️</div>
             <div className="pset-printer-info">
               <div className="pset-printer-name">
-                {p.name}
+                {healthDot}{p.name}
                 {p.isDefault && <span className="pset-default-badge">Default</span>}
+                {health === "offline" && p.ip && (
+                  <span style={{ fontSize: 11, color: "#dc2626", fontWeight: 700, marginLeft: 6 }}>Offline</span>
+                )}
               </div>
               <div className="pset-printer-meta">
                 {p.type} · {p.conn === "Network (IP)" ? (p.ip || "IP not set") : p.conn}
@@ -311,7 +380,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
                 {' · '}{p.paper}
                 {p.marginAdjust > 0 && <span> · +{p.marginAdjust}px margin</span>}
               </div>
-              {/* Warn if printer is labelled USB but has no IP — may need to be changed to Network */}
               {p.conn !== "Network (IP)" && !p.ip && (
                 <div style={{ fontSize: 11, color: "#d97706", fontWeight: 700, marginTop: 2 }}>
                   ⚠️ If this is a network printer, click Edit → set Connection to "Network (IP)" and enter IP
@@ -329,7 +397,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
               <button type="button" className="pset-icon-btn danger" onClick={() => removePrinter(p.id)}>🗑</button>
             </div>
           </div>
-        ))}
+          );
+        })}
         {printers.length === 0 && !adding && (
           <div className="pset-empty">No printers configured yet.<br />Tap <strong>+ Add Printer</strong> to begin.</div>
         )}
