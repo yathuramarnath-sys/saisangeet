@@ -2478,7 +2478,8 @@ body {
 }
 .trp-paper {
   font-family: "Manrope", sans-serif;
-  font-size: 11.5px;
+  --trp-fs: 11.5px;
+  font-size: var(--trp-fs);
   line-height: 1.55;
   background: #fff;
   width: 100%;
@@ -2512,12 +2513,12 @@ body {
   margin: 0 auto 6px;
 }
 .trp-brand {
-  text-align: center; font-size: 15px; font-weight: 800;
+  text-align: center; font-size: calc(var(--trp-fs, 11.5px) * 1.304); font-weight: 800;
   letter-spacing: 0.5px; text-transform: uppercase;
   margin-bottom: 2px;
 }
 .trp-brand-sub {
-  text-align: center; font-size: 10.5px; color: #555; line-height: 1.45;
+  text-align: center; font-size: calc(var(--trp-fs, 11.5px) * 0.913); color: #555; line-height: 1.45;
 }
 
 /* Dashed separator */
@@ -2537,18 +2538,18 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 4px 0;
-  font-size: 10.5px;
+  font-size: calc(var(--trp-fs, 11.5px) * 0.913);
 }
 .trp-meta-grid > div { display: flex; flex-direction: column; }
-.trp-meta-grid span { color: #888; font-size: 9.5px; }
-.trp-meta-grid strong { font-size: 11px; }
+.trp-meta-grid span { color: #888; font-size: calc(var(--trp-fs, 11.5px) * 0.826); }
+.trp-meta-grid strong { font-size: calc(var(--trp-fs, 11.5px) * 0.957); }
 
 /* Items table */
 .trp-items-head {
   display: grid;
   grid-template-columns: 1fr 28px 42px 42px;
   gap: 0 4px;
-  font-size: 10px;
+  font-size: calc(var(--trp-fs, 11.5px) * 0.870);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -2559,25 +2560,25 @@ body {
   grid-template-columns: 1fr 28px 42px 42px;
   gap: 0 4px;
   padding: 2px 0;
-  font-size: 11px;
+  font-size: calc(var(--trp-fs, 11.5px) * 0.957);
   align-items: start;
 }
 .trp-col-item { word-break: break-word; }
 .trp-col-qty, .trp-col-rate, .trp-col-amt { text-align: right; }
-.trp-item-desc { display: block; font-size: 9.5px; color: #999; }
+.trp-item-desc { display: block; font-size: calc(var(--trp-fs, 11.5px) * 0.826); color: #999; }
 
 /* Totals block */
 .trp-total-block { display: flex; flex-direction: column; gap: 2px; }
 .trp-total-row {
   display: flex; justify-content: space-between;
-  font-size: 11px; padding: 1px 0;
+  font-size: calc(var(--trp-fs, 11.5px) * 0.957); padding: 1px 0;
 }
 .trp-total-row.muted { color: #777; }
 .trp-total-row.discount { color: #c0392b; }
 .trp-total-row.saved { color: #1a7a3a; font-weight: 700; }
 .trp-grand-total {
   display: flex; justify-content: space-between;
-  font-size: 15px; font-weight: 900;
+  font-size: calc(var(--trp-fs, 11.5px) * 1.304); font-weight: 900;
   padding: 4px 0 2px;
   letter-spacing: 0.3px;
 }
@@ -2585,9 +2586,9 @@ body {
 /* Payment */
 .trp-payment-row {
   display: flex; justify-content: space-between;
-  font-size: 11px; padding: 1px 0;
+  font-size: calc(var(--trp-fs, 11.5px) * 0.957); padding: 1px 0;
 }
-.trp-payment-row.muted { color: #888; font-size: 10px; }
+.trp-payment-row.muted { color: #888; font-size: calc(var(--trp-fs, 11.5px) * 0.870); }
 
 /* QR block */
 .trp-qr-block {
@@ -2625,11 +2626,11 @@ body {
   text-align: center;
 }
 .trp-footer-msg {
-  font-size: 11px; color: #333;
+  font-size: calc(var(--trp-fs, 11.5px) * 0.957); color: #333;
   font-style: italic;
 }
 .trp-powered {
-  font-size: 9.5px; color: #bbb;
+  font-size: calc(var(--trp-fs, 11.5px) * 0.826); color: #bbb;
   letter-spacing: 0.3px;
   text-transform: uppercase;
 }
