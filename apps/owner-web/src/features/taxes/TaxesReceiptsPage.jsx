@@ -331,6 +331,14 @@ export function TaxesReceiptsPage() {
   const pvGstin  = outletData?.gstin || "29ABCDE1234F1Z5";
   const pvFooter = receipt.footerNote || "Thank you for dining with us!";
 
+  const _PV_FONTS   = { mono: "'Courier New', monospace", bold: "'Segoe UI', Arial, sans-serif", default: "inherit" };
+  const _PV_BILLSZ  = { small: 10, normal: 11.5, large: 13.5 };
+  const _PV_KOTSZ   = { small: { name: 11, qty: 17 }, normal: { name: 13, qty: 21 }, large: { name: 16, qty: 25 }, xlarge: { name: 20, qty: 30 } };
+  const pvFontFamily = _PV_FONTS[receipt.receiptFont] || "inherit";
+  const pvBoldBoost  = receipt.receiptFont === "bold";
+  const pvBillSize   = _PV_BILLSZ[receipt.billFontSize] ?? 11.5;
+  const pvKotSz      = _PV_KOTSZ[receipt.kotFontSize]  || _PV_KOTSZ.normal;
+
   return (
     <>
       <header className="topbar">
@@ -509,7 +517,7 @@ export function TaxesReceiptsPage() {
         <div className="rb-preview-col">
           <p className="rb-preview-label">Live Preview</p>
           <div className="trp-shell">
-            <div className="trp-paper">
+            <div className="trp-paper" style={{ fontFamily: pvFontFamily, fontSize: `${pvBillSize}px`, ...(pvBoldBoost ? { fontWeight: 600 } : {}) }}>
 
               <div className="trp-logo-circle">{pvName[0] || "R"}</div>
               <div className="trp-brand">{pvName}</div>
@@ -606,6 +614,32 @@ export function TaxesReceiptsPage() {
 
             </div>
             <div className="trp-tear" />
+          </div>
+
+          {/* KOT preview */}
+          <div className="trp-kot-shell">
+            <div className="trp-kot-tag">🍳 KOT / KITCHEN TICKET</div>
+            <div className="trp-kot-paper" style={{ fontFamily: pvFontFamily }}>
+              <div className="trp-kot-station">HOT KITCHEN</div>
+              <div className="trp-kot-table" style={{ fontSize: `${pvKotSz.qty + 6}px` }}>T-04</div>
+              <div className="trp-kot-meta">
+                <span>KOT #0021</span>
+                <span>1:32 PM · Dine In</span>
+              </div>
+              <div className="trp-dash" />
+              {[
+                { name: "Paneer Tikka", qty: 2 },
+                { name: "Veg Biryani",  qty: 1 },
+                { name: "Butter Naan",  qty: 3 },
+              ].map(item => (
+                <div key={item.name} className="trp-kot-row">
+                  <span className="trp-kot-qty" style={{ fontSize: `${pvKotSz.qty}px` }}>{item.qty}</span>
+                  <span className="trp-kot-name" style={{ fontSize: `${pvKotSz.name}px`, fontWeight: pvBoldBoost ? 900 : 800 }}>{item.name}</span>
+                </div>
+              ))}
+              <div className="trp-dash" />
+              <div className="trp-kot-footer">3 items · Sent by Ravi</div>
+            </div>
           </div>
         </div>
 
