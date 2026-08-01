@@ -1,0 +1,24 @@
+{
+  "appId": "in.dinexpos.pos",
+  "appName": "Plato POS",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true
+  },
+  "ios": {
+    "contentInset": "always",
+    "preferredContentMode": "desktop",
+    "backgroundColor": "#ffffff",
+    "overrideUserInterfaceStyle": "light"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "dark",
+      "backgroundColor": "#1a1a2e"
+    },
+    "Keyboard": {
+      "resize": "body",
+      "resizeOnFullScreen": true
+    }
+  }
+}

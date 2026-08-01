@@ -14,6 +14,10 @@
     "electron:build": "vite build && electron-builder build --mac --win",
     "electron:build:win": "vite build && electron-builder build --win",
     "electron:build:mac": "vite build && electron-builder build --mac",
+    "android:sync": "vite build && npx cap sync android",
+    "android:open": "npx cap open android",
+    "ios:sync": "vite build && npx cap sync ios",
+    "ios:open": "npx cap open ios",
     "prerelease": "node scripts/patch-nsis.js",
     "release": "vite build && electron-builder --win --x64 --publish never && node scripts/gh-release.js"
   },
@@ -28,6 +32,7 @@
     "@capacitor/android": "^8.3.1",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
     "@electron/fuses": "^1.8.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -38,6 +43,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hot-toast": "^2.6.0",
+    "typescript": "^7.0.2",
     "vite": "^7.2.1",
     "vitest": "^4.0.7"
   },
