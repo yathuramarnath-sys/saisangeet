@@ -140,6 +140,7 @@ const FALLBACK_STAFF = [];
 
 export function App() {
   const [branchConfig,    setBranchConfig]    = useState(() => loadCaptainBranchConfig());
+  const [posConfig,       setPosConfig]       = useState(() => { try { return JSON.parse(localStorage.getItem("captain_pos_config") || "null"); } catch { return null; } });
   const [loggedInStaff,   setLoggedInStaff]   = useState(null);
   const [areas,           setAreas]           = useState(seedAreas);
   const [categories,      setCategories]      = useState(seedCategories);
@@ -287,11 +288,16 @@ export function App() {
         const builtAreas = buildAreasFromOutlet(target);
         if (builtAreas) setAreas(builtAreas);
 
-        const [cats, items, kStations] = await Promise.all([
+        const [cats, items, kStations, posConfigRes] = await Promise.all([
           api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),
           api.get(`/menu/items?outletId=${target.id}`).catch(() => []),
           api.get("/kitchen-stations").catch(() => []),
+          api.get("/settings/pos-config").catch(() => null),
         ]);
+        if (posConfigRes && typeof posConfigRes === "object") {
+          setPosConfig(posConfigRes);
+          try { localStorage.setItem("captain_pos_config", JSON.stringify(posConfigRes)); } catch (_) {}
+        }
         if (cats.length)  setCategories(cats);
         if (items.length) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
         if (kStations.length) {
@@ -1313,7 +1319,7 @@ export function App() {
       if (idx >= 0) {
         items[idx] = { ...items[idx], quantity: (items[idx].quantity || 1) + 1 };
       } else {
-        items.push({
+        const newEntry = {
           id:           `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           menuItemId:   item.id,
           name:         item.name,
@@ -1325,7 +1331,12 @@ export function App() {
           categoryId:   item.categoryId || "",
           categoryName: resolvedCategoryName,
           taxRate:      item.taxRate != null ? Number(item.taxRate) : null,
-        });
+        };
+        if (posConfig?.newItemPosition === "top") {
+          items.unshift(newEntry);
+        } else {
+          items.push(newEntry);
+        }
       }
       return { ...prev, [tableId]: { ...local, items } };
     });

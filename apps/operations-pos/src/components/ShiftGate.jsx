@@ -42,14 +42,14 @@ function NumPad({ value, onChange, maxLen = 6 }) {
 }
 
 /* ── ShiftGate ────────────────────────────────────────────────────────────── */
-export function ShiftGate({ outletName, cashierName, onShiftStarted, onEndPreviousShift }) {
+export function ShiftGate({ outletName, cashierName, onShiftStarted, onEndPreviousShift, defaultPettyCash }) {
   const staffNames = loadStaffNames();
   const defaultCashier = cashierName || staffNames[0] || "";
 
   const [stalePrevShift] = useState(() => loadStaleOpenShift());
   const [session,     setSession]     = useState("");
   const [cashier,     setCashier]     = useState(defaultCashier);
-  const [openingCash, setOpeningCash] = useState("");
+  const [openingCash, setOpeningCash] = useState(() => defaultPettyCash ? String(defaultPettyCash) : "");
 
   const today = new Date().toLocaleDateString("en-IN", {
     weekday: "long", day: "numeric", month: "long"

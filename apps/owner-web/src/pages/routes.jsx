@@ -23,6 +23,7 @@ import { LiveOrdersPage } from "../features/live-orders/LiveOrdersPage";
 import { AllOrdersPage } from "../features/orders/AllOrdersPage";
 import { KotsPage } from "../features/kots/KotsPage";
 import { OnlineOrdersHistoryPage } from "../features/online-orders/OnlineOrdersHistoryPage";
+import { PosSettingsPage } from "../features/pos-settings/PosSettingsPage";
 import { PrototypePage } from "./PrototypePage";
 
 export function AppRoutes() {
@@ -65,6 +66,10 @@ export function AppRoutes() {
 
     if (item.mode === "react" && item.id === "discounts") {
       return <DiscountRulesPage />;
+    }
+
+    if (item.mode === "react" && item.id === "pos-config") {
+      return <PosSettingsPage />;
     }
 
     if (item.mode === "react" && item.id === "integrations") {
