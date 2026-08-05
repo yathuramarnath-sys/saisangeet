@@ -19,7 +19,7 @@ function orderTotal(order) {
 
 function Icon({ name, size = 20 }) {
   return (
-    <span className="material-symbols-outlined" style={{ fontSize: size, lineHeight: 1, display: "block" }}>
+    <span className="material-symbols-rounded" style={{ fontSize: size, lineHeight: 1 }}>
       {name}
     </span>
   );

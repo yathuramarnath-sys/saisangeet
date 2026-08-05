@@ -40,7 +40,7 @@ function OrderDetailPanel({ row, onClose }) {
         <div className="detail-panel-header">
           <span className="detail-panel-title">Bill #{row.billNo}</span>
           <button className="detail-close" onClick={onClose}>
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>close</span>
           </button>
         </div>
         <div className="detail-panel-body">
@@ -250,7 +250,7 @@ export function AllOrdersPage() {
         </div>
         <div style={{ display: "flex", gap: 8, alignSelf: "flex-end" }}>
           <button className="btn-primary" onClick={handleSearch} disabled={loading}>
-            <span className="material-symbols-outlined" style={{ fontSize: 17 }}>search</span>
+            <span className="material-symbols-rounded" style={{ fontSize: 17 }}>search</span>
             Search
           </button>
           <button className="btn-outline" onClick={handleShowAll} disabled={loading}>
@@ -289,7 +289,7 @@ export function AllOrdersPage() {
           <div className="page-loading">Loading orders…</div>
         ) : data.orders.length === 0 ? (
           <div className="orders-empty">
-            <span className="material-symbols-outlined" style={{ fontSize: 40, display: "block", marginBottom: 8, color: "var(--muted)" }}>receipt_long</span>
+            <span className="material-symbols-rounded" style={{ fontSize: 40, display: "block", marginBottom: 8, color: "var(--muted)" }}>receipt_long</span>
             No orders found for the selected period.
             <div style={{ fontSize: "0.8rem", marginTop: 6 }}>Try extending the date range or check if bills have been printed for this period.</div>
           </div>
