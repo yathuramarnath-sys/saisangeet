@@ -47,18 +47,31 @@ export function DayEndModal({ orders, outlet, outletId: outletIdProp, tableAreas
       ? new Set(tableAreas.flatMap(a => a.tables.map(t => t.id)))
       : null;
 
+    // Track seen table numbers to prevent duplicate blocking entries when both an
+    // old-ID and a new-ID entry exist in localStorage for the same physical table.
+    const seenTableNumbers = new Set();
+
     for (const [tableId, order] of Object.entries(orders)) {
       if (order.isClosed) continue;
       // Mirror-bill slots (_mb_N) are pending-bill display entries, not real orders.
       // Always skip them — they should never block Day End.
       if (tableId.startsWith("_mb_")) continue;
-      // Skip ghost orders — IDs that aren't a real table, counter, or online order
+      // Skip ghost orders — IDs that aren't a real table, counter, or online order.
+      // Use the presence of knownTableIds (not its size) so this filter always applies
+      // when tableAreas is populated, even if a table has been removed.
       if (
         !tableId.startsWith("counter-") &&
         !tableId.startsWith("online-") &&
-        knownTableIds?.size > 0 &&
+        knownTableIds != null &&
         !knownTableIds.has(tableId)
       ) continue;
+      // Deduplicate by tableNumber — multiple stale localStorage entries (old-ID + new-ID)
+      // for the same table should only produce one blocking entry.
+      if (order.tableNumber != null) {
+        const tnKey = `tn:${order.tableNumber}`;
+        if (seenTableNumbers.has(tnKey)) continue;
+        seenTableNumbers.add(tnKey);
+      }
       const activeItems = (order.items || []).filter(i => !i.isVoided && !i.isGhostVoid);
       if (activeItems.length === 0) continue;
 
