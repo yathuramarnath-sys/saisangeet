@@ -365,7 +365,10 @@ export function App() {
   const [itemCounts,      setItemCounts]      = useState(() => loadItemCounts());
   const [showSplitBill,   setShowSplitBill]   = useState(false);
   const [activeArea,      setActiveArea]      = useState(null);
-  const [serviceMode,     setServiceMode]     = useState("dine-in");
+  const [posConfig,       setPosConfig]       = useState(() => { try { return JSON.parse(localStorage.getItem("pos_config") || "null"); } catch { return null; } });
+  const [serviceMode,     setServiceMode]     = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pos_config") || "null")?.defaultOrderType || "dine-in"; } catch { return "dine-in"; }
+  });
   const [toast,           setToast]           = useState(null);
   const [undoBanner,      setUndoBanner]      = useState(null); // { label, onUndo }
   const undoBannerTimerRef = useRef(null); // active undo timer — cleared when new banner replaces it
@@ -486,12 +489,13 @@ export function App() {
         setOutlet(target);
         try { localStorage.setItem("pos_receipt_appearance", JSON.stringify({ receiptFont: target.receiptFont || "default", billFontSize: target.billFontSize || "normal", kotFontSize: target.kotFontSize || "normal" })); } catch (_) {}
 
-        const [cats, items, kitchenStations, staffRes, discountRes] = await Promise.all([
+        const [cats, items, kitchenStations, staffRes, discountRes, posConfigRes] = await Promise.all([
           api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),
           api.get(`/menu/items?outletId=${target.id}`).catch(() => []),
           api.get("/kitchen-stations").catch(() => []),
           api.get(`/devices/staff?outletId=${target.id}`).catch(() => null),
           api.get("/settings/discounts").catch(() => null),
+          api.get("/settings/pos-config").catch(() => null),
         ]);
         // Sync active discount rules for POS cashier picker — filter by this outlet
         if (discountRes?.rules) {
@@ -504,6 +508,11 @@ export function App() {
           try { localStorage.setItem("pos_discount_rules", JSON.stringify(active)); } catch (_) {}
         }
         if (staffRes?.staff?.length) setActiveStaff(staffRes.staff);
+        if (posConfigRes && typeof posConfigRes === "object") {
+          setPosConfig(posConfigRes);
+          try { localStorage.setItem("pos_config", JSON.stringify(posConfigRes)); } catch (_) {}
+          if (posConfigRes.defaultOrderType) setServiceMode(posConfigRes.defaultOrderType);
+        }
 
         // Store kitchen stations enriched with category NAMES as fallback for ID-type mismatches.
         // If category IDs in Owner Console were saved as a different type (string vs number),
@@ -3364,10 +3373,11 @@ export function App() {
   }
 
   // ── Service modes ─────────────────────────────────────────────────────────
+  const _sn = posConfig?.sectionNames || {};
   const SERVICE_MODES = [
-    { id: "dine-in",  label: "Dine-In"  },
-    { id: "takeaway", label: "Takeaway" },
-    { id: "delivery", label: "Delivery" }
+    { id: "dine-in",  label: _sn["dine-in"]  || "Dine-In"  },
+    { id: "takeaway", label: _sn["takeaway"]  || "Takeaway" },
+    { id: "delivery", label: _sn["delivery"]  || "Delivery" },
   ];
 
   // ── POS Login (no cashier selected) ───────────────────────────────────────
@@ -3391,6 +3401,7 @@ export function App() {
         outletName={outlet?.name}
         cashierName={cashierName}
         onShiftStarted={handleShiftStarted}
+        defaultPettyCash={posConfig?.defaultPettyCash || 0}
         onEndPreviousShift={(staleShift) => {
           setActiveShift(staleShift);
           setShowCloseShift(true);

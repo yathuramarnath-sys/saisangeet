@@ -842,6 +842,13 @@ function createDefaultData() {
       defaults:       createDefaultDiscountDefaults(),
     },
     integrations: createDefaultIntegrations(outlets),
+    posConfig: {
+      defaultOrderType: "dine-in",
+      sectionNames: { "dine-in": "Dine-In", takeaway: "Takeaway", delivery: "Delivery" },
+      personsRequired: false,
+      newItemPosition: "bottom",
+      defaultPettyCash: 0,
+    },
   };
 }
 
@@ -1118,6 +1125,18 @@ function normalizeOwnerSetupData(data) {
   // but the POS UI still prompts if a local PIN is set in localStorage).
   next.security = next.security || {};
   next.security.managerPin = next.security.managerPin ?? "";
+
+  next.posConfig = next.posConfig || {};
+  next.posConfig.defaultOrderType = next.posConfig.defaultOrderType ?? "dine-in";
+  next.posConfig.sectionNames = {
+    "dine-in":  "Dine-In",
+    takeaway:   "Takeaway",
+    delivery:   "Delivery",
+    ...(next.posConfig.sectionNames || {}),
+  };
+  next.posConfig.personsRequired  = next.posConfig.personsRequired  ?? false;
+  next.posConfig.newItemPosition  = next.posConfig.newItemPosition  ?? "bottom";
+  next.posConfig.defaultPettyCash = next.posConfig.defaultPettyCash ?? 0;
 
   return next;
 }

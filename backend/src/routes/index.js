@@ -129,6 +129,30 @@ apiRouter.use("/advance-orders",     advanceOrdersRouter);
 apiRouter.use("/customers",          customersRouter);
 apiRouter.use("/backup",             backupRouter);
 
+// ── GET /settings/pos-config — fetch POS configuration ───────────────────────
+apiRouter.get("/settings/pos-config", requireAuth, asyncHandler(async (_req, res) => {
+  const data = getOwnerSetupData();
+  res.json(data?.posConfig || {});
+}));
+
+// ── PUT /settings/pos-config — update POS configuration ──────────────────────
+apiRouter.put("/settings/pos-config", requireAuth, asyncHandler(async (req, res) => {
+  const { defaultOrderType, sectionNames, personsRequired, newItemPosition, defaultPettyCash } = req.body || {};
+  await updateOwnerSetupDataNow((data) => ({
+    ...data,
+    posConfig: {
+      ...(data.posConfig || {}),
+      ...(defaultOrderType  !== undefined && { defaultOrderType }),
+      ...(sectionNames      !== undefined && { sectionNames }),
+      ...(personsRequired   !== undefined && { personsRequired }),
+      ...(newItemPosition   !== undefined && { newItemPosition }),
+      ...(defaultPettyCash  !== undefined && { defaultPettyCash }),
+    },
+  }));
+  const updated = getOwnerSetupData();
+  res.json(updated?.posConfig || {});
+}));
+
 // ── GET /settings/security — fetch current security settings (PIN masked) ────
 apiRouter.get("/settings/security", requireAuth, asyncHandler(async (_req, res) => {
   const data = getOwnerSetupData();
