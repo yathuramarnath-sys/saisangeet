@@ -1047,6 +1047,13 @@ async function deviceCloseOrderHandler(req, res) {
   }
   order.closedAt = new Date().toISOString();
 
+  // Always overwrite the client-supplied outletName with the server-authoritative value.
+  // A POS device retains its outlet name in local state; if that device was ever
+  // reconfigured or shared across tenants, the stale name would contaminate reports.
+  const _setupOutlets = getOwnerSetupData()?.outlets || [];
+  const _authOutlet   = _setupOutlets.find(o => o.id === outletId);
+  if (_authOutlet) order.outletName = _authOutlet.name;
+
   const recorded = addClosedOrder(tenantId, outletId, order);
 
   // Idempotent duplicate — bill with this billNo was already settled.
