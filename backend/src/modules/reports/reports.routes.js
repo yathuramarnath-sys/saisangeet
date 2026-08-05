@@ -7,7 +7,8 @@ const {
   ownerSummaryHandler,
   approveClosingHandler,
   reopenBusinessDayHandler,
-  listOrderHistoryHandler
+  listOrderHistoryHandler,
+  listKotHistoryHandler,
 } = require("./reports.controller");
 
 const reportsRouter = express.Router();
@@ -31,12 +32,20 @@ reportsRouter.post(
   asyncHandler(reopenBusinessDayHandler)
 );
 
-// GET /reports/orders — paginated bill list (today from memory, history from Postgres)
+// GET /reports/orders — paginated bill list
 reportsRouter.get(
   "/orders",
   requireAuth,
   requirePermission("reports.view"),
   asyncHandler(listOrderHistoryHandler)
+);
+
+// GET /reports/kots — paginated KOT round list
+reportsRouter.get(
+  "/kots",
+  requireAuth,
+  requirePermission("reports.view"),
+  asyncHandler(listKotHistoryHandler)
 );
 
 module.exports = {

@@ -6,7 +6,7 @@ const {
 } = require("../operations/operations.memory-store");
 const { syncOperationsState, persistOperationsState } = require("../operations/operations.state");
 const { getTodaySales, getSalesForRange, getCreditSettlementsForRange } = require("../operations/closed-orders-store");
-const { queryClosedOrders, listClosedOrders } = require("../../db/closed-orders.repository");
+const { queryClosedOrders, listClosedOrders, listKotRows } = require("../../db/closed-orders.repository");
 const { isDatabaseEnabled } = require("../../db/database-mode");
 const { getOwnerSetupData } = require("../../data/owner-setup-store");
 const { getActionLogs }    = require("../operations/action-log-store");
@@ -1044,6 +1044,47 @@ function _formatBillRow(order) {
   };
 }
 
+/**
+ * KOT History — paginated KOT row list for Owner Web.
+ * Unnests kots[] from closed_orders JSONB via Postgres, or falls back to memory.
+ */
+async function listKotHistory(tenantId, { dateFrom, dateTo, outletId, page = 1, pageSize = 50 } = {}) {
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const from = dateFrom || todayStr;
+  const to   = dateTo   || todayStr;
+
+  if (!isDatabaseEnabled()) {
+    const memOrders = getSalesForRange(tenantId, from, to, outletId || null);
+    const kotRows = [];
+    for (const order of memOrders) {
+      for (const kot of (order.kots || [])) {
+        const allItems = order.items || [];
+        const idSet = new Set((kot.itemIds || []).map(String));
+        const kotItems = allItems.filter(i => !i.isVoided && (idSet.size === 0 || idSet.has(String(i.id))));
+        kotRows.push({
+          kotNumber:   kot.kotNumber || "—",
+          sentAt:      kot.sentAt,
+          actorName:   kot.actorName || "—",
+          tableNumber: order.tableNumber || order.tableId || "—",
+          outletName:  order.outletName || "—",
+          outletId:    order._outletId || order.outletId,
+          billNo:      order.billNo || null,
+          isCreditSale: !!order.isCreditSale,
+          itemCount:   kotItems.length,
+          items:       kotItems.map(i => ({ name: i.name, qty: i.quantity || i.qty || 1, price: i.price || 0 })),
+        });
+      }
+    }
+    kotRows.sort((a, b) => new Date(b.sentAt || 0) - new Date(a.sentAt || 0));
+    const total = kotRows.length;
+    const rows  = kotRows.slice((page - 1) * pageSize, page * pageSize);
+    return { rows, total, page, pageSize, source: "memory" };
+  }
+
+  const result = await listKotRows(tenantId, { dateFrom: from, dateTo: to, outletId, page, pageSize });
+  return { rows: result.rows, total: result.total, page, pageSize, source: "postgres" };
+}
+
 async function approveClosing(actor = { name: "Owner", role: "Owner" }, tenantId) {
   await syncOperationsState();
   approveClosingState(actor.name, actor.role);
@@ -1062,5 +1103,6 @@ module.exports = {
   fetchOwnerSummary,
   approveClosing,
   reopenBusinessDay,
-  listOrderHistory
+  listOrderHistory,
+  listKotHistory,
 };
