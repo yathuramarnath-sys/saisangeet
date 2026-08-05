@@ -15024,7 +15024,7 @@ button.inv-toggle:focus-visible {
 .lo-rows { display: flex; flex-direction: column; }
 .lo-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .lo-row:last-child { border-bottom: none; }
-.lo-row-icon { font-size: 1.15rem; width: 32px; text-align: center; flex-shrink: 0; }
+.lo-row-icon { font-size: 1.25rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--bg); color: var(--muted); flex-shrink: 0; }
 .lo-row-info { flex: 1; min-width: 0; }
 .lo-row-label { font-size: 0.9rem; font-weight: 600; color: var(--text); }
 .lo-row-count { font-size: 0.75rem; color: var(--muted); margin-top: 1px; }
@@ -15033,6 +15033,20 @@ button.inv-toggle:focus-visible {
 .lo-status--yellow { background: #f59e0b; }
 .lo-status--blue   { background: #3b82f6; }
 .lo-status--green  { background: #10b981; }
+
+/* ── All Orders summary strip ─────────────────────────────── */
+.orders-summary-strip {
+  display: flex; gap: 0; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 16px; box-shadow: var(--shadow-soft); overflow: hidden;
+}
+.orders-summary-item {
+  flex: 1; display: flex; flex-direction: column; padding: 16px 20px;
+  border-right: 1px solid var(--line);
+}
+.orders-summary-item:last-child { border-right: none; }
+.orders-summary-label { font-size: 0.68rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.orders-summary-value { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.03em; color: var(--text); font-variant-numeric: tabular-nums; }
+.orders-summary-highlight .orders-summary-value { color: var(--accent); }
 
 /* ── All Orders table ─────────────────────────────────────── */
 .orders-filters {

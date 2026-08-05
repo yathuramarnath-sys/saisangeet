@@ -40,9 +40,9 @@ function RunningPanel({ dinein, pickup, online }) {
         </div>
       </div>
       <div className="lo-rows">
-        <LoRow icon="🪑" label="Dine In"         count={dinein.length} amount={dineAmt} />
-        <LoRow icon="📦" label="Pick Up"          count={pickup.length} amount={pickAmt} />
-        <LoRow icon="🛵" label="Online Delivery"  count={online.length} amount={onlAmt} />
+        <LoRow icon="table_restaurant" label="Dine In"        count={dinein.length} amount={dineAmt} />
+        <LoRow icon="shopping_bag"     label="Pick Up"         count={pickup.length} amount={pickAmt} />
+        <LoRow icon="delivery_dining"  label="Online Delivery" count={online.length} amount={onlAmt} />
       </div>
     </div>
   );
@@ -59,7 +59,7 @@ function PendingPanel({ online }) {
     <div className="lo-panel">
       <div className="lo-panel-header">
         <span className="lo-dot lo-dot--blue" />
-        <span className="lo-panel-title">Online Orders</span>
+        <span className="lo-panel-title">Pending Orders</span>
       </div>
       <div className="lo-totals">
         <div>
@@ -83,7 +83,7 @@ function PendingPanel({ online }) {
 function LoRow({ icon, label, count, amount }) {
   return (
     <div className="lo-row">
-      <span className="lo-row-icon">{icon}</span>
+      <span className="material-symbols-outlined lo-row-icon">{icon}</span>
       <div className="lo-row-info">
         <div className="lo-row-label">{label}</div>
         <div className="lo-row-count">{count} order{count !== 1 ? "s" : ""}</div>

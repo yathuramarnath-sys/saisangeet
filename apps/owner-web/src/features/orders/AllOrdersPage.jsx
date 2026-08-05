@@ -7,6 +7,12 @@ function todayStr() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
+function daysAgoStr(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+
 function inferOrderType(row) {
   const t = String(row._order?.tableId || row.tableNumber || "").toLowerCase();
   if (t.startsWith("counter")) return "pickup";
@@ -124,8 +130,9 @@ function MetaField({ label, value }) {
 const PAGE_SIZE = 50;
 
 export function AllOrdersPage() {
-  const today = todayStr();
-  const [dateFrom, setDateFrom] = useState(today);
+  const today   = todayStr();
+  const weekAgo = daysAgoStr(6);
+  const [dateFrom, setDateFrom] = useState(weekAgo);
   const [dateTo,   setDateTo]   = useState(today);
   const [outletId, setOutletId] = useState("");
   const [outlets,  setOutlets]  = useState([]);
@@ -133,7 +140,7 @@ export function AllOrdersPage() {
   const [data,     setData]     = useState({ orders: [], total: 0 });
   const [loading,  setLoading]  = useState(true);
   const [selected, setSelected] = useState(null);
-  const searchRef = useRef({ dateFrom: today, dateTo: today, outletId: "", page: 1 });
+  const searchRef = useRef({ dateFrom: weekAgo, dateTo: today, outletId: "", page: 1 });
 
   async function load(params) {
     setLoading(true);
@@ -157,7 +164,7 @@ export function AllOrdersPage() {
 
   useEffect(() => {
     api.get("/outlets").then(r => { if (Array.isArray(r)) setOutlets(r); }).catch(() => {});
-    const p = { dateFrom: today, dateTo: today, outletId: "", page: 1 };
+    const p = { dateFrom: weekAgo, dateTo: today, outletId: "", page: 1 };
     searchRef.current = p;
     load(p);
   }, []);
@@ -177,6 +184,10 @@ export function AllOrdersPage() {
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
   const start = (page - 1) * PAGE_SIZE + 1;
   const end   = Math.min(page * PAGE_SIZE, data.total);
+
+  const pageSubtotal = data.orders.reduce((s, r) => s + Number(r.subtotal || 0), 0);
+  const pageDiscount = data.orders.reduce((s, r) => s + Number(r.discount || 0), 0);
+  const pageTotal    = data.orders.reduce((s, r) => s + Number(r.totalPaid || r.net || 0), 0);
 
   return (
     <div className="page-root">
@@ -217,12 +228,40 @@ export function AllOrdersPage() {
         </button>
       </div>
 
+      {/* Summary strip */}
+      {!loading && data.total > 0 && (
+        <div className="orders-summary-strip">
+          <div className="orders-summary-item">
+            <span className="orders-summary-label">Orders</span>
+            <span className="orders-summary-value">{data.total.toLocaleString()}</span>
+          </div>
+          <div className="orders-summary-item">
+            <span className="orders-summary-label">Page Subtotal</span>
+            <span className="orders-summary-value">{fmt(pageSubtotal)}</span>
+          </div>
+          {pageDiscount > 0 && (
+            <div className="orders-summary-item">
+              <span className="orders-summary-label">Page Discount</span>
+              <span className="orders-summary-value">− {fmt(pageDiscount)}</span>
+            </div>
+          )}
+          <div className="orders-summary-item orders-summary-highlight">
+            <span className="orders-summary-label">Page Total</span>
+            <span className="orders-summary-value">{fmt(pageTotal)}</span>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="orders-table-wrap">
         {loading ? (
           <div className="page-loading">Loading orders…</div>
         ) : data.orders.length === 0 ? (
-          <div className="orders-empty">No orders found for the selected period.</div>
+          <div className="orders-empty">
+            <span className="material-symbols-outlined" style={{ fontSize: 40, display: "block", marginBottom: 8, color: "var(--muted)" }}>receipt_long</span>
+            No orders found for the selected period.
+            <div style={{ fontSize: "0.8rem", marginTop: 6 }}>Try extending the date range or check if bills have been printed for this period.</div>
+          </div>
         ) : (
           <table className="orders-table">
             <thead>
@@ -233,7 +272,8 @@ export function AllOrdersPage() {
                 <th>Items</th>
                 <th className="num-cell">Subtotal</th>
                 <th className="num-cell">Discount</th>
-                <th className="num-cell">Total</th>
+                <th className="num-cell">Tax</th>
+                <th className="num-cell">Grand Total</th>
                 <th>Payment</th>
                 <th>Cashier</th>
                 <th>Date &amp; Time</th>
@@ -243,6 +283,12 @@ export function AllOrdersPage() {
             <tbody>
               {data.orders.map((row, i) => {
                 const type = inferOrderType(row);
+                const taxTotal = ((row._order?.items || []).filter(it => !it.isVoided)).reduce((s, it) => {
+                  const price = Number(it.price || 0);
+                  const qty   = Number(it.quantity || it.qty || 1);
+                  const rate  = Number(it.taxRate || 0);
+                  return s + (price * qty * rate / 100);
+                }, 0);
                 return (
                   <tr
                     key={i}
@@ -255,6 +301,7 @@ export function AllOrdersPage() {
                     <td>{row.items}</td>
                     <td className="num-cell">{fmt(row.subtotal)}</td>
                     <td className="num-cell">{row.discount > 0 ? `− ${fmt(row.discount)}` : "—"}</td>
+                    <td className="num-cell">{taxTotal > 0.01 ? fmt(Math.round(taxTotal)) : "—"}</td>
                     <td className="num-cell"><strong>{fmt(row.totalPaid || row.net)}</strong></td>
                     <td style={{ textTransform: "capitalize" }}>{row.paymentMethods}</td>
                     <td>{row.cashierName}</td>
