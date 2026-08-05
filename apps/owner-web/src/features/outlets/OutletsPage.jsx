@@ -56,9 +56,14 @@ function buildEditDraft(outlet) {
     reportEmail:         outlet.reportEmail || "",
     openingTime,
     closingTime,
-    workAreas: outlet.workAreas || [],
-    tables:    outlet.tables    || [],
-    services:  outlet.services  || []
+    workAreas:       outlet.workAreas || [],
+    tables:          outlet.tables    || [],
+    services:        outlet.services  || [],
+    gstTreatment:    outlet.gstTreatment  || "exclusive",
+    showFssai:       outlet.showFssai     ?? true,
+    showQR:          outlet.showQR        ?? true,
+    boldItemText:    outlet.boldItemText  ?? false,
+    seatingCapacity: outlet.seatingCapacity || "",
   };
 }
 
@@ -68,7 +73,12 @@ function buildCreateDraft(pageData) {
     openingTime: "09:00", closingTime: "23:00", reportEmail: "",
     defaultTaxProfileId: pageData.taxProfiles?.[0]?.id  || "",
     receiptTemplateId:   pageData.receiptTemplates?.[0]?.id || "",
-    workAreas: [], tables: [], services: ["Dine-in", "Takeaway"]
+    workAreas: [], tables: [], services: ["Dine-in", "Takeaway"],
+    gstTreatment: "exclusive",
+    showFssai: true,
+    showQR: true,
+    boldItemText: false,
+    seatingCapacity: "",
   };
 }
 
@@ -186,6 +196,47 @@ function OutletEditForm({ draft, setDraft, taxProfiles, receiptTemplates, onSave
             {receiptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </label>
+      </div>
+
+      {/* Receipt & billing */}
+      <div className="outlet-inline-section">
+        <strong>Receipt &amp; billing</strong>
+        <div className="outlet-inline-grid" style={{ marginTop: 8 }}>
+          <label>
+            Seating capacity <small style={{ fontWeight: 400, color: "#6b7280" }}>(total covers / pax)</small>
+            <input type="number" min="1" max="9999" placeholder="e.g. 40"
+              value={draft.seatingCapacity}
+              onChange={e => setDraft(d => ({ ...d, seatingCapacity: e.target.value }))} />
+          </label>
+          <label>
+            GST treatment
+            <div style={{ display: "flex", gap: 20, marginTop: 8, flexWrap: "wrap" }}>
+              <label style={{ display: "flex", gap: 6, alignItems: "center", fontWeight: 400, cursor: "pointer" }}>
+                <input type="radio" checked={draft.gstTreatment === "exclusive"}
+                  onChange={() => setDraft(d => ({ ...d, gstTreatment: "exclusive" }))} />
+                Exclusive <small style={{ color: "#6b7280" }}>(GST added on top)</small>
+              </label>
+              <label style={{ display: "flex", gap: 6, alignItems: "center", fontWeight: 400, cursor: "pointer" }}>
+                <input type="radio" checked={draft.gstTreatment === "inclusive"}
+                  onChange={() => setDraft(d => ({ ...d, gstTreatment: "inclusive" }))} />
+                Inclusive <small style={{ color: "#6b7280" }}>(price includes GST)</small>
+              </label>
+            </div>
+          </label>
+        </div>
+        <div className="outlet-check-row" style={{ marginTop: 10 }}>
+          {[
+            { key: "showFssai",    label: "Show FSSAI on receipt" },
+            { key: "showQR",       label: "Show QR code on receipt" },
+            { key: "boldItemText", label: "Bold item names on KOT" },
+          ].map(({ key, label }) => (
+            <label key={key} className="mini-card">
+              <span>{label}</span>
+              <input type="checkbox" checked={!!draft[key]}
+                onChange={() => setDraft(d => ({ ...d, [key]: !d[key] }))} />
+            </label>
+          ))}
+        </div>
       </div>
 
       {/* Work areas */}
@@ -523,7 +574,12 @@ export function OutletsPage() {
         workAreas:    createDraft.workAreas,
         tables:       sanitizeTables(createDraft.tables),
         services:     createDraft.services,
-        hours:        joinTimings(createDraft.openingTime, createDraft.closingTime)
+        hours:        joinTimings(createDraft.openingTime, createDraft.closingTime),
+        gstTreatment:    createDraft.gstTreatment    || "exclusive",
+        showFssai:       createDraft.showFssai        ?? true,
+        showQR:          createDraft.showQR           ?? true,
+        boldItemText:    !!createDraft.boldItemText,
+        seatingCapacity: createDraft.seatingCapacity ? Number(createDraft.seatingCapacity) : null,
       });
       const result = await reloadOutlets();
       setCreateDraft(buildCreateDraft(result));
@@ -553,7 +609,12 @@ export function OutletsPage() {
         workAreas:    editDraft.workAreas,
         tables:       sanitizeTables(editDraft.tables),
         services:     editDraft.services,
-        hours:        joinTimings(editDraft.openingTime, editDraft.closingTime)
+        hours:        joinTimings(editDraft.openingTime, editDraft.closingTime),
+        gstTreatment:    editDraft.gstTreatment    || "exclusive",
+        showFssai:       editDraft.showFssai        ?? true,
+        showQR:          editDraft.showQR           ?? true,
+        boldItemText:    !!editDraft.boldItemText,
+        seatingCapacity: editDraft.seatingCapacity ? Number(editDraft.seatingCapacity) : null,
       });
       // Save waitlist turnover settings
       const patch = {};
