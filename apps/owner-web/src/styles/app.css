@@ -15176,3 +15176,33 @@ button.inv-toggle:focus-visible {
 .detail-total-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text); font-variant-numeric: tabular-nums; }
 .detail-total-row.grand { font-weight: 700; font-size: 0.95rem; padding-top: 8px; border-top: 1px solid var(--line); margin-top: 4px; }
 .pc-success { font-size: 13px !important; color: #0F766E !important; font-weight: 600 !important; }
+
+/* ── Online Orders Activity — extra badge + action styles ─────────────────── */
+.badge-food-ready { background: #d1fae5; color: #065f46; }
+
+.oo-action-btn {
+  width: 30px; height: 30px; border: 1px solid var(--line-strong); border-radius: 8px;
+  background: transparent; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; color: var(--muted); transition: background 0.1s, color 0.1s;
+}
+.oo-action-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+/* ── Online Orders timeline in detail panel ───────────────────────────────── */
+.oo-timeline { display: flex; flex-direction: column; gap: 0; }
+.oo-timeline-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--line);
+  position: relative;
+}
+.oo-timeline-row:last-child { border-bottom: none; }
+.oo-timeline-dot {
+  width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+  flex-shrink: 0; margin-top: 4px;
+}
+.oo-timeline-info { display: flex; flex-direction: column; gap: 2px; }
+.oo-timeline-label { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+.oo-timeline-ts { font-size: 0.78rem; color: var(--muted); }
+.oo-timeline-dur {
+  font-size: 0.72rem; font-weight: 700; color: var(--accent);
+  background: var(--accent-soft); border-radius: 4px; padding: 1px 6px; display: inline-block; margin-top: 2px;
+}

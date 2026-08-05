@@ -425,8 +425,84 @@ async function findCreditOrderById(tenantId, orderId) {
   }
 }
 
+/**
+ * Paginated KOT row list for the KOT History page.
+ * Each closed order can have many KOT rounds (order.kots[]); this query unnests
+ * them into individual rows using jsonb_array_elements.
+ *
+ * Returns { rows, total } where total comes from a window function (1 query).
+ */
+async function listKotRows(tenantId, { dateFrom, dateTo, outletId, page = 1, pageSize = 50 } = {}) {
+  if (!isDatabaseEnabled()) return { rows: [], total: 0 };
+
+  const today  = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const from   = dateFrom || today;
+  const to     = dateTo   || today;
+  const offset = (page - 1) * pageSize;
+
+  const params = [tenantId, from, to];
+  let outletFilter = "";
+  if (outletId) {
+    params.push(outletId);
+    outletFilter = `AND co.outlet_id = $${params.length}`;
+  }
+  params.push(pageSize, offset);
+
+  try {
+    const r = await query(
+      `SELECT
+         co.order_data->>'tableNumber'   AS table_number,
+         co.order_data->>'outletName'    AS outlet_name,
+         co.outlet_id,
+         co.order_data->>'billNo'        AS bill_no,
+         co.order_data->>'isCreditSale'  AS is_credit_sale,
+         co.order_data->'items'          AS all_items,
+         kot->>'kotNumber'               AS kot_number,
+         kot->>'sentAt'                  AS sent_at,
+         kot->>'actorName'               AS actor_name,
+         kot->'itemIds'                  AS item_ids,
+         COUNT(*) OVER ()::int           AS total_count
+       FROM closed_orders co,
+            jsonb_array_elements(COALESCE(co.order_data->'kots', '[]'::jsonb)) AS kot
+       WHERE co.tenant_id   = $1
+         AND co.closed_date >= $2
+         AND co.closed_date <= $3
+         ${outletFilter}
+       ORDER BY (kot->>'sentAt') DESC NULLS LAST
+       LIMIT  $${params.length - 1}
+       OFFSET $${params.length}`,
+      params
+    );
+
+    const total = r.rows[0]?.total_count ?? 0;
+    const rows = r.rows.map(row => {
+      const allItems = typeof row.all_items === "string" ? JSON.parse(row.all_items) : (row.all_items || []);
+      const itemIds  = typeof row.item_ids  === "string" ? JSON.parse(row.item_ids)  : (row.item_ids  || []);
+      const idSet    = new Set(itemIds.map(String));
+      const kotItems = allItems.filter(i => !i.isVoided && (idSet.size === 0 || idSet.has(String(i.id))));
+      return {
+        kotNumber:    row.kot_number   || "—",
+        sentAt:       row.sent_at,
+        actorName:    row.actor_name   || "—",
+        tableNumber:  row.table_number || "—",
+        outletName:   row.outlet_name  || "—",
+        outletId:     row.outlet_id,
+        billNo:       row.bill_no      || null,
+        isCreditSale: row.is_credit_sale === "true",
+        itemCount:    kotItems.length,
+        items:        kotItems.map(i => ({ name: i.name, qty: i.quantity || i.qty || 1, price: i.price || 0 })),
+      };
+    });
+
+    return { rows, total };
+  } catch (err) {
+    console.error("[closed-orders.repo] listKotRows error:", err.message);
+    return { rows: [], total: 0 };
+  }
+}
+
 module.exports = {
   ensureClosedOrdersTable,
-  insertClosedOrder, queryClosedOrders, listClosedOrders, updateClosedOrderData,
+  insertClosedOrder, queryClosedOrders, listClosedOrders, listKotRows, updateClosedOrderData,
   queryCreditOrders, queryCreditSettlementsForRange, getClosedOrderByClosedAt, findCreditOrderById,
 };

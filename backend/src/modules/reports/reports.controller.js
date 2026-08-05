@@ -2,7 +2,8 @@ const {
   fetchOwnerSummary,
   approveClosing,
   reopenBusinessDay,
-  listOrderHistory
+  listOrderHistory,
+  listKotHistory,
 } = require("./reports.service");
 
 async function ownerSummaryHandler(req, res) {
@@ -27,7 +28,6 @@ async function reopenBusinessDayHandler(req, res) {
 /**
  * GET /reports/orders?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD&outletId=&page=1&pageSize=50
  * Paginated closed-order bill list for Owner Web history view.
- * Returns today (memory) or historical (Postgres) depending on the date range.
  */
 async function listOrderHistoryHandler(req, res) {
   const tenantId = req.user?.tenantId || "default";
@@ -38,9 +38,23 @@ async function listOrderHistoryHandler(req, res) {
   res.json(result);
 }
 
+/**
+ * GET /reports/kots?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD&outletId=&page=1&pageSize=50
+ * Paginated KOT round list — unnested from closed_orders.order_data.kots[].
+ */
+async function listKotHistoryHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const { dateFrom, dateTo, outletId } = req.query;
+  const page     = Math.max(1, parseInt(req.query.page     || "1",  10));
+  const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize || "50", 10)));
+  const result   = await listKotHistory(tenantId, { dateFrom, dateTo, outletId, page, pageSize });
+  res.json(result);
+}
+
 module.exports = {
   ownerSummaryHandler,
   approveClosingHandler,
   reopenBusinessDayHandler,
-  listOrderHistoryHandler
+  listOrderHistoryHandler,
+  listKotHistoryHandler,
 };

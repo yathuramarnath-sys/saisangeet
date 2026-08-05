@@ -21,6 +21,8 @@ import { BillingPage } from "../features/billing/BillingPage";
 import { OnlineSalesPage } from "../features/settlements/OnlineSalesPage";
 import { LiveOrdersPage } from "../features/live-orders/LiveOrdersPage";
 import { AllOrdersPage } from "../features/orders/AllOrdersPage";
+import { KotsPage } from "../features/kots/KotsPage";
+import { OnlineOrdersHistoryPage } from "../features/online-orders/OnlineOrdersHistoryPage";
 import { PrototypePage } from "./PrototypePage";
 
 export function AppRoutes() {
@@ -35,6 +37,14 @@ export function AppRoutes() {
 
     if (item.mode === "react" && item.id === "all-orders") {
       return <AllOrdersPage />;
+    }
+
+    if (item.mode === "react" && item.id === "kots") {
+      return <KotsPage />;
+    }
+
+    if (item.mode === "react" && item.id === "online-orders-history") {
+      return <OnlineOrdersHistoryPage />;
     }
 
     if (item.mode === "react" && item.id === "business") {

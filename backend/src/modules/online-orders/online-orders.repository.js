@@ -100,9 +100,89 @@ async function loadTodayOnlineOrders() {
   }));
 }
 
+/**
+ * Paginated online-order history for Owner Web.
+ * Filters by IST date range on received_at.
+ *
+ * @param {string} tenantId
+ * @param {object} opts
+ * @param {string} opts.dateFrom  "YYYY-MM-DD" IST (defaults to today)
+ * @param {string} opts.dateTo    "YYYY-MM-DD" IST (defaults to today)
+ * @param {string} opts.outletId  optional outlet filter
+ * @param {string} opts.platform  optional platform filter (Zomato, Swiggy, …)
+ * @param {string} opts.status    optional status filter
+ * @param {number} opts.page      1-based page (default 1)
+ * @param {number} opts.pageSize  rows per page (default 50)
+ */
+async function listOnlineOrderHistory(tenantId, { dateFrom, dateTo, outletId, platform, status, page = 1, pageSize = 50 } = {}) {
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const from  = dateFrom || todayStr;
+  const to    = dateTo   || todayStr;
+  const offset = (page - 1) * pageSize;
+
+  const params = [tenantId, from, to];
+  let extra = "";
+
+  if (outletId) {
+    params.push(outletId);
+    extra += ` AND outlet_id = $${params.length}`;
+  }
+  if (platform) {
+    params.push(platform);
+    extra += ` AND platform = $${params.length}`;
+  }
+  if (status) {
+    params.push(status);
+    extra += ` AND status = $${params.length}`;
+  }
+
+  params.push(pageSize, offset);
+
+  try {
+    const r = await query(
+      `SELECT *, COUNT(*) OVER()::int AS total_count
+         FROM online_orders
+        WHERE tenant_id = $1
+          AND (received_at AT TIME ZONE 'Asia/Kolkata')::date >= $2::date
+          AND (received_at AT TIME ZONE 'Asia/Kolkata')::date <= $3::date
+          ${extra}
+        ORDER BY received_at DESC
+        LIMIT  $${params.length - 1}
+        OFFSET $${params.length}`,
+      params
+    );
+
+    const total = r.rows[0]?.total_count ?? 0;
+    const rows = r.rows.map(row => ({
+      id:          row.id,
+      orderId:     row.order_id,
+      platform:    row.platform,
+      outletId:    row.outlet_id,
+      customer:    typeof row.customer === "string" ? JSON.parse(row.customer) : (row.customer || {}),
+      items:       typeof row.items    === "string" ? JSON.parse(row.items)    : (row.items    || []),
+      total:       Number(row.total),
+      etaMin:      row.eta_min,
+      notes:       row.notes,
+      status:      row.status,
+      receivedAt:  row.received_at,
+      acceptedAt:  row.accepted_at,
+      rejectedAt:  row.rejected_at,
+      foodReadyAt: row.food_ready_at,
+      rejectReason: row.reject_reason,
+      acceptedBy:  row.accepted_by,
+    }));
+
+    return { rows, total, page, pageSize };
+  } catch (err) {
+    console.error("[online-orders.repo] listOnlineOrderHistory error:", err.message);
+    return { rows: [], total: 0, page, pageSize };
+  }
+}
+
 module.exports = {
   ensureOnlineOrdersTable,
   saveOnlineOrder,
   updateOnlineOrderInDB,
   loadTodayOnlineOrders,
+  listOnlineOrderHistory,
 };

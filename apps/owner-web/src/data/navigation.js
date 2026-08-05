@@ -3,6 +3,8 @@ export const navigation = [
   { id: "dashboard",    label: "Dashboard",            path: "/dashboard",       mode: "react" },
   { id: "live-orders",  label: "Live Orders",          path: "/live-orders",     mode: "react" },
   { id: "all-orders",   label: "All Orders",           path: "/orders",          mode: "react" },
+  { id: "kots",         label: "KOT History",          path: "/kots",            mode: "react" },
+  { id: "online-orders-history", label: "Online Orders",  path: "/online-orders-history", mode: "react" },
   { id: "business",     label: "Business Profile",     path: "/business",        mode: "react" },
   { id: "outlets",      label: "Outlets",              path: "/outlets",         mode: "react" },
   { id: "menu",         label: "Menu & Categories",    path: "/menu",            mode: "react" },
@@ -30,8 +32,10 @@ export const navGroups = [
     type: "section",
     label: "DAILY OPERATIONS",
     items: [
-      { id: "live-orders", label: "Live Orders",  path: "/live-orders", icon: "sensors" },
-      { id: "all-orders",  label: "All Orders",   path: "/orders",      icon: "list_alt" },
+      { id: "live-orders",           label: "Live Orders",    path: "/live-orders",            icon: "sensors" },
+      { id: "all-orders",            label: "All Orders",     path: "/orders",                 icon: "list_alt" },
+      { id: "kots",                  label: "KOT History",    path: "/kots",                   icon: "receipt" },
+      { id: "online-orders-history", label: "Online Orders",  path: "/online-orders-history",  icon: "delivery_dining" },
     ],
   },
 

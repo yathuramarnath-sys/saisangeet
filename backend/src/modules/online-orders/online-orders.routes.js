@@ -38,6 +38,7 @@ const {
 const {
   saveOnlineOrder,
   updateOnlineOrderInDB,
+  listOnlineOrderHistory,
 } = require("./online-orders.repository");
 const { queueDynoOrderAction } = require("../dynoapis/dynoapis.actions");
 
@@ -202,6 +203,23 @@ onlineOrdersRouter.get(
     if (!outletId) return res.status(400).json({ error: "outletId required" });
     const orders = getOnlineOrders(tenantId, outletId, status || null);
     res.json(orders);
+  })
+);
+
+/**
+ * GET /online-orders/history?dateFrom=&dateTo=&outletId=&platform=&status=&page=1&pageSize=50
+ * Paginated online order history from Postgres for Owner Web.
+ */
+onlineOrdersRouter.get(
+  "/history",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId || "default";
+    const { dateFrom, dateTo, outletId, platform, status } = req.query;
+    const page     = Math.max(1, parseInt(req.query.page     || "1",  10));
+    const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize || "50", 10)));
+    const result = await listOnlineOrderHistory(tenantId, { dateFrom, dateTo, outletId, platform, status, page, pageSize });
+    res.json(result);
   })
 );
 
