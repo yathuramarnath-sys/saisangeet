@@ -17,6 +17,14 @@ function orderTotal(order) {
   }, 0);
 }
 
+function Icon({ name, size = 20 }) {
+  return (
+    <span className="material-symbols-outlined" style={{ fontSize: size, lineHeight: 1, display: "block" }}>
+      {name}
+    </span>
+  );
+}
+
 function RunningPanel({ dinein, pickup, online }) {
   const dineAmt = dinein.reduce((s, o) => s + orderTotal(o), 0);
   const pickAmt = pickup.reduce((s, o) => s + orderTotal(o), 0);
@@ -40,9 +48,9 @@ function RunningPanel({ dinein, pickup, online }) {
         </div>
       </div>
       <div className="lo-rows">
-        <LoRow icon="table_restaurant" label="Dine In"        count={dinein.length} amount={dineAmt} />
-        <LoRow icon="shopping_bag"     label="Pick Up"         count={pickup.length} amount={pickAmt} />
-        <LoRow icon="delivery_dining"  label="Online Delivery" count={online.length} amount={onlAmt} />
+        <LoRow iconName="table_restaurant" label="Dine In"        count={dinein.length} amount={dineAmt} />
+        <LoRow iconName="shopping_bag"     label="Pick Up"         count={pickup.length} amount={pickAmt} />
+        <LoRow iconName="delivery_dining"  label="Online Delivery" count={online.length} amount={onlAmt} />
       </div>
     </div>
   );
@@ -51,7 +59,7 @@ function RunningPanel({ dinein, pickup, online }) {
 function PendingPanel({ online }) {
   const pending   = online.filter(o => o.status === "pending");
   const inPrep    = online.filter(o => o.status === "accepted");
-  const foodReady = online.filter(o => o.status === "food_ready");
+  const waiting   = online.filter(o => o.status === "food_ready");
   const total     = online.length;
   const totalAmt  = online.reduce((s, o) => s + (o.total || 0), 0);
 
@@ -74,16 +82,18 @@ function PendingPanel({ online }) {
       <div className="lo-rows">
         <LoStatusRow dot="lo-status--yellow" label="Pending Acceptance" orders={pending} />
         <LoStatusRow dot="lo-status--blue"   label="In Preparation"     orders={inPrep} />
-        <LoStatusRow dot="lo-status--green"  label="Food Ready"         orders={foodReady} />
+        <LoStatusRow dot="lo-status--green"  label="Waiting For Pickup" orders={waiting} />
       </div>
     </div>
   );
 }
 
-function LoRow({ icon, label, count, amount }) {
+function LoRow({ iconName, label, count, amount }) {
   return (
     <div className="lo-row">
-      <span className="material-symbols-outlined lo-row-icon">{icon}</span>
+      <div className="lo-row-icon-box">
+        <Icon name={iconName} size={20} />
+      </div>
       <div className="lo-row-info">
         <div className="lo-row-label">{label}</div>
         <div className="lo-row-count">{count} order{count !== 1 ? "s" : ""}</div>
@@ -107,7 +117,45 @@ function LoStatusRow({ dot, label, orders }) {
   );
 }
 
+function RunningTablesView({ dinein, pickup }) {
+  const allTables = [...dinein, ...pickup];
+  if (allTables.length === 0) {
+    return (
+      <div className="lo-tables-empty">
+        <Icon name="table_restaurant" size={40} />
+        <div>No active tables right now</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="lo-tables-grid">
+      {allTables.map((order, i) => {
+        const type  = inferType(order.tableId);
+        const total = orderTotal(order);
+        const itemCount = (order.items || []).filter(it => !it.isVoided).length;
+        return (
+          <div key={order.id || i} className={`lo-table-card lo-table-card--${type}`}>
+            <div className="lo-table-card-header">
+              <span className="lo-table-card-name">{order.tableNumber || order.tableId || "Table"}</span>
+              <span className={`lo-table-card-badge lo-table-badge--${type}`}>
+                {type === "pickup" ? "Pick Up" : "Dine In"}
+              </span>
+            </div>
+            <div className="lo-table-card-items">{itemCount} item{itemCount !== 1 ? "s" : ""}</div>
+            <div className="lo-table-card-amount">{fmt(total)}</div>
+            {order.cashierName && (
+              <div className="lo-table-card-cashier">{order.cashierName}</div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function LiveOrdersPage() {
+  const [tab,          setTab]          = useState("running-orders");
   const [liveOrders,   setLiveOrders]   = useState([]);
   const [onlineOrders, setOnlineOrders] = useState([]);
   const [outlets,      setOutlets]      = useState([]);
@@ -154,8 +202,8 @@ export function LiveOrdersPage() {
     return () => clearInterval(t);
   }, [load]);
 
-  const dinein  = liveOrders.filter(o => inferType(o.tableId) === "dinein");
-  const pickup  = liveOrders.filter(o => inferType(o.tableId) === "pickup");
+  const dinein = liveOrders.filter(o => inferType(o.tableId) === "dinein");
+  const pickup = liveOrders.filter(o => inferType(o.tableId) === "pickup");
 
   return (
     <div className="page-root">
@@ -170,31 +218,44 @@ export function LiveOrdersPage() {
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {outlets.length > 1 && (
-            <select
-              className="filter-select"
-              value={outletId}
-              onChange={e => setOutletId(e.target.value)}
-            >
+            <select className="filter-select" value={outletId} onChange={e => setOutletId(e.target.value)}>
               <option value="">All Outlets</option>
-              {outlets.map(o => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
+              {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           )}
           <button className="lo-refresh-btn" onClick={load} disabled={loading}>
-            <span className="material-symbols-outlined" style={{ fontSize: 17 }}>refresh</span>
+            <Icon name="refresh" size={17} />
             Refresh
           </button>
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="lo-tabs">
+        <button
+          className={`lo-tab ${tab === "running-orders" ? "lo-tab--active" : ""}`}
+          onClick={() => setTab("running-orders")}
+        >
+          Running Orders
+        </button>
+        <button
+          className={`lo-tab ${tab === "running-tables" ? "lo-tab--active" : ""}`}
+          onClick={() => setTab("running-tables")}
+        >
+          Running Tables
+          {liveOrders.length > 0 && <span className="lo-tab-count">{dinein.length + pickup.length}</span>}
+        </button>
+      </div>
+
       {loading && liveOrders.length === 0 ? (
         <div className="page-loading">Loading live orders…</div>
-      ) : (
+      ) : tab === "running-orders" ? (
         <div className="lo-panels">
           <RunningPanel dinein={dinein} pickup={pickup} online={onlineOrders} />
           <PendingPanel online={onlineOrders} />
         </div>
+      ) : (
+        <RunningTablesView dinein={dinein} pickup={pickup} />
       )}
     </div>
   );

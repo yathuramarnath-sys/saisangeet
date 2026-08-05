@@ -135,12 +135,13 @@ export function AllOrdersPage() {
   const [dateFrom, setDateFrom] = useState(weekAgo);
   const [dateTo,   setDateTo]   = useState(today);
   const [outletId, setOutletId] = useState("");
+  const [billNoQ,  setBillNoQ]  = useState("");
   const [outlets,  setOutlets]  = useState([]);
   const [page,     setPage]     = useState(1);
   const [data,     setData]     = useState({ orders: [], total: 0 });
   const [loading,  setLoading]  = useState(true);
   const [selected, setSelected] = useState(null);
-  const searchRef = useRef({ dateFrom: weekAgo, dateTo: today, outletId: "", page: 1 });
+  const searchRef = useRef({ dateFrom: weekAgo, dateTo: today, outletId: "", billNoQ: "", page: 1 });
 
   async function load(params) {
     setLoading(true);
@@ -170,7 +171,18 @@ export function AllOrdersPage() {
   }, []);
 
   function handleSearch() {
-    const p = { dateFrom, dateTo, outletId, page: 1 };
+    const p = { dateFrom, dateTo, outletId, billNoQ, page: 1 };
+    searchRef.current = p;
+    load(p);
+  }
+
+  function handleShowAll() {
+    const farPast = daysAgoStr(365);
+    setDateFrom(farPast);
+    setDateTo(today);
+    setOutletId("");
+    setBillNoQ("");
+    const p = { dateFrom: farPast, dateTo: today, outletId: "", billNoQ: "", page: 1 };
     searchRef.current = p;
     load(p);
   }
@@ -185,9 +197,13 @@ export function AllOrdersPage() {
   const start = (page - 1) * PAGE_SIZE + 1;
   const end   = Math.min(page * PAGE_SIZE, data.total);
 
-  const pageSubtotal = data.orders.reduce((s, r) => s + Number(r.subtotal || 0), 0);
-  const pageDiscount = data.orders.reduce((s, r) => s + Number(r.discount || 0), 0);
-  const pageTotal    = data.orders.reduce((s, r) => s + Number(r.totalPaid || r.net || 0), 0);
+  const visibleOrders = billNoQ.trim()
+    ? data.orders.filter(r => String(r.billNo || "").includes(billNoQ.trim()))
+    : data.orders;
+
+  const pageSubtotal = visibleOrders.reduce((s, r) => s + Number(r.subtotal || 0), 0);
+  const pageDiscount = visibleOrders.reduce((s, r) => s + Number(r.discount || 0), 0);
+  const pageTotal    = visibleOrders.reduce((s, r) => s + Number(r.totalPaid || r.net || 0), 0);
 
   return (
     <div className="page-root">
@@ -222,10 +238,25 @@ export function AllOrdersPage() {
             </select>
           </div>
         )}
-        <button className="btn-primary" onClick={handleSearch} disabled={loading} style={{ alignSelf: "flex-end" }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 17 }}>search</span>
-          Search
-        </button>
+        <div className="filter-group">
+          <label className="filter-label">Order No.</label>
+          <input
+            type="text" className="filter-input" placeholder="e.g. 976"
+            value={billNoQ}
+            onChange={e => setBillNoQ(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSearch()}
+            style={{ width: 110 }}
+          />
+        </div>
+        <div style={{ display: "flex", gap: 8, alignSelf: "flex-end" }}>
+          <button className="btn-primary" onClick={handleSearch} disabled={loading}>
+            <span className="material-symbols-outlined" style={{ fontSize: 17 }}>search</span>
+            Search
+          </button>
+          <button className="btn-outline" onClick={handleShowAll} disabled={loading}>
+            Show All
+          </button>
+        </div>
       </div>
 
       {/* Summary strip */}
@@ -281,7 +312,7 @@ export function AllOrdersPage() {
               </tr>
             </thead>
             <tbody>
-              {data.orders.map((row, i) => {
+              {visibleOrders.map((row, i) => {
                 const type = inferOrderType(row);
                 const taxTotal = ((row._order?.items || []).filter(it => !it.isVoided)).reduce((s, it) => {
                   const price = Number(it.price || 0);

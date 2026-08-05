@@ -14997,6 +14997,15 @@ button.inv-toggle:focus-visible {
 .btn-primary:hover { background: var(--accent-hover); }
 .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
+/* ── Shared btn-outline ──────────────────────────────────── */
+.btn-outline {
+  height: 36px; padding: 0 14px; background: transparent; color: var(--text);
+  border: 1px solid var(--line-strong); border-radius: 10px; font-size: 0.85rem;
+  font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-outline:hover { background: rgba(17,19,23,.05); }
+.btn-outline:disabled { opacity: 0.55; cursor: not-allowed; }
+
 /* ── Live Orders page ─────────────────────────────────────── */
 .lo-refresh-btn {
   height: 36px; padding: 0 14px; background: transparent; color: var(--text);
@@ -15024,12 +15033,46 @@ button.inv-toggle:focus-visible {
 .lo-rows { display: flex; flex-direction: column; }
 .lo-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .lo-row:last-child { border-bottom: none; }
-.lo-row-icon { font-size: 1.25rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--bg); color: var(--muted); flex-shrink: 0; }
+.lo-row-icon-box { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--bg); color: var(--muted); flex-shrink: 0; }
 .lo-row-info { flex: 1; min-width: 0; }
 .lo-row-label { font-size: 0.9rem; font-weight: 600; color: var(--text); }
 .lo-row-count { font-size: 0.75rem; color: var(--muted); margin-top: 1px; }
 .lo-row-amount { font-size: 0.95rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .lo-status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Live Orders tabs ─────────────────────────────────────── */
+.lo-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--line); }
+.lo-tab {
+  padding: 10px 20px; font-size: 0.88rem; font-weight: 600; color: var(--muted);
+  background: transparent; border: none; border-bottom: 2px solid transparent;
+  margin-bottom: -2px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  transition: color .15s;
+}
+.lo-tab:hover { color: var(--text); }
+.lo-tab--active { color: var(--accent); border-bottom-color: var(--accent); }
+.lo-tab-count {
+  font-size: 0.72rem; background: var(--accent); color: #fff;
+  border-radius: 20px; padding: 1px 7px; font-weight: 700;
+}
+
+/* ── Running Tables grid ──────────────────────────────────── */
+.lo-tables-empty { padding: 60px 40px; text-align: center; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 0.9rem; }
+.lo-tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.lo-table-card {
+  background: var(--surface); border: 1.5px solid var(--line);
+  border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 6px;
+  box-shadow: var(--shadow-soft); transition: border-color .15s;
+}
+.lo-table-card:hover { border-color: var(--accent); }
+.lo-table-card--pickup { border-left: 3px solid #10b981; }
+.lo-table-card-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.lo-table-card-name { font-size: 1rem; font-weight: 800; color: var(--text); }
+.lo-table-card-badge { font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 5px; }
+.lo-table-badge--dinein { background: #f5f3ff; color: #4c1d95; }
+.lo-table-badge--pickup { background: #f0fdf4; color: #166534; }
+.lo-table-card-items { font-size: 0.78rem; color: var(--muted); }
+.lo-table-card-amount { font-size: 1.1rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.lo-table-card-cashier { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
 .lo-status--yellow { background: #f59e0b; }
 .lo-status--blue   { background: #3b82f6; }
 .lo-status--green  { background: #10b981; }
