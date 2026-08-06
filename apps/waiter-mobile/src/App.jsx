@@ -71,7 +71,10 @@ const CAPTAIN_CACHE_KEYS_TO_CLEAR = [
   "captain_cache_categories",
   "captain_cache_menu_items",
   "captain_cache_areas",
+  "captain_cache_kitchen_stations",
+  "captain_cache_pos_config",
   "captain_kitchen_stations",
+  "captain_pos_config",
 ];
 function runCacheVersionGuard() {
   const stored = localStorage.getItem("captain_cache_version");
@@ -252,19 +255,23 @@ export function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Offline config cache helpers ─────────────────────────────────────────
-  function saveCaptainCache({ outlet, categories, menuItems, areas }) {
-    if (outlet)             lsSet("captain_cache_outlet",      outlet);
-    if (categories?.length) lsSet("captain_cache_categories",  categories);
-    if (menuItems?.length)  lsSet("captain_cache_menu_items",  menuItems);
-    if (areas?.length)      lsSet("captain_cache_areas",       areas);
+  function saveCaptainCache({ outlet, categories, menuItems, areas, kitchenStations, posConfig }) {
+    if (outlet)                  lsSet("captain_cache_outlet",           outlet);
+    if (categories?.length)      lsSet("captain_cache_categories",       categories);
+    if (menuItems?.length)       lsSet("captain_cache_menu_items",       menuItems);
+    if (areas?.length)           lsSet("captain_cache_areas",            areas);
+    if (kitchenStations?.length) lsSet("captain_cache_kitchen_stations", kitchenStations);
+    if (posConfig)               lsSet("captain_cache_pos_config",       posConfig);
   }
 
   function loadCaptainCache() {
     return {
-      outlet:     lsGet("captain_cache_outlet",     null),
-      categories: lsGet("captain_cache_categories", []),
-      menuItems:  lsGet("captain_cache_menu_items",  []),
-      areas:      lsGet("captain_cache_areas",       null),
+      outlet:          lsGet("captain_cache_outlet",           null),
+      categories:      lsGet("captain_cache_categories",       []),
+      menuItems:       lsGet("captain_cache_menu_items",       []),
+      areas:           lsGet("captain_cache_areas",            null),
+      kitchenStations: lsGet("captain_cache_kitchen_stations", []),
+      posConfig:       lsGet("captain_cache_pos_config",       null),
     };
   }
 
@@ -295,6 +302,7 @@ export function App() {
         }
         if (cats.length)  setCategories(cats);
         if (items.length) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
+        let _cacheStations = [];
         if (kStations.length) {
           // Enrich stations with category names as fallback for ID-type mismatches
           const catIdToName = {};
@@ -305,16 +313,19 @@ export function App() {
               .map(id => catIdToName[String(id)])
               .filter(Boolean)
           }));
+          _cacheStations = enriched;
           lsSet("captain_kitchen_stations", enriched);
           setKitchenStations(enriched);
         }
 
         // Save full config to offline cache for power-cut / no-internet starts
         saveCaptainCache({
-          outlet:     target,
-          categories: cats,
-          menuItems:  items,
-          areas:      builtAreas,
+          outlet:          target,
+          categories:      cats,
+          menuItems:       items,
+          areas:           builtAreas,
+          kitchenStations: _cacheStations,
+          posConfig:       posConfigRes && typeof posConfigRes === "object" ? posConfigRes : null,
         });
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
@@ -807,12 +818,18 @@ export function App() {
         console.error("Captain App bootstrap failed (offline?) — loading from cache:", err.message);
         // Restore from offline cache so waiters can take orders even without internet
         const cache = loadCaptainCache();
-        if (cache.outlet)           setOutlet(cache.outlet);
+        if (cache.outlet)            setOutlet(cache.outlet);
         if (cache.categories.length) setCategories(cache.categories);
         if (cache.menuItems.length)  setMenuItems(cache.menuItems.map(i => ({
           ...i, price: parsePriceNumber(i.basePrice || i.price)
         })));
-        if (cache.areas)            setAreas(cache.areas);
+        if (cache.areas)             setAreas(cache.areas);
+        // Kitchen stations and posConfig — also loaded via useState initializers from
+        // their own keys, but restoring from the unified cache snapshot here ensures
+        // correctness when those keys were individually cleared (e.g. version bump).
+        if (cache.kitchenStations?.length) setKitchenStations(cache.kitchenStations);
+        if (cache.posConfig)               setPosConfig(cache.posConfig);
+        setSocketConnected(false);
 
         // Retry when server becomes available — socket reconnects automatically
         const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
