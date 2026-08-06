@@ -22,7 +22,9 @@ async function request(path, options = {}) {
       const e = body.error;
       message = (typeof e === "string" ? e : e?.message) || body.message || message;
     } catch (_) {}
-    throw new Error(message);
+    const err = new Error(message);
+    err.status = response.status;
+    throw err;
   }
 
   return response.json();
