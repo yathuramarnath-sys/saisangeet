@@ -161,6 +161,52 @@ let localIo = null;
 let localKotSeq = 9000;          // local KOT numbers (L-prefix avoids cloud collision)
 const localOrderStore = {};       // tableId → latest order snapshot
 
+// ── Local store persistence ───────────────────────────────────────────────────
+// Writes localOrderStore + localKotSeq to userData on every mutation so the
+// store survives Electron restarts, power cuts, and Windows updates.
+// Loaded back at startup BEFORE Captain/KDS can connect — no blank snapshots.
+
+function saveLocalStore() {
+  try {
+    const fs = require("fs");
+    fs.writeFileSync(
+      path.join(app.getPath("userData"), "local-orders.json"),
+      JSON.stringify(localOrderStore),
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.join(app.getPath("userData"), "local-kot-seq.txt"),
+      String(localKotSeq),
+      "utf8"
+    );
+  } catch (err) {
+    console.error("[local] saveLocalStore error:", err.message);
+  }
+}
+
+function loadLocalStore() {
+  try {
+    const fs        = require("fs");
+    const orderPath = path.join(app.getPath("userData"), "local-orders.json");
+    const seqPath   = path.join(app.getPath("userData"), "local-kot-seq.txt");
+
+    if (fs.existsSync(orderPath)) {
+      const data = JSON.parse(fs.readFileSync(orderPath, "utf8"));
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        Object.assign(localOrderStore, data);
+        const n = Object.keys(data).length;
+        if (n > 0) console.log(`[local] restored ${n} orders from disk`);
+      }
+    }
+    if (fs.existsSync(seqPath)) {
+      const n = parseInt(fs.readFileSync(seqPath, "utf8").trim(), 10);
+      if (!isNaN(n) && n > localKotSeq) localKotSeq = n;
+    }
+  } catch (err) {
+    console.error("[local] loadLocalStore error — starting fresh:", err.message);
+  }
+}
+
 function getLocalIp() {
   const nets = os.networkInterfaces();
   for (const iface of Object.values(nets)) {
@@ -303,18 +349,21 @@ function startLocalServer() {
       socket.on("pos:sync-orders", (orders) => {
         if (Array.isArray(orders)) {
           orders.forEach(o => { if (o?.tableId) localOrderStore[o.tableId] = o; });
+          saveLocalStore();
         }
       });
 
       // ── Order update (from POS or Captain) → relay to all other devices ────
       socket.on("order:update", ({ order }) => {
         if (order?.tableId) localOrderStore[order.tableId] = order;
+        saveLocalStore();
         socket.broadcast.emit("order:updated", order);
       });
 
       // ── Table cleared after settlement → remove from store + relay ─────────
       socket.on("order:clear", ({ tableId }) => {
         delete localOrderStore[tableId];
+        saveLocalStore();
         socket.broadcast.emit("order:cleared", { tableId });
       });
 
@@ -333,6 +382,7 @@ function startLocalServer() {
             ),
           };
         }
+        saveLocalStore();
         localIo.emit("kot:new", kot);                                    // KDS + POS receive
         socket.emit("kot:confirmed", { kotNumber: localKotSeq });        // ack to Captain
       });
@@ -342,6 +392,7 @@ function startLocalServer() {
         if (localOrderStore[tableId]) {
           localOrderStore[tableId] = { ...localOrderStore[tableId], billRequested: true };
         }
+        saveLocalStore();
         socket.broadcast.emit("order:updated",
           localOrderStore[tableId] || { tableId, billRequested: true }
         );
@@ -404,11 +455,13 @@ ipcMain.handle("get-local-server-info", () => ({
 ipcMain.on("local:push-orders", (_event, orders) => {
   if (!Array.isArray(orders)) return;
   orders.forEach(o => { if (o?.tableId) localOrderStore[o.tableId] = o; });
+  saveLocalStore();
 });
 
 app.whenReady().then(() => {
   createWindow();
   setupAutoUpdater();
+  loadLocalStore();
   startLocalServer();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
