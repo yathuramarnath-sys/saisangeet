@@ -73,7 +73,40 @@ function buildBlankOrder(table, area, outletName, orderNumber) {
 }
 
 function ensureOrders(currentOrders, tableAreas, outletName) {
-  const next = { ...currentOrders };
+  const knownIds     = new Set(tableAreas.flatMap(a => a.tables.map(t => t.id)));
+  const tableByIdMap = Object.fromEntries(tableAreas.flatMap(a => a.tables.map(t => [t.id, { table: t, area: a }])));
+
+  const hasActiveItems = (order) =>
+    (order.items || []).some(i => !i.isVoided && !i.isGhostVoid);
+
+  // Build cleaned map — drop ghost entries for tables that no longer exist and
+  // have no active items (stale data from table renames, DB restores, etc.)
+  const next = {};
+  for (const [id, order] of Object.entries(currentOrders)) {
+    const isSpecial = id.startsWith("counter-") || id.startsWith("online-") || id.startsWith("_mb_");
+    if (isSpecial || knownIds.has(id)) {
+      // For known table IDs: if the stored tableNumber doesn't match the real table,
+      // this is stale data. Reset to blank only if no active items (safe).
+      if (!isSpecial && !order.isClosed) {
+        const { table, area } = tableByIdMap[id] || {};
+        if (
+          table &&
+          order.tableNumber != null &&
+          String(order.tableNumber) !== String(table.number) &&
+          !hasActiveItems(order)
+        ) {
+          // Stale order on a real table ID — drop it; a fresh blank is added below
+          continue;
+        }
+      }
+      next[id] = order;
+    } else if (!order.isClosed && hasActiveItems(order)) {
+      // Unknown table ID but has real items — keep it so cashier can still settle it
+      next[id] = order;
+    }
+    // else: unknown ID, no active items — drop silently (ghost)
+  }
+
   let counter = Math.max(10050, ...Object.values(next).map((o) => o.orderNumber || 10050)) + 1;
   for (const area of tableAreas) {
     for (const table of area.tables) {
