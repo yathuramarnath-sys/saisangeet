@@ -11,8 +11,30 @@ import { lsSet, wipeOutletStorage } from "../lib/ls";
 const LS_KEY = "pos_branch_config";
 
 export function loadBranchConfig() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || "null"); }
-  catch { return null; }
+  try {
+    const config = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+    if (!config) return null;
+
+    // Cross-check the stored config against the device token's outletId.
+    // JWTs are base64url-encoded JSON — no library or secret needed to read
+    // the payload. If the token belongs to a different outlet (e.g. the browser
+    // was previously used for another branch), clear and force re-setup.
+    const token = localStorage.getItem("pos_token");
+    if (token) {
+      try {
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+          if (payload.outletId && String(payload.outletId) !== String(config.outletId)) {
+            localStorage.removeItem(LS_KEY);
+            return null;
+          }
+        }
+      } catch { /* non-JWT token — skip check */ }
+    }
+
+    return config;
+  } catch { return null; }
 }
 
 export function saveBranchConfig(config) {
