@@ -13,6 +13,7 @@ function normalizeOutlet(outlet, appConfig) {
 
   return {
     id: outlet.id,
+    resId: outlet.resId || null,
     code: outlet.code,
     syncCode: outlet.syncCode || "",
     name: outlet.name,

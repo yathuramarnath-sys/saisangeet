@@ -875,7 +875,7 @@ function normalizeOwnerSetupData(data) {
   const _defaultTax       = _taxProfiles.find((t) => t.isDefault) || _taxProfiles[0];
   const _defaultReceipt   = _receiptTemplates[0];
 
-  next.outlets = (next.outlets || []).map((outlet) => {
+  next.outlets = (next.outlets || []).map((outlet, idx) => {
     const healed = {
       hours:        "9:00 AM - 11:00 PM",
       services:     ["Dine-in","Takeaway"],
@@ -899,6 +899,11 @@ function normalizeOwnerSetupData(data) {
     }
     if (!healed.receiptTemplateId && _defaultReceipt) {
       healed.receiptTemplateId = _defaultReceipt.id;
+    }
+    // Self-heal: assign sequential Res ID to existing outlets that pre-date this field.
+    // Array order is stable (outlets are append-only), so idx+1 gives a permanent assignment.
+    if (!healed.resId) {
+      healed.resId = idx + 1;
     }
 
     return healed;

@@ -4194,6 +4194,20 @@ button.inv-toggle.inv-toggle-on .inv-toggle-knob {
   vertical-align: middle;
 }
 
+.outlet-res-id-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
 /* ── Outlet inline edit ──────────────────────────────────────────────────── */
 .location-card.outlet-editing {
   border: 2px solid #059669;
