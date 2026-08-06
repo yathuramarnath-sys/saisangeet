@@ -1148,6 +1148,17 @@ export function App() {
               );
               merged = { ...updatedOrder, items: [...incomingWithTax, ...localOnly] };
             }
+            // Mirror billRequested orders to _mb_ key, matching the cloud socket handler.
+            // Without this, the local WiFi path re-creates a real-slot ghost after the
+            // cloud path already moved the order to _mb_, causing Day End duplicates.
+            if (merged.billRequested && !merged.isClosed && merged.orderNumber && !merged.isSplitBill) {
+              const mbKey = `_mb_${merged.orderNumber}`;
+              const next = { ...prev };
+              delete next[updatedOrder.tableId];
+              next[mbKey] = merged;
+              saveOrdersToStorage(next);
+              return next;
+            }
             const next = { ...prev, [updatedOrder.tableId]: merged };
             saveOrdersToStorage(next);
             return next;
