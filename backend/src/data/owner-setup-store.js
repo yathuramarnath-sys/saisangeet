@@ -506,24 +506,30 @@ function createDefaultMenuGroups() {
 }
 
 function createDefaultMenuAssignments(outlets = []) {
-  return [
+  // Only create assignments for outlets that actually exist — never use hardcoded seed IDs
+  // that don't match any real outlet, which would cause filters to silently drop the rule.
+  if (!outlets.length) return [];
+  const assignments = [
     {
       id: "assign-1",
       menuGroupId: "all-day",
-      outletId: outlets[0]?.id || "outlet-indiranagar",
+      outletId: outlets[0].id,
       channels: "Dine-In, Takeaway, Delivery",
       availability: "Always on",
       status: "Ready",
     },
-    {
+  ];
+  if (outlets[1]) {
+    assignments.push({
       id: "assign-2",
       menuGroupId: "breakfast",
-      outletId: outlets[1]?.id || "outlet-koramangala",
+      outletId: outlets[1].id,
       channels: "Dine-In, Takeaway",
       availability: "7:00 AM - 11:00 AM",
       status: "Scheduled",
-    },
-  ];
+    });
+  }
+  return assignments;
 }
 
 function createDefaultDiscountRules() {

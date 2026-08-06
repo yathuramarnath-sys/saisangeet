@@ -316,14 +316,16 @@ setInterval(() => {
       if (!state.availableAt || new Date(state.availableAt).getTime() > now) continue;
       delete categories[categoryId];
       const tid = resolveTenantByOutlet(outletId);
+      if (tid === "default") {
+        console.warn(`[category-availability] tenant not resolved for outlet=${outletId} — skipping restore`);
+        continue;
+      }
       const data = { outletId, categoryId, available: true };
       io.to(`outlet:${tid}:${outletId}`).emit("category:availability", data);
-      if (tid !== "default") {
-        runWithTenant(tid, async () => {
-          const tenantData = getOwnerSetupData();
-          await toggleCategoryAvailability(categoryId, true, tenantData);
-        }).catch(() => {});
-      }
+      runWithTenant(tid, async () => {
+        const tenantData = getOwnerSetupData();
+        await toggleCategoryAvailability(categoryId, true, tenantData);
+      }).catch(() => {});
       console.log(`[category-availability] auto re-enabled | outlet=${outletId} | category=${categoryId}`);
     }
   }
@@ -335,12 +337,15 @@ setInterval(() => {
       delete itemTimers[itemId];
       if (outletAvailability[outletId]) delete outletAvailability[outletId][itemId];
       const tid = resolveTenantByOutlet(outletId);
+      if (tid === "default") {
+        console.warn(`[item-availability] tenant not resolved for outlet=${outletId} — skipping restore`);
+        continue;
+      }
       io.to(`outlet:${tid}:${outletId}`).emit("item:availability", { outletId, itemId, available: true });
-      if (tid !== "default") {
-        runWithTenant(tid, async () => {
-          const tenantData = getOwnerSetupData();
-          await toggleItemAvailability(itemId, true, tenantData);
-        }).catch(() => {});
+      runWithTenant(tid, async () => {
+        const tenantData = getOwnerSetupData();
+        await toggleItemAvailability(itemId, true, tenantData);
+      }).catch(() => {});
       }
       console.log(`[item-availability] auto re-enabled | outlet=${outletId} | item=${itemId}`);
     }

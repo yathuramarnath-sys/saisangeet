@@ -474,6 +474,10 @@ export function App() {
             const kotsToRetry = pendingKotsRef.current;
             if (kotsToRetry.length > 0) {
               for (const kot of kotsToRetry) {
+                // Skip if a manual KOT send is already in flight for this table.
+                // clientKotId dedup handles double-send on the server, but skipping
+                // here avoids parallel POST noise and confusing UI state.
+                if (kotInFlightRef.current.has(kot.tableId)) continue;
                 api.post("/operations/kot", {
                   outletId:    kot.outletId,
                   tableId:     kot.tableId,
@@ -482,6 +486,7 @@ export function App() {
                   items:       kot.items,
                   orderId:     kot.orderId,
                   actorName:   kot.actorName,
+                  waiterName:  kot.waiterName || "",
                   source:      "captain",
                   clientKotId: kot.clientKotId,
                 }).then(() => {
@@ -580,13 +585,14 @@ export function App() {
 
           if (o.isClosed) {
             // POS settled this table — always clear it from the captain's floor.
-            // Mirror-close guard: preserve the captain's current order if it is
-            // clearly a NEW seating rather than the just-settled one.
+            // Mirror-close guard: preserve the captain's current order ONLY when it
+            // is clearly a NEW seating, not the just-settled one.
             const cur = p[o.tableId];
-            if (cur && !cur.isClosed) {
-              // A blank new order has no orderNumber yet — it can't be the settled order.
+            if (cur && !cur.isClosed && !cur.billRequested) {
+              // Only apply new-seating guards when captain's order is NOT in billing
+              // state. If billRequested is true, this IS the order being settled —
+              // clear it unconditionally regardless of orderNumber.
               if (cur.orderNumber == null) return p;
-              // Different order number → captain already started a new seating.
               if (o.orderNumber != null && Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
             }
             const { [o.tableId]: _removed, ...rest } = p;
@@ -767,7 +773,7 @@ export function App() {
               if (_it.length > 0 && !_it.some(i => i.sentToKot) && !o.billRequested && !o.isClosed) return p; }
             if (o.isClosed) {
               const cur = p[o.tableId];
-              if (cur && !cur.isClosed) {
+              if (cur && !cur.isClosed && !cur.billRequested) {
                 if (cur.orderNumber == null) return p;
                 if (o.orderNumber != null && Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
               }
@@ -1659,6 +1665,9 @@ export function App() {
       if (result?.kots?.length)  serverKots = result.kots;
       else if (result?.kot)      serverKots = [result.kot];
       if (result?.order) lastServerOrder = result.order;
+      if (result?.routingFallback) {
+        showToast("⚠ KOT sent to Unassigned — check kitchen station config");
+      }
     } catch (e) {
       console.error("[captain] KOT send failed:", e.message);
       // Queue the KOT for manual retry from the drawer
@@ -1672,6 +1681,7 @@ export function App() {
         orderId:     order.id,
         items:       kotItems,
         actorName:   actorName,
+        waiterName:  waiterToShow || "",
         failedAt:    new Date().toISOString(),
       };
       setPendingKots((prev) => {
@@ -2115,7 +2125,10 @@ export function App() {
       total,
     }).catch(() => {});
 
-    api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, isSplit: true }).catch(() => {});
+    api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, isSplit: true }).catch((err) => {
+      console.warn("[captain] split bill-request failed:", err?.message);
+      showToast("Split bill sync failed — cashier may see full amount");
+    });
   }
 
 

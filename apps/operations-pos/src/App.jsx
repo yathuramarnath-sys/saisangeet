@@ -201,11 +201,22 @@ async function flushKotQueue(outletId) {
           body: JSON.stringify({ ...payload, outletId }),
         }
       );
-      // Only discard if server confirmed receipt — re-queue on any HTTP error
-      if (!resp.ok) failed.push(payload);
+      if (resp.ok) {
+        // Discarded — server confirmed receipt.
+      } else if (resp.status === 401) {
+        // Token expired — stop flushing; re-link device to get a fresh token.
+        console.warn("[POS] flushKotQueue: device token expired — queued KOTs held until re-link");
+        failed.push(...queue.slice(queue.indexOf(payload)));
+        break;
+      } else {
+        failed.push(payload);
+      }
     } catch (_) {
       failed.push(payload);
     }
+  }
+  if (failed.length !== queue.length) {
+    console.log(`[POS] flushKotQueue: sent ${queue.length - failed.length}/${queue.length} queued KOTs`);
   }
   saveKotQueue(failed);
 }
@@ -240,10 +251,21 @@ async function flushClosedOrderQueue(outletId) {
         },
         body: JSON.stringify({ ...payload, outletId }),
       });
-      if (!resp.ok) failed.push(payload);
+      if (resp.ok) {
+        // Discarded — server confirmed receipt.
+      } else if (resp.status === 401) {
+        console.warn("[POS] flushClosedOrderQueue: device token expired — queued settlements held until re-link");
+        failed.push(...queue.slice(queue.indexOf(payload)));
+        break;
+      } else {
+        failed.push(payload);
+      }
     } catch (_) {
       failed.push(payload);
     }
+  }
+  if (failed.length !== queue.length) {
+    console.log(`[POS] flushClosedOrderQueue: sent ${queue.length - failed.length}/${queue.length} queued settlements`);
   }
   saveClosedOrderQueue(failed);
 }
@@ -2777,7 +2799,6 @@ export function App() {
     const ticketId  = `online-${Date.now()}`;
     const area      = { id: "online", name: onlineOrder.platform };
     const fakeTable = { id: ticketId, number: onlineOrder.orderId };
-    const orderNum  = Math.max(10050, ...Object.values(orders).map(o => o.orderNumber || 10050)) + 1;
 
     const posItems = onlineOrder.items.map((item, i) => {
       const matched = menuItems.find(m =>
@@ -2795,20 +2816,24 @@ export function App() {
       };
     });
 
-    const newOrder = {
-      ...buildBlankOrder(fakeTable, area, outlet?.name || "Outlet", orderNum),
-      isCounter:      true,
-      isOnlineOrder:  true,
-      onlinePlatform: onlineOrder.platform,
-      onlineOrderId:  onlineOrder.orderId,
-      ticketNumber:   onlineOrder.orderId,
-      items:          posItems,
-      customer:       onlineOrder.customer,
-      billRequested:  true,
-      billRequestedAt: new Date().toISOString(),
-    };
-
-    setOrders(prev => ({ ...prev, [ticketId]: newOrder }));
+    // Compute orderNum inside the updater so concurrent online-order accepts
+    // read the latest state and never produce duplicate order numbers.
+    setOrders(prev => {
+      const orderNum = Math.max(10050, ...Object.values(prev).map(o => o.orderNumber || 10050)) + 1;
+      const newOrder = {
+        ...buildBlankOrder(fakeTable, area, outlet?.name || "Outlet", orderNum),
+        isCounter:      true,
+        isOnlineOrder:  true,
+        onlinePlatform: onlineOrder.platform,
+        onlineOrderId:  onlineOrder.orderId,
+        ticketNumber:   onlineOrder.orderId,
+        items:          posItems,
+        customer:       onlineOrder.customer,
+        billRequested:  true,
+        billRequestedAt: new Date().toISOString(),
+      };
+      return { ...prev, [ticketId]: newOrder };
+    });
     setSelectedTableId(ticketId);
     setShowOnlineOrders(false);
 
@@ -3982,13 +4007,6 @@ export function App() {
               const areaLabel  = orderType === "delivery" ? "Delivery" : "Takeaway";
               const areaObj    = { id: "counter", name: areaLabel };
               const fakeTable  = { id: ticketId, number: String(ticketNum).padStart(3, "0") };
-              const orderNum   = Math.max(10050, ...Object.values(orders).map((o) => o.orderNumber || 10050)) + 1;
-
-              const counterOrder = {
-                ...buildBlankOrder(fakeTable, areaObj, outlet?.name || "Outlet", orderNum),
-                isCounter:    true,
-                ticketNumber: ticketNum,
-              };
 
               // Enrich and add items from advance booking
               const enriched = (advOrder.items || []).map((advItem) => {
@@ -4021,9 +4039,18 @@ export function App() {
                 };
               });
 
-              counterOrder.items = enriched;
-
-              setOrders((prev) => ({ ...prev, [ticketId]: counterOrder }));
+              // Compute orderNum inside the updater — prevents duplicate numbers
+              // when two advance orders are converted in the same render cycle.
+              setOrders((prev) => {
+                const orderNum = Math.max(10050, ...Object.values(prev).map((o) => o.orderNumber || 10050)) + 1;
+                const counterOrder = {
+                  ...buildBlankOrder(fakeTable, areaObj, outlet?.name || "Outlet", orderNum),
+                  isCounter:    true,
+                  ticketNumber: ticketNum,
+                  items:        enriched,
+                };
+                return { ...prev, [ticketId]: counterOrder };
+              });
               setServiceMode(orderType === "delivery" ? "delivery" : "takeaway");
               setSelectedTableId(ticketId);
 
