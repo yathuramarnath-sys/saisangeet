@@ -108,12 +108,18 @@ export function BranchSetupScreen({ onComplete }) {
 
     // Register this device in the backend (fire-and-forget — non-blocking)
     const isElectron = typeof window !== "undefined" && !!window.__ELECTRON__;
-    api.post("/devices/link", {
-      outletId:   result.outletId,
-      deviceType: "pos",
-      deviceName: "POS Terminal",
-      platform:   isElectron ? "windows" : "web",
-    }).then((device) => {
+    const fingerprintPromise = isElectron && window.electronAPI?.getDeviceFingerprint
+      ? window.electronAPI.getDeviceFingerprint()
+      : Promise.resolve(null);
+    fingerprintPromise.then((fingerprint) =>
+      api.post("/devices/link", {
+        outletId:    result.outletId,
+        deviceType:  "pos",
+        deviceName:  "POS Terminal",
+        platform:    isElectron ? "windows" : "web",
+        fingerprint: fingerprint || undefined,
+      })
+    ).then((device) => {
       if (device?.id) localStorage.setItem("pos_device_id", device.id);
     }).catch(() => {});
 

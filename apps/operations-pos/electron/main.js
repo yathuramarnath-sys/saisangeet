@@ -373,6 +373,27 @@ function startLocalServer() {
 // ── Local server IPC ──────────────────────────────────────────────────────────
 
 // Renderer calls this to get the machine's local IP + port for display in Settings
+// ── Device fingerprint ────────────────────────────────────────────────────────
+// Reads (or creates) a stable device ID from the userData folder.
+// This file survives app reinstalls — Windows keeps userData unless the user
+// explicitly deletes it. Sending this ID to /devices/link means the same row
+// is reused after every reinstall instead of creating a new duplicate.
+ipcMain.handle("get-device-fingerprint", () => {
+  try {
+    const fs       = require("fs");
+    const crypto   = require("crypto");
+    const idPath   = path.join(app.getPath("userData"), "device-fingerprint.txt");
+    if (fs.existsSync(idPath)) {
+      return fs.readFileSync(idPath, "utf8").trim();
+    }
+    const id = `device-${crypto.randomBytes(9).toString("hex")}`;
+    fs.writeFileSync(idPath, id, "utf8");
+    return id;
+  } catch (_) {
+    return null;
+  }
+});
+
 ipcMain.handle("get-local-server-info", () => ({
   ip:   getLocalIp(),
   port: 4001,

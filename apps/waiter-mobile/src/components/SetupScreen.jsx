@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../lib/api";
+import { getStoredDeviceId, storeDeviceId } from "../lib/deviceId";
 
 export function SetupScreen({ onComplete }) {
   const [code,     setCode]     = useState("");
@@ -39,13 +40,16 @@ export function SetupScreen({ onComplete }) {
 
     // Register this device in the backend (fire-and-forget — non-blocking)
     const isNative = typeof window !== "undefined" && !!(window.Capacitor?.isNative);
-    api.post("/devices/link", {
-      outletId:   result.outletId,
-      deviceType: "captain",
-      deviceName: "Plato Captain",
-      platform:   isNative ? "android" : "web",
-    }).then((device) => {
-      if (device?.id) localStorage.setItem("captain_device_id", device.id);
+    getStoredDeviceId().then((existingId) =>
+      api.post("/devices/link", {
+        outletId:    result.outletId,
+        deviceType:  "captain",
+        deviceName:  "Plato Captain",
+        platform:    isNative ? "android" : "web",
+        fingerprint: existingId || undefined,
+      })
+    ).then((device) => {
+      if (device?.id) return storeDeviceId(device.id);
     }).catch(() => {});
 
     onComplete(config);
