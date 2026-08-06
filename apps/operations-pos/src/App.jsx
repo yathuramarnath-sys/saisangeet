@@ -114,6 +114,9 @@ const POS_CACHE_KEYS_TO_CLEAR = [
   "pos_cache_categories",
   "pos_cache_menu_items",
   "pos_cache_table_areas",
+  "pos_cache_kitchen_stations",
+  "pos_cache_pos_config",
+  "pos_cache_discount_rules",
   "pos_kitchen_stations",
   "pos_table_config",
   "pos_discount_rules",
@@ -274,26 +277,35 @@ function saveOrdersToStorage(ordersMap) {
 // ── Offline menu / config cache ───────────────────────────────────────────
 // Saved on every successful bootstrap or sync so the POS can start fully
 // functional even when the server is unreachable (power cut, no internet).
-const CACHE_OUTLET      = "pos_cache_outlet";
-const CACHE_CATEGORIES  = "pos_cache_categories";
-const CACHE_MENU_ITEMS  = "pos_cache_menu_items";
-const CACHE_TABLE_AREAS = "pos_cache_table_areas";
+const CACHE_OUTLET           = "pos_cache_outlet";
+const CACHE_CATEGORIES       = "pos_cache_categories";
+const CACHE_MENU_ITEMS       = "pos_cache_menu_items";
+const CACHE_TABLE_AREAS      = "pos_cache_table_areas";
+const CACHE_KITCHEN_STATIONS = "pos_cache_kitchen_stations";
+const CACHE_POS_CONFIG       = "pos_cache_pos_config";
+const CACHE_DISCOUNT_RULES   = "pos_cache_discount_rules";
 
-function saveConfigCache({ outlet, categories, menuItems, tableAreas }) {
+function saveConfigCache({ outlet, categories, menuItems, tableAreas, kitchenStations, posConfig, discountRules }) {
   try {
-    if (outlet)             lsSet(CACHE_OUTLET,      outlet);
-    if (categories?.length) lsSet(CACHE_CATEGORIES,  categories);
-    if (menuItems?.length)  lsSet(CACHE_MENU_ITEMS,  menuItems);
-    if (tableAreas?.length) lsSet(CACHE_TABLE_AREAS, tableAreas);
+    if (outlet)                  lsSet(CACHE_OUTLET,           outlet);
+    if (categories?.length)      lsSet(CACHE_CATEGORIES,       categories);
+    if (menuItems?.length)       lsSet(CACHE_MENU_ITEMS,       menuItems);
+    if (tableAreas?.length)      lsSet(CACHE_TABLE_AREAS,      tableAreas);
+    if (kitchenStations?.length) lsSet(CACHE_KITCHEN_STATIONS, kitchenStations);
+    if (posConfig)               lsSet(CACHE_POS_CONFIG,       posConfig);
+    if (discountRules?.length)   lsSet(CACHE_DISCOUNT_RULES,   discountRules);
   } catch (e) { console.warn("[cache] save failed:", e.message); }
 }
 
 function loadConfigCache() {
   return {
-    outlet:     lsGet(CACHE_OUTLET,      null),
-    categories: lsGet(CACHE_CATEGORIES,  []),
-    menuItems:  lsGet(CACHE_MENU_ITEMS,  []),
-    tableAreas: lsGet(CACHE_TABLE_AREAS, null),
+    outlet:          lsGet(CACHE_OUTLET,           null),
+    categories:      lsGet(CACHE_CATEGORIES,       []),
+    menuItems:       lsGet(CACHE_MENU_ITEMS,       []),
+    tableAreas:      lsGet(CACHE_TABLE_AREAS,      null),
+    kitchenStations: lsGet(CACHE_KITCHEN_STATIONS, []),
+    posConfig:       lsGet(CACHE_POS_CONFIG,       null),
+    discountRules:   lsGet(CACHE_DISCOUNT_RULES,   []),
   };
 }
 
@@ -464,6 +476,12 @@ export function App() {
           api.get("/settings/discounts").catch(() => null),
           api.get("/settings/pos-config").catch(() => null),
         ]);
+        // Hoisted cache variables — captured across if-blocks so saveConfigCache
+        // gets a single atomic snapshot of all config after processing completes.
+        let _cacheStations  = [];
+        let _cachePosConfig = null;
+        let _cacheDiscounts = [];
+
         // Sync active discount rules for POS cashier picker — filter by this outlet
         if (discountRes?.rules) {
           const outletName = target?.name || "";
@@ -471,11 +489,13 @@ export function App() {
             r.isActive !== false &&
             (r.outletScope === "All Outlets" || !r.outletScope || r.outletScope === outletName)
           );
+          _cacheDiscounts = active;
           setDiscountRules(active);
           lsSet("pos_discount_rules", active);
         }
         if (staffRes?.staff?.length) setActiveStaff(staffRes.staff);
         if (posConfigRes && typeof posConfigRes === "object") {
+          _cachePosConfig = posConfigRes;
           setPosConfig(posConfigRes);
           lsSet("pos_config", posConfigRes);
           if (posConfigRes.defaultOrderType) setServiceMode(posConfigRes.defaultOrderType);
@@ -493,6 +513,7 @@ export function App() {
               .map(id => catIdToName[String(id)])
               .filter(Boolean)
           }));
+          _cacheStations = enriched;
           lsSet("pos_kitchen_stations", enriched);
           setKitchenStations(enriched);
         }
@@ -511,10 +532,13 @@ export function App() {
 
         // ── Save everything to offline cache so the next cold start is instant ──
         saveConfigCache({
-          outlet:     target,
-          categories: cats,
-          menuItems:  items,
-          tableAreas: builtAreas,
+          outlet:          target,
+          categories:      cats,
+          menuItems:       items,
+          tableAreas:      builtAreas,
+          kitchenStations: _cacheStations,
+          posConfig:       _cachePosConfig,
+          discountRules:   _cacheDiscounts,
         });
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
@@ -1253,6 +1277,17 @@ export function App() {
           cachedAreas = buildAreasFromOutlet(cache.outlet);
           setTableAreas(cachedAreas);
         }
+
+        // Kitchen stations, posConfig, discountRules — already loaded via useState
+        // initializers from their own keys, but explicitly restoring from the unified
+        // cache here catches cases where those individual keys were cleared (version bump)
+        // but the cache snapshot survived.
+        if (cache.kitchenStations?.length) setKitchenStations(cache.kitchenStations);
+        if (cache.posConfig) {
+          setPosConfig(cache.posConfig);
+          if (cache.posConfig.defaultOrderType) setServiceMode(cache.posConfig.defaultOrderType);
+        }
+        if (cache.discountRules?.length) setDiscountRules(cache.discountRules);
 
         // Restore orders from localStorage — merge with cached table layout
         // Pass outletId so cross-outlet stale orders are rejected
