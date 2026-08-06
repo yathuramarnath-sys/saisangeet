@@ -1598,6 +1598,18 @@ export function App() {
     };
   }, [outlet]);
 
+  // ── Background queue retry timer ──────────────────────────────────────────
+  // Flush KOT and settle queues every 30 s so items queued during a brief
+  // offline window clear without waiting for a socket reconnect event.
+  useEffect(() => {
+    if (!outlet?.id) return;
+    const id = setInterval(() => {
+      flushKotQueue(outlet.id).catch(() => {});
+      flushClosedOrderQueue(outlet.id).catch(() => {});
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [outlet?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Background outlet + menu refresh every 10 minutes ────────────────────
   // Safety net for when the Owner Console changes gstTreatment, taxRate, or
   // other settings while the POS is running. Socket sync:config handles it

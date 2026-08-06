@@ -103,6 +103,7 @@ function clearCaptainBranchConfig() {
   lsRemove("captain_sync_queue");
   lsRemove("captain_pending_kots");
   lsRemove("captain_sent_kots");
+  lsRemove("captain_cache_orders");
 }
 
 // ─── KOT queue helpers ────────────────────────────────────────────────────────
@@ -214,6 +215,23 @@ export function App() {
   // see the latest outlet without re-running those effects.
   useEffect(() => { outletRef.current = outlet; }, [outlet]);
   useEffect(() => { pendingKotsRef.current = pendingKots; }, [pendingKots]);
+
+  // Persist active orders so the floor map survives offline reloads.
+  // Debounced 500 ms to avoid thrashing on rapid state changes.
+  // Only keeps tables with at least one active (non-voided) item.
+  useEffect(() => {
+    if (!Object.keys(orders).length) return;
+    const timer = setTimeout(() => {
+      const toSave = Object.fromEntries(
+        Object.entries(orders).filter(([, o]) =>
+          (o.items || []).some(i => !i.isVoided && !i.isGhostVoid)
+        )
+      );
+      if (Object.keys(toSave).length) lsSet("captain_cache_orders", toSave);
+      else lsRemove("captain_cache_orders");
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [orders]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Detect this device's own LAN IP for the drawer's Device IP footer ─────
   useEffect(() => {
@@ -829,6 +847,9 @@ export function App() {
         // correctness when those keys were individually cleared (e.g. version bump).
         if (cache.kitchenStations?.length) setKitchenStations(cache.kitchenStations);
         if (cache.posConfig)               setPosConfig(cache.posConfig);
+        // Restore the last-known floor map so captains can see occupied tables offline.
+        const cachedOrders = lsGet("captain_cache_orders", null);
+        if (cachedOrders && Object.keys(cachedOrders).length) setOrders(cachedOrders);
         setSocketConnected(false);
 
         // Retry when server becomes available — socket reconnects automatically
