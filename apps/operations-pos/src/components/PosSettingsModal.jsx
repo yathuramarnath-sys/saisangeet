@@ -1125,7 +1125,7 @@ function CashierTab({ cashierName, activeShift }) {
         ))}
       </div>
 
-      {/* ── Forget device ────────────────────────────────────────────────── */}
+      {/* ── Device Setup ─────────────────────────────────────────────────── */}
       <div className="pset-section-head" style={{ marginTop: 28 }}>
         <div><h4>Device Setup</h4><p>Branch link code and device registration</p></div>
       </div>
@@ -1142,25 +1142,9 @@ function CashierTab({ cashierName, activeShift }) {
             ) : <p style={{ color: "#ef4444", fontSize: 13 }}>No branch linked</p>;
           } catch { return null; }
         })()}
-        <button
-          className="pset-forget-btn"
-          onClick={async () => {
-            if (window.confirm("Unlink this device? You will need a new branch code on next launch.\n\nAll cached orders, shifts, menus and settings on this device will be cleared.")) {
-              // Wipe every pos_* and outlet_*_pos_* key
-              Object.keys(localStorage)
-                .filter(k => k.startsWith("pos_") || k.startsWith("outlet_"))
-                .forEach(k => { try { localStorage.removeItem(k); } catch {} });
-              // Clear service worker caches
-              if ("caches" in window) {
-                const names = await caches.keys();
-                await Promise.all(names.map(n => caches.delete(n)));
-              }
-              window.location.reload();
-            }
-          }}
-        >
-          🔗 Forget this device &amp; re-link
-        </button>
+        <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
+          To move this device to a different outlet, contact your manager — they can unlink it from the Owner Dashboard.
+        </p>
       </div>
 
       {/* ── Clear order cache ─────────────────────────────────────────────── */}
