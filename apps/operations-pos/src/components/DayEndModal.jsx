@@ -15,6 +15,7 @@
  */
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
+import { lsGet } from "../lib/ls";
 
 function fmt(n) {
   return Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -28,6 +29,88 @@ const METHOD_LABELS = {
   credit:  "Credit",
   online:  "Online",
 };
+
+// ── Local fallback: compute Day End figures from pos_closed_orders ─────────
+// Used when the server is unreachable so the cashier can still print a summary.
+// Covers POS-terminal bills only (online orders via UrbanPiper are server-side).
+function computeLocalReport(outletId) {
+  const allClosed = lsGet("pos_closed_orders", []);
+
+  // Business day starts at midnight
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const dayStartMs = dayStart.getTime();
+
+  const todayOrders = allClosed.filter(o => {
+    const ts = o.closedAt ? new Date(o.closedAt).getTime() : 0;
+    if (ts < dayStartMs) return false;
+    if (!outletId) return true;
+    const oid = o._outletId ?? o.outletId;
+    return String(oid) === String(outletId);
+  });
+
+  let totalSales = 0, totalDiscount = 0, totalVoidComp = 0;
+  const paymentMap = {};
+  const itemMap    = {};   // name → { qty, revenue }
+  const catMap     = {};   // category → revenue
+
+  for (const order of todayOrders) {
+    const sale = Number(order.finalAmount ?? order.total ?? 0);
+    totalSales    += sale;
+    totalDiscount += Number(order.discount ?? order.discountAmount ?? 0);
+
+    // Payment breakdown — split payments stored as object; single as paymentMethod string
+    const pmts = order.payments;
+    if (pmts && typeof pmts === "object" && !Array.isArray(pmts)) {
+      for (const [method, amt] of Object.entries(pmts)) {
+        if (Number(amt) > 0) paymentMap[method] = (paymentMap[method] || 0) + Number(amt);
+      }
+    } else if (order.paymentMethod) {
+      const m = String(order.paymentMethod).toLowerCase();
+      paymentMap[m] = (paymentMap[m] || 0) + sale;
+    }
+
+    for (const item of (order.items || [])) {
+      if (item.isGhostVoid) continue;
+      const qty     = Number(item.quantity ?? 1);
+      const revenue = Number(item.price ?? item.basePrice ?? 0) * qty;
+
+      if (item.isVoided || item.isComp) {
+        totalVoidComp += revenue;
+        continue;
+      }
+
+      const name = item.name || "Unknown";
+      if (!itemMap[name]) itemMap[name] = { qty: 0, revenue: 0 };
+      itemMap[name].qty     += qty;
+      itemMap[name].revenue += revenue;
+
+      const cat = item.categoryName || item.category || "Uncategorized";
+      catMap[cat] = (catMap[cat] || 0) + revenue;
+    }
+  }
+
+  const top5 = Object.entries(itemMap)
+    .sort((a, b) => b[1].qty - a[1].qty)
+    .slice(0, 5)
+    .map(([name, { qty, revenue }]) => ({ name, qty, revenue }));
+
+  const categories = Object.entries(catMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, revenue]) => ({ name, revenue }));
+
+  return {
+    date:          new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+    totalBills:    todayOrders.length,
+    totalSales,
+    totalDiscount,
+    totalVoidComp,
+    paymentTotals: paymentMap,
+    top5,
+    categories,
+    _isLocal:      true,
+  };
+}
 
 export function DayEndModal({ orders, outlet, outletId: outletIdProp, tableAreas, onClose, onPrint }) {
   const [stage,   setStage]   = useState("checking"); // checking | blocked | loading | ready | error
@@ -105,13 +188,21 @@ export function DayEndModal({ orders, outlet, outletId: outletIdProp, tableAreas
 
   async function loadReport() {
     setStage("loading");
+    const outletId = outletIdProp || outlet?.id || "";
     try {
-      const outletId = outletIdProp || outlet?.id || "";
       const data = await api.get(`/operations/day-end?outletId=${outletId}`);
       setReport(data);
       setStage("ready");
-    } catch (err) {
-      setStage("error");
+    } catch (_err) {
+      // Server unreachable — build report from pos_closed_orders in localStorage.
+      // Covers POS-terminal bills only; online orders are excluded (server-side only).
+      try {
+        const local = computeLocalReport(outletId);
+        setReport(local);
+        setStage("ready");
+      } catch {
+        setStage("error");
+      }
     }
   }
 
@@ -180,6 +271,11 @@ export function DayEndModal({ orders, outlet, outletId: outletIdProp, tableAreas
         {/* ── Ready ── */}
         {stage === "ready" && report && (
           <>
+            {report._isLocal && (
+              <div className="dayend-offline-notice">
+                📡 Offline — showing this terminal's local data only · Online orders excluded
+              </div>
+            )}
             <div className="dayend-body">
 
               {/* Summary row */}

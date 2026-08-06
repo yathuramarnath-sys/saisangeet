@@ -8858,6 +8858,7 @@ input, select, textarea {
 }
 .pos-btn.kot:hover { background: #0F172A !important; color: #fff !important; border-color: #0F172A !important; }
 .dayend-close-btn { background: #334155; color: #e2e8f0; border: none; border-radius: 8px; padding: 11px 24px; font-size: 0.95rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+.dayend-offline-notice { background: #1e293b; color: #f59e0b; border-bottom: 1px solid #f59e0b44; padding: 7px 20px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.01em; }
 
 /* ── Full-screen floor view (no table selected → table grid fills whole screen) ── */
 .pos-shell:has(.tpp) {
