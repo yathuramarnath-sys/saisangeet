@@ -28,6 +28,8 @@
  *   }
  */
 
+import { lsGet, lsSet } from "./ls";
+
 const QUEUE_KEY   = "captain_sync_queue";
 const MAX_RETRIES = 3;
 const RETRY_MS    = 30_000; // 30 seconds
@@ -48,13 +50,11 @@ export const STATUS = {
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
 function load() {
-  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }
-  catch { return []; }
+  return lsGet(QUEUE_KEY, []);
 }
 
 function save(q) {
-  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }
-  catch {}
+  lsSet(QUEUE_KEY, q);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

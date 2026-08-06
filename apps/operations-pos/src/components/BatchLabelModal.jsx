@@ -18,6 +18,7 @@
 import { useState, useMemo } from "react";
 import { printBatchLabelsSmart, generateBarcodeDataUrl, generateQRDataUrl } from "../lib/printLabel";
 import { SmartPrintButton } from "./SmartPrintButton";
+import { lsGet, lsSet } from "../lib/ls";
 
 function extractPrice(val) {
   if (typeof val === "number") return isNaN(val) ? 0 : val;
@@ -50,18 +51,15 @@ function toInputDate(val) {
 }
 
 function loadLastBatch() {
-  try { return JSON.parse(localStorage.getItem(BATCH_MEMORY_KEY) || "null") || null; }
-  catch { return null; }
+  return lsGet(BATCH_MEMORY_KEY, null);
 }
 
 function saveLastBatch(batch, expDate) {
-  try {
-    localStorage.setItem(BATCH_MEMORY_KEY, JSON.stringify({
-      items:   batch.map(({ id, qty }) => ({ id, qty })),
-      expDate,
-      savedAt: new Date().toISOString(),
-    }));
-  } catch { /* ignore */ }
+  lsSet(BATCH_MEMORY_KEY, {
+    items:   batch.map(({ id, qty }) => ({ id, qty })),
+    expDate,
+    savedAt: new Date().toISOString(),
+  });
 }
 
 export function BatchLabelModal({ menuItems = [], onClose }) {

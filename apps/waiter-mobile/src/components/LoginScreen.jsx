@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { tapImpact, errorVibrate } from "../lib/haptics";
+import { lsGetStr, lsSet } from "../lib/ls";
 
 const NUMPAD_KEYS = ["1","2","3","4","5","6","7","8","9","Help","0","⌫"];
 const LAST_USED_KEY = "captain_last_staff_id";
@@ -31,7 +32,7 @@ export function LoginScreen({ outletName, staff = [], onLogin, onForgetDevice })
   const [shake,    setShake]    = useState(false);
   const [query,    setQuery]    = useState("");
 
-  const lastUsedId = localStorage.getItem(LAST_USED_KEY);
+  const lastUsedId = lsGetStr(LAST_USED_KEY, "");
   const lastUsed   = lastUsedId ? staff.find(s => String(s.id) === lastUsedId) : null;
   const others     = staff.filter(s => String(s.id) !== lastUsedId);
   const filtered   = query.trim()
@@ -39,7 +40,7 @@ export function LoginScreen({ outletName, staff = [], onLogin, onForgetDevice })
     : others;
 
   function doLogin(member) {
-    localStorage.setItem(LAST_USED_KEY, String(member.id));
+    lsSet(LAST_USED_KEY, String(member.id));
     onLogin(member);
   }
 

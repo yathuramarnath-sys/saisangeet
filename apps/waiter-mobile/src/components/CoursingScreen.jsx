@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { tapImpact } from "../lib/haptics";
+import { lsGet, lsSet } from "../lib/ls";
 
 const DEFAULT_NAMES = ["STARTERS", "MAINS", "DESSERTS", "SOUP & SALADS", "SIDES", "DRINKS"];
 
 function loadCourses(tableId) {
-  try { return JSON.parse(localStorage.getItem(`captain_courses_${tableId}`) || "null"); }
-  catch { return null; }
+  return lsGet(`captain_courses_${tableId}`, null);
 }
 
 function saveCourses(tableId, courses) {
-  localStorage.setItem(`captain_courses_${tableId}`, JSON.stringify(courses));
+  lsSet(`captain_courses_${tableId}`, courses);
 }
 
 export function CoursingScreen({ order, tableLabel, onBack, onFireCourse }) {

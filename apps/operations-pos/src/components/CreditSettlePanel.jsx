@@ -11,21 +11,22 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api";
+import { lsGet, lsSet } from "../lib/ls";
 
 const SETTLE_METHODS = ["Cash", "UPI", "Card", "Bank Transfer", "Cheque"];
 const CREDIT_COLLECTIONS_KEY = "pos_credit_collections";
 
 export function saveCreditCollection(shiftId, entry) {
   try {
-    const all = JSON.parse(localStorage.getItem(CREDIT_COLLECTIONS_KEY) || "[]");
+    const all = lsGet(CREDIT_COLLECTIONS_KEY, []);
     all.push({ shiftId, ...entry, recordedAt: new Date().toISOString() });
-    localStorage.setItem(CREDIT_COLLECTIONS_KEY, JSON.stringify(all));
+    lsSet(CREDIT_COLLECTIONS_KEY, all);
   } catch { /* ignore */ }
 }
 
 export function getCreditCollectionsForShift(shiftId) {
   try {
-    const all = JSON.parse(localStorage.getItem(CREDIT_COLLECTIONS_KEY) || "[]");
+    const all = lsGet(CREDIT_COLLECTIONS_KEY, []);
     return all.filter(c => c.shiftId === shiftId);
   } catch { return []; }
 }

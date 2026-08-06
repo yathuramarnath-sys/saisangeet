@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { lsGet, lsSet } from "../lib/ls";
 import { getBillPrinter } from "../lib/kotPrint";
 import { getCreditCollectionsForShift } from "./CreditSettlePanel";
 
@@ -8,7 +9,7 @@ const CASH_IN_REASONS  = ["Change refill","Float top-up","Manager deposit","Othe
 /** Read manager PIN from POS security settings. Falls back to "1234" only if never configured. */
 function getManagerPin() {
   try {
-    const s = JSON.parse(localStorage.getItem("pos_security") || "{}");
+    const s = lsGet("pos_security", {});
     return s.managerPin || "1234";
   } catch { return "1234"; }
 }
@@ -68,13 +69,13 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
 
     // Persist movement log
     let movements = [];
-    try { movements = JSON.parse(localStorage.getItem("pos_cash_movements") || "[]") || []; }
+    try { movements = lsGet("pos_cash_movements", []) || []; }
     catch {}
-    localStorage.setItem("pos_cash_movements", JSON.stringify([...movements, movement]));
+    lsSet("pos_cash_movements", [...movements, movement]);
 
     // Update running totals on shift
     let active = [];
-    try { active = JSON.parse(localStorage.getItem("pos_active_shifts") || "[]") || []; }
+    try { active = lsGet("pos_active_shifts", []) || []; }
     catch {}
     const updated = active.map(s => {
       if (s.id !== shift.id) return s;
@@ -84,7 +85,7 @@ export function CashMovementModal({ shift, type, onClose, onSaved }) {
         cashOut: !isIn ? (s.cashOut || 0) + amt : s.cashOut
       };
     });
-    localStorage.setItem("pos_active_shifts", JSON.stringify(updated));
+    lsSet("pos_active_shifts", updated);
 
     onSaved(movement, updated.find(s => s.id === shift.id));
     onClose();
@@ -289,7 +290,7 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
   //  the cashier opens Close Shift, so we must read from the persistent log.)
   const shiftOrders = (() => {
     try {
-      const all = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]") || [];
+      const all = lsGet("pos_closed_orders", []) || [];
       const shiftStart = new Date(shift.startedAt).getTime();
       return all.filter(o =>
         o.isClosed &&
@@ -347,11 +348,11 @@ export function CloseShiftModal({ shift, orders, onClose, onShiftClosed }) {
 
     let active  = [];
     let history = [];
-    try { active  = JSON.parse(localStorage.getItem("pos_active_shifts")  || "[]") || []; } catch {}
-    try { history = JSON.parse(localStorage.getItem("pos_shift_history")   || "[]") || []; } catch {}
+    try { active  = lsGet("pos_active_shifts",  []) || []; } catch {}
+    try { history = lsGet("pos_shift_history",   []) || []; } catch {}
 
-    localStorage.setItem("pos_active_shifts", JSON.stringify(active.filter(s => s.id !== shift.id)));
-    localStorage.setItem("pos_shift_history",  JSON.stringify([...history, closed]));
+    lsSet("pos_active_shifts", active.filter(s => s.id !== shift.id));
+    lsSet("pos_shift_history",  [...history, closed]);
 
     setClosedRecord(closed);
     setShowReceipt(true); // show receipt before final close

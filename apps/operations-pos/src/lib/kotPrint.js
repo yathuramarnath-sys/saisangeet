@@ -9,6 +9,7 @@
    ══════════════════════════════════════════════════════════════════════════════ */
 
 import { appendPrintLog, enqueuePrint } from "./posPrintQueue";
+import { lsGet } from "./ls";
 
 /** Load printers from localStorage */
 export function loadPrinters() {
@@ -30,11 +31,7 @@ function loadDisplaySettings() {
 
 /** Load print appearance settings (font, size) saved when outlet data is fetched */
 function loadReceiptAppearance() {
-  try {
-    return JSON.parse(localStorage.getItem("pos_receipt_appearance") || "{}");
-  } catch {
-    return {};
-  }
+  return lsGet("pos_receipt_appearance", {});
 }
 
 /**

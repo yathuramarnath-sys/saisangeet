@@ -5,6 +5,7 @@
  */
 import { useState } from "react";
 import { api } from "../lib/api";
+import { lsGet, lsSet } from "../lib/ls";
 
 const REASONS = ["Spoilage", "Overcooked", "Dropped", "Expired", "Over-produced", "Other"];
 
@@ -63,8 +64,8 @@ export function WastageModal({ shift, cashierName, outletId, menuItems = [], onC
 
     // Local log for quick reference
     try {
-      const stored = JSON.parse(localStorage.getItem("pos_wastage_log") || "[]");
-      localStorage.setItem("pos_wastage_log", JSON.stringify([...stored, entry]));
+      const stored = lsGet("pos_wastage_log", []);
+      lsSet("pos_wastage_log", [...stored, entry]);
     } catch (_) {}
 
     setLog(prev => [entry, ...prev]);

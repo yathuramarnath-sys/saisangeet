@@ -6,6 +6,7 @@
  */
 import { useState } from "react";
 import { api } from "../lib/api";
+import { lsSet, wipeOutletStorage } from "../lib/ls";
 
 const LS_KEY = "pos_branch_config";
 
@@ -23,43 +24,21 @@ export function clearBranchConfig() {
 }
 
 /**
- * Wipe every outlet-scoped localStorage key.
+ * Wipe every outlet-scoped localStorage key for the given outlet ID.
  * Called whenever the outlet code changes — ensures ZERO data from one
  * client/outlet can ever be seen by another client/outlet on the same machine.
  *
  * Keys preserved across outlet switches (user preferences / auth):
  *   pos_branch_config   — overwritten immediately after this call
  *   pos_token           — overwritten immediately after this call
- *   pos_staff           — overwritten immediately after this call
  *   pos_whats_new_seen_* — per-version modal "seen" flag (UX only, no client data)
  *   pos_update_dismissed_for — update banner dismissal (UX only)
  */
-export function wipeOutletData() {
-  const OUTLET_KEYS = [
-    "pos_active_orders",
-    "pos_active_orders_outlet",
-    "pos_closed_orders",
-    "pos_cache_outlet",
-    "pos_cache_categories",
-    "pos_cache_menu_items",
-    "pos_cache_table_areas",
-    "pos_kitchen_stations",
-    "pos_table_config",
-    "pos_active_shifts",
-    "pos_discount_rules",
-    "pos_last_synced",
-    "pos_kot_queue",
-    "pos_closed_order_queue",
-    "pos_counter_ticket_num",
-    "pos_wastage_log",
-    "pos_wastage_sides",
-    "pos_online_orders_enabled",
-    "pos_security",
-  ];
-  for (const key of OUTLET_KEYS) {
-    try { localStorage.removeItem(key); } catch {}
+export function wipeOutletData(outletId) {
+  if (outletId) {
+    wipeOutletStorage(outletId);
+    console.info(`[POS] Outlet data wiped for outlet ${outletId} — clean slate for new outlet.`);
   }
-  console.info("[POS] Outlet data wiped — clean slate for new outlet.");
 }
 
 export function BranchSetupScreen({ onComplete }) {
@@ -109,7 +88,7 @@ export function BranchSetupScreen({ onComplete }) {
     // even on a machine that has been used with multiple outlet codes.
     const existing = loadBranchConfig();
     if (existing?.outletId && existing.outletId !== result.outletId) {
-      wipeOutletData();
+      wipeOutletData(existing.outletId);
     }
     // ────────────────────────────────────────────────────────────────────────
 
@@ -118,13 +97,13 @@ export function BranchSetupScreen({ onComplete }) {
     if (result.deviceToken) {
       localStorage.setItem("pos_token", result.deviceToken);
     }
-    // Save staff list for the login grid
+    // Save staff list for the login grid (outlet-scoped)
     if (result.staff?.length) {
-      localStorage.setItem("pos_staff", JSON.stringify(result.staff));
+      lsSet("pos_staff", result.staff);
     }
-    // Save kitchen stations immediately so printer setup works right away
+    // Save kitchen stations immediately so printer setup works right away (outlet-scoped)
     if (result.kitchenStations?.length) {
-      localStorage.setItem("pos_kitchen_stations", JSON.stringify(result.kitchenStations));
+      lsSet("pos_kitchen_stations", result.kitchenStations);
     }
 
     // Register this device in the backend (fire-and-forget — non-blocking)

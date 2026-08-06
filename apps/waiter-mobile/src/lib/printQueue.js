@@ -25,6 +25,8 @@
  *   SUCCESS entries are removed immediately — no history kept.
  */
 
+import { lsGet, lsSet } from "./ls";
+
 const QUEUE_KEY   = "captain_print_queue";
 const MAX_RETRIES = 3;
 const RETRY_MS    = 10_000;   // 10 seconds between retries (per user spec)
@@ -45,13 +47,11 @@ export const PRINT_STATUS = {
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
 function load() {
-  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }
-  catch { return []; }
+  return lsGet(QUEUE_KEY, []);
 }
 
 function save(q) {
-  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }
-  catch {}
+  lsSet(QUEUE_KEY, q);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { tapImpact } from "../lib/haptics";
 import { APP_VERSION } from "../lib/version";
+import { wipeOutletStorage } from "../lib/ls";
 
 const PAPER_OPTIONS = ["80mm", "76mm", "58mm"];
 
@@ -306,14 +307,16 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
             style={{ width: "100%", background: "#fef2f2", color: "#dc2626", borderColor: "#fca5a5" }}
             onClick={async () => {
               if (!window.confirm("Clear all cached data on this device?\n\nThis removes stale menus, ghost orders, and KOT queues. Your branch link and printer settings are kept.")) return;
+              const cfg = (() => { try { return JSON.parse(localStorage.getItem("captain_branch_config") || "null"); } catch { return null; } })();
+              if (cfg?.outletId) wipeOutletStorage(cfg.outletId);
               const KEEP = new Set([
                 "captain_token", "captain_device_id", "captain_branch_config",
-                "captain_last_staff_id", "captain_printers", "captain_printer_ip",
+                "captain_printers", "captain_printer_ip",
                 "captain_paper_size", "captain_local_server_ip",
               ]);
               Object.keys(localStorage)
                 .filter(k => k.startsWith("captain_") && !KEEP.has(k))
-                .forEach(k => localStorage.removeItem(k));
+                .forEach(k => { try { localStorage.removeItem(k); } catch {} });
               if ("caches" in window) {
                 const names = await caches.keys();
                 await Promise.all(names.map(n => caches.delete(n)));
@@ -328,9 +331,11 @@ export function SettingsScreen({ outletName, serverUrl, localPosIp, onClose }) {
             style={{ width: "100%" }}
             onClick={async () => {
               if (!window.confirm("Forget this device? You will need to re-pair with a branch code.\n\nAll cached data, orders, and settings on this device will be cleared.")) return;
+              const cfg2 = (() => { try { return JSON.parse(localStorage.getItem("captain_branch_config") || "null"); } catch { return null; } })();
+              if (cfg2?.outletId) wipeOutletStorage(cfg2.outletId);
               Object.keys(localStorage)
-                .filter(k => k.startsWith("captain_"))
-                .forEach(k => localStorage.removeItem(k));
+                .filter(k => k.startsWith("captain_") || k.startsWith("outlet_"))
+                .forEach(k => { try { localStorage.removeItem(k); } catch {} });
               if ("caches" in window) {
                 const names = await caches.keys();
                 await Promise.all(names.map(n => caches.delete(n)));

@@ -8,6 +8,8 @@
  * Also maintains pos_print_log (last 50 jobs) visible in Settings → Printers.
  */
 
+import { lsGet, lsSet, lsRemove } from "./ls";
+
 const QUEUE_KEY   = "pos_print_queue";
 const LOG_KEY     = "pos_print_log";
 const MAX_RETRIES = 3;
@@ -18,31 +20,28 @@ const MAX_LOG     = 50;
 
 export function appendPrintLog(entry) {
   try {
-    const log = JSON.parse(localStorage.getItem(LOG_KEY) || "[]");
+    const log = lsGet(LOG_KEY, []);
     log.unshift({ ...entry, id: `pl-${Date.now()}`, timestamp: new Date().toISOString() });
     if (log.length > MAX_LOG) log.length = MAX_LOG;
-    localStorage.setItem(LOG_KEY, JSON.stringify(log));
+    lsSet(LOG_KEY, log);
   } catch {}
 }
 
 export function getPrintLog() {
-  try { return JSON.parse(localStorage.getItem(LOG_KEY) || "[]"); }
-  catch { return []; }
+  return lsGet(LOG_KEY, []);
 }
 
 export function clearPrintLog() {
-  localStorage.removeItem(LOG_KEY);
+  lsRemove(LOG_KEY);
 }
 
 // ── Queue helpers ─────────────────────────────────────────────────────────────
 
 function loadQueue() {
-  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }
-  catch { return []; }
+  return lsGet(QUEUE_KEY, []);
 }
 function saveQueue(q) {
-  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }
-  catch {}
+  lsSet(QUEUE_KEY, q);
 }
 
 /** On app start, reset jobs stuck in PRINTING (app was killed mid-retry). */
