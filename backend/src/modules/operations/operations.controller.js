@@ -93,6 +93,14 @@ async function getOrderHandler(req, res) {
 
 async function sendKotHandler(req, res) {
   const result = await sendOrderKot(req.params.tableId, req.body);
+  // Broadcast so KDS and captain receive this KOT (same as deviceSendKotHandler)
+  const io = req.app.locals.io;
+  const tenantId = req.user?.tenantId || "default";
+  const outletId = result.order?.outletId || req.body.outletId;
+  if (io && result.order) {
+    const room = outletId ? `outlet:${tenantId}:${outletId}` : `tenant:${tenantId}`;
+    io.to(room).emit("order:updated", result.order);
+  }
   res.json(result);
 }
 
@@ -110,15 +118,19 @@ async function moveTableHandler(req, res) {
   const io       = req.app.locals.io;
   const tenantId = req.user?.tenantId || "default";
   const outletId = movedOrder.outletId || req.body.outletId;
-  if (io && outletId) {
-    const room = `outlet:${tenantId}:${outletId}`;
+  if (io) {
+    // Use outlet-scoped room when outletId is known; fall back to tenant room so
+    // the broadcast is never silently dropped when the order lacks outletId.
+    const room = outletId ? `outlet:${tenantId}:${outletId}` : `tenant:${tenantId}`;
     // Moved order now lives on target table
     io.to(room).emit("order:updated", movedOrder);
     // Fetch the now-blank source order and broadcast it too
     try {
       const blankSource = await getOrder(sourceTableId);
       io.to(room).emit("order:updated", blankSource);
-    } catch (_) {}
+    } catch (err) {
+      console.warn("[move] could not broadcast blank source table:", err.message);
+    }
   }
 
   res.json(movedOrder);
@@ -132,13 +144,15 @@ async function mergeTablesHandler(req, res) {
   const io       = req.app.locals.io;
   const tenantId = req.user?.tenantId || "default";
   const outletId = result.mergedOrder?.outletId || req.body.outletId;
-  if (io && outletId) {
-    const room = `outlet:${tenantId}:${outletId}`;
+  if (io) {
+    const room = outletId ? `outlet:${tenantId}:${outletId}` : `tenant:${tenantId}`;
     io.to(room).emit("order:updated", result.mergedOrder);
     try {
       const blankSource = await getOrder(sourceTableId);
       io.to(room).emit("order:updated", blankSource);
-    } catch (_) {}
+    } catch (err) {
+      console.warn("[merge] could not broadcast blank source table:", err.message);
+    }
   }
 
   res.json(result);
@@ -413,8 +427,10 @@ async function deviceSendKotHandler(req, res) {
         stationGroups[key].push(item);
       }
     } catch (err) {
-      console.error("[KOT] routing error — falling back to Unassigned:", err.message);
+      console.error("[KOT] routing error — falling back to Unassigned:", err.message, err.stack);
       stationGroups = { "Unassigned": items };
+      // Flag on response so captain/POS can show a warning toast.
+      req._kotRoutingFallback = true;
     }
   }
 
@@ -554,7 +570,12 @@ async function deviceSendKotHandler(req, res) {
   });
 
   // Return `kots` array (new) and `kot` (first entry, backward-compat for older clients)
-  res.status(201).json({ kots, kot: kots[0], order: updatedOrder });
+  res.status(201).json({
+    kots,
+    kot: kots[0],
+    order: updatedOrder,
+    ...(req._kotRoutingFallback ? { routingFallback: true } : {}),
+  });
 }
 
 /**
@@ -900,7 +921,11 @@ async function deviceRemoveOrderItemHandler(req, res) {
       if (cur.orderVersion != null && Number(cur.orderVersion) !== Number(removeExpectedVersion)) {
         return res.status(409).json({ ok: false, error: "VERSION_CONFLICT", currentOrder: cur });
       }
-    } catch (_) {}
+    } catch (err) {
+      // Order not found in memory (e.g. server restart) — log and allow the remove to proceed.
+      // removeItemFromOrder below will handle the not-found case gracefully.
+      console.warn(`[remove-item] version check skipped for ${tableId}: ${err.message}`);
+    }
   }
   const actor = req.user?.name || req.user?.type || "POS";
   const result = await removeItemFromOrder(tableId, itemId, actor);
