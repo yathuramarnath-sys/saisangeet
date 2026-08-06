@@ -1,4 +1,4 @@
-const { listClients, resetClientPassword, setClientActive } = require("./clients.service");
+const { listClients, resetClientPassword, setClientActive, getClientDetails, unlinkDevice } = require("./clients.service");
 const { ApiError } = require("../../utils/api-error");
 
 async function listClientsHandler(req, res, next) {
@@ -49,4 +49,32 @@ async function setClientActiveHandler(req, res, next) {
   }
 }
 
-module.exports = { listClientsHandler, resetClientPasswordHandler, setClientActiveHandler };
+async function getClientDetailsHandler(req, res, next) {
+  try {
+    if (!req.user || req.user.tenantId !== "default" || !(req.user.roles || []).includes("Owner")) {
+      throw new ApiError(403, "FORBIDDEN", "Admin access required");
+    }
+    const { tenantId } = req.params;
+    if (!tenantId) throw new ApiError(400, "MISSING_TENANT", "tenantId is required");
+    const result = await getClientDetails(tenantId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function unlinkDeviceHandler(req, res, next) {
+  try {
+    if (!req.user || req.user.tenantId !== "default" || !(req.user.roles || []).includes("Owner")) {
+      throw new ApiError(403, "FORBIDDEN", "Admin access required");
+    }
+    const { tenantId, deviceId } = req.params;
+    if (!tenantId || !deviceId) throw new ApiError(400, "MISSING_PARAMS", "tenantId and deviceId are required");
+    const result = await unlinkDevice(tenantId, deviceId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listClientsHandler, resetClientPasswordHandler, setClientActiveHandler, getClientDetailsHandler, unlinkDeviceHandler };
