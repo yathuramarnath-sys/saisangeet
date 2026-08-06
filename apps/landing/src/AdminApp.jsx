@@ -35,9 +35,37 @@ function fmtDate(iso) {
   });
 }
 
-function fmtTime(iso) {
-  if (!iso) return "";
-  return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+function fmtRelative(iso) {
+  if (!iso) return "Never";
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return "Just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7)  return `${d}d ago`;
+  return fmtDate(iso);
+}
+
+function deviceTypeLabel(type) {
+  switch ((type || "").toLowerCase()) {
+    case "pos":     return "POS";
+    case "captain": return "Captain";
+    case "kds":     return "KDS";
+    case "tablet":  return "Tablet POS";
+    default:        return type || "Device";
+  }
+}
+
+function deviceTypeIcon(type) {
+  switch ((type || "").toLowerCase()) {
+    case "pos":     return "🖥";
+    case "captain": return "📱";
+    case "kds":     return "📺";
+    case "tablet":  return "📱";
+    default:        return "🔌";
+  }
 }
 
 // ── Login Screen ─────────────────────────────────────────────────────────────
@@ -82,24 +110,13 @@ function AdminLogin({ onLogin }) {
         <form onSubmit={handleSubmit}>
           <label>
             Email
-            <input
-              type="email"
-              value={identifier}
-              onChange={e => setIdentifier(e.target.value)}
-              placeholder="info@dinexpos.in"
-              required
-              autoFocus
-            />
+            <input type="email" value={identifier} onChange={e => setIdentifier(e.target.value)}
+              placeholder="info@dinexpos.in" required autoFocus />
           </label>
           <label>
             Password
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••" required />
           </label>
           <button type="submit" className="admin-btn-primary" disabled={loading}>
             {loading ? "Signing in…" : "Sign in →"}
@@ -110,15 +127,211 @@ function AdminLogin({ onLogin }) {
   );
 }
 
-// ── Clients Dashboard ─────────────────────────────────────────────────────────
-function ClientsDashboard({ user, onLogout }) {
-  const [clients,   setClients]   = useState([]);
+// ── Client Detail View ────────────────────────────────────────────────────────
+function ClientDetailView({ client, onBack, onToggleActive, onResetPassword }) {
+  const [detail,    setDetail]    = useState(null);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState("");
-  const [search,    setSearch]    = useState("");
-  const [resetting, setResetting] = useState(null);   // tenantId currently resetting
-  const [toggling,  setToggling]  = useState(null);   // tenantId currently toggling active state
-  const [flash,     setFlash]     = useState(null);   // { type, message }
+  const [flash,     setFlash]     = useState(null);
+  const [unlinking, setUnlinking] = useState(null); // deviceId being unlinked
+
+  const loadDetail = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await apiFetch(`/admin/clients/${client.tenantId}`);
+      setDetail(data);
+    } catch (err) {
+      if (err.message.includes("Session")) { clearToken(); window.location.reload(); }
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [client.tenantId]);
+
+  useEffect(() => { loadDetail(); }, [loadDetail]);
+
+  async function handleUnlink(device) {
+    if (!window.confirm(
+      `Unlink ${deviceTypeLabel(device.deviceType)} "${device.deviceName || device.id}"?\n\nThe device will need to re-pair by scanning its branch QR code. This does NOT delete any orders.`
+    )) return;
+    setUnlinking(device.id);
+    try {
+      await apiFetch(`/admin/clients/${client.tenantId}/devices/${device.id}`, { method: "DELETE" });
+      setDetail(prev => ({ ...prev, devices: prev.devices.filter(d => d.id !== device.id) }));
+      setFlash({ type: "success", message: `✓ Device unlinked. It will need to re-pair.` });
+    } catch (err) {
+      setFlash({ type: "error", message: `✗ ${err.message}` });
+    } finally {
+      setUnlinking(null);
+    }
+  }
+
+  function copyId() {
+    navigator.clipboard.writeText(client.tenantId).then(() => {
+      setFlash({ type: "success", message: "✓ Tenant ID copied to clipboard" });
+      setTimeout(() => setFlash(null), 2000);
+    });
+  }
+
+  const isActive   = client.isActive;
+  const hasPwd     = client.hasPassword;
+  const statusText = !isActive ? "Inactive" : hasPwd ? "Active" : "Pending Setup";
+  const statusCls  = !isActive ? "inactive" : hasPwd ? "active" : "pending";
+
+  return (
+    <div className="admin-dashboard">
+      <header className="admin-topbar">
+        <div className="admin-topbar-left">
+          <button className="admin-back-btn" onClick={onBack}>← All Clients</button>
+        </div>
+        <div className="admin-topbar-right">
+          <button className="admin-btn-ghost" onClick={() => onResetPassword(client)}>Reset Password</button>
+          <button
+            className={`admin-badge-btn ${statusCls}`}
+            style={{ padding: "6px 14px" }}
+            onClick={() => onToggleActive(client)}
+          >
+            {statusText}
+          </button>
+        </div>
+      </header>
+
+      <div className="admin-body">
+        {/* Quick Recovery Header */}
+        <div className="admin-detail-header">
+          <div className="admin-detail-title">
+            <h2>{client.restaurantName}</h2>
+            <button className="admin-tenant-id" onClick={copyId} title="Click to copy">
+              {client.tenantId} <span className="admin-copy-hint">copy</span>
+            </button>
+          </div>
+          <div className="admin-detail-meta">
+            <span>👤 {client.ownerName}</span>
+            <span>✉ {client.email}</span>
+            <span>📞 {client.phone}</span>
+            <span>📅 Joined {fmtDate(client.signedUpAt)}</span>
+          </div>
+        </div>
+
+        {flash && (
+          <div className={`admin-flash ${flash.type}`}>
+            {flash.message}
+            <button onClick={() => setFlash(null)}>✕</button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="admin-empty">Loading details…</div>
+        ) : error ? (
+          <div className="admin-empty error">{error}</div>
+        ) : (
+          <div className="admin-detail-grid">
+
+            {/* Business Info */}
+            <div className="admin-panel admin-detail-card">
+              <div className="admin-panel-head" style={{ paddingBottom: 12, borderBottom: "1px solid #f0f0f0" }}>
+                <h3>Business Info</h3>
+              </div>
+              <table className="admin-info-table">
+                <tbody>
+                  <tr><td>Restaurant</td><td>{detail.restaurantName}</td></tr>
+                  <tr><td>Owner</td><td>{detail.ownerName}</td></tr>
+                  <tr><td>Email</td><td><a href={`mailto:${detail.email}`}>{detail.email}</a></td></tr>
+                  <tr><td>Phone</td><td>{detail.phone}</td></tr>
+                  {detail.gstin && <tr><td>GSTIN</td><td className="admin-mono">{detail.gstin}</td></tr>}
+                  {detail.city  && <tr><td>City</td><td>{detail.city}</td></tr>}
+                  <tr><td>Staff count</td><td>{detail.staffCount}</td></tr>
+                  <tr><td>Outlets</td><td>{detail.outlets.length}</td></tr>
+                  <tr><td>Devices</td><td>{detail.devices.length}</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Outlets */}
+            <div className="admin-panel admin-detail-card">
+              <div className="admin-panel-head" style={{ paddingBottom: 12, borderBottom: "1px solid #f0f0f0" }}>
+                <h3>Outlets ({detail.outlets.length})</h3>
+              </div>
+              {detail.outlets.length === 0 ? (
+                <div className="admin-empty" style={{ padding: "16px 0" }}>No outlets set up</div>
+              ) : (
+                <table className="admin-info-table">
+                  <thead><tr><th>Name</th><th>Code</th><th>Tables</th><th>City</th></tr></thead>
+                  <tbody>
+                    {detail.outlets.map(o => (
+                      <tr key={o.id}>
+                        <td><strong>{o.name}</strong></td>
+                        <td><span className="admin-mono admin-code-badge">{o.code}</span></td>
+                        <td>{o.tableCount}</td>
+                        <td>{o.city || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Devices */}
+            <div className="admin-panel admin-detail-card admin-detail-full">
+              <div className="admin-panel-head" style={{ paddingBottom: 12, borderBottom: "1px solid #f0f0f0" }}>
+                <h3>Registered Devices ({detail.devices.length})</h3>
+                <button className="admin-btn-ghost" onClick={loadDetail} title="Refresh">↺ Refresh</button>
+              </div>
+              {detail.devices.length === 0 ? (
+                <div className="admin-empty" style={{ padding: "16px 0" }}>No devices registered</div>
+              ) : (
+                <div className="admin-device-list">
+                  {detail.devices.map(d => (
+                    <div key={d.id} className="admin-device-row">
+                      <span className="admin-device-icon">{deviceTypeIcon(d.deviceType)}</span>
+                      <div className="admin-device-info">
+                        <strong>{d.deviceName || `${deviceTypeLabel(d.deviceType)} Device`}</strong>
+                        <span className="admin-device-sub">
+                          {deviceTypeLabel(d.deviceType)}
+                          {d.platform ? ` · ${d.platform}` : ""}
+                          {d.loggedInUser ? ` · ${d.loggedInUser}` : ""}
+                        </span>
+                        <span className="admin-device-id admin-mono">{d.id}</span>
+                      </div>
+                      <div className="admin-device-right">
+                        <span className={`admin-online-dot ${d.onlineStatus}`} title={d.onlineStatus === "online" ? "Online" : `Last seen ${fmtRelative(d.lastSeenAt)}`}>
+                          {d.onlineStatus === "online" ? "Online" : fmtRelative(d.lastSeenAt)}
+                        </span>
+                        <button
+                          className="admin-btn-unlink"
+                          onClick={() => handleUnlink(d)}
+                          disabled={unlinking === d.id}
+                        >
+                          {unlinking === d.id ? "Unlinking…" : "Unlink"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="admin-device-note">
+                Unlinking removes the device registration. The device must re-pair by scanning its branch QR code from the setup screen. Orders and data are not affected.
+              </p>
+            </div>
+
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Clients Dashboard ─────────────────────────────────────────────────────────
+function ClientsDashboard({ user, onLogout }) {
+  const [clients,      setClients]      = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState("");
+  const [search,       setSearch]       = useState("");
+  const [resetting,    setResetting]    = useState(null);
+  const [toggling,     setToggling]     = useState(null);
+  const [flash,        setFlash]        = useState(null);
+  const [selectedId,   setSelectedId]   = useState(null); // tenantId of the open detail view
 
   const loadClients = useCallback(async () => {
     try {
@@ -143,15 +356,11 @@ function ClientsDashboard({ user, onLogout }) {
     if (!window.confirm(
       `Reset password for ${client.ownerName} (${client.email})?\n\nA new temporary password will be emailed to them.`
     )) return;
-
     setResetting(client.tenantId);
     setFlash(null);
     try {
       await apiFetch(`/admin/clients/${client.tenantId}/reset-password`, { method: "POST" });
-      setFlash({
-        type: "success",
-        message: `✓ Password reset for ${client.email}. New temp password sent to their inbox.`
-      });
+      setFlash({ type: "success", message: `✓ Password reset for ${client.email}. New temp password sent.` });
     } catch (err) {
       setFlash({ type: "error", message: `✗ Reset failed: ${err.message}` });
     } finally {
@@ -161,11 +370,9 @@ function ClientsDashboard({ user, onLogout }) {
 
   async function handleToggleActive(client) {
     const nextActive = !client.isActive;
-    const label = nextActive ? "reactivate" : "deactivate";
     if (!window.confirm(
-      `${nextActive ? "Reactivate" : "Deactivate"} ${client.restaurantName}?\n\nThis marks the account as ${nextActive ? "Active" : "Inactive"} in the admin panel.`
+      `${nextActive ? "Reactivate" : "Deactivate"} ${client.restaurantName}?`
     )) return;
-
     setToggling(client.tenantId);
     setFlash(null);
     try {
@@ -176,12 +383,9 @@ function ClientsDashboard({ user, onLogout }) {
       setClients(prev => prev.map(c =>
         c.tenantId === client.tenantId ? { ...c, isActive: nextActive } : c
       ));
-      setFlash({
-        type: "success",
-        message: `✓ ${client.restaurantName} marked as ${nextActive ? "Active" : "Inactive"}.`
-      });
+      setFlash({ type: "success", message: `✓ ${client.restaurantName} marked as ${nextActive ? "Active" : "Inactive"}.` });
     } catch (err) {
-      setFlash({ type: "error", message: `✗ Failed to ${label}: ${err.message}` });
+      setFlash({ type: "error", message: `✗ ${err.message}` });
     } finally {
       setToggling(null);
     }
@@ -190,15 +394,28 @@ function ClientsDashboard({ user, onLogout }) {
   const filtered = clients.filter(c => {
     const q = search.toLowerCase();
     return !q ||
-      c.restaurantName.toLowerCase().includes(q) ||
-      c.ownerName.toLowerCase().includes(q) ||
-      c.email.toLowerCase().includes(q) ||
-      c.phone.includes(q);
+      (c.restaurantName || "").toLowerCase().includes(q) ||
+      (c.ownerName || "").toLowerCase().includes(q) ||
+      (c.email || "").toLowerCase().includes(q) ||
+      (c.phone || "").includes(q) ||
+      (c.tenantId || "").toLowerCase().includes(q);
   });
+
+  // If a client is selected, show detail view
+  const selectedClient = selectedId ? clients.find(c => c.tenantId === selectedId) : null;
+  if (selectedClient) {
+    return (
+      <ClientDetailView
+        client={selectedClient}
+        onBack={() => setSelectedId(null)}
+        onToggleActive={async (c) => { await handleToggleActive(c); setSelectedId(null); }}
+        onResetPassword={handleReset}
+      />
+    );
+  }
 
   return (
     <div className="admin-dashboard">
-      {/* Topbar */}
       <header className="admin-topbar">
         <div className="admin-topbar-left">
           <div className="admin-brand-mark small">D</div>
@@ -214,7 +431,6 @@ function ClientsDashboard({ user, onLogout }) {
       </header>
 
       <div className="admin-body">
-        {/* Stats row */}
         <div className="admin-stats-row">
           <div className="admin-stat">
             <strong>{clients.length}</strong>
@@ -222,7 +438,11 @@ function ClientsDashboard({ user, onLogout }) {
           </div>
           <div className="admin-stat">
             <strong>{clients.filter(c => c.hasPassword && c.isActive).length}</strong>
-            <span>Active Accounts</span>
+            <span>Active</span>
+          </div>
+          <div className="admin-stat">
+            <strong>{clients.filter(c => c.hasPassword && c.isActive && (Date.now() - new Date(c.lastUpdatedAt).getTime()) < 7 * 24 * 60 * 60 * 1000).length}</strong>
+            <span>Active This Week</span>
           </div>
           <div className="admin-stat">
             <strong>{clients.filter(c => !c.isActive).length}</strong>
@@ -230,17 +450,12 @@ function ClientsDashboard({ user, onLogout }) {
           </div>
           <div className="admin-stat">
             <strong>
-              {clients.filter(c => {
-                const d = new Date(c.signedUpAt);
-                const now = new Date();
-                return (now - d) < 7 * 24 * 60 * 60 * 1000;
-              }).length}
+              {clients.filter(c => (Date.now() - new Date(c.signedUpAt).getTime()) < 7 * 24 * 60 * 60 * 1000).length}
             </strong>
             <span>Joined This Week</span>
           </div>
         </div>
 
-        {/* Flash */}
         {flash && (
           <div className={`admin-flash ${flash.type}`}>
             {flash.message}
@@ -248,7 +463,6 @@ function ClientsDashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Table */}
         <div className="admin-panel">
           <div className="admin-panel-head">
             <h3>All Clients</h3>
@@ -256,13 +470,11 @@ function ClientsDashboard({ user, onLogout }) {
               <input
                 type="search"
                 className="admin-search"
-                placeholder="Search by name, email, phone…"
+                placeholder="Search by name, email, phone, tenant ID…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
-              <button className="admin-btn-ghost" onClick={loadClients} title="Refresh">
-                ↺ Refresh
-              </button>
+              <button className="admin-btn-ghost" onClick={loadClients} title="Refresh">↺ Refresh</button>
             </div>
           </div>
 
@@ -276,28 +488,35 @@ function ClientsDashboard({ user, onLogout }) {
             </div>
           ) : (
             <div className="admin-table-wrap">
-              <div className="admin-table-head">
+              <div className="admin-table-head admin-table-head-7">
                 <span>Restaurant</span>
                 <span>Owner</span>
-                <span>Email</span>
-                <span>Phone</span>
+                <span>Contact</span>
+                <span>Tenant ID</span>
                 <span>Signed Up</span>
                 <span>Status</span>
-                <span>Action</span>
+                <span>Actions</span>
               </div>
               {filtered.map(c => (
-                <div key={c.tenantId} className="admin-table-row">
+                <div
+                  key={c.tenantId}
+                  className="admin-table-row admin-table-row-7 admin-row-clickable"
+                  onClick={() => setSelectedId(c.tenantId)}
+                >
                   <span><strong>{c.restaurantName}</strong></span>
                   <span>{c.ownerName}</span>
-                  <span className="admin-email">{c.email}</span>
-                  <span>{c.phone}</span>
+                  <span>
+                    <span className="admin-email">{c.email}</span>
+                    <br /><small>{c.phone}</small>
+                  </span>
+                  <span className="admin-mono admin-muted" style={{ fontSize: 11 }}>{c.tenantId}</span>
                   <span className="muted">
                     {fmtDate(c.signedUpAt)}
                     {c.lastUpdatedAt && (
                       <><br /><small>Updated {fmtDate(c.lastUpdatedAt)}</small></>
                     )}
                   </span>
-                  <span>
+                  <span onClick={e => e.stopPropagation()}>
                     <button
                       className={`admin-badge-btn ${!c.isActive ? "inactive" : c.hasPassword ? "active" : "pending"}`}
                       onClick={() => handleToggleActive(c)}
@@ -307,13 +526,20 @@ function ClientsDashboard({ user, onLogout }) {
                       {toggling === c.tenantId ? "…" : !c.isActive ? "Inactive" : c.hasPassword ? "Active" : "Pending"}
                     </button>
                   </span>
-                  <span>
+                  <span onClick={e => e.stopPropagation()} style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <button
                       className="admin-btn-reset"
                       onClick={() => handleReset(c)}
                       disabled={resetting === c.tenantId}
                     >
-                      {resetting === c.tenantId ? "Sending…" : "Reset Password"}
+                      {resetting === c.tenantId ? "…" : "Reset Pwd"}
+                    </button>
+                    <button
+                      className="admin-btn-ghost"
+                      style={{ fontSize: 12, padding: "4px 8px" }}
+                      onClick={() => setSelectedId(c.tenantId)}
+                    >
+                      Details →
                     </button>
                   </span>
                 </div>
@@ -328,19 +554,15 @@ function ClientsDashboard({ user, onLogout }) {
 
 // ── Root Admin App ────────────────────────────────────────────────────────────
 export function AdminApp() {
-  const [user, setUser] = useState(null);
+  const [user,    setUser]    = useState(null);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    // If there's a token already, try to use it (optimistic restore)
     const token = getToken();
     if (token) {
-      // Decode JWT payload (no verify — just read claims for UI)
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
-        // Check expiry
         if (payload.exp && payload.exp * 1000 > Date.now()) {
-          // Only allow default tenant owner
           if (payload.tenantId === "default" && (payload.roles || []).includes("Owner")) {
             setUser({ fullName: payload.fullName, email: payload.email });
           } else {
@@ -356,21 +578,10 @@ export function AdminApp() {
     setChecked(true);
   }, []);
 
-  function handleLogin(u) {
-    // Guard: only allow default tenant owners
-    setUser(u);
-  }
-
-  function handleLogout() {
-    clearToken();
-    setUser(null);
-  }
+  function handleLogin(u) { setUser(u); }
+  function handleLogout() { clearToken(); setUser(null); }
 
   if (!checked) return null;
-
-  if (!user) {
-    return <AdminLogin onLogin={handleLogin} />;
-  }
-
+  if (!user) return <AdminLogin onLogin={handleLogin} />;
   return <ClientsDashboard user={user} onLogout={handleLogout} />;
 }

@@ -129,4 +129,83 @@ async function resetClientPassword(tenantId) {
   return { ok: true, email: owner.email, tempPassword };
 }
 
-module.exports = { listClients, resetClientPassword, setClientActive };
+/**
+ * Get full details for a single client tenant — used by the admin detail view.
+ */
+async function getClientDetails(tenantId) {
+  const [setupResult, devicesResult] = await Promise.all([
+    query(
+      `SELECT value FROM tenant_settings WHERE tenant_id = $1 AND key = 'owner_setup'`,
+      [tenantId]
+    ),
+    query(
+      `SELECT
+         id,
+         outlet_id       AS "outletId",
+         device_type     AS "deviceType",
+         device_name     AS "deviceName",
+         platform,
+         status,
+         last_seen_at    AS "lastSeenAt",
+         logged_in_user  AS "loggedInUser",
+         CASE
+           WHEN last_seen_at > NOW() - INTERVAL '5 minutes' THEN 'online'
+           ELSE 'offline'
+         END AS "onlineStatus"
+       FROM device_registry
+       WHERE tenant_id = $1
+       ORDER BY last_seen_at DESC NULLS LAST`,
+      [tenantId]
+    ),
+  ]);
+
+  let setup = {};
+  try {
+    const raw = setupResult.rows[0]?.value;
+    setup = typeof raw === "string" ? JSON.parse(raw) : (raw || {});
+  } catch (_) {}
+
+  const bp    = setup.businessProfile || {};
+  const users = setup.users || [];
+  const owner = users.find((u) => (u.roles || []).includes("Owner")) || {};
+
+  const outlets = (setup.outlets || []).map((o) => ({
+    id:         o.id,
+    name:       o.name,
+    code:       o.code,
+    city:       o.city || null,
+    tableCount: (o.tables || []).length,
+    isActive:   o.isActive !== false,
+  }));
+
+  return {
+    tenantId,
+    restaurantName: bp.tradeName || bp.legalName || "—",
+    ownerName:      owner.fullName || owner.name || "—",
+    email:          owner.email || "—",
+    phone:          owner.phone || bp.phone || "—",
+    gstin:          bp.gstin || null,
+    city:           bp.city || null,
+    businessType:   bp.businessType || null,
+    outlets,
+    devices:        devicesResult.rows,
+    staffCount:     users.filter((u) => !(u.roles || []).includes("Owner")).length,
+  };
+}
+
+/**
+ * Delete a device registration so the device can be re-paired.
+ * This is the "clear machine ID" equivalent — the device will need to re-scan its branch QR.
+ */
+async function unlinkDevice(tenantId, deviceId) {
+  const result = await query(
+    `DELETE FROM device_registry WHERE id = $1 AND tenant_id = $2 RETURNING id`,
+    [deviceId, tenantId]
+  );
+  if (result.rows.length === 0) {
+    throw new Error("Device not found or already unlinked");
+  }
+  return { ok: true, deviceId };
+}
+
+module.exports = { listClients, resetClientPassword, setClientActive, getClientDetails, unlinkDevice };
