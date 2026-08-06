@@ -84,6 +84,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Quit and install the downloaded update immediately
   installUpdate: () => ipcRenderer.send("update:install-now"),
 
+  // ── Device fingerprint ────────────────────────────────────────────────────
+  // Returns a stable device ID stored in userData — survives app reinstalls.
+  getDeviceFingerprint: () => ipcRenderer.invoke("get-device-fingerprint"),
+
   // ── Local network server ──────────────────────────────────────────────────
   // Returns { ip, port, url } of the local socket server running in main process.
   // Displayed in POS Settings so the owner can configure Captain/KDS tablets.

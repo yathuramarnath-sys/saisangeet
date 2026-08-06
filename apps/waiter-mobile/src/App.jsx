@@ -3,6 +3,7 @@ import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
 import { APP_VERSION } from "./lib/version";
 import { lsGet, lsSet, lsRemove, migrateLegacyKeys } from "./lib/ls";
+import { getStoredDeviceId, storeDeviceId } from "./lib/deviceId";
 
 import { api }        from "./lib/api";
 import { printBill }  from "./lib/printBill";
@@ -240,14 +241,21 @@ export function App() {
 
   // ── Device heartbeat — keeps online/offline status current on owner dashboard ─
   useEffect(() => {
-    const deviceId = localStorage.getItem("captain_device_id");
-    if (!deviceId || !branchConfig) return;
-    const tick = () => api.patch(`/devices/${deviceId}/ping`, {
-      loggedInUser: loggedInStaff?.name || null,
-    }).catch(() => {});
-    tick();
-    const id = setInterval(tick, 60_000);
-    return () => clearInterval(id);
+    if (!branchConfig) return;
+    let intervalId;
+    getStoredDeviceId().then((deviceId) => {
+      if (!deviceId) return;
+      // Restore to localStorage if it was cleared
+      if (!localStorage.getItem("captain_device_id")) {
+        storeDeviceId(deviceId);
+      }
+      const tick = () => api.patch(`/devices/${deviceId}/ping`, {
+        loggedInUser: loggedInStaff?.name || null,
+      }).catch(() => {});
+      tick();
+      intervalId = setInterval(tick, 60_000);
+    });
+    return () => clearInterval(intervalId);
   }, [branchConfig, loggedInStaff]);
 
   // ── Refresh staff from backend on every boot ──────────────────────────────
