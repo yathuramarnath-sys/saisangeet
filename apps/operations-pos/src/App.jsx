@@ -333,11 +333,11 @@ function Clock() {
 
 export function App() {
   const [branchConfig,    setBranchConfig]    = useState(() => loadBranchConfig());
-  const [outlet,          setOutlet]          = useState(null);
+  const [outlet,          setOutlet]          = useState(() => lsGet(CACHE_OUTLET, null));
   const [activeStaff,     setActiveStaff]     = useState([]);
   const [tableAreas,      setTableAreas]      = useState(() => lsGet("pos_table_config", []));
-  const [categories,      setCategories]      = useState(seedCategories);
-  const [menuItems,       setMenuItems]       = useState(seedMenuItems);
+  const [categories,      setCategories]      = useState(() => { const c = lsGet(CACHE_CATEGORIES, []); return c.length ? c : seedCategories; });
+  const [menuItems,       setMenuItems]       = useState(() => { const m = lsGet(CACHE_MENU_ITEMS, []); return m.length ? m : seedMenuItems; });
   const [kitchenStations, setKitchenStations] = useState(() => lsGet("pos_kitchen_stations", []));
   const [orders,          setOrders]          = useState(() => loadSavedOrders());
   const [selectedTableId, setSelectedTableId] = useState(null);
@@ -493,7 +493,10 @@ export function App() {
           setDiscountRules(active);
           lsSet("pos_discount_rules", active);
         }
-        if (staffRes?.staff?.length) setActiveStaff(staffRes.staff);
+        if (staffRes?.staff?.length) {
+          setActiveStaff(staffRes.staff);
+          lsSet("pos_staff", staffRes.staff); // keep login cache fresh between restarts
+        }
         if (posConfigRes && typeof posConfigRes === "object") {
           _cachePosConfig = posConfigRes;
           setPosConfig(posConfigRes);

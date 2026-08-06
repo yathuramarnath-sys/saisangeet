@@ -147,15 +147,15 @@ export function App() {
   const [branchConfig,    setBranchConfig]    = useState(() => loadCaptainBranchConfig());
   const [posConfig,       setPosConfig]       = useState(() => lsGet("captain_pos_config", null));
   const [loggedInStaff,   setLoggedInStaff]   = useState(null);
-  const [areas,           setAreas]           = useState(seedAreas);
-  const [categories,      setCategories]      = useState(seedCategories);
-  const [menuItems,       setMenuItems]       = useState(seedMenuItems);
+  const [areas,           setAreas]           = useState(() => lsGet("captain_cache_areas",      null) || seedAreas);
+  const [categories,      setCategories]      = useState(() => { const c = lsGet("captain_cache_categories", []); return c.length ? c : seedCategories; });
+  const [menuItems,       setMenuItems]       = useState(() => { const m = lsGet("captain_cache_menu_items",  []); return m.length ? m.map(i => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })) : seedMenuItems; });
   const [kitchenStations, setKitchenStations] = useState(() => lsGet("captain_kitchen_stations", []));
   const [orders,          setOrders]          = useState({});
   const [billAlerts,      setBillAlerts]      = useState({});
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [selectedArea,    setSelectedArea]    = useState(null);
-  const [outlet,          setOutlet]          = useState(null);
+  const [outlet,          setOutlet]          = useState(() => lsGet("captain_cache_outlet", null));
   // Table action sheet state
   const [actionTableId,   setActionTableId]   = useState(null);
   const [actionArea,      setActionArea]       = useState(null);
