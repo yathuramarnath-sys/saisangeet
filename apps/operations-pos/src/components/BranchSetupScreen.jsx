@@ -129,11 +129,12 @@ export function BranchSetupScreen({ onComplete }) {
     }
 
     // Register this device in the backend (fire-and-forget — non-blocking)
-    const isElectron = typeof window !== "undefined" && !!window.__ELECTRON__;
+    const isElectron = typeof window !== "undefined" && !!window.electronAPI;
     const fingerprintPromise = isElectron && window.electronAPI?.getDeviceFingerprint
       ? window.electronAPI.getDeviceFingerprint()
       : Promise.resolve(null);
-    fingerprintPromise.then((fingerprint) =>
+    // .catch(() => null) ensures a fingerprint IPC failure doesn't abort the registration call
+    fingerprintPromise.catch(() => null).then((fingerprint) =>
       api.post("/devices/link", {
         outletId:    result.outletId,
         deviceType:  "pos",
