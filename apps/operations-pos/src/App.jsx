@@ -507,6 +507,30 @@ export function App() {
     return () => clearInterval(id);
   }, [branchConfig]);
 
+  // ── Electron platform self-heal — corrects devices previously registered as "web" ─
+  // Runs once on startup whenever branchConfig is present and we're in Electron.
+  // The backend upserts by (tenant, outlet, type, fingerprint) so this is idempotent.
+  useEffect(() => {
+    if (!branchConfig) return;
+    const isElectron = typeof window !== "undefined" && !!window.electronAPI;
+    if (!isElectron) return;
+    const fingerprintPromise = window.electronAPI?.getDeviceFingerprint
+      ? window.electronAPI.getDeviceFingerprint()
+      : Promise.resolve(null);
+    fingerprintPromise.catch(() => null).then((fingerprint) =>
+      api.post("/devices/link", {
+        outletId:   branchConfig.outletId,
+        deviceType: "pos",
+        deviceName: "POS Terminal",
+        platform:   "windows",
+        fingerprint: fingerprint || undefined,
+      })
+    ).then((device) => {
+      if (device?.id) localStorage.setItem("pos_device_id", device.id);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchConfig?.outletId]);
+
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!branchConfig) return;   // wait — BranchSetupScreen handles this first
