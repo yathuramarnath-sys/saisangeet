@@ -1,17 +1,18 @@
 import { useState } from "react";
+import { lsGet, lsSet } from "../lib/ls";
 
 const SESSIONS = ["Breakfast", "Lunch", "Dinner", "Full Day"];
 
 function loadStaleOpenShift() {
   try {
-    const shifts = JSON.parse(localStorage.getItem("pos_active_shifts") || "[]");
+    const shifts = lsGet("pos_active_shifts", []);
     return (Array.isArray(shifts) ? shifts : []).find(s => s.status === "open") || null;
   } catch { return null; }
 }
 
 function loadStaffNames() {
   try {
-    const saved = JSON.parse(localStorage.getItem("pos_staff") || "null");
+    const saved = lsGet("pos_staff", null);
     if (Array.isArray(saved) && saved.length) return saved.map(s => s.name);
   } catch {}
   return [];
@@ -57,7 +58,7 @@ export function ShiftGate({ outletName, cashierName, onShiftStarted, onEndPrevio
 
   function handleStart() {
     let existing = [];
-    try { existing = JSON.parse(localStorage.getItem("pos_active_shifts") || "[]") || []; }
+    try { existing = lsGet("pos_active_shifts", []) || []; }
     catch {}
 
     // Guard: never create a second open shift on this terminal
@@ -76,7 +77,7 @@ export function ShiftGate({ outletName, cashierName, onShiftStarted, onEndPrevio
       status:      "open"
     };
 
-    localStorage.setItem("pos_active_shifts", JSON.stringify([...existing, shift]));
+    lsSet("pos_active_shifts", [...existing, shift]);
     onShiftStarted(shift);
   }
 

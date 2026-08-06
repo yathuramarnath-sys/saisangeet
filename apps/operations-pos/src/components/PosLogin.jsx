@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
+import { lsGet, lsSet } from "../lib/ls";
 
 // ── Roles that appear on the POS cashier screen ────────────────────────────
 // Captains / Waiters belong to the Captain app, not the POS counter.
@@ -23,11 +24,8 @@ function avatarBg(name = "") {
 const NUMPAD_KEYS = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
 
 function loadStaff() {
-  try {
-    const saved = JSON.parse(localStorage.getItem("pos_staff") || "null");
-    if (Array.isArray(saved) && saved.length) return saved;
-  } catch {}
-  return [];
+  const saved = lsGet("pos_staff", null);
+  return Array.isArray(saved) && saved.length ? saved : [];
 }
 
 export function PosLogin({ outletName, onLogin }) {
@@ -43,7 +41,7 @@ export function PosLogin({ outletName, onLogin }) {
       .then((res) => {
         if (Array.isArray(res.staff)) {
           setAllStaff(res.staff);
-          localStorage.setItem("pos_staff", JSON.stringify(res.staff));
+          lsSet("pos_staff", res.staff);
         }
       })
       .catch(() => {});

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { printKOT, loadPrinters } from "../lib/kotPrint";
 import { getPrintLog, clearPrintLog } from "../lib/posPrintQueue";
+import { lsGet, lsSet } from "../lib/ls";
 
 // Convert POS local table format → flat API table array
 function areasToApiTables(areas) {
@@ -82,17 +83,14 @@ function PrinterTab() {
   const [proStep,         setProStep]         = useState(1);
   const [showAdvanced,    setShowAdvanced]    = useState(false);
   // Kitchen stations — fetch fresh from API on mount; fall back to localStorage cache
-  const [kitchenStations, setKitchenStations] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("pos_kitchen_stations") || "[]"); }
-    catch { return []; }
-  });
+  const [kitchenStations, setKitchenStations] = useState(() => lsGet("pos_kitchen_stations", []));
 
   useEffect(() => {
     api.get("/kitchen-stations")
       .then((stations) => {
         if (Array.isArray(stations) && stations.length > 0) {
           setKitchenStations(stations);
-          localStorage.setItem("pos_kitchen_stations", JSON.stringify(stations));
+          lsSet("pos_kitchen_stations", stations);
         }
       })
       .catch(() => { /* keep cached value */ });
@@ -132,7 +130,7 @@ function PrinterTab() {
 
   function syncToSharedKey(list) {
     try {
-      const existing = JSON.parse(localStorage.getItem("pos_devices_assignments") || "{}");
+      const existing = lsGet("pos_devices_assignments", {});
       const stationMap = {};
       list.filter(p => p.station).forEach(p => {
         stationMap[p.station] = { id: p.id, name: p.name, model: p.model || "", ip: p.ip || "", status: "online" };
@@ -142,7 +140,7 @@ function PrinterTab() {
         ip: p.ip || "", station: p.station || "", status: "online",
         lastSeen: new Date().toISOString()
       }));
-      localStorage.setItem("pos_devices_assignments", JSON.stringify({ ...existing, devices, stationMap }));
+      lsSet("pos_devices_assignments", { ...existing, devices, stationMap });
     } catch { /* ignore */ }
   }
 
@@ -917,7 +915,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;p
 
 /* ─── Tables Tab ────────────────────────────────────────────────────────────── */
 function TablesTab() {
-  const [areas, setAreas] = useState(() => load("pos_table_config", []));
+  const [areas, setAreas] = useState(() => lsGet("pos_table_config", []));
   const [activeArea,  setActiveArea]  = useState(areas[0]?.id || null);
   const [newAreaName, setNewAreaName] = useState("");
   const [newTable,    setNewTable]    = useState({ number: "", seats: "4" });
@@ -934,7 +932,7 @@ function TablesTab() {
 
   function persist(updated) {
     setAreas(updated);
-    save("pos_table_config", updated);
+    lsSet("pos_table_config", updated);
     // Sync to API so owner-web stays in sync
     if (outletId) {
       const apiTables = areasToApiTables(updated);
@@ -1076,7 +1074,7 @@ function CashierTab({ cashierName, activeShift }) {
     { icon: "🔒", label: "Reports & analytics — Owner-web only"          },
   ];
 
-  const movements = load("pos_cash_movements", [])
+  const movements = lsGet("pos_cash_movements", [])
     .filter(m => m.shiftId === activeShift?.id);
 
   return (
@@ -1148,10 +1146,10 @@ function CashierTab({ cashierName, activeShift }) {
           className="pset-forget-btn"
           onClick={async () => {
             if (window.confirm("Unlink this device? You will need a new branch code on next launch.\n\nAll cached orders, shifts, menus and settings on this device will be cleared.")) {
-              // Wipe every pos_* key
+              // Wipe every pos_* and outlet_*_pos_* key
               Object.keys(localStorage)
-                .filter(k => k.startsWith("pos_"))
-                .forEach(k => localStorage.removeItem(k));
+                .filter(k => k.startsWith("pos_") || k.startsWith("outlet_"))
+                .forEach(k => { try { localStorage.removeItem(k); } catch {} });
               // Clear service worker caches
               if ("caches" in window) {
                 const names = await caches.keys();
@@ -1192,9 +1190,14 @@ function CashierTab({ cashierName, activeShift }) {
                 "pos_label_printer",
                 "pos_last_label_printer",
               ]);
+              const cfg = (() => { try { return JSON.parse(localStorage.getItem("pos_branch_config") || "null"); } catch { return null; } })();
+              if (cfg?.outletId) {
+                const prefix = `outlet_${cfg.outletId}_`;
+                Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k => { try { localStorage.removeItem(k); } catch {} });
+              }
               Object.keys(localStorage)
                 .filter(k => k.startsWith("pos_") && !KEEP.has(k))
-                .forEach(k => localStorage.removeItem(k));
+                .forEach(k => { try { localStorage.removeItem(k); } catch {} });
               // Clear service worker caches so stale assets are re-fetched
               if ("caches" in window) {
                 const names = await caches.keys();
@@ -1285,7 +1288,7 @@ function DisplayTab() {
 
 /* ─── Security Tab ──────────────────────────────────────────────────────────── */
 function SecurityTab() {
-  const [sec,        setSec]        = useState(() => load("pos_security", { managerPin: "1234" }));
+  const [sec,        setSec]        = useState(() => lsGet("pos_security", { managerPin: "1234" }));
   const [pinInput,   setPinInput]   = useState("");
   const [pinInput2,  setPinInput2]  = useState("");
   const [saved,      setSaved]      = useState(false);
@@ -1296,7 +1299,7 @@ function SecurityTab() {
     if (!/^\d{4,6}$/.test(pinInput)) { setPinError("PIN must be 4–6 digits."); return; }
     if (pinInput !== pinInput2)       { setPinError("PINs do not match."); return; }
     const updated = { ...sec, managerPin: pinInput };
-    save("pos_security", updated);
+    lsSet("pos_security", updated);
     setSec(updated);
     setPinInput("");
     setPinInput2("");

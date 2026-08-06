@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getFinancials } from "./OrderPanel";
 import { printBill } from "../lib/printBill";
 import { api } from "../lib/api";
+import { lsGet } from "../lib/ls";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Credit", "Zomato Pay", "Swiggy Pay"];
 
@@ -166,7 +167,7 @@ export function PastOrdersModal({ orders, onClose, onEditPayment, outlet, outlet
   const closedOrders = useMemo(() => {
     let local = [];
     try {
-      const stored = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+      const stored = lsGet("pos_closed_orders", []);
       local = stored.filter(o => {
         if (!o.closedAt) return false;
         const d = new Date(o.closedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });

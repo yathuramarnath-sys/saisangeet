@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import toast, { Toaster } from "react-hot-toast";
 import { APP_VERSION } from "./lib/version";
+import { lsGet, lsSet, lsRemove, migrateLegacyKeys } from "./lib/ls";
 
 import { api }        from "./lib/api";
 import { printBill }  from "./lib/printBill";
@@ -75,7 +76,7 @@ const CAPTAIN_CACHE_KEYS_TO_CLEAR = [
 function runCacheVersionGuard() {
   const stored = localStorage.getItem("captain_cache_version");
   if (stored !== APP_VERSION) {
-    CAPTAIN_CACHE_KEYS_TO_CLEAR.forEach(k => localStorage.removeItem(k));
+    CAPTAIN_CACHE_KEYS_TO_CLEAR.forEach(k => lsRemove(k));
     localStorage.setItem("captain_cache_version", APP_VERSION);
   }
 }
@@ -96,24 +97,24 @@ function clearCaptainBranchConfig() {
   localStorage.removeItem(CAPTAIN_LS_KEY);
   localStorage.removeItem("captain_token");
   // Clear any order data from the old tenant so a re-paired device starts fresh.
-  localStorage.removeItem("captain_sync_queue");
-  localStorage.removeItem("captain_pending_kots");
-  localStorage.removeItem("captain_sent_kots");
+  lsRemove("captain_sync_queue");
+  lsRemove("captain_pending_kots");
+  lsRemove("captain_sent_kots");
 }
 
 // ─── KOT queue helpers ────────────────────────────────────────────────────────
 
 function savePendingKots(kots) {
-  try { localStorage.setItem("captain_pending_kots", JSON.stringify(kots)); } catch (_) {}
+  lsSet("captain_pending_kots", kots);
 }
 
 // KOT history (sent this shift) — kept until table bill is settled
 const SENT_KOTS_KEY = "captain_sent_kots";
 function loadSentKots() {
-  try { return JSON.parse(localStorage.getItem(SENT_KOTS_KEY) || "[]"); } catch { return []; }
+  return lsGet(SENT_KOTS_KEY, []);
 }
 function saveSentKots(kots) {
-  try { localStorage.setItem(SENT_KOTS_KEY, JSON.stringify(kots.slice(0, 200))); } catch (_) {}
+  lsSet(SENT_KOTS_KEY, kots.slice(0, 200));
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -140,14 +141,12 @@ const FALLBACK_STAFF = [];
 
 export function App() {
   const [branchConfig,    setBranchConfig]    = useState(() => loadCaptainBranchConfig());
-  const [posConfig,       setPosConfig]       = useState(() => { try { return JSON.parse(localStorage.getItem("captain_pos_config") || "null"); } catch { return null; } });
+  const [posConfig,       setPosConfig]       = useState(() => lsGet("captain_pos_config", null));
   const [loggedInStaff,   setLoggedInStaff]   = useState(null);
   const [areas,           setAreas]           = useState(seedAreas);
   const [categories,      setCategories]      = useState(seedCategories);
   const [menuItems,       setMenuItems]       = useState(seedMenuItems);
-  const [kitchenStations, setKitchenStations] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("captain_kitchen_stations") || "[]"); } catch { return []; }
-  });
+  const [kitchenStations, setKitchenStations] = useState(() => lsGet("captain_kitchen_stations", []));
   const [orders,          setOrders]          = useState({});
   const [billAlerts,      setBillAlerts]      = useState({});
   const [selectedTableId, setSelectedTableId] = useState(null);
@@ -163,9 +162,7 @@ export function App() {
   const [updateInfo,      setUpdateInfo]       = useState(null); // update available for drawer badge
   const [deviceIp,        setDeviceIp]         = useState(null); // this tablet's own LAN IP, for drawer footer
   // KOT queue — failed sends stored here so staff can retry from the drawer
-  const [pendingKots, setPendingKots] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("captain_pending_kots") || "[]"); } catch { return []; }
-  });
+  const [pendingKots, setPendingKots] = useState(() => lsGet("captain_pending_kots", []));
   // KOT history — all KOTs sent this shift (successful + failed), cleared when table bill settles
   const [sentKots, setSentKots] = useState(() => loadSentKots());
   const [socketConnected,  setSocketConnected]  = useState(false);
@@ -256,21 +253,18 @@ export function App() {
 
   // ── Offline config cache helpers ─────────────────────────────────────────
   function saveCaptainCache({ outlet, categories, menuItems, areas }) {
-    try {
-      if (outlet)           localStorage.setItem("captain_cache_outlet",     JSON.stringify(outlet));
-      if (categories?.length) localStorage.setItem("captain_cache_categories", JSON.stringify(categories));
-      if (menuItems?.length)  localStorage.setItem("captain_cache_menu_items", JSON.stringify(menuItems));
-      if (areas?.length)      localStorage.setItem("captain_cache_areas",      JSON.stringify(areas));
-    } catch (_) {}
+    if (outlet)             lsSet("captain_cache_outlet",      outlet);
+    if (categories?.length) lsSet("captain_cache_categories",  categories);
+    if (menuItems?.length)  lsSet("captain_cache_menu_items",  menuItems);
+    if (areas?.length)      lsSet("captain_cache_areas",       areas);
   }
 
   function loadCaptainCache() {
-    const p = (key, fb) => { try { return JSON.parse(localStorage.getItem(key) || "null") || fb; } catch { return fb; } };
     return {
-      outlet:     p("captain_cache_outlet",     null),
-      categories: p("captain_cache_categories", []),
-      menuItems:  p("captain_cache_menu_items",  []),
-      areas:      p("captain_cache_areas",       null),
+      outlet:     lsGet("captain_cache_outlet",     null),
+      categories: lsGet("captain_cache_categories", []),
+      menuItems:  lsGet("captain_cache_menu_items",  []),
+      areas:      lsGet("captain_cache_areas",       null),
     };
   }
 
@@ -279,6 +273,7 @@ export function App() {
     if (!branchConfig) return;
 
     async function bootstrap() {
+      migrateLegacyKeys();
       try {
         const outlets = await api.get("/outlets");
         const target  = outlets.find((o) => o.id === branchConfig.outletId) || outlets[0];
@@ -296,7 +291,7 @@ export function App() {
         ]);
         if (posConfigRes && typeof posConfigRes === "object") {
           setPosConfig(posConfigRes);
-          try { localStorage.setItem("captain_pos_config", JSON.stringify(posConfigRes)); } catch (_) {}
+          lsSet("captain_pos_config", posConfigRes);
         }
         if (cats.length)  setCategories(cats);
         if (items.length) setMenuItems(items.map((i) => ({ ...i, price: parsePriceNumber(i.basePrice || i.price) })));
@@ -310,7 +305,7 @@ export function App() {
               .map(id => catIdToName[String(id)])
               .filter(Boolean)
           }));
-          localStorage.setItem("captain_kitchen_stations", JSON.stringify(enriched));
+          lsSet("captain_kitchen_stations", enriched);
           setKitchenStations(enriched);
         }
 
@@ -791,7 +786,7 @@ export function App() {
               const { [tableId]: _, ...rest } = p;
               return rest;
             });
-            localStorage.removeItem("captain_courses_" + tableId);
+            lsRemove("captain_courses_" + tableId);
           });
         }
 
@@ -1043,7 +1038,7 @@ export function App() {
       order: { tableId, items: [], isClosed: false },
     });
     localSocketRef.current?.emit("order:update", { order: { tableId, items: [], isClosed: false } });
-    localStorage.removeItem(`captain_courses_${tableId}`);
+    lsRemove(`captain_courses_${tableId}`);
     setSelectedTableId(null);
   }
 
@@ -1055,7 +1050,7 @@ export function App() {
       order: { tableId, items: [], isClosed: false },
     });
     localSocketRef.current?.emit("order:update", { order: { tableId, items: [], isClosed: false } });
-    localStorage.removeItem(`captain_courses_${tableId}`);
+    lsRemove(`captain_courses_${tableId}`);
     setActionTableId(null);
     setConfirmFreeTable(null);
   }
@@ -1152,7 +1147,7 @@ export function App() {
       });
       // Notify POS on local WiFi immediately without waiting for cloud socket re-broadcast
       localSocketRef.current?.emit("order:update", { order: closedOrder });
-      localStorage.removeItem(`captain_courses_${tableId}`);
+      lsRemove(`captain_courses_${tableId}`);
       // Remove this specific order's bill alert immediately — don't wait for socket echo.
       // Sweep by tableId+orderNumber to catch both the expected key and any orphaned
       // UUID-keyed entry created when orderNumber was null during initial set.
@@ -1998,7 +1993,7 @@ export function App() {
       const { [tid]: _, ...rest } = prev;
       return rest;
     });
-    localStorage.removeItem(`captain_courses_${tid}`);
+    lsRemove(`captain_courses_${tid}`);
     if (tid === selectedTableId) setSelectedTableId(null);
     setActionTableId(null);
   }

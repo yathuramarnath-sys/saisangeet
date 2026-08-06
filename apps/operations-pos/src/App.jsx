@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { lsGet, lsGetStr, lsSet, lsRemove, migrateLegacyKeys } from "./lib/ls";
 
 import { UpdateBanner, APP_VERSION } from "./components/UpdateBanner";
 import { MenuPanel }          from "./components/MenuPanel";
@@ -120,7 +121,7 @@ const POS_CACHE_KEYS_TO_CLEAR = [
 (function runPosCacheVersionGuard() {
   const stored = localStorage.getItem("pos_cache_version");
   if (stored !== APP_VERSION) {
-    POS_CACHE_KEYS_TO_CLEAR.forEach(k => localStorage.removeItem(k));
+    POS_CACHE_KEYS_TO_CLEAR.forEach(k => lsRemove(k));
     localStorage.setItem("pos_cache_version", APP_VERSION);
   }
 })();
@@ -129,21 +130,20 @@ const POS_CACHE_KEYS_TO_CLEAR = [
 const KOT_QUEUE_KEY = "pos_kot_queue";
 
 function loadKotQueue() {
-  try { return JSON.parse(localStorage.getItem(KOT_QUEUE_KEY) || "[]"); }
-  catch { return []; }
+  return lsGet(KOT_QUEUE_KEY, []);
 }
 
 function saveKotQueue(queue) {
-  try { localStorage.setItem(KOT_QUEUE_KEY, JSON.stringify(queue)); } catch (_) {}
+  lsSet(KOT_QUEUE_KEY, queue);
 }
 
 // ── Item order count tracking (for Favourites chip) ───────────────────────
 const ITEM_COUNTS_KEY = "pos_item_counts";
 function loadItemCounts() {
-  try { return JSON.parse(localStorage.getItem(ITEM_COUNTS_KEY) || "{}"); } catch { return {}; }
+  return lsGet(ITEM_COUNTS_KEY, {});
 }
 function saveItemCounts(counts) {
-  try { localStorage.setItem(ITEM_COUNTS_KEY, JSON.stringify(counts)); } catch (_) {}
+  lsSet(ITEM_COUNTS_KEY, counts);
 }
 
 async function flushKotQueue(outletId) {
@@ -182,11 +182,10 @@ async function flushKotQueue(outletId) {
 const CLOSED_QUEUE_KEY = "pos_closed_order_queue";
 
 function loadClosedOrderQueue() {
-  try { return JSON.parse(localStorage.getItem(CLOSED_QUEUE_KEY) || "[]"); }
-  catch { return []; }
+  return lsGet(CLOSED_QUEUE_KEY, []);
 }
 function saveClosedOrderQueue(queue) {
-  try { localStorage.setItem(CLOSED_QUEUE_KEY, JSON.stringify(queue)); } catch (_) {}
+  lsSet(CLOSED_QUEUE_KEY, queue);
 }
 
 async function flushClosedOrderQueue(outletId) {
@@ -241,24 +240,13 @@ function withLocalTaxRate(serverItems, localItems, menuItems) {
 }
 
 /**
- * Load saved orders from localStorage.
- * Pass currentOutletId so we can detect and reject stale orders from a
- * different outlet (e.g. after switching outlet code to a new client).
+ * Load saved orders from outlet-scoped localStorage.
+ * Keys are prefixed with outletId (via ls.js) so cross-outlet bleed is
+ * impossible — the outlet guard is no longer needed.
  */
-function loadSavedOrders(currentOutletId = null) {
+function loadSavedOrders() {
   try {
-    // ── Cross-outlet guard ───────────────────────────────────────────────────
-    const storedOutletId = localStorage.getItem(ORDERS_OUTLET_KEY);
-    if (currentOutletId && (!storedOutletId || String(storedOutletId) !== String(currentOutletId))) {
-      // Orders belong to a different outlet (or have no outlet stamp) — wipe them so they don't bleed in
-      console.warn(
-        `[POS] Clearing stale orders: stored outlet=${storedOutletId}, current outlet=${currentOutletId}`
-      );
-      localStorage.removeItem(ORDERS_KEY);
-      localStorage.removeItem(ORDERS_OUTLET_KEY);
-      return {};
-    }
-    const raw = JSON.parse(localStorage.getItem(ORDERS_KEY) || "null") || {};
+    const raw = lsGet(ORDERS_KEY, null) || {};
     // Auto-clean ghost empty + closed counter orders on startup.
     // Counter order IDs (counter-${Date.now()}) are never reused like table IDs,
     // so a closed counter order that escapes the in-session cleanup timeout
@@ -277,10 +265,7 @@ function loadSavedOrders(currentOutletId = null) {
 
 function saveOrdersToStorage(ordersMap) {
   try {
-    localStorage.setItem(ORDERS_KEY, JSON.stringify(ordersMap));
-    // Stamp which outlet these orders belong to — used by loadSavedOrders guard
-    const cfg = loadBranchConfig();
-    if (cfg?.outletId) localStorage.setItem(ORDERS_OUTLET_KEY, String(cfg.outletId));
+    lsSet(ORDERS_KEY, ordersMap);
   } catch (e) {
     console.warn("Could not persist orders:", e.message);
   }
@@ -296,32 +281,26 @@ const CACHE_TABLE_AREAS = "pos_cache_table_areas";
 
 function saveConfigCache({ outlet, categories, menuItems, tableAreas }) {
   try {
-    if (outlet)     localStorage.setItem(CACHE_OUTLET,      JSON.stringify(outlet));
-    if (categories?.length) localStorage.setItem(CACHE_CATEGORIES,  JSON.stringify(categories));
-    if (menuItems?.length)  localStorage.setItem(CACHE_MENU_ITEMS,   JSON.stringify(menuItems));
-    if (tableAreas?.length) localStorage.setItem(CACHE_TABLE_AREAS,  JSON.stringify(tableAreas));
+    if (outlet)             lsSet(CACHE_OUTLET,      outlet);
+    if (categories?.length) lsSet(CACHE_CATEGORIES,  categories);
+    if (menuItems?.length)  lsSet(CACHE_MENU_ITEMS,  menuItems);
+    if (tableAreas?.length) lsSet(CACHE_TABLE_AREAS, tableAreas);
   } catch (e) { console.warn("[cache] save failed:", e.message); }
 }
 
 function loadConfigCache() {
-  const parse = (key, fallback) => {
-    try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; }
-    catch { return fallback; }
-  };
   return {
-    outlet:     parse(CACHE_OUTLET,      null),
-    categories: parse(CACHE_CATEGORIES,  []),
-    menuItems:  parse(CACHE_MENU_ITEMS,  []),
-    tableAreas: parse(CACHE_TABLE_AREAS, null),
+    outlet:     lsGet(CACHE_OUTLET,      null),
+    categories: lsGet(CACHE_CATEGORIES,  []),
+    menuItems:  lsGet(CACHE_MENU_ITEMS,  []),
+    tableAreas: lsGet(CACHE_TABLE_AREAS, null),
   };
 }
 
-// Load active shift from localStorage
+// Load active shift from outlet-scoped localStorage
 function loadActiveShift() {
-  try {
-    const shifts = JSON.parse(localStorage.getItem("pos_active_shifts") || "[]");
-    return (Array.isArray(shifts) ? shifts : []).find(s => s.status === "open") || null;
-  } catch { return null; }
+  const shifts = lsGet("pos_active_shifts", []);
+  return (Array.isArray(shifts) ? shifts : []).find(s => s.status === "open") || null;
 }
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
@@ -344,20 +323,11 @@ export function App() {
   const [branchConfig,    setBranchConfig]    = useState(() => loadBranchConfig());
   const [outlet,          setOutlet]          = useState(null);
   const [activeStaff,     setActiveStaff]     = useState([]);
-  const [tableAreas,      setTableAreas]      = useState(() => {
-    try { return JSON.parse(localStorage.getItem("pos_table_config") || "null") || []; }
-    catch { return []; }
-  });
+  const [tableAreas,      setTableAreas]      = useState(() => lsGet("pos_table_config", []));
   const [categories,      setCategories]      = useState(seedCategories);
   const [menuItems,       setMenuItems]       = useState(seedMenuItems);
-  const [kitchenStations, setKitchenStations] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("pos_kitchen_stations") || "[]"); } catch { return []; }
-  });
-  const [orders,          setOrders]          = useState(() => {
-    // Pass current outletId so stale orders from a different outlet are wiped
-    const cfg = loadBranchConfig();
-    return loadSavedOrders(cfg?.outletId || null);
-  });
+  const [kitchenStations, setKitchenStations] = useState(() => lsGet("pos_kitchen_stations", []));
+  const [orders,          setOrders]          = useState(() => loadSavedOrders());
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [showPayment,     setShowPayment]     = useState(false);
   const [showDrawer,      setShowDrawer]      = useState(false);
@@ -365,10 +335,8 @@ export function App() {
   const [itemCounts,      setItemCounts]      = useState(() => loadItemCounts());
   const [showSplitBill,   setShowSplitBill]   = useState(false);
   const [activeArea,      setActiveArea]      = useState(null);
-  const [posConfig,       setPosConfig]       = useState(() => { try { return JSON.parse(localStorage.getItem("pos_config") || "null"); } catch { return null; } });
-  const [serviceMode,     setServiceMode]     = useState(() => {
-    try { return JSON.parse(localStorage.getItem("pos_config") || "null")?.defaultOrderType || "dine-in"; } catch { return "dine-in"; }
-  });
+  const [posConfig,       setPosConfig]       = useState(() => lsGet("pos_config", null));
+  const [serviceMode,     setServiceMode]     = useState(() => lsGet("pos_config", null)?.defaultOrderType || "dine-in");
   const [toast,           setToast]           = useState(null);
   const [undoBanner,      setUndoBanner]      = useState(null); // { label, onUndo }
   const undoBannerTimerRef = useRef(null); // active undo timer — cleared when new banner replaces it
@@ -411,10 +379,9 @@ export function App() {
   const [showDayEnd,       setShowDayEnd]       = useState(false);
   const [dayEndPostShift,  setDayEndPostShift]  = useState(false);
   const [showAdvancePanel, setShowAdvancePanel] = useState(false);
-  const [counterTicketNum,   setCounterTicketNum]   = useState(() => {
-    try { return parseInt(localStorage.getItem("pos_counter_ticket_num") || "1", 10); }
-    catch { return 1; }
-  });
+  const [counterTicketNum,   setCounterTicketNum]   = useState(() =>
+    parseInt(lsGetStr("pos_counter_ticket_num", "1"), 10) || 1
+  );
   // Ticket numbers freed by abandoned (never-paid, no-item) counter orders —
   // reissued to the next new ticket before incrementing the running counter,
   // so a cancelled ticket doesn't leave a permanent gap in the sequence.
@@ -426,14 +393,12 @@ export function App() {
   const [showLabelPrint,     setShowLabelPrint]     = useState(false);
   const [showBatchLabel,     setShowBatchLabel]     = useState(false);
   const [showCreditPanel,    setShowCreditPanel]    = useState(false);
-  const [discountRules,      setDiscountRules]      = useState(() => {
-    try { return JSON.parse(localStorage.getItem("pos_discount_rules") || "[]"); } catch { return []; }
-  });
+  const [discountRules,      setDiscountRules]      = useState(() => lsGet("pos_discount_rules", []));
   const [showOnlineOrders,    setShowOnlineOrders]    = useState(false);
   const [pendingOnlineCount,  setPendingOnlineCount]  = useState(0);
   const [pendingQRCount,      setPendingQRCount]      = useState(0); // customer QR orders (notification only)
   const [onlineOrdersEnabled, setOnlineOrdersEnabled] = useState(() =>
-    localStorage.getItem("pos_online_orders_enabled") !== "false"
+    lsGetStr("pos_online_orders_enabled", "true") !== "false"
   );
   const [showPhonePeQR,      setShowPhonePeQR]      = useState(false);
   const [showWastage,        setShowWastage]        = useState(false);
@@ -444,7 +409,7 @@ export function App() {
   const { show: showWhatsNew, dismiss: dismissWhatsNew } = useWhatsNew();
   const [isSyncing,          setIsSyncing]          = useState(false);
   const [lastSyncedAt,       setLastSyncedAt]       = useState(() => {
-    const s = localStorage.getItem("pos_last_synced");
+    const s = lsGetStr("pos_last_synced", "");
     return s ? new Date(s) : null;
   });
 
@@ -478,6 +443,8 @@ export function App() {
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!branchConfig) return;   // wait — BranchSetupScreen handles this first
+    // Migrate any unscoped legacy localStorage keys → outlet-scoped keys (one-time, safe to re-run)
+    migrateLegacyKeys();
     async function bootstrap() {
       try {
         const outlets = await api.get("/outlets");
@@ -487,7 +454,7 @@ export function App() {
         if (!target) return;
 
         setOutlet(target);
-        try { localStorage.setItem("pos_receipt_appearance", JSON.stringify({ receiptFont: target.receiptFont || "default", billFontSize: target.billFontSize || "normal", kotFontSize: target.kotFontSize || "normal" })); } catch (_) {}
+        lsSet("pos_receipt_appearance", { receiptFont: target.receiptFont || "default", billFontSize: target.billFontSize || "normal", kotFontSize: target.kotFontSize || "normal" });
 
         const [cats, items, kitchenStations, staffRes, discountRes, posConfigRes] = await Promise.all([
           api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),
@@ -505,12 +472,12 @@ export function App() {
             (r.outletScope === "All Outlets" || !r.outletScope || r.outletScope === outletName)
           );
           setDiscountRules(active);
-          try { localStorage.setItem("pos_discount_rules", JSON.stringify(active)); } catch (_) {}
+          lsSet("pos_discount_rules", active);
         }
         if (staffRes?.staff?.length) setActiveStaff(staffRes.staff);
         if (posConfigRes && typeof posConfigRes === "object") {
           setPosConfig(posConfigRes);
-          try { localStorage.setItem("pos_config", JSON.stringify(posConfigRes)); } catch (_) {}
+          lsSet("pos_config", posConfigRes);
           if (posConfigRes.defaultOrderType) setServiceMode(posConfigRes.defaultOrderType);
         }
 
@@ -526,7 +493,7 @@ export function App() {
               .map(id => catIdToName[String(id)])
               .filter(Boolean)
           }));
-          localStorage.setItem("pos_kitchen_stations", JSON.stringify(enriched));
+          lsSet("pos_kitchen_stations", enriched);
           setKitchenStations(enriched);
         }
 
@@ -540,7 +507,7 @@ export function App() {
 
         const builtAreas = buildAreasFromOutlet(target);
         setTableAreas(builtAreas);
-        localStorage.setItem("pos_table_config", JSON.stringify(builtAreas));
+        lsSet("pos_table_config", builtAreas);
 
         // ── Save everything to offline cache so the next cold start is instant ──
         saveConfigCache({
@@ -1382,7 +1349,7 @@ export function App() {
           (r.outletScope === "All Outlets" || !r.outletScope || r.outletScope === outletName)
         );
         setDiscountRules(active);
-        try { localStorage.setItem("pos_discount_rules", JSON.stringify(active)); } catch (_) {}
+        lsSet("pos_discount_rules", active);
       }
       if (cats)    setCategories(cats);
       if (items) {
@@ -1413,7 +1380,7 @@ export function App() {
         });
       }
       if (stations?.length) {
-        localStorage.setItem("pos_kitchen_stations", JSON.stringify(stations));
+        lsSet("pos_kitchen_stations", stations);
       }
       // Re-sync tables/areas from the latest outlet data — ALWAYS update,
       // even if tables array is empty (clears stale demo data from localStorage)
@@ -1422,8 +1389,8 @@ export function App() {
       if (freshOutlet) {
         setOutlet(freshOutlet);          // ← update React state so gstTreatment, tables etc. reflect immediately
         setTableAreas(freshAreas || []);
-        localStorage.setItem("pos_table_config", JSON.stringify(freshAreas || []));
-        try { localStorage.setItem("pos_receipt_appearance", JSON.stringify({ receiptFont: freshOutlet.receiptFont || "default", billFontSize: freshOutlet.billFontSize || "normal", kotFontSize: freshOutlet.kotFontSize || "normal" })); } catch (_) {}
+        lsSet("pos_table_config", freshAreas || []);
+        lsSet("pos_receipt_appearance", { receiptFont: freshOutlet.receiptFont || "default", billFontSize: freshOutlet.billFontSize || "normal", kotFontSize: freshOutlet.kotFontSize || "normal" });
       }
       saveConfigCache({
         outlet:     freshOutlet || null,
@@ -1451,7 +1418,7 @@ export function App() {
 
       const now = new Date();
       setLastSyncedAt(now);
-      localStorage.setItem("pos_last_synced", now.toISOString());
+      lsSet("pos_last_synced", now.toISOString());
 
       // Show detailed feedback so staff can confirm tables loaded
       if (freshOutlet) {
@@ -1574,7 +1541,7 @@ export function App() {
 
   // Persist counter ticket number across refreshes
   useEffect(() => {
-    localStorage.setItem("pos_counter_ticket_num", String(counterTicketNum));
+    lsSet("pos_counter_ticket_num", String(counterTicketNum));
   }, [counterTicketNum]);
 
   // Track online / offline via browser events (secondary to socket events above).
@@ -1842,7 +1809,7 @@ export function App() {
   function handleToggleOnlineOrders() {
     const next = !onlineOrdersEnabled;
     setOnlineOrdersEnabled(next);
-    localStorage.setItem("pos_online_orders_enabled", String(next));
+    lsSet("pos_online_orders_enabled", String(next));
     socketRef.current?.emit("online:orders:toggle", { outletId: outlet?.id, enabled: next });
     if (!next) setPendingOnlineCount(0);
   }
@@ -2368,11 +2335,9 @@ export function App() {
 
     // 1. Save to pos_closed_orders in localStorage
     try {
-      const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-      // Stamp outlet so PastOrdersModal can filter cross-outlet contamination
+      const prev = lsGet("pos_closed_orders", []);
       prev.unshift({ ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId });
-      // Keep last 500 orders
-      localStorage.setItem("pos_closed_orders", JSON.stringify(prev.slice(0, 500)));
+      lsSet("pos_closed_orders", prev.slice(0, 500));
     } catch {}
 
     // 2. Temporarily mark table closed for the 1.5 s UI flash.
@@ -2408,12 +2373,12 @@ export function App() {
 
         // Overwrite the localStorage record with the stamped version
         try {
-          const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+          const prev = lsGet("pos_closed_orders", []);
           const prevIdx = prev.findIndex(r => r.orderNumber === stamped.orderNumber);
           if (prevIdx >= 0) {
             prev[prevIdx] = { ...stamped, _outletId: outlet?.id || branchConfig?.outletId };
           }
-          localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
+          lsSet("pos_closed_orders", prev);
         } catch {}
       }
 
@@ -2702,11 +2667,11 @@ export function App() {
     const cleanPayments = newPayments.map(p => ({ method: p.method, amount: p.amount }));
 
     try {
-      const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+      const prev = lsGet("pos_closed_orders", []);
       const idx  = prev.findIndex(o => o.closedAt === order.closedAt);
       if (idx >= 0) {
         prev[idx] = { ...prev[idx], payments: cleanPayments, paymentCorrectedAt: new Date().toISOString() };
-        localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
+        lsSet("pos_closed_orders", prev);
       }
     } catch {}
 
@@ -2847,10 +2812,9 @@ export function App() {
 
     // 1. Save to pos_closed_orders
     try {
-      const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
-      // Stamp outlet so PastOrdersModal can filter cross-outlet contamination
+      const prev = lsGet("pos_closed_orders", []);
       prev.unshift({ ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId });
-      localStorage.setItem("pos_closed_orders", JSON.stringify(prev.slice(0, 500)));
+      lsSet("pos_closed_orders", prev.slice(0, 500));
     } catch {}
 
     // 2. Optimistic close + broadcast to Captain / KDS
@@ -2875,12 +2839,12 @@ export function App() {
         closedOrder.billNoDate = closeResult.billNoDate  || null;
         closedOrder.closedAt   = closeResult.closedAt    || closedOrder.closedAt;
         try {
-          const prev = JSON.parse(localStorage.getItem("pos_closed_orders") || "[]");
+          const prev = lsGet("pos_closed_orders", []);
           const prevIdx = prev.findIndex(r => r.orderNumber === closedOrder.orderNumber);
           if (prevIdx >= 0) {
             prev[prevIdx] = { ...closedOrder, _outletId: outlet?.id || branchConfig?.outletId };
           }
-          localStorage.setItem("pos_closed_orders", JSON.stringify(prev));
+          lsSet("pos_closed_orders", prev);
         } catch {}
       }
     } catch (err) {
@@ -3177,7 +3141,7 @@ export function App() {
       if (item?.id &&
           !tableId.startsWith("counter-") &&
           !tableId.startsWith("online-")) {
-        const sec = JSON.parse(localStorage.getItem("pos_security") || "{}");
+        const sec = lsGet("pos_security", {});
         api.patch("/operations/order/item", {
           tableId,
           itemId:      item.id,
