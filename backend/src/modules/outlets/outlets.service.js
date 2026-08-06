@@ -78,11 +78,15 @@ function generateOutletCode(name, city, existingOutlets) {
 async function createOutlet(payload) {
   const existingOutlets = getOwnerSetupData().outlets || [];
   const code = generateOutletCode(payload.name, payload.city, existingOutlets);
+  const resId = existingOutlets.length > 0
+    ? Math.max(...existingOutlets.map(o => o.resId || 0)) + 1
+    : 1;
 
   const outlet = {
     id: `outlet-${Date.now()}`,
     code,
     syncCode: generateSyncCode(),
+    resId,
     name: payload.name,
     gstin: payload.gstin || "",
     city: payload.city || "",

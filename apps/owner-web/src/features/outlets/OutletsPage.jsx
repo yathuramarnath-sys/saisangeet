@@ -748,7 +748,12 @@ export function OutletsPage() {
                         <span className="loc-city">{outlet.city}</span>
                       </div>
                     </div>
-                    <span className={`status ${statusClass(outlet.status)}`}>{outlet.status}</span>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                      {outlet.resId && (
+                        <span className="outlet-res-id-badge">RES ID {outlet.resId}</span>
+                      )}
+                      <span className={`status ${statusClass(outlet.status)}`}>{outlet.status}</span>
+                    </div>
                   </div>
 
                   {/* Meta info — only when NOT editing */}
