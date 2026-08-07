@@ -33,6 +33,8 @@ import { PhonePeQRModal }     from "./components/PhonePeQRModal";
 import { WastageModal }       from "./components/WastageModal";
 import { WaitlistPanel }     from "./components/WaitlistPanel";
 import { StockPanel }        from "./components/StockPanel";
+import { TransactionsTab }   from "./components/TransactionsTab";
+import { KitchenTab }        from "./components/KitchenTab";
 import { WhatsNewModal, useWhatsNew } from "./components/WhatsNewModal";
 import { areas as seedAreas, categories as seedCategories, menuItems as seedMenuItems } from "./data/pos.seed";
 import { api } from "./lib/api";
@@ -434,6 +436,7 @@ export function App() {
   // Tracks whether any modal is open — barcode scanner is suppressed when true
   const modalOpenRef = useRef(false);
   const [serverConn,  setServerConn]  = useState("connecting"); // for UI banner
+  const [activeTab,   setActiveTab]   = useState("pos");        // "pos" | "transactions" | "kitchen"
 
   // ── Shift state ───────────────────────────────────────────────────────────
   const [activeShift,      setActiveShift]      = useState(() => loadActiveShift());
@@ -3827,6 +3830,7 @@ export function App() {
       )}
 
       {/* ── Left: Category Sidebar ───────────────────────────────────────── */}
+      {activeTab === "pos" && (
       <div className="pos-left">
         <CategorySidebar
           categories={visibleCategories}
@@ -3836,8 +3840,10 @@ export function App() {
           outletName={outlet?.name}
         />
       </div>
+      )}
 
       {/* ── Center: Menu Items ───────────────────────────────────────────── */}
+      {activeTab === "pos" && (
       <div className="pos-center">
         <MenuPanel
           categories={visibleCategories}
@@ -3863,8 +3869,10 @@ export function App() {
           onQuickAddItem={handleQuickAddItem}
         />
       </div>
+      )}
 
       {/* ── Right: Table Picker or Order Panel ───────────────────────────── */}
+      {activeTab === "pos" && (
       <div className="pos-right">
 
         {/* Tab bar — shown whenever a table / counter order is active */}
@@ -3950,6 +3958,70 @@ export function App() {
           cashierPin={cashierPin}
         />
         )}
+      </div>
+      )} {/* end activeTab === "pos" pos-right wrapper */}
+
+      {/* ── Transactions tab view ────────────────────────────────────────── */}
+      {activeTab === "transactions" && (
+        <div className="pos-tab-view">
+          <TransactionsTab
+            orders={orders}
+            onEditPayment={handleEditPayment}
+            outlet={outlet}
+            outletId={outlet?.id || branchConfig?.outletId}
+            cashierName={cashierName}
+            gstTreatment={outlet?.gstTreatment || "exclusive"}
+          />
+        </div>
+      )}
+
+      {/* ── Kitchen tab view ─────────────────────────────────────────────── */}
+      {activeTab === "kitchen" && (
+        <div className="pos-tab-view">
+          <KitchenTab
+            orders={orders}
+            tableAreas={tableAreas}
+          />
+        </div>
+      )}
+
+      {/* ── Bottom Navigation ─────────────────────────────────────────────── */}
+      <div className="pos-bottom-nav">
+        <button
+          type="button"
+          className={`pbn-tab${activeTab === "pos" ? " active" : ""}`}
+          onClick={() => setActiveTab("pos")}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
+            <rect x="11" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
+            <rect x="1" y="11" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
+            <rect x="11" y="11" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
+          </svg>
+          Checkout
+        </button>
+        <button
+          type="button"
+          className={`pbn-tab${activeTab === "transactions" ? " active" : ""}`}
+          onClick={() => setActiveTab("transactions")}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M3 5h12M3 9h9M3 13h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+          </svg>
+          Transactions
+        </button>
+        <button
+          type="button"
+          className={`pbn-tab${activeTab === "kitchen" ? " active" : ""}`}
+          onClick={() => setActiveTab("kitchen")}
+        >
+          {pendingKOT > 0 && <span className="pbn-badge">{pendingKOT}</span>}
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M9 2v2M4.22 4.22l1.42 1.42M2 9h2M4.22 13.78l1.42-1.42M9 14v2M13.78 13.78l-1.42-1.42M16 9h-2M13.78 4.22l-1.42 1.42" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            <circle cx="9" cy="9" r="3" stroke="currentColor" strokeWidth="1.6"/>
+          </svg>
+          Kitchen
+        </button>
       </div>
 
       {/* ── Payment sheet ─────────────────────────────────────────────────── */}
