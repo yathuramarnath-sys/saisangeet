@@ -3,60 +3,129 @@ import { useState } from "react";
 const APP_URL = "https://app.dinexpos.in";
 const API_URL = "https://api.dinexpos.in/api/v1";
 
-const FEATURES = [
+const ECOSYSTEM = [
   {
+    name: "PLATO POS",
+    tagline: "Billing Terminal",
+    desc: "Full-featured billing at lightning speed. Split bills, dine-in, takeaway, counters — GST-ready, works offline.",
     icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
       </svg>
-    ),
-    title: "Smart POS Terminal",
-    desc: "Fast billing, split bills, dine-in & takeaway. Works offline. Designed for Indian menus with GST."
+    )
   },
   {
+    name: "PLATO Captain",
+    tagline: "Waiter Ordering App",
+    desc: "Waiters take orders on their phone. KOTs fire directly to the kitchen. No paper slips, no shouting.",
     icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>
       </svg>
-    ),
-    title: "Captain App",
-    desc: "Waiters take orders on their phone, KOTs sent directly to kitchen. No paper slips."
+    )
   },
   {
+    name: "PLATO Kitchen",
+    tagline: "Kitchen Display System",
+    desc: "Real-time KOT screen for every station. Chefs mark items done, the captain app knows instantly.",
     icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 6h18M3 12h18M3 18h18"/>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M7 8h10M7 11h6"/>
       </svg>
-    ),
-    title: "Kitchen Display",
-    desc: "Real-time KOT screen for the kitchen. Chefs mark items done, captain gets notified."
+    )
   },
   {
+    name: "PLATO Queue",
+    tagline: "Table & Token Manager",
+    desc: "Manage dine-in tables, waitlists and delivery tokens in real time across your entire outlet.",
     icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
-      </svg>
-    ),
-    title: "Owner Dashboard",
-    desc: "Daily sales, staff shifts, GST reports, outlet-wise performance — all in one console."
-  },
-  {
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9h18M3 15h18M9 3v18M15 3v18" strokeOpacity=".5"/><rect x="3" y="3" width="18" height="18" rx="2"/>
       </svg>
-    ),
-    title: "Multi-Outlet",
-    desc: "Manage all your restaurant branches from a single login. Per-outlet staff, menu and devices."
+    )
   },
   {
+    name: "PLATO Pay",
+    tagline: "Integrated Payments",
+    desc: "UPI, card, cash and Razorpay — every payment linked to every order. Zero manual reconciliation.",
     icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/>
       </svg>
-    ),
-    title: "GST Billing",
-    desc: "Automatic CGST/SGST split, GST invoices on demand, ready for Zoho Books sync."
+    )
+  },
+  {
+    name: "PLATO Print",
+    tagline: "Smart Receipt Engine",
+    desc: "KOT printers, bill printers, kitchen stations — configure roles, paper sizes and copies once, print forever.",
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 9V2h12v7"/><rect x="6" y="14" width="12" height="8"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+      </svg>
+    )
+  },
+  {
+    name: "PLATO Online",
+    tagline: "Aggregator Hub",
+    desc: "Swiggy and Zomato orders land directly in your KOT queue via UrbanPiper. No tablet juggling.",
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+    )
+  },
+  {
+    name: "PLATO Owner",
+    tagline: "Analytics Dashboard",
+    desc: "Daily sales, shift reports, GST filings, outlet-wise performance — every metric on your phone or browser.",
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
+      </svg>
+    )
+  },
+  {
+    name: "PLATO Cloud",
+    tagline: "Multi-Outlet Control",
+    desc: "One login. All branches. Centralised menu, staff and reporting for restaurant chains of any size.",
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+      </svg>
+    )
+  }
+];
+
+const HARDWARE = [
+  {
+    name: "PLATO Terminal",
+    sub: "Counter billing unit",
+    desc: "Purpose-built touchscreen billing counter with built-in receipt printer and cash drawer support."
+  },
+  {
+    name: "PLATO Display",
+    sub: "Customer-facing screen",
+    desc: "Dual-display setup showing customers their live order summary at the point of billing."
+  },
+  {
+    name: "PLATO Printer",
+    sub: "Thermal receipt printer",
+    desc: "Auto-cut thermal printer pre-paired with PLATO Print — zero driver setup on Windows or Android."
+  },
+  {
+    name: "PLATO Pay Device",
+    sub: "Card & UPI reader",
+    desc: "Standalone payment terminal for tap, swipe and QR — auto-reconciled against every order."
+  },
+  {
+    name: "PLATO KDS Screen",
+    sub: "Ruggedized kitchen display",
+    desc: "Industrial touchscreen built for high-heat, high-humidity kitchen environments."
+  },
+  {
+    name: "PLATO Token Board",
+    sub: "Queue display",
+    desc: "Wall-mounted customer token and table-call display for takeaway counters and fast-casual formats."
   }
 ];
 
@@ -76,9 +145,9 @@ const PLANS = [
     desc: "Perfect for a single-outlet restaurant getting started.",
     features: [
       "1 outlet",
-      "POS Terminal (Web + Android + Windows)",
-      "Captain App",
-      "Kitchen Display",
+      "PLATO POS (Web + Android + Windows)",
+      "PLATO Captain",
+      "PLATO Kitchen",
       "Menu & staff management",
       "Basic reports (CSV export)",
       "30-day free trial",
@@ -95,10 +164,10 @@ const PLANS = [
     features: [
       "Up to 3 outlets",
       "Everything in Starter",
+      "PLATO Online (Swiggy + Zomato)",
       "Advanced reports (PDF + CSV)",
       "Inventory tracking",
       "Discount & void controls",
-      "Staff shift reports",
       "Priority support",
     ],
     highlighted: true,
@@ -114,10 +183,10 @@ const PLANS = [
     features: [
       "Unlimited outlets",
       "Everything in Pro",
+      "PLATO Cloud multi-outlet",
       "Custom receipt branding",
       "Dedicated account manager",
       "SLA-backed support",
-      "Custom integrations on request",
     ],
     highlighted: false,
     cta: "Contact Us",
@@ -130,14 +199,14 @@ const INTEGRATIONS = [
   { name: "Borzo", desc: "On-demand delivery rider dispatch for your own delivery orders." },
   { name: "Zoho Books", desc: "Daily sales sync straight into your accounting — no manual entry." },
   { name: "WhatsApp & SMS", desc: "Order updates and bills sent to customers automatically." },
-  { name: "Razorpay", desc: "Secure subscription billing for your Plato account." },
+  { name: "Razorpay", desc: "Secure subscription billing for your PLATO account." },
 ];
 
 const TESTIMONIALS = [
   {
     name: "Rajesh Kumar",
     role: "Owner, Spice Garden — Bengaluru",
-    text: "We switched from a paper-based system to Plato in one day. The KOT screen alone saves us 20 minutes every service."
+    text: "We switched from a paper-based system to PLATO in one day. The KOT screen alone saves us 20 minutes every service."
   },
   {
     name: "Priya Menon",
@@ -152,26 +221,14 @@ const TESTIMONIALS = [
 ];
 
 const PlateLogo = ({ size = 20, stroke = "#fff" }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round">
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2.4" strokeLinecap="round">
     <circle cx="12" cy="12" r="9"/>
     <path d="M8 12h8"/>
+    <path d="M12 8v8" strokeOpacity=".5"/>
   </svg>
 );
 
-const APP_STRIP_ICONS = {
-  "POS Terminal": (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-  ),
-  "Captain App": (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
-  ),
-  "Kitchen Display": (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h10M7 11h6"/></svg>
-  ),
-  "Owner Console": (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-  ),
-};
+const STRIP_PRODUCTS = ["POS", "Captain", "Kitchen", "Queue", "Pay", "Print", "Online", "Owner", "Cloud"];
 
 export function App() {
   const [form, setForm] = useState({ name: "", restaurant: "", phone: "", email: "", outlets: "1", message: "" });
@@ -207,13 +264,13 @@ export function App() {
             <span className="lp-logo-mark">
               <PlateLogo size={16} stroke="#fff" />
             </span>
-            <span>Plato</span>
+            <span>PLATO</span>
           </a>
           <div className={`lp-nav-links${menuOpen ? " open" : ""}`}>
-            <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
+            <a href="#ecosystem" onClick={() => setMenuOpen(false)}>Ecosystem</a>
+            <a href="#vision" onClick={() => setMenuOpen(false)}>Vision</a>
             <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a>
             <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
-            <a href="#testimonials" onClick={() => setMenuOpen(false)}>Reviews</a>
             <a href="#enroll" onClick={() => setMenuOpen(false)}>Get Started</a>
           </div>
           <div className="lp-nav-actions">
@@ -231,14 +288,14 @@ export function App() {
         <div className="lp-hero-inner">
           <div className="lp-hero-text">
             <span className="lp-hero-badge">🇮🇳 Built for Indian Restaurants</span>
-            <h1>Serve better.<br />Every table.</h1>
+            <h1>The Restaurant<br />Operating System.</h1>
             <p className="lp-hero-sub">
-              POS · Captain App · Kitchen Display · GST Billing · Multi-Outlet Reports.<br />
-              Everything your restaurant needs — one platform, one subscription.
+              One platform. Every restaurant operation.<br />
+              POS · Captain · Kitchen · Pay · Online Orders · Owner Analytics.
             </p>
             <div className="lp-hero-btns">
               <a href="#enroll" className="lp-btn-primary">Start Free Trial</a>
-              <a href="#how-it-works" className="lp-btn-ghost">See how it works →</a>
+              <a href="#ecosystem" className="lp-btn-ghost">Explore PLATO →</a>
             </div>
             <div className="lp-hero-trust">
               <span>✓ No credit card</span>
@@ -259,9 +316,9 @@ export function App() {
                     <div className="lp-mock-brand-mark">
                       <PlateLogo size={12} stroke="#fff" />
                     </div>
-                    <span>Plato</span>
+                    <span>PLATO</span>
                   </div>
-                  {["Overview","Outlets","Menu","Staff","Reports","App Store"].map(item => (
+                  {["Overview","Outlets","Menu","Staff","Reports","Devices"].map(item => (
                     <div key={item} className={`lp-mock-nav-item${item === "Overview" ? " active" : ""}`}>{item}</div>
                   ))}
                 </div>
@@ -292,41 +349,62 @@ export function App() {
         </div>
       </section>
 
-      {/* APP STRIP */}
+      {/* PRODUCT STRIP */}
       <section className="lp-app-strip">
         <div className="lp-strip-inner">
-          {[
-            { name: "POS Terminal",    url: "pos.dinexpos.in" },
-            { name: "Captain App",     url: "captain.dinexpos.in" },
-            { name: "Kitchen Display", url: "kds.dinexpos.in" },
-            { name: "Owner Console",   url: "app.dinexpos.in" }
-          ].map(app => (
-            <div key={app.name} className="lp-strip-app">
-              <span className="lp-strip-icon">{APP_STRIP_ICONS[app.name]}</span>
-              <div>
-                <strong>{app.name}</strong>
-                <span>{app.url}</span>
-              </div>
-            </div>
+          {STRIP_PRODUCTS.map(name => (
+            <span key={name} className="lp-strip-pill">
+              <span className="lp-strip-pill-dot" />
+              PLATO {name}
+            </span>
           ))}
         </div>
       </section>
 
-      {/* FEATURES */}
-      <section className="lp-section" id="features">
+      {/* ECOSYSTEM */}
+      <section className="lp-section" id="ecosystem">
         <div className="lp-section-inner">
-          <p className="lp-eyebrow">What's included</p>
-          <h2>Everything your restaurant needs</h2>
-          <p className="lp-section-sub">One platform covers every touchpoint — from the kitchen to the owner's phone.</p>
+          <p className="lp-eyebrow">The PLATO Ecosystem</p>
+          <h2>9 products. One platform.</h2>
+          <p className="lp-section-sub">Every tool your restaurant needs — built to work together from day one.</p>
           <div className="lp-features-grid">
-            {FEATURES.map(f => (
-              <div key={f.title} className="lp-feature-card">
-                <span className="lp-feature-icon">{f.icon}</span>
-                <h3>{f.title}</h3>
-                <p>{f.desc}</p>
+            {ECOSYSTEM.map(p => (
+              <div key={p.name} className="lp-feature-card">
+                <span className="lp-feature-icon">{p.icon}</span>
+                <h3>{p.name}</h3>
+                <div className="lp-feature-tagline">{p.tagline}</div>
+                <p>{p.desc}</p>
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* VISION — Software. Hardware. Payments. */}
+      <section className="lp-section lp-section-dark" id="vision">
+        <div className="lp-section-inner">
+          <p className="lp-eyebrow light">Our Vision</p>
+          <h2>Software. Hardware. Payments.<br />One PLATO.</h2>
+          <div className="lp-vision-intro">
+            <p>
+              PLATO is more than software. We're building an end-to-end restaurant operating system —
+              purpose-built hardware that ships pre-configured with every PLATO product.
+              No setup. No IT. Just plug in and go.
+            </p>
+          </div>
+          <div className="lp-vision-grid">
+            {HARDWARE.map(h => (
+              <div key={h.name} className="lp-vision-card">
+                <div className="lp-coming-badge">Coming Soon</div>
+                <h4>{h.name}</h4>
+                <p style={{ fontSize: ".78rem", color: "#FFB060", fontWeight: 700, marginBottom: 6 }}>{h.sub}</p>
+                <p>{h.desc}</p>
+              </div>
+            ))}
+          </div>
+          <p className="lp-vision-note">
+            Hardware launches in 2026. Register your interest and we'll notify you first.
+          </p>
         </div>
       </section>
 
@@ -335,10 +413,10 @@ export function App() {
         <div className="lp-section-inner">
           <p className="lp-eyebrow">Connected out of the box</p>
           <h2>Plays well with the tools you already use</h2>
-          <p className="lp-section-sub">No middleware, no manual reconciliation — Plato talks to your delivery, payment and accounting stack directly.</p>
-          <div className="lp-features-grid">
+          <p className="lp-section-sub">No middleware, no manual reconciliation — PLATO talks to your delivery, payment and accounting stack directly.</p>
+          <div className="lp-integrations-grid">
             {INTEGRATIONS.map(i => (
-              <div key={i.name} className="lp-feature-card">
+              <div key={i.name} className="lp-int-card">
                 <h3>{i.name}</h3>
                 <p>{i.desc}</p>
               </div>
@@ -436,7 +514,7 @@ export function App() {
             <p className="lp-eyebrow">Free trial</p>
             <h2>Get started today</h2>
             <p className="lp-enroll-sub">
-              Fill in your details and we'll set up your Plato account.
+              Fill in your details and we'll set up your PLATO account.
               No credit card. No commitment. Live in 24 hours.
             </p>
             <ul className="lp-enroll-perks">
@@ -459,7 +537,7 @@ export function App() {
                 <h3>Check your inbox!</h3>
                 <p>Your login credentials have been sent to your email. Sign in to get started.</p>
                 <a href={`${APP_URL}/login`} className="lp-btn-primary" style={{ marginTop: 16, display: "inline-block" }}>
-                  Sign in to Plato →
+                  Sign in to PLATO →
                 </a>
               </div>
             ) : (
@@ -527,33 +605,35 @@ export function App() {
               <PlateLogo size={14} stroke="#fff" />
             </span>
             <div>
-              <strong>Plato</strong>
-              <span>Serve better. Every table.</span>
+              <strong>PLATO</strong>
+              <span>The Restaurant Operating System.</span>
             </div>
           </div>
           <div className="lp-footer-links">
             <div>
               <strong>Platform</strong>
-              <a href="#features">Features</a>
+              <a href="#ecosystem">Ecosystem</a>
+              <a href="#vision">Vision</a>
               <a href="#how-it-works">How it works</a>
-              <a href={`${APP_URL}/signup`}>Sign Up</a>
               <a href={`${APP_URL}/login`}>Owner Login</a>
             </div>
             <div>
-              <strong>Apps</strong>
-              <a href="https://pos.dinexpos.in">POS Terminal</a>
-              <a href="https://captain.dinexpos.in">Captain App</a>
-              <a href="https://kds.dinexpos.in">Kitchen Display</a>
+              <strong>Products</strong>
+              <a href="https://pos.dinexpos.in">PLATO POS</a>
+              <a href="https://captain.dinexpos.in">PLATO Captain</a>
+              <a href="https://kds.dinexpos.in">PLATO Kitchen</a>
+              <a href={`${APP_URL}`}>PLATO Owner</a>
             </div>
             <div>
               <strong>Contact</strong>
               <a href="mailto:info@dinexpos.in">info@dinexpos.in</a>
               <a href="https://api.dinexpos.in/health">System Status</a>
+              <a href="#pricing">Pricing</a>
             </div>
           </div>
         </div>
         <div className="lp-footer-bottom">
-          <span>© 2026 Plato. All rights reserved.</span>
+          <span>© 2026 PLATO. All rights reserved.</span>
           <span>Made in India 🇮🇳</span>
         </div>
       </footer>
