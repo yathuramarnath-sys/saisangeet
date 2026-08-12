@@ -136,62 +136,116 @@ const HOW_IT_WORKS = [
   { step: "4", title: "Go Live", desc: "Start taking orders. Reports flow in automatically." }
 ];
 
-const PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: "₹999",
-    period: "/ month",
-    desc: "Perfect for a single-outlet restaurant getting started.",
-    features: [
-      "1 outlet",
-      "PLATO POS (Web + Android + Windows)",
-      "PLATO Captain",
-      "PLATO Kitchen",
-      "Menu & staff management",
-      "Basic reports (CSV export)",
-      "30-day free trial",
-    ],
-    highlighted: false,
-    cta: "Start Free Trial",
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "₹1,999",
-    period: "/ month",
-    desc: "For growing restaurants with multiple branches.",
-    features: [
-      "Up to 3 outlets",
-      "Everything in Starter",
-      "PLATO Online (Swiggy + Zomato)",
-      "Advanced reports (PDF + CSV)",
-      "Inventory tracking",
-      "Discount & void controls",
-      "Priority support",
-    ],
-    highlighted: true,
-    badge: "Most Popular",
-    cta: "Start Free Trial",
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: "₹2,999",
-    period: "/ month",
-    desc: "Unlimited outlets, custom branding and dedicated support.",
-    features: [
-      "Unlimited outlets",
-      "Everything in Pro",
-      "PLATO Cloud multi-outlet",
-      "Custom receipt branding",
-      "Dedicated account manager",
-      "SLA-backed support",
-    ],
-    highlighted: false,
-    cta: "Contact Us",
-  },
+const OUTLET_TYPES = [
+  { id: "cafe",        label: "Café & QSR" },
+  { id: "fullservice", label: "Full Service" },
+  { id: "bar",         label: "Bar" },
+  { id: "foodtruck",   label: "Food Truck" },
+  { id: "street",      label: "Street Vendor" },
 ];
+
+const PLANS_BY_TYPE = {
+  cafe: [
+    {
+      id: "starter", name: "Starter", price: "₹999", period: "/ month",
+      desc: "For single-outlet cafés and QSRs getting started.",
+      features: ["1 outlet", "PLATO POS (Web + Android + Windows)", "PLATO Captain", "PLATO Kitchen", "Menu & staff management", "Basic reports", "30-day free trial"],
+      highlighted: false, cta: "Start Free Trial",
+    },
+    {
+      id: "growth", name: "Growth", price: "₹1,999", period: "/ month",
+      desc: "For growing cafés managing dine-in, takeaway and online orders.",
+      features: ["Up to 3 outlets", "Everything in Starter", "PLATO Online (Swiggy + Zomato)", "Advanced reports (PDF + CSV)", "Inventory tracking", "Discount & void controls", "Priority support"],
+      highlighted: true, badge: "Most Popular", cta: "Start Free Trial",
+    },
+    {
+      id: "pro", name: "Pro", price: "₹2,999", period: "/ month",
+      desc: "Full suite for café chains with owner-level analytics.",
+      features: ["Unlimited outlets", "Everything in Growth", "PLATO Cloud multi-outlet", "Custom receipt branding", "Dedicated account manager", "SLA-backed support"],
+      highlighted: false, cta: "Contact Us",
+    },
+  ],
+  fullservice: [
+    {
+      id: "starter", name: "Starter", price: "₹1,499", period: "/ month",
+      desc: "For single-outlet full-service restaurants.",
+      features: ["1 outlet", "PLATO POS + Captain + Kitchen", "Table management", "GST billing & reports", "Staff management", "30-day free trial"],
+      highlighted: false, cta: "Start Free Trial",
+    },
+    {
+      id: "growth", name: "Growth", price: "₹2,999", period: "/ month",
+      desc: "For multi-outlet full-service restaurants with online orders.",
+      features: ["Up to 3 outlets", "Everything in Starter", "PLATO Online (Swiggy + Zomato)", "PLATO Pay", "Inventory tracking", "Advanced analytics", "Priority support"],
+      highlighted: true, badge: "Most Popular", cta: "Start Free Trial",
+    },
+    {
+      id: "pro", name: "Pro", price: "₹4,999", period: "/ month",
+      desc: "Full suite for restaurant chains.",
+      features: ["Unlimited outlets", "Everything in Growth", "PLATO Cloud", "Custom receipt branding", "Dedicated account manager", "SLA-backed support"],
+      highlighted: false, cta: "Contact Us",
+    },
+  ],
+  bar: [
+    {
+      id: "starter", name: "Starter", price: "₹999", period: "/ month",
+      desc: "For single-outlet bars and lounges.",
+      features: ["1 outlet", "PLATO POS", "Tab management", "GST billing", "Staff management", "30-day free trial"],
+      highlighted: false, cta: "Start Free Trial",
+    },
+    {
+      id: "growth", name: "Growth", price: "₹1,999", period: "/ month",
+      desc: "For bars with multiple areas or outlets.",
+      features: ["Up to 3 outlets", "Everything in Starter", "PLATO Captain", "PLATO Pay", "Inventory tracking", "Advanced reports", "Priority support"],
+      highlighted: true, badge: "Most Popular", cta: "Start Free Trial",
+    },
+    {
+      id: "pro", name: "Pro", price: "₹2,999", period: "/ month",
+      desc: "Multi-outlet bar chain management.",
+      features: ["Unlimited outlets", "Everything in Growth", "PLATO Cloud", "Custom branding", "Dedicated account manager", "SLA-backed support"],
+      highlighted: false, cta: "Contact Us",
+    },
+  ],
+  foodtruck: [
+    {
+      id: "starter", name: "Starter", price: "₹499", period: "/ month",
+      desc: "For food trucks and pop-up stalls.",
+      features: ["1 outlet", "PLATO POS (Android + Web)", "PLATO Pay (UPI + card)", "GST billing", "Basic reports", "30-day free trial"],
+      highlighted: false, cta: "Start Free Trial",
+    },
+    {
+      id: "growth", name: "Growth", price: "₹999", period: "/ month",
+      desc: "For food trucks with online order integration.",
+      features: ["Up to 2 outlets", "Everything in Starter", "PLATO Online", "PLATO Captain", "Inventory tracking", "Priority support"],
+      highlighted: true, badge: "Most Popular", cta: "Start Free Trial",
+    },
+    {
+      id: "pro", name: "Pro", price: "₹1,999", period: "/ month",
+      desc: "Multi-location food truck fleet management.",
+      features: ["Unlimited outlets", "Everything in Growth", "PLATO Cloud", "Advanced analytics", "Dedicated support"],
+      highlighted: false, cta: "Contact Us",
+    },
+  ],
+  street: [
+    {
+      id: "starter", name: "Starter", price: "₹299", period: "/ month",
+      desc: "For street vendors and small stalls.",
+      features: ["1 outlet", "PLATO POS (Android)", "PLATO Pay (UPI)", "Basic billing", "Sales reports", "30-day free trial"],
+      highlighted: false, cta: "Start Free Trial",
+    },
+    {
+      id: "growth", name: "Growth", price: "₹599", period: "/ month",
+      desc: "For vendors with multiple stalls.",
+      features: ["Up to 3 outlets", "Everything in Starter", "PLATO Captain", "Inventory tracking", "GST reports", "Priority support"],
+      highlighted: true, badge: "Most Popular", cta: "Start Free Trial",
+    },
+    {
+      id: "pro", name: "Pro", price: "₹999", period: "/ month",
+      desc: "Full street food chain management.",
+      features: ["Unlimited outlets", "Everything in Growth", "PLATO Cloud", "Advanced analytics", "Dedicated support"],
+      highlighted: false, cta: "Contact Us",
+    },
+  ],
+};
 
 const INTEGRATIONS = [
   { name: "Swiggy & Zomato", desc: "Online orders flow straight into your KOT queue via UrbanPiper — no tablet juggling." },
@@ -235,6 +289,7 @@ export function App() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeOutlet, setActiveOutlet] = useState("cafe");
 
   function set(field) {
     return (e) => setForm(f => ({ ...f, [field]: e.target.value }));
@@ -426,11 +481,11 @@ export function App() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="lp-section lp-section-dark" id="how-it-works">
+      <section className="lp-section" id="how-it-works">
         <div className="lp-section-inner">
-          <p className="lp-eyebrow light">Simple setup</p>
+          <p className="lp-eyebrow">Simple setup</p>
           <h2>Live in one day</h2>
-          <p className="lp-section-sub light">No IT team needed. No complex installation.</p>
+          <p className="lp-section-sub">No IT team needed. No complex installation.</p>
           <div className="lp-steps-grid">
             {HOW_IT_WORKS.map(s => (
               <div key={s.step} className="lp-step">
@@ -473,8 +528,21 @@ export function App() {
           <h2>One flat monthly fee. No per-device charges.</h2>
           <p className="lp-section-sub">Every plan includes a 30-day free trial. No credit card needed to start.</p>
 
+          {/* Outlet type tabs */}
+          <div className="lp-outlet-tabs">
+            {OUTLET_TYPES.map(t => (
+              <button
+                key={t.id}
+                className={`lp-outlet-tab${activeOutlet === t.id ? " active" : ""}`}
+                onClick={() => setActiveOutlet(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
           <div className="lp-pricing-grid">
-            {PLANS.map(plan => (
+            {PLANS_BY_TYPE[activeOutlet].map(plan => (
               <div key={plan.id} className={`lp-plan-card${plan.highlighted ? " highlighted" : ""}`}>
                 {plan.badge && <div className="lp-plan-badge">{plan.badge}</div>}
                 <div className="lp-plan-header">
@@ -491,7 +559,7 @@ export function App() {
                   ))}
                 </ul>
                 <a
-                  href={plan.id === "enterprise" ? "mailto:info@dinexpos.in" : "#enroll"}
+                  href={plan.cta === "Contact Us" ? "mailto:info@dinexpos.in" : "#enroll"}
                   className={`lp-plan-cta${plan.highlighted ? " primary" : ""}`}
                 >
                   {plan.cta}

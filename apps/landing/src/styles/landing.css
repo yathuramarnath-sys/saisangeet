@@ -1,14 +1,14 @@
 /* ============================================================
    PLATO Landing Page — landing.css
-   Brand: #FF7900 | Background: #FFFFFF
+   Brand: #FF5F15 | Background: #FFFFFF
    ============================================================ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --brand:       #FF7900;
-  --brand-dark:  #E06800;
-  --brand-light: #FFF7ED;
+  --brand:       #FF5F15;
+  --brand-dark:  #E04800;
+  --brand-light: #FFF3EE;
   --dark:        #0F1117;
   --dark-2:      #1A1D27;
   --dark-3:      #23263A;
@@ -98,56 +98,53 @@ body {
 }
 
 .lp-nav-links a {
-  text-decoration: none;
   color: var(--ink-2);
-  font-weight: 500;
-  font-size: .9rem;
+  text-decoration: none;
+  font-size: .88rem;
+  font-weight: 600;
   padding: 6px 12px;
   border-radius: var(--radius-sm);
-  transition: background .15s, color .15s;
+  transition: color .15s, background .15s;
 }
 
 .lp-nav-links a:hover {
+  color: var(--ink);
   background: var(--brand-light);
-  color: var(--brand);
 }
 
-.lp-nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
+.lp-nav-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-shrink: 0; }
 
 .lp-nav-login {
-  text-decoration: none;
   color: var(--ink-2);
+  text-decoration: none;
+  font-size: .88rem;
   font-weight: 600;
-  font-size: .9rem;
-  padding: 8px 16px;
+  padding: 8px 14px;
   border-radius: var(--radius-sm);
   transition: color .15s;
 }
 
-.lp-nav-login:hover { color: var(--brand); }
+.lp-nav-login:hover { color: var(--ink); }
 
 .lp-nav-cta {
-  text-decoration: none;
+  display: inline-block;
   background: var(--brand);
   color: #fff;
   font-weight: 700;
-  font-size: .88rem;
-  padding: 8px 18px;
+  font-size: .85rem;
+  padding: 9px 18px;
   border-radius: var(--radius-sm);
+  text-decoration: none;
   transition: background .15s;
+  white-space: nowrap;
 }
 
 .lp-nav-cta:hover { background: var(--brand-dark); }
 
-/* hamburger */
 .lp-hamburger {
   display: none;
   flex-direction: column;
+  justify-content: center;
   gap: 5px;
   background: none;
   border: none;
@@ -165,10 +162,10 @@ body {
 }
 
 /* ============================================================
-   HERO
+   HERO — white background
    ============================================================ */
 .lp-hero {
-  background: linear-gradient(135deg, #0F1117 0%, #1E2030 55%, #241A0D 100%);
+  background: linear-gradient(160deg, #FFFFFF 0%, #FFF3EE 60%, #FFE8D6 100%);
   padding: 88px 24px 72px;
   overflow: hidden;
 }
@@ -186,9 +183,9 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255,121,0,.12);
-  color: #FFB060;
-  border: 1px solid rgba(255,121,0,.3);
+  background: rgba(255,95,21,.1);
+  color: var(--brand);
+  border: 1px solid rgba(255,95,21,.25);
   font-size: .78rem;
   font-weight: 700;
   letter-spacing: .06em;
@@ -201,7 +198,7 @@ body {
 .lp-hero-text h1 {
   font-size: clamp(2.2rem, 4.5vw, 3.4rem);
   font-weight: 900;
-  color: #fff;
+  color: var(--ink);
   line-height: 1.12;
   margin-bottom: 22px;
   letter-spacing: -.025em;
@@ -212,7 +209,7 @@ body {
 }
 
 .lp-hero-sub {
-  color: #9AA5C0;
+  color: var(--ink-2);
   font-size: 1.05rem;
   line-height: 1.75;
   margin-bottom: 36px;
@@ -242,18 +239,18 @@ body {
 
 .lp-btn-ghost {
   display: inline-block;
-  background: rgba(255,255,255,.07);
-  color: #fff;
+  background: #fff;
+  color: var(--ink);
   font-weight: 600;
   font-size: .95rem;
   padding: 13px 26px;
   border-radius: var(--radius-sm);
   text-decoration: none;
-  border: 1px solid rgba(255,255,255,.14);
-  transition: background .15s;
+  border: 1.5px solid var(--border);
+  transition: border-color .15s, color .15s;
 }
 
-.lp-btn-ghost:hover { background: rgba(255,255,255,.13); }
+.lp-btn-ghost:hover { border-color: var(--brand); color: var(--brand); }
 
 .lp-hero-trust {
   display: flex;
@@ -262,7 +259,7 @@ body {
 }
 
 .lp-hero-trust span {
-  color: #6B7A99;
+  color: var(--ink-2);
   font-size: .82rem;
   font-weight: 600;
 }
@@ -281,7 +278,7 @@ body {
   overflow: hidden;
   width: 100%;
   max-width: 500px;
-  box-shadow: 0 24px 64px rgba(0,0,0,.5);
+  box-shadow: 0 24px 64px rgba(255,95,21,.18), 0 4px 16px rgba(0,0,0,.2);
 }
 
 .lp-mock-topbar {
@@ -360,8 +357,8 @@ body {
 }
 
 .lp-mock-nav-item.active {
-  background: rgba(255,121,0,.2);
-  color: #FFB060;
+  background: rgba(255,95,21,.2);
+  color: #FF9060;
 }
 
 .lp-mock-content {
@@ -406,7 +403,7 @@ body {
 
 .lp-mock-bar {
   flex: 1;
-  background: linear-gradient(180deg, #FF7900 0%, #E06800 100%);
+  background: linear-gradient(180deg, #FF5F15 0%, #E04800 100%);
   border-radius: 3px 3px 0 0;
   opacity: .85;
 }
@@ -416,8 +413,8 @@ body {
    ============================================================ */
 .lp-app-strip {
   background: var(--brand-light);
-  border-top: 1px solid rgba(255,121,0,.2);
-  border-bottom: 1px solid rgba(255,121,0,.2);
+  border-top: 1px solid rgba(255,95,21,.2);
+  border-bottom: 1px solid rgba(255,95,21,.2);
   padding: 18px 24px;
   overflow-x: auto;
 }
@@ -437,7 +434,7 @@ body {
   align-items: center;
   gap: 6px;
   background: #fff;
-  border: 1px solid rgba(255,121,0,.22);
+  border: 1px solid rgba(255,95,21,.22);
   border-radius: 100px;
   padding: 6px 14px;
   font-size: .8rem;
@@ -480,7 +477,7 @@ body {
   margin-bottom: 10px;
 }
 
-.lp-eyebrow.light { color: #FFB060; }
+.lp-eyebrow.light { color: #FF9060; }
 
 .lp-section-inner h2 {
   font-size: clamp(1.7rem, 3vw, 2.6rem);
@@ -524,7 +521,7 @@ body {
 .lp-feature-card:hover {
   box-shadow: var(--shadow);
   transform: translateY(-2px);
-  border-color: rgba(255,121,0,.3);
+  border-color: rgba(255,95,21,.3);
 }
 
 .lp-feature-icon {
@@ -607,9 +604,9 @@ body {
 
 .lp-coming-badge {
   display: inline-block;
-  background: rgba(255,121,0,.15);
-  color: #FFB060;
-  border: 1px solid rgba(255,121,0,.3);
+  background: rgba(255,95,21,.15);
+  color: #FF9060;
+  border: 1px solid rgba(255,95,21,.3);
   font-size: .68rem;
   font-weight: 700;
   letter-spacing: .06em;
@@ -654,8 +651,8 @@ body {
   flex-shrink: 0;
 }
 
-.lp-step h3 { font-size: .95rem; font-weight: 800; color: #fff; margin-bottom: 8px; }
-.lp-step p  { font-size: .85rem; color: #6B7A99; line-height: 1.65; }
+.lp-step h3 { font-size: .95rem; font-weight: 800; color: var(--ink); margin-bottom: 8px; }
+.lp-step p  { font-size: .85rem; color: var(--ink-2); line-height: 1.65; }
 
 /* ============================================================
    TESTIMONIALS
@@ -709,8 +706,40 @@ body {
 .lp-testimonial-author span  { font-size: .78rem; color: var(--ink-3); }
 
 /* ============================================================
-   PRICING
+   PRICING — outlet type tabs
    ============================================================ */
+.lp-outlet-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 44px;
+}
+
+.lp-outlet-tab {
+  background: none;
+  border: 1.5px solid var(--border);
+  color: var(--ink-2);
+  font-family: var(--font);
+  font-size: .84rem;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+
+.lp-outlet-tab:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.lp-outlet-tab.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
 .lp-pricing-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -734,7 +763,7 @@ body {
   background: var(--brand);
   border-color: var(--brand);
   color: #fff;
-  box-shadow: 0 16px 48px rgba(255,121,0,.35);
+  box-shadow: 0 16px 48px rgba(255,95,21,.35);
 }
 
 .lp-plan-badge {
@@ -850,7 +879,7 @@ body {
 
 .lp-enroll-existing { font-size: .85rem; color: #6B7A99; }
 
-.lp-enroll-existing a { color: #FFB060; text-decoration: none; font-weight: 600; }
+.lp-enroll-existing a { color: #FF9060; text-decoration: none; font-weight: 600; }
 .lp-enroll-existing a:hover { text-decoration: underline; }
 
 /* form card */
@@ -899,7 +928,7 @@ body {
 .lp-enroll-form textarea:focus {
   border-color: var(--brand);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(255,121,0,.12);
+  box-shadow: 0 0 0 3px rgba(255,95,21,.12);
 }
 
 .lp-enroll-form textarea { resize: vertical; }
@@ -979,7 +1008,7 @@ button.lp-btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: no
 .lp-footer-bottom span { color: #4A5065; font-size: .8rem; }
 
 /* ============================================================
-   INTEGRATIONS STRIP
+   INTEGRATIONS GRID
    ============================================================ */
 .lp-integrations-grid {
   display: grid;
@@ -1047,6 +1076,8 @@ button.lp-btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: no
   .lp-hero-trust { flex-direction: column; gap: 8px; }
   .lp-footer-inner { flex-direction: column; gap: 32px; }
   .lp-footer-links { gap: 28px; }
+  .lp-outlet-tabs { gap: 8px; }
+  .lp-outlet-tab { font-size: .78rem; padding: 7px 14px; }
 }
 
 /* ============================================================
@@ -1097,7 +1128,7 @@ button.lp-btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: no
   transition: border-color .15s;
 }
 
-.admin-login-box input:focus { border-color: #FF7900; }
+.admin-login-box input:focus { border-color: #FF5F15; }
 
 .admin-error {
   background: #fef2f2;
@@ -1112,7 +1143,7 @@ button.lp-btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: no
 .admin-brand-mark {
   width: 36px;
   height: 36px;
-  background: #FF7900;
+  background: #FF5F15;
   border-radius: 8px;
   display: flex;
   align-items: center;
