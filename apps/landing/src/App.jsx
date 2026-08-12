@@ -102,18 +102,54 @@ const HARDWARE = [
     sub: "Counter billing unit",
     desc: "Purpose-built touchscreen billing counter with built-in receipt printer and cash drawer support.",
     icon: (
-      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="20" y="8" width="80" height="58" rx="5" fill="#E8EAF0" stroke="#C0C4D0" strokeWidth="1.5"/>
-        <rect x="26" y="14" width="68" height="46" rx="3" fill="#1A1D27"/>
-        <rect x="26" y="14" width="68" height="10" rx="3" fill="#FF5F15"/>
-        <rect x="26" y="24" width="68" height="0" />
-        <rect x="30" y="28" width="28" height="3" rx="1.5" fill="#4A5065"/>
-        <rect x="30" y="34" width="40" height="2" rx="1" fill="#2A2D3A"/>
-        <rect x="30" y="39" width="32" height="2" rx="1" fill="#2A2D3A"/>
-        <rect x="30" y="44" width="20" height="2" rx="1" fill="#2A2D3A"/>
-        <rect x="72" y="48" width="16" height="8" rx="2" fill="#FF5F15"/>
-        <rect x="52" y="66" width="16" height="7" rx="2" fill="#C8CDD8"/>
-        <rect x="38" y="73" width="44" height="8" rx="4" fill="#D4D7E3"/>
+      <svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="tm-b" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FAFBFE"/>
+            <stop offset="100%" stopColor="#D4D8EC"/>
+          </linearGradient>
+        </defs>
+        {/* Wide landscape tablet body */}
+        <rect x="8" y="10" width="184" height="114" rx="10" fill="url(#tm-b)" stroke="#C0C5DC" strokeWidth="1.5"/>
+        <rect x="8" y="10" width="184" height="5" rx="3" fill="rgba(255,255,255,0.75)"/>
+        {/* Camera dot */}
+        <circle cx="184" cy="67" r="3.5" fill="#B8BECE"/>
+        {/* Screen */}
+        <rect x="16" y="18" width="168" height="98" rx="6" fill="#0D0F1A"/>
+        {/* Orange top bar */}
+        <rect x="16" y="18" width="168" height="16" rx="6" fill="#FF5F15"/>
+        <rect x="16" y="26" width="168" height="8" fill="#FF5F15"/>
+        <rect x="22" y="21" width="44" height="6" rx="2" fill="rgba(255,255,255,0.35)"/>
+        <rect x="150" y="21" width="26" height="6" rx="2" fill="rgba(255,255,255,0.25)"/>
+        {/* Table grid – row 1 */}
+        <rect x="20" y="38" width="36" height="24" rx="4" fill="#1C1F30" stroke="#2C3050" strokeWidth="1"/>
+        <rect x="60" y="38" width="36" height="24" rx="4" fill="#FF5F15"/>
+        <rect x="100" y="38" width="36" height="24" rx="4" fill="#1C1F30" stroke="#2C3050" strokeWidth="1"/>
+        <rect x="140" y="38" width="40" height="24" rx="4" fill="#1C1F30" stroke="#2C3050" strokeWidth="1"/>
+        {/* Labels row 1 */}
+        <rect x="30" y="49" width="16" height="3" rx="1.5" fill="#44506A"/>
+        <rect x="70" y="49" width="16" height="3" rx="1.5" fill="rgba(255,255,255,0.9)"/>
+        <rect x="110" y="49" width="16" height="3" rx="1.5" fill="#44506A"/>
+        <rect x="151" y="49" width="18" height="3" rx="1.5" fill="#44506A"/>
+        {/* Table grid – row 2 */}
+        <rect x="20" y="66" width="36" height="24" rx="4" fill="#1C1F30" stroke="#2C3050" strokeWidth="1"/>
+        <rect x="60" y="66" width="36" height="24" rx="4" fill="#1C1F30" stroke="#2C3050" strokeWidth="1"/>
+        <rect x="100" y="66" width="36" height="24" rx="4" fill="#FF5F15" opacity="0.75"/>
+        <rect x="140" y="66" width="40" height="24" rx="4" fill="#1C1F30" stroke="#2C3050" strokeWidth="1"/>
+        {/* Labels row 2 */}
+        <rect x="30" y="77" width="16" height="3" rx="1.5" fill="#44506A"/>
+        <rect x="70" y="77" width="16" height="3" rx="1.5" fill="#44506A"/>
+        <rect x="110" y="77" width="16" height="3" rx="1.5" fill="rgba(255,255,255,0.9)"/>
+        <rect x="151" y="77" width="18" height="3" rx="1.5" fill="#44506A"/>
+        {/* Checkout bar */}
+        <rect x="20" y="94" width="160" height="20" rx="5" fill="#FF5F15"/>
+        <rect x="30" y="100" width="44" height="8" rx="2" fill="rgba(255,255,255,0.3)"/>
+        <rect x="122" y="100" width="50" height="8" rx="2" fill="rgba(255,255,255,0.2)"/>
+        {/* Stand arm */}
+        <rect x="92" y="124" width="16" height="14" rx="3" fill="#D0D5E8"/>
+        {/* Base */}
+        <rect x="62" y="136" width="76" height="12" rx="6" fill="#C4C9DC"/>
+        <rect x="66" y="136" width="68" height="5" rx="2.5" fill="#B4B9D0"/>
       </svg>
     ),
   },
@@ -122,21 +158,58 @@ const HARDWARE = [
     sub: "Customer-facing screen",
     desc: "Dual-display setup showing customers their live order summary at the point of billing.",
     icon: (
-      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="52" y="12" width="52" height="36" rx="4" fill="#D8DBE8" stroke="#B8BCC8" strokeWidth="1.2"/>
-        <rect x="57" y="17" width="42" height="27" rx="2" fill="#6B7A99" fillOpacity="0.25"/>
-        <rect x="61" y="21" width="28" height="3" rx="1" fill="#8A91A8" fillOpacity="0.6"/>
-        <rect x="61" y="27" width="20" height="2" rx="1" fill="#8A91A8" fillOpacity="0.4"/>
-        <rect x="61" y="32" width="24" height="2" rx="1" fill="#8A91A8" fillOpacity="0.4"/>
-        <rect x="16" y="22" width="56" height="40" rx="4" fill="#E8EAF0" stroke="#C0C4D0" strokeWidth="1.5"/>
-        <rect x="21" y="27" width="46" height="30" rx="2" fill="#1A1D27"/>
-        <rect x="21" y="27" width="46" height="9" rx="2" fill="#FF5F15"/>
-        <rect x="25" y="39" width="16" height="2.5" rx="1" fill="#4A5065"/>
-        <rect x="25" y="44" width="22" height="2" rx="1" fill="#2A2D3A"/>
-        <rect x="25" y="49" width="18" height="2" rx="1" fill="#2A2D3A"/>
-        <rect x="44" y="42" width="18" height="12" rx="2" fill="#FF5F15" fillOpacity="0.25"/>
-        <rect x="38" y="62" width="8" height="6" rx="1" fill="#C8CDD8"/>
-        <rect x="28" y="68" width="28" height="6" rx="3" fill="#D4D7E3"/>
+      <svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="dp-b" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#F8FAFE"/>
+            <stop offset="100%" stopColor="#D4D8EC"/>
+          </linearGradient>
+        </defs>
+        {/* Centre pole */}
+        <rect x="95" y="86" width="10" height="52" rx="3" fill="#CDD1E4"/>
+        {/* Base */}
+        <rect x="62" y="136" width="76" height="12" rx="6" fill="#C4C9DC"/>
+        <rect x="66" y="136" width="68" height="5" rx="2.5" fill="#B4B9D0"/>
+        {/* MERCHANT screen – landscape left */}
+        <rect x="8" y="16" width="106" height="76" rx="8" fill="url(#dp-b)" stroke="#C0C5DC" strokeWidth="1.5"/>
+        <rect x="16" y="24" width="90" height="60" rx="5" fill="#0D0F1A"/>
+        <rect x="16" y="24" width="90" height="15" rx="5" fill="#FF5F15"/>
+        <rect x="16" y="31" width="90" height="8" fill="#FF5F15"/>
+        <rect x="22" y="27" width="34" height="6" rx="2" fill="rgba(255,255,255,0.35)"/>
+        {/* Order lines merchant */}
+        <rect x="20" y="44" width="82" height="2.5" rx="1" fill="rgba(255,255,255,0.7)"/>
+        <rect x="20" y="50" width="82" height="1" rx="0.5" fill="rgba(255,255,255,0.1)"/>
+        <rect x="20" y="54" width="52" height="2" rx="1" fill="rgba(255,255,255,0.38)"/>
+        <rect x="78" y="54" width="24" height="2" rx="1" fill="rgba(255,255,255,0.38)"/>
+        <rect x="20" y="59" width="44" height="2" rx="1" fill="rgba(255,255,255,0.38)"/>
+        <rect x="80" y="59" width="22" height="2" rx="1" fill="rgba(255,255,255,0.38)"/>
+        <rect x="20" y="64" width="82" height="1" rx="0.5" fill="rgba(255,255,255,0.1)"/>
+        <rect x="20" y="68" width="34" height="2.5" rx="1" fill="rgba(255,255,255,0.7)"/>
+        <rect x="70" y="68" width="32" height="2.5" rx="1" fill="#FF5F15" opacity="0.9"/>
+        <rect x="20" y="74" width="82" height="8" rx="3" fill="#FF5F15"/>
+        {/* CUSTOMER screen – portrait right */}
+        <rect x="128" y="8" width="64" height="104" rx="8" fill="url(#dp-b)" stroke="#C0C5DC" strokeWidth="1.5"/>
+        <rect x="136" y="18" width="48" height="88" rx="5" fill="#0D0F1A"/>
+        <rect x="136" y="18" width="48" height="16" rx="5" fill="#FF5F15"/>
+        <rect x="136" y="26" width="48" height="8" fill="#FF5F15"/>
+        <rect x="140" y="21" width="24" height="6" rx="2" fill="rgba(255,255,255,0.35)"/>
+        {/* Customer order lines */}
+        <rect x="140" y="38" width="40" height="2.5" rx="1" fill="rgba(255,255,255,0.6)"/>
+        <rect x="140" y="44" width="40" height="1" rx="0.5" fill="rgba(255,255,255,0.1)"/>
+        <rect x="140" y="48" width="26" height="2" rx="1" fill="rgba(255,255,255,0.35)"/>
+        <rect x="170" y="48" width="10" height="2" rx="1" fill="rgba(255,255,255,0.35)"/>
+        <rect x="140" y="53" width="20" height="2" rx="1" fill="rgba(255,255,255,0.35)"/>
+        <rect x="172" y="53" width="8" height="2" rx="1" fill="rgba(255,255,255,0.35)"/>
+        <rect x="140" y="58" width="40" height="1" rx="0.5" fill="rgba(255,255,255,0.1)"/>
+        <rect x="140" y="62" width="18" height="2.5" rx="1" fill="rgba(255,255,255,0.7)"/>
+        <rect x="162" y="62" width="18" height="2.5" rx="1" fill="#FF5F15" opacity="0.9"/>
+        {/* QR / total box on customer screen */}
+        <rect x="140" y="70" width="40" height="30" rx="4" fill="#171A28"/>
+        <rect x="146" y="75" width="28" height="20" rx="2" fill="#FF5F15" opacity="0.12" stroke="#FF5F15" strokeWidth="0.8" strokeOpacity="0.45"/>
+        <rect x="148" y="77" width="10" height="7" rx="1" fill="#FF5F15" opacity="0.5"/>
+        <rect x="162" y="77" width="10" height="3" rx="1" fill="#FF5F15" opacity="0.5"/>
+        <rect x="162" y="82" width="10" height="3" rx="1" fill="#FF5F15" opacity="0.5"/>
+        <rect x="148" y="86" width="24" height="3" rx="1" fill="#FF5F15" opacity="0.35"/>
       </svg>
     ),
   },
@@ -145,20 +218,55 @@ const HARDWARE = [
     sub: "Thermal receipt printer",
     desc: "Auto-cut thermal printer pre-paired with PLATO Print — zero driver setup on Windows or Android.",
     icon: (
-      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="43" y="8" width="34" height="36" rx="1" fill="#FFFFFF" stroke="#E0E2EA" strokeWidth="1"/>
-        <rect x="47" y="12" width="26" height="2" rx="1" fill="#C8CDD8"/>
-        <rect x="47" y="17" width="20" height="2" rx="1" fill="#C8CDD8"/>
-        <rect x="47" y="22" width="24" height="2" rx="1" fill="#C8CDD8"/>
-        <rect x="47" y="27" width="18" height="2" rx="1" fill="#C8CDD8"/>
-        <rect x="47" y="32" width="14" height="2" rx="1" fill="#FF5F15" fillOpacity="0.7"/>
-        <rect x="22" y="38" width="76" height="40" rx="6" fill="#E8EAF0" stroke="#C0C4D0" strokeWidth="1.5"/>
-        <rect x="22" y="38" width="76" height="14" rx="6" fill="#D8DBE8" stroke="#C0C4D0" strokeWidth="1.5"/>
-        <rect x="22" y="46" width="76" height="6" fill="#D8DBE8"/>
-        <rect x="38" y="48" width="44" height="2.5" rx="1" fill="#B0B4C0"/>
-        <rect x="30" y="57" width="28" height="10" rx="3" fill="#C8CDD8"/>
-        <circle cx="82" cy="62" r="5" fill="#FF5F15"/>
-        <circle cx="82" cy="62" r="2.5" fill="#E04800"/>
+      <svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="pr-b" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FAFBFE"/>
+            <stop offset="100%" stopColor="#D4D8EC"/>
+          </linearGradient>
+          <linearGradient id="pr-t" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E8EBF6"/>
+            <stop offset="100%" stopColor="#D0D4E8"/>
+          </linearGradient>
+        </defs>
+        {/* Receipt paper coming out of top */}
+        <rect x="74" y="6" width="52" height="54" rx="2" fill="#FFFFFF" stroke="#E0E3EF" strokeWidth="1"/>
+        <rect x="80" y="12" width="28" height="2" rx="1" fill="#E0E3EF"/>
+        <rect x="80" y="17" width="36" height="1.5" rx="0.75" fill="#E8EAEF"/>
+        <rect x="80" y="21" width="32" height="1.5" rx="0.75" fill="#E8EAEF"/>
+        <rect x="80" y="25" width="36" height="1" rx="0.5" fill="#ECEEF4"/>
+        <rect x="80" y="28" width="24" height="1" rx="0.5" fill="#ECEEF4"/>
+        <rect x="80" y="31" width="36" height="1" rx="0.5" fill="#ECEEF4"/>
+        <rect x="80" y="34" width="18" height="1" rx="0.5" fill="#ECEEF4"/>
+        <rect x="80" y="38" width="36" height="1.5" rx="0.75" fill="#E8EAEF"/>
+        <rect x="80" y="42" width="28" height="2" rx="1" fill="#E0E3EF"/>
+        {/* Perforated tear edge */}
+        <path d="M74 54 Q76 52 78 54 Q80 56 82 54 Q84 52 86 54 Q88 56 90 54 Q92 52 94 54 Q96 56 98 54 Q100 52 102 54 Q104 56 106 54 Q108 52 110 54 Q112 56 114 54 Q116 52 118 54 Q120 56 122 54 Q124 52 126 54" stroke="#CDD1E4" strokeWidth="1.5" fill="none"/>
+        {/* Main printer body */}
+        <rect x="34" y="52" width="132" height="80" rx="10" fill="url(#pr-b)" stroke="#C0C5DC" strokeWidth="1.5"/>
+        {/* Top cap with paper slot */}
+        <rect x="34" y="52" width="132" height="30" rx="10" fill="url(#pr-t)" stroke="#C0C5DC" strokeWidth="1.5"/>
+        <rect x="34" y="70" width="132" height="12" fill="url(#pr-t)"/>
+        {/* Paper slot */}
+        <rect x="58" y="56" width="84" height="8" rx="3" fill="#B0B6CC"/>
+        <rect x="60" y="57.5" width="80" height="5" rx="2" fill="#8890A8"/>
+        {/* Front panel */}
+        {/* Power LED */}
+        <circle cx="52" cy="82" r="5.5" fill="#22C55E"/>
+        <circle cx="52" cy="82" r="3.5" fill="#16A34A"/>
+        {/* Error LED */}
+        <circle cx="68" cy="82" r="4" fill="#E8EBF4"/>
+        <circle cx="68" cy="82" r="2.5" fill="#D0D4E8"/>
+        {/* Brand chip */}
+        <rect x="84" y="77" width="72" height="10" rx="3" fill="rgba(255,95,21,0.08)" stroke="#FF5F15" strokeWidth="0.8" strokeOpacity="0.35"/>
+        {/* Paper feed button */}
+        <rect x="148" y="92" width="14" height="9" rx="4" fill="#C8CCE0"/>
+        <rect x="150" y="93.5" width="10" height="6" rx="3" fill="#B8BDD4"/>
+        {/* USB port */}
+        <rect x="50" y="104" width="10" height="6" rx="1.5" fill="#A8AECC"/>
+        {/* Rubber feet */}
+        <rect x="44" y="126" width="14" height="5" rx="2.5" fill="#B0B6C8"/>
+        <rect x="142" y="126" width="14" height="5" rx="2.5" fill="#B0B6C8"/>
       </svg>
     ),
   },
@@ -167,23 +275,53 @@ const HARDWARE = [
     sub: "Card & UPI reader",
     desc: "Standalone payment terminal for tap, swipe and QR — auto-reconciled against every order.",
     icon: (
-      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="41" y="5" width="38" height="76" rx="7" fill="#E8EAF0" stroke="#C0C4D0" strokeWidth="1.5"/>
-        <rect x="45" y="10" width="30" height="22" rx="3" fill="#1A1D27"/>
-        <rect x="48" y="13" width="12" height="12" rx="1.5" fill="#FF5F15" fillOpacity="0.15" stroke="#FF5F15" strokeWidth="0.8"/>
-        <rect x="50" y="15" width="8" height="8" rx="0.8" fill="#FF5F15"/>
-        <rect x="62" y="13" width="10" height="5" rx="1" fill="#4A5065" fillOpacity="0.4"/>
-        <rect x="62" y="20" width="10" height="5" rx="1" fill="#4A5065" fillOpacity="0.4"/>
-        <circle cx="51" cy="44" r="3.5" fill="#D0D4DF"/>
-        <circle cx="60" cy="44" r="3.5" fill="#D0D4DF"/>
-        <circle cx="69" cy="44" r="3.5" fill="#D0D4DF"/>
-        <circle cx="51" cy="54" r="3.5" fill="#D0D4DF"/>
-        <circle cx="60" cy="54" r="3.5" fill="#D0D4DF"/>
-        <circle cx="69" cy="54" r="3.5" fill="#D0D4DF"/>
-        <circle cx="51" cy="64" r="3.5" fill="#D0D4DF"/>
-        <circle cx="60" cy="64" r="3.5" fill="#FF5F15"/>
-        <circle cx="69" cy="64" r="3.5" fill="#D0D4DF"/>
-        <rect x="37" y="34" width="4" height="14" rx="1.5" fill="#B8BCC8"/>
+      <svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="py-b" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#F6F8FE"/>
+            <stop offset="100%" stopColor="#D0D5EC"/>
+          </linearGradient>
+        </defs>
+        {/* Terminal body – portrait handheld */}
+        <rect x="58" y="4" width="84" height="142" rx="14" fill="url(#py-b)" stroke="#C0C5DC" strokeWidth="1.5"/>
+        {/* Speaker grille at top */}
+        <rect x="86" y="12" width="28" height="4" rx="2" fill="#C8CCE0"/>
+        <rect x="90" y="13" width="20" height="2" rx="1" fill="#B8BCCE"/>
+        {/* Screen */}
+        <rect x="66" y="22" width="68" height="50" rx="6" fill="#0D0F1A"/>
+        {/* Screen header */}
+        <rect x="66" y="22" width="68" height="14" rx="6" fill="#1A1D2C"/>
+        <rect x="66" y="28" width="68" height="8" fill="#1A1D2C"/>
+        <rect x="72" y="25" width="30" height="5" rx="2" fill="#3A4058" opacity="0.7"/>
+        {/* Amount display */}
+        <rect x="70" y="40" width="60" height="14" rx="4" fill="#1C1F30"/>
+        <rect x="74" y="43" width="52" height="8" rx="2" fill="#FF5F15" opacity="0.85"/>
+        {/* Contactless symbol */}
+        <path d="M93 61 Q100 56 107 61" stroke="#FF5F15" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+        <path d="M89 65 Q100 57 111 65" stroke="#FF5F15" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.55"/>
+        <path d="M85 69 Q100 58 115 69" stroke="#FF5F15" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.25"/>
+        {/* Divider */}
+        <rect x="66" y="76" width="68" height="1" rx="0.5" fill="#D0D5E8"/>
+        {/* Keypad – 3×4 grid */}
+        {/* Row 1 */}
+        <rect x="70" y="82" width="16" height="11" rx="5" fill="#E4E8F6"/>
+        <rect x="92" y="82" width="16" height="11" rx="5" fill="#E4E8F6"/>
+        <rect x="114" y="82" width="16" height="11" rx="5" fill="#E4E8F6"/>
+        {/* Row 2 */}
+        <rect x="70" y="97" width="16" height="11" rx="5" fill="#E4E8F6"/>
+        <rect x="92" y="97" width="16" height="11" rx="5" fill="#E4E8F6"/>
+        <rect x="114" y="97" width="16" height="11" rx="5" fill="#E4E8F6"/>
+        {/* Row 3 */}
+        <rect x="70" y="112" width="16" height="11" rx="5" fill="#E4E8F6"/>
+        <rect x="92" y="112" width="16" height="11" rx="5" fill="#E4E8F6"/>
+        <rect x="114" y="112" width="16" height="11" rx="5" fill="#E4E8F6"/>
+        {/* Row 4: Clear / 0 / Enter */}
+        <rect x="70" y="127" width="16" height="11" rx="5" fill="#F2C0B0"/>
+        <rect x="92" y="127" width="16" height="11" rx="5" fill="#E4E8F6"/>
+        <rect x="114" y="127" width="16" height="11" rx="5" fill="#B0E8C0"/>
+        {/* Card slot on right side */}
+        <rect x="138" y="68" width="5" height="26" rx="2.5" fill="#A4AACC"/>
+        <rect x="139" y="70" width="3" height="22" rx="1.5" fill="#8890A8"/>
       </svg>
     ),
   },
@@ -192,26 +330,59 @@ const HARDWARE = [
     sub: "Ruggedized kitchen display",
     desc: "Industrial touchscreen built for high-heat, high-humidity kitchen environments.",
     icon: (
-      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="6" y="12" width="108" height="60" rx="5" fill="#1A1D27" stroke="#C0C4D0" strokeWidth="1.5"/>
-        <rect x="11" y="17" width="98" height="50" rx="3" fill="#13151F"/>
-        <rect x="14" y="20" width="28" height="44" rx="2" fill="#FF5F15" fillOpacity="0.12" stroke="#FF5F15" strokeWidth="0.8"/>
-        <rect x="17" y="23" width="12" height="3" rx="1" fill="#FF5F15"/>
-        <rect x="17" y="29" width="20" height="2" rx="1" fill="#4A5065"/>
-        <rect x="17" y="33" width="17" height="2" rx="1" fill="#4A5065"/>
-        <rect x="17" y="37" width="20" height="2" rx="1" fill="#4A5065"/>
-        <rect x="17" y="41" width="14" height="2" rx="1" fill="#4A5065"/>
-        <rect x="45" y="20" width="28" height="44" rx="2" fill="#1E2830" stroke="#22C55E" strokeWidth="0.8" strokeOpacity="0.6"/>
-        <rect x="48" y="23" width="12" height="3" rx="1" fill="#22C55E" fillOpacity="0.8"/>
-        <rect x="48" y="29" width="20" height="2" rx="1" fill="#4A5065"/>
-        <rect x="48" y="33" width="17" height="2" rx="1" fill="#4A5065"/>
-        <rect x="48" y="37" width="20" height="2" rx="1" fill="#4A5065"/>
-        <rect x="76" y="20" width="28" height="44" rx="2" fill="#1A1D27"/>
-        <rect x="79" y="23" width="12" height="3" rx="1" fill="#6B7A99"/>
-        <rect x="79" y="29" width="18" height="2" rx="1" fill="#2A2D3A"/>
-        <rect x="79" y="33" width="14" height="2" rx="1" fill="#2A2D3A"/>
-        <rect x="52" y="72" width="16" height="6" rx="2" fill="#C8CDD8"/>
-        <rect x="44" y="78" width="32" height="4" rx="2" fill="#D4D7E3"/>
+      <svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="kd-b" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E8EBF6"/>
+            <stop offset="100%" stopColor="#C8CCDC"/>
+          </linearGradient>
+        </defs>
+        {/* Monitor chassis */}
+        <rect x="4" y="8" width="192" height="118" rx="9" fill="url(#kd-b)" stroke="#B8BCCC" strokeWidth="1.5"/>
+        {/* Screen bezel */}
+        <rect x="10" y="14" width="180" height="104" rx="6" fill="#0B0D16"/>
+        {/* KDS status bar */}
+        <rect x="10" y="14" width="180" height="16" rx="6" fill="#14172A"/>
+        <rect x="10" y="22" width="180" height="8" fill="#14172A"/>
+        {/* Station chips */}
+        <rect x="16" y="17" width="40" height="8" rx="3" fill="#FF5F15" opacity="0.85"/>
+        <rect x="82" y="17" width="36" height="8" rx="3" fill="#2C3050" opacity="0.8"/>
+        <rect x="144" y="17" width="38" height="8" rx="3" fill="#22C55E" opacity="0.75"/>
+        {/* Column 1 – New (orange) */}
+        <rect x="13" y="34" width="56" height="80" rx="4" fill="#161925"/>
+        <rect x="13" y="34" width="56" height="13" rx="4" fill="#FF5F15"/>
+        <rect x="13" y="40" width="56" height="7" fill="#FF5F15"/>
+        <rect x="18" y="36" width="26" height="6" rx="2" fill="rgba(255,255,255,0.75)"/>
+        <rect x="18" y="52" width="46" height="3" rx="1" fill="#2E3355"/>
+        <rect x="18" y="58" width="36" height="2.5" rx="1" fill="#242844"/>
+        <rect x="18" y="63" width="42" height="2.5" rx="1" fill="#242844"/>
+        <rect x="18" y="68" width="30" height="2.5" rx="1" fill="#242844"/>
+        <rect x="13" y="74" width="56" height="1" fill="#1E2136"/>
+        <rect x="18" y="78" width="46" height="3" rx="1" fill="#2E3355"/>
+        <rect x="18" y="84" width="32" height="2.5" rx="1" fill="#242844"/>
+        <rect x="18" y="89" width="38" height="2.5" rx="1" fill="#242844"/>
+        {/* Column 2 – In progress (green) */}
+        <rect x="72" y="34" width="56" height="80" rx="4" fill="#0E1A18"/>
+        <rect x="72" y="34" width="56" height="13" rx="4" fill="#16A34A"/>
+        <rect x="72" y="40" width="56" height="7" fill="#16A34A"/>
+        <rect x="77" y="36" width="26" height="6" rx="2" fill="rgba(255,255,255,0.75)"/>
+        <rect x="77" y="52" width="46" height="3" rx="1" fill="#1A3028"/>
+        <rect x="77" y="58" width="36" height="2.5" rx="1" fill="#142A22"/>
+        <rect x="77" y="63" width="42" height="2.5" rx="1" fill="#142A22"/>
+        <rect x="77" y="68" width="28" height="2.5" rx="1" fill="#142A22"/>
+        {/* Column 3 – Done (dim) */}
+        <rect x="131" y="34" width="56" height="80" rx="4" fill="#111420"/>
+        <rect x="131" y="34" width="56" height="13" rx="4" fill="#22253A"/>
+        <rect x="131" y="40" width="56" height="7" fill="#22253A"/>
+        <rect x="136" y="36" width="26" height="6" rx="2" fill="rgba(255,255,255,0.3)"/>
+        <rect x="136" y="52" width="46" height="3" rx="1" fill="#1E2136" opacity="0.6"/>
+        <rect x="136" y="58" width="36" height="2.5" rx="1" fill="#181B2C" opacity="0.6"/>
+        <rect x="136" y="63" width="42" height="2.5" rx="1" fill="#181B2C" opacity="0.6"/>
+        {/* Stand arm */}
+        <rect x="91" y="126" width="18" height="14" rx="3" fill="#C4C8DC"/>
+        {/* Base */}
+        <rect x="64" y="138" width="72" height="10" rx="5" fill="#B8BCCC"/>
+        <rect x="68" y="138" width="64" height="4" rx="2" fill="#A8ACBC"/>
       </svg>
     ),
   },
@@ -220,16 +391,34 @@ const HARDWARE = [
     sub: "Queue display",
     desc: "Wall-mounted customer token and table-call display for takeaway counters and fast-casual formats.",
     icon: (
-      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="50" y="4" width="20" height="8" rx="3" fill="#C8CDD8"/>
-        <rect x="54" y="10" width="12" height="5" rx="1" fill="#B8BCC8"/>
-        <rect x="30" y="14" width="60" height="68" rx="6" fill="#1A1D27" stroke="#C0C4D0" strokeWidth="1.5"/>
-        <rect x="35" y="19" width="50" height="58" rx="4" fill="#13151F"/>
-        <rect x="35" y="19" width="50" height="8" rx="4" fill="#FF5F15" fillOpacity="0.2"/>
-        <rect x="43" y="21.5" width="34" height="3" rx="1" fill="#FF5F15"/>
-        <text x="60" y="60" textAnchor="middle" fill="#FF5F15" fontSize="26" fontWeight="800" fontFamily="monospace" letterSpacing="2">A07</text>
-        <rect x="38" y="67" width="44" height="6" rx="2" fill="#22C55E" fillOpacity="0.2"/>
-        <rect x="43" y="69" width="34" height="2" rx="1" fill="#22C55E" fillOpacity="0.5"/>
+      <svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="tb-b" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1A1D2E"/>
+            <stop offset="100%" stopColor="#0C0E18"/>
+          </linearGradient>
+        </defs>
+        {/* Wall bracket */}
+        <rect x="84" y="4" width="32" height="14" rx="4" fill="#D0D4E4"/>
+        <circle cx="92" cy="11" r="3" fill="#B0B6C8"/>
+        <circle cx="108" cy="11" r="3" fill="#B0B6C8"/>
+        {/* Display body */}
+        <rect x="10" y="16" width="180" height="122" rx="10" fill="url(#tb-b)" stroke="#252840" strokeWidth="1.5"/>
+        {/* Inner screen */}
+        <rect x="16" y="22" width="168" height="110" rx="7" fill="#080A12"/>
+        {/* Top brand strip */}
+        <rect x="16" y="22" width="168" height="20" rx="7" fill="#FF5F15" opacity="0.12"/>
+        <rect x="16" y="34" width="168" height="8" fill="#FF5F15" opacity="0.12"/>
+        <rect x="24" y="26" width="54" height="8" rx="3" fill="#FF5F15" opacity="0.65"/>
+        <rect x="140" y="26" width="36" height="8" rx="3" fill="#22C55E" opacity="0.5"/>
+        {/* "NOW SERVING" label */}
+        <rect x="56" y="50" width="88" height="10" rx="3" fill="#252840"/>
+        {/* Large token number */}
+        <text x="100" y="108" textAnchor="middle" fill="#FF5F15" fontSize="56" fontWeight="900" fontFamily="monospace" letterSpacing="3">A07</text>
+        {/* Bottom status strip */}
+        <rect x="20" y="118" width="80" height="10" rx="3" fill="#22C55E" opacity="0.18"/>
+        <rect x="26" y="120" width="50" height="6" rx="2" fill="#22C55E" opacity="0.45"/>
+        <rect x="112" y="118" width="72" height="10" rx="3" fill="#2E3150" opacity="0.5"/>
       </svg>
     ),
   },

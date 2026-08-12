@@ -599,8 +599,8 @@ body {
 
 .lp-vision-card-img {
   width: 100%;
-  height: 112px;
-  background: #F0F2F7;
+  height: 130px;
+  background: #F0F2F8;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -612,7 +612,7 @@ body {
 .lp-vision-card-img svg {
   width: 100%;
   height: 100%;
-  max-width: 180px;
+  max-width: 200px;
 }
 
 .lp-vision-card h4 {
