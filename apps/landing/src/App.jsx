@@ -147,102 +147,102 @@ const OUTLET_TYPES = [
 const PLANS_BY_TYPE = {
   cafe: [
     {
-      id: "starter", name: "Starter", price: "₹999", period: "/ month",
-      desc: "For single-outlet cafés and QSRs getting started.",
-      features: ["1 outlet", "PLATO POS (Web + Android + Windows)", "PLATO Captain", "PLATO Kitchen", "Menu & staff management", "Basic reports", "30-day free trial"],
-      highlighted: false, cta: "Start Free Trial",
+      id: "starter", name: "Starter", price: "₹1,999", period: "/ month",
+      desc: "Perfect for single-outlet cafés and QSRs getting started.",
+      features: ["PLATO POS", "PLATO Pay", "PLATO Print", "PLATO Cloud", "30-day free trial"],
+      highlighted: false, cta: "Get started",
     },
     {
-      id: "growth", name: "Growth", price: "₹1,999", period: "/ month",
-      desc: "For growing cafés managing dine-in, takeaway and online orders.",
-      features: ["Up to 3 outlets", "Everything in Starter", "PLATO Online (Swiggy + Zomato)", "Advanced reports (PDF + CSV)", "Inventory tracking", "Discount & void controls", "Priority support"],
-      highlighted: true, badge: "Most Popular", cta: "Start Free Trial",
+      id: "growth", name: "Growth", price: "₹3,499", period: "/ month",
+      desc: "For growing QSRs managing dine-in, takeaway, and online orders.",
+      features: ["PLATO POS", "PLATO Captain", "PLATO Kitchen", "PLATO Pay", "PLATO Print", "PLATO Online", "PLATO Cloud"],
+      highlighted: true, badge: "Most popular", cta: "Book a demo",
     },
     {
-      id: "pro", name: "Pro", price: "₹2,999", period: "/ month",
-      desc: "Full suite for café chains with owner-level analytics.",
-      features: ["Unlimited outlets", "Everything in Growth", "PLATO Cloud multi-outlet", "Custom receipt branding", "Dedicated account manager", "SLA-backed support"],
-      highlighted: false, cta: "Contact Us",
+      id: "pro", name: "Pro", price: "₹5,999", period: "/ month",
+      desc: "Full suite for multi-outlet café chains with owner-level analytics.",
+      features: ["All 9 PLATO modules", "Multi-outlet dashboard", "Priority support", "Custom integrations"],
+      highlighted: false, cta: "Talk to sales",
     },
   ],
   fullservice: [
     {
-      id: "starter", name: "Starter", price: "₹1,499", period: "/ month",
-      desc: "For single-outlet full-service restaurants.",
-      features: ["1 outlet", "PLATO POS + Captain + Kitchen", "Table management", "GST billing & reports", "Staff management", "30-day free trial"],
-      highlighted: false, cta: "Start Free Trial",
+      id: "essential", name: "Essential", price: "₹2,999", period: "/ month",
+      desc: "Core tools for a full-service restaurant with table service.",
+      features: ["PLATO POS", "PLATO Captain", "PLATO Pay", "PLATO Print", "PLATO Cloud", "30-day free trial"],
+      highlighted: false, cta: "Get started",
     },
     {
-      id: "growth", name: "Growth", price: "₹2,999", period: "/ month",
-      desc: "For multi-outlet full-service restaurants with online orders.",
-      features: ["Up to 3 outlets", "Everything in Starter", "PLATO Online (Swiggy + Zomato)", "PLATO Pay", "Inventory tracking", "Advanced analytics", "Priority support"],
-      highlighted: true, badge: "Most Popular", cta: "Start Free Trial",
+      id: "complete", name: "Complete", price: "₹4,999", period: "/ month",
+      desc: "Everything a full-service restaurant needs — floor to kitchen to owner.",
+      features: ["PLATO POS", "PLATO Captain", "PLATO Kitchen", "PLATO Queue", "PLATO Pay", "PLATO Print", "PLATO Online", "PLATO Owner", "PLATO Cloud"],
+      highlighted: true, badge: "Most popular", cta: "Book a demo",
     },
     {
-      id: "pro", name: "Pro", price: "₹4,999", period: "/ month",
-      desc: "Full suite for restaurant chains.",
-      features: ["Unlimited outlets", "Everything in Growth", "PLATO Cloud", "Custom receipt branding", "Dedicated account manager", "SLA-backed support"],
-      highlighted: false, cta: "Contact Us",
+      id: "enterprise", name: "Enterprise", price: "Custom", period: "",
+      desc: "For restaurant groups and chains with multiple outlets and custom needs.",
+      features: ["All 9 PLATO modules", "Multi-outlet management", "Dedicated account manager", "SLA-backed uptime", "Custom integrations"],
+      highlighted: false, cta: "Talk to sales",
     },
   ],
   bar: [
     {
-      id: "starter", name: "Starter", price: "₹999", period: "/ month",
+      id: "starter", name: "Starter", price: "₹1,499", period: "/ month",
       desc: "For single-outlet bars and lounges.",
-      features: ["1 outlet", "PLATO POS", "Tab management", "GST billing", "Staff management", "30-day free trial"],
-      highlighted: false, cta: "Start Free Trial",
+      features: ["PLATO POS", "PLATO Pay", "PLATO Print", "PLATO Cloud", "30-day free trial"],
+      highlighted: false, cta: "Get started",
     },
     {
-      id: "growth", name: "Growth", price: "₹1,999", period: "/ month",
+      id: "growth", name: "Growth", price: "₹2,999", period: "/ month",
       desc: "For bars with multiple areas or outlets.",
-      features: ["Up to 3 outlets", "Everything in Starter", "PLATO Captain", "PLATO Pay", "Inventory tracking", "Advanced reports", "Priority support"],
-      highlighted: true, badge: "Most Popular", cta: "Start Free Trial",
+      features: ["PLATO POS", "PLATO Captain", "PLATO Kitchen", "PLATO Pay", "PLATO Print", "PLATO Online", "PLATO Cloud"],
+      highlighted: true, badge: "Most popular", cta: "Book a demo",
     },
     {
-      id: "pro", name: "Pro", price: "₹2,999", period: "/ month",
+      id: "pro", name: "Pro", price: "₹4,999", period: "/ month",
       desc: "Multi-outlet bar chain management.",
-      features: ["Unlimited outlets", "Everything in Growth", "PLATO Cloud", "Custom branding", "Dedicated account manager", "SLA-backed support"],
-      highlighted: false, cta: "Contact Us",
+      features: ["All 9 PLATO modules", "Multi-outlet management", "Dedicated account manager", "SLA-backed uptime"],
+      highlighted: false, cta: "Talk to sales",
     },
   ],
   foodtruck: [
     {
-      id: "starter", name: "Starter", price: "₹499", period: "/ month",
+      id: "starter", name: "Starter", price: "₹799", period: "/ month",
       desc: "For food trucks and pop-up stalls.",
-      features: ["1 outlet", "PLATO POS (Android + Web)", "PLATO Pay (UPI + card)", "GST billing", "Basic reports", "30-day free trial"],
-      highlighted: false, cta: "Start Free Trial",
+      features: ["PLATO POS (Android + Web)", "PLATO Pay (UPI + card)", "PLATO Print", "30-day free trial"],
+      highlighted: false, cta: "Get started",
     },
     {
-      id: "growth", name: "Growth", price: "₹999", period: "/ month",
+      id: "growth", name: "Growth", price: "₹1,499", period: "/ month",
       desc: "For food trucks with online order integration.",
-      features: ["Up to 2 outlets", "Everything in Starter", "PLATO Online", "PLATO Captain", "Inventory tracking", "Priority support"],
-      highlighted: true, badge: "Most Popular", cta: "Start Free Trial",
+      features: ["PLATO POS", "PLATO Captain", "PLATO Pay", "PLATO Print", "PLATO Online", "PLATO Cloud"],
+      highlighted: true, badge: "Most popular", cta: "Book a demo",
     },
     {
-      id: "pro", name: "Pro", price: "₹1,999", period: "/ month",
+      id: "pro", name: "Pro", price: "₹2,999", period: "/ month",
       desc: "Multi-location food truck fleet management.",
-      features: ["Unlimited outlets", "Everything in Growth", "PLATO Cloud", "Advanced analytics", "Dedicated support"],
-      highlighted: false, cta: "Contact Us",
+      features: ["All 9 PLATO modules", "Multi-outlet management", "Advanced analytics", "Priority support"],
+      highlighted: false, cta: "Talk to sales",
     },
   ],
   street: [
     {
-      id: "starter", name: "Starter", price: "₹299", period: "/ month",
+      id: "starter", name: "Starter", price: "₹399", period: "/ month",
       desc: "For street vendors and small stalls.",
-      features: ["1 outlet", "PLATO POS (Android)", "PLATO Pay (UPI)", "Basic billing", "Sales reports", "30-day free trial"],
-      highlighted: false, cta: "Start Free Trial",
+      features: ["PLATO POS (Android)", "PLATO Pay (UPI)", "Basic billing", "Sales reports", "30-day free trial"],
+      highlighted: false, cta: "Get started",
     },
     {
-      id: "growth", name: "Growth", price: "₹599", period: "/ month",
+      id: "growth", name: "Growth", price: "₹799", period: "/ month",
       desc: "For vendors with multiple stalls.",
-      features: ["Up to 3 outlets", "Everything in Starter", "PLATO Captain", "Inventory tracking", "GST reports", "Priority support"],
-      highlighted: true, badge: "Most Popular", cta: "Start Free Trial",
+      features: ["PLATO POS", "PLATO Captain", "PLATO Pay", "PLATO Print", "PLATO Cloud"],
+      highlighted: true, badge: "Most popular", cta: "Book a demo",
     },
     {
-      id: "pro", name: "Pro", price: "₹999", period: "/ month",
+      id: "pro", name: "Pro", price: "₹1,499", period: "/ month",
       desc: "Full street food chain management.",
-      features: ["Unlimited outlets", "Everything in Growth", "PLATO Cloud", "Advanced analytics", "Dedicated support"],
-      highlighted: false, cta: "Contact Us",
+      features: ["All 9 PLATO modules", "Multi-outlet management", "Advanced analytics", "Priority support"],
+      highlighted: false, cta: "Talk to sales",
     },
   ],
 };
@@ -254,24 +254,6 @@ const INTEGRATIONS = [
   { name: "Zoho Books", desc: "Daily sales sync straight into your accounting — no manual entry." },
   { name: "WhatsApp & SMS", desc: "Order updates and bills sent to customers automatically." },
   { name: "Razorpay", desc: "Secure subscription billing for your PLATO account." },
-];
-
-const TESTIMONIALS = [
-  {
-    name: "Rajesh Kumar",
-    role: "Owner, Spice Garden — Bengaluru",
-    text: "We switched from a paper-based system to PLATO in one day. The KOT screen alone saves us 20 minutes every service."
-  },
-  {
-    name: "Priya Menon",
-    role: "Manager, Coconut Grove — Chennai",
-    text: "Our 3 branches now run off one dashboard. Staff management and GST reports used to take hours — now it's 5 minutes."
-  },
-  {
-    name: "Arjun Sharma",
-    role: "Owner, The Biryani Co. — Hyderabad",
-    text: "The Captain App on Android is brilliant. Waiters love it and wrong orders have dropped to near zero."
-  }
 ];
 
 const PlateLogo = ({ size = 20, stroke = "#fff" }) => (
@@ -322,15 +304,14 @@ export function App() {
             <span>PLATO</span>
           </a>
           <div className={`lp-nav-links${menuOpen ? " open" : ""}`}>
-            <a href="#ecosystem" onClick={() => setMenuOpen(false)}>Ecosystem</a>
-            <a href="#vision" onClick={() => setMenuOpen(false)}>Vision</a>
-            <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it works</a>
+            <a href="#ecosystem" onClick={() => setMenuOpen(false)}>Products</a>
             <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
-            <a href="#enroll" onClick={() => setMenuOpen(false)}>Get Started</a>
+            <a href="#vision" onClick={() => setMenuOpen(false)}>About</a>
+            <a href="#enroll" onClick={() => setMenuOpen(false)}>Contact</a>
           </div>
           <div className="lp-nav-actions">
             <a href={`${APP_URL}/login`} className="lp-nav-login">Sign In</a>
-            <a href="#enroll" className="lp-nav-cta">Get Started Free</a>
+            <a href="#enroll" className="lp-nav-cta">Request Demo</a>
           </div>
           <button className="lp-hamburger" onClick={() => setMenuOpen(v => !v)} aria-label="Menu">
             <span /><span /><span />
@@ -416,6 +397,26 @@ export function App() {
         </div>
       </section>
 
+      {/* STATS ROW */}
+      <section className="lp-stats-row">
+        <div className="lp-stats-inner">
+          <div className="lp-stat-item">
+            <div className="lp-stat-big">9 <span>Modules.</span></div>
+            <div className="lp-stat-sub">1 Platform.</div>
+          </div>
+          <div className="lp-stat-divider" />
+          <div className="lp-stat-item">
+            <div className="lp-stat-big">Real-time <span>sync.</span></div>
+            <div className="lp-stat-sub">across every outlet.</div>
+          </div>
+          <div className="lp-stat-divider" />
+          <div className="lp-stat-item">
+            <div className="lp-stat-big">Order to <span>payment</span></div>
+            <div className="lp-stat-sub">in seconds.</div>
+          </div>
+        </div>
+      </section>
+
       {/* ECOSYSTEM */}
       <section className="lp-section" id="ecosystem">
         <div className="lp-section-inner">
@@ -435,10 +436,10 @@ export function App() {
         </div>
       </section>
 
-      {/* VISION — Software. Hardware. Payments. */}
-      <section className="lp-section lp-section-dark" id="vision">
+      {/* VISION — Software. Hardware. Payments. (white background) */}
+      <section className="lp-section lp-section-light" id="vision">
         <div className="lp-section-inner">
-          <p className="lp-eyebrow light">Our Vision</p>
+          <p className="lp-eyebrow">Our Vision</p>
           <h2>Software. Hardware. Payments.<br />One PLATO.</h2>
           <div className="lp-vision-intro">
             <p>
@@ -452,7 +453,7 @@ export function App() {
               <div key={h.name} className="lp-vision-card">
                 <div className="lp-coming-badge">Coming Soon</div>
                 <h4>{h.name}</h4>
-                <p style={{ fontSize: ".78rem", color: "#FFB060", fontWeight: 700, marginBottom: 6 }}>{h.sub}</p>
+                <p className="lp-vision-card-sub">{h.sub}</p>
                 <p>{h.desc}</p>
               </div>
             ))}
@@ -498,25 +499,23 @@ export function App() {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
-      <section className="lp-section" id="testimonials">
+      {/* FEATURED TESTIMONIAL */}
+      <section className="lp-section lp-section-light" id="testimonials">
         <div className="lp-section-inner">
           <p className="lp-eyebrow">What owners say</p>
           <h2>Trusted by restaurants across India</h2>
-          <div className="lp-testimonials-grid">
-            {TESTIMONIALS.map(t => (
-              <div key={t.name} className="lp-testimonial">
-                <div className="lp-stars">★★★★★</div>
-                <p className="lp-testimonial-text">"{t.text}"</p>
-                <div className="lp-testimonial-author">
-                  <div className="lp-author-avatar">{t.name[0]}</div>
-                  <div>
-                    <strong>{t.name}</strong>
-                    <span>{t.role}</span>
-                  </div>
-                </div>
+          <div className="lp-featured-testimonial">
+            <span className="lp-quote-mark">"</span>
+            <p className="lp-featured-quote">
+              PLATO transformed how we run our 12-outlet chain. Every station — kitchen, billing, payments — works as one. We've cut order errors by 80% and our staff actually enjoy using it.
+            </p>
+            <div className="lp-testimonial-author">
+              <div className="lp-author-avatar">R</div>
+              <div>
+                <strong>Rajan Mehta</strong>
+                <span>Director of Operations · Spice Route Group</span>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
@@ -526,7 +525,10 @@ export function App() {
         <div className="lp-section-inner">
           <p className="lp-eyebrow">Simple pricing</p>
           <h2>One flat monthly fee. No per-device charges.</h2>
-          <p className="lp-section-sub">Every plan includes a 30-day free trial. No credit card needed to start.</p>
+          <p className="lp-section-sub">
+            Whether you're a street cart or a full-service chain, PLATO scales with you.
+            All plans include free onboarding, 24/7 support, and no hidden fees.
+          </p>
 
           {/* Outlet type tabs */}
           <div className="lp-outlet-tabs">
@@ -549,7 +551,7 @@ export function App() {
                   <strong className="lp-plan-name">{plan.name}</strong>
                   <div className="lp-plan-price">
                     <span className="lp-plan-amount">{plan.price}</span>
-                    <span className="lp-plan-period">{plan.period}</span>
+                    {plan.period && <span className="lp-plan-period">{plan.period}</span>}
                   </div>
                   <p className="lp-plan-desc">{plan.desc}</p>
                 </div>
@@ -559,7 +561,7 @@ export function App() {
                   ))}
                 </ul>
                 <a
-                  href={plan.cta === "Contact Us" ? "mailto:info@dinexpos.in" : "#enroll"}
+                  href={plan.cta === "Talk to sales" ? "mailto:info@dinexpos.in" : "#enroll"}
                   className={`lp-plan-cta${plan.highlighted ? " primary" : ""}`}
                 >
                   {plan.cta}
@@ -572,6 +574,20 @@ export function App() {
             All prices exclude GST. Annual billing available at 2 months free.{" "}
             <a href="mailto:info@dinexpos.in">Contact us</a> for custom plans.
           </p>
+        </div>
+      </section>
+
+      {/* ORANGE CTA */}
+      <section className="lp-section-cta">
+        <div className="lp-cta-inner">
+          <div className="lp-cta-text">
+            <h2>Ready to run a smarter restaurant?</h2>
+            <p>Join hundreds of restaurants already operating on PLATO.</p>
+          </div>
+          <div className="lp-cta-btns">
+            <a href="#enroll" className="lp-btn-white">Book Your Demo</a>
+            <a href="#ecosystem" className="lp-btn-outline-white">View All Modules</a>
+          </div>
         </div>
       </section>
 
@@ -674,35 +690,39 @@ export function App() {
             </span>
             <div>
               <strong>PLATO</strong>
-              <span>The Restaurant Operating System.</span>
+              <span>The complete operating system for modern restaurants.</span>
             </div>
           </div>
           <div className="lp-footer-links">
             <div>
-              <strong>Platform</strong>
-              <a href="#ecosystem">Ecosystem</a>
-              <a href="#vision">Vision</a>
-              <a href="#how-it-works">How it works</a>
-              <a href={`${APP_URL}/login`}>Owner Login</a>
-            </div>
-            <div>
               <strong>Products</strong>
-              <a href="https://pos.dinexpos.in">PLATO POS</a>
-              <a href="https://captain.dinexpos.in">PLATO Captain</a>
-              <a href="https://kds.dinexpos.in">PLATO Kitchen</a>
-              <a href={`${APP_URL}`}>PLATO Owner</a>
+              <a href="#ecosystem">PLATO POS</a>
+              <a href="#ecosystem">PLATO Captain</a>
+              <a href="#ecosystem">PLATO Kitchen</a>
+              <a href="#ecosystem">PLATO Queue</a>
+              <a href="#ecosystem">PLATO Pay</a>
+              <a href="#ecosystem">PLATO Print</a>
+              <a href="#ecosystem">PLATO Online</a>
+              <a href="#ecosystem">PLATO Owner</a>
+              <a href="#ecosystem">PLATO Cloud</a>
             </div>
             <div>
-              <strong>Contact</strong>
-              <a href="mailto:info@dinexpos.in">info@dinexpos.in</a>
-              <a href="https://api.dinexpos.in/health">System Status</a>
+              <strong>Company</strong>
+              <a href="#vision">About</a>
               <a href="#pricing">Pricing</a>
+              <a href="mailto:info@dinexpos.in">Contact</a>
+              <a href="#enroll">Request Demo</a>
+            </div>
+            <div>
+              <strong>Get in Touch</strong>
+              <p className="lp-footer-contact-text">Ready to transform your restaurant operations?</p>
+              <a href="#enroll" className="lp-footer-demo-btn">Book a Demo</a>
             </div>
           </div>
         </div>
         <div className="lp-footer-bottom">
           <span>© 2026 PLATO. All rights reserved.</span>
-          <span>Made in India 🇮🇳</span>
+          <span><a href="#" style={{ color: "#4A5065", textDecoration: "none", marginRight: 16 }}>Privacy Policy</a><a href="#" style={{ color: "#4A5065", textDecoration: "none" }}>Terms of Service</a></span>
         </div>
       </footer>
 
