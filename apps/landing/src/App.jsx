@@ -100,33 +100,139 @@ const HARDWARE = [
   {
     name: "PLATO Terminal",
     sub: "Counter billing unit",
-    desc: "Purpose-built touchscreen billing counter with built-in receipt printer and cash drawer support."
+    desc: "Purpose-built touchscreen billing counter with built-in receipt printer and cash drawer support.",
+    icon: (
+      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="20" y="8" width="80" height="58" rx="5" fill="#E8EAF0" stroke="#C0C4D0" strokeWidth="1.5"/>
+        <rect x="26" y="14" width="68" height="46" rx="3" fill="#1A1D27"/>
+        <rect x="26" y="14" width="68" height="10" rx="3" fill="#FF5F15"/>
+        <rect x="26" y="24" width="68" height="0" />
+        <rect x="30" y="28" width="28" height="3" rx="1.5" fill="#4A5065"/>
+        <rect x="30" y="34" width="40" height="2" rx="1" fill="#2A2D3A"/>
+        <rect x="30" y="39" width="32" height="2" rx="1" fill="#2A2D3A"/>
+        <rect x="30" y="44" width="20" height="2" rx="1" fill="#2A2D3A"/>
+        <rect x="72" y="48" width="16" height="8" rx="2" fill="#FF5F15"/>
+        <rect x="52" y="66" width="16" height="7" rx="2" fill="#C8CDD8"/>
+        <rect x="38" y="73" width="44" height="8" rx="4" fill="#D4D7E3"/>
+      </svg>
+    ),
   },
   {
     name: "PLATO Display",
     sub: "Customer-facing screen",
-    desc: "Dual-display setup showing customers their live order summary at the point of billing."
+    desc: "Dual-display setup showing customers their live order summary at the point of billing.",
+    icon: (
+      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="52" y="12" width="52" height="36" rx="4" fill="#D8DBE8" stroke="#B8BCC8" strokeWidth="1.2"/>
+        <rect x="57" y="17" width="42" height="27" rx="2" fill="#6B7A99" fillOpacity="0.25"/>
+        <rect x="61" y="21" width="28" height="3" rx="1" fill="#8A91A8" fillOpacity="0.6"/>
+        <rect x="61" y="27" width="20" height="2" rx="1" fill="#8A91A8" fillOpacity="0.4"/>
+        <rect x="61" y="32" width="24" height="2" rx="1" fill="#8A91A8" fillOpacity="0.4"/>
+        <rect x="16" y="22" width="56" height="40" rx="4" fill="#E8EAF0" stroke="#C0C4D0" strokeWidth="1.5"/>
+        <rect x="21" y="27" width="46" height="30" rx="2" fill="#1A1D27"/>
+        <rect x="21" y="27" width="46" height="9" rx="2" fill="#FF5F15"/>
+        <rect x="25" y="39" width="16" height="2.5" rx="1" fill="#4A5065"/>
+        <rect x="25" y="44" width="22" height="2" rx="1" fill="#2A2D3A"/>
+        <rect x="25" y="49" width="18" height="2" rx="1" fill="#2A2D3A"/>
+        <rect x="44" y="42" width="18" height="12" rx="2" fill="#FF5F15" fillOpacity="0.25"/>
+        <rect x="38" y="62" width="8" height="6" rx="1" fill="#C8CDD8"/>
+        <rect x="28" y="68" width="28" height="6" rx="3" fill="#D4D7E3"/>
+      </svg>
+    ),
   },
   {
     name: "PLATO Printer",
     sub: "Thermal receipt printer",
-    desc: "Auto-cut thermal printer pre-paired with PLATO Print — zero driver setup on Windows or Android."
+    desc: "Auto-cut thermal printer pre-paired with PLATO Print — zero driver setup on Windows or Android.",
+    icon: (
+      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="43" y="8" width="34" height="36" rx="1" fill="#FFFFFF" stroke="#E0E2EA" strokeWidth="1"/>
+        <rect x="47" y="12" width="26" height="2" rx="1" fill="#C8CDD8"/>
+        <rect x="47" y="17" width="20" height="2" rx="1" fill="#C8CDD8"/>
+        <rect x="47" y="22" width="24" height="2" rx="1" fill="#C8CDD8"/>
+        <rect x="47" y="27" width="18" height="2" rx="1" fill="#C8CDD8"/>
+        <rect x="47" y="32" width="14" height="2" rx="1" fill="#FF5F15" fillOpacity="0.7"/>
+        <rect x="22" y="38" width="76" height="40" rx="6" fill="#E8EAF0" stroke="#C0C4D0" strokeWidth="1.5"/>
+        <rect x="22" y="38" width="76" height="14" rx="6" fill="#D8DBE8" stroke="#C0C4D0" strokeWidth="1.5"/>
+        <rect x="22" y="46" width="76" height="6" fill="#D8DBE8"/>
+        <rect x="38" y="48" width="44" height="2.5" rx="1" fill="#B0B4C0"/>
+        <rect x="30" y="57" width="28" height="10" rx="3" fill="#C8CDD8"/>
+        <circle cx="82" cy="62" r="5" fill="#FF5F15"/>
+        <circle cx="82" cy="62" r="2.5" fill="#E04800"/>
+      </svg>
+    ),
   },
   {
     name: "PLATO Pay Device",
     sub: "Card & UPI reader",
-    desc: "Standalone payment terminal for tap, swipe and QR — auto-reconciled against every order."
+    desc: "Standalone payment terminal for tap, swipe and QR — auto-reconciled against every order.",
+    icon: (
+      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="41" y="5" width="38" height="76" rx="7" fill="#E8EAF0" stroke="#C0C4D0" strokeWidth="1.5"/>
+        <rect x="45" y="10" width="30" height="22" rx="3" fill="#1A1D27"/>
+        <rect x="48" y="13" width="12" height="12" rx="1.5" fill="#FF5F15" fillOpacity="0.15" stroke="#FF5F15" strokeWidth="0.8"/>
+        <rect x="50" y="15" width="8" height="8" rx="0.8" fill="#FF5F15"/>
+        <rect x="62" y="13" width="10" height="5" rx="1" fill="#4A5065" fillOpacity="0.4"/>
+        <rect x="62" y="20" width="10" height="5" rx="1" fill="#4A5065" fillOpacity="0.4"/>
+        <circle cx="51" cy="44" r="3.5" fill="#D0D4DF"/>
+        <circle cx="60" cy="44" r="3.5" fill="#D0D4DF"/>
+        <circle cx="69" cy="44" r="3.5" fill="#D0D4DF"/>
+        <circle cx="51" cy="54" r="3.5" fill="#D0D4DF"/>
+        <circle cx="60" cy="54" r="3.5" fill="#D0D4DF"/>
+        <circle cx="69" cy="54" r="3.5" fill="#D0D4DF"/>
+        <circle cx="51" cy="64" r="3.5" fill="#D0D4DF"/>
+        <circle cx="60" cy="64" r="3.5" fill="#FF5F15"/>
+        <circle cx="69" cy="64" r="3.5" fill="#D0D4DF"/>
+        <rect x="37" y="34" width="4" height="14" rx="1.5" fill="#B8BCC8"/>
+      </svg>
+    ),
   },
   {
     name: "PLATO KDS Screen",
     sub: "Ruggedized kitchen display",
-    desc: "Industrial touchscreen built for high-heat, high-humidity kitchen environments."
+    desc: "Industrial touchscreen built for high-heat, high-humidity kitchen environments.",
+    icon: (
+      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="6" y="12" width="108" height="60" rx="5" fill="#1A1D27" stroke="#C0C4D0" strokeWidth="1.5"/>
+        <rect x="11" y="17" width="98" height="50" rx="3" fill="#13151F"/>
+        <rect x="14" y="20" width="28" height="44" rx="2" fill="#FF5F15" fillOpacity="0.12" stroke="#FF5F15" strokeWidth="0.8"/>
+        <rect x="17" y="23" width="12" height="3" rx="1" fill="#FF5F15"/>
+        <rect x="17" y="29" width="20" height="2" rx="1" fill="#4A5065"/>
+        <rect x="17" y="33" width="17" height="2" rx="1" fill="#4A5065"/>
+        <rect x="17" y="37" width="20" height="2" rx="1" fill="#4A5065"/>
+        <rect x="17" y="41" width="14" height="2" rx="1" fill="#4A5065"/>
+        <rect x="45" y="20" width="28" height="44" rx="2" fill="#1E2830" stroke="#22C55E" strokeWidth="0.8" strokeOpacity="0.6"/>
+        <rect x="48" y="23" width="12" height="3" rx="1" fill="#22C55E" fillOpacity="0.8"/>
+        <rect x="48" y="29" width="20" height="2" rx="1" fill="#4A5065"/>
+        <rect x="48" y="33" width="17" height="2" rx="1" fill="#4A5065"/>
+        <rect x="48" y="37" width="20" height="2" rx="1" fill="#4A5065"/>
+        <rect x="76" y="20" width="28" height="44" rx="2" fill="#1A1D27"/>
+        <rect x="79" y="23" width="12" height="3" rx="1" fill="#6B7A99"/>
+        <rect x="79" y="29" width="18" height="2" rx="1" fill="#2A2D3A"/>
+        <rect x="79" y="33" width="14" height="2" rx="1" fill="#2A2D3A"/>
+        <rect x="52" y="72" width="16" height="6" rx="2" fill="#C8CDD8"/>
+        <rect x="44" y="78" width="32" height="4" rx="2" fill="#D4D7E3"/>
+      </svg>
+    ),
   },
   {
     name: "PLATO Token Board",
     sub: "Queue display",
-    desc: "Wall-mounted customer token and table-call display for takeaway counters and fast-casual formats."
-  }
+    desc: "Wall-mounted customer token and table-call display for takeaway counters and fast-casual formats.",
+    icon: (
+      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="50" y="4" width="20" height="8" rx="3" fill="#C8CDD8"/>
+        <rect x="54" y="10" width="12" height="5" rx="1" fill="#B8BCC8"/>
+        <rect x="30" y="14" width="60" height="68" rx="6" fill="#1A1D27" stroke="#C0C4D0" strokeWidth="1.5"/>
+        <rect x="35" y="19" width="50" height="58" rx="4" fill="#13151F"/>
+        <rect x="35" y="19" width="50" height="8" rx="4" fill="#FF5F15" fillOpacity="0.2"/>
+        <rect x="43" y="21.5" width="34" height="3" rx="1" fill="#FF5F15"/>
+        <text x="60" y="60" textAnchor="middle" fill="#FF5F15" fontSize="26" fontWeight="800" fontFamily="monospace" letterSpacing="2">A07</text>
+        <rect x="38" y="67" width="44" height="6" rx="2" fill="#22C55E" fillOpacity="0.2"/>
+        <rect x="43" y="69" width="34" height="2" rx="1" fill="#22C55E" fillOpacity="0.5"/>
+      </svg>
+    ),
+  },
 ];
 
 const HOW_IT_WORKS = [
@@ -451,6 +557,7 @@ export function App() {
           <div className="lp-vision-grid">
             {HARDWARE.map(h => (
               <div key={h.name} className="lp-vision-card">
+                <div className="lp-vision-card-img">{h.icon}</div>
                 <div className="lp-coming-badge">Coming Soon</div>
                 <h4>{h.name}</h4>
                 <p className="lp-vision-card-sub">{h.sub}</p>
