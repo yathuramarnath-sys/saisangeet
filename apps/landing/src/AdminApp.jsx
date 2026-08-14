@@ -69,7 +69,7 @@ function deviceTypeIcon(type) {
 }
 
 function PlanBadge({ planId, billingStatus, trialDaysLeft }) {
-  if (billingStatus === "active" || planId !== "trial") {
+  if (billingStatus === "active" && planId && planId !== "trial") {
     return <span className="admin-badge-btn active" style={{ fontSize: 11, padding: "2px 8px" }}>Paid</span>;
   }
   if (billingStatus === "cancelled") {
@@ -315,23 +315,25 @@ function ClientDetailView({ client, onBack, onToggleActive, onResetPassword }) {
               <div className="admin-panel-head" style={{ paddingBottom: 12, borderBottom: "1px solid #f0f0f0" }}>
                 <h3>Business Info</h3>
               </div>
-              <table className="admin-info-table">
-                <tbody>
-                  <tr><td>Restaurant</td><td>{detail.restaurantName}</td></tr>
-                  <tr><td>Owner</td><td>{detail.ownerName}</td></tr>
-                  <tr><td>Email</td><td><a href={`mailto:${detail.email}`}>{detail.email}</a></td></tr>
-                  <tr><td>Phone</td><td>{detail.phone}</td></tr>
-                  {detail.gstin && <tr><td>GSTIN</td><td className="admin-mono">{detail.gstin}</td></tr>}
-                  {detail.city  && <tr><td>City</td><td>{detail.city}</td></tr>}
-                  <tr><td>Staff count</td><td>{detail.staffCount}</td></tr>
-                  <tr><td>Outlets</td><td>{detail.outlets.length}</td></tr>
-                  <tr><td>Devices</td><td>{detail.devices.length}</td></tr>
-                  <tr><td>Plan</td><td><PlanBadge planId={detail.planId} billingStatus={detail.billingStatus} trialDaysLeft={detail.trialDaysLeft} /></td></tr>
-                  {detail.trialEndsAt && <tr><td>Trial ends</td><td>{fmtDate(detail.trialEndsAt)}</td></tr>}
-                  <tr><td>Activity (30d)</td><td>{detail.activityLast30d} events</td></tr>
-                  <tr><td>Last active</td><td>{detail.lastActivityAt ? fmtRelative(detail.lastActivityAt) : "—"}</td></tr>
-                </tbody>
-              </table>
+              <div style={{ padding: "0 20px 16px" }}>
+                <table className="admin-info-table">
+                  <tbody>
+                    <tr><td>Restaurant</td><td>{detail.restaurantName}</td></tr>
+                    <tr><td>Owner</td><td>{detail.ownerName}</td></tr>
+                    <tr><td>Email</td><td><a href={`mailto:${detail.email}`} style={{ color: "#FF5F15" }}>{detail.email}</a></td></tr>
+                    <tr><td>Phone</td><td>{detail.phone}</td></tr>
+                    {detail.gstin && <tr><td>GSTIN</td><td className="admin-mono">{detail.gstin}</td></tr>}
+                    {detail.city  && <tr><td>City</td><td>{detail.city}</td></tr>}
+                    <tr><td>Staff</td><td>{detail.staffCount}</td></tr>
+                    <tr><td>Outlets</td><td>{detail.outlets.length}</td></tr>
+                    <tr><td>Devices</td><td>{detail.devices.length}</td></tr>
+                    <tr><td>Plan</td><td><PlanBadge planId={detail.planId} billingStatus={detail.billingStatus} trialDaysLeft={detail.trialDaysLeft} /></td></tr>
+                    {detail.trialEndsAt && <tr><td>Trial ends</td><td>{fmtDate(detail.trialEndsAt)}</td></tr>}
+                    <tr><td>Activity (30d)</td><td>{detail.activityLast30d ?? "—"} events</td></tr>
+                    <tr><td>Last active</td><td>{detail.lastActivityAt ? fmtRelative(detail.lastActivityAt) : "—"}</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Outlets */}
