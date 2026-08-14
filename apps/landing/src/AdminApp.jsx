@@ -75,11 +75,12 @@ function PlanBadge({ planId, billingStatus, trialDaysLeft }) {
   if (billingStatus === "cancelled") {
     return <span className="admin-badge-btn inactive" style={{ fontSize: 11, padding: "2px 8px" }}>Cancelled</span>;
   }
-  if (trialDaysLeft !== null && trialDaysLeft <= 3) {
-    return <span className="admin-badge-btn" style={{ fontSize: 11, padding: "2px 8px", background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D" }}>Trial · {trialDaysLeft}d left</span>;
+  const days = trialDaysLeft != null && trialDaysLeft >= 0 ? trialDaysLeft : null;
+  if (days !== null && days <= 3) {
+    return <span className="admin-badge-btn" style={{ fontSize: 11, padding: "2px 8px", background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D" }}>Trial · {days}d left</span>;
   }
-  if (trialDaysLeft !== null) {
-    return <span className="admin-badge-btn pending" style={{ fontSize: 11, padding: "2px 8px" }}>Trial · {trialDaysLeft}d</span>;
+  if (days !== null) {
+    return <span className="admin-badge-btn pending" style={{ fontSize: 11, padding: "2px 8px" }}>Trial · {days}d</span>;
   }
   return <span className="admin-badge-btn pending" style={{ fontSize: 11, padding: "2px 8px" }}>Trial</span>;
 }
@@ -513,7 +514,6 @@ function ClientsDashboard({ user, onLogout }) {
           </div>
         </div>
         <div className="admin-topbar-right">
-          <span className="admin-user-pill">👤 {user?.fullName || user?.email || "Admin"}</span>
           <button className="admin-btn-ghost" onClick={onLogout}>Sign out</button>
         </div>
       </header>
