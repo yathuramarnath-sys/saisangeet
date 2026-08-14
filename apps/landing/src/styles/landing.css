@@ -1366,3 +1366,98 @@ button.lp-btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: no
   align-items: center;
   justify-content: center;
 }
+
+/* ── Send Email Modal ──────────────────────────────────── */
+.admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.admin-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.18);
+  overflow: hidden;
+}
+
+.admin-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.admin-modal-head h3 { margin: 0; font-size: 1rem; font-weight: 700; }
+
+.admin-modal-close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #6B7280;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.admin-modal-close:hover { background: #f3f4f6; }
+
+.admin-modal-to {
+  font-size: 13px;
+  color: #6B7280;
+  padding: 10px 24px 0;
+  margin: 0;
+}
+
+.admin-modal form { padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+
+.admin-modal-label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.admin-modal-label input,
+.admin-modal-label textarea {
+  border: 1.5px solid #E5E7EB;
+  border-radius: 7px;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color .15s;
+}
+.admin-modal-label input:focus,
+.admin-modal-label textarea:focus { border-color: #FF5F15; }
+
+.admin-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.admin-btn-primary {
+  background: #FF5F15;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 9px 20px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.admin-btn-primary:hover:not(:disabled) { background: #E04800; }
+.admin-btn-primary:disabled { opacity: .55; cursor: not-allowed; }

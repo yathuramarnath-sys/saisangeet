@@ -1,4 +1,4 @@
-const { listClients, resetClientPassword, setClientActive, getClientDetails, unlinkDevice } = require("./clients.service");
+const { listClients, resetClientPassword, setClientActive, getClientDetails, unlinkDevice, sendEmailToClient } = require("./clients.service");
 const { ApiError } = require("../../utils/api-error");
 
 async function listClientsHandler(req, res, next) {
@@ -77,4 +77,20 @@ async function unlinkDeviceHandler(req, res, next) {
   }
 }
 
-module.exports = { listClientsHandler, resetClientPasswordHandler, setClientActiveHandler, getClientDetailsHandler, unlinkDeviceHandler };
+async function sendEmailToClientHandler(req, res, next) {
+  try {
+    if (!req.user || req.user.tenantId !== "default" || !(req.user.roles || []).includes("Owner")) {
+      throw new ApiError(403, "FORBIDDEN", "Admin access required");
+    }
+    const { tenantId } = req.params;
+    if (!tenantId) throw new ApiError(400, "MISSING_TENANT", "tenantId is required");
+    const { subject, body } = req.body || {};
+    if (!subject || !body) throw new ApiError(400, "MISSING_FIELDS", "subject and body are required");
+    const result = await sendEmailToClient(tenantId, { subject, body });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listClientsHandler, resetClientPasswordHandler, setClientActiveHandler, getClientDetailsHandler, unlinkDeviceHandler, sendEmailToClientHandler };
