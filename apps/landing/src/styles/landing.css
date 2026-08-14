@@ -1050,7 +1050,7 @@ body {
 .lp-enroll-left h2 {
   font-size: clamp(1.6rem, 3vw, 2.2rem);
   font-weight: 900;
-  color: #fff;
+  color: var(--ink);
   letter-spacing: -.02em;
   margin-bottom: 14px;
 }

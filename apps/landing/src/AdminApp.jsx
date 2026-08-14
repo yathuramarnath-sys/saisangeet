@@ -98,9 +98,9 @@ function AdminLogin({ onLogin }) {
     <div className="admin-login-wrap">
       <div className="admin-login-box">
         <div className="admin-login-brand">
-          <div className="admin-brand-mark">D</div>
+          <div className="admin-brand-mark">P</div>
           <div>
-            <strong>DineXPOS</strong>
+            <strong>PLATO</strong>
             <span>Admin Console</span>
           </div>
         </div>
@@ -418,9 +418,9 @@ function ClientsDashboard({ user, onLogout }) {
     <div className="admin-dashboard">
       <header className="admin-topbar">
         <div className="admin-topbar-left">
-          <div className="admin-brand-mark small">D</div>
+          <div className="admin-brand-mark small">P</div>
           <div>
-            <strong>DineXPOS Admin</strong>
+            <strong>PLATO Admin</strong>
             <span>Client Management</span>
           </div>
         </div>

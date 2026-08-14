@@ -31,7 +31,7 @@ async function sendWelcomeEmail({ to, name, restaurant, tempPassword }) {
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f7; margin: 0; padding: 0; }
     .wrap { max-width: 540px; margin: 40px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 16px rgba(0,0,0,.08); }
-    .header { background: #FF5A1F; padding: 32px 40px; }
+    .header { background: #FF5F15; padding: 32px 40px; }
     .header h1 { color: #fff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
     .header p { color: rgba(255,255,255,.8); margin: 4px 0 0; font-size: 14px; }
     .body { padding: 36px 40px; }
@@ -41,7 +41,7 @@ async function sendWelcomeEmail({ to, name, restaurant, tempPassword }) {
     .creds p { margin: 0 0 10px; font-size: 14px; color: #4A5065; }
     .creds p:last-child { margin: 0; }
     .creds strong { color: #1A1D27; font-size: 15px; }
-    .btn { display: inline-block; background: #FF5A1F; color: #fff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 13px 28px; border-radius: 8px; }
+    .btn { display: inline-block; background: #FF5F15; color: #fff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 13px 28px; border-radius: 8px; }
     .note { font-size: 13px !important; color: #8A91A8 !important; }
     .footer { padding: 20px 40px; background: #F7F8FA; border-top: 1px solid #E8EAF0; }
     .footer p { font-size: 12px; color: #8A91A8; margin: 0; }
@@ -50,27 +50,28 @@ async function sendWelcomeEmail({ to, name, restaurant, tempPassword }) {
 <body>
   <div class="wrap">
     <div class="header">
-      <h1>DineXPOS</h1>
-      <p>Restaurant OS for India</p>
+      <h1>PLATO</h1>
+      <p>The Restaurant Operating System · dinexpos.in</p>
     </div>
     <div class="body">
       <h2>Welcome, ${name}! 🎉</h2>
       <p>
-        Your DineXPOS account for <strong>${restaurant}</strong> is ready.
-        Use the credentials below to sign in. Please change your password after your first login.
+        Your PLATO account for <strong>${restaurant}</strong> is ready.
+        Use the credentials below to sign in and start your free 30-day trial.
+        Please change your password after your first login.
       </p>
       <div class="creds">
-        <p>🔗 <strong>Login URL:</strong><br/><a href="${loginUrl}" style="color:#FF5A1F;">${loginUrl}</a></p>
+        <p>🔗 <strong>Login URL:</strong><br/><a href="${loginUrl}" style="color:#FF5F15;">${loginUrl}</a></p>
         <p>👤 <strong>Username (Email):</strong><br/><strong>${to}</strong></p>
         <p>🔑 <strong>Temporary Password:</strong><br/><strong>${tempPassword}</strong></p>
       </div>
-      <a href="${loginUrl}" class="btn">Sign In to DineXPOS →</a>
+      <a href="${loginUrl}" class="btn">Sign In to PLATO →</a>
       <p class="note" style="margin-top:24px;">
-        Questions? Write to <a href="mailto:info@dinexpos.in" style="color:#FF5A1F;">info@dinexpos.in</a> — we're happy to help.
+        Questions? Write to <a href="mailto:info@dinexpos.in" style="color:#FF5F15;">info@dinexpos.in</a> — we're happy to help set up your restaurant.
       </p>
     </div>
     <div class="footer">
-      <p>© 2026 DineXPOS · Made in India 🇮🇳 · You received this because you enrolled at dinexpos.in</p>
+      <p>© 2026 PLATO by DineXPOS · Made in India 🇮🇳 · You received this because you enrolled at dinexpos.in</p>
     </div>
   </div>
 </body>
@@ -78,9 +79,9 @@ async function sendWelcomeEmail({ to, name, restaurant, tempPassword }) {
   `.trim();
 
   const text = [
-    `Welcome to DineXPOS, ${name}!`,
+    `Welcome to PLATO, ${name}!`,
     ``,
-    `Your DineXPOS account for ${restaurant} is ready.`,
+    `Your PLATO account for ${restaurant} is ready.`,
     ``,
     `Login URL: ${loginUrl}`,
     `Username (email): ${to}`,
@@ -93,7 +94,7 @@ async function sendWelcomeEmail({ to, name, restaurant, tempPassword }) {
   const { error } = await getResend().emails.send({
     from: env.emailFrom,
     to,
-    subject: `Welcome to DineXPOS — your ${restaurant} account is ready`,
+    subject: `Welcome to PLATO — your ${restaurant} account is ready`,
     html,
     text
   });
@@ -138,12 +139,12 @@ async function sendPasswordResetEmail({ to, name, resetUrl }) {
 <body>
   <div class="wrap">
     <div class="header">
-      <h1>DineXPOS</h1>
-      <p>Restaurant OS for India</p>
+      <h1>PLATO</h1>
+      <p>The Restaurant Operating System · dinexpos.in</p>
     </div>
     <div class="body">
       <h2>Reset your password</h2>
-      <p>Hi ${name || "there"},<br/>We received a request to reset your DineXPOS password. Click the button below — this link expires in <strong>1 hour</strong>.</p>
+      <p>Hi ${name || "there"},<br/>We received a request to reset your PLATO password. Click the button below — this link expires in <strong>1 hour</strong>.</p>
       <a href="${resetUrl}" class="btn">Reset Password →</a>
       <p class="note" style="margin-top:24px;">
         If the button doesn't work, copy and paste this link into your browser:<br/>
@@ -154,7 +155,7 @@ async function sendPasswordResetEmail({ to, name, resetUrl }) {
       </p>
     </div>
     <div class="footer">
-      <p>© 2026 DineXPOS · Made in India 🇮🇳 · This link expires in 1 hour.</p>
+      <p>© 2026 PLATO by DineXPOS · Made in India 🇮🇳 · This link expires in 1 hour.</p>
     </div>
   </div>
 </body>
@@ -173,7 +174,7 @@ async function sendPasswordResetEmail({ to, name, resetUrl }) {
   const { error } = await getResend().emails.send({
     from: env.emailFrom,
     to,
-    subject: "Reset your DineXPOS password",
+    subject: "Reset your PLATO password",
     html,
     text
   });
@@ -203,7 +204,7 @@ async function sendNewLeadNotification({ name, restaurant, phone, email, outlets
 <body style="font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f7;margin:0;padding:0;">
   <div style="max-width:540px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08);">
     <div style="background:#FF5A1F;padding:24px 32px;">
-      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:800;">New DineXPOS Signup</h1>
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:800;">New PLATO Signup</h1>
     </div>
     <div style="padding:28px 32px;">
       <table style="width:100%;font-size:14px;color:#1A1D27;border-collapse:collapse;">
@@ -223,7 +224,7 @@ async function sendNewLeadNotification({ name, restaurant, phone, email, outlets
   const { error } = await getResend().emails.send({
     from: env.emailFrom,
     to: env.backupEmail,
-    subject: `New signup — ${restaurant}`,
+    subject: `New PLATO signup — ${restaurant}`,
     html
   });
 
