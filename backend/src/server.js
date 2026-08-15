@@ -346,7 +346,6 @@ setInterval(() => {
         const tenantData = getOwnerSetupData();
         await toggleItemAvailability(itemId, true, tenantData);
       }).catch(() => {});
-      }
       console.log(`[item-availability] auto re-enabled | outlet=${outletId} | item=${itemId}`);
     }
   }
