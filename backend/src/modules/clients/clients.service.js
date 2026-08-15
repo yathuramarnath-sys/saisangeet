@@ -3,6 +3,8 @@ const crypto  = require("crypto");
 const { query } = require("../../db/pool");
 const { sendWelcomeEmail } = require("../../utils/email");
 const { warmTenantCache } = require("../../data/owner-setup-store");
+const { Resend } = require("resend");
+const { env } = require("../../config/env");
 
 /**
  * List all tenants (clients) registered on the platform.
@@ -10,9 +12,6 @@ const { warmTenantCache } = require("../../data/owner-setup-store");
  * Excludes the "default" tenant (Saisangeet's own account).
  */
 async function listClients() {
-  // DISTINCT ON (tenant_id) deduplicated by earliest signup — prevents duplicate
-  // rows when both email and phone are registered in users_index for the same tenant.
-  // We pick the row whose identifier looks like an email (contains @) preferentially.
   const result = await query(`
     SELECT DISTINCT ON (ui.tenant_id)
       ui.identifier  AS identifier,
@@ -20,16 +19,23 @@ async function listClients() {
       ui.created_at  AS "signedUpAt",
       ts.value       AS setup,
       ts.updated_at  AS "lastUpdatedAt",
-      ca.value       AS client_active
+      ca.value       AS client_active,
+      tb.plan_id     AS "planId",
+      tb.status      AS "billingStatus",
+      tb.trial_ends_at AS "trialEndsAt",
+      (SELECT MAX(al.created_at) FROM action_logs al WHERE al.tenant_id = ui.tenant_id) AS "lastActivityAt"
     FROM users_index ui
     LEFT JOIN tenant_settings ts
            ON ts.tenant_id = ui.tenant_id AND ts.key = 'owner_setup'
     LEFT JOIN tenant_settings ca
            ON ca.tenant_id = ui.tenant_id AND ca.key = 'client_active'
+    LEFT JOIN tenant_billing tb
+           ON tb.tenant_id = ui.tenant_id
     WHERE ui.tenant_id != 'default'
     ORDER BY ui.tenant_id, (ui.identifier LIKE '%@%') DESC, ui.created_at ASC
   `);
 
+  const now = Date.now();
   return result.rows.map((row) => {
     let setup = {};
     try { setup = typeof row.setup === "string" ? JSON.parse(row.setup) : (row.setup || {}); } catch (_) {}
@@ -43,22 +49,32 @@ async function listClients() {
     const owner = (setup.users || []).find((u) => (u.roles || []).includes("Owner")) || {};
     const bp    = setup.businessProfile || {};
 
-    // Prefer email from the owner record; fall back to identifier if it looks like an email
     const email = owner.email ||
       (row.identifier && row.identifier.includes("@") ? row.identifier : "—");
     const phone = owner.phone || bp.phone ||
       (row.identifier && !row.identifier.includes("@") ? row.identifier : "—");
 
+    let trialDaysLeft = null;
+    if (row.trialEndsAt && row.billingStatus === "trialing") {
+      const diff = new Date(row.trialEndsAt).getTime() - now;
+      trialDaysLeft = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    }
+
     return {
-      tenantId:       row.tenantId,
+      tenantId:        row.tenantId,
       email,
-      ownerName:      owner.fullName || owner.name || "—",
-      restaurantName: bp.tradeName || bp.legalName || "—",
+      ownerName:       owner.fullName || owner.name || "—",
+      restaurantName:  bp.tradeName || bp.legalName || "—",
       phone,
-      signedUpAt:     row.signedUpAt,
-      lastUpdatedAt:  row.lastUpdatedAt,
-      hasPassword:    !!owner.passwordHash,
-      isActive
+      signedUpAt:      row.signedUpAt,
+      lastUpdatedAt:   row.lastUpdatedAt,
+      lastActivityAt:  row.lastActivityAt || null,
+      hasPassword:     !!owner.passwordHash,
+      isActive,
+      planId:          row.planId || "trial",
+      billingStatus:   row.billingStatus || "trialing",
+      trialEndsAt:     row.trialEndsAt || null,
+      trialDaysLeft,
     };
   });
 }
@@ -133,7 +149,7 @@ async function resetClientPassword(tenantId) {
  * Get full details for a single client tenant — used by the admin detail view.
  */
 async function getClientDetails(tenantId) {
-  const [setupResult, devicesResult] = await Promise.all([
+  const [setupResult, devicesResult, billingResult, activityResult] = await Promise.all([
     query(
       `SELECT value FROM tenant_settings WHERE tenant_id = $1 AND key = 'owner_setup'`,
       [tenantId]
@@ -157,6 +173,19 @@ async function getClientDetails(tenantId) {
        ORDER BY last_seen_at DESC NULLS LAST`,
       [tenantId]
     ),
+    query(
+      `SELECT plan_id, status, trial_ends_at, current_period_end, created_at
+       FROM tenant_billing WHERE tenant_id = $1`,
+      [tenantId]
+    ),
+    query(
+      `SELECT
+         COUNT(*)::int AS total_30d,
+         MAX(created_at) AS last_activity
+       FROM action_logs
+       WHERE tenant_id = $1 AND created_at > NOW() - INTERVAL '30 days'`,
+      [tenantId]
+    ),
   ]);
 
   let setup = {};
@@ -178,18 +207,34 @@ async function getClientDetails(tenantId) {
     isActive:   o.isActive !== false,
   }));
 
+  const billing  = billingResult.rows[0] || {};
+  const activity = activityResult.rows[0] || {};
+  const now      = Date.now();
+
+  let trialDaysLeft = null;
+  if (billing.trial_ends_at && billing.status === "trialing") {
+    const diff = new Date(billing.trial_ends_at).getTime() - now;
+    trialDaysLeft = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }
+
   return {
     tenantId,
-    restaurantName: bp.tradeName || bp.legalName || "—",
-    ownerName:      owner.fullName || owner.name || "—",
-    email:          owner.email || "—",
-    phone:          owner.phone || bp.phone || "—",
-    gstin:          bp.gstin || null,
-    city:           bp.city || null,
-    businessType:   bp.businessType || null,
+    restaurantName:  bp.tradeName || bp.legalName || "—",
+    ownerName:       owner.fullName || owner.name || "—",
+    email:           owner.email || "—",
+    phone:           owner.phone || bp.phone || "—",
+    gstin:           bp.gstin || null,
+    city:            bp.city || null,
+    businessType:    bp.businessType || null,
     outlets,
-    devices:        devicesResult.rows,
-    staffCount:     users.filter((u) => !(u.roles || []).includes("Owner")).length,
+    devices:         devicesResult.rows,
+    staffCount:      users.filter((u) => !(u.roles || []).includes("Owner")).length,
+    planId:          billing.plan_id || "trial",
+    billingStatus:   billing.status || "trialing",
+    trialEndsAt:     billing.trial_ends_at || null,
+    trialDaysLeft,
+    activityLast30d: activity.total_30d || 0,
+    lastActivityAt:  activity.last_activity || null,
   };
 }
 
@@ -208,4 +253,61 @@ async function unlinkDevice(tenantId, deviceId) {
   return { ok: true, deviceId };
 }
 
-module.exports = { listClients, resetClientPassword, setClientActive, getClientDetails, unlinkDevice };
+/**
+ * Send a custom email from the PLATO admin to a client.
+ */
+async function sendEmailToClient(tenantId, { subject, body }) {
+  if (!subject || !body) throw new Error("Subject and body are required");
+
+  const result = await query(
+    `SELECT value FROM tenant_settings WHERE tenant_id = $1 AND key = 'owner_setup'`,
+    [tenantId]
+  );
+  let setup = {};
+  try {
+    const raw = result.rows[0]?.value;
+    setup = typeof raw === "string" ? JSON.parse(raw) : (raw || {});
+  } catch (_) {}
+
+  const owner = (setup.users || []).find((u) => (u.roles || []).includes("Owner")) || {};
+  const bp    = setup.businessProfile || {};
+  const to    = owner.email;
+  if (!to) throw new Error("Client email not found");
+
+  if (!env.resendApiKey) throw new Error("Email service not configured");
+
+  const resend = new Resend(env.resendApiKey);
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8" /></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f7;margin:0;padding:0;">
+  <div style="max-width:540px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08);">
+    <div style="background:#FF5F15;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:800;">PLATO</h1>
+      <p style="color:rgba(255,255,255,.8);margin:4px 0 0;font-size:13px;">The Restaurant Operating System · dinexpos.in</p>
+    </div>
+    <div style="padding:28px 32px;">
+      <p style="font-size:15px;color:#4A5065;line-height:1.7;white-space:pre-wrap;">${body.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
+    </div>
+    <div style="padding:16px 32px;background:#F7F8FA;border-top:1px solid #E8EAF0;">
+      <p style="font-size:12px;color:#8A91A8;margin:0;">© 2026 PLATO by DineXPOS · <a href="mailto:info@dinexpos.in" style="color:#FF5F15;">info@dinexpos.in</a></p>
+    </div>
+  </div>
+</body>
+</html>`.trim();
+
+  const { error } = await resend.emails.send({
+    from: env.emailFrom,
+    to,
+    subject,
+    html,
+    text: body,
+  });
+
+  if (error) throw new Error(error.message || "Email send failed");
+
+  return { ok: true, to, restaurantName: bp.tradeName || bp.legalName || tenantId };
+}
+
+module.exports = { listClients, resetClientPassword, setClientActive, getClientDetails, unlinkDevice, sendEmailToClient };

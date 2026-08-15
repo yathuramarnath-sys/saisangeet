@@ -68,6 +68,79 @@ function deviceTypeIcon(type) {
   }
 }
 
+function PlanBadge({ planId, billingStatus, trialDaysLeft }) {
+  if (billingStatus === "active" && planId && planId !== "trial") {
+    return <span className="admin-badge-btn active" style={{ fontSize: 11, padding: "2px 8px" }}>Paid</span>;
+  }
+  if (billingStatus === "cancelled") {
+    return <span className="admin-badge-btn inactive" style={{ fontSize: 11, padding: "2px 8px" }}>Cancelled</span>;
+  }
+  const days = trialDaysLeft != null && trialDaysLeft >= 0 ? trialDaysLeft : null;
+  if (days !== null && days <= 3) {
+    return <span className="admin-badge-btn" style={{ fontSize: 11, padding: "2px 8px", background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D" }}>Trial · {days}d left</span>;
+  }
+  if (days !== null) {
+    return <span className="admin-badge-btn pending" style={{ fontSize: 11, padding: "2px 8px" }}>Trial · {days}d</span>;
+  }
+  return <span className="admin-badge-btn pending" style={{ fontSize: 11, padding: "2px 8px" }}>Trial</span>;
+}
+
+function SendEmailModal({ client, onClose, onSent }) {
+  const [subject,  setSubject]  = useState(`Hello from PLATO — ${client.restaurantName}`);
+  const [body,     setBody]     = useState("");
+  const [sending,  setSending]  = useState(false);
+  const [error,    setError]    = useState("");
+
+  async function handleSend(e) {
+    e.preventDefault();
+    if (!subject.trim() || !body.trim()) return;
+    setSending(true);
+    setError("");
+    try {
+      await apiFetch(`/admin/clients/${client.tenantId}/send-email`, {
+        method: "POST",
+        body: JSON.stringify({ subject: subject.trim(), body: body.trim() })
+      });
+      onSent(`✓ Email sent to ${client.email}`);
+      onClose();
+    } catch (err) {
+      setError(err.message || "Failed to send email");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="admin-modal-overlay" onClick={onClose}>
+      <div className="admin-modal" onClick={e => e.stopPropagation()}>
+        <div className="admin-modal-head">
+          <h3>Send Email to {client.restaurantName}</h3>
+          <button className="admin-modal-close" onClick={onClose}>✕</button>
+        </div>
+        <p className="admin-modal-to">To: <strong>{client.email}</strong></p>
+        {error && <div className="admin-flash error" style={{ margin: "0 0 12px" }}>{error}</div>}
+        <form onSubmit={handleSend}>
+          <label className="admin-modal-label">
+            Subject
+            <input type="text" value={subject} onChange={e => setSubject(e.target.value)} required />
+          </label>
+          <label className="admin-modal-label">
+            Message
+            <textarea rows={7} value={body} onChange={e => setBody(e.target.value)}
+              placeholder="Type your message here…" required />
+          </label>
+          <div className="admin-modal-footer">
+            <button type="button" className="admin-btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="admin-btn-primary" disabled={sending || !subject.trim() || !body.trim()}>
+              {sending ? "Sending…" : "Send Email →"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Login Screen ─────────────────────────────────────────────────────────────
 function AdminLogin({ onLogin }) {
   const [identifier, setIdentifier] = useState("");
@@ -98,9 +171,9 @@ function AdminLogin({ onLogin }) {
     <div className="admin-login-wrap">
       <div className="admin-login-box">
         <div className="admin-login-brand">
-          <div className="admin-brand-mark">D</div>
+          <div className="admin-brand-mark">P</div>
           <div>
-            <strong>DineXPOS</strong>
+            <strong>PLATO</strong>
             <span>Admin Console</span>
           </div>
         </div>
@@ -129,11 +202,12 @@ function AdminLogin({ onLogin }) {
 
 // ── Client Detail View ────────────────────────────────────────────────────────
 function ClientDetailView({ client, onBack, onToggleActive, onResetPassword }) {
-  const [detail,    setDetail]    = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState("");
-  const [flash,     setFlash]     = useState(null);
-  const [unlinking, setUnlinking] = useState(null); // deviceId being unlinked
+  const [detail,      setDetail]      = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState("");
+  const [flash,       setFlash]       = useState(null);
+  const [unlinking,   setUnlinking]   = useState(null);
+  const [showEmail,   setShowEmail]   = useState(false);
 
   const loadDetail = useCallback(async () => {
     setLoading(true);
@@ -186,6 +260,7 @@ function ClientDetailView({ client, onBack, onToggleActive, onResetPassword }) {
           <button className="admin-back-btn" onClick={onBack}>← All Clients</button>
         </div>
         <div className="admin-topbar-right">
+          <button className="admin-btn-ghost" onClick={() => setShowEmail(true)}>✉ Send Email</button>
           <button className="admin-btn-ghost" onClick={() => onResetPassword(client)}>Reset Password</button>
           <button
             className={`admin-badge-btn ${statusCls}`}
@@ -196,6 +271,14 @@ function ClientDetailView({ client, onBack, onToggleActive, onResetPassword }) {
           </button>
         </div>
       </header>
+
+      {showEmail && (
+        <SendEmailModal
+          client={client}
+          onClose={() => setShowEmail(false)}
+          onSent={(msg) => { setFlash({ type: "success", message: msg }); setTimeout(() => setFlash(null), 4000); }}
+        />
+      )}
 
       <div className="admin-body">
         {/* Quick Recovery Header */}
@@ -233,19 +316,25 @@ function ClientDetailView({ client, onBack, onToggleActive, onResetPassword }) {
               <div className="admin-panel-head" style={{ paddingBottom: 12, borderBottom: "1px solid #f0f0f0" }}>
                 <h3>Business Info</h3>
               </div>
-              <table className="admin-info-table">
-                <tbody>
-                  <tr><td>Restaurant</td><td>{detail.restaurantName}</td></tr>
-                  <tr><td>Owner</td><td>{detail.ownerName}</td></tr>
-                  <tr><td>Email</td><td><a href={`mailto:${detail.email}`}>{detail.email}</a></td></tr>
-                  <tr><td>Phone</td><td>{detail.phone}</td></tr>
-                  {detail.gstin && <tr><td>GSTIN</td><td className="admin-mono">{detail.gstin}</td></tr>}
-                  {detail.city  && <tr><td>City</td><td>{detail.city}</td></tr>}
-                  <tr><td>Staff count</td><td>{detail.staffCount}</td></tr>
-                  <tr><td>Outlets</td><td>{detail.outlets.length}</td></tr>
-                  <tr><td>Devices</td><td>{detail.devices.length}</td></tr>
-                </tbody>
-              </table>
+              <div style={{ padding: "0 20px 16px" }}>
+                <table className="admin-info-table">
+                  <tbody>
+                    <tr><td>Restaurant</td><td>{detail.restaurantName}</td></tr>
+                    <tr><td>Owner</td><td>{detail.ownerName}</td></tr>
+                    <tr><td>Email</td><td><a href={`mailto:${detail.email}`} style={{ color: "#FF5F15" }}>{detail.email}</a></td></tr>
+                    <tr><td>Phone</td><td>{detail.phone}</td></tr>
+                    {detail.gstin && <tr><td>GSTIN</td><td className="admin-mono">{detail.gstin}</td></tr>}
+                    {detail.city  && <tr><td>City</td><td>{detail.city}</td></tr>}
+                    <tr><td>Staff</td><td>{detail.staffCount}</td></tr>
+                    <tr><td>Outlets</td><td>{detail.outlets.length}</td></tr>
+                    <tr><td>Devices</td><td>{detail.devices.length}</td></tr>
+                    <tr><td>Plan</td><td><PlanBadge planId={detail.planId} billingStatus={detail.billingStatus} trialDaysLeft={detail.trialDaysLeft} /></td></tr>
+                    {detail.trialEndsAt && <tr><td>Trial ends</td><td>{fmtDate(detail.trialEndsAt)}</td></tr>}
+                    <tr><td>Activity (30d)</td><td>{detail.activityLast30d ?? "—"} events</td></tr>
+                    <tr><td>Last active</td><td>{detail.lastActivityAt ? fmtRelative(detail.lastActivityAt) : "—"}</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Outlets */}
@@ -418,14 +507,13 @@ function ClientsDashboard({ user, onLogout }) {
     <div className="admin-dashboard">
       <header className="admin-topbar">
         <div className="admin-topbar-left">
-          <div className="admin-brand-mark small">D</div>
+          <div className="admin-brand-mark small">P</div>
           <div>
-            <strong>DineXPOS Admin</strong>
+            <strong>PLATO Admin</strong>
             <span>Client Management</span>
           </div>
         </div>
         <div className="admin-topbar-right">
-          <span className="admin-user-pill">👤 {user?.fullName || user?.email || "Admin"}</span>
           <button className="admin-btn-ghost" onClick={onLogout}>Sign out</button>
         </div>
       </header>
@@ -492,8 +580,8 @@ function ClientsDashboard({ user, onLogout }) {
                 <span>Restaurant</span>
                 <span>Owner</span>
                 <span>Contact</span>
-                <span>Tenant ID</span>
-                <span>Signed Up</span>
+                <span>Plan</span>
+                <span>Joined · Last Active</span>
                 <span>Status</span>
                 <span>Actions</span>
               </div>
@@ -503,18 +591,20 @@ function ClientsDashboard({ user, onLogout }) {
                   className="admin-table-row admin-table-row-7 admin-row-clickable"
                   onClick={() => setSelectedId(c.tenantId)}
                 >
-                  <span><strong>{c.restaurantName}</strong></span>
+                  <span><strong>{c.restaurantName}</strong><br /><small className="admin-muted" style={{ fontSize: 10 }}>{c.tenantId}</small></span>
                   <span>{c.ownerName}</span>
                   <span>
                     <span className="admin-email">{c.email}</span>
                     <br /><small>{c.phone}</small>
                   </span>
-                  <span className="admin-mono admin-muted" style={{ fontSize: 11 }}>{c.tenantId}</span>
-                  <span className="muted">
+                  <span onClick={e => e.stopPropagation()}>
+                    <PlanBadge planId={c.planId} billingStatus={c.billingStatus} trialDaysLeft={c.trialDaysLeft} />
+                  </span>
+                  <span className="muted" style={{ fontSize: 12 }}>
                     {fmtDate(c.signedUpAt)}
-                    {c.lastUpdatedAt && (
-                      <><br /><small>Updated {fmtDate(c.lastUpdatedAt)}</small></>
-                    )}
+                    <br /><small style={{ color: c.lastActivityAt ? "#6B7280" : "#9CA3AF" }}>
+                      {c.lastActivityAt ? fmtRelative(c.lastActivityAt) : "No activity"}
+                    </small>
                   </span>
                   <span onClick={e => e.stopPropagation()}>
                     <button

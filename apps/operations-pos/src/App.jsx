@@ -2483,6 +2483,9 @@ export function App() {
     // For mirror settle: backend detects hasNewerOrder (Order 2 in memory != Order 1 being
     // settled), skips clearTableAfterSettle, and re-broadcasts Order 2 to all devices.
     let backendConfirmed = false;
+    // Tracks the printable order — updated with server-assigned billNo when available.
+    // Used to auto-print receipts for counter credit orders after settlement.
+    let printableOrder = closedOrder;
     try {
       // Server returns { ok, billNo, billNoMode, billNoFY, billNoDate, closedAt }
       const closeResult = await api.post("/operations/closed-order", {
@@ -2502,6 +2505,7 @@ export function App() {
           billNoDate: closeResult.billNoDate  || null,
           closedAt:   closeResult.closedAt    || closedOrder.closedAt,
         };
+        printableOrder = stamped;
 
         // Overwrite the localStorage record with the stamped version
         try {
@@ -2531,6 +2535,21 @@ export function App() {
       const q = loadClosedOrderQueue();
       q.push({ order: closedOrder });
       saveClosedOrderQueue(q);
+    }
+
+    // Counter credit orders: print receipt now (non-credit counter orders are printed
+    // by handleCounterPrintAndSettle before reaching here; dine-in is printed via
+    // handlePrintBill before the cashier opens the payment sheet).
+    if (isCreditSale && order.isCounter) {
+      try {
+        printBill(printableOrder, printableOrder.items, outlet || branchConfig?.outletName, {
+          cashierName,
+          waiterName:  null,
+          captainName: null,
+        });
+      } catch (printErr) {
+        console.warn("[POS] credit counter receipt print failed:", printErr.message);
+      }
     }
 
     setShowPayment(false);
