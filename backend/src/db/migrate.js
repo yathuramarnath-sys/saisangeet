@@ -92,6 +92,21 @@ async function runMigrations() {
     ALTER TABLE device_registry ADD COLUMN IF NOT EXISTS logged_in_user TEXT
   `);
 
+  await queryFn(`
+    CREATE TABLE IF NOT EXISTS action_logs (
+      id         TEXT         PRIMARY KEY,
+      tenant_id  TEXT         NOT NULL,
+      outlet_id  TEXT,
+      table_id   TEXT,
+      action     TEXT         NOT NULL,
+      actor_name TEXT,
+      device     TEXT,
+      details    JSONB,
+      created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    )
+  `);
+  await queryFn(`CREATE INDEX IF NOT EXISTS idx_action_logs_tenant_ts ON action_logs (tenant_id, created_at DESC)`);
+
   console.log("[migrate] Tables verified.");
 
   // ── 2. Seed tenant_settings from JSON files ─────────────────────────────────

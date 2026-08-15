@@ -12,28 +12,54 @@ const { env } = require("../../config/env");
  * Excludes the "default" tenant (Saisangeet's own account).
  */
 async function listClients() {
-  const result = await query(`
-    SELECT DISTINCT ON (ui.tenant_id)
-      ui.identifier  AS identifier,
-      ui.tenant_id   AS "tenantId",
-      ui.created_at  AS "signedUpAt",
-      ts.value       AS setup,
-      ts.updated_at  AS "lastUpdatedAt",
-      ca.value       AS client_active,
-      tb.plan_id     AS "planId",
-      tb.status      AS "billingStatus",
-      tb.trial_ends_at AS "trialEndsAt",
-      (SELECT MAX(al.created_at) FROM action_logs al WHERE al.tenant_id = ui.tenant_id) AS "lastActivityAt"
-    FROM users_index ui
-    LEFT JOIN tenant_settings ts
-           ON ts.tenant_id = ui.tenant_id AND ts.key = 'owner_setup'
-    LEFT JOIN tenant_settings ca
-           ON ca.tenant_id = ui.tenant_id AND ca.key = 'client_active'
-    LEFT JOIN tenant_billing tb
-           ON tb.tenant_id = ui.tenant_id
-    WHERE ui.tenant_id != 'default'
-    ORDER BY ui.tenant_id, (ui.identifier LIKE '%@%') DESC, ui.created_at ASC
-  `);
+  let result;
+  try {
+    result = await query(`
+      SELECT DISTINCT ON (ui.tenant_id)
+        ui.identifier  AS identifier,
+        ui.tenant_id   AS "tenantId",
+        ui.created_at  AS "signedUpAt",
+        ts.value       AS setup,
+        ts.updated_at  AS "lastUpdatedAt",
+        ca.value       AS client_active,
+        tb.plan_id     AS "planId",
+        tb.status      AS "billingStatus",
+        tb.trial_ends_at AS "trialEndsAt",
+        (SELECT MAX(al.created_at) FROM action_logs al WHERE al.tenant_id = ui.tenant_id) AS "lastActivityAt"
+      FROM users_index ui
+      LEFT JOIN tenant_settings ts
+             ON ts.tenant_id = ui.tenant_id AND ts.key = 'owner_setup'
+      LEFT JOIN tenant_settings ca
+             ON ca.tenant_id = ui.tenant_id AND ca.key = 'client_active'
+      LEFT JOIN tenant_billing tb
+             ON tb.tenant_id = ui.tenant_id
+      WHERE ui.tenant_id != 'default'
+      ORDER BY ui.tenant_id, (ui.identifier LIKE '%@%') DESC, ui.created_at ASC
+    `);
+  } catch (err) {
+    // action_logs or tenant_billing may not exist yet — fall back to base query
+    if (!err.message?.includes("does not exist")) throw err;
+    result = await query(`
+      SELECT DISTINCT ON (ui.tenant_id)
+        ui.identifier  AS identifier,
+        ui.tenant_id   AS "tenantId",
+        ui.created_at  AS "signedUpAt",
+        ts.value       AS setup,
+        ts.updated_at  AS "lastUpdatedAt",
+        ca.value       AS client_active,
+        NULL           AS "planId",
+        NULL           AS "billingStatus",
+        NULL           AS "trialEndsAt",
+        NULL           AS "lastActivityAt"
+      FROM users_index ui
+      LEFT JOIN tenant_settings ts
+             ON ts.tenant_id = ui.tenant_id AND ts.key = 'owner_setup'
+      LEFT JOIN tenant_settings ca
+             ON ca.tenant_id = ui.tenant_id AND ca.key = 'client_active'
+      WHERE ui.tenant_id != 'default'
+      ORDER BY ui.tenant_id, (ui.identifier LIKE '%@%') DESC, ui.created_at ASC
+    `);
+  }
 
   const now = Date.now();
   return result.rows.map((row) => {
@@ -149,6 +175,7 @@ async function resetClientPassword(tenantId) {
  * Get full details for a single client tenant — used by the admin detail view.
  */
 async function getClientDetails(tenantId) {
+  const activityFallback = { rows: [{ total_30d: 0, last_activity: null }] };
   const [setupResult, devicesResult, billingResult, activityResult] = await Promise.all([
     query(
       `SELECT value FROM tenant_settings WHERE tenant_id = $1 AND key = 'owner_setup'`,
@@ -177,7 +204,7 @@ async function getClientDetails(tenantId) {
       `SELECT plan_id, status, trial_ends_at, current_period_end, created_at
        FROM tenant_billing WHERE tenant_id = $1`,
       [tenantId]
-    ),
+    ).catch(err => err.message?.includes("does not exist") ? { rows: [{}] } : Promise.reject(err)),
     query(
       `SELECT
          COUNT(*)::int AS total_30d,
@@ -185,7 +212,7 @@ async function getClientDetails(tenantId) {
        FROM action_logs
        WHERE tenant_id = $1 AND created_at > NOW() - INTERVAL '30 days'`,
       [tenantId]
-    ),
+    ).catch(err => err.message?.includes("does not exist") ? activityFallback : Promise.reject(err)),
   ]);
 
   let setup = {};
