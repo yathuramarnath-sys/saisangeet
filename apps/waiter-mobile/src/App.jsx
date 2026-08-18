@@ -592,8 +592,11 @@ export function App() {
               // Only apply new-seating guards when captain's order is NOT in billing
               // state. If billRequested is true, this IS the order being settled —
               // clear it unconditionally regardless of orderNumber.
-              if (cur.orderNumber == null) return p;
-              if (o.orderNumber != null && Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
+              //
+              // A blank placeholder (orderNumber null, no items) is never a live new
+              // seating — always clear it so POS settlement is never silently ignored.
+              if (cur.orderNumber == null && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
+              if (cur.orderNumber != null && o.orderNumber != null && Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
             }
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
@@ -774,8 +777,9 @@ export function App() {
             if (o.isClosed) {
               const cur = p[o.tableId];
               if (cur && !cur.isClosed && !cur.billRequested) {
-                if (cur.orderNumber == null) return p;
-                if (o.orderNumber != null && Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
+                // Blank placeholder (no items, no orderNumber) is never a live new seating — always clear.
+                if (cur.orderNumber == null && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
+                if (cur.orderNumber != null && o.orderNumber != null && Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
               }
               const { [o.tableId]: _r, ...rest } = p;
               return rest;
@@ -1173,13 +1177,19 @@ export function App() {
         console.warn("[captain] settle: assign-bill-no failed:", err.message);
       }
 
-      await api.post("/operations/payment", {
-        outletId:  outlet?.id || branchConfig?.outletId,
-        tableId,
-        method,
-        amount:    total,
-        actorName: loggedInStaff?.name || null,
-      });
+      try {
+        await api.post("/operations/payment", {
+          outletId:  outlet?.id || branchConfig?.outletId,
+          tableId,
+          method,
+          amount:    total,
+          actorName: loggedInStaff?.name || null,
+        });
+      } catch (payErr) {
+        toast.error("Payment could not be recorded — check connection and try again");
+        console.error("[captain] settle: payment failed:", payErr);
+        return;
+      }
 
       const closedOrder = {
         ...settledOrder,
@@ -1188,10 +1198,18 @@ export function App() {
         payments:    [...(settledOrder.payments || []), { method, amount: total }],
         captainName: loggedInStaff?.name || null,
       };
-      await api.post("/operations/closed-order", {
-        outletId: outlet?.id || branchConfig?.outletId,
-        order:    closedOrder,
-      });
+      try {
+        await api.post("/operations/closed-order", {
+          outletId: outlet?.id || branchConfig?.outletId,
+          order:    closedOrder,
+        });
+      } catch (closeErr) {
+        // Payment was recorded but the bill close failed. Retrying settle will
+        // re-attempt only closed-order (payment step already returned above).
+        toast.error("Payment recorded but bill not closed — tap Collect again to finish");
+        console.error("[captain] settle: closed-order failed after payment:", closeErr);
+        return;
+      }
 
       setOrders(prev => {
         const { [tableId]: _, ...rest } = prev;

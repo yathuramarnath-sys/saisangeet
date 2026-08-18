@@ -106,6 +106,14 @@ async function sendKotHandler(req, res) {
 
 async function requestBillHandler(req, res) {
   const result = await requestBillForOrder(req.params.tableId, req.body);
+  // Broadcast so POS shows bill badge and KDS can print docket
+  const io       = req.app.locals.io;
+  const tenantId = req.user?.tenantId || "default";
+  const outletId = result.outletId || req.body.outletId;
+  if (io && outletId) {
+    const room = `outlet:${tenantId}:${outletId}`;
+    io.to(room).emit("order:updated", result);
+  }
   res.json(result);
 }
 
@@ -160,6 +168,14 @@ async function mergeTablesHandler(req, res) {
 
 async function assignWaiterHandler(req, res) {
   const result = await assignWaiterToOrder(req.params.tableId, req.body);
+  // Broadcast so POS and Captain App see the waiter assignment immediately
+  const io       = req.app.locals.io;
+  const tenantId = req.user?.tenantId || "default";
+  const outletId = result.outletId || req.body.outletId;
+  if (io && outletId) {
+    const room = `outlet:${tenantId}:${outletId}`;
+    io.to(room).emit("order:updated", result);
+  }
   res.json(result);
 }
 
@@ -169,12 +185,10 @@ async function updateGuestsHandler(req, res) {
   const { guests, outletId } = req.body;
   const result = updateGuests(tableId, guests);
   // Broadcast updated order to all devices
-  const io = req.app.get("io");
+  const io = req.app.locals.io;
   if (io && outletId) {
-    const tid = req.user?.tenantId;
-    if (tid && tid !== "default") {
-      io.to(`outlet:${tid}:${outletId}`).emit("order:updated", result);
-    }
+    const tid = req.user?.tenantId || "default";
+    io.to(`outlet:${tid}:${outletId}`).emit("order:updated", result);
   }
   res.json(result);
 }
@@ -201,6 +215,24 @@ async function addPaymentHandler(req, res) {
 
 async function closeOrderHandler(req, res) {
   const result = await settleOrderBill(req.params.tableId, req.body);
+  // Broadcast blank-table signal so all devices clear the table — same as deviceCloseOrderHandler
+  const io       = req.app.locals.io;
+  const tenantId = req.user?.tenantId || "default";
+  const outletId = result.outletId || req.body.outletId;
+  if (io && outletId) {
+    const room = `outlet:${tenantId}:${outletId}`;
+    io.to(room).emit("order:updated", {
+      tableId:        req.params.tableId,
+      items:          [],
+      payments:       [],
+      isClosed:       false,
+      billRequested:  false,
+      isOnHold:       false,
+      discountAmount: 0,
+      isSettleBlank:  true,
+      updatedAt:      Date.now(),
+    });
+  }
   res.json(result);
 }
 

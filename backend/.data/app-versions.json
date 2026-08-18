@@ -1,22 +1,10 @@
 {
   "pos": {
-    "version": "1.4.53",
+    "version": "1.7.2",
     "label": "POS Terminal",
-    "changelog": "GST inclusive permanent fix, security bridge, outlet settings reliability",
-    "whatsNew": [
-      "🔒 Security bridge — tenant data isolation enforced at every API route",
-      "🧾 GST Inclusive fix — setting now saves reliably and syncs to POS instantly",
-      "⚙️ Outlet settings (GST, receipt options) no longer lost on server restart",
-      "🏪 Outlet filter in Shifts page only shows real outlets — no ghost/test entries"
-    ],
-    "installGuide": [
-      "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
-      "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.4.53"
-    ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
-    "apkUrl": null,
-    "releaseDate": "2026-05-25"
+    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-pos.apk",
+    "releaseDate": "2026-08-18"
   },
   "captain": {
     "version": "1.25",
