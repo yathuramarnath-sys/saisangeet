@@ -158,48 +158,63 @@ ipcMain.on("update:install-now", () => {
 // continue uninterrupted through this server.
 
 let localIo = null;
-let localKotSeq = 9000;          // local KOT numbers (L-prefix avoids cloud collision)
+let localKotSeq = 9000;          // local KOT numbers (avoids cloud collision)
 const localOrderStore = {};       // tableId → latest order snapshot
 
+const store = require("./store");
+
 // ── Local store persistence ───────────────────────────────────────────────────
-// Writes localOrderStore + localKotSeq to userData on every mutation so the
-// store survives Electron restarts, power cuts, and Windows updates.
+// Writes localOrderStore + localKotSeq to dinex-pos.db (SQLite) via store.js.
 // Loaded back at startup BEFORE Captain/KDS can connect — no blank snapshots.
 
 function saveLocalStore() {
-  try {
-    const fs = require("fs");
-    fs.writeFileSync(
-      path.join(app.getPath("userData"), "local-orders.json"),
-      JSON.stringify(localOrderStore),
-      "utf8"
-    );
-    fs.writeFileSync(
-      path.join(app.getPath("userData"), "local-kot-seq.txt"),
-      String(localKotSeq),
-      "utf8"
-    );
-  } catch (err) {
-    console.error("[local] saveLocalStore error:", err.message);
-  }
+  store.saveOrders(localOrderStore);
+  store.saveSetting("local_kot_seq", localKotSeq);
 }
 
 function loadLocalStore() {
-  try {
-    const fs        = require("fs");
-    const orderPath = path.join(app.getPath("userData"), "local-orders.json");
-    const seqPath   = path.join(app.getPath("userData"), "local-kot-seq.txt");
+  const fs       = require("fs");
+  const userData = app.getPath("userData");
 
+  // ── Init SQLite ───────────────────────────────────────────────────────────
+  store.initDb(userData);
+
+  // ── One-time migration from legacy JSON files → SQLite ───────────────────
+  const orderPath = path.join(userData, "local-orders.json");
+  const seqPath   = path.join(userData, "local-kot-seq.txt");
+  try {
     if (fs.existsSync(orderPath)) {
       const data = JSON.parse(fs.readFileSync(orderPath, "utf8"));
       if (data && typeof data === "object" && !Array.isArray(data)) {
         Object.assign(localOrderStore, data);
-        const n = Object.keys(data).length;
-        if (n > 0) console.log(`[local] restored ${n} orders from disk`);
+        console.log(`[local] migrated ${Object.keys(data).length} orders from JSON → SQLite`);
       }
+      fs.renameSync(orderPath, orderPath + ".migrated");
     }
     if (fs.existsSync(seqPath)) {
       const n = parseInt(fs.readFileSync(seqPath, "utf8").trim(), 10);
+      if (!isNaN(n) && n > localKotSeq) localKotSeq = n;
+      fs.renameSync(seqPath, seqPath + ".migrated");
+    }
+    // Persist migrated data to SQLite immediately
+    if (Object.keys(localOrderStore).length > 0) saveLocalStore();
+  } catch (err) {
+    console.error("[local] migration error:", err.message);
+  }
+
+  // ── Load from SQLite ──────────────────────────────────────────────────────
+  try {
+    const saved = store.loadOrders();
+    const n = Object.keys(saved).length;
+    // Merge: migration data already in localOrderStore takes priority if both exist
+    for (const [k, v] of Object.entries(saved)) {
+      if (!localOrderStore[k]) localOrderStore[k] = v;
+    }
+    if (n > 0) console.log(`[local] restored ${n} orders from dinex-pos.db`);
+
+    const seq = store.loadSetting("local_kot_seq");
+    if (seq) {
+      const n = parseInt(seq, 10);
       if (!isNaN(n) && n > localKotSeq) localKotSeq = n;
     }
   } catch (err) {

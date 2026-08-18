@@ -1,19 +1,17 @@
 {
   "pos": {
-    "version": "1.7.5",
+    "version": "1.7.6",
     "label": "POS Terminal",
-    "changelog": "Wave 3 fixes: sync reliability, KOT loading, KDS recall, counter cleanup",
+    "changelog": "Local-First Phase 1: SQLite store replaces JSON files",
     "whatsNew": [
-      "🔄 KOT button shows 'Sending…' and locks while request is in flight — no double-sends",
-      "🍽️ KDS Recall now tells the cloud the ticket is back in progress",
-      "🔁 409 version conflicts on item-add auto-recover by refetching server state",
-      "🧹 Voided items no longer reappear after reconnect merge",
-      "🗑️ Abandoned counter tickets from previous days are cleared on startup"
+      "🗄️ Orders now stored in SQLite (dinex-pos.db) — crash-safe, no JSON corruption",
+      "⚡ POS survives power cuts without losing table state or KOT sequence",
+      "🔄 Existing data migrates automatically on first startup — nothing to do"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.7.5"
+      "3. Log in with your cashier PIN — you are on v1.7.6"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,

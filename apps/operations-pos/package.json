@@ -1,6 +1,6 @@
 {
   "name": "dinex-pos",
-  "version": "1.7.5",
+  "version": "1.7.6",
   "private": true,
   "description": "Plato POS Terminal",
   "author": "Saisangeet Hospitality Pvt Ltd <hello@dinexpos.in>",
@@ -22,6 +22,7 @@
     "release": "vite build && electron-builder --win --x64 --publish never && node scripts/gh-release.js"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "bwip-js": "^4.10.1",
     "electron-updater": "^6.3.9",
     "qrcode": "^1.5.4",
