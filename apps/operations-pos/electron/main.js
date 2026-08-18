@@ -172,14 +172,11 @@ function saveLocalStore() {
   store.saveSetting("local_kot_seq", localKotSeq);
 }
 
-function loadLocalStore() {
+async function loadLocalStore() {
   const fs       = require("fs");
   const userData = app.getPath("userData");
 
-  // ── Init SQLite ───────────────────────────────────────────────────────────
-  store.initDb(userData);
-
-  // ── One-time migration from legacy JSON files → SQLite ───────────────────
+  // ── One-time migration: read legacy JSON files BEFORE init (they may not exist) ─
   const orderPath = path.join(userData, "local-orders.json");
   const seqPath   = path.join(userData, "local-kot-seq.txt");
   try {
@@ -196,29 +193,39 @@ function loadLocalStore() {
       if (!isNaN(n) && n > localKotSeq) localKotSeq = n;
       fs.renameSync(seqPath, seqPath + ".migrated");
     }
-    // Persist migrated data to SQLite immediately
-    if (Object.keys(localOrderStore).length > 0) saveLocalStore();
   } catch (err) {
-    console.error("[local] migration error:", err.message);
+    console.error("[local] migration read error:", err.message);
   }
 
-  // ── Load from SQLite ──────────────────────────────────────────────────────
+  // ── Init SQLite (async — loads WASM + opens/creates dinex-pos.db) ─────────
+  try {
+    await store.initDb(userData);
+  } catch (err) {
+    console.error("[local] SQLite init failed — running without persistence:", err.message);
+    return;
+  }
+
+  // ── Persist migrated data to SQLite ──────────────────────────────────────
+  if (Object.keys(localOrderStore).length > 0) {
+    saveLocalStore();
+  }
+
+  // ── Load from SQLite (merged: migration data has priority) ────────────────
   try {
     const saved = store.loadOrders();
-    const n = Object.keys(saved).length;
-    // Merge: migration data already in localOrderStore takes priority if both exist
     for (const [k, v] of Object.entries(saved)) {
       if (!localOrderStore[k]) localOrderStore[k] = v;
     }
+    const n = Object.keys(saved).length;
     if (n > 0) console.log(`[local] restored ${n} orders from dinex-pos.db`);
 
     const seq = store.loadSetting("local_kot_seq");
     if (seq) {
-      const n = parseInt(seq, 10);
-      if (!isNaN(n) && n > localKotSeq) localKotSeq = n;
+      const parsed = parseInt(seq, 10);
+      if (!isNaN(parsed) && parsed > localKotSeq) localKotSeq = parsed;
     }
   } catch (err) {
-    console.error("[local] loadLocalStore error — starting fresh:", err.message);
+    console.error("[local] load from SQLite error — starting fresh:", err.message);
   }
 }
 
@@ -476,10 +483,10 @@ ipcMain.on("local:push-orders", (_event, orders) => {
   saveLocalStore();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow();
   setupAutoUpdater();
-  loadLocalStore();
+  await loadLocalStore();
   startLocalServer();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
