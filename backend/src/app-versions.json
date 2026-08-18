@@ -1,18 +1,19 @@
 {
   "pos": {
-    "version": "1.7.3",
+    "version": "1.7.4",
     "label": "POS Terminal",
-    "changelog": "Wave 1 fixes: socket sync, partial settlement, Captain phantom tables",
+    "changelog": "Wave 2 fixes: discount persists, cancel confirmation, KDS reliability",
     "whatsNew": [
-      "🔄 All devices now clear the table instantly when any settle route is used",
-      "📲 Captain App phantom tables fixed — settled tables always clear on Captain floor",
-      "💳 Captain settlement now shows specific error if bill close fails mid-payment",
-      "📋 Bill request and waiter assignment now sync to all devices immediately"
+      "💰 Discounts now saved to server — survive reconnects and second terminals",
+      "⚠️ Cancel Order now asks for confirmation before voiding KOT'd tables",
+      "🍽️ KDS: bumped tickets restored if network fails during bump",
+      "🔄 KDS restarts now preserve in-flight tickets instead of wiping on startup",
+      "📲 Captain App warns when item is queued for retry before sending KOT"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.7.3"
+      "3. Log in with your cashier PIN — you are on v1.7.4"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
