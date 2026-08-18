@@ -1188,6 +1188,7 @@ async function deviceCloseOrderHandler(req, res) {
               isOnHold:       false,
               discountAmount: 0,
               isSettleBlank:  true,
+              updatedAt:      Date.now(),
             });
           }
         }

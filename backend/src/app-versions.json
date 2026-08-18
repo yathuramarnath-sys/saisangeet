@@ -1,23 +1,21 @@
 {
   "pos": {
-    "version": "1.6.3",
+    "version": "1.7.2",
     "label": "POS Terminal",
-    "changelog": "FSSAI and UPI QR now print on assigned thermal printer (ESC/POS fix)",
+    "changelog": "Fix phantom occupied tables on shift close; fix Captain App not clearing settled tables",
     "whatsNew": [
-      "🧾 FSSAI number now prints on assigned thermal printer receipts",
-      "📱 UPI QR code now prints natively on assigned thermal printer — scan-to-pay works",
-      "🔒 Terminal locked if previous shift is still open — prevents duplicate shifts",
-      "💰 Discount amount no longer truncated on printed bills",
-      "🏷️ Renaming an outlet now updates all linked devices, staff and menu items"
+      "🪄 Phantom tables on shift close — settled tables no longer reappear after restart",
+      "📲 Captain App now clears tables instantly when POS settles the bill",
+      "🔒 Terminal locked if previous shift is still open — prevents duplicate shifts"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.6.3"
+      "3. Log in with your cashier PIN — you are on v1.7.2"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-06-12"
+    "releaseDate": "2026-08-18"
   },
   "captain": {
     "version": "1.8.0",

@@ -313,7 +313,7 @@ function loadSavedOrders() {
     // would otherwise resurrect forever across reloads/restarts.
     const cleaned = Object.fromEntries(
       Object.entries(raw).filter(([, o]) => {
-        if (!o?.isCounter) return true; // keep all dine-in orders
+        if (!o?.isCounter) return !o?.isClosed; // keep only open dine-in orders
         if (o.isClosed) return false; // drop settled counter tickets
         const hasItems = (o.items || []).filter(i => !i.isVoided && !i.isComp).length > 0;
         return hasItems; // drop empty counter orders
