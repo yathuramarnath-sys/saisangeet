@@ -425,6 +425,7 @@ export function App() {
   // Guard: prevent handlePrintBill from firing twice (double-click or dual-device race)
   const billPrintingRef = useRef(false);
   const kotSendingRef   = useRef(false);
+  const [kotSending,    setKotSending]    = useState(false);
   const settlingRef     = useRef(false);
   // KOT numbers printed via HTTP /print-kot — used to skip cloud kot:new double-print
   const printedViaHttpRef = useRef(new Set());
@@ -1384,11 +1385,15 @@ export function App() {
         const cutoff = Date.now() - 24 * 60 * 60 * 1000;
         let staleCount = 0;
         savedOrders = Object.fromEntries(
-          Object.entries(savedOrders).filter(([, order]) => {
+          Object.entries(savedOrders).filter(([tableId, order]) => {
             if (order.isClosed) return true; // keep closed (for history)
             const hasItems = (order.items || []).some(i => !i.isVoided && !i.isGhostVoid);
-            if (!hasItems) return true; // empty order — keep
             const lastActivity = Number(new Date(order.updatedAt || order.createdAt || 0)) || 0;
+            // Counter tickets (counter-<timestamp>) are abandoned if empty or too old — always expire
+            if (tableId.startsWith("counter-")) {
+              if (!hasItems && lastActivity < cutoff) { staleCount++; return false; }
+            }
+            if (!hasItems) return true; // non-counter empty: keep (table placeholder)
             if (lastActivity < cutoff) { staleCount++; return false; }
             return true;
           })
@@ -2056,7 +2061,7 @@ export function App() {
           const localItemIds  = new Set((localOrder.items || []).map((i) => i.id));
           const serverItemIds = new Set((serverOrder.items || []).map((i) => i.id));
           const localOnlyUnsent = (localOrder.items || []).filter(
-            (li) => !li.sentToKot && !serverItemIds.has(li.id)
+            (li) => !li.sentToKot && !li.isVoided && !serverItemIds.has(li.id)
           );
           // Drop server items that are unsent AND no longer in local state (locally deleted)
           const filteredServerItems = withLocalTaxRate(
@@ -2089,9 +2094,30 @@ export function App() {
         }, 0);
       }
     } catch (err) {
-      // Offline or server unreachable — local optimistic state is intact, no data lost.
-      // Items will reach the server when the connection returns (or at KOT send time).
-      console.warn("[POS] item-add to backend failed (offline?):", err.message);
+      if (err?.status === 409 || err?.message?.includes("409")) {
+        // Version conflict — server has a newer state. Refetch so local and server are in sync.
+        api.get(`/operations/order?tableId=${tableId}&outletId=${outlet?.id}`)
+          .then(serverOrder => {
+            if (!serverOrder) return;
+            setOrders(prev => {
+              const localOrder = prev[tableId];
+              if (!localOrder) return prev;
+              const serverItemIds = new Set((serverOrder.items || []).map(i => i.id));
+              const localOnlyUnsent = (localOrder.items || []).filter(
+                li => !li.sentToKot && !li.isVoided && !serverItemIds.has(li.id)
+              );
+              return {
+                ...prev,
+                [tableId]: { ...serverOrder, items: [...(serverOrder.items || []), ...localOnlyUnsent] }
+              };
+            });
+          })
+          .catch(() => {}); // still offline — local state is intact
+      } else {
+        // Offline or server unreachable — local optimistic state is intact, no data lost.
+        // Items will reach the server when the connection returns (or at KOT send time).
+        console.warn("[POS] item-add to backend failed (offline?):", err.message);
+      }
     }
   }
 
@@ -2171,6 +2197,7 @@ export function App() {
     if (!selectedTableId) return;
     if (kotSendingRef.current) return;
     kotSendingRef.current = true;
+    setKotSending(true);
     try {
     const order  = orders[selectedTableId];
     const unsent = (order.items || []).filter((i) => !i.sentToKot && !i.isVoided);
@@ -2323,6 +2350,7 @@ export function App() {
     setSelectedTableId(null);
     } finally {
       kotSendingRef.current = false;
+      setKotSending(false);
     }
   }
 
@@ -3974,6 +4002,7 @@ export function App() {
           onRemoveItem={handleRemoveItem}
           onNoteChange={handleNoteChange}
           onSendKOT={handleSendKOT}
+          kotSending={kotSending}
           onOpenPayment={() => setShowPayment(true)}
           onOpenSplitBill={() => setShowSplitBill(true)}
           onGuestsChange={handleGuestsChange}

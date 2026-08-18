@@ -193,6 +193,7 @@ export function OrderPanel({
   onRemoveItem,
   onNoteChange,
   onSendKOT,
+  kotSending = false,
   onOpenPayment,
   onOpenSplitBill,
   onGuestsChange,
@@ -645,13 +646,20 @@ export function OrderPanel({
           {hasItems && (
             <div className="order-actions-row">
               {unsentItems.length > 0 ? (
-                <button type="button" className="pos-btn kot" onClick={onSendKOT}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2.5">
-                    <path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5"/>
-                    <polyline points="9 11 12 14 22 4"/>
-                  </svg>
-                  KOT
+                <button type="button" className="pos-btn kot" onClick={onSendKOT} disabled={kotSending}>
+                  {kotSending ? (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2.5" style={{animation:"spin 0.8s linear infinite"}}>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                    </svg>
+                  ) : (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2.5">
+                      <path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5"/>
+                      <polyline points="9 11 12 14 22 4"/>
+                    </svg>
+                  )}
+                  {kotSending ? "Sending…" : "KOT"}
                 </button>
               ) : onReprintKOT ? (
                 <button type="button" className="pos-btn kot" onClick={onReprintKOT}>

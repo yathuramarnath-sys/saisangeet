@@ -342,7 +342,10 @@ function startLocalServer() {
 
       // ── New device joins — send current order snapshot ────────────────────
       socket.on("request:orders", () => {
-        socket.emit("orders:snapshot", Object.values(localOrderStore));
+        const snapshot = Object.values(localOrderStore).filter(
+          o => o?.tableId && !String(o.tableId).startsWith("_mb_")
+        );
+        socket.emit("orders:snapshot", snapshot);
       });
 
       // ── POS pushes its full order state (on POS start + after each settle) ─

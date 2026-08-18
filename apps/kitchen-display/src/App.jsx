@@ -1383,12 +1383,13 @@ export function App() {
       saveServedTickets(updated);
       return updated;
     });
-    // Put back as "preparing" (local display only — does not re-open backend KOT)
+    // Put back as "preparing" — also tell backend so cloud sync reflects the recall
     setTickets(prev => {
       if (prev.find(t => t.id === ticket.id)) return prev; // already active
       return [{ ...ticket, status: "preparing", doneItems: [], recalled: true }, ...prev];
     });
     setServedCount(n => Math.max(0, n - 1));
+    api.patch(`/operations/kots/${ticket.id}/status`, { status: "preparing" }).catch(() => {});
     setShowRecall(false);
   }
 
