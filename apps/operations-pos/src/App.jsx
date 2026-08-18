@@ -2156,6 +2156,15 @@ export function App() {
   function handleDiscountChange(amount) {
     if (!selectedTableId) return;
     mutateOrder(selectedTableId, (order) => { order.discountAmount = amount; return order; });
+    // Persist to server so the discount survives reconnects and second terminals.
+    // Debounced: only fires once the cashier stops adjusting (avoids rapid PATCH spam).
+    if (handleDiscountChange._timer) clearTimeout(handleDiscountChange._timer);
+    const tableId  = selectedTableId;
+    const outletId = outlet?.id;
+    handleDiscountChange._timer = setTimeout(() => {
+      api.patch("/operations/order/discount", { tableId, outletId, discountAmount: amount })
+        .catch(err => console.warn("[POS] discount persist failed:", err.message));
+    }, 600);
   }
 
   async function handleSendKOT() {
@@ -3382,6 +3391,17 @@ export function App() {
     if (!selectedTableId) return;
     const order = orders[selectedTableId];
     if (!order?.items?.length) return;
+
+    // Require explicit confirmation before destroying a table with sent KOTs.
+    // An accidental tap during busy service would cancel an entire live order.
+    const hasSentItems = order.items.some(i => i.sentToKot && !i.isVoided);
+    const tableLabel   = order.tableNumber || selectedTableId;
+    if (hasSentItems) {
+      const confirmed = window.confirm(
+        `Cancel entire order for ${tableLabel}?\n\nThis will void all KOT'd items. This cannot be undone.`
+      );
+      if (!confirmed) return;
+    }
 
     const tableId = selectedTableId;
     const savedOrder = { ...order, items: order.items.map(i => ({ ...i })) }; // full snapshot for undo

@@ -1520,6 +1520,8 @@ export function App() {
       console.warn("[captain] addItem sync failed — queuing for retry:", err.message);
       // Decrement immediately on error — no server echo will arrive
       addItemInFlightRef.current[tableId] = Math.max(0, (addItemInFlightRef.current[tableId] || 1) - 1);
+      // Notify waiter so they don't send KOT before the item is saved
+      toast("Item queued — wait a moment before sending KOT", { icon: "⏳", duration: 4000 });
       syncEnqueue(SYNC_ACTION.ADD_ITEM, {
         tableId,
         outletId:  outlet?.id || branchConfig?.outletId,

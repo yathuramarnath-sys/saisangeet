@@ -978,10 +978,12 @@ export function App() {
   useEffect(() => {
     if (!branchConfig) return;
 
-    // Clear any stale tickets (demos / previous session) so we always start fresh
-    // Real tickets will be fetched from the API immediately after connecting
-    setTickets([]);
-    localStorage.removeItem(KDS_TICKETS_KEY);
+    // Load any tickets saved from the previous session as a warm start.
+    // The connect handler will merge the API response on top — any tickets
+    // the server no longer considers active (bumped, cancelled) will be dropped.
+    // We do NOT clear localStorage here so in-flight KOTs survive a restart.
+    const savedTickets = loadSavedTickets();
+    if (savedTickets.length) setTickets(savedTickets);
 
     const socketUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1")
       .replace("/api/v1", "");
@@ -1012,25 +1014,29 @@ export function App() {
         outletId:    branchConfig.outletId,
         stationName: assignedStationRef.current || "",
       });
-      // Re-fetch any KOTs we missed while offline.
-      // Pass ?station= so the server only returns this screen's KOTs — no client filtering needed.
+      // Re-fetch KOTs from server — this is the authoritative list.
+      // Replace local state: server removes KOTs that were bumped while we were online;
+      // local-only tickets not in the server list (bumped offline) are preserved below.
       try {
         const st = assignedStationRef.current;
         const stationParam = st ? `&station=${encodeURIComponent(st)}` : "";
         const kots = await api.get(`/operations/kots?outletId=${branchConfig.outletId}${stationParam}`);
-        if (kots?.length) {
-          setTickets(prev => {
-            const existingIds = new Set(prev.map(t => t.id));
-            const missed = kots
-              .filter(k => !existingIds.has(k.id) && k.status !== "bumped")
-              .map(k => ({
-                ...k,
-                status: k.status === "ready" ? "preparing" : k.status,
-                doneItems: k.doneItems || [],
-              }));
-            return missed.length ? [...missed, ...prev] : prev;
-          });
-        }
+        const serverIds = new Set((kots || []).map(k => k.id));
+        setTickets(prev => {
+          // Start from server's active list
+          const fromServer = (kots || [])
+            .filter(k => k.status !== "bumped")
+            .map(k => ({
+              ...k,
+              status:    k.status === "ready" ? "preparing" : k.status,
+              doneItems: k.doneItems || [],
+            }));
+          const serverIdSet = new Set(fromServer.map(t => t.id));
+          // Keep any local ticket NOT known to the server — chef bumped it while offline;
+          // bump PATCH is still in-flight. Keep visible so chef doesn't lose track.
+          const localOnly = prev.filter(t => !serverIds.has(t.id) && !serverIdSet.has(t.id));
+          return [...fromServer, ...localOnly];
+        });
       } catch (_) {}
     });
 
@@ -1335,16 +1341,20 @@ export function App() {
     // Remove locally immediately — UI is instant.
     setTickets(prev => prev.filter(t => t.id !== id));
     setServedCount(n => n + 1);
-    // Persist the bump to the backend so the KOT is removed from the in-memory
-    // kot-store. Without this, reconnecting KDS screens and other connected KDS
-    // devices would see all bumped tickets reappear.
-    // The backend broadcasts kot:status { id, status: "bumped" } to all outlet
-    // room members — the kot:status handler below (which now handles "bumped" as
-    // a filter-out) ensures other KDS screens also remove the ticket.
+    // Persist the bump to the backend. On failure, restore the ticket so it doesn't
+    // silently disappear — chef can see it reappear and try again when connection is back.
     api.patch(
       `/operations/kots/${id}/status?outletId=${branchConfig?.outletId}`,
       { status: "bumped" }
-    ).catch(() => {});
+    ).catch(() => {
+      if (!bumpedTicket) return;
+      setTickets(prev => {
+        // Only restore if another device hasn't already cleared it via socket
+        if (prev.some(t => t.id === id)) return prev;
+        return [bumpedTicket, ...prev];
+      });
+      setServedCount(n => Math.max(0, n - 1));
+    });
   }
 
   function handleToggleItem(ticketId, itemId) {

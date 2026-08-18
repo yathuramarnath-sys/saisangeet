@@ -731,6 +731,14 @@ function updateGuests(tableId, guests, actor = "Captain") {
   return clone(order);
 }
 
+function updateDiscount(tableId, discountAmount) {
+  const order = findOrder(tableId);
+  assertOrderOpen(order, "update discount");
+  order.discountAmount = Math.max(0, Number(discountAmount) || 0);
+  order.updatedAt = Date.now();
+  return clone(order);
+}
+
 function assignWaiter(tableId, waiterName, actor = "Captain") {
   const order = findOrder(tableId);
   assertOrderOpen(order, "assign waiter");
@@ -1171,6 +1179,7 @@ module.exports = {
   stampSplitBills,
   requestBill,
   updateGuests,
+  updateDiscount,
   assignWaiter,
   addOrderItem,
   removeOrderItem,

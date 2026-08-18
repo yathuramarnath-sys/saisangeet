@@ -16,6 +16,7 @@ const {
   mergeTablesHandler,
   assignWaiterHandler,
   updateGuestsHandler,
+  updateDiscountHandler,
   addOrderItemHandler,
   updateOrderItemHandler,
   splitBillHandler,
@@ -193,7 +194,8 @@ operationsRouter.get("/order",         requireAuth, asyncHandler(deviceGetOrCrea
 // Counter/takeaway orders (tableId starts with "counter-") are skipped inside the handler.
 operationsRouter.post("/order/item",   requireAuth, asyncHandler(deviceAddOrderItemHandler));
 operationsRouter.delete("/order/item", requireAuth, asyncHandler(deviceRemoveOrderItemHandler));
-operationsRouter.patch("/order/item",  requireAuth, asyncHandler(deviceVoidOrderItemHandler));
+operationsRouter.patch("/order/item",     requireAuth, asyncHandler(deviceVoidOrderItemHandler));
+operationsRouter.patch("/order/discount", requireAuth, asyncHandler(updateDiscountHandler));
 operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
 // Captain calls this after printing a bill to advance the backend slot to a fresh
 // order so the next customer can be seated on the same table immediately.

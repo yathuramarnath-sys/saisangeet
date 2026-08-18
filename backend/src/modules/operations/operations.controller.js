@@ -179,6 +179,19 @@ async function assignWaiterHandler(req, res) {
   res.json(result);
 }
 
+async function updateDiscountHandler(req, res) {
+  const { updateDiscount } = require("./operations.memory-store");
+  const { tableId } = req.params;
+  const { discountAmount, outletId } = req.body;
+  const result = updateDiscount(tableId, discountAmount);
+  const io       = req.app.locals.io;
+  const tenantId = req.user?.tenantId || "default";
+  if (io && outletId) {
+    io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", result);
+  }
+  res.json(result);
+}
+
 async function updateGuestsHandler(req, res) {
   const { updateGuests } = require("./operations.memory-store");
   const { tableId } = req.params;
@@ -1429,6 +1442,7 @@ module.exports = {
   mergeTablesHandler,
   assignWaiterHandler,
   updateGuestsHandler,
+  updateDiscountHandler,
   addOrderItemHandler,
   updateOrderItemHandler,
   splitBillHandler,
