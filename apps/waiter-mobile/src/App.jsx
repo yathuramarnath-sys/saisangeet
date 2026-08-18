@@ -1269,6 +1269,25 @@ export function App() {
     }
   }
 
+  // ── Local-first helper — try POS HTTP server (LAN) before going to cloud ───
+  async function tryLocalPOS(method, path, body) {
+    const ip = localStorage.getItem("captain_local_server_ip")?.trim();
+    if (!ip) return null;
+    try {
+      const opts = {
+        method,
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(2000),
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const resp = await fetch(`http://${ip}:4001${path}`, opts);
+      if (!resp.ok) return null;
+      return await resp.json();
+    } catch {
+      return null;
+    }
+  }
+
   // ── Remove unsent item from order (DELETE to backend so it doesn't ghost) ──
   // Root cause of the "stuck item" bug: socket order:update only relays to other
   // devices but never updates the backend memory store. So a removed item stays
@@ -1306,15 +1325,14 @@ export function App() {
     if (isSentToKot) {
       // Item was already KOT'd — DELETE is a server no-op. Use void (PATCH) instead
       // so the server marks isVoided:true and the item doesn't reappear on reconnect.
+      const voidPayload = { tableId, outletId, itemId, voidReason: "Voided by captain", actorName, isGhostVoid: false };
       try {
-        await api.patch(`/operations/order/item`, {
-          tableId,
-          outletId,
-          itemId,
-          voidReason:  "Voided by captain",
-          actorName,
-          isGhostVoid: false,
-        });
+        const localOk = await tryLocalPOS("PATCH", "/operations/order/item", voidPayload);
+        // Always sync to cloud so the server record is permanent
+        api.patch(`/operations/order/item`, voidPayload).catch(err =>
+          console.warn("[captain] voidItem cloud sync failed:", err.message)
+        );
+        if (!localOk) console.warn("[captain] voidItem local not available — cloud only");
       } catch (err) {
         console.warn("[captain] voidItem (sent) failed:", err.message);
       }
@@ -1331,6 +1349,8 @@ export function App() {
       mutationId:       removeMutationId,
       expectedVersion:  orderVersionsRef.current[tableId],
     };
+    // Try local POS first (instant on LAN), always sync to cloud for permanent record
+    tryLocalPOS("DELETE", "/operations/order/item", removePayload).then(() => {});
     try {
       const result = await api.delete(`/operations/order/item`, removePayload);
       if (result?.orderVersion != null) orderVersionsRef.current[tableId] = result.orderVersion;
@@ -1431,6 +1451,8 @@ export function App() {
       mutationId:      addMutationId,
       expectedVersion: orderVersionsRef.current[tableId],
     };
+    // Fire local-first to POS (fire-and-forget — gives instant response on LAN)
+    tryLocalPOS("POST", "/operations/order/item", addItemPayload).then(() => {});
     try {
       let serverOrder = await api.post("/operations/order/item", addItemPayload).catch(async (err) => {
         if (err.status === 409 && err.body?.error === "VERSION_CONFLICT") {

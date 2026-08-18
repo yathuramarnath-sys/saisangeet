@@ -1,12 +1,12 @@
 {
   "pos": {
-    "version": "1.7.6",
+    "version": "1.7.7",
     "label": "POS Terminal",
-    "changelog": "Local-First Phase 1: SQLite store replaces JSON files",
+    "changelog": "Local-First Phase 2: Captain App and KDS talk to POS on LAN — works even when internet is down",
     "whatsNew": [
-      "🗄️ Orders now stored in SQLite (dinex-pos.db) — crash-safe, no JSON corruption",
-      "⚡ POS survives power cuts without losing table state or KOT sequence",
-      "🔄 Existing data migrates automatically on first startup — nothing to do"
+      "📡 Captain add/remove/void now hits POS directly on WiFi — instant even without internet",
+      "🍳 KDS advance and bump now hit POS on LAN — kitchen keeps working offline",
+      "🔄 All changes still sync to cloud in background — no data lost"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",

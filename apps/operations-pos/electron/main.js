@@ -160,6 +160,7 @@ ipcMain.on("update:install-now", () => {
 let localIo = null;
 let localKotSeq = 9000;          // local KOT numbers (avoids cloud collision)
 const localOrderStore = {};       // tableId → latest order snapshot
+const localKotStore   = {};       // kotId   → KOT snapshot (for KDS bump via HTTP)
 
 const store = require("./store");
 
@@ -350,6 +351,132 @@ function startLocalServer() {
         return;
       }
 
+      // CORS preflight for local-first operation routes
+      if (req.method === "OPTIONS" && (
+        req.url === "/operations/order/item" ||
+        /^\/operations\/kots\//.test(req.url || "")
+      )) {
+        res.writeHead(204, {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, DELETE, PATCH, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        });
+        res.end();
+        return;
+      }
+
+      // Shared body reader for local-first routes
+      function readJson(cb) {
+        let raw = "";
+        req.on("data", c => { raw += c; });
+        req.on("end", () => { try { cb(JSON.parse(raw || "{}")); } catch (_) { cb({}); } });
+      }
+
+      // POST /operations/order/item — Captain adds an item (local-first)
+      if (req.method === "POST" && req.url === "/operations/order/item") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        readJson(({ tableId, outletId, item }) => {
+          if (!tableId || !item) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Missing tableId or item" }));
+            return;
+          }
+          if (!localOrderStore[tableId]) {
+            localOrderStore[tableId] = { tableId, outletId, items: [], updatedAt: Date.now() };
+          }
+          const order = localOrderStore[tableId];
+          const existing = order.items.findIndex(
+            i => i.menuItemId === item.menuItemId && !i.sentToKot && !i.isVoided
+          );
+          if (existing >= 0) {
+            order.items[existing].quantity = (order.items[existing].quantity || 1) + (item.quantity || 1);
+          } else {
+            order.items.push({
+              id:          item.id || `item-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+              menuItemId:  item.menuItemId,
+              name:        item.name,
+              price:       item.price,
+              quantity:    item.quantity || 1,
+              note:        item.note || "",
+              station:     item.stationName || item.station || "",
+              categoryId:  item.categoryId || "",
+              category:    item.categoryName || item.category || "",
+              taxRate:     item.taxRate != null ? item.taxRate : null,
+              sentToKot:   false,
+              isVoided:    false,
+            });
+          }
+          order.updatedAt = Date.now();
+          saveLocalStore();
+          localIo?.emit("order:updated", order);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(order));
+        });
+        return;
+      }
+
+      // DELETE /operations/order/item — Captain removes an unsent item (local-first)
+      if (req.method === "DELETE" && req.url === "/operations/order/item") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        readJson(({ tableId, itemId }) => {
+          const order = localOrderStore[tableId];
+          if (!order) {
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Order not found" }));
+            return;
+          }
+          order.items = order.items.filter(i => i.id !== itemId);
+          order.updatedAt = Date.now();
+          saveLocalStore();
+          localIo?.emit("order:updated", order);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+        });
+        return;
+      }
+
+      // PATCH /operations/order/item — Captain voids an item (local-first)
+      if (req.method === "PATCH" && req.url === "/operations/order/item") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        readJson(({ tableId, itemId }) => {
+          const order = localOrderStore[tableId];
+          if (!order) {
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Order not found" }));
+            return;
+          }
+          const item = order.items.find(i => i.id === itemId);
+          if (item) item.isVoided = true;
+          order.updatedAt = Date.now();
+          saveLocalStore();
+          localIo?.emit("order:updated", order);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(order));
+        });
+        return;
+      }
+
+      // PATCH /operations/kots/:id/status — KDS bumps/advances a local KOT
+      const kotStatusMatch = req.url && req.url.match(/^\/operations\/kots\/([^/?]+)\/status/);
+      if (req.method === "PATCH" && kotStatusMatch) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        const kotId = kotStatusMatch[1];
+        readJson(({ status }) => {
+          const kot = localKotStore[kotId];
+          if (!kot) {
+            // Not a local KOT — fall back to cloud
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "KOT not found locally" }));
+            return;
+          }
+          kot.status = status;
+          localIo?.emit("kot:status", { id: kotId, status });
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, id: kotId, status }));
+        });
+        return;
+      }
+
       res.writeHead(404); res.end();
     });
 
@@ -396,7 +523,10 @@ function startLocalServer() {
       // The POS renderer receives kot:new and calls printKOT() directly.
       socket.on("kot:send", (kotData) => {
         localKotSeq++;
-        const kot = { ...kotData, kotNumber: localKotSeq, localMode: true };
+        const kotId = kotData.clientKotId || `local-${localKotSeq}`;
+        const kot = { ...kotData, id: kotId, kotNumber: localKotSeq, localMode: true };
+        // Store for HTTP-based KDS bump lookup
+        localKotStore[kotId] = { ...kot, status: "new" };
         // Mark items as sent in local store
         if (localOrderStore[kot.tableId]) {
           const kotItemIds = new Set((kot.items || []).map(i => i.id));
@@ -408,8 +538,8 @@ function startLocalServer() {
           };
         }
         saveLocalStore();
-        localIo.emit("kot:new", kot);                                    // KDS + POS receive
-        socket.emit("kot:confirmed", { kotNumber: localKotSeq });        // ack to Captain
+        localIo.emit("kot:new", kot);                                          // KDS + POS receive
+        socket.emit("kot:confirmed", { kotNumber: localKotSeq, id: kotId });   // ack to Captain
       });
 
       // ── Bill request from Captain → relay to POS ───────────────────────────

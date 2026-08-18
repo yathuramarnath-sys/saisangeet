@@ -1301,6 +1301,25 @@ export function App() {
     return () => clearInterval(id);
   }, [settings.autoBumpSeconds]);
 
+  // ── Local-first helper — try POS HTTP server (LAN) before going to cloud ───
+  async function tryLocalPOS(method, path, body) {
+    const ip = localStorage.getItem("kds_local_server_ip")?.trim();
+    if (!ip) return null;
+    try {
+      const opts = {
+        method,
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(2000),
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const resp = await fetch(`http://${ip}:4001${path}`, opts);
+      if (!resp.ok) return null;
+      return await resp.json();
+    } catch {
+      return null;
+    }
+  }
+
   async function handleAdvance(id, cur) {
     if (cur === "preparing") {
       // 2-step flow: New → Preparing → BUMP (no "ready" state)
@@ -1312,6 +1331,8 @@ export function App() {
     setTickets(prev => prev.map(t => t.id === id ? { ...t, status: next } : t));
     socketRef.current?.emit("kot:status", { id, status: next });
     try {
+      // Try local POS first (LAN); always sync to cloud for permanent record
+      tryLocalPOS("PATCH", `/operations/kots/${id}/status`, { status: next }).then(() => {});
       await api.patch(
         `/operations/kots/${id}/status?outletId=${branchConfig?.outletId}`,
         { status: next }
@@ -1341,12 +1362,16 @@ export function App() {
     // Remove locally immediately — UI is instant.
     setTickets(prev => prev.filter(t => t.id !== id));
     setServedCount(n => n + 1);
-    // Persist the bump to the backend. On failure, restore the ticket so it doesn't
-    // silently disappear — chef can see it reappear and try again when connection is back.
-    api.patch(
+    // Persist the bump: try local POS (LAN) and cloud in parallel.
+    // Only restore the ticket if BOTH fail — one success is enough.
+    const localPromise  = tryLocalPOS("PATCH", `/operations/kots/${id}/status`, { status: "bumped" })
+      .catch(() => null);
+    const cloudPromise  = api.patch(
       `/operations/kots/${id}/status?outletId=${branchConfig?.outletId}`,
       { status: "bumped" }
-    ).catch(() => {
+    ).then(() => "ok").catch(() => null);
+    Promise.all([localPromise, cloudPromise]).then(([localOk, cloudOk]) => {
+      if (localOk || cloudOk) return; // at least one succeeded — bump is persisted
       if (!bumpedTicket) return;
       setTickets(prev => {
         // Only restore if another device hasn't already cleared it via socket
