@@ -408,7 +408,10 @@ function startLocalServer() {
           }
           order.updatedAt = Date.now();
           saveLocalStore();
-          localIo?.emit("order:updated", order);
+          // No localIo broadcast here — Captain App has its own optimistic state and
+          // gets the authoritative order from the cloud response. Broadcasting from
+          // the HTTP handler causes a feedback loop: Captain receives an order:updated
+          // with a temp item ID, creating phantom duplicates before cloud responds.
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(order));
         });
@@ -428,7 +431,6 @@ function startLocalServer() {
           order.items = order.items.filter(i => i.id !== itemId);
           order.updatedAt = Date.now();
           saveLocalStore();
-          localIo?.emit("order:updated", order);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true }));
         });
@@ -449,7 +451,6 @@ function startLocalServer() {
           if (item) item.isVoided = true;
           order.updatedAt = Date.now();
           saveLocalStore();
-          localIo?.emit("order:updated", order);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(order));
         });
