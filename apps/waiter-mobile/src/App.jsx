@@ -598,6 +598,7 @@ export function App() {
               if (cur.orderNumber == null && (cur.items || []).some(i => !i.isVoided && !i.isComp)) return p;
               if (cur.orderNumber != null && o.orderNumber != null && Number(cur.orderNumber) !== Number(o.orderNumber)) return p;
             }
+            delete orderVersionsRef.current[o.tableId];
             const { [o.tableId]: _removed, ...rest } = p;
             return rest;
           }
@@ -833,6 +834,7 @@ export function App() {
               const { [tableId]: _, ...rest } = p;
               return rest;
             });
+            delete orderVersionsRef.current[tableId];
             lsRemove("captain_courses_" + tableId);
           });
         }
@@ -881,7 +883,7 @@ export function App() {
           reconnectionAttempts: Infinity,
         });
         socketRef.current = socket;
-        socket.on("connect", () => {
+        socket.once("connect", () => {
           bootstrap(); // server is back — re-run full bootstrap
           socket.disconnect();
         });
@@ -1100,6 +1102,7 @@ export function App() {
 
   // ── Mark table as free (optimistic clear from confirm dialog) ────────────
   function handleMarkFree(tableId) {
+    delete orderVersionsRef.current[tableId];
     setOrders(prev => { const { [tableId]: _, ...rest } = prev; return rest; });
     socketRef.current?.emit("order:update", {
       outletId: outlet?.id,
@@ -1708,7 +1711,7 @@ export function App() {
       else if (result?.kot)      serverKots = [result.kot];
       if (result?.order) lastServerOrder = result.order;
       if (result?.routingFallback) {
-        showToast("⚠ KOT sent to Unassigned — check kitchen station config");
+        toast("⚠ KOT sent to Unassigned — check kitchen station config", { duration: 4000 });
       }
     } catch (e) {
       console.error("[captain] KOT send failed:", e.message);
@@ -2169,7 +2172,7 @@ export function App() {
 
     api.post("/operations/bill-request", { outletId: outlet?.id, tableId: tid, isSplit: true }).catch((err) => {
       console.warn("[captain] split bill-request failed:", err?.message);
-      showToast("Split bill sync failed — cashier may see full amount");
+      toast("Split bill sync failed — cashier may see full amount", { duration: 4000 });
     });
   }
 
