@@ -1,10 +1,10 @@
 {
   "pos": {
-    "version": "1.7.7",
+    "version": "1.7.8",
     "label": "POS Terminal",
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-pos.apk",
-    "releaseDate": "2026-08-18"
+    "releaseDate": "2026-08-20"
   },
   "captain": {
     "version": "1.25",

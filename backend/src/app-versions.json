@@ -1,12 +1,12 @@
 {
   "pos": {
-    "version": "1.7.7",
+    "version": "1.7.8",
     "label": "POS Terminal",
-    "changelog": "Local-First Phase 2: Captain App and KDS talk to POS on LAN — works even when internet is down",
+    "changelog": "Fix phantom items and table count mismatch introduced in v1.7.7",
     "whatsNew": [
-      "📡 Captain add/remove/void now hits POS directly on WiFi — instant even without internet",
-      "🍳 KDS advance and bump now hit POS on LAN — kitchen keeps working offline",
-      "🔄 All changes still sync to cloud in background — no data lost"
+      "🐛 Fixed: items appearing automatically in orders without captain adding them",
+      "🐛 Fixed: POS table count out of sync with Captain App",
+      "🐛 Fixed: billed tables getting unexpected order updates"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
