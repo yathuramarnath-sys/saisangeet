@@ -1302,10 +1302,15 @@ export function App() {
         // terminal (including those that weren't open when the auto-advance fired)
         // shows the displaced pending bill.
         socket.on("pending-bills:updated", ({ bills }) => {
+          // Guard matches the reconnect HTTP path (line ~818): if the server returns an
+          // empty list, skip the full replace — an empty pending-bills store (e.g. after
+          // a server restart) must not wipe all local _mb_ entries that are still live.
+          // Only replace when the server has at least one bill, so we have a real list.
+          if (!bills?.length) return;
           setOrders((prev) => {
             const next = { ...prev };
             Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
-            (bills || []).forEach(bill => {
+            bills.forEach(bill => {
               if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
             });
             saveOrdersToStorage(next);

@@ -1,12 +1,11 @@
 {
   "pos": {
-    "version": "1.7.8",
+    "version": "1.7.9",
     "label": "POS Terminal",
-    "changelog": "Fix phantom items and table count mismatch introduced in v1.7.7",
+    "changelog": "Fix pending bills wiped when one bill is closed via Captain App",
     "whatsNew": [
-      "🐛 Fixed: items appearing automatically in orders without captain adding them",
-      "🐛 Fixed: POS table count out of sync with Captain App",
-      "🐛 Fixed: billed tables getting unexpected order updates"
+      "🐛 Fixed: closing 1 bill via Captain App was wiping all pending bills from POS display",
+      "🐛 Fixed: pending-bills:updated with empty server list no longer clears local bill entries"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
@@ -15,7 +14,7 @@
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-08-18"
+    "releaseDate": "2026-08-20"
   },
   "captain": {
     "version": "1.8.0",
