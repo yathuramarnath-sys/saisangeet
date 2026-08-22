@@ -1273,14 +1273,14 @@ export function App() {
   }
 
   // ── Local-first helper — try POS HTTP server (LAN) before going to cloud ───
-  async function tryLocalPOS(method, path, body) {
+  async function tryLocalPOS(method, path, body, timeoutMs = 500) {
     const ip = localStorage.getItem("captain_local_server_ip")?.trim();
     if (!ip) return null;
     try {
       const opts = {
         method,
         headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(2000),
+        signal: AbortSignal.timeout(timeoutMs),
       };
       if (body) opts.body = JSON.stringify(body);
       const resp = await fetch(`http://${ip}:4001${path}`, opts);
@@ -1352,8 +1352,20 @@ export function App() {
       mutationId:       removeMutationId,
       expectedVersion:  orderVersionsRef.current[tableId],
     };
-    // Try local POS first (instant on LAN), always sync to cloud for permanent record
-    tryLocalPOS("DELETE", "/operations/order/item", removePayload).then(() => {});
+    // Try local POS first — single write path. On LAN: local wins, cloud syncs in background.
+    const localDeleteResult = await tryLocalPOS("DELETE", "/operations/order/item", removePayload);
+    if (localDeleteResult) {
+      api.delete(`/operations/order/item`, removePayload)
+        .then(result => {
+          if (result?.orderVersion != null) orderVersionsRef.current[tableId] = result.orderVersion;
+        })
+        .catch(err => {
+          console.warn("[captain] removeItem cloud sync failed — queuing:", err.message);
+          const { expectedVersion: _ev, ...queuePayload } = removePayload;
+          syncEnqueue(SYNC_ACTION.REMOVE_ITEM, queuePayload);
+        });
+      return;
+    }
     try {
       const result = await api.delete(`/operations/order/item`, removePayload);
       if (result?.orderVersion != null) orderVersionsRef.current[tableId] = result.orderVersion;
@@ -1454,8 +1466,69 @@ export function App() {
       mutationId:      addMutationId,
       expectedVersion: orderVersionsRef.current[tableId],
     };
-    // Fire local-first to POS (fire-and-forget — gives instant response on LAN)
-    tryLocalPOS("POST", "/operations/order/item", addItemPayload).then(() => {});
+    // Try local POS first — single write path. On LAN: local wins, cloud syncs in background.
+    // Off LAN (local returns null): fall through to cloud as primary (original behaviour).
+    const localAddResult = await tryLocalPOS("POST", "/operations/order/item", addItemPayload);
+    if (localAddResult) {
+      // Local success — cloud is background-only for permanent record + temp-ID resolution
+      api.post("/operations/order/item", addItemPayload)
+        .then(serverOrder => {
+          if (!serverOrder) return;
+          if (serverOrder?.orderVersion != null) orderVersionsRef.current[tableId] = serverOrder.orderVersion;
+          // Resolve temp IDs → real server UUIDs (cloud response is authoritative for IDs)
+          setOrders((prev) => {
+            const local = prev[tableId];
+            if (!local) return prev;
+            const serverByMenuItemId = new Map();
+            (serverOrder.items || []).forEach(si => { if (si.menuItemId) serverByMenuItemId.set(si.menuItemId, si); });
+            const resolvedLocal = (local.items || []).map(li => {
+              if (li.sentToKot || !li.menuItemId) return li;
+              const si = serverByMenuItemId.get(li.menuItemId);
+              if (si && li.id !== si.id) return { ...li, id: si.id };
+              return li;
+            });
+            const seenIds = new Map();
+            const deduplicatedLocal = [];
+            for (const li of resolvedLocal) {
+              if (seenIds.has(li.id)) {
+                seenIds.get(li.id).quantity = (seenIds.get(li.id).quantity || 1) + (li.quantity || 1);
+              } else {
+                const copy = { ...li };
+                seenIds.set(li.id, copy);
+                deduplicatedLocal.push(copy);
+              }
+            }
+            return { ...prev, [tableId]: { ...local, items: deduplicatedLocal } };
+          });
+        })
+        .catch(err => {
+          console.warn("[captain] addItem cloud sync failed — queuing:", err.message);
+          syncEnqueue(SYNC_ACTION.ADD_ITEM, {
+            tableId,
+            outletId: outlet?.id || branchConfig?.outletId,
+            item: addItemPayload.item,
+            actorName: addItemPayload.actorName,
+            mutationId: addMutationId,
+          });
+        });
+      setTimeout(() => {
+        addItemInFlightRef.current[tableId] = Math.max(0, (addItemInFlightRef.current[tableId] || 1) - 1);
+        if ((addItemInFlightRef.current[tableId] || 0) === 0) {
+          api.get(`/operations/order/${tableId}`).then(sv => {
+            if (!sv?.isClosed) return;
+            setOrders(prev => {
+              const cur = prev[tableId];
+              if (!cur || cur.isClosed) return prev;
+              if (cur.orderNumber == null) return prev;
+              if (sv.orderNumber != null && Number(cur.orderNumber) !== Number(sv.orderNumber)) return prev;
+              const { [tableId]: _, ...rest } = prev;
+              return rest;
+            });
+          }).catch(() => {});
+        }
+      }, 300);
+      return;
+    }
     try {
       let serverOrder = await api.post("/operations/order/item", addItemPayload).catch(async (err) => {
         if (err.status === 409 && err.body?.error === "VERSION_CONFLICT") {

@@ -43,6 +43,12 @@ async function initDb(userDataPath) {
       data       TEXT    NOT NULL,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS kots (
+      kot_id     TEXT    PRIMARY KEY,
+      data       TEXT    NOT NULL,
+      status     TEXT    NOT NULL DEFAULT 'new',
+      created_at INTEGER NOT NULL DEFAULT 0
+    );
     CREATE TABLE IF NOT EXISTS settings (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -102,6 +108,45 @@ function loadOrders() {
   return store;
 }
 
+// ── KOTs ──────────────────────────────────────────────────────────────────────
+
+function saveKot(kot) {
+  if (!db) return;
+  try {
+    db.run(
+      "INSERT INTO kots (kot_id, data, status, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(kot_id) DO UPDATE SET data = excluded.data, status = excluded.status",
+      [kot.id, JSON.stringify(kot), kot.status || "new", Date.now()]
+    );
+    _flush();
+  } catch (err) {
+    console.error("[store] saveKot error:", err.message);
+  }
+}
+
+function updateKotStatus(kotId, status) {
+  if (!db) return;
+  try {
+    db.run("UPDATE kots SET status = ? WHERE kot_id = ?", [status, kotId]);
+    _flush();
+  } catch (err) {
+    console.error("[store] updateKotStatus error:", err.message);
+  }
+}
+
+function loadKots() {
+  if (!db) return {};
+  const result = db.exec("SELECT kot_id, data, status FROM kots");
+  if (!result.length) return {};
+  const store = {};
+  for (const [kotId, data, status] of result[0].values) {
+    try {
+      const kot = JSON.parse(data);
+      store[kotId] = { ...kot, status };
+    } catch (_) {}
+  }
+  return store;
+}
+
 // ── Settings ─────────────────────────────────────────────────────────────────
 
 function saveSetting(key, value) {
@@ -120,4 +165,4 @@ function loadSetting(key) {
   return result[0].values[0][0];
 }
 
-module.exports = { initDb, saveOrders, loadOrders, saveSetting, loadSetting };
+module.exports = { initDb, saveOrders, loadOrders, saveKot, updateKotStatus, loadKots, saveSetting, loadSetting };

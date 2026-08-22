@@ -225,6 +225,13 @@ async function loadLocalStore() {
       const parsed = parseInt(seq, 10);
       if (!isNaN(parsed) && parsed > localKotSeq) localKotSeq = parsed;
     }
+
+    const savedKots = store.loadKots();
+    const kotCount = Object.keys(savedKots).length;
+    if (kotCount > 0) {
+      Object.assign(localKotStore, savedKots);
+      console.log(`[local] restored ${kotCount} KOTs from dinex-pos.db`);
+    }
   } catch (err) {
     console.error("[local] load from SQLite error — starting fresh:", err.message);
   }
@@ -471,6 +478,7 @@ function startLocalServer() {
             return;
           }
           kot.status = status;
+          store.updateKotStatus(kotId, status);
           localIo?.emit("kot:status", { id: kotId, status });
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, id: kotId, status }));
@@ -528,6 +536,7 @@ function startLocalServer() {
         const kot = { ...kotData, id: kotId, kotNumber: localKotSeq, localMode: true };
         // Store for HTTP-based KDS bump lookup
         localKotStore[kotId] = { ...kot, status: "new" };
+        store.saveKot({ ...kot, status: "new" });
         // Mark items as sent in local store
         if (localOrderStore[kot.tableId]) {
           const kotItemIds = new Set((kot.items || []).map(i => i.id));

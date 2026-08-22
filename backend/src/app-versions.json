@@ -1,30 +1,29 @@
 {
   "pos": {
-    "version": "1.7.9",
+    "version": "1.8.0",
     "label": "POS Terminal",
-    "changelog": "Fix pending bills wiped when one bill is closed via Captain App",
+    "changelog": "KOTs now survive POS restart — kitchen display no longer goes blank",
     "whatsNew": [
-      "🐛 Fixed: closing 1 bill via Captain App was wiping all pending bills from POS display",
-      "🐛 Fixed: pending-bills:updated with empty server list no longer clears local bill entries"
+      "🐛 Fixed: KDS / kitchen display no longer goes blank after POS restarts during service",
+      "🐛 Fixed: active KOTs are now saved to local database and restored on every POS start"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
-      "3. Log in with your cashier PIN — you are on v1.7.6"
+      "3. Log in with your cashier PIN"
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-08-20"
+    "releaseDate": "2026-08-22"
   },
   "captain": {
-    "version": "1.8.0",
+    "version": "1.8.1",
     "label": "Captain App",
-    "changelog": "Coloured table badges, KOT history tabs, pending bills screen, decimal qty fix",
+    "changelog": "Fix phantom items and double-adds — local-first single write path",
     "whatsNew": [
-      "🎨 Table number badges now show status colour at a glance (orange = active, blue = bill ready)",
-      "📋 KOT history tabs: All / Sent / Unsuccessful — see every KOT sent this shift",
-      "🧾 Pending bills shown in More screen — see which tables are waiting to pay",
-      "🔢 Decimal quantities (e.g. 0.100 kg) now save correctly"
+      "🐛 Fixed: phantom items appearing on POS after Captain adds/removes — race condition removed",
+      "🐛 Fixed: double-add bug where adding one item wrote to both local and cloud simultaneously",
+      "⚡ Faster add/remove on WiFi — local POS responds in <500ms, cloud syncs in background"
     ],
     "installGuide": [
       "1. On Android, go to Settings → Security → Allow Install from Unknown Sources",
@@ -35,7 +34,7 @@
     ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
-    "releaseDate": "2026-07-16"
+    "releaseDate": "2026-08-22"
   },
   "kds": {
     "version": "1.7",
