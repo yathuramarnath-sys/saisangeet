@@ -12,11 +12,12 @@
  * PUT  /inventory/stock/low-level      — set lowStockLevel per item (owner console)
  */
 
-const express       = require("express");
-const { requireAuth } = require("../../middleware/require-auth");
-const { asyncHandler } = require("../../utils/async-handler");
+const express            = require("express");
+const { requireAuth }    = require("../../middleware/require-auth");
+const { asyncHandler }   = require("../../utils/async-handler");
 const { getOwnerSetupData } = require("../../data/owner-setup-store");
-const stockStore    = require("./stock-store");
+const stockStore         = require("./stock-store");
+const availabilityStore  = require("./availability-store");
 
 const inventoryRouter = express.Router();
 inventoryRouter.use(requireAuth);
@@ -61,6 +62,7 @@ inventoryRouter.post("/item-visibility", asyncHandler(async (req, res) => {
           source: "owner-console",  // lets POS distinguish from its own toggle
         });
       }
+      availabilityStore.saveItemAvailability(tenantId, oid, itemId, posVisible);
     });
   }
 

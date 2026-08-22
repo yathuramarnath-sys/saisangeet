@@ -896,18 +896,21 @@ export function App() {
             ) {
               return prev; // active order preserved — don't overwrite with closed old order
             }
-            // Stale-write guard: ignore events that are more than 30 s older than our
-            // local copy. A strict timestamp comparison breaks when the Captain device
-            // clock is even slightly behind the server clock (server stamps orders with
-            // server-time after each KOT, making all subsequent captain broadcasts look
-            // "older"). 30 s covers any realistic clock skew while still blocking truly
-            // stale in-transit duplicates.
+            // Stale-write guard: ignore events whose orderVersion is behind our local copy.
+            // orderVersion is a monotonic server-assigned integer — immune to clock skew.
+            // Falls back to the old 30s timestamp guard only when orderVersion is absent
+            // (old APK clients, counter/online order paths that don't carry a version).
+            const localVersion    = current?.orderVersion;
+            const incomingVersion = updatedOrder?.orderVersion;
+            const useVersionGuard = localVersion != null && incomingVersion != null;
             if (
               current &&
-              !current.isClosed &&      // settle-blank legitimately follows isClosed:true — don't block it
+              !current.isClosed &&
               !updatedOrder.isClosed &&
-              new Date(current.updatedAt || 0).getTime() -
-                new Date(updatedOrder.updatedAt || 0).getTime() > 30_000
+              (useVersionGuard
+                ? Number(incomingVersion) < Number(localVersion)
+                : new Date(current.updatedAt || 0).getTime() -
+                    new Date(updatedOrder.updatedAt || 0).getTime() > 30_000)
             ) {
               // Even when the overall event is stale, still propagate sentToKot:true
               // upgrades. KOT confirmation is monotonic (false→true only) so it is
@@ -1189,9 +1192,13 @@ export function App() {
 
           setOrders((prev) => {
             const current = prev[updatedOrder.tableId];
+            const _lv = current?.orderVersion, _iv = updatedOrder?.orderVersion;
+            const _useV = _lv != null && _iv != null;
             if (current && !updatedOrder.isClosed &&
-                new Date(current.updatedAt || 0).getTime() -
-                  new Date(updatedOrder.updatedAt || 0).getTime() > 30_000) {
+                (_useV
+                  ? Number(_iv) < Number(_lv)
+                  : new Date(current.updatedAt || 0).getTime() -
+                      new Date(updatedOrder.updatedAt || 0).getTime() > 30_000)) {
               // Same upgrade path as cloud socket: even when the overall event is stale,
               // propagate sentToKot:true upgrades — KOT confirmation is monotonic.
               const localItems = current.items || [];

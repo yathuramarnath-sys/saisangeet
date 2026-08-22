@@ -1,11 +1,11 @@
 {
   "pos": {
-    "version": "1.8.0",
+    "version": "1.8.1",
     "label": "POS Terminal",
-    "changelog": "KOTs now survive POS restart — kitchen display no longer goes blank",
+    "changelog": "Clock-skew immune conflict guard — stale Captain orders can't overwrite POS",
     "whatsNew": [
-      "🐛 Fixed: KDS / kitchen display no longer goes blank after POS restarts during service",
-      "🐛 Fixed: active KOTs are now saved to local database and restored on every POS start"
+      "🐛 Fixed: stale order from Captain no longer overwrites POS when device clocks differ",
+      "⚡ Conflict guard now uses server sequence numbers instead of device timestamps"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",

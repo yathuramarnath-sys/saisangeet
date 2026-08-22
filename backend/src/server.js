@@ -26,6 +26,9 @@ const { syncOperationsState,
         persistOperationsState } = require("./modules/operations/operations.state");
 const { hydrateClosedOrders }    = require("./modules/operations/closed-orders-store");
 const { hydrateShifts }          = require("./modules/operations/shifts-store");
+const kotStore                   = require("./modules/operations/kot-store");
+const pendingBillsStore          = require("./modules/operations/pending-bills-store");
+const availabilityStore          = require("./modules/inventory/availability-store");
 const { scheduleBackup }             = require("./jobs/daily-backup");
 const { scheduleDailySalesReport }   = require("./jobs/daily-sales-report");
 const { getAllCachedTenants,
@@ -218,6 +221,7 @@ io.on("connection", (socket) => {
         }
       }
       socket.to(`outlet:${tid}:${data.outletId}`).emit("item:availability", data);
+      availabilityStore.saveItemAvailability(tid, data.outletId, data.itemId, data.available !== false);
       if (tid !== "default") {
         runWithTenant(tid, async () => {
           const tenantData = getOwnerSetupData();
@@ -263,6 +267,7 @@ io.on("connection", (socket) => {
         };
       }
       socket.to(`outlet:${tid}:${data.outletId}`).emit("category:availability", data);
+      availabilityStore.saveCategoryAvailability(tid, data.outletId, data.categoryId, data.available !== false);
       if (tid !== "default") {
         runWithTenant(tid, async () => {
           const tenantData = getOwnerSetupData();
@@ -388,11 +393,28 @@ server.listen(env.port, () => {
   // Run DB migrations + hydrate in-memory stores after port is open
   runMigrations()
     .then(async () => {
+      // Wire DB query into the new persistent stores — must happen after migrations
+      let queryFn = null;
+      try {
+        const { query } = require("./db/pool");
+        queryFn = query;
+      } catch (_) {}
+      if (queryFn) {
+        kotStore.init(queryFn);
+        pendingBillsStore.init(queryFn);
+        availabilityStore.init(queryFn);
+      }
+
       // Reload persisted data into memory stores so a restart doesn't lose data
       await Promise.all([
         syncOperationsState(),   // active table orders
         hydrateClosedOrders(),   // today's settled bills
         hydrateShifts(),         // open/closed shifts + cash movements
+        kotStore.loadKotsFromDb(),                                          // KOTs → KDS never goes blank
+        pendingBillsStore.loadPendingBillsFromDb(),                         // pending bills survive restart
+        availabilityStore.loadAvailabilityFromDb(                           // sold-out items survive restart
+          outletAvailability, outletCategoryAvailability
+        ),
       ]).catch(err => console.error("[startup] Hydration error (non-fatal):", err.message));
 
       // Auto-save active order state to DB every 10 seconds

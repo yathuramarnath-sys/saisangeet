@@ -107,6 +107,42 @@ async function runMigrations() {
   `);
   await queryFn(`CREATE INDEX IF NOT EXISTS idx_action_logs_tenant_ts ON action_logs (tenant_id, created_at DESC)`);
 
+  await queryFn(`
+    CREATE TABLE IF NOT EXISTS kitchen_kots (
+      id          TEXT        NOT NULL,
+      tenant_id   TEXT        NOT NULL,
+      outlet_id   TEXT        NOT NULL,
+      status      TEXT        NOT NULL DEFAULT 'new',
+      data        JSONB       NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (id, tenant_id)
+    )
+  `);
+  await queryFn(`CREATE INDEX IF NOT EXISTS idx_kitchen_kots_outlet ON kitchen_kots (tenant_id, outlet_id, status)`);
+
+  await queryFn(`
+    CREATE TABLE IF NOT EXISTS pending_bills (
+      order_number TEXT        NOT NULL,
+      tenant_id    TEXT        NOT NULL,
+      outlet_id    TEXT        NOT NULL,
+      data         JSONB       NOT NULL,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (order_number, tenant_id, outlet_id)
+    )
+  `);
+
+  await queryFn(`
+    CREATE TABLE IF NOT EXISTS item_availability (
+      tenant_id   TEXT        NOT NULL,
+      outlet_id   TEXT        NOT NULL,
+      item_id     TEXT        NOT NULL,
+      kind        TEXT        NOT NULL DEFAULT 'item',
+      available   BOOLEAN     NOT NULL DEFAULT false,
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (tenant_id, outlet_id, item_id, kind)
+    )
+  `);
+
   console.log("[migrate] Tables verified.");
 
   // ── 2. Seed tenant_settings from JSON files ─────────────────────────────────

@@ -158,7 +158,7 @@ ipcMain.on("update:install-now", () => {
 // continue uninterrupted through this server.
 
 let localIo = null;
-let localKotSeq = 9000;          // local KOT numbers (avoids cloud collision)
+let localKotSeq = 50000;         // local KOT numbers — starts at 50000 to never overlap cloud (daily, 1-up)
 const localOrderStore = {};       // tableId → latest order snapshot
 const localKotStore   = {};       // kotId   → KOT snapshot (for KDS bump via HTTP)
 
