@@ -1,11 +1,12 @@
 {
   "pos": {
-    "version": "1.8.2",
+    "version": "1.8.3",
     "label": "POS Terminal",
-    "changelog": "Fix: pending bills no longer wiped when another table closes; KOT state divergence on WiFi reconnect resolved",
+    "changelog": "Architecture fix: server now tracks all Captain bill requests — pending bills can no longer be wiped or lost",
     "whatsNew": [
-      "🐛 Fixed: closing one bill no longer clears other pending bills from POS display",
-      "🐛 Fixed: Captain KOT sent offline no longer shows as 'waiting' after reconnect while POS/KDS already received it"
+      "🐛 Fixed (root cause): all 6 pending bills now stay visible when 1 bill is settled — server was missing them, not just POS",
+      "🐛 Fixed: ghost bill amount no longer shown on settled tables after settlement",
+      "🐛 Fixed: Captain KOT state no longer diverges from POS/KDS after WiFi reconnect"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",

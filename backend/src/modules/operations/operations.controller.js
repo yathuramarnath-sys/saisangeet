@@ -711,6 +711,20 @@ async function deviceBillRequestHandler(req, res) {
     io.to(`outlet:${tenantId}:${outletId}`).emit("order:updated", updatedOrder);
   }
 
+  // Track this bill in the server-side pending-bills store so ALL POS terminals
+  // see it via pending-bills:updated — not just those online when bill:requested fires.
+  // Previously only auto-advance (hasNextOrder) bills were tracked here; now ALL
+  // Captain-requested bills are tracked so getPendingBills() returns the complete list.
+  if (updatedOrder && outletId && !isSplit) {
+    addPendingBill(tenantId, outletId, updatedOrder);
+    if (io) {
+      io.to(`outlet:${tenantId}:${outletId}`).emit("pending-bills:updated", {
+        outletId,
+        bills: getPendingBills(tenantId, outletId),
+      });
+    }
+  }
+
   markProcessed(mutationId);
 
   logAction({

@@ -675,17 +675,15 @@ export function App() {
           );
         });
 
-        // Seed server-backed pending bills so every POS terminal sees displaced
-        // orders even on a fresh start (not just the terminal that was open when
-        // the captain triggered auto-advance).
+        // Seed pending bills from server on bootstrap — server now tracks ALL Captain
+        // bill-requests, so this is the authoritative complete list. Replace all _mb_ slots.
         api.get(`/operations/pending-bills?outletId=${target.id}`)
           .then(bills => {
-            if (!bills?.length) return;
             setOrders(prev => {
               const next = { ...prev };
-              bills.forEach(bill => {
-                const key = `_mb_${bill.orderNumber}`;
-                if (!next[key]) next[key] = bill;
+              Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
+              (bills || []).forEach(bill => {
+                if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
               });
               return next;
             });
@@ -812,18 +810,15 @@ export function App() {
               .catch(() => {});
             flushKotQueue(target.id).catch(() => {});
             flushClosedOrderQueue(target.id).catch(() => {});
-            // Re-seed server-backed pending bills after reconnect
+            // Re-seed pending bills from server after reconnect — server is now the
+            // authoritative source for ALL Captain bill-requests, so replace everything.
             api.get(`/operations/pending-bills?outletId=${target.id}`)
               .then(bills => {
-                if (!bills?.length) return;
                 setOrders(prev => {
                   const next = { ...prev };
-                  // Only replace server-sourced _mb_ entries — preserve locally-created ones.
-                  Object.keys(next).forEach(k => {
-                    if (k.startsWith("_mb_") && next[k]?._fromServer) delete next[k];
-                  });
-                  bills.forEach(bill => {
-                    if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = { ...bill, _fromServer: true };
+                  Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
+                  (bills || []).forEach(bill => {
+                    if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
                   });
                   saveOrdersToStorage(next);
                   return next;
@@ -1307,24 +1302,17 @@ export function App() {
           showToast(`📲 QR Order — Table ${order.tableLabel || order.tableId} (${order.customerName})`);
         });
 
-        // ── Server-backed pending bills (captain auto-advance) ────────────────
-        // Authoritative list from server — replace all _mb_ slots so every POS
-        // terminal (including those that weren't open when the auto-advance fired)
-        // shows the displaced pending bill.
+        // ── Server-backed pending bills (all Captain bill requests) ──────────
+        // Authoritative list from server — replace ALL _mb_ slots.
+        // Server now tracks every Captain bill-request (not just auto-advance),
+        // so this list is always complete and can be used as the single source
+        // of truth. Empty list is valid (all bills settled) — don't guard against it.
         socket.on("pending-bills:updated", ({ bills }) => {
-          // Guard: empty server list must not wipe local _mb_ entries (e.g. after server restart).
-          if (!bills?.length) return;
           setOrders((prev) => {
             const next = { ...prev };
-            // Only wipe _mb_ entries that came from a previous server broadcast (_fromServer:true).
-            // Locally-created _mb_ entries (from bill:requested / order:updated) are NOT in
-            // the server's pending-bills-store — replacing them would wipe valid pending bills
-            // whenever any OTHER table triggers an auto-advance broadcast.
-            Object.keys(next).forEach(k => {
-              if (k.startsWith("_mb_") && next[k]?._fromServer) delete next[k];
-            });
-            bills.forEach(bill => {
-              if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = { ...bill, _fromServer: true };
+            Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
+            (bills || []).forEach(bill => {
+              if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
             });
             saveOrdersToStorage(next);
             return next;
