@@ -1,12 +1,13 @@
 {
   "pos": {
-    "version": "1.8.5",
+    "version": "1.8.6",
     "label": "POS Terminal",
-    "changelog": "Fix ghost amount on settled tables + cashier-added item lost after KOT on Captain-billed tables",
+    "changelog": "Fix settled tables reappearing in Pending Bills after Captain settlement",
     "whatsNew": [
-      "🐛 Fixed: settled table no longer shows ghost amount (₹252) on floor plan after Captain collects",
-      "🐛 Fixed: cashier can now add item to a Captain-billed table and send KOT — item correctly included in settlement",
-      "🐛 Fixed: closed orders no longer stored in table slot, preventing stale data on floor plan"
+      "🐛 Fixed: settled tables no longer reappear in Pending Bills after Captain settles",
+      "🐛 Fixed: T3/T20 no longer show in Pending Bills after settlement — even if Railway fires pending-bills:updated again",
+      "🐛 Fixed: past history now records Captain-settled orders immediately (no 60s delay)",
+      "🐛 Fixed: double-settlement prevented — settled bill cannot be opened and settled again"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",

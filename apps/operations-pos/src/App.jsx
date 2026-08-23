@@ -690,11 +690,17 @@ export function App() {
         // bill-requests, so this is the authoritative complete list. Replace all _mb_ slots.
         api.get(`/operations/pending-bills?outletId=${target.id}`)
           .then(bills => {
+            // Filter out bills settled locally but not yet flushed to Railway
+            const queuedNums = new Set(loadClosedOrderQueue().map(q => String(q.order?.orderNumber)).filter(Boolean));
             setOrders(prev => {
               const next = { ...prev };
               Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
               (bills || []).forEach(bill => {
-                if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
+                if (bill.orderNumber
+                  && !settledOrderNums.current.has(String(bill.orderNumber))
+                  && !queuedNums.has(String(bill.orderNumber))) {
+                  next[`_mb_${bill.orderNumber}`] = bill;
+                }
               });
               return next;
             });
@@ -825,11 +831,16 @@ export function App() {
             // authoritative source for ALL Captain bill-requests, so replace everything.
             api.get(`/operations/pending-bills?outletId=${target.id}`)
               .then(bills => {
+                const queuedNums = new Set(loadClosedOrderQueue().map(q => String(q.order?.orderNumber)).filter(Boolean));
                 setOrders(prev => {
                   const next = { ...prev };
                   Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
                   (bills || []).forEach(bill => {
-                    if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
+                    if (bill.orderNumber
+                      && !settledOrderNums.current.has(String(bill.orderNumber))
+                      && !queuedNums.has(String(bill.orderNumber))) {
+                      next[`_mb_${bill.orderNumber}`] = bill;
+                    }
                   });
                   saveOrdersToStorage(next);
                   return next;
@@ -1188,6 +1199,16 @@ export function App() {
           // Order 2 is already active on the same table (the guard would otherwise return first).
           const mbKeyL = `_mb_${updatedOrder.orderNumber}`;
           if (updatedOrder.isClosed && ordersRef.current[mbKeyL]) {
+            // Guard: mark as settled so pending-bills:updated from Railway can't resurrect it
+            if (updatedOrder.orderNumber) settledOrderNums.current.add(String(updatedOrder.orderNumber));
+            // Save full order to local history if Captain passed it through
+            if (updatedOrder._fullOrder?.items?.length) {
+              try {
+                const prev = lsGet("pos_closed_orders", []);
+                prev.unshift({ ...updatedOrder._fullOrder, _outletId: outlet?.id || branchConfig?.outletId });
+                lsSet("pos_closed_orders", prev.slice(0, 500));
+              } catch {}
+            }
             setOrders(prev => {
               if (!prev[mbKeyL]) return prev;
               const cleaned = { ...prev };
@@ -1264,6 +1285,7 @@ export function App() {
             }
             // Closed orders: clear table slot, don't store (prevents ghost amount on floor plan).
             if (merged.isClosed) {
+              if (merged.orderNumber) settledOrderNums.current.add(String(merged.orderNumber));
               const next = { ...prev };
               delete next[updatedOrder.tableId];
               saveOrdersToStorage(next);
@@ -1340,7 +1362,10 @@ export function App() {
             const next = { ...prev };
             Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
             (bills || []).forEach(bill => {
-              if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
+              // Skip bills already settled locally (Captain-via-local or POS — guard until Railway confirms)
+              if (bill.orderNumber && !settledOrderNums.current.has(String(bill.orderNumber))) {
+                next[`_mb_${bill.orderNumber}`] = bill;
+              }
             });
             saveOrdersToStorage(next);
             return next;

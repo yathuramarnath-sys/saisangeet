@@ -692,12 +692,13 @@ function startLocalServer() {
             isSettleBlank: true,
             updatedAt:     Date.now(),
           });
-          // Also emit the closed signal so Captain removes bill-alert
+          // Also emit the closed signal so Captain removes bill-alert and POS saves history
           localIo?.emit("order:updated", {
             tableId:     realTableId,
             orderNumber: order.orderNumber,
             isClosed:    true,
             closedAt:    order.closedAt,
+            _fullOrder:  order,  // full order so POS can save to pos_closed_orders history
           });
 
           // Queue to cloud
