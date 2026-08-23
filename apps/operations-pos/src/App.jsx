@@ -983,6 +983,16 @@ export function App() {
               return next;
             }
 
+            // Closed orders must not be stored in the table slot — tableStatus() returns
+            // "Free" for closed orders but calcOrderTotal() still finds items and shows
+            // a ghost amount on the floor plan. Clear the slot instead.
+            if (merged.isClosed) {
+              const next = { ...prev };
+              delete next[updatedOrder.tableId];
+              saveOrdersToStorage(next);
+              return next;
+            }
+
             const next = { ...prev, [updatedOrder.tableId]: merged };
             saveOrdersToStorage(next);
             return next;
@@ -1249,6 +1259,13 @@ export function App() {
               const next = { ...prev };
               delete next[updatedOrder.tableId];
               next[mbKey] = merged;
+              saveOrdersToStorage(next);
+              return next;
+            }
+            // Closed orders: clear table slot, don't store (prevents ghost amount on floor plan).
+            if (merged.isClosed) {
+              const next = { ...prev };
+              delete next[updatedOrder.tableId];
               saveOrdersToStorage(next);
               return next;
             }
@@ -2044,12 +2061,16 @@ export function App() {
     //    entry — the handler returns { ok: true, skipped: true } and we keep local state.
     if (tableId.startsWith("counter-") || tableId.startsWith("online-")) return;
 
+    // _mb_ orders are keyed locally by _mb_<orderNumber> but the server knows them by the
+    // real tableId. Always send server calls with the real tableId to keep state in sync.
+    const serverTableId = tableId.startsWith("_mb_") ? (orders[tableId]?.tableId || tableId) : tableId;
+
     try {
       // Resolve area override for the backend payload (mirrors local-push logic above)
       const _areaName2 = orders[tableId]?.areaName || "";
       const _aov2      = item.areaOverrides?.[_areaName2];
       const serverOrder = await api.post("/operations/order/item", {
-        tableId,
+        tableId: serverTableId,
         outletId: outlet?.id,
         item: {
           id:         itemId,

@@ -1,12 +1,12 @@
 {
   "pos": {
-    "version": "1.8.4",
+    "version": "1.8.5",
     "label": "POS Terminal",
-    "changelog": "Local-first Phase 4: POS seeds menu/staff/outlet into local SQLite so Captain and KDS work without internet",
+    "changelog": "Fix ghost amount on settled tables + cashier-added item lost after KOT on Captain-billed tables",
     "whatsNew": [
-      "🏠 Local-first: Captain and KDS now load menu and staff from POS machine on local WiFi (no internet needed)",
-      "⚡ Settlement goes through local POS first — bill numbers assigned instantly even when Railway is slow",
-      "🔄 POS syncs closed orders to cloud in the background — internet outages don't block settlement"
+      "🐛 Fixed: settled table no longer shows ghost amount (₹252) on floor plan after Captain collects",
+      "🐛 Fixed: cashier can now add item to a Captain-billed table and send KOT — item correctly included in settlement",
+      "🐛 Fixed: closed orders no longer stored in table slot, preventing stale data on floor plan"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",

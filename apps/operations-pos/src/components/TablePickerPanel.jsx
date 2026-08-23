@@ -51,6 +51,7 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
   }
 
   function calcOrderTotal(o) {
+    if (!o || o.isClosed) return null;
     const billable  = (o?.items || []).filter(i => !i.isVoided && !i.isComp);
     if (!billable.length) return null;
     const sub       = billable.reduce((s, i) => s + i.price * i.quantity, 0);
