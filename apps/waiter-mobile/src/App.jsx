@@ -1894,6 +1894,13 @@ export function App() {
     } catch (_) { /* printer not configured — KDS still receives it */ }
 
     // ── Local WiFi path: emit kot:send to POS/KDS ─────────────────────────
+    // Only emit when cloud succeeded. If cloud failed, items were rolled back to
+    // sentToKot:false — sending to KDS here would diverge state (KDS has KOT,
+    // Captain thinks items are unsent). Keep it consistent: fail both or succeed both.
+    if (kotApiFailed) {
+      setKotState(null);
+      return;
+    }
     localSocketRef.current?.emit("kot:send", {
       outletId:     effectiveOutletId,
       tableId:      order.tableId,

@@ -1,11 +1,11 @@
 {
   "pos": {
-    "version": "1.8.1",
+    "version": "1.8.2",
     "label": "POS Terminal",
-    "changelog": "Clock-skew immune conflict guard — stale Captain orders can't overwrite POS",
+    "changelog": "Fix: pending bills no longer wiped when another table closes; KOT state divergence on WiFi reconnect resolved",
     "whatsNew": [
-      "🐛 Fixed: stale order from Captain no longer overwrites POS when device clocks differ",
-      "⚡ Conflict guard now uses server sequence numbers instead of device timestamps"
+      "🐛 Fixed: closing one bill no longer clears other pending bills from POS display",
+      "🐛 Fixed: Captain KOT sent offline no longer shows as 'waiting' after reconnect while POS/KDS already received it"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
@@ -14,16 +14,15 @@
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-08-22"
+    "releaseDate": "2026-08-23"
   },
   "captain": {
-    "version": "1.8.1",
+    "version": "1.8.2",
     "label": "Captain App",
-    "changelog": "Fix phantom items and double-adds — local-first single write path",
+    "changelog": "Fix KOT state mismatch after WiFi reconnect — KDS and Captain now stay in sync",
     "whatsNew": [
-      "🐛 Fixed: phantom items appearing on POS after Captain adds/removes — race condition removed",
-      "🐛 Fixed: double-add bug where adding one item wrote to both local and cloud simultaneously",
-      "⚡ Faster add/remove on WiFi — local POS responds in <500ms, cloud syncs in background"
+      "🐛 Fixed: after WiFi reconnect, Captain no longer shows items as 'waiting' when KDS already received the KOT",
+      "🐛 Fixed: KOT no longer sent to kitchen when cloud fails — state stays consistent on all devices"
     ],
     "installGuide": [
       "1. On Android, go to Settings → Security → Allow Install from Unknown Sources",
@@ -34,7 +33,7 @@
     ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
-    "releaseDate": "2026-08-22"
+    "releaseDate": "2026-08-23"
   },
   "kds": {
     "version": "1.7",

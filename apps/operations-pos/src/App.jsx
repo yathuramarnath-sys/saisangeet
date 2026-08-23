@@ -818,9 +818,12 @@ export function App() {
                 if (!bills?.length) return;
                 setOrders(prev => {
                   const next = { ...prev };
-                  Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
+                  // Only replace server-sourced _mb_ entries — preserve locally-created ones.
+                  Object.keys(next).forEach(k => {
+                    if (k.startsWith("_mb_") && next[k]?._fromServer) delete next[k];
+                  });
                   bills.forEach(bill => {
-                    if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
+                    if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = { ...bill, _fromServer: true };
                   });
                   saveOrdersToStorage(next);
                   return next;
@@ -1309,16 +1312,19 @@ export function App() {
         // terminal (including those that weren't open when the auto-advance fired)
         // shows the displaced pending bill.
         socket.on("pending-bills:updated", ({ bills }) => {
-          // Guard matches the reconnect HTTP path (line ~818): if the server returns an
-          // empty list, skip the full replace — an empty pending-bills store (e.g. after
-          // a server restart) must not wipe all local _mb_ entries that are still live.
-          // Only replace when the server has at least one bill, so we have a real list.
+          // Guard: empty server list must not wipe local _mb_ entries (e.g. after server restart).
           if (!bills?.length) return;
           setOrders((prev) => {
             const next = { ...prev };
-            Object.keys(next).forEach(k => { if (k.startsWith("_mb_")) delete next[k]; });
+            // Only wipe _mb_ entries that came from a previous server broadcast (_fromServer:true).
+            // Locally-created _mb_ entries (from bill:requested / order:updated) are NOT in
+            // the server's pending-bills-store — replacing them would wipe valid pending bills
+            // whenever any OTHER table triggers an auto-advance broadcast.
+            Object.keys(next).forEach(k => {
+              if (k.startsWith("_mb_") && next[k]?._fromServer) delete next[k];
+            });
             bills.forEach(bill => {
-              if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = bill;
+              if (bill.orderNumber) next[`_mb_${bill.orderNumber}`] = { ...bill, _fromServer: true };
             });
             saveOrdersToStorage(next);
             return next;
