@@ -317,8 +317,16 @@ export function App() {
         if (builtAreas) setAreas(builtAreas);
 
         const [cats, items, kStations, posConfigRes] = await Promise.all([
-          api.get(`/menu/categories?outletId=${target.id}`).catch(() => []),
-          api.get(`/menu/items?outletId=${target.id}`).catch(() => []),
+          (async () => {
+            const local = await tryLocalPOS("GET", `/menu/categories?outletId=${target.id}`, null, 800);
+            if (Array.isArray(local) && local.length) return local;
+            return api.get(`/menu/categories?outletId=${target.id}`).catch(() => []);
+          })(),
+          (async () => {
+            const local = await tryLocalPOS("GET", `/menu/items?outletId=${target.id}`, null, 800);
+            if (Array.isArray(local) && local.length) return local;
+            return api.get(`/menu/items?outletId=${target.id}`).catch(() => []);
+          })(),
           api.get("/kitchen-stations").catch(() => []),
           api.get("/settings/pos-config").catch(() => null),
         ]);
@@ -353,6 +361,12 @@ export function App() {
           kitchenStations: _cacheStations,
           posConfig:       posConfigRes && typeof posConfigRes === "object" ? posConfigRes : null,
         });
+
+        // Seed menu + staff into local POS SQLite so it can serve Captain/KDS on LAN
+        tryLocalPOS("POST", "/seed/menu", { categories: cats, menuItems: items });
+        if (Array.isArray(branchConfig?.staff) && branchConfig.staff.length) {
+          tryLocalPOS("POST", "/seed/staff", { staff: branchConfig.staff });
+        }
 
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         if (liveOrders.length) {
@@ -1169,10 +1183,9 @@ export function App() {
     try {
       let settledOrder = { ...order };
       try {
-        const result = await api.post("/operations/assign-bill-no", {
-          outletId: outlet?.id || branchConfig?.outletId,
-          tableId,
-        });
+        const _outletId = outlet?.id || branchConfig?.outletId;
+        const result = (await tryLocalPOS("POST", "/operations/assign-bill-no", { outletId: _outletId, tableId }))
+          ?? await api.post("/operations/assign-bill-no", { outletId: _outletId, tableId });
         if (result?.billNo != null) {
           settledOrder = { ...settledOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
         }
@@ -1202,10 +1215,11 @@ export function App() {
         captainName: loggedInStaff?.name || null,
       };
       try {
-        await api.post("/operations/closed-order", {
-          outletId: outlet?.id || branchConfig?.outletId,
-          order:    closedOrder,
-        });
+        const _outletId = outlet?.id || branchConfig?.outletId;
+        const localClosed = await tryLocalPOS("POST", "/operations/closed-order", { outletId: _outletId, order: closedOrder });
+        if (!localClosed) {
+          await api.post("/operations/closed-order", { outletId: _outletId, order: closedOrder });
+        }
       } catch (closeErr) {
         // Payment was recorded but the bill close failed. Retrying settle will
         // re-attempt only closed-order (payment step already returned above).
@@ -2052,10 +2066,9 @@ export function App() {
     // Idempotent: if POS already printed and assigned a number, returns the same one.
     let printOrder = { ...order };
     try {
-      const result = await api.post("/operations/assign-bill-no", {
-        outletId: outlet?.id || branchConfig?.outletId,
-        tableId:  tid,
-      });
+      const _outletId = outlet?.id || branchConfig?.outletId;
+      const result = (await tryLocalPOS("POST", "/operations/assign-bill-no", { outletId: _outletId, tableId: tid }))
+        ?? await api.post("/operations/assign-bill-no", { outletId: _outletId, tableId: tid });
       if (result?.billNo != null) {
         printOrder = { ...printOrder, billNo: result.billNo, billNoMode: result.billNoMode, billNoFY: result.billNoFY };
       }
@@ -2191,10 +2204,9 @@ export function App() {
     // 1. Assign a new bill number first — MUST complete before printing
     let printOrder = { ...order };
     try {
-      const result = await api.post("/operations/assign-bill-no", {
-        outletId: outlet?.id || branchConfig?.outletId,
-        tableId:  tid,
-      });
+      const _outletId = outlet?.id || branchConfig?.outletId;
+      const result = (await tryLocalPOS("POST", "/operations/assign-bill-no", { outletId: _outletId, tableId: tid }))
+        ?? await api.post("/operations/assign-bill-no", { outletId: _outletId, tableId: tid });
       if (result?.billNo != null) {
         printOrder = {
           ...printOrder,

@@ -2,25 +2,24 @@
 // Uses sql.js — pure WebAssembly SQLite (no native compilation; works on all platforms).
 // Database file: dinex-pos.db in Electron userData directory.
 //
-// Workflow:
-//   initDb(userDataPath) → async, returns when DB is ready
-//   saveOrders(store)    → sync write to in-memory DB + atomic flush to disk
-//   loadOrders()         → sync read from in-memory DB
-//   saveSetting/loadSetting → simple key-value persistence (e.g. local_kot_seq)
+// Tables:
+//   orders              — active table orders (tableId → JSON)
+//   kots                — KOT snapshots for KDS bump
+//   settings            — key/value (local_kot_seq, bill_seq_<outletId>, pos_token, api_base)
+//   config              — larger JSON blobs (categories, menuItems, tables, staff, outlet)
+//   closed_orders_queue — settlements pending cloud sync
 
 const path = require("path");
 const fs   = require("fs");
 
-let db     = null;   // sql.js Database instance (lives in memory)
-let dbPath = null;   // path to dinex-pos.db on disk
+let db     = null;
+let dbPath = null;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 async function initDb(userDataPath) {
   const initSqlJs = require("sql.js");
 
-  // sql.js ships its own WASM file; resolve it from the package directory so
-  // Electron can find it in both dev and packaged builds.
   const wasmPath = path.join(
     path.dirname(require.resolve("sql.js")),
     "sql-wasm.wasm"
@@ -53,20 +52,28 @@ async function initDb(userDataPath) {
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS config (
+      key        TEXT    PRIMARY KEY,
+      value      TEXT    NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS closed_orders_queue (
+      id         TEXT    PRIMARY KEY,
+      outlet_id  TEXT    NOT NULL,
+      data       TEXT    NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT 0
+    );
   `);
 
-  // Flush immediately so the file exists even if nothing is stored yet
   _flush();
 }
 
 // ── Flush (atomic write) ──────────────────────────────────────────────────────
-// Write to .tmp, then rename — rename is atomic on NTFS and APFS, so a
-// power cut mid-write never leaves a corrupt dinex-pos.db.
 
 function _flush() {
   if (!db || !dbPath) return;
   try {
-    const data = db.export();          // Uint8Array of the full SQLite file
+    const data = db.export();
     const tmp  = dbPath + ".tmp";
     fs.writeFileSync(tmp, Buffer.from(data));
     fs.renameSync(tmp, dbPath);
@@ -147,7 +154,7 @@ function loadKots() {
   return store;
 }
 
-// ── Settings ─────────────────────────────────────────────────────────────────
+// ── Settings (simple key/value) ───────────────────────────────────────────────
 
 function saveSetting(key, value) {
   if (!db) return;
@@ -165,4 +172,79 @@ function loadSetting(key) {
   return result[0].values[0][0];
 }
 
-module.exports = { initDb, saveOrders, loadOrders, saveKot, updateKotStatus, loadKots, saveSetting, loadSetting };
+// ── Config (larger JSON blobs: menu, staff, tables, outlet) ───────────────────
+
+function saveConfig(key, data) {
+  if (!db) return;
+  try {
+    db.run(
+      "INSERT INTO config (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+      [key, JSON.stringify(data), Date.now()]
+    );
+    _flush();
+  } catch (err) {
+    console.error("[store] saveConfig error:", err.message);
+  }
+}
+
+function loadConfig(key) {
+  if (!db) return null;
+  const result = db.exec("SELECT value FROM config WHERE key = ?", [key]);
+  if (!result.length || !result[0].values.length) return null;
+  try { return JSON.parse(result[0].values[0][0]); } catch (_) { return null; }
+}
+
+// ── Bill sequence (per outlet) ────────────────────────────────────────────────
+
+function nextBillNo(outletId) {
+  if (!db) return null;
+  const key = `bill_seq_${outletId}`;
+  const raw = loadSetting(key);
+  const next = raw ? parseInt(raw, 10) + 1 : 1001;
+  saveSetting(key, String(next));
+  return next;
+}
+
+// ── Closed orders queue (pending cloud sync) ──────────────────────────────────
+
+function enqueueClosedOrder(id, outletId, orderData) {
+  if (!db) return;
+  try {
+    db.run(
+      "INSERT OR IGNORE INTO closed_orders_queue (id, outlet_id, data, created_at) VALUES (?, ?, ?, ?)",
+      [id, outletId, JSON.stringify(orderData), Date.now()]
+    );
+    _flush();
+  } catch (err) {
+    console.error("[store] enqueueClosedOrder error:", err.message);
+  }
+}
+
+function dequeueClosedOrder(id) {
+  if (!db) return;
+  try {
+    db.run("DELETE FROM closed_orders_queue WHERE id = ?", [id]);
+    _flush();
+  } catch (err) {
+    console.error("[store] dequeueClosedOrder error:", err.message);
+  }
+}
+
+function loadClosedOrdersQueue() {
+  if (!db) return [];
+  const result = db.exec("SELECT id, outlet_id, data FROM closed_orders_queue ORDER BY created_at ASC");
+  if (!result.length) return [];
+  return result[0].values.map(([id, outletId, data]) => {
+    try { return { id, outletId, data: JSON.parse(data) }; } catch (_) { return null; }
+  }).filter(Boolean);
+}
+
+module.exports = {
+  initDb,
+  saveOrders, loadOrders,
+  saveKot, updateKotStatus, loadKots,
+  saveSetting, loadSetting,
+  saveConfig, loadConfig,
+  nextBillNo,
+  enqueueClosedOrder, dequeueClosedOrder, loadClosedOrdersQueue,
+};

@@ -96,6 +96,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Push current order state to main process local store (keeps tablets in sync)
   pushOrdersToLocal: (orders) => ipcRenderer.send("local:push-orders", orders),
 
+  // Seed menu/staff/tables/outlet + auth token into local SQLite so Captain/KDS
+  // can fetch from port 4001 instead of Railway (works with zero internet).
+  seedLocalConfig: (config) => ipcRenderer.send("local:seed-config", config),
+
   // Captain → POS print delegation: POS calls this when Captain sends /print-kot.
   // Returns a cleanup function — call from useEffect cleanup to prevent listener leaks.
   onPrintKot: (cb) => {

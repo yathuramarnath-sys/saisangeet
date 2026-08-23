@@ -627,6 +627,17 @@ export function App() {
           discountRules:   _cacheDiscounts,
         });
 
+        // ── Seed local SQLite (Electron only) so Captain/KDS can serve from LAN ──
+        window.electronAPI?.seedLocalConfig?.({
+          categories: cats,
+          menuItems:  items,
+          tables:     builtAreas,
+          staff:      staffRes?.staff || [],
+          outlet:     target,
+          token:      localStorage.getItem("pos_token") || "",
+          apiBase:    import.meta.env.VITE_API_BASE_URL || "https://api.dinexpos.in/api/v1",
+        });
+
         const liveOrders = await api.get(`/operations/orders?outletId=${target.id}`).catch(() => []);
         const apiMap     = Object.fromEntries(liveOrders.map((o) => [o.tableId, o]));
 

@@ -164,6 +164,88 @@ const localKotStore   = {};       // kotId   → KOT snapshot (for KDS bump via 
 
 const store = require("./store");
 
+// ── Local config cache (menu, staff, tables, outlet) ─────────────────────────
+// Seeded by POS renderer via IPC after it loads from Railway.
+// Served to Captain / KDS so they work with zero internet.
+const localConfig = {
+  categories: [],
+  menuItems:  [],
+  tables:     [],
+  staff:      [],
+  outlet:     null,
+};
+
+// ── Cloud sync helper — POST to Railway from Node process ─────────────────────
+function nodePost(urlStr, body, token) {
+  return new Promise((resolve, reject) => {
+    const { URL } = require("url");
+    let parsed;
+    try { parsed = new URL(urlStr); } catch (e) { return reject(e); }
+    const mod  = parsed.protocol === "https:" ? require("https") : require("http");
+    const data = JSON.stringify(body);
+    const opts = {
+      hostname: parsed.hostname,
+      port:     parsed.port || (parsed.protocol === "https:" ? 443 : 80),
+      path:     parsed.pathname + parsed.search,
+      method:   "POST",
+      headers:  {
+        "Content-Type":   "application/json",
+        "Content-Length": Buffer.byteLength(data),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      timeout: 12000,
+    };
+    const req = mod.request(opts, (res) => {
+      let raw = "";
+      res.on("data", c => { raw += c; });
+      res.on("end", () => {
+        const ok = res.statusCode >= 200 && res.statusCode < 300;
+        let parsed = {};
+        try { parsed = JSON.parse(raw); } catch (_) {}
+        resolve({ ok, status: res.statusCode, data: parsed });
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => { req.destroy(); reject(new Error("timeout")); });
+    req.write(data);
+    req.end();
+  });
+}
+
+// ── Flush closed orders queue to Railway ─────────────────────────────────────
+// Called immediately after local settlement and on a 60-second interval.
+let _cloudSyncInFlight = false;
+async function flushClosedOrdersToCloud() {
+  if (_cloudSyncInFlight) return;
+  const pending = store.loadClosedOrdersQueue();
+  if (!pending.length) return;
+  _cloudSyncInFlight = true;
+  const token   = store.loadSetting("pos_token")   || "";
+  const apiBase = store.loadSetting("pos_api_base") || "https://api.dinexpos.in/api/v1";
+  try {
+    for (const entry of pending) {
+      try {
+        const resp = await nodePost(`${apiBase}/operations/closed-order`, {
+          outletId: entry.outletId,
+          order:    entry.data,
+        }, token);
+        if (resp.ok) {
+          store.dequeueClosedOrder(entry.id);
+          console.log(`[local] closed-order synced to cloud: ${entry.id}`);
+        } else if (resp.status === 401) {
+          console.warn("[local] cloud sync: token expired — will retry after re-login");
+          break;
+        }
+      } catch (err) {
+        console.warn("[local] cloud sync: network error —", err.message);
+        break; // stop on first failure; retry interval will catch up
+      }
+    }
+  } finally {
+    _cloudSyncInFlight = false;
+  }
+}
+
 // ── Local store persistence ───────────────────────────────────────────────────
 // Writes localOrderStore + localKotSeq to dinex-pos.db (SQLite) via store.js.
 // Loaded back at startup BEFORE Captain/KDS can connect — no blank snapshots.
@@ -232,6 +314,18 @@ async function loadLocalStore() {
       Object.assign(localKotStore, savedKots);
       console.log(`[local] restored ${kotCount} KOTs from dinex-pos.db`);
     }
+
+    // Restore config (menu, staff, tables, outlet) from previous session
+    const cats    = store.loadConfig("categories");
+    const items   = store.loadConfig("menuItems");
+    const tables  = store.loadConfig("tables");
+    const staff   = store.loadConfig("staff");
+    const outlet  = store.loadConfig("outlet");
+    if (cats)   { localConfig.categories = cats;  console.log(`[local] restored ${cats.length} categories`); }
+    if (items)  { localConfig.menuItems  = items; console.log(`[local] restored ${items.length} menu items`); }
+    if (tables) { localConfig.tables     = tables; }
+    if (staff)  { localConfig.staff      = staff;  console.log(`[local] restored ${staff.length} staff`); }
+    if (outlet) { localConfig.outlet     = outlet; }
   } catch (err) {
     console.error("[local] load from SQLite error — starting fresh:", err.message);
   }
@@ -358,17 +452,51 @@ function startLocalServer() {
         return;
       }
 
-      // CORS preflight for local-first operation routes
-      if (req.method === "OPTIONS" && (
-        req.url === "/operations/order/item" ||
-        /^\/operations\/kots\//.test(req.url || "")
-      )) {
+      // CORS preflight — covers all local-first routes
+      if (req.method === "OPTIONS") {
         res.writeHead(204, {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, DELETE, PATCH, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Origin":  "*",
+          "Access-Control-Allow-Methods": "GET, POST, DELETE, PATCH, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
         });
         res.end();
+        return;
+      }
+
+      // ── Helper: send JSON ─────────────────────────────────────────────────
+      function sendJson(data, status = 200) {
+        res.writeHead(status, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify(data));
+      }
+
+      // ── GET /menu/categories — serve cached categories ────────────────────
+      if (req.method === "GET" && req.url?.startsWith("/menu/categories")) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        sendJson(localConfig.categories);
+        return;
+      }
+
+      // ── GET /menu/items — serve cached menu items ─────────────────────────
+      if (req.method === "GET" && req.url?.startsWith("/menu/items")) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        sendJson(localConfig.menuItems);
+        return;
+      }
+
+      // ── GET /devices/staff — serve cached staff list ──────────────────────
+      if (req.method === "GET" && req.url?.startsWith("/devices/staff")) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        sendJson(localConfig.staff);
+        return;
+      }
+
+      // ── GET /operations/pending-bills — bills awaiting cashier settlement ──
+      if (req.method === "GET" && req.url?.startsWith("/operations/pending-bills")) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        const bills = Object.values(localOrderStore).filter(
+          o => o?.billRequested && !o?.isClosed && o?.orderNumber
+        );
+        sendJson(bills);
         return;
       }
 
@@ -482,6 +610,104 @@ function startLocalServer() {
           localIo?.emit("kot:status", { id: kotId, status });
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, id: kotId, status }));
+        });
+        return;
+      }
+
+      // ── POST /seed/staff — Captain seeds staff list after loading from cloud ─
+      if (req.method === "POST" && req.url === "/seed/staff") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        readJson(({ staff }) => {
+          if (Array.isArray(staff) && staff.length) {
+            localConfig.staff = staff;
+            store.saveConfig("staff", staff);
+            console.log(`[local] staff seeded: ${staff.length} members`);
+          }
+          sendJson({ ok: true });
+        });
+        return;
+      }
+
+      // ── POST /seed/menu — Captain or POS seeds menu after loading from cloud ─
+      if (req.method === "POST" && req.url === "/seed/menu") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        readJson(({ categories, menuItems }) => {
+          if (Array.isArray(categories) && categories.length) {
+            localConfig.categories = categories;
+            store.saveConfig("categories", categories);
+          }
+          if (Array.isArray(menuItems) && menuItems.length) {
+            localConfig.menuItems = menuItems;
+            store.saveConfig("menuItems", menuItems);
+          }
+          console.log(`[local] menu seeded: ${localConfig.categories.length} cats, ${localConfig.menuItems.length} items`);
+          sendJson({ ok: true });
+        });
+        return;
+      }
+
+      // ── POST /operations/assign-bill-no — local sequential bill number ──────
+      if (req.method === "POST" && req.url === "/operations/assign-bill-no") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        readJson(({ outletId }) => {
+          if (!outletId) { sendJson({ error: "outletId required" }, 400); return; }
+          const billNo = store.nextBillNo(outletId);
+          sendJson({ ok: true, billNo, billNoMode: "local", localMode: true });
+        });
+        return;
+      }
+
+      // ── POST /operations/closed-order — local-first settlement ────────────
+      // 1. Assigns bill number (if not already set)
+      // 2. Clears the table from localOrderStore
+      // 3. Notifies all LAN devices via socket
+      // 4. Queues the closed order to cloud sync (flushes in background)
+      if (req.method === "POST" && req.url === "/operations/closed-order") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        readJson(({ outletId, order }) => {
+          if (!order) { sendJson({ error: "order required" }, 400); return; }
+
+          // Assign bill number locally if not already stamped
+          if (!order.billNo && outletId) {
+            order.billNo     = store.nextBillNo(outletId);
+            order.billNoMode = "local";
+          }
+          order.closedAt = order.closedAt || new Date().toISOString();
+
+          // Clear from local order store
+          const realTableId = order.tableId;
+          delete localOrderStore[realTableId];
+          // Also clear _mb_ mirror key if present
+          const mbKey = `_mb_${order.orderNumber}`;
+          delete localOrderStore[mbKey];
+          saveLocalStore();
+
+          // Notify LAN devices
+          localIo?.emit("order:cleared", { tableId: realTableId });
+          localIo?.emit("order:updated", {
+            tableId:       realTableId,
+            items:         [],
+            isClosed:      false,
+            billRequested: false,
+            isSettleBlank: true,
+            updatedAt:     Date.now(),
+          });
+          // Also emit the closed signal so Captain removes bill-alert
+          localIo?.emit("order:updated", {
+            tableId:     realTableId,
+            orderNumber: order.orderNumber,
+            isClosed:    true,
+            closedAt:    order.closedAt,
+          });
+
+          // Queue to cloud
+          const queueId = `clo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          store.enqueueClosedOrder(queueId, outletId || "", order);
+
+          // Try cloud immediately in background — don't block response
+          flushClosedOrdersToCloud().catch(() => {});
+
+          sendJson({ ok: true, billNo: order.billNo, billNoMode: order.billNoMode, closedAt: order.closedAt, localMode: true });
         });
         return;
       }
@@ -623,11 +849,47 @@ ipcMain.on("local:push-orders", (_event, orders) => {
   saveLocalStore();
 });
 
+// Renderer seeds menu/tables/staff/outlet into local SQLite after loading from cloud.
+// Captain and KDS will then fetch from port 4001 instead of Railway.
+ipcMain.on("local:seed-config", (_event, { categories, menuItems, tables, staff, outlet, token, apiBase } = {}) => {
+  if (Array.isArray(categories) && categories.length) {
+    localConfig.categories = categories;
+    store.saveConfig("categories", categories);
+  }
+  if (Array.isArray(menuItems) && menuItems.length) {
+    localConfig.menuItems = menuItems;
+    store.saveConfig("menuItems", menuItems);
+  }
+  if (Array.isArray(tables) && tables.length) {
+    localConfig.tables = tables;
+    store.saveConfig("tables", tables);
+  }
+  if (Array.isArray(staff) && staff.length) {
+    localConfig.staff = staff;
+    store.saveConfig("staff", staff);
+  }
+  if (outlet) {
+    localConfig.outlet = outlet;
+    store.saveConfig("outlet", outlet);
+  }
+  // Persist auth token and API base for cloud sync calls made from main process
+  if (token)   store.saveSetting("pos_token",    token);
+  if (apiBase) store.saveSetting("pos_api_base", apiBase);
+
+  console.log(`[local] config seeded — cats:${localConfig.categories.length} items:${localConfig.menuItems.length} staff:${localConfig.staff.length}`);
+  // Attempt to flush any queued closed orders now that we have a token
+  flushClosedOrdersToCloud().catch(() => {});
+});
+
 app.whenReady().then(async () => {
   createWindow();
   setupAutoUpdater();
   await loadLocalStore();
   startLocalServer();
+
+  // Flush any queued settlements to cloud every 60 seconds
+  setInterval(() => { flushClosedOrdersToCloud().catch(() => {}); }, 60_000);
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

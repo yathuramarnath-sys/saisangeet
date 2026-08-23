@@ -1,12 +1,12 @@
 {
   "pos": {
-    "version": "1.8.3",
+    "version": "1.8.4",
     "label": "POS Terminal",
-    "changelog": "Architecture fix: server now tracks all Captain bill requests — pending bills can no longer be wiped or lost",
+    "changelog": "Local-first Phase 4: POS seeds menu/staff/outlet into local SQLite so Captain and KDS work without internet",
     "whatsNew": [
-      "🐛 Fixed (root cause): all 6 pending bills now stay visible when 1 bill is settled — server was missing them, not just POS",
-      "🐛 Fixed: ghost bill amount no longer shown on settled tables after settlement",
-      "🐛 Fixed: Captain KOT state no longer diverges from POS/KDS after WiFi reconnect"
+      "🏠 Local-first: Captain and KDS now load menu and staff from POS machine on local WiFi (no internet needed)",
+      "⚡ Settlement goes through local POS first — bill numbers assigned instantly even when Railway is slow",
+      "🔄 POS syncs closed orders to cloud in the background — internet outages don't block settlement"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
@@ -18,11 +18,12 @@
     "releaseDate": "2026-08-23"
   },
   "captain": {
-    "version": "1.8.2",
+    "version": "1.8.3",
     "label": "Captain App",
-    "changelog": "Fix KOT state mismatch after WiFi reconnect — KDS and Captain now stay in sync",
+    "changelog": "Local-first: Captain now loads menu/staff from POS machine and settles bills locally — internet optional",
     "whatsNew": [
-      "🐛 Fixed: after WiFi reconnect, Captain no longer shows items as 'waiting' when KDS already received the KOT",
+      "🏠 Menu and staff load from POS machine on local WiFi — works even without internet",
+      "⚡ Bill number and settlement go through POS machine first — instant, no cloud delay",
       "🐛 Fixed: KOT no longer sent to kitchen when cloud fails — state stays consistent on all devices"
     ],
     "installGuide": [
