@@ -64,8 +64,12 @@ function getPendingBills(tenantId, outletId) {
 async function loadPendingBillsFromDb() {
   if (!_query) return;
   try {
+    // Only restore pending bills created today (IST). Bills from yesterday or
+    // earlier are stale — the table has already been reset for a new day.
     const result = await _query(
-      "SELECT tenant_id, outlet_id, order_number, data FROM pending_bills ORDER BY created_at ASC"
+      `SELECT tenant_id, outlet_id, order_number, data FROM pending_bills
+       WHERE created_at >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date AT TIME ZONE 'Asia/Kolkata'
+       ORDER BY created_at ASC`
     );
     let count = 0;
     for (const row of result.rows) {
@@ -77,6 +81,11 @@ async function loadPendingBillsFromDb() {
         count++;
       } catch (_) {}
     }
+    // Also purge old rows from DB so they don't accumulate
+    await _query(
+      `DELETE FROM pending_bills
+       WHERE created_at < (NOW() AT TIME ZONE 'Asia/Kolkata')::date AT TIME ZONE 'Asia/Kolkata'`
+    ).catch(() => {});
     if (count > 0) console.log(`[pending-bills-store] restored ${count} pending bills from DB`);
   } catch (err) {
     console.warn("[pending-bills-store] could not load from DB:", err.message);

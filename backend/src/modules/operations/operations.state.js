@@ -32,8 +32,30 @@ function _saveFallbackSnapshot(tenantId, state) {
 
 function _loadFallbackSnapshot(tenantId) {
   try {
-    const raw = fs.readFileSync(_snapshotPath(tenantId), "utf8");
+    const raw    = fs.readFileSync(_snapshotPath(tenantId), "utf8");
     const parsed = JSON.parse(raw);
+
+    // Drop orders that were last updated before today's midnight IST.
+    // This prevents yesterday's in-flight orders from reappearing after an
+    // overnight server restart (Railway redeploy or process crash at EOD).
+    const nowIST       = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    const midnightIST  = Date.UTC(
+      nowIST.getUTCFullYear(), nowIST.getUTCMonth(), nowIST.getUTCDate()
+    ) - 5.5 * 60 * 60 * 1000; // convert IST midnight back to UTC ms
+
+    const orders = parsed?.orders ?? {};
+    let dropped = 0;
+    for (const tableId of Object.keys(orders)) {
+      const order = orders[tableId];
+      if (order && order.updatedAt && order.updatedAt < midnightIST) {
+        delete orders[tableId];
+        dropped++;
+      }
+    }
+    if (dropped > 0) {
+      console.log(`[operations.state] dropped ${dropped} stale order(s) from yesterday's snapshot for tenant "${tenantId}"`);
+    }
+
     console.log(`[operations.state] recovered active orders for tenant "${tenantId}" from snapshot`);
     return parsed;
   } catch (_) {
