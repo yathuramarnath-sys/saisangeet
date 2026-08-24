@@ -1080,6 +1080,14 @@ export function App() {
     setSelectedTableId(tableId);
     setSelectedArea(area);
 
+    // Block synthesized browser click (fired ~300ms after touchend on Android WebView)
+    // from hitting the newly-rendered OrderScreen at the same coordinates.
+    const main = document.querySelector(".app-main");
+    if (main) {
+      main.style.pointerEvents = "none";
+      setTimeout(() => { main.style.pointerEvents = ""; }, 380);
+    }
+
     try {
       const serverOrder = await api.get(`/operations/order?tableId=${tableId}${outlet?.id ? `&outletId=${outlet.id}` : ""}&captain=true`);
       setOrders((prev) => {
@@ -2724,7 +2732,12 @@ export function App() {
             socket={socketRef.current}
             staff={branchStaff}
             autoOpen={autoOpenAction}
-            onBack={() => { setSelectedTableId(null); setAutoOpenAction(null); }}
+            onBack={() => {
+              setSelectedTableId(null);
+              setAutoOpenAction(null);
+              const main = document.querySelector(".app-main");
+              if (main) { main.style.pointerEvents = "none"; setTimeout(() => { main.style.pointerEvents = ""; }, 380); }
+            }}
             onSendKOT={handleSendKOT}
             onPrintSplitBill={handlePrintSplitBill}
             onUpdateOrder={handleUpdateOrder}
