@@ -182,6 +182,7 @@ export function App() {
   const orderVersionsRef      = useRef({});        // tableId → last known orderVersion from server
   const outletRef             = useRef(outlet);    // always-current outlet for async closures
   const pendingKotsRef        = useRef(pendingKots); // always-current pendingKots for reconnect retry
+  const ordersRef             = useRef({});          // always-current orders for socket closures (stale-closure guard)
   // Protects unsent items from socket overwrites while the waiter picker is visible.
   // Set to the pending table's ID in handleSendKOT, cleared in picker Done/Cancel.
   const kotPickerTableRef     = useRef(null);
@@ -216,6 +217,7 @@ export function App() {
   // see the latest outlet without re-running those effects.
   useEffect(() => { outletRef.current = outlet; }, [outlet]);
   useEffect(() => { pendingKotsRef.current = pendingKots; }, [pendingKots]);
+  useEffect(() => { ordersRef.current = orders; }, [orders]);
 
   // Persist active orders so the floor map survives offline reloads.
   // Debounced 500 ms to avoid thrashing on rapid state changes.
@@ -688,6 +690,19 @@ export function App() {
             return { ...p, [tableId]: { ...p[tableId], items: p[tableId].items.map((i) => ({ ...i, sentToKot: true })) } };
           })
         );
+
+        // When the server restarts it wipes in-memory orders and sends request:order-sync
+        // to all connected devices. POS already handles this. Captain must respond too —
+        // otherwise, if only Captain has the latest order state (POS was offline), the server
+        // stays empty until POS reconnects. Captain pushes only tables it knows are active.
+        socket.on("request:order-sync", () => {
+          const snapshot = ordersRef.current;
+          Object.values(snapshot).forEach((order) => {
+            if (order?.items?.length > 0 && !order.isClosed) {
+              socket.emit("order:update", { outletId: target.id, order });
+            }
+          });
+        });
 
         socket.on("sync:config", async () => {
           try {
@@ -1317,7 +1332,7 @@ export function App() {
   }
 
   // ── Local-first helper — try POS HTTP server (LAN) before going to cloud ───
-  async function tryLocalPOS(method, path, body, timeoutMs = 500) {
+  async function tryLocalPOS(method, path, body, timeoutMs = 1000) {
     const ip = localStorage.getItem("captain_local_server_ip")?.trim();
     if (!ip) return null;
     try {

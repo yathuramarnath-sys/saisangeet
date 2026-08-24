@@ -175,6 +175,45 @@ function saveKotQueue(queue) {
   lsSet(KOT_QUEUE_KEY, queue);
 }
 
+// ── Bill-request offline queue ────────────────────────────────────────────
+// handlePrintBill creates the _mb_ slot locally then POSTs bill-request to server.
+// If that POST fails (offline), the server never gets billRequested:true, so on
+// reconnect the pending-bills fetch returns empty and the _mb_ entry disappears.
+// Queuing the request here and flushing before the pending-bills fetch closes that gap.
+const BILL_REQ_QUEUE_KEY = "pos_bill_request_queue";
+
+function loadBillReqQueue() {
+  return lsGet(BILL_REQ_QUEUE_KEY, []);
+}
+
+function saveBillReqQueue(queue) {
+  lsSet(BILL_REQ_QUEUE_KEY, queue);
+}
+
+async function flushBillReqQueue(outletId) {
+  const queue = loadBillReqQueue();
+  if (!queue.length) return;
+  const token = localStorage.getItem("pos_token") || "";
+  const base  = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1";
+  const failed = [];
+  for (const payload of queue) {
+    try {
+      const resp = await fetch(`${base}/operations/bill-request`, {
+        method:  "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ...payload, outletId }),
+      });
+      if (!resp.ok && resp.status !== 409) failed.push(payload); // 409 = already exists, treat as success
+    } catch (_) {
+      failed.push(payload);
+    }
+  }
+  saveBillReqQueue(failed);
+}
+
 // ── Item order count tracking (for Favourites chip) ───────────────────────
 const ITEM_COUNTS_KEY = "pos_item_counts";
 function loadItemCounts() {
@@ -420,7 +459,7 @@ export function App() {
   // Mirror of orders state for socket closures (avoids stale-closure problem)
   const ordersRef        = useRef({});
   // Tracks orderNumbers settled locally so stale re-broadcasts from Captain are ignored
-  const settledOrderNums    = useRef(new Set());
+  const settledOrderNums    = useRef(new Set(lsGet("pos_settled_order_nums", [])));
   const cancelledTablesRef  = useRef(new Map()); // tableId → orderNumber, blocks socket restores during cancel window
   // Mirror (pending bill) orders waiting for cashier settlement while a new order is active
   // Refs for barcode scanner listener — always hold latest values without re-subscribing
@@ -444,6 +483,17 @@ export function App() {
   const modalOpenRef = useRef(false);
   const [serverConn,  setServerConn]  = useState("connecting"); // for UI banner
   const [activeTab,   setActiveTab]   = useState("pos");        // "pos" | "transactions" | "kitchen"
+
+  // Persists a settled orderNumber to the ref AND to localStorage so it survives
+  // page reloads. Without persistence, a POS reload after settlement would re-admit
+  // stale Captain broadcasts for that orderNumber, re-creating the _mb_ Pending Bill.
+  function addSettledNum(num) {
+    if (!num) return;
+    settledOrderNums.current.add(String(num));
+    try {
+      lsSet("pos_settled_order_nums", [...settledOrderNums.current].slice(-200));
+    } catch (_) {}
+  }
 
   // ── Shift state ───────────────────────────────────────────────────────────
   const [activeShift,      setActiveShift]      = useState(() => loadActiveShift());
@@ -838,6 +888,11 @@ export function App() {
               .catch(() => {});
             flushKotQueue(target.id).catch(() => {});
             flushClosedOrderQueue(target.id).catch(() => {});
+            // Flush queued bill-requests BEFORE re-seeding pending bills from the server.
+            // If a bill-request POST failed while offline, flushing here ensures the server
+            // has billRequested:true before we fetch pending-bills — so the _mb_ entry
+            // is included in the server's list rather than silently missing.
+            flushBillReqQueue(target.id).catch(() => {});
             // Re-seed pending bills from server after reconnect — server is now the
             // authoritative source for ALL Captain bill-requests, so replace everything.
             api.get(`/operations/pending-bills?outletId=${target.id}`)
@@ -859,9 +914,10 @@ export function App() {
               })
               .catch(() => {});
           } else {
-            // Cold-start: flush KOT/settle queues from any previous session that crashed offline
+            // Cold-start: flush all queues from any previous session that crashed offline
             flushKotQueue(target.id).catch(() => {});
             flushClosedOrderQueue(target.id).catch(() => {});
+            flushBillReqQueue(target.id).catch(() => {});
           }
         });
 
@@ -1211,7 +1267,7 @@ export function App() {
           const mbKeyL = `_mb_${updatedOrder.orderNumber}`;
           if (updatedOrder.isClosed && ordersRef.current[mbKeyL]) {
             // Guard: mark as settled so pending-bills:updated from Railway can't resurrect it
-            if (updatedOrder.orderNumber) settledOrderNums.current.add(String(updatedOrder.orderNumber));
+            if (updatedOrder.orderNumber) addSettledNum(updatedOrder.orderNumber);
             // Save full order to local history if Captain passed it through
             if (updatedOrder._fullOrder?.items?.length) {
               try {
@@ -1296,7 +1352,7 @@ export function App() {
             }
             // Closed orders: clear table slot, don't store (prevents ghost amount on floor plan).
             if (merged.isClosed) {
-              if (merged.orderNumber) settledOrderNums.current.add(String(merged.orderNumber));
+              if (merged.orderNumber) addSettledNum(merged.orderNumber);
               const next = { ...prev };
               delete next[updatedOrder.tableId];
               saveOrdersToStorage(next);
@@ -2188,9 +2244,12 @@ export function App() {
           })
           .catch(() => {}); // still offline — local state is intact
       } else {
-        // Offline or server unreachable — local optimistic state is intact, no data lost.
-        // Items will reach the server when the connection returns (or at KOT send time).
+        // Offline or server unreachable — local optimistic state is intact.
+        // Item will reach the server at KOT send time (KOT payload includes all unsent items),
+        // BUT only if POS sends the KOT. If Captain sends KOT instead, this item won't be in it.
+        // Notify cashier so they can verify before sending KOT from Captain.
         console.warn("[POS] item-add to backend failed (offline?):", err.message);
+        showToast("⚠ Item not synced — send KOT from this POS to confirm");
       }
     }
   }
@@ -2245,12 +2304,30 @@ export function App() {
 
   function handleNoteChange(idx, note) {
     if (!selectedTableId) return;
-    mutateOrder(selectedTableId, (order) => { order.items[idx].note = note; return order; });
+    const tableId = selectedTableId;
+    mutateOrder(tableId, (order) => { order.items[idx].note = note; return order; });
+    // Persist note to server so KDS and Captain see the kitchen instruction.
+    // Debounced 500ms — cashier may type several characters before stopping.
+    const itemId = ordersRef.current[tableId]?.items[idx]?.id;
+    if (itemId && !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+      if (handleNoteChange._timer) clearTimeout(handleNoteChange._timer);
+      handleNoteChange._timer = setTimeout(() => {
+        api.patch("/operations/order/item", { tableId, itemId, note })
+          .catch(err => console.warn("[POS] note-update to backend failed:", err.message));
+      }, 500);
+    }
   }
 
   function handleGuestsChange(count) {
     if (!selectedTableId) return;
-    mutateOrder(selectedTableId, (order) => { order.guests = count; return order; });
+    const tableId = selectedTableId;
+    mutateOrder(tableId, (order) => { order.guests = count; return order; });
+    // Persist to server so Captain and Owner reports see the correct cover count.
+    // Captain already does this via POST /orders/:id/guests — POS must too.
+    if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+      api.post(`/operations/orders/${tableId}/guests`, { guests: count, outletId: outlet?.id })
+        .catch(err => console.warn("[POS] guests update to backend failed:", err.message));
+    }
   }
 
   function handleDiscountChange(amount) {
@@ -2312,6 +2389,10 @@ export function App() {
       source:      "pos",
       actorName:   "POS",   // always "POS" so backend never writes cashier name into captainName
       items:       unsent,  // ALL unsent items — server handles station split
+      // clientKotId ensures server-side dedup when this payload is retried from the offline queue.
+      // Without it, a network drop after the server processed the KOT but before the response
+      // arrived would cause the queue retry to create a duplicate KOT (kitchen prints twice).
+      clientKotId: `pos-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     };
     let wasQueued = false;
     try {
@@ -2562,7 +2643,7 @@ export function App() {
     // ── Full settlement ───────────────────────────────────────────────────
     // Record orderNumber so the order:updated handler can drop stale re-broadcasts
     // from Captain (who may re-emit the old billed order before learning of settlement).
-    settledOrderNums.current.add(order.orderNumber);
+    addSettledNum(order.orderNumber);
 
     // Detect credit sale — payment method "credit" carries creditCustomer details
     const creditPayment    = newPayments.find(p => p.method === "credit");
@@ -3095,7 +3176,7 @@ export function App() {
     } catch {}
 
     // 2. Optimistic close + broadcast to Captain / KDS
-    settledOrderNums.current.add(order.orderNumber);
+    addSettledNum(order.orderNumber);
     setOrders(prev => ({ ...prev, [tableId]: closedOrder }));
     socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
     localSocketRef.current?.emit("order:clear", { tableId });
@@ -3251,11 +3332,17 @@ export function App() {
       showToast("Print failed — please try again");
     }
 
-    // Persist billRequested + hasNextOrder to backend (fire-and-forget).
+    // Persist billRequested + hasNextOrder to backend.
     // hasNextOrder:true tells backend to auto-advance to new seating if captain taps table.
+    // If the POST fails (offline), queue it so the _mb_ entry doesn't disappear on reconnect.
     if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
-      api.post("/operations/bill-request", { outletId: outlet?.id, tableId, hasNextOrder: true })
-        .catch(err => console.warn("[POS] bill-request after print failed:", err.message));
+      const brPayload = { outletId: outlet?.id, tableId, hasNextOrder: true };
+      api.post("/operations/bill-request", brPayload)
+        .catch(() => {
+          const q = loadBillReqQueue();
+          q.push(brPayload);
+          saveBillReqQueue(q);
+        });
     }
   }
 
@@ -3486,6 +3573,17 @@ export function App() {
       orderNumber: liveOrder?.orderNumber || "",
       items:       [{ name: item.name, qty: cancelQty, price: item.price, reason: reason || "Cancelled" }],
     }).catch(() => {});
+
+    // Update server in-memory order so the quantity/void change survives reconnects
+    // and Captain sees the corrected qty. Without this, any order:updated event from the
+    // server would overwrite local state back to the original quantity (within 30 seconds).
+    if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
+      const patchPayload = willVoid
+        ? { tableId, itemId, isVoided: true, voidReason: reason || "Cancelled from kitchen" }
+        : { tableId, itemId, quantity: newQty };
+      api.patch("/operations/order/item", patchPayload)
+        .catch(err => console.warn("[POS] cancelKotItem server update failed:", err.message));
+    }
 
     socketRef.current?.emit("item:cancelled", {
       outletId:    outlet?.id,
