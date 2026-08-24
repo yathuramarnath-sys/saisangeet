@@ -800,13 +800,18 @@ export function App() {
                   });
                   // Clear tables that the captain settled while POS was offline.
                   // Settled orders vanish from the server's live-orders response, so they won't
-                  // appear in apiMap above. Any local table still showing billRequested:true that
-                  // is absent from the server response (and not pending in our own settle queue)
-                  // was settled remotely — clear it so the POS grid shows it as free.
+                  // appear in apiMap above. Any local table that was occupied (has items, payments,
+                  // or billRequested) but is absent from the server response was settled remotely
+                  // — clear it so the POS grid shows it as free.
+                  // Previously only checked billRequested:true, which missed tables where the
+                  // Captain settled without a prior bill-request (e.g. direct settle from T14 flow).
                   Object.keys(prev).forEach((tableId) => {
                     const local = prev[tableId];
+                    const wasOccupied = local?.billRequested ||
+                      (local?.items?.length > 0) ||
+                      (local?.payments?.length > 0);
                     if (
-                      local?.billRequested &&
+                      wasOccupied &&
                       !local.isClosed &&
                       !apiMap[tableId] &&
                       !pendingSettledTables.has(tableId) &&
