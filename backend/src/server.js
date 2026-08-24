@@ -24,6 +24,7 @@ const { env }                    = require("./config/env");
 const { runMigrations }          = require("./db/migrate");
 const { syncOperationsState,
         persistOperationsState } = require("./modules/operations/operations.state");
+const { getOrder: getMemoryOrder } = require("./modules/operations/operations.memory-store");
 const { hydrateClosedOrders }    = require("./modules/operations/closed-orders-store");
 const { hydrateShifts }          = require("./modules/operations/shifts-store");
 const kotStore                   = require("./modules/operations/kot-store");
@@ -176,11 +177,49 @@ io.on("connection", (socket) => {
   });
 
   // ── Relay order updates between POS ↔ Captain App ────────────────────────
+  // Guard: reject stale orders that would resurrect a cleared/settled table.
+  // After settlement, clearTableAfterSettle writes a new empty order with a
+  // higher orderNumber. If the server already has a newer order (or no order)
+  // for this table, the incoming update is pre-settlement state — drop it.
   socket.on("order:update", (data) => {
     try {
       if (data.outletId && data.order) {
         const tid = resolveTenantByOutlet(data.outletId);
-        socket.to(`outlet:${tid}:${data.outletId}`).emit("order:updated", data.order);
+        const incoming = data.order;
+
+        // Only run the guard for real dine-in tables with items (not counter/online,
+        // not blank clear-signals, not closed orders being echoed).
+        const tableId = incoming.tableId;
+        const isRealTable = tableId &&
+          !String(tableId).startsWith("counter-") &&
+          !String(tableId).startsWith("online-");
+
+        if (
+          isRealTable &&
+          !incoming.isClosed &&
+          (incoming.items || []).length > 0 &&
+          incoming.orderNumber != null
+        ) {
+          try {
+            const serverOrder = getMemoryOrder(tableId);
+            // Server has a newer order for this table — incoming is stale pre-settlement state.
+            // eslint-disable-next-line eqeqeq
+            if (serverOrder && serverOrder.orderNumber != null && serverOrder.orderNumber != incoming.orderNumber) {
+              // Relay the server's current order instead so all devices converge on truth.
+              socket.to(`outlet:${tid}:${data.outletId}`).emit("order:updated", serverOrder);
+              return;
+            }
+            // Server has NO order for this table (cleared) — table is free, reject the ghost.
+            if (!serverOrder && (incoming.items || []).length > 0) {
+              console.warn(`[socket] order:update rejected — table ${tableId} already cleared (orderNum=${incoming.orderNumber})`);
+              return;
+            }
+          } catch (_) {
+            // Store lookup failed — fall through and relay normally
+          }
+        }
+
+        socket.to(`outlet:${tid}:${data.outletId}`).emit("order:updated", incoming);
       }
     } catch (err) { console.error("[socket] order:update error:", err.message); }
   });

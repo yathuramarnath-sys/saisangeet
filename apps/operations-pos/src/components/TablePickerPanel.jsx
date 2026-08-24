@@ -316,6 +316,10 @@ export function TablePickerPanel({ tableAreas, orders, onSelectTable, serviceMod
                   >
                     <span className="tpp-table-num">{table.number}</span>
                     <span className="tpp-table-status">{col.label}</span>
+                    {st !== "available" && (() => {
+                      const itemCount = (orders[table.id]?.items || []).filter(i => !i.isVoided && !i.isGhostVoid && !i.isComp).length;
+                      return itemCount > 0 ? <span className="tpp-table-items">{itemCount} item{itemCount !== 1 ? "s" : ""}</span> : null;
+                    })()}
                     {staffName && <span className="tpp-table-staff">{staffName}</span>}
                     {guests > 0 && <span className="tpp-table-seats">{guests} guests</span>}
                     {total !== null && <span className="tpp-table-amt">₹{total.toLocaleString("en-IN")}</span>}
