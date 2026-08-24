@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../../lib/api";
 
 function todayStr() {
@@ -102,34 +102,46 @@ export function KotsPage() {
   const [data,     setData]     = useState({ rows: [], total: 0 });
   const [loading,  setLoading]  = useState(true);
   const [selected, setSelected] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
   const searchRef = useRef({ dateFrom: weekAgo, dateTo: today, outletId: "", page: 1 });
 
-  async function load(params) {
+  const load = useCallback(async (params) => {
+    const p = params || searchRef.current;
     setLoading(true);
     try {
       const qs = new URLSearchParams({
-        dateFrom: params.dateFrom,
-        dateTo:   params.dateTo,
-        page:     params.page,
+        dateFrom: p.dateFrom,
+        dateTo:   p.dateTo,
+        page:     p.page,
         pageSize: PAGE_SIZE,
       });
-      if (params.outletId) qs.set("outletId", params.outletId);
+      if (p.outletId) qs.set("outletId", p.outletId);
       const res = await api.get(`/reports/kots?${qs}`);
       setData({ rows: res.rows || [], total: res.total || 0 });
-      setPage(params.page);
+      setPage(p.page);
+      setLastUpdated(new Date());
     } catch {
       // keep existing data
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     api.get("/outlets").then(r => { if (Array.isArray(r)) setOutlets(r); }).catch(() => {});
     const p = { dateFrom: weekAgo, dateTo: today, outletId: "", page: 1 };
     searchRef.current = p;
     load(p);
-  }, []);
+  }, [load]);
+
+  // Auto-refresh every 30s when viewing a range that includes today
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const { dateTo: currentTo } = searchRef.current;
+      if (currentTo >= today) load();
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [load, today]);
 
   function handleSearch() {
     const p = { dateFrom, dateTo, outletId, page: 1 };
@@ -151,6 +163,8 @@ export function KotsPage() {
     load(params);
   }
 
+  const isLive = searchRef.current.dateTo >= today;
+
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
   const start = (page - 1) * PAGE_SIZE + 1;
   const end   = Math.min(page * PAGE_SIZE, data.total);
@@ -158,7 +172,18 @@ export function KotsPage() {
   return (
     <div className="page-root">
       <div className="page-header">
-        <h1 className="page-title">KOT History</h1>
+        <div>
+          <h1 className="page-title">KOT History</h1>
+          {isLive && lastUpdated && (
+            <p className="page-subtitle">
+              Auto-refreshes every 30s · Last updated {lastUpdated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
+        </div>
+        <button className="lo-refresh-btn" onClick={() => load()} disabled={loading}>
+          <span className="material-symbols-rounded" style={{ fontSize: 17 }}>refresh</span>
+          Refresh
+        </button>
       </div>
 
       {/* Filters */}

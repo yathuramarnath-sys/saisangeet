@@ -900,6 +900,29 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
+// ── Graceful shutdown — flush pending state before exit ───────────────────────
+// Fires on normal close, Ctrl+C, and app.quit().
+// Force-kills (Windows Task Manager "End Task", SIGKILL) bypass this — nothing
+// can intercept those, but they're rare and SQLite is written after every
+// mutation so at most one in-flight write is lost.
+let _quitting = false;
+app.on("before-quit", (event) => {
+  if (_quitting) return; // prevent re-entry when app.exit(0) fires below
+  _quitting = true;
+  event.preventDefault();
+
+  // Flush SQLite (synchronous — already called after every mutation, this is a safety net)
+  try { saveLocalStore(); } catch (_) {}
+
+  // Best-effort: push any settled orders that haven't synced to cloud yet.
+  // 3-second cap so the window doesn't hang on slow/no internet.
+  const finish = () => app.exit(0);
+  const timer = setTimeout(finish, 3000);
+  flushClosedOrdersToCloud()
+    .catch(() => {})
+    .finally(() => { clearTimeout(timer); finish(); });
+});
+
 // ── get-printers IPC ──────────────────────────────────────────────────────────
 // Returns the list of Windows-installed printers so the settings UI can let the
 // cashier pick the exact device name that webContents.print() needs.

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { api } from "../../lib/api";
 
 function fmt(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
@@ -23,6 +23,11 @@ function inferOrderType(row) {
 const TYPE_LABELS = { dinein: "Dine In", pickup: "Pick Up", delivery: "Delivery" };
 const TYPE_BADGE  = { dinein: "badge-dinein", pickup: "badge-pickup", delivery: "badge-delivery" };
 
+function fmtTime(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+}
+
 function OrderDetailPanel({ row, onClose }) {
   const order = row._order || {};
   const items = (order.items || []).filter(it => !it.isVoided);
@@ -33,6 +38,34 @@ function OrderDetailPanel({ row, onClose }) {
     const rate  = Number(it.taxRate || 0);
     return s + (price * qty * rate / 100);
   }, 0);
+
+  // Build KOT time lookup from order.kots[] (kotNumber → sentAt)
+  const kotTimeMap = {};
+  for (const kot of (order.kots || [])) {
+    if (kot.kotNumber != null) kotTimeMap[String(kot.kotNumber)] = kot.sentAt;
+  }
+
+  // Group items by KOT round for the audit trail view.
+  // Uses kotRound (1,2,3… client-assigned) if present, then kotNumber (server-assigned).
+  // Items without either go into group "0" (ordered but no KOT — shouldn't happen in closed orders).
+  const kotGroups = (() => {
+    const hasGrouping = items.some(it => it.kotRound != null || it.kotNumber != null);
+    if (!hasGrouping) return null;
+    const map = new Map();
+    for (const it of items) {
+      const round = it.kotRound ?? "0";
+      const key   = String(round);
+      if (!map.has(key)) {
+        map.set(key, { round: Number(round), kotNumber: it.kotNumber, sentAt: null, items: [] });
+      }
+      map.get(key).items.push(it);
+    }
+    // Attach sentAt from kotTimeMap if we have a kotNumber
+    for (const g of map.values()) {
+      if (g.kotNumber != null) g.sentAt = kotTimeMap[String(g.kotNumber)] || null;
+    }
+    return [...map.values()].sort((a, b) => a.round - b.round);
+  })();
 
   return (
     <div className="detail-panel-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -70,21 +103,60 @@ function OrderDetailPanel({ row, onClose }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((it, i) => {
-                    const price = Number(it.price || 0);
-                    const qty   = Number(it.quantity || it.qty || 1);
-                    return (
-                      <tr key={i}>
-                        <td>
-                          {it.name}
-                          {it.note && <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 2 }}>{it.note}</div>}
-                        </td>
-                        <td className="num-cell">{qty}</td>
-                        <td className="num-cell">{fmt(price)}</td>
-                        <td className="num-cell">{fmt(price * qty)}</td>
-                      </tr>
-                    );
-                  })}
+                  {kotGroups ? (
+                    kotGroups.map((group, gi) => (
+                      <Fragment key={`kot-g-${gi}`}>
+                        <tr>
+                          <td colSpan={4} style={{
+                            padding: "6px 8px 4px",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            color: "var(--accent, #059669)",
+                            borderBottom: "1px solid var(--border)",
+                            background: "var(--surface-alt, var(--surface))",
+                          }}>
+                            {group.kotNumber != null ? `KOT #${group.kotNumber}` : `Round ${group.round || 1}`}
+                            {group.sentAt && (
+                              <span style={{ fontWeight: 400, color: "var(--muted)", marginLeft: 8 }}>
+                                {fmtTime(group.sentAt)}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                        {group.items.map((it, i) => {
+                          const price = Number(it.price || 0);
+                          const qty   = Number(it.quantity || it.qty || 1);
+                          return (
+                            <tr key={`kot-${gi}-item-${i}`}>
+                              <td>
+                                {it.name}
+                                {it.note && <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 2 }}>{it.note}</div>}
+                              </td>
+                              <td className="num-cell">{qty}</td>
+                              <td className="num-cell">{fmt(price)}</td>
+                              <td className="num-cell">{fmt(price * qty)}</td>
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    ))
+                  ) : (
+                    items.map((it, i) => {
+                      const price = Number(it.price || 0);
+                      const qty   = Number(it.quantity || it.qty || 1);
+                      return (
+                        <tr key={i}>
+                          <td>
+                            {it.name}
+                            {it.note && <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 2 }}>{it.note}</div>}
+                          </td>
+                          <td className="num-cell">{qty}</td>
+                          <td className="num-cell">{fmt(price)}</td>
+                          <td className="num-cell">{fmt(price * qty)}</td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
