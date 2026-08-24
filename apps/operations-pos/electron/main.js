@@ -743,7 +743,36 @@ function startLocalServer() {
 
       // ── Order update (from POS or Captain) → relay to all other devices ────
       socket.on("order:update", ({ order }) => {
-        if (order?.tableId) localOrderStore[order.tableId] = order;
+        if (order?.tableId) {
+          const tid = order.tableId;
+          const isRealTable =
+            !String(tid).startsWith("counter-") &&
+            !String(tid).startsWith("online-");
+          const existing = localOrderStore[tid];
+
+          if (
+            isRealTable &&
+            !order.isClosed &&
+            (order.items || []).length > 0 &&
+            order.orderNumber != null
+          ) {
+            // Table was cleared after settlement — reject ghost entirely
+            if (!existing) {
+              console.warn(
+                `[local] order:update rejected ghost — table ${tid} was cleared (orderNum=${order.orderNumber})`
+              );
+              return;
+            }
+            // Server has a different (newer) order — relay server's copy instead
+            // eslint-disable-next-line eqeqeq
+            if (existing.orderNumber != null && existing.orderNumber != order.orderNumber) {
+              socket.broadcast.emit("order:updated", existing);
+              return;
+            }
+          }
+
+          localOrderStore[tid] = order;
+        }
         saveLocalStore();
         socket.broadcast.emit("order:updated", order);
       });
