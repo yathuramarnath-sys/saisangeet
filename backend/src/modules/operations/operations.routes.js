@@ -196,7 +196,7 @@ operationsRouter.delete(
 
 // ─── Device-friendly flat routes (used by POS / Captain App / KDS) ────────────
 // These use requireAuth only (device tokens have no permissions array)
-operationsRouter.post("/kot",          requireAuth, requireOpenShift, createKotRules, validate, asyncHandler(deviceSendKotHandler));
+operationsRouter.post("/kot",          requireAuth, createKotRules, validate, asyncHandler(deviceSendKotHandler));
 operationsRouter.get("/kots",          requireAuth, asyncHandler(deviceListKotsHandler));
 operationsRouter.patch("/kots/:id/status", requireAuth, asyncHandler(deviceUpdateKotStatusHandler));
 operationsRouter.post("/bill-request",      requireAuth, asyncHandler(deviceBillRequestHandler));
@@ -212,7 +212,7 @@ operationsRouter.post("/order/item",   requireAuth, asyncHandler(deviceAddOrderI
 operationsRouter.delete("/order/item", requireAuth, asyncHandler(deviceRemoveOrderItemHandler));
 operationsRouter.patch("/order/item",     requireAuth, asyncHandler(deviceVoidOrderItemHandler));
 operationsRouter.patch("/order/discount", requireAuth, asyncHandler(updateDiscountHandler));
-operationsRouter.post("/closed-order", requireAuth, requireOpenShift, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
+operationsRouter.post("/closed-order", requireAuth, closeOrderRules, validate, asyncHandler(deviceCloseOrderHandler));
 // Captain calls this after printing a bill to advance the backend slot to a fresh
 // order so the next customer can be seated on the same table immediately.
 operationsRouter.post("/order/advance", requireAuth, asyncHandler(deviceAdvanceTableHandler));
