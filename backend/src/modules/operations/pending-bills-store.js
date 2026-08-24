@@ -64,13 +64,24 @@ function getPendingBills(tenantId, outletId) {
 async function loadPendingBillsFromDb() {
   if (!_query) return;
   try {
-    // Only restore pending bills created today (IST). Bills from yesterday or
-    // earlier are stale — the table has already been reset for a new day.
+    // Only restore pending bills from the last 12 hours.
+    // Bills older than 12 hours are always stale — either the settlement happened
+    // on the local POS server (which can't delete from cloud Postgres because it
+    // has no DATABASE_URL), or the bill was genuinely abandoned. Either way,
+    // reloading them after a Railway restart would show cashiers ghost pending
+    // bills for tables that are already cleared.  12 hours is safe for restaurants
+    // that run past midnight — a pending bill request never legitimately sits
+    // un-settled for half a day.
     const result = await _query(
       `SELECT tenant_id, outlet_id, order_number, data FROM pending_bills
-       WHERE created_at >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date AT TIME ZONE 'Asia/Kolkata'
+       WHERE created_at > NOW() - INTERVAL '12 hours'
        ORDER BY created_at ASC`
     );
+    // Purge rows older than 12 hours so they don't accumulate in Postgres.
+    _query(
+      "DELETE FROM pending_bills WHERE created_at <= NOW() - INTERVAL '12 hours'"
+    ).catch(() => {});
+
     let count = 0;
     for (const row of result.rows) {
       try {
@@ -81,11 +92,6 @@ async function loadPendingBillsFromDb() {
         count++;
       } catch (_) {}
     }
-    // Also purge old rows from DB so they don't accumulate
-    await _query(
-      `DELETE FROM pending_bills
-       WHERE created_at < (NOW() AT TIME ZONE 'Asia/Kolkata')::date AT TIME ZONE 'Asia/Kolkata'`
-    ).catch(() => {});
     if (count > 0) console.log(`[pending-bills-store] restored ${count} pending bills from DB`);
   } catch (err) {
     console.warn("[pending-bills-store] could not load from DB:", err.message);
