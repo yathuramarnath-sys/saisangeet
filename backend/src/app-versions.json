@@ -1,13 +1,11 @@
 {
   "pos": {
-    "version": "1.8.6",
+    "version": "1.8.7",
     "label": "POS Terminal",
-    "changelog": "Fix settled tables reappearing in Pending Bills after Captain settlement",
+    "changelog": "KOT rounds — order panel shows each KOT round as a labeled group with time",
     "whatsNew": [
-      "🐛 Fixed: settled tables no longer reappear in Pending Bills after Captain settles",
-      "🐛 Fixed: T3/T20 no longer show in Pending Bills after settlement — even if Railway fires pending-bills:updated again",
-      "🐛 Fixed: past history now records Captain-settled orders immediately (no 60s delay)",
-      "🐛 Fixed: double-settlement prevented — settled bill cannot be opened and settled again"
+      "📋 KOT rounds in Order Panel — sent items are grouped by KOT 1, KOT 2, KOT 3… with the time each round was sent",
+      "🐛 Fixed: KOT round grouping survives all sync events (socket updates, reconnects, server merges)"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
@@ -19,13 +17,13 @@
     "releaseDate": "2026-08-23"
   },
   "captain": {
-    "version": "1.8.3",
+    "version": "1.8.6",
     "label": "Captain App",
-    "changelog": "Local-first: Captain now loads menu/staff from POS machine and settles bills locally — internet optional",
+    "changelog": "Update banner + ghost KOT + duplicate item qty fixes",
     "whatsNew": [
-      "🏠 Menu and staff load from POS machine on local WiFi — works even without internet",
-      "⚡ Bill number and settlement go through POS machine first — instant, no cloud delay",
-      "🐛 Fixed: KOT no longer sent to kitchen when cloud fails — state stays consistent on all devices"
+      "🔔 Update notification now shows as a blue banner at the top — visible from any screen, not just the More drawer",
+      "🐛 Fixed: sending KOT no longer accidentally includes items added by POS cashier at the same moment",
+      "🐛 Fixed: same menu item added on both captain and POS no longer appears with doubled quantity on captain"
     ],
     "installGuide": [
       "1. On Android, go to Settings → Security → Allow Install from Unknown Sources",
@@ -36,7 +34,7 @@
     ],
     "downloadUrl": null,
     "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
-    "releaseDate": "2026-08-23"
+    "releaseDate": "2026-08-24"
   },
   "kds": {
     "version": "1.7",

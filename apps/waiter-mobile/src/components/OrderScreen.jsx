@@ -349,7 +349,7 @@ export function OrderScreen({
           </div>
         )}
 
-        {/* Sent items */}
+        {/* Sent items — grouped by KOT round */}
         {sentItems.length > 0 && (
           <div className="os2-section os2-section-sent">
             <div className="os2-section-head">
@@ -358,22 +358,44 @@ export function OrderScreen({
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
             </div>
-            {sentItems.map((item) => {
-              const idx = items.findIndex(i => i.id === item.id);
-              return (
-                <div key={item.id || idx} className="os2-item os2-item-sent">
-                  <div className="os2-item-left">
-                    <span className="os2-item-name">{item.name}</span>
-                    {item.isComp && <span className="os2-comp-tag">COMP</span>}
-                    {item.note && <span className="os2-note-sent">{item.note}</span>}
+            {(() => {
+              const sentDisplay = [];
+              let lastRound = null;
+              sentItems.forEach(item => {
+                if (item.kotRound != null && item.kotRound !== lastRound) {
+                  const t = item.kotRoundSentAt ? new Date(item.kotRoundSentAt) : null;
+                  const timeStr = t ? t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+                  sentDisplay.push({ type: "header", round: item.kotRound, timeStr, key: `kh-${item.kotRound}` });
+                  lastRound = item.kotRound;
+                }
+                sentDisplay.push({ type: "item", item, key: item.id });
+              });
+              return sentDisplay.map(entry => {
+                if (entry.type === "header") {
+                  return (
+                    <div key={entry.key} className="os2-kot-round-header">
+                      <span>KOT {entry.round}</span>
+                      {entry.timeStr && <span className="os2-kot-round-time">{entry.timeStr}</span>}
+                    </div>
+                  );
+                }
+                const { item } = entry;
+                const idx = items.findIndex(i => i.id === item.id);
+                return (
+                  <div key={entry.key} className="os2-item os2-item-sent">
+                    <div className="os2-item-left">
+                      <span className="os2-item-name">{item.name}</span>
+                      {item.isComp && <span className="os2-comp-tag">COMP</span>}
+                      {item.note && <span className="os2-note-sent">{item.note}</span>}
+                    </div>
+                    <div className="os2-item-right">
+                      <span className="os2-item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
+                      <span className="os2-qty-sent">×{item.quantity}</span>
+                    </div>
                   </div>
-                  <div className="os2-item-right">
-                    <span className="os2-item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
-                    <span className="os2-qty-sent">×{item.quantity}</span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         )}
 

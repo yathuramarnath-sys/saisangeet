@@ -285,9 +285,10 @@ function withLocalTaxRate(serverItems, localItems, menuItems) {
   const menuById  = Object.fromEntries((menuItems  || []).map(i => [String(i.id), i]));
   return serverItems.map(si => {
     const menuItem = menuById[String(si.menuItemId || si.id)];
+    const local    = localById[si.id];
     let result = si;
     if (result.taxRate == null) {
-      const localRate = localById[si.id]?.taxRate;
+      const localRate = local?.taxRate;
       if (localRate != null) result = { ...result, taxRate: localRate };
       else if (menuItem?.taxRate != null) result = { ...result, taxRate: menuItem.taxRate };
     }
@@ -295,6 +296,11 @@ function withLocalTaxRate(serverItems, localItems, menuItems) {
       if (result.allowDecimalQty == null) result = { ...result, allowDecimalQty: !!menuItem.allowDecimalQty };
       if (!result.unit && menuItem.unit)  result = { ...result, unit: menuItem.unit };
     }
+    // Preserve KOT round data — server doesn't know about these client-only fields
+    if (local?.kotRound != null && result.kotRound == null)
+      result = { ...result, kotRound: local.kotRound };
+    if (local?.kotRoundSentAt != null && result.kotRoundSentAt == null)
+      result = { ...result, kotRoundSentAt: local.kotRoundSentAt };
     return result;
   });
 }
@@ -2268,6 +2274,7 @@ export function App() {
 
     // ── 1. Mark items as sent optimistically ─────────────────────────────
     const kotSeq = (order.kotCount || 0) + 1;
+    const kotRoundSentAt = new Date().toISOString();
     const unsentIds = new Set(unsent.map(i => i.id));
     mutateOrder(selectedTableId, (o) => {
       o.items    = o.items.map((i) => ({
@@ -2277,6 +2284,8 @@ export function App() {
         // The server's actual kotNumber (from filteredServerItems) overwrites this
         // in the reconciliation block below when the request succeeds.
         ...(unsentIds.has(i.id) && !i.kotNumber ? { kotNumber: kotSeq } : {}),
+        // kotRound + kotRoundSentAt are client-only — group items by round in OrderPanel
+        ...(unsentIds.has(i.id) ? { kotRound: kotSeq, kotRoundSentAt } : {}),
       }));
       o.kotCount = kotSeq;
       return o;
@@ -2386,9 +2395,18 @@ export function App() {
           (li) => !li.sentToKot && !serverItemIds.has(li.id)
         );
         // Drop server items that are unsent AND locally deleted (race: DELETE still in flight)
-        const filteredServerItems = (lastServerOrder.items || []).filter(
-          (si) => si.sentToKot || si.isVoided || localItemIds.has(si.id)
+        // Also restore client-only kotRound/kotRoundSentAt that the server doesn't persist
+        const localKotRounds = Object.fromEntries(
+          (localOrder.items || [])
+            .filter(i => i.id && i.kotRound != null)
+            .map(i => [i.id, { kotRound: i.kotRound, kotRoundSentAt: i.kotRoundSentAt }])
         );
+        const filteredServerItems = (lastServerOrder.items || [])
+          .filter(si => si.sentToKot || si.isVoided || localItemIds.has(si.id))
+          .map(si => {
+            const lr = localKotRounds[si.id];
+            return lr ? { ...si, ...lr } : si;
+          });
         // Safety: if server returned 0 items but local order has sent items,
         // keep the local sent items — prevents table showing as "Free" when
         // the server KOT response body omits the items array.

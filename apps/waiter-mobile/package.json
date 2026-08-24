@@ -1,6 +1,6 @@
 {
   "name": "dinex-captain",
-  "version": "1.8.3",
+  "version": "1.8.6",
   "private": true,
   "description": "Plato Captain App",
   "main": "electron/main.js",

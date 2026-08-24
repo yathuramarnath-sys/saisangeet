@@ -531,6 +531,31 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
   text-overflow: ellipsis;
 }
 
+.kot-round-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px 3px;
+  margin: 6px 0 2px;
+  background: var(--sq-blue-bg);
+  border-left: 3px solid var(--sq-blue);
+  border-radius: 0 4px 4px 0;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--sq-blue);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.kot-round-time {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--sq-blue);
+  opacity: 0.75;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .order-item-kot-tag {
   font-size: 9.5px;
   font-weight: 800;

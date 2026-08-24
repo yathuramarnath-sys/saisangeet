@@ -422,8 +422,31 @@ export function OrderPanel({
           <p className="order-items-empty">Add items from the menu →</p>
         )}
 
-        {(order.items || []).map((item, idx) => (
-          <div key={item.id || idx}
+        {(() => {
+          // Build a display list that injects KOT round headers between sent-item groups
+          const displayList = [];
+          let lastRound = null;
+          (order.items || []).forEach((item, idx) => {
+            if (item.sentToKot && !item.isVoided && item.kotRound != null && item.kotRound !== lastRound) {
+              const t = item.kotRoundSentAt ? new Date(item.kotRoundSentAt) : null;
+              const timeStr = t ? t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+              displayList.push({ type: "header", round: item.kotRound, timeStr, key: `kh-${item.kotRound}` });
+              lastRound = item.kotRound;
+            }
+            displayList.push({ type: "item", item, idx, key: item.id || idx });
+          });
+          return displayList.map(entry => {
+            if (entry.type === "header") {
+              return (
+                <div key={entry.key} className="kot-round-header">
+                  <span>KOT {entry.round}</span>
+                  {entry.timeStr && <span className="kot-round-time">{entry.timeStr}</span>}
+                </div>
+              );
+            }
+            const { item, idx } = entry;
+            return (
+          <div key={entry.key}
             className={`order-item${item.sentToKot ? " sent" : ""}${item.isVoided ? " voided" : ""}${item.isComp ? " comped" : ""}`}>
 
             {/* Void picker inline — shown after PIN confirmed */}
@@ -573,7 +596,9 @@ export function OrderPanel({
               </>
             )}
           </div>
-        ))}
+            );
+          });
+        })()}
       </div>
 
       {/* ── Cancel staging bar — appears when any KOT'd qty is staged ────── */}

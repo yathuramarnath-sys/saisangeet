@@ -649,16 +649,33 @@ export function App() {
             return { ...p, [o.tableId]: { ...current, items: [...upgraded, ...brandNew] } };
           }
           // Concurrent-edit merge: preserve local unsent items not in the incoming order
+          // Also restore client-only kotRound/kotRoundSentAt from local state
           let merged = o;
           if (current) {
             const incomingIds = new Set((o.items || []).map(i => i.id));
+            // Also deduplicate by menuItemId: if server already has an unsent item for
+            // this menu item (real UUID), drop the captain's temp-ID copy so the same
+            // dish never appears twice with doubled quantity (e.g. Corn Nuggets ×2 on
+            // captain vs ×1 on POS).
+            const serverUnsentMenuIds = new Set(
+              (o.items || []).filter(i => !i.sentToKot && i.menuItemId).map(i => i.menuItemId)
+            );
             const localOnly   = (current.items || []).filter(
-              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+              i => !i.sentToKot && !i.isVoided && !i.isGhostVoid &&
+                   !incomingIds.has(i.id) && !serverUnsentMenuIds.has(i.menuItemId)
+            );
+            const localKotMap = Object.fromEntries(
+              (current.items || [])
+                .filter(i => i.id && i.kotRound != null)
+                .map(i => [i.id, { kotRound: i.kotRound, kotRoundSentAt: i.kotRoundSentAt }])
+            );
+            const incomingWithRounds = (o.items || []).map(si =>
+              (si.id && localKotMap[si.id]) ? { ...si, ...localKotMap[si.id] } : si
             );
             merged = {
               ...o,
               assignedWaiter: o.assignedWaiter || current.assignedWaiter || null,
-              ...(localOnly.length > 0 ? { items: [...(o.items || []), ...localOnly] } : {}),
+              items: [...incomingWithRounds, ...localOnly],
             };
           }
           return { ...p, [o.tableId]: merged };
@@ -824,16 +841,29 @@ export function App() {
               return { ...p, [o.tableId]: { ...current, items: [...upgraded, ...brandNew] } };
             }
             // Concurrent-edit merge: preserve local unsent items not in the incoming order
+            // Also restore client-only kotRound/kotRoundSentAt from local state
             let merged = o;
             if (current) {
               const incomingIds = new Set((o.items || []).map(i => i.id));
+              const serverUnsentMenuIds = new Set(
+                (o.items || []).filter(i => !i.sentToKot && i.menuItemId).map(i => i.menuItemId)
+              );
               const localOnly   = (current.items || []).filter(
-                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid && !incomingIds.has(i.id)
+                i => !i.sentToKot && !i.isVoided && !i.isGhostVoid &&
+                     !incomingIds.has(i.id) && !serverUnsentMenuIds.has(i.menuItemId)
+              );
+              const localKotMap = Object.fromEntries(
+                (current.items || [])
+                  .filter(i => i.id && i.kotRound != null)
+                  .map(i => [i.id, { kotRound: i.kotRound, kotRoundSentAt: i.kotRoundSentAt }])
+              );
+              const incomingWithRounds = (o.items || []).map(si =>
+                (si.id && localKotMap[si.id]) ? { ...si, ...localKotMap[si.id] } : si
               );
               merged = {
                 ...o,
                 assignedWaiter: o.assignedWaiter || current.assignedWaiter || null,
-                ...(localOnly.length > 0 ? { items: [...(o.items || []), ...localOnly] } : {}),
+                items: [...incomingWithRounds, ...localOnly],
               };
             }
             return { ...p, [o.tableId]: merged };
@@ -1676,7 +1706,10 @@ export function App() {
     const stillValid = waiterStaff.some((s) => s.name === currentWaiter);
     setPickedWaiter(stillValid ? currentWaiter : null);
     setKotPendingTableId(tid);
-    setKotPendingItemIds(itemIds || null);
+    // Snapshot the exact item IDs captain intends to send — prevents items
+    // added by POS (arrived via socket before this tap) from being silently
+    // included if doSendKOT re-reads a wider unsent list.
+    setKotPendingItemIds(itemIds ?? new Set(unsent.map(i => i.id)));
     // Protect unsent items from socket overwrites while picker is visible
     kotPickerTableRef.current = tid;
     setShowWaiterPick(true);
@@ -1729,16 +1762,21 @@ export function App() {
     // (server clock may be behind captain's clock). POS gets the correct state via the
     // post-KOT reconciliation broadcast which uses lastServerOrder.updatedAt + 1.
     const unsentIds = new Set(unsent.map(i => i.id));
+    const captainKotRoundSentAt = new Date().toISOString();
     setOrders((prev) => {
       if (!prev[tid]) return prev;
+      const currentOrder = prev[tid];
+      const captainKotSeq = (currentOrder.kotCount || 0) + 1;
       return {
         ...prev,
         [tid]: {
-          ...prev[tid],
+          ...currentOrder,
           assignedWaiter: waiterToShow || "",
-          items: (prev[tid].items || []).map((i) => ({
+          kotCount: captainKotSeq,
+          items: (currentOrder.items || []).map((i) => ({
             ...i,
             sentToKot: i.sentToKot || unsentIds.has(i.id),
+            ...(unsentIds.has(i.id) ? { kotRound: captainKotSeq, kotRoundSentAt: captainKotRoundSentAt } : {}),
           })),
         },
       };
@@ -2615,6 +2653,15 @@ export function App() {
   // 3. Main app
   return (
     <div className="captain-app">
+      {/* Update banner — visible from any screen when a new version is available */}
+      {updateInfo && (
+        <div className="captain-update-banner" onClick={() => setActiveTab("more")}>
+          <span className="captain-update-banner-text">
+            Update available — v{updateInfo.version} ready
+          </span>
+          <span className="captain-update-banner-cta">Tap to update →</span>
+        </div>
+      )}
       {/* App header — visible on floor + order screen */}
       {activeTab === "floor" && (
         <header className="app-header">
@@ -2837,6 +2884,28 @@ export function App() {
       {showWaiterPick && (
         <div className="wp2-backdrop" onClick={() => { kotPickerTableRef.current = null; setShowWaiterPick(false); }}>
           <div className="wp2-modal" onClick={(e) => e.stopPropagation()}>
+            {/* KOT preview — shows exactly which items will go to kitchen so
+                captain can catch unexpected items loaded from a previous session */}
+            {(() => {
+              const pendingOrder = kotPendingTableId ? orders[kotPendingTableId] : null;
+              const kotPreviewItems = pendingOrder
+                ? (pendingOrder.items || []).filter(i =>
+                    kotPendingItemIds ? kotPendingItemIds.has(i.id) : (!i.sentToKot && !i.isVoided)
+                  )
+                : [];
+              if (!kotPreviewItems.length) return null;
+              return (
+                <div className="wp2-kot-preview">
+                  <div className="wp2-kot-preview-label">Sending to kitchen:</div>
+                  {kotPreviewItems.map(i => (
+                    <div key={i.id} className="wp2-kot-preview-row">
+                      <span className="wp2-kot-preview-name">{i.name}</span>
+                      <span className="wp2-kot-preview-qty">×{i.quantity || 1}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
             <div className="wp2-title">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>

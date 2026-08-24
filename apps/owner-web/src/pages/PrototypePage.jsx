@@ -49,9 +49,12 @@ export function PrototypePage({ prototypeFile }) {
 
   if (error) {
     return (
-      <section className="panel">
-        <h3>Prototype load failed</h3>
-        <p>{error}</p>
+      <section className="panel" style={{ textAlign: "center", padding: "64px 32px" }}>
+        <div style={{ fontSize: "2.5rem", marginBottom: "16px" }}>🚧</div>
+        <h3 style={{ marginBottom: "8px" }}>Coming Soon</h3>
+        <p style={{ color: "var(--color-text-secondary, #6B7280)" }}>
+          This section is still being built. Check back soon.
+        </p>
       </section>
     );
   }

@@ -1073,6 +1073,11 @@ export function App() {
     // It is kept separate so the handler is re-registered with a fresh closure
     // every time assignedStation changes — eliminating stale-closure mis-routing.
 
+    socket.on("kot:clear-table", ({ tableId }) => {
+      if (!tableId) return;
+      setTickets(prev => prev.filter(t => t.tableId !== tableId));
+    });
+
     socket.on("kot:status", ({ id, status }) => {
       if (status === "bumped") {
         // Backend removes bumped KOTs from the store. Mirror that here so all

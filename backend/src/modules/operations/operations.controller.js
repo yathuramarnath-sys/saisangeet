@@ -385,9 +385,6 @@ async function deviceSendKotHandler(req, res) {
       const menuItemMap = {};
       menuItems.forEach(mi => { menuItemMap[String(mi.id)] = mi; });
 
-      // ── Diagnostic: log maps once per request ──────────────────────────────
-      console.log(`[KOT][maps] stations=${kitchenStations.map(s=>s.name).join(",")} | catIdToStation=${JSON.stringify(catIdToStation)} | catNameToStation=${JSON.stringify(catNameToStation)} | menuItemIds=${Object.keys(menuItemMap).join(",")}`);
-
       // ── Route each item to a kitchen station ─────────────────────────────────
       //
       // Resolution steps (first match wins):
@@ -1248,6 +1245,10 @@ async function deviceCloseOrderHandler(req, res) {
               discountAmount: 0,
               isSettleBlank:  true,
               updatedAt:      Date.now(),
+            });
+            // Tell KDS to clear all KOT tickets for this table.
+            io.to(`outlet:${tenantId}:${outletId}`).emit("kot:clear-table", {
+              tableId: order.tableId,
             });
           }
         }

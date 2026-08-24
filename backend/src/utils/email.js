@@ -15,8 +15,7 @@ function getResend() {
  */
 async function sendWelcomeEmail({ to, name, restaurant, tempPassword }) {
   if (!env.resendApiKey) {
-    console.log(`[email] RESEND_API_KEY not configured. Skipping email to ${to}`);
-    console.log(`[email] credentials → email: ${to}  password: ${tempPassword}`);
+    console.log(`[email] RESEND_API_KEY not configured. Skipping welcome email to ${to}`);
     return;
   }
 
@@ -110,7 +109,6 @@ async function sendWelcomeEmail({ to, name, restaurant, tempPassword }) {
 async function sendPasswordResetEmail({ to, name, resetUrl }) {
   if (!env.resendApiKey) {
     console.log(`[email] RESEND_API_KEY not configured. Skipping reset email to ${to}`);
-    console.log(`[email] reset link → ${resetUrl}`);
     return;
   }
 
