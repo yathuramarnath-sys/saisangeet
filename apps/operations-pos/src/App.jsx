@@ -453,7 +453,8 @@ export function App() {
   const [serviceMode,     setServiceMode]     = useState(() => lsGet("pos_config", null)?.defaultOrderType || "dine-in");
   const [toast,           setToast]           = useState(null);
   const [undoBanner,      setUndoBanner]      = useState(null); // { label, onUndo }
-  const undoBannerTimerRef = useRef(null); // active undo timer — cleared when new banner replaces it
+  const undoBannerTimerRef      = useRef(null); // active undo timer — cleared when new banner replaces it
+  const pendingUndoCallbackRef  = useRef(null); // payload for beforeunload flush when app closes mid-undo-window
   const socketRef      = useRef(null);   // cloud socket
   const localSocketRef = useRef(null);   // local WiFi socket (port 4001)
   // Mirror of orders state for socket closures (avoids stale-closure problem)
@@ -1974,6 +1975,34 @@ export function App() {
     return () => { window.removeEventListener("keydown", onKeyDown); resetBuffer(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Flush pending void/cancel API calls when Electron app closes mid-undo-window ──
+  // Uses fetch keepalive:true so the request survives window unload.
+  useEffect(() => {
+    function handleBeforeUnload() {
+      const pending = pendingUndoCallbackRef.current;
+      if (!pending) return;
+      pendingUndoCallbackRef.current = null;
+      clearTimeout(undoBannerTimerRef.current);
+      undoBannerTimerRef.current = null;
+
+      const token   = localStorage.getItem("pos_token") || "";
+      const base    = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/v1";
+      const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+
+      if (pending.voidLogPayload) {
+        fetch(`${base}/operations/void-log`, { method: "POST", headers, body: JSON.stringify(pending.voidLogPayload), keepalive: true }).catch(() => {});
+      }
+      if (pending.patchPayload) {
+        fetch(`${base}/operations/order/item`, { method: "PATCH", headers, body: JSON.stringify(pending.patchPayload), keepalive: true }).catch(() => {});
+      }
+      if (pending.deletePayload) {
+        fetch(`${base}/operations/order`, { method: "DELETE", headers, body: JSON.stringify(pending.deletePayload), keepalive: true }).catch(() => {});
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Derived state ─────────────────────────────────────────────────────────
   const selectedOrder = selectedTableId ? orders[selectedTableId] : null;
 
@@ -2271,7 +2300,7 @@ export function App() {
     if (removedItem?.id && !removedItem.sentToKot &&
         !tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
       api.delete("/operations/order/item", { tableId, itemId: removedItem.id })
-        .catch(err => console.warn("[POS] item-remove from backend failed:", err.message));
+        .catch(() => showToast("⚠ Item removal not synced — may reappear"));
     }
   }
 
@@ -2284,7 +2313,7 @@ export function App() {
         !selectedTableId.startsWith("counter-") &&
         !selectedTableId.startsWith("online-")) {
       api.delete("/operations/order/item", { tableId: selectedTableId, itemId: item.id })
-        .catch(err => console.warn("[POS] item-remove from backend failed:", err.message));
+        .catch(() => showToast("⚠ Item removal not synced — may reappear"));
     }
   }
 
@@ -2609,6 +2638,7 @@ export function App() {
     const paid         = allPayments.reduce((s, p) => s + p.amount, 0);
 
     if (paid < total) {
+      const previousPayments = [...(order.payments || [])];
       mutateOrder(tableId, (o) => { o.payments = allPayments; return o; });
       setShowPayment(false);
       showToast(`Payment recorded · ₹${newPayments.reduce((s,p)=>s+p.amount,0)}`);
@@ -2616,6 +2646,7 @@ export function App() {
       if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
         (async () => {
           let lastServerOrder = null;
+          let anyFailed = false;
           for (const p of newPayments) {
             try {
               const result = await api.post("/operations/payment", {
@@ -2629,11 +2660,16 @@ export function App() {
               if (result?.order) lastServerOrder = result.order;
             } catch (err) {
               console.warn("[POS] partial payment sync failed (offline?):", err.message);
+              anyFailed = true;
             }
           }
-          // Reconcile from the last server response — server payment totals are authoritative.
           if (lastServerOrder) {
+            // Server responded — use its payment totals as ground truth
             setOrders((prev) => ({ ...prev, [tableId]: lastServerOrder }));
+          } else if (anyFailed) {
+            // All failed and no server confirmation — revert so local state matches server
+            mutateOrder(tableId, (o) => { o.payments = previousPayments; return o; });
+            showToast("Payment not saved — please try again");
           }
         })();
       }
@@ -3488,31 +3524,38 @@ export function App() {
 
     // 5-second undo window — API calls fire only after window expires
     if (undoBannerTimerRef.current) clearTimeout(undoBannerTimerRef.current);
+    const sec = lsGet("pos_security", {});
+    const liveOrderSnap = ordersRef.current[tableId];
+    const voidLogPayload = {
+      type:        "void_item",
+      cashier:     cashierName || "POS",
+      outletName:  outlet?.name || "",
+      tableId,
+      tableLabel:  liveOrderSnap?.tableNumber ? `T${liveOrderSnap.tableNumber}` : tableId,
+      orderNumber: liveOrderSnap?.orderNumber || "",
+      items:       [{ name: item?.name, qty: item?.quantity || 1, price: item?.price || 0, reason: reason || "Voided" }],
+    };
+    const voidPatchPayload = (item?.id &&
+        !tableId.startsWith("counter-") &&
+        !tableId.startsWith("online-"))
+      ? { tableId, itemId: item.id, isGhostVoid: wasNeverSentToKot || false, voidReason: reason || "Voided by POS", managerPin: sec.managerPin || "" }
+      : null;
+    pendingUndoCallbackRef.current = { voidLogPayload, patchPayload: voidPatchPayload, deletePayload: null };
+
     undoBannerTimerRef.current = setTimeout(() => {
       undoBannerTimerRef.current = null;
+      pendingUndoCallbackRef.current = null;
       setUndoBanner(null);
       const liveOrder = ordersRef.current[tableId];
       api.post("/operations/void-log", {
-        type:        "void_item",
-        cashier:     cashierName || "POS",
-        outletName:  outlet?.name || "",
-        tableId,
-        tableLabel:  liveOrder?.tableNumber ? `T${liveOrder.tableNumber}` : tableId,
+        ...voidLogPayload,
+        tableLabel: liveOrder?.tableNumber ? `T${liveOrder.tableNumber}` : tableId,
         orderNumber: liveOrder?.orderNumber || "",
-        items:       [{ name: item?.name, qty: item?.quantity || 1, price: item?.price || 0, reason: reason || "Voided" }],
       }).catch(() => {});
 
-      if (item?.id &&
-          !tableId.startsWith("counter-") &&
-          !tableId.startsWith("online-")) {
-        const sec = lsGet("pos_security", {});
-        api.patch("/operations/order/item", {
-          tableId,
-          itemId:      item.id,
-          isGhostVoid: wasNeverSentToKot || false,
-          voidReason:  reason || "Voided by POS",
-          managerPin:  sec.managerPin || ""
-        }).catch(err => console.warn("[POS] item-void to backend failed:", err.message));
+      if (voidPatchPayload) {
+        api.patch("/operations/order/item", voidPatchPayload)
+          .catch(err => console.warn("[POS] item-void to backend failed:", err.message));
       }
     }, 5000);
 
@@ -3521,6 +3564,7 @@ export function App() {
       onUndo: () => {
         clearTimeout(undoBannerTimerRef.current);
         undoBannerTimerRef.current = null;
+        pendingUndoCallbackRef.current = null;
         setUndoBanner(null);
         mutateOrder(tableId, o => {
           if (o.items[idx]) {
@@ -3661,22 +3705,29 @@ export function App() {
 
     // 5-second undo window — backend calls fire only after window expires
     if (undoBannerTimerRef.current) clearTimeout(undoBannerTimerRef.current);
+    const cancelVoidLogPayload = {
+      type:        "cancel_order",
+      cashier:     cashierName || "POS",
+      outletName:  outlet?.name || "",
+      tableId,
+      tableLabel:  order.tableNumber ? `T${order.tableNumber}` : tableId,
+      orderNumber: order.orderNumber || "",
+      items:       cancelledItems,
+    };
+    const cancelDeletePayload = (!tableId.startsWith("counter-") && !tableId.startsWith("online-"))
+      ? { tableId, outletId: outlet?.id }
+      : null;
+    pendingUndoCallbackRef.current = { voidLogPayload: cancelVoidLogPayload, patchPayload: null, deletePayload: cancelDeletePayload };
+
     undoBannerTimerRef.current = setTimeout(() => {
       undoBannerTimerRef.current = null;
+      pendingUndoCallbackRef.current = null;
       setUndoBanner(null);
       cancelledTablesRef.current.delete(tableId);
-      api.post("/operations/void-log", {
-        type:        "cancel_order",
-        cashier:     cashierName || "POS",
-        outletName:  outlet?.name || "",
-        tableId,
-        tableLabel:  order.tableNumber ? `T${order.tableNumber}` : tableId,
-        orderNumber: order.orderNumber || "",
-        items:       cancelledItems,
-      }).catch(() => {});
+      api.post("/operations/void-log", cancelVoidLogPayload).catch(() => {});
 
-      if (!tableId.startsWith("counter-") && !tableId.startsWith("online-")) {
-        api.delete("/operations/order", { tableId, outletId: outlet?.id })
+      if (cancelDeletePayload) {
+        api.delete("/operations/order", cancelDeletePayload)
           .catch(err => console.warn("[POS] cancel-order backend failed:", err.message));
       }
     }, 5000);
@@ -3686,6 +3737,7 @@ export function App() {
       onUndo: () => {
         clearTimeout(undoBannerTimerRef.current);
         undoBannerTimerRef.current = null;
+        pendingUndoCallbackRef.current = null;
         setUndoBanner(null);
         cancelledTablesRef.current.delete(tableId);
         // Restore full order from snapshot; skip if a new order already started

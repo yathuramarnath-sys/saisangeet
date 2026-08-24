@@ -1444,6 +1444,18 @@ async function getPendingBillsHandler(req, res) {
   res.json(getPendingBills(tenantId, outletId));
 }
 
+// Owner-Web safety valve: force-remove a stuck pending bill by orderNumber.
+// Used when a Captain-billed table is permanently stuck due to a sync failure.
+async function deletePendingBillHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const { outletId } = req.query;
+  const orderNumber = Number(req.params.orderNumber);
+  if (!outletId || !orderNumber) return res.status(400).json({ error: "outletId and orderNumber are required" });
+  const { removePendingBill } = require("./pending-bills-store");
+  removePendingBill(tenantId, outletId, orderNumber);
+  res.json({ ok: true, orderNumber });
+}
+
 module.exports = {
   clearTableOrderHandler,
   clearAllOrdersHandler,
@@ -1486,4 +1498,5 @@ module.exports = {
   deviceCancelOrderHandler,
   correctClosedOrderPaymentsHandler,
   getPendingBillsHandler,
+  deletePendingBillHandler,
 };

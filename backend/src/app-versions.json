@@ -1,11 +1,12 @@
 {
   "pos": {
-    "version": "1.8.7",
+    "version": "1.9.1",
     "label": "POS Terminal",
-    "changelog": "KOT rounds — order panel shows each KOT round as a labeled group with time",
+    "changelog": "Fix void/cancel timer flush on close, partial payment revert on failure, item delete toast",
     "whatsNew": [
-      "📋 KOT rounds in Order Panel — sent items are grouped by KOT 1, KOT 2, KOT 3… with the time each round was sent",
-      "🐛 Fixed: KOT round grouping survives all sync events (socket updates, reconnects, server merges)"
+      "🛡️ Void and order-cancel API calls now survive app close during the 5-second undo window",
+      "🔄 Partial payment reverts automatically if server sync fails — no ghost payment amounts",
+      "⚠️ Item removal now shows a warning if server sync fails (item may reappear)"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
@@ -58,15 +59,12 @@
     "releaseDate": "2026-05-23"
   },
   "ownerWeb": {
-    "version": "0.2.1",
+    "version": "0.2.2",
     "label": "Owner Dashboard",
-    "changelog": "Inventory tracking per outlet — enable tracking per item, set allowNegative, view live stock levels, low stock threshold in item form",
+    "changelog": "Stuck Bills panel in Live Orders — force-remove permanently stuck Captain-billed tables",
     "whatsNew": [
-      "📦 Inventory page — enable stock tracking per item per outlet",
-      "🔄 Allow Negative toggle per outlet — control whether POS blocks at 0",
-      "📊 Live stock levels visible in Owner Console (read-only)",
-      "⚠️ Set low stock alert threshold per item in Menu → item form",
-      "🗃️ Compact table editor in Outlets — create and edit tables inline"
+      "🗑️ New Stuck Bills tab in Live Orders — shows Captain-billed tables waiting for POS settlement",
+      "⚡ Force Remove button clears any permanently stuck pending bill (use only after confirming the table is already settled at POS)"
     ],
     "installGuide": [
       "No installation needed — Owner Dashboard updates automatically.",

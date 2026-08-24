@@ -63,6 +63,7 @@ const {
   clearAllOrdersHandler,
   correctClosedOrderPaymentsHandler,
   getPendingBillsHandler,
+  deletePendingBillHandler,
 } = require("./operations.controller");
 
 const operationsRouter = express.Router();
@@ -225,6 +226,8 @@ operationsRouter.post("/closed-order/payments", requireAuth, asyncHandler(correc
 // Server-backed pending bills: displaced orders that await cashier settlement.
 // POS fetches this on startup; live updates arrive via the pending-bills:updated socket event.
 operationsRouter.get("/pending-bills", requireAuth, asyncHandler(getPendingBillsHandler));
+// Force-remove a stuck pending bill (Owner Web safety valve)
+operationsRouter.delete("/pending-bills/:orderNumber", requireAuth, asyncHandler(deletePendingBillHandler));
 
 // ── Action logs (void / cancel-order / bill-reprint) ─────────────────────────
 // POST /operations/void-log     — called by POS after PIN-confirmed void or cancel
