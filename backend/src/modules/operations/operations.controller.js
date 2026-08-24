@@ -1003,7 +1003,7 @@ async function deviceRemoveOrderItemHandler(req, res) {
 // PATCH /operations/order/item  — void a sent item (marks isVoided=true on the backend)
 // Body: { tableId, itemId, voidReason, outletId }
 async function deviceVoidOrderItemHandler(req, res) {
-  const { tableId, itemId, voidReason, outletId } = req.body;
+  const { tableId, itemId, voidReason, outletId, quantity, note } = req.body;
   if (!tableId || !itemId) {
     return res.status(400).json({ error: "tableId and itemId are required" });
   }
@@ -1014,12 +1014,19 @@ async function deviceVoidOrderItemHandler(req, res) {
   assertManagerPin(req.body);
   const actor    = req.user?.name || req.user?.type || "POS";
   const tenantId = req.user?.tenantId || "default";
-  const result   = await updateOrderItemDetails(tableId, itemId, {
-    isVoided:    true,
-    voidReason:  voidReason || "Voided by POS",
-    isGhostVoid: req.body.isGhostVoid === true, // item voided before any KOT was sent
-    actorName:   actor
-  });
+
+  // Build update payload: void only when isVoided/voidReason are present.
+  // quantity/note updates use the same endpoint without triggering a void.
+  const updatePayload = { actorName: actor };
+  if (req.body.isVoided !== undefined || voidReason) {
+    updatePayload.isVoided    = true;
+    updatePayload.voidReason  = voidReason || "Voided by POS";
+    updatePayload.isGhostVoid = req.body.isGhostVoid === true;
+  }
+  if (quantity !== undefined) updatePayload.quantity = quantity;
+  if (note     !== undefined) updatePayload.note     = note;
+
+  const result = await updateOrderItemDetails(tableId, itemId, updatePayload);
 
   logAction({
     tenantId,
