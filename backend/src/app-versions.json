@@ -59,12 +59,12 @@
     "releaseDate": "2026-05-23"
   },
   "ownerWeb": {
-    "version": "0.2.2",
+    "version": "0.2.3",
     "label": "Owner Dashboard",
-    "changelog": "Stuck Bills panel in Live Orders — force-remove permanently stuck Captain-billed tables",
+    "changelog": "Live Orders cleanup — Running Tables now clears correctly after Captain-billed table is settled",
     "whatsNew": [
-      "🗑️ New Stuck Bills tab in Live Orders — shows Captain-billed tables waiting for POS settlement",
-      "⚡ Force Remove button clears any permanently stuck pending bill (use only after confirming the table is already settled at POS)"
+      "🛡️ Tables settled at POS now disappear from Running Tables immediately — no more ghost occupied tables",
+      "🔧 Removed Stuck Bills tab (owner dashboard is monitoring only)"
     ],
     "installGuide": [
       "No installation needed — Owner Dashboard updates automatically.",

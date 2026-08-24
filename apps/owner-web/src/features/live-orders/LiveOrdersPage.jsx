@@ -162,8 +162,6 @@ export function LiveOrdersPage() {
   const [outletId,       setOutletId]       = useState("");
   const [loading,        setLoading]        = useState(true);
   const [lastUpdated,    setLastUpdated]    = useState(null);
-  const [pendingBills,   setPendingBills]   = useState([]);
-  const [deletingBill,   setDeletingBill]   = useState(null); // orderNumber being deleted
   const outletsRef = useRef([]);
 
   const load = useCallback(async () => {
@@ -191,35 +189,12 @@ export function LiveOrdersPage() {
       setLiveOrders(Array.isArray(orders) ? orders.filter(o => !o.isClosed && (o.items?.length || 0) > 0) : []);
       setOnlineOrders(Array.isArray(online) ? online : []);
       setLastUpdated(new Date());
-
-      // Also refresh pending bills if that tab is open or data is stale
-      const billsOid = outletId || currentOutlets[0]?.id || "";
-      if (billsOid) {
-        api.get(`/operations/pending-bills?outletId=${billsOid}`)
-          .then(bills => setPendingBills(Array.isArray(bills) ? bills : []))
-          .catch(() => {});
-      }
     } catch {
       // keep existing data
     } finally {
       setLoading(false);
     }
   }, [outletId]);
-
-  async function handleDeletePendingBill(bill) {
-    const oid = outletId || outletsRef.current[0]?.id || "";
-    if (!oid || !bill.orderNumber) return;
-    if (!window.confirm(`Force-remove pending bill #${bill.orderNumber} for Table ${bill.tableNumber || bill.tableId}?\n\nOnly do this if the table is already cleared at the POS.`)) return;
-    setDeletingBill(bill.orderNumber);
-    try {
-      await api.delete(`/operations/pending-bills/${bill.orderNumber}?outletId=${oid}`);
-      setPendingBills(prev => prev.filter(b => b.orderNumber !== bill.orderNumber));
-    } catch {
-      alert("Failed to delete — please try again.");
-    } finally {
-      setDeletingBill(null);
-    }
-  }
 
   useEffect(() => {
     load();
@@ -270,13 +245,6 @@ export function LiveOrdersPage() {
           Running Tables
           {liveOrders.length > 0 && <span className="lo-tab-count">{dinein.length + pickup.length}</span>}
         </button>
-        <button
-          className={`lo-tab ${tab === "stuck-bills" ? "lo-tab--active" : ""}`}
-          onClick={() => setTab("stuck-bills")}
-        >
-          Stuck Bills
-          {pendingBills.length > 0 && <span className="lo-tab-count" style={{ background: "#ef4444" }}>{pendingBills.length}</span>}
-        </button>
       </div>
 
       {loading && liveOrders.length === 0 ? (
@@ -286,72 +254,10 @@ export function LiveOrdersPage() {
           <RunningPanel dinein={dinein} pickup={pickup} online={onlineOrders} />
           <PendingPanel online={onlineOrders} />
         </div>
-      ) : tab === "running-tables" ? (
-        <RunningTablesView dinein={dinein} pickup={pickup} />
       ) : (
-        <StuckBillsPanel bills={pendingBills} deletingBill={deletingBill} onDelete={handleDeletePendingBill} />
+        <RunningTablesView dinein={dinein} pickup={pickup} />
       )}
     </div>
   );
 }
 
-function StuckBillsPanel({ bills, deletingBill, onDelete }) {
-  if (bills.length === 0) {
-    return (
-      <div className="lo-tables-empty">
-        <Icon name="check_circle" size={40} />
-        <div>No stuck pending bills</div>
-        <div style={{ fontSize: "0.82rem", marginTop: 6, color: "var(--muted)" }}>
-          Pending bills appear here when a Captain-billed table fails to settle at the POS.
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div>
-      <div style={{ marginBottom: 12, padding: "10px 14px", background: "var(--warning-bg, #fef3c7)", borderRadius: 8, fontSize: "0.84rem", color: "var(--warning-text, #92400e)" }}>
-        These bills were sent by the Captain for settlement but the POS has not cleared them.
-        Force-remove only if you have confirmed the table is already settled and free at the POS.
-      </div>
-      <table className="orders-table">
-        <thead>
-          <tr>
-            <th>Order #</th>
-            <th>Table</th>
-            <th>Bill No</th>
-            <th>Items</th>
-            <th style={{ textAlign: "right" }}>Amount</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {bills.map((bill) => {
-            const total = (bill.items || []).reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || i.qty || 1), 0);
-            return (
-              <tr key={bill.orderNumber}>
-                <td><strong>#{bill.orderNumber}</strong></td>
-                <td>{bill.tableNumber || bill.tableId || "—"}</td>
-                <td>{bill.billNo || "—"}</td>
-                <td style={{ color: "var(--muted)", fontSize: "0.82em" }}>
-                  {(bill.items || []).slice(0, 3).map(i => i.name).join(", ")}
-                  {(bill.items || []).length > 3 ? ` +${bill.items.length - 3} more` : ""}
-                </td>
-                <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>₹{total.toLocaleString("en-IN")}</td>
-                <td style={{ textAlign: "right" }}>
-                  <button
-                    className="btn-outline"
-                    style={{ color: "#ef4444", borderColor: "#ef4444", fontSize: "0.8rem", padding: "4px 10px" }}
-                    disabled={deletingBill === bill.orderNumber}
-                    onClick={() => onDelete(bill)}
-                  >
-                    {deletingBill === bill.orderNumber ? "Removing…" : "Force Remove"}
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}

@@ -1182,7 +1182,13 @@ async function deviceCloseOrderHandler(req, res) {
 
   // Remove this order from the server-side pending-bills store (set when captain
   // auto-advanced the table) and notify all POS terminals so they drop the entry.
+  // Remove by orderNumber first; then fall back to tableId in case of type mismatch.
   removePendingBill(tenantId, outletId, order.orderNumber);
+  if (order.tableId) {
+    const remaining = getPendingBills(tenantId, outletId);
+    const byTableId = remaining.find(b => b.tableId === order.tableId);
+    if (byTableId) removePendingBill(tenantId, outletId, byTableId.orderNumber);
+  }
   if (io && outletId) {
     io.to(`outlet:${tenantId}:${outletId}`).emit("pending-bills:updated", {
       outletId,
@@ -1206,11 +1212,13 @@ async function deviceCloseOrderHandler(req, res) {
         let liveOrder = null;
         try { liveOrder = await getOrder(order.tableId); } catch (_) {}
 
+        // Use loose inequality to handle string/number mismatch (POS JSON may send string).
         const hasNewerOrder =
           liveOrder &&
           liveOrder.orderNumber != null &&
           order.orderNumber   != null &&
-          liveOrder.orderNumber !== order.orderNumber;
+          // eslint-disable-next-line eqeqeq
+          liveOrder.orderNumber != order.orderNumber;
 
         if (hasNewerOrder) {
           // First: signal devices that the settled order is closed so POS releases
