@@ -262,6 +262,183 @@ function buildHtml(summary, dateStr, restName = "Restaurant", ownerName = "Owner
 </html>`.trim();
 }
 
+/* ── Build backup JSON for a tenant (menu, staff, outlets, settings) ─────── */
+function buildBackupJson(data, tenantId) {
+  const sanitized = {
+    ...data,
+    users: (data?.users || []).map(({ passwordHash: _omit, ...u }) => u),
+  };
+  return JSON.stringify({ exportedAt: new Date().toISOString(), tenantCount: 1, tenants: { [tenantId]: sanitized } }, null, 2);
+}
+
+/* ── Combined daily report + backup email HTML ────────────────────────────── */
+function buildCombinedHtml(summary, dateStr, restName, ownerName, backupFilename, backupSizeKb) {
+  const { net, gst, total, cash, upi, card, online, other,
+          orderCount, mismatches, totalShort, allShifts,
+          branches, topItems, topCategories } = summary;
+
+  const avgOrder = orderCount > 0 ? Math.round(total / orderCount) : 0;
+
+  const branchRows = branches.map(b => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;">${b.name}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;text-align:right;">${b.orderCount}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;text-align:right;font-weight:700;">${fmt(b.total)}</td>
+    </tr>`).join("");
+
+  const topItemRows = topItems.map(i => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;">${i.name}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;text-align:right;">${i.qty}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;text-align:right;font-weight:700;">${fmt(i.revenue)}</td>
+    </tr>`).join("");
+
+  const topCategoryRows = topCategories.map(c => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;">${c.name}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;text-align:right;">${c.qty}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;text-align:right;font-weight:700;">${fmt(c.revenue)}</td>
+    </tr>`).join("");
+
+  const mismatchRows = mismatches.map(s => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;">${s.cashier}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;">${s.outlet || "—"}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#DC2626;font-weight:700;">
+        ${fmt(Math.abs(s.variance || 0))} short
+      </td>
+      <td style="padding:8px 12px;border-bottom:1px solid #F0F0F0;font-size:12px;color:#888;">
+        ${s.note || "No note"}
+      </td>
+    </tr>`).join("");
+
+  const closedShifts = allShifts.filter(s => s.status !== "open");
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;background:#F4F4F7;margin:0;padding:0;">
+<div style="max-width:580px;margin:32px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,.09);">
+
+  <!-- Header -->
+  <div style="background:#1A1D27;padding:28px 36px;">
+    <div style="font-size:22px;font-weight:800;color:#fff;">🍽 ${restName}</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.55);margin-top:4px;">Daily Sales Report &amp; Backup · ${dateStr}</div>
+  </div>
+
+  <!-- Hero numbers -->
+  <div style="padding:28px 36px 0;">
+    <div style="font-size:14px;color:#4A5065;margin-bottom:12px;">Hi ${ownerName}, here's your sales summary for yesterday.</div>
+    <div style="font-size:13px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;">Total Sales</div>
+    <div style="font-size:42px;font-weight:800;color:#1A1D27;margin:4px 0 2px;">${fmt(total)}</div>
+    <div style="font-size:14px;color:#888;">${orderCount} orders &nbsp;·&nbsp; Avg ${fmt(avgOrder)} / order &nbsp;·&nbsp; GST ${fmt(gst)}</div>
+  </div>
+
+  <!-- Payment breakdown -->
+  <div style="padding:24px 36px 0;">
+    <div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:12px;">Payment Breakdown</div>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        ${cash > 0   ? `<td style="text-align:center;background:#F0FDF4;border-radius:10px;padding:16px 8px;"><div style="font-size:20px;font-weight:800;color:#16A34A;">${fmt(cash)}</div><div style="font-size:11px;color:#888;margin-top:4px;">Cash (${pct(cash,total)})</div></td>` : ""}
+        ${upi > 0    ? `<td style="text-align:center;background:#EFF6FF;border-radius:10px;padding:16px 8px;"><div style="font-size:20px;font-weight:800;color:#2563EB;">${fmt(upi)}</div><div style="font-size:11px;color:#888;margin-top:4px;">UPI (${pct(upi,total)})</div></td>` : ""}
+        ${card > 0   ? `<td style="text-align:center;background:#FFF7ED;border-radius:10px;padding:16px 8px;"><div style="font-size:20px;font-weight:800;color:#EA580C;">${fmt(card)}</div><div style="font-size:11px;color:#888;margin-top:4px;">Card (${pct(card,total)})</div></td>` : ""}
+        ${online > 0 ? `<td style="text-align:center;background:#FFFBEB;border-radius:10px;padding:16px 8px;"><div style="font-size:20px;font-weight:800;color:#B45309;">${fmt(online)}</div><div style="font-size:11px;color:#888;margin-top:4px;">🛵 Online (${pct(online,total)})</div></td>` : ""}
+        ${other > 0  ? `<td style="text-align:center;background:#F9FAFB;border-radius:10px;padding:16px 8px;"><div style="font-size:20px;font-weight:800;color:#6B7280;">${fmt(other)}</div><div style="font-size:11px;color:#888;margin-top:4px;">Other</div></td>` : ""}
+        ${total === 0 ? `<td style="text-align:center;padding:16px;color:#888;font-size:14px;">No sales recorded</td>` : ""}
+      </tr>
+    </table>
+  </div>
+
+  <!-- Branch-wise split -->
+  ${branches.length > 1 ? `
+  <div style="padding:24px 36px 0;">
+    <div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">Branch-wise Split</div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #F0F0F0;border-radius:10px;overflow:hidden;font-size:13px;">
+      <tr style="background:#F9FAFB;">
+        <th style="padding:10px 12px;text-align:left;color:#888;font-size:11px;">Branch</th>
+        <th style="padding:10px 12px;text-align:right;color:#888;font-size:11px;">Orders</th>
+        <th style="padding:10px 12px;text-align:right;color:#888;font-size:11px;">Sales</th>
+      </tr>
+      ${branchRows}
+    </table>
+  </div>` : ""}
+
+  <!-- Top items -->
+  ${topItems.length > 0 ? `
+  <div style="padding:24px 36px 0;">
+    <div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">Top Items</div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #F0F0F0;border-radius:10px;overflow:hidden;font-size:13px;">
+      <tr style="background:#F9FAFB;">
+        <th style="padding:10px 12px;text-align:left;color:#888;font-size:11px;">Item</th>
+        <th style="padding:10px 12px;text-align:right;color:#888;font-size:11px;">Qty</th>
+        <th style="padding:10px 12px;text-align:right;color:#888;font-size:11px;">Revenue</th>
+      </tr>
+      ${topItemRows}
+    </table>
+  </div>` : ""}
+
+  <!-- Top categories -->
+  ${topCategories.length > 0 ? `
+  <div style="padding:24px 36px 0;">
+    <div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">Top Categories</div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #F0F0F0;border-radius:10px;overflow:hidden;font-size:13px;">
+      <tr style="background:#F9FAFB;">
+        <th style="padding:10px 12px;text-align:left;color:#888;font-size:11px;">Category</th>
+        <th style="padding:10px 12px;text-align:right;color:#888;font-size:11px;">Qty</th>
+        <th style="padding:10px 12px;text-align:right;color:#888;font-size:11px;">Revenue</th>
+      </tr>
+      ${topCategoryRows}
+    </table>
+  </div>` : ""}
+
+  <!-- Shift summary -->
+  ${closedShifts.length > 0 ? `
+  <div style="padding:24px 36px 0;">
+    <div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">Shifts Closed</div>
+    <div style="font-size:14px;color:#1A1D27;">${closedShifts.length} shift${closedShifts.length > 1 ? "s" : ""} closed
+      ${mismatches.length > 0
+        ? `&nbsp;·&nbsp;<span style="color:#DC2626;font-weight:700;">⚠ ${mismatches.length} mismatch${mismatches.length > 1 ? "es" : ""} — ${fmt(totalShort)} short</span>`
+        : `&nbsp;·&nbsp;<span style="color:#16A34A;font-weight:700;">✓ All cash matched</span>`}
+    </div>
+  </div>` : ""}
+
+  <!-- Mismatch table -->
+  ${mismatches.length > 0 ? `
+  <div style="padding:16px 36px 0;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1.5px solid #FEE2E2;border-radius:10px;overflow:hidden;font-size:13px;">
+      <tr style="background:#FEF2F2;">
+        <th style="padding:10px 12px;text-align:left;color:#DC2626;font-size:11px;">Cashier</th>
+        <th style="padding:10px 12px;text-align:left;color:#DC2626;font-size:11px;">Outlet</th>
+        <th style="padding:10px 12px;text-align:left;color:#DC2626;font-size:11px;">Variance</th>
+        <th style="padding:10px 12px;text-align:left;color:#DC2626;font-size:11px;">Note</th>
+      </tr>
+      ${mismatchRows}
+    </table>
+  </div>` : ""}
+
+  <!-- Backup notice -->
+  <div style="padding:24px 36px 0;">
+    <div style="background:#F0FDF4;border:1.5px solid #A7F3D0;border-radius:10px;padding:16px 20px;">
+      <div style="font-size:13px;font-weight:700;color:#065F46;margin-bottom:6px;">🗄 Data Backup Attached</div>
+      <div style="font-size:13px;color:#065F46;">Your restaurant setup (menu, staff, outlets, settings) is attached as <strong>${backupFilename}</strong> (${backupSizeKb} KB). Save it to Google Drive or WhatsApp Saved Messages. If data is ever lost, send it to <a href="mailto:hello@dinexpos.in" style="color:#059669;">hello@dinexpos.in</a>.</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="padding:28px 36px;margin-top:24px;border-top:1px solid #F0F0F0;">
+    <a href="https://app.dinexpos.in" style="display:inline-block;background:#FF5A1F;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;">
+      Open Owner Console →
+    </a>
+    <p style="font-size:12px;color:#AAA;margin-top:16px;">
+      © 2026 DineXPOS · Automated daily report + backup · Sent every morning at 4 AM IST
+    </p>
+  </div>
+
+</div>
+</body>
+</html>`.trim();
+}
+
 /* ── Main report job ──────────────────────────────────────────────────────── */
 async function runDailySalesReport() {
   console.log("[sales-report] Building daily sales reports…");
@@ -280,44 +457,60 @@ async function runDailySalesReport() {
     const dateStr = new Date().toLocaleDateString("en-IN", {
       timeZone: "Asia/Kolkata", weekday: "long", day: "numeric", month: "long", year: "numeric"
     });
+    const backupDate = new Date().toISOString().slice(0, 10);
 
-    // ── Get all tenants from DB (or fallback to "default" tenant) ────────────
-    let tenants = []; // [{ tenantId, ownerEmail, restaurantName, outlets }]
+    // ── Get all ACTIVE tenants from DB ───────────────────────────────────────
+    // Reads owner_setup + client_active to skip inactive accounts.
+    let tenants = [];
 
     if (isDatabaseEnabled()) {
       try {
         const rows = await query(
-          "SELECT tenant_id, value FROM tenant_settings WHERE key = 'owner_setup'"
+          `SELECT ts.tenant_id, ts.value AS setup, ca.value AS client_active
+           FROM tenant_settings ts
+           LEFT JOIN tenant_settings ca
+             ON ca.tenant_id = ts.tenant_id AND ca.key = 'client_active'
+           WHERE ts.key = 'owner_setup'`
         );
         for (const row of rows.rows) {
-          const data        = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
-          // Same lookup as backup.service.js — businessProfile.email is rarely set;
-          // the owner's real address lives on their login user record.
-          const ownerUser   = (data?.users || []).find(u => u.passwordHash && u.email);
-          const ownerEmail  = ownerUser?.email || data?.businessProfile?.email;
-          const restName    = data?.businessProfile?.tradeName || data?.businessProfile?.legalName || "Restaurant";
-          const ownerName   = ownerUser?.fullName || (data?.users || []).find(u => (u.roles || []).includes("Owner"))?.fullName || "Owner";
-          const outlets     = data?.outlets || [];
-          if (ownerEmail) tenants.push({ tenantId: row.tenant_id, ownerEmail, restName, ownerName, outlets });
+          // Skip inactive tenants (set via Admin → Set Active toggle)
+          const activeFlag = row.client_active
+            ? (typeof row.client_active === "string" ? JSON.parse(row.client_active) : row.client_active)
+            : null;
+          if (activeFlag && activeFlag.active === false) {
+            console.log(`[sales-report] Skipping inactive tenant ${row.tenant_id}`);
+            continue;
+          }
+
+          const data       = typeof row.setup === "string" ? JSON.parse(row.setup) : row.setup;
+          const ownerUser  = (data?.users || []).find(u => u.passwordHash && u.email);
+          const ownerEmail = ownerUser?.email || data?.businessProfile?.email;
+          const restName   = data?.businessProfile?.tradeName || data?.businessProfile?.legalName || "Restaurant";
+          const ownerName  = ownerUser?.fullName || (data?.users || []).find(u => (u.roles || []).includes("Owner"))?.fullName || "Owner";
+          const outlets    = data?.outlets || [];
+          if (ownerEmail) tenants.push({ tenantId: row.tenant_id, ownerEmail, restName, ownerName, outlets, data });
         }
       } catch (err) {
         console.error("[sales-report] Could not query tenants:", err.message);
       }
     }
 
-    // Fallback: always also send to SALES_REPORT_EMAIL (your own email)
-    const hasDefault = tenants.some(t => t.tenantId === "default");
-    if (!hasDefault) {
-      tenants.push({ tenantId: "default", ownerEmail: SALES_REPORT_EMAIL, restName: "Restaurant", ownerName: "Owner", outlets: [] });
+    if (!tenants.length) {
+      console.log("[sales-report] No active tenants found — skipping");
+      return;
     }
 
-    // ── Send one consolidated report per tenant, plus one per outlet that has
-    //    its own reportEmail configured (Owner Console → Outlets page) ───────
-    for (const { tenantId, ownerEmail, restName, ownerName, outlets } of tenants) {
+    // ── Send one combined report + backup email per active tenant ────────────
+    for (const { tenantId, ownerEmail, restName, ownerName, outlets, data } of tenants) {
       try {
         const orders  = cosModule.getTodaySales(tenantId);
         const shifts  = ssModule.getShifts(tenantId);
         const summary = buildSummary(orders, shifts, outlets);
+
+        // Build backup attachment
+        const backupJson     = buildBackupJson(data, tenantId);
+        const backupFilename = `plato-backup-${backupDate}.json`;
+        const backupSizeKb   = Math.round(Buffer.byteLength(backupJson, "utf8") / 1024);
 
         const subject = summary.orderCount > 0
           ? `📊 ${summary.orderCount} orders · ${fmt(summary.total)} — ${restName} Daily Report`
@@ -327,17 +520,23 @@ async function runDailySalesReport() {
           from:    env.emailFrom,
           to:      ownerEmail,
           subject,
-          html:    buildHtml(summary, dateStr, restName, ownerName)
+          html:    buildCombinedHtml(summary, dateStr, restName, ownerName, backupFilename, backupSizeKb),
+          attachments: [
+            {
+              filename:    backupFilename,
+              content:     Buffer.from(backupJson, "utf8").toString("base64"),
+              contentType: "application/json",
+            }
+          ]
         });
 
         if (error) throw new Error(error.message);
-        console.log(`[sales-report] ✅ Sent to ${ownerEmail} (${restName}) — ${summary.orderCount} orders, ${fmt(summary.total)}`);
+        console.log(`[sales-report] ✅ Sent to ${ownerEmail} (${restName}) — ${summary.orderCount} orders, ${fmt(summary.total)}, backup ${backupSizeKb} KB`);
       } catch (err) {
         console.error(`[sales-report] ❌ Failed for tenant ${tenantId}:`, err.message);
       }
 
-      // Per-outlet reports — shifts have no outlet attribution, so the shift
-      // section is simply omitted (buildHtml already hides it when empty).
+      // Per-outlet reports (no backup — backup goes to owner only)
       for (const outlet of outlets) {
         const outletEmail = outlet?.reportEmail;
         if (!outletEmail || outletEmail === ownerEmail) continue;
@@ -358,7 +557,7 @@ async function runDailySalesReport() {
           });
 
           if (error) throw new Error(error.message);
-          console.log(`[sales-report] ✅ Sent to ${outletEmail} (${outletName}) — ${outletSummary.orderCount} orders, ${fmt(outletSummary.total)}`);
+          console.log(`[sales-report] ✅ Sent to ${outletEmail} (${outletName}) — ${outletSummary.orderCount} orders`);
         } catch (err) {
           console.error(`[sales-report] ❌ Failed for outlet ${outlet.id} (tenant ${tenantId}):`, err.message);
         }
@@ -370,22 +569,21 @@ async function runDailySalesReport() {
   }
 }
 
-/* ── Scheduler: fires every day at 11 PM IST ─────────────────────────────── */
+/* ── Scheduler: fires every day at 4 AM IST ──────────────────────────────── */
 function scheduleDailySalesReport() {
-  function msUntil11PMIST() {
-    const now       = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istNow    = new Date(now.getTime() + istOffset);
-    const target    = new Date(istNow);
-    target.setUTCHours(17, 30, 0, 0); // 17:30 UTC = 23:00 IST
-    if (target <= istNow) target.setUTCDate(target.getUTCDate() + 1);
+  function msUntil4AMIST() {
+    const now = new Date();
+    // 4:00 AM IST = 22:30 UTC previous day
+    const target = new Date(now);
+    target.setUTCHours(22, 30, 0, 0); // 22:30 UTC = 04:00 IST
+    if (target <= now) target.setUTCDate(target.getUTCDate() + 1);
     return target.getTime() - now.getTime();
   }
 
   function scheduleNext() {
-    const delay = msUntil11PMIST();
+    const delay = msUntil4AMIST();
     const hrs   = (delay / 3_600_000).toFixed(1);
-    console.log(`[sales-report] Next report scheduled in ${hrs} hours (11 PM IST)`);
+    console.log(`[sales-report] Next report scheduled in ${hrs} hours (4 AM IST)`);
     setTimeout(async () => {
       await runDailySalesReport();
       scheduleNext();

@@ -125,21 +125,14 @@ async function exportDatabase() {
 async function runDailyBackup() {
   console.log("[backup] Starting nightly backup…");
 
-  // ── Step 1: Admin Postgres backup (to BACKUP_EMAIL env var) ────────────────
+  // Admin Postgres backup only (to BACKUP_EMAIL env var — Plato internal).
+  // Per-owner restaurant backup is now bundled inside the daily sales report
+  // email sent at 4 AM IST so owners receive one combined email.
   try {
     const backup = await exportDatabase();
     await sendBackupEmail(backup);
   } catch (err) {
     console.error("[backup] ❌ Admin Postgres backup failed:", err.message);
-  }
-
-  // ── Step 2: Per-owner restaurant data backup (to each owner's own email) ───
-  // Sends each restaurant their own menu/staff/outlets JSON backup
-  try {
-    const { runNightlyBackup } = require("../modules/backup/backup.service");
-    await runNightlyBackup();
-  } catch (err) {
-    console.error("[backup] ❌ Per-owner backup failed:", err.message);
   }
 }
 
