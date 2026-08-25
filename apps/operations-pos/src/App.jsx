@@ -2718,6 +2718,9 @@ export function App() {
     socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
     localSocketRef.current?.emit("order:clear", { tableId: tableId.startsWith("_mb_") ? order.tableId : tableId });
     window.electronAPI?.pushOrdersToLocal?.([]);
+    // IPC path: always clears the table from localOrderStore even if the socket micro-disconnects.
+    window.electronAPI?.clearTableFromLocal?.(tableId);
+    if (tableId.startsWith("_mb_")) window.electronAPI?.clearTableFromLocal?.(order.tableId);
 
     // 3. Push full closed order to backend so Owner Web shows real sales figures.
     // For mirror settle: backend detects hasNewerOrder (Order 2 in memory != Order 1 being
@@ -3217,6 +3220,7 @@ export function App() {
     socketRef.current?.emit("order:update", { outletId: outlet?.id, order: closedOrder });
     localSocketRef.current?.emit("order:clear", { tableId });
     window.electronAPI?.pushOrdersToLocal?.([]);
+    window.electronAPI?.clearTableFromLocal?.(tableId);
 
     // 3. Push to backend so Owner Web sees sales figures
     let backendConfirmed = false;

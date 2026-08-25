@@ -879,6 +879,17 @@ ipcMain.on("local:push-orders", (_event, orders) => {
   saveLocalStore();
 });
 
+// Reliably removes a settled table from localOrderStore via IPC (no socket needed).
+// Called at settlement so the table is always cleared even if the socket micro-disconnects.
+ipcMain.on("local:clear-table", (_event, tableId) => {
+  if (!tableId) return;
+  delete localOrderStore[tableId];
+  const mbKey = `_mb_${tableId}`;
+  delete localOrderStore[mbKey];
+  saveLocalStore();
+  localIo?.emit("order:cleared", { tableId });
+});
+
 // Renderer seeds menu/tables/staff/outlet into local SQLite after loading from cloud.
 // Captain and KDS will then fetch from port 4001 instead of Railway.
 ipcMain.on("local:seed-config", (_event, { categories, menuItems, tables, staff, outlet, token, apiBase } = {}) => {

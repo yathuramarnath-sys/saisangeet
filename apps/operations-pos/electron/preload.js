@@ -96,6 +96,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Push current order state to main process local store (keeps tablets in sync)
   pushOrdersToLocal: (orders) => ipcRenderer.send("local:push-orders", orders),
 
+  // Reliably clear a settled table from localOrderStore via IPC (no socket needed).
+  clearTableFromLocal: (tableId) => ipcRenderer.send("local:clear-table", tableId),
+
   // Seed menu/staff/tables/outlet + auth token into local SQLite so Captain/KDS
   // can fetch from port 4001 instead of Railway (works with zero internet).
   seedLocalConfig: (config) => ipcRenderer.send("local:seed-config", config),
