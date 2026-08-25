@@ -439,102 +439,114 @@ const OUTLET_TYPES = [
   { id: "street",      label: "Street Vendor" },
 ];
 
+const FREE_PLAN = {
+  id: "free", name: "Free", price: "₹0", period: "/ month",
+  desc: "Get started with no commitment. No credit card required.",
+  features: ["PLATO POS", "Up to 250 bills / day", "Up to 100 menu items", "Up to 10 categories", "PLATO Cloud (basic)"],
+  highlighted: false, cta: "Get started",
+};
+
 const PLANS_BY_TYPE = {
   cafe: [
+    FREE_PLAN,
     {
-      id: "starter", name: "Starter", price: "₹1,999", period: "/ month",
+      id: "starter", name: "Starter", price: "₹555", period: "/ month",
       desc: "Perfect for single-outlet cafés and QSRs getting started.",
-      features: ["PLATO POS", "PLATO Pay", "PLATO Print", "PLATO Cloud", "30-day free trial"],
+      features: ["PLATO POS", "PLATO Captain", "PLATO Pay", "PLATO Print", "PLATO Cloud", "Unlimited bills & items"],
       highlighted: false, cta: "Get started",
     },
     {
-      id: "growth", name: "Growth", price: "₹3,499", period: "/ month",
+      id: "growth", name: "Growth", price: "₹999", period: "/ month",
       desc: "For growing QSRs managing dine-in, takeaway, and online orders.",
       features: ["PLATO POS", "PLATO Captain", "PLATO Kitchen", "PLATO Pay", "PLATO Print", "PLATO Online", "PLATO Cloud"],
       highlighted: true, badge: "Most popular", cta: "Book a demo",
     },
     {
-      id: "pro", name: "Pro", price: "₹5,999", period: "/ month",
+      id: "pro", name: "Pro", price: "₹1,999", period: "/ month",
       desc: "Full suite for multi-outlet café chains with owner-level analytics.",
       features: ["All 9 PLATO modules", "Multi-outlet dashboard", "Priority support", "Custom integrations"],
       highlighted: false, cta: "Talk to sales",
     },
   ],
   fullservice: [
+    FREE_PLAN,
     {
-      id: "essential", name: "Essential", price: "₹2,999", period: "/ month",
+      id: "starter", name: "Starter", price: "₹555", period: "/ month",
       desc: "Core tools for a full-service restaurant with table service.",
-      features: ["PLATO POS", "PLATO Captain", "PLATO Pay", "PLATO Print", "PLATO Cloud", "30-day free trial"],
+      features: ["PLATO POS", "PLATO Captain", "PLATO Pay", "PLATO Print", "PLATO Cloud", "Unlimited bills & items"],
       highlighted: false, cta: "Get started",
     },
     {
-      id: "complete", name: "Complete", price: "₹4,999", period: "/ month",
+      id: "growth", name: "Growth", price: "₹999", period: "/ month",
       desc: "Everything a full-service restaurant needs — floor to kitchen to owner.",
-      features: ["PLATO POS", "PLATO Captain", "PLATO Kitchen", "PLATO Queue", "PLATO Pay", "PLATO Print", "PLATO Online", "PLATO Owner", "PLATO Cloud"],
+      features: ["PLATO POS", "PLATO Captain", "PLATO Kitchen", "PLATO Queue", "PLATO Pay", "PLATO Print", "PLATO Online", "PLATO Cloud"],
       highlighted: true, badge: "Most popular", cta: "Book a demo",
     },
     {
-      id: "enterprise", name: "Enterprise", price: "Custom", period: "",
+      id: "pro", name: "Pro", price: "₹1,999", period: "/ month",
       desc: "For restaurant groups and chains with multiple outlets and custom needs.",
       features: ["All 9 PLATO modules", "Multi-outlet management", "Dedicated account manager", "SLA-backed uptime", "Custom integrations"],
       highlighted: false, cta: "Talk to sales",
     },
   ],
   bar: [
+    FREE_PLAN,
     {
-      id: "starter", name: "Starter", price: "₹1,499", period: "/ month",
+      id: "starter", name: "Starter", price: "₹555", period: "/ month",
       desc: "For single-outlet bars and lounges.",
-      features: ["PLATO POS", "PLATO Pay", "PLATO Print", "PLATO Cloud", "30-day free trial"],
+      features: ["PLATO POS", "PLATO Captain", "PLATO Pay", "PLATO Print", "PLATO Cloud", "Unlimited bills & items"],
       highlighted: false, cta: "Get started",
     },
     {
-      id: "growth", name: "Growth", price: "₹2,999", period: "/ month",
+      id: "growth", name: "Growth", price: "₹999", period: "/ month",
       desc: "For bars with multiple areas or outlets.",
       features: ["PLATO POS", "PLATO Captain", "PLATO Kitchen", "PLATO Pay", "PLATO Print", "PLATO Online", "PLATO Cloud"],
       highlighted: true, badge: "Most popular", cta: "Book a demo",
     },
     {
-      id: "pro", name: "Pro", price: "₹4,999", period: "/ month",
+      id: "pro", name: "Pro", price: "₹1,999", period: "/ month",
       desc: "Multi-outlet bar chain management.",
       features: ["All 9 PLATO modules", "Multi-outlet management", "Dedicated account manager", "SLA-backed uptime"],
       highlighted: false, cta: "Talk to sales",
     },
   ],
   foodtruck: [
+    FREE_PLAN,
     {
-      id: "starter", name: "Starter", price: "₹799", period: "/ month",
+      id: "starter", name: "Starter", price: "₹555", period: "/ month",
       desc: "For food trucks and pop-up stalls.",
-      features: ["PLATO POS (Android + Web)", "PLATO Pay (UPI + card)", "PLATO Print", "30-day free trial"],
+      features: ["PLATO POS (Android + Web)", "PLATO Captain", "PLATO Pay (UPI + card)", "PLATO Print", "Unlimited bills & items"],
       highlighted: false, cta: "Get started",
     },
     {
-      id: "growth", name: "Growth", price: "₹1,499", period: "/ month",
+      id: "growth", name: "Growth", price: "₹999", period: "/ month",
       desc: "For food trucks with online order integration.",
       features: ["PLATO POS", "PLATO Captain", "PLATO Pay", "PLATO Print", "PLATO Online", "PLATO Cloud"],
       highlighted: true, badge: "Most popular", cta: "Book a demo",
     },
     {
-      id: "pro", name: "Pro", price: "₹2,999", period: "/ month",
+      id: "pro", name: "Pro", price: "₹1,999", period: "/ month",
       desc: "Multi-location food truck fleet management.",
       features: ["All 9 PLATO modules", "Multi-outlet management", "Advanced analytics", "Priority support"],
       highlighted: false, cta: "Talk to sales",
     },
   ],
   street: [
+    FREE_PLAN,
     {
-      id: "starter", name: "Starter", price: "₹399", period: "/ month",
+      id: "starter", name: "Starter", price: "₹555", period: "/ month",
       desc: "For street vendors and small stalls.",
-      features: ["PLATO POS (Android)", "PLATO Pay (UPI)", "Basic billing", "Sales reports", "30-day free trial"],
+      features: ["PLATO POS (Android)", "PLATO Pay (UPI)", "PLATO Print", "Sales reports", "Unlimited bills & items"],
       highlighted: false, cta: "Get started",
     },
     {
-      id: "growth", name: "Growth", price: "₹799", period: "/ month",
+      id: "growth", name: "Growth", price: "₹999", period: "/ month",
       desc: "For vendors with multiple stalls.",
       features: ["PLATO POS", "PLATO Captain", "PLATO Pay", "PLATO Print", "PLATO Cloud"],
       highlighted: true, badge: "Most popular", cta: "Book a demo",
     },
     {
-      id: "pro", name: "Pro", price: "₹1,499", period: "/ month",
+      id: "pro", name: "Pro", price: "₹1,999", period: "/ month",
       desc: "Full street food chain management.",
       features: ["All 9 PLATO modules", "Multi-outlet management", "Advanced analytics", "Priority support"],
       highlighted: false, cta: "Talk to sales",
