@@ -745,80 +745,46 @@ export function App() {
       </section>
 
       {/* LOCAL-FIRST — Works on local network, no internet needed */}
-      <section className="lp-section lp-section-dark" id="local-first">
+      <section className="lp-section lp-section-light" id="local-first">
         <div className="lp-section-inner">
-          <p className="lp-eyebrow" style={{ color: "#fb923c" }}>Built for Indian conditions</p>
-          <h2 style={{ color: "#fff" }}>Your restaurant runs on your<br />local network — not the internet.</h2>
-          <p className="lp-section-sub" style={{ color: "rgba(255,255,255,.65)" }}>
-            PLATO runs a full server inside the POS terminal itself. Captain App and Kitchen Display connect directly to the POS over your Wi-Fi — at a fixed address (<strong style={{ color: "#fb923c" }}>dinexpos-server.local</strong>). No internet required for billing, KOTs, or table management. Internet is only used to sync reports to your owner dashboard.
+          <p className="lp-eyebrow">Built for Indian conditions</p>
+          <h2>Internet down? Your restaurant keeps running.</h2>
+          <p className="lp-section-sub">
+            All billing, KOTs and table management run entirely on your local Wi-Fi — no internet required. Internet is only used to sync reports to your owner dashboard.
           </p>
 
           <div className="lp-local-grid">
-            <div className="lp-local-card">
+            <div className="lp-local-card lp-local-card-light">
               <div className="lp-local-icon">⚡</div>
-              <h4>Instant on your LAN</h4>
+              <h4>Faster than cloud POS</h4>
               <p>KOTs reach the kitchen and bills settle at the counter over your local Wi-Fi — no cloud round-trip. Speed never depends on your broadband plan.</p>
             </div>
-            <div className="lp-local-card">
+            <div className="lp-local-card lp-local-card-light">
               <div className="lp-local-icon">🔌</div>
               <h4>Internet cut? Keep billing.</h4>
-              <p>When your ISP goes down, your local Wi-Fi keeps working. POS, Captain App and KDS all continue normally — every order, every table, every KOT. No interruption.</p>
+              <p>When your ISP goes down, your local Wi-Fi keeps working. POS, Captain App and Kitchen Display all continue normally — every order, every table, every KOT. No interruption.</p>
             </div>
-            <div className="lp-local-card">
-              <div className="lp-local-icon">📡</div>
-              <h4>Zero IP setup</h4>
-              <p>Captain App and KDS find the POS automatically at <strong>dinexpos-server.local</strong> the moment they open — no typing IP addresses, no router config, no IT person required.</p>
+            <div className="lp-local-card lp-local-card-light">
+              <div className="lp-local-icon">🔋</div>
+              <h4>Powercut-safe</h4>
+              <p>Put your Wi-Fi router on a small UPS. Even if the mains go out, your local network stays alive — every running order continues exactly where it was.</p>
             </div>
-            <div className="lp-local-card">
+            <div className="lp-local-card lp-local-card-light">
               <div className="lp-local-icon">☁️</div>
               <h4>Owner reports always complete</h4>
-              <p>Every settled bill queues locally and syncs to your owner dashboard the moment internet returns. Nothing is ever skipped — owner reports stay accurate even after outages.</p>
+              <p>Every settled bill syncs to your owner dashboard the moment internet returns. Nothing is ever skipped — reports stay accurate even after outages.</p>
             </div>
-            <div className="lp-local-card">
-              <div className="lp-local-icon">🔋</div>
-              <h4>Powercut-safe setup</h4>
-              <p>Put your Wi-Fi router on a small UPS (₹2,000 investment). Even if the mains fail, your local network stays alive — every running order continues exactly where it was.</p>
+            <div className="lp-local-card lp-local-card-light">
+              <div className="lp-local-icon">🔗</div>
+              <h4>All devices stay in sync</h4>
+              <p>Captain App and Kitchen Display connect to the POS automatically over your Wi-Fi. No setup, no configuration — everything just works from the moment you switch it on.</p>
             </div>
-            <div className="lp-local-card">
+            <div className="lp-local-card lp-local-card-light">
               <div className="lp-local-icon">💾</div>
               <h4>Crash recovery in minutes</h4>
-              <p>If the POS PC fails, install on a new machine and log in. Menu, staff, and all past bills are in the cloud. You're back running within minutes — not hours.</p>
+              <p>If the POS PC fails, install on a new machine and log in. Menu, staff, and all past bills are in the cloud. Back running within minutes — not hours.</p>
             </div>
           </div>
-
-          <div className="lp-local-diagram">
-            <div className="lp-local-node lp-local-node-pos">
-              <span className="lp-local-node-icon">🖥️</span>
-              <strong>POS Terminal</strong>
-              <span>Local server · your Wi-Fi</span>
-            </div>
-            <div className="lp-local-lines">
-              <div className="lp-local-line">
-                <div className="lp-local-node lp-local-node-device">
-                  <span className="lp-local-node-icon">📱</span>
-                  <strong>Captain App</strong>
-                  <span>LAN · no internet needed</span>
-                </div>
-              </div>
-              <div className="lp-local-line">
-                <div className="lp-local-node lp-local-node-device">
-                  <span className="lp-local-node-icon">📺</span>
-                  <strong>Kitchen Display</strong>
-                  <span>LAN · no internet needed</span>
-                </div>
-              </div>
-              <div className="lp-local-line lp-local-line-cloud">
-                <div className="lp-local-node lp-local-node-cloud">
-                  <span className="lp-local-node-icon">☁️</span>
-                  <strong>Owner Dashboard</strong>
-                  <span>Cloud · reports only</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <p style={{ textAlign: "center", color: "rgba(255,255,255,.4)", fontSize: ".8rem", marginTop: 12 }}>
-            LAN = instant · Cloud = background reporting only · Internet outage = zero impact on daily operations
-          </p>
         </div>
       </section>
 

@@ -1038,14 +1038,14 @@ body {
   margin: 48px 0 52px;
 }
 .lp-local-card {
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.1);
+  background: var(--white);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 28px 24px;
 }
-.lp-local-card:hover {
-  background: rgba(255,255,255,.09);
-  border-color: rgba(251,146,60,.35);
+.lp-local-card-light:hover {
+  border-color: var(--brand);
+  box-shadow: 0 4px 20px rgba(0,0,0,.06);
 }
 .lp-local-icon {
   font-size: 2rem;
@@ -1054,66 +1054,14 @@ body {
 .lp-local-card h4 {
   font-size: .95rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--ink);
   margin: 0 0 8px;
 }
 .lp-local-card p {
   font-size: .84rem;
-  color: rgba(255,255,255,.6);
+  color: var(--ink-2);
   line-height: 1.65;
   margin: 0;
-}
-.lp-local-card strong { color: rgba(255,255,255,.9); }
-
-/* Network diagram */
-.lp-local-diagram {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 16px;
-  padding: 32px 24px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-  gap: 24px;
-}
-.lp-local-node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 4px;
-}
-.lp-local-node-icon { font-size: 2rem; }
-.lp-local-node strong { font-size: .85rem; font-weight: 800; color: #fff; }
-.lp-local-node span   { font-size: .72rem; color: rgba(255,255,255,.45); }
-.lp-local-node-pos strong { color: #fb923c; }
-.lp-local-node-cloud strong { color: rgba(255,255,255,.5); }
-.lp-local-node-cloud span  { color: rgba(255,255,255,.3); }
-.lp-local-lines {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.lp-local-line {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-.lp-local-line::before {
-  content: "─────";
-  color: #fb923c;
-  font-size: .85rem;
-  letter-spacing: -2px;
-  margin-right: 12px;
-  opacity: .7;
-}
-.lp-local-line-cloud::before {
-  color: rgba(255,255,255,.2);
-  content: "- - -";
-  letter-spacing: 2px;
 }
 
 @media (max-width: 900px) {
