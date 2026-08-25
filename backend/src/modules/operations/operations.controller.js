@@ -227,6 +227,17 @@ async function addPaymentHandler(req, res) {
 }
 
 async function closeOrderHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const billLimit = await checkDailyBillLimit(tenantId);
+  if (!billLimit.allowed) {
+    return res.status(403).json({
+      error: "daily_bill_limit",
+      message: `Free plan limit reached: ${billLimit.limit} bills per day. Upgrade to continue billing.`,
+      count: billLimit.count,
+      limit: billLimit.limit,
+    });
+  }
+
   const result = await settleOrderBill(req.params.tableId, req.body);
   // Broadcast blank-table signal so all devices clear the table — same as deviceCloseOrderHandler
   const io       = req.app.locals.io;
@@ -1051,6 +1062,7 @@ async function deviceVoidOrderItemHandler(req, res) {
 const { addClosedOrder } = require("./closed-orders-store");
 const { stampBillNo }   = require("./operations.memory-store");
 const { isProcessed, markProcessed } = require("./mutation-log");
+const { checkDailyBillLimit } = require("../billing/plan-limits");
 
 /**
  * POST /operations/assign-bill-no
@@ -1123,6 +1135,17 @@ async function deviceCloseOrderHandler(req, res) {
     return res.status(400).json({ error: "outletId and order are required" });
   }
   const tenantId = req.user?.tenantId || "default";
+
+  // Free tier: max 250 bills per day
+  const billLimit = await checkDailyBillLimit(tenantId);
+  if (!billLimit.allowed) {
+    return res.status(403).json({
+      error: "daily_bill_limit",
+      message: `Free plan limit reached: ${billLimit.limit} bills per day. Upgrade to continue billing.`,
+      count: billLimit.count,
+      limit: billLimit.limit,
+    });
+  }
 
   // Use bill number already assigned at print-time (idempotent).
   // Only assign now if the bill was settled without a prior print (e.g. quick counter settle).

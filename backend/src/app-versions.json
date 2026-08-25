@@ -1,12 +1,13 @@
 {
   "pos": {
-    "version": "1.9.1",
+    "version": "1.9.7",
     "label": "POS Terminal",
-    "changelog": "Fix void/cancel timer flush on close, partial payment revert on failure, item delete toast",
+    "changelog": "Local-first LAN mode — works fully offline, mDNS auto-discovery, ghost table fixes",
     "whatsNew": [
-      "🛡️ Void and order-cancel API calls now survive app close during the 5-second undo window",
-      "🔄 Partial payment reverts automatically if server sync fails — no ghost payment amounts",
-      "⚠️ Item removal now shows a warning if server sync fails (item may reappear)"
+      "🌐 Full LAN mode — POS runs as local server, Captain & KDS connect at dinexpos-server.local",
+      "⚡ Bills, KOTs and table updates work even when internet is down",
+      "🔧 Fixed ghost table after settlement — settled tables stay cleared on all devices",
+      "📡 mDNS auto-discovery — no IP setup needed for Captain App or KDS"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
@@ -15,48 +16,49 @@
     ],
     "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
     "apkUrl": null,
-    "releaseDate": "2026-08-23"
+    "releaseDate": "2026-08-25"
   },
   "captain": {
-    "version": "1.8.6",
+    "version": "1.9.6",
     "label": "Captain App",
-    "changelog": "Update banner + ghost KOT + duplicate item qty fixes",
+    "changelog": "Local-first KOT — works offline over LAN, mDNS auto-discovery, bootstrap offline fix",
     "whatsNew": [
-      "🔔 Update notification now shows as a blue banner at the top — visible from any screen, not just the More drawer",
-      "🐛 Fixed: sending KOT no longer accidentally includes items added by POS cashier at the same moment",
-      "🐛 Fixed: same menu item added on both captain and POS no longer appears with doubled quantity on captain"
+      "⚡ KOTs sent instantly over LAN even when internet is down",
+      "📡 Auto-connects to POS at dinexpos-server.local — no IP setup needed",
+      "🔧 Fixed crash on restart when internet is unavailable at startup",
+      "🔄 Cloud sync runs in background — owner reports always up to date"
     ],
     "installGuide": [
       "1. On Android, go to Settings → Security → Allow Install from Unknown Sources",
-      "2. Transfer 'plato-captain.apk' to your phone (WhatsApp, USB, or Google Drive)",
+      "2. Transfer 'Plato-Captain-v1.9.6.apk' to your phone (WhatsApp, USB, or Google Drive)",
       "3. Open the APK file on your phone and tap Install",
       "4. If asked to uninstall old version first — tap Uninstall, then Install again",
       "5. Open Captain App and enter your outlet code"
     ],
     "downloadUrl": null,
-    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-captain.apk",
-    "releaseDate": "2026-08-24"
+    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-Captain-v1.9.6.apk",
+    "releaseDate": "2026-08-25"
   },
   "kds": {
-    "version": "1.7",
+    "version": "1.9.5",
     "label": "Kitchen Display",
-    "changelog": "Coloured source stripe, table-first card header, highlighted item notes, large-screen support",
+    "changelog": "Local-first KOTs — receives KOTs over LAN instantly, mDNS auto-discovery",
     "whatsNew": [
-      "🎨 Order source colour stripe (green = POS, blue = Captain, orange = Online)",
-      "📋 Table number shown first on each KOT card",
-      "📝 Item notes highlighted in yellow for easy reading",
-      "🖥️ Better layout on large screens"
+      "⚡ KOTs appear on kitchen screen instantly over LAN — no internet needed",
+      "📡 Auto-discovers POS at dinexpos-server.local on startup",
+      "🔍 Parallel subnet scan — finds POS in under 2 seconds if mDNS not available",
+      "🎨 Coloured source stripe, table-first card header, highlighted item notes"
     ],
     "installGuide": [
       "1. On Android tablet, go to Settings → Security → Allow Install from Unknown Sources",
-      "2. Transfer 'plato-kds.apk' to the tablet",
+      "2. Transfer 'Plato-KDS-v1.9.5.apk' to the tablet",
       "3. Open the APK and tap Install",
       "4. Open Kitchen Display and enter your outlet code",
       "5. Select your kitchen station from the Settings tab"
     ],
     "downloadUrl": null,
-    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/plato-kds.apk",
-    "releaseDate": "2026-05-23"
+    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-KDS-v1.9.5.apk",
+    "releaseDate": "2026-08-25"
   },
   "ownerWeb": {
     "version": "0.2.3",

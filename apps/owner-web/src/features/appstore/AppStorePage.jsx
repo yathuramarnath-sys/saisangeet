@@ -9,116 +9,128 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 
 // ─── App catalogue ────────────────────────────────────────────────────────────
-// APK / installer download URLs — always point to "latest" GitHub Release asset.
-// To update: upload new APK/EXE with the SAME filename to the next GitHub Release.
-// Fixed download URLs — always point to the latest GitHub Release asset.
-// Filename never changes; only the GitHub release tag updates.
-// To publish a new version: run `npm run release` in apps/operations-pos.
-const GH = "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download";
+// Download URLs come from /api/v1/app-versions (backend app-versions.json).
+// Update app-versions.json + upload new file to GitHub Release → App Store auto-updates.
 
-const APPS = [
-  {
-    id: "pos",
-    name: "POS Terminal",
-    tagline: "Billing counter, cash drawer, receipt printer",
-    icon: "🖥️",
-    color: "#2563eb",
-    bg: "#eff6ff",
-    border: "#bfdbfe",
-    platforms: [
-      {
-        label: "Open Web App",
-        icon: "🌐",
-        file: null,
-        url: "https://pos.dinexpos.in",
-        install: true,
-        installHint: "On Windows: Chrome menu → 'Install Plato POS' → launches as desktop app. On Android: Chrome menu → 'Add to Home Screen'."
-      },
-      {
-        label: "Windows App (.exe)",
-        icon: "💻",
-        file: "Plato-POS-Setup.exe",
-        url: `${GH}/Plato-POS-Setup.exe`,
-        install: false,
-        installHint: "Download and run the installer on any Windows PC. Uninstall old version first if already installed, then run the new installer."
-      },
-      {
-        label: "Android APK",
-        icon: "📱",
-        file: "plato-pos.apk",
-        url: `${GH}/plato-pos.apk`,
-        install: false,
-        installHint: "Download APK on Android tablet → open file → tap Install. Enable 'Install from unknown sources' in Settings if prompted."
-      },
-    ],
-    who: "Cashier / Manager",
-    note: "Works on any Windows PC, Android tablet, or Chrome browser.",
-  },
-  {
-    id: "captain",
-    name: "Captain App",
-    tagline: "Waiter order-taking, table management, KOT",
-    icon: "📱",
-    color: "#059669",
-    bg: "#f0fdf4",
-    border: "#bbf7d0",
-    platforms: [
-      {
-        label: "Open Web App",
-        icon: "🌐",
-        file: null,
-        url: "https://captain.dinexpos.in",
-        install: true,
-        installHint: "On Android: open in Chrome → tap ⋮ menu → 'Add to Home Screen'. It works like a native app — full screen, no browser bar."
-      },
-      {
-        label: "Android APK",
-        icon: "📲",
-        file: "plato-captain.apk",
-        url: `${GH}/plato-captain.apk`,
-        install: false,
-        installHint: "Download APK on Android phone/tablet → open file → tap Install. Enable 'Install from unknown sources' in Settings if prompted."
-      },
-    ],
-    who: "Captain / Waiter",
-    note: "Best on Android phone or tablet. Install APK for the best native experience.",
-  },
-  {
-    id: "kds",
-    name: "Kitchen Display",
-    tagline: "KOT queue, item status, preparation timers",
-    icon: "📺",
-    color: "#dc2626",
-    bg: "#fff1f2",
-    border: "#fecdd3",
-    platforms: [
-      {
-        label: "Open Web App",
-        icon: "🌐",
-        file: null,
-        url: "https://kds.dinexpos.in",
-        install: true,
-        installHint: "On Android TV / tablet: open in Chrome → tap ⋮ menu → 'Add to Home Screen'. Press F11 on Windows for full-screen kiosk mode."
-      },
-    ],
-    who: "Kitchen staff",
-    note: "Mount a screen at each station. Works on Android, Windows, or any smart TV with Chrome.",
-  },
-  {
-    id: "owner",
-    name: "Owner Dashboard",
-    tagline: "Menu, staff, reports, settings — you are here",
-    icon: "⚙️",
-    color: "#7c3aed",
-    bg: "#f5f3ff",
-    border: "#ddd6fe",
-    platforms: [
-      { label: "app.dinexpos.in", icon: "🌐", file: null, url: null, current: true },
-    ],
-    who: "Owner / Admin",
-    note: "No installation needed — just bookmark this page.",
-  },
-];
+// Static app metadata — versions and download URLs are injected from API
+function buildApps(versions = {}) {
+  const pos     = versions.pos     || {};
+  const captain = versions.captain || {};
+  const kds     = versions.kds     || {};
+
+  return [
+    {
+      id: "pos",
+      name: "POS Terminal",
+      tagline: "Billing counter, cash drawer, receipt printer",
+      icon: "🖥️",
+      color: "#2563eb",
+      bg: "#eff6ff",
+      border: "#bfdbfe",
+      version: pos.version || null,
+      changelog: pos.changelog || null,
+      platforms: [
+        {
+          label: "Open Web App",
+          icon: "🌐",
+          file: null,
+          url: "https://pos.dinexpos.in",
+          installHint: "On Windows: Chrome menu → 'Install Plato POS' → launches as desktop app. On Android: Chrome menu → 'Add to Home Screen'."
+        },
+        ...(pos.downloadUrl ? [{
+          label: "Windows App (.exe)",
+          icon: "💻",
+          file: "Plato-POS-Setup.exe",
+          url: pos.downloadUrl,
+          installHint: "Download and run the installer on any Windows PC. Uninstall old version first if already installed, then run the new installer."
+        }] : []),
+        ...(pos.apkUrl ? [{
+          label: "Android APK",
+          icon: "📱",
+          file: pos.apkUrl.split("/").pop(),
+          url: pos.apkUrl,
+          installHint: "Download APK on Android tablet → open file → tap Install. Enable 'Install from unknown sources' in Settings if prompted."
+        }] : []),
+      ],
+      who: "Cashier / Manager",
+      note: "Works on any Windows PC, Android tablet, or Chrome browser.",
+    },
+    {
+      id: "captain",
+      name: "Captain App",
+      tagline: "Waiter order-taking, table management, KOT",
+      icon: "📱",
+      color: "#059669",
+      bg: "#f0fdf4",
+      border: "#bbf7d0",
+      version: captain.version || null,
+      changelog: captain.changelog || null,
+      platforms: [
+        {
+          label: "Open Web App",
+          icon: "🌐",
+          file: null,
+          url: "https://captain.dinexpos.in",
+          installHint: "On Android: open in Chrome → tap ⋮ menu → 'Add to Home Screen'. It works like a native app — full screen, no browser bar."
+        },
+        ...(captain.apkUrl ? [{
+          label: "Android APK",
+          icon: "📲",
+          file: captain.apkUrl.split("/").pop(),
+          url: captain.apkUrl,
+          installHint: "Download APK on Android phone/tablet → open file → tap Install. Enable 'Install from unknown sources' in Settings if prompted."
+        }] : []),
+      ],
+      who: "Captain / Waiter",
+      note: "Best on Android phone or tablet. Install APK for the best native experience.",
+    },
+    {
+      id: "kds",
+      name: "Kitchen Display",
+      tagline: "KOT queue, item status, preparation timers",
+      icon: "📺",
+      color: "#dc2626",
+      bg: "#fff1f2",
+      border: "#fecdd3",
+      version: kds.version || null,
+      changelog: kds.changelog || null,
+      platforms: [
+        {
+          label: "Open Web App",
+          icon: "🌐",
+          file: null,
+          url: "https://kds.dinexpos.in",
+          installHint: "On Android TV / tablet: open in Chrome → tap ⋮ menu → 'Add to Home Screen'. Press F11 on Windows for full-screen kiosk mode."
+        },
+        ...(kds.apkUrl ? [{
+          label: "Android APK",
+          icon: "📺",
+          file: kds.apkUrl.split("/").pop(),
+          url: kds.apkUrl,
+          installHint: "Download APK on Android tablet → open file → tap Install. Enable 'Install from unknown sources' in Settings if prompted."
+        }] : []),
+      ],
+      who: "Kitchen staff",
+      note: "Mount a screen at each station. Works on Android, Windows, or any smart TV with Chrome.",
+    },
+    {
+      id: "owner",
+      name: "Owner Dashboard",
+      tagline: "Menu, staff, reports, settings — you are here",
+      icon: "⚙️",
+      color: "#7c3aed",
+      bg: "#f5f3ff",
+      border: "#ddd6fe",
+      version: null,
+      changelog: null,
+      platforms: [
+        { label: "app.dinexpos.in", icon: "🌐", file: null, url: null, current: true },
+      ],
+      who: "Owner / Admin",
+      note: "No installation needed — just bookmark this page.",
+    },
+  ];
+}
 
 // ─── Link-code card per outlet ────────────────────────────────────────────────
 
@@ -281,15 +293,21 @@ function PlatformBtn({ platform, appColor }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function AppStorePage() {
-  const [outlets, setOutlets] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [outlets,  setOutlets]  = useState([]);
+  const [versions, setVersions] = useState({});
+  const [loading,  setLoading]  = useState(true);
 
   useEffect(() => {
-    api.get("/outlets")
-      .then(data => setOutlets(Array.isArray(data) ? data.filter(o => o.isActive !== false) : []))
-      .catch(() => setOutlets([]))
-      .finally(() => setLoading(false));
+    Promise.all([
+      api.get("/outlets").catch(() => []),
+      api.get("/app-versions").catch(() => ({})),
+    ]).then(([outletData, versionData]) => {
+      setOutlets(Array.isArray(outletData) ? outletData.filter(o => o.isActive !== false) : []);
+      setVersions(versionData || {});
+    }).finally(() => setLoading(false));
   }, []);
+
+  const APPS = buildApps(versions);
 
   return (
     <>
@@ -329,8 +347,20 @@ export function AppStorePage() {
             >
               <div className="as-app-icon">{app.icon}</div>
               <div className="as-app-meta">
-                <strong className="as-app-name">{app.name}</strong>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <strong className="as-app-name">{app.name}</strong>
+                  {app.version && (
+                    <span style={{ fontSize: 11, fontWeight: 700, background: "var(--app-bg)", color: "var(--app-color)", border: "1.5px solid var(--app-border)", borderRadius: 20, padding: "2px 8px" }}>
+                      v{app.version}
+                    </span>
+                  )}
+                </div>
                 <span className="as-app-tag">{app.tagline}</span>
+                {app.changelog && (
+                  <span style={{ fontSize: 11, color: "#888", marginTop: 2, display: "block" }}>
+                    {app.changelog}
+                  </span>
+                )}
               </div>
 
               <div className="as-platform-list">

@@ -25,6 +25,7 @@ const {
   bulkSetUnitForCategory,
 } = require("./menu.service");
 const { loadRuntimeState, saveRuntimeState } = require("../../db/runtime-state.repository");
+const { checkMenuItemLimit, checkCategoryLimit } = require("../billing/plan-limits");
 
 async function listMenuCategoriesHandler(req, res) {
   const result = await fetchMenuCategories(req.query.outletId);
@@ -69,12 +70,32 @@ function pushSync(req, type = "menu") {
 }
 
 async function createMenuCategoryHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const catLimit = await checkCategoryLimit(tenantId);
+  if (!catLimit.allowed) {
+    return res.status(403).json({
+      error: "category_limit",
+      message: `Free plan limit reached: ${catLimit.limit} categories. Upgrade to add more.`,
+      count: catLimit.count,
+      limit: catLimit.limit,
+    });
+  }
   const result = await createMenuCategory(req.body);
   pushSync(req);
   res.status(201).json(result);
 }
 
 async function createMenuItemHandler(req, res) {
+  const tenantId = req.user?.tenantId || "default";
+  const itemLimit = await checkMenuItemLimit(tenantId);
+  if (!itemLimit.allowed) {
+    return res.status(403).json({
+      error: "item_limit",
+      message: `Free plan limit reached: ${itemLimit.limit} menu items. Upgrade to add more.`,
+      count: itemLimit.count,
+      limit: itemLimit.limit,
+    });
+  }
   const result = await createMenuItem(req.body);
   pushSync(req);
   res.status(201).json(result);
