@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { printKOT, loadPrinters } from "../lib/kotPrint";
+import { getPrintLog, clearPrintLog } from "../lib/posPrintQueue";
+import { lsGet, lsSet } from "../lib/ls";
+import { loadTabletPrinters, saveTabletPrinters, tabletPrintBill } from "../lib/wifiPrint";
 
 // Convert POS local table format → flat API table array
 function areasToApiTables(areas) {
@@ -18,10 +21,38 @@ function areasToApiTables(areas) {
    Tabs: Printers · Tables · Cashier · Display
    ══════════════════════════════════════════════════════════════════════════════ */
 
-const PRINTER_TYPES  = ["KOT Printer", "Bill Printer", "Both (KOT + Bill)"];
+const PRINTER_TYPES  = ["KOT Printer", "Bill Printer", "Both (KOT + Bill)", "Bar Printer", "Dessert Printer"];
 const PRINTER_CONNS  = ["Network (IP)", "USB", "Bluetooth"];
-const PAPER_SIZES    = ["80mm", "58mm"];
-const PRINTER_MODELS = ["Epson TM-T82", "Epson TM-T88", "TVS RP 3160 Gold", "TVS RP 45 Shoppe", "Other"];
+const PAPER_SIZES    = ["80mm", "76mm", "72mm", "58mm"];
+const PRINTER_MODELS = [
+  "Epson TM-T82", "Epson TM-T88",
+  "Bixolon SRP-350", "Bixolon SRP-380",
+  "TVS RP 3160 Gold", "TVS RP 45 Shoppe",
+  "Other",
+];
+
+// Default paper width per model — auto-filled when model is selected
+const MODEL_PAPER = {
+  "Epson TM-T82":    "80mm",
+  "Epson TM-T88":    "80mm",
+  "Bixolon SRP-350": "80mm",
+  "Bixolon SRP-380": "80mm",
+  "TVS RP 3160 Gold":"80mm",
+  "TVS RP 45 Shoppe":"58mm",
+};
+
+// Try to identify a known model from the ESC/POS banner text returned on connect
+function guessModelFromBanner(name) {
+  if (!name) return null;
+  const n = name.toLowerCase();
+  if (n.includes("t82") || n.includes("tm-t82"))        return "Epson TM-T82";
+  if (n.includes("t88") || n.includes("tm-t88"))        return "Epson TM-T88";
+  if (n.includes("srp-350") || n.includes("srp350"))    return "Bixolon SRP-350";
+  if (n.includes("srp-380") || n.includes("srp380"))    return "Bixolon SRP-380";
+  if (n.includes("rp 3160") || n.includes("rp3160"))    return "TVS RP 3160 Gold";
+  if (n.includes("rp 45")   || n.includes("rp45"))      return "TVS RP 45 Shoppe";
+  return null;
+}
 
 function load(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; }
@@ -32,12 +63,176 @@ function save(key, val) {
 }
 
 /* ─── Printer Tab ──────────────────────────────────────────────────────────── */
-// winName: the exact Windows printer device name used by webContents.print({ deviceName }).
-// Shown and editable only when running inside the Electron app.
-const BLANK_FORM = { name: "", type: "KOT Printer", conn: "Network (IP)", ip: "", paper: "80mm", model: "Epson TM-T82", station: "", winName: "" };
-
-// Detect if running inside Electron
+const BLANK_FORM = { name: "", type: "KOT Printer", conn: "Network (IP)", ip: "", paper: "80mm", model: "Epson TM-T82", station: "", winName: "", marginAdjust: 0 };
 const IS_ELECTRON = typeof window !== "undefined" && !!window.electronAPI;
+
+const TABLET_BLANK = { id: null, name: "", type: "Bill Printer", conn: "Network (IP)", ip: "", btAddress: "", paper: "80mm", station: "" };
+const TABLET_TYPES = ["Bill Printer", "KOT Printer", "Both (KOT + Bill)"];
+const TABLET_PAPERS = ["80mm", "76mm", "58mm"];
+const TABLET_CONNS = ["Network (IP)", "Bluetooth", "USB / OTG", "USB Direct"];
+const CONN_ICONS = { "Network (IP)": "📡", "Bluetooth": "🔵", "USB / OTG": "🔌", "USB Direct": "⚡" };
+const CONN_DESC = {
+  "Network (IP)": "Printer on same WiFi — enter its IP address. Routes via Windows POS proxy.",
+  "Bluetooth":    "Paired Bluetooth thermal printer. Enter device address (MAC). Routes via proxy.",
+  "USB / OTG":    "USB OTG cable connected directly to tablet. Proxy auto-detects the USB port.",
+  "USB Direct":   "USB cable to Windows POS which forwards to the printer.",
+};
+
+function TabletPrinterTab() {
+  const [printers, setPrinters] = useState(() => loadTabletPrinters());
+  const [form, setForm] = useState(null); // null = not editing
+  const [proxyIp, setProxyIp] = useState(() => localStorage.getItem("tablet_pos_proxy_ip") || "");
+  const [testMsg, setTestMsg] = useState("");
+
+  function persist(list) {
+    setPrinters(list);
+    saveTabletPrinters(list);
+  }
+
+  function openAdd() { setForm({ ...TABLET_BLANK, id: `p${Date.now()}` }); }
+  function openEdit(p) { setForm({ ...p }); }
+  function saveForm() {
+    if (!form.ip.trim()) { alert("Enter printer IP address"); return; }
+    const exists = printers.find(p => p.id === form.id);
+    persist(exists ? printers.map(p => p.id === form.id ? form : p) : [...printers, form]);
+    setForm(null);
+  }
+  function remove(id) {
+    if (!window.confirm("Remove this printer?")) return;
+    persist(printers.filter(p => p.id !== id));
+  }
+  function saveProxy() {
+    localStorage.setItem("tablet_pos_proxy_ip", proxyIp.trim());
+    setTestMsg("Proxy IP saved.");
+    setTimeout(() => setTestMsg(""), 2000);
+  }
+  async function testPrint() {
+    setTestMsg("Sending test print…");
+    try {
+      const html = `<html><body style="font-family:monospace;font-size:14px;padding:10px">
+        <div style="text-align:center;font-size:16px;font-weight:bold">PLATO POS</div>
+        <div style="text-align:center">Printer Test — OK</div>
+        <br/><div style="text-align:center">${new Date().toLocaleTimeString()}</div>
+      </body></html>`;
+      const res = await tabletPrintBill(html, 80);
+      setTestMsg(res?.ok ? "✓ Test sent!" : "⚠ Fallback to print dialog");
+    } catch (e) {
+      setTestMsg("✕ " + e.message);
+    }
+    setTimeout(() => setTestMsg(""), 3000);
+  }
+
+  return (
+    <div className="pset-section">
+      <div className="pset-section-head">
+        <div><h4>Printer Setup</h4><p>Network (WiFi) thermal printer configuration</p></div>
+        {!form && <button type="button" className="pset-add-btn" onClick={openAdd}>+ Add Printer</button>}
+      </div>
+
+      {/* Proxy IP */}
+      <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: "#166534", marginBottom: 6 }}>Windows POS Proxy IP</div>
+        <div style={{ fontSize: 12, color: "#166534", marginBottom: 8 }}>
+          Enter the local IP of the Windows POS on the same WiFi network. The tablet routes print jobs through it.
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="text" placeholder="e.g. 192.168.1.100" value={proxyIp}
+            onChange={e => setProxyIp(e.target.value)}
+            style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1px solid #ccc", fontSize: 13 }}
+          />
+          <button type="button" className="pset-add-btn" onClick={saveProxy}>Save</button>
+          <button type="button" className="pset-add-btn" onClick={testPrint}>Test Print</button>
+        </div>
+        {testMsg && <div style={{ marginTop: 6, fontSize: 12, color: "#166534" }}>{testMsg}</div>}
+      </div>
+
+      {/* Printer list */}
+      {printers.length === 0 && !form && (
+        <div style={{ textAlign: "center", padding: "24px 0", color: "#9ca3af", fontSize: 13 }}>
+          No printers added yet. Tap "+ Add Printer" to configure.
+        </div>
+      )}
+      {printers.map(p => (
+        <div key={p.id} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 14px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{CONN_ICONS[p.conn] || "🖨"} {p.name || "Unnamed Printer"}</div>
+            <div style={{ fontSize: 12, color: "#6b7280" }}>{p.type} · {p.conn || "Network"} {p.conn === "Bluetooth" ? `· ${p.btAddress || "—"}` : p.ip ? `· ${p.ip}` : ""} · {p.paper}</div>
+            {p.station && <div style={{ fontSize: 11, color: "#9ca3af" }}>Station: {p.station}</div>}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="pset-add-btn" onClick={() => openEdit(p)}>Edit</button>
+            <button type="button" onClick={() => remove(p.id)} style={{ background: "#fee2e2", color: "#b91c1c", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Remove</button>
+          </div>
+        </div>
+      ))}
+
+      {/* Add / Edit form */}
+      {form && (
+        <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 12, padding: "16px 14px", marginTop: 8 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>{printers.find(p => p.id === form.id) ? "Edit Printer" : "Add Printer"}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <label style={{ fontSize: 12, color: "#6b7280" }}>Printer Name</label>
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Kitchen Printer" style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, marginTop: 4, boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: "#6b7280" }}>Connection Type</label>
+              <select value={form.conn} onChange={e => setForm(f => ({ ...f, conn: e.target.value }))}
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, marginTop: 4 }}>
+                {TABLET_CONNS.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          {/* Connection hint */}
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#475569", marginTop: 6 }}>
+            {CONN_ICONS[form.conn]} {CONN_DESC[form.conn]}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+            {form.conn === "Network (IP)" && (
+              <div>
+                <label style={{ fontSize: 12, color: "#6b7280" }}>Printer IP Address</label>
+                <input value={form.ip} onChange={e => setForm(f => ({ ...f, ip: e.target.value }))}
+                  placeholder="e.g. 192.168.1.200" style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, marginTop: 4, boxSizing: "border-box" }} />
+              </div>
+            )}
+            {form.conn === "Bluetooth" && (
+              <div>
+                <label style={{ fontSize: 12, color: "#6b7280" }}>BT Device Address (MAC)</label>
+                <input value={form.btAddress || ""} onChange={e => setForm(f => ({ ...f, btAddress: e.target.value }))}
+                  placeholder="e.g. 00:11:22:33:44:55" style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, marginTop: 4, boxSizing: "border-box" }} />
+              </div>
+            )}
+            <div>
+              <label style={{ fontSize: 12, color: "#6b7280" }}>Type</label>
+              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, marginTop: 4 }}>
+                {TABLET_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: "#6b7280" }}>Paper Size</label>
+              <select value={form.paper} onChange={e => setForm(f => ({ ...f, paper: e.target.value }))}
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, marginTop: 4 }}>
+                {TABLET_PAPERS.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: "#6b7280" }}>Station (for KOT, optional)</label>
+              <input value={form.station} onChange={e => setForm(f => ({ ...f, station: e.target.value }))}
+                placeholder="e.g. Kitchen" style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13, marginTop: 4, boxSizing: "border-box" }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+            <button type="button" className="pset-add-btn" onClick={saveForm}>Save Printer</button>
+            <button type="button" onClick={() => setForm(null)} style={{ background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PrinterTab() {
   const [printers,      setPrinters]      = useState(() => load("pos_printers", []));
@@ -48,22 +243,49 @@ function PrinterTab() {
   const [scanResults,     setScanResults]     = useState(null);
   const [autoInstalling,  setAutoInstalling]  = useState(false);
   const [autoInstallMsg,  setAutoInstallMsg]  = useState(null);
+  // Health status for saved network printers: { [printerId]: "checking"|"online"|"offline" }
+  const [printerHealth,   setPrinterHealth]   = useState({});
+  const [proStep,         setProStep]         = useState(1);
+  const [showAdvanced,    setShowAdvanced]    = useState(false);
   // Kitchen stations — fetch fresh from API on mount; fall back to localStorage cache
-  const [kitchenStations, setKitchenStations] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("pos_kitchen_stations") || "[]"); }
-    catch { return []; }
-  });
+  const [kitchenStations, setKitchenStations] = useState(() => lsGet("pos_kitchen_stations", []));
 
   useEffect(() => {
     api.get("/kitchen-stations")
       .then((stations) => {
         if (Array.isArray(stations) && stations.length > 0) {
           setKitchenStations(stations);
-          localStorage.setItem("pos_kitchen_stations", JSON.stringify(stations));
+          lsSet("pos_kitchen_stations", stations);
         }
       })
       .catch(() => { /* keep cached value */ });
   }, []);
+
+  // Ping all saved network printers when the tab opens to show health status
+  function checkAllPrinters(list) {
+    if (!IS_ELECTRON || !window.electronAPI?.checkPrinter) return;
+    const network = list.filter(p => p.ip?.trim());
+    if (!network.length) return;
+    const init = {};
+    network.forEach(p => { init[p.id] = "checking"; });
+    setPrinterHealth(init);
+    Promise.all(network.map(async p => {
+      try {
+        const res = await window.electronAPI.checkPrinter({ ip: p.ip.trim() });
+        return { id: p.id, status: res.reachable ? "online" : "offline" };
+      } catch {
+        return { id: p.id, status: "offline" };
+      }
+    })).then(results => {
+      setPrinterHealth(prev => {
+        const next = { ...prev };
+        results.forEach(r => { next[r.id] = r.status; });
+        return next;
+      });
+    });
+  }
+
+  useEffect(() => { checkAllPrinters(printers); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function persist(updated) {
     setPrinters(updated);
@@ -73,7 +295,7 @@ function PrinterTab() {
 
   function syncToSharedKey(list) {
     try {
-      const existing = JSON.parse(localStorage.getItem("pos_devices_assignments") || "{}");
+      const existing = lsGet("pos_devices_assignments", {});
       const stationMap = {};
       list.filter(p => p.station).forEach(p => {
         stationMap[p.station] = { id: p.id, name: p.name, model: p.model || "", ip: p.ip || "", status: "online" };
@@ -83,14 +305,67 @@ function PrinterTab() {
         ip: p.ip || "", station: p.station || "", status: "online",
         lastSeen: new Date().toISOString()
       }));
-      localStorage.setItem("pos_devices_assignments", JSON.stringify({ ...existing, devices, stationMap }));
+      lsSet("pos_devices_assignments", { ...existing, devices, stationMap });
     } catch { /* ignore */ }
   }
 
-  function openAdd() { setForm(BLANK_FORM); setEditId(null); setScanResults(null); setAdding(true); }
+  // ── Print log state ───────────────────────────────────────────────────────
+  const [printLog,     setPrintLog]     = useState(() => getPrintLog());
+  const [showPrintLog, setShowPrintLog] = useState(false);
+
+  function refreshLog() { setPrintLog(getPrintLog()); }
+  function handleClearLog() { clearPrintLog(); setPrintLog([]); }
+
+  // ── Standardized test page ────────────────────────────────────────────────
+  function printTestPage(p) {
+    const now     = new Date();
+    const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+    const paperMm = parseInt(p.paper) || 80;
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;width:${paperMm}mm;padding:12px 8px 16px;background:#fff;color:#000}
+.c{text-align:center}.b{font-weight:900}.s{font-size:10px;color:#555;letter-spacing:1px;text-transform:uppercase}
+.sep{border-top:2px dashed #000;margin:8px 0}.sep2{border-top:1px dashed #aaa;margin:6px 0}
+.ok{font-size:18px;font-weight:900;margin-top:8px;letter-spacing:2px}
+.row{display:flex;justify-content:space-between;font-size:11px;margin:2px 0}
+</style></head><body>
+<div class="c"><div class="b" style="font-size:16px">PLATO POS</div>
+<div class="s" style="margin-top:2px">Printer Test</div></div>
+<div class="sep"></div>
+<div class="row"><span>Printer</span><span class="b">${p.name || "—"}</span></div>
+<div class="row"><span>Model</span><span>${p.model || "—"}</span></div>
+<div class="row"><span>Type</span><span>${p.type || "—"}</span></div>
+<div class="row"><span>IP</span><span>${p.ip || "—"}</span></div>
+<div class="row"><span>Paper</span><span>${p.paper || "—"}</span></div>
+<div class="sep2"></div>
+<div class="row"><span>Date</span><span>${dateStr}</span></div>
+<div class="row"><span>Time</span><span>${timeStr}</span></div>
+<div class="sep"></div>
+<div class="c ok">✓ SUCCESS</div>
+</body></html>`;
+
+    if (window.electronAPI?.printHTML) {
+      window.electronAPI.printHTML({
+        html,
+        printerName:  p.winName || p.name || null,
+        printerIp:    p.ip?.trim() || null,
+        paperWidthMm: paperMm,
+      });
+    } else {
+      const w = window.open("", "_blank", `width=340,height=500,scrollbars=no`);
+      if (!w) return;
+      w.document.write(html);
+      w.document.close();
+      w.onload = () => { setTimeout(() => { w.focus(); w.print(); w.onafterprint = () => w.close(); }, 200); };
+    }
+  }
+
+  function openAdd() { setForm(BLANK_FORM); setEditId(null); setScanResults(null); setProStep(1); setShowAdvanced(false); setAdding(true); }
   function openEdit(p) {
-    setForm({ name: p.name, type: p.type, conn: p.conn, ip: p.ip || "", paper: p.paper, model: p.model || "Epson TM-T82", station: p.station || "", winName: p.winName || "" });
-    setEditId(p.id); setScanResults(null); setAdding(true);
+    setForm({ name: p.name, type: p.type, conn: p.conn, ip: p.ip || "", paper: p.paper, model: p.model || "Epson TM-T82", station: p.station || "", winName: p.winName || "", marginAdjust: p.marginAdjust || 0 });
+    setEditId(p.id); setScanResults(null); setShowAdvanced(false); setAdding(true);
   }
 
   function savePrinter() {
@@ -175,49 +450,34 @@ function PrinterTab() {
 
   function pickScannedPrinter(p) {
     if (p.usb) {
-      // USB printer from Windows/lpstat scan:
-      // name goes into the display label AND winName (the exact Windows device name)
       setForm(f => ({ ...f, name: f.name || p.name, conn: "USB", winName: p.name }));
     } else {
-      // Network printer found via port-9100 scan: fill IP and display name
-      setForm(f => ({ ...f, ip: p.ip || f.ip, name: f.name || p.name, conn: "Network (IP)" }));
+      const guessedModel = guessModelFromBanner(p.name);
+      const paperHint    = guessedModel ? MODEL_PAPER[guessedModel] : null;
+      const defaultName  = p.ip ? `Printer ${p.ip.split(".").pop()}` : p.name;
+      setForm(f => ({
+        ...f,
+        ip:   p.ip || f.ip,
+        name: f.name || defaultName,
+        conn: "Network (IP)",
+        ...(guessedModel ? { model: guessedModel } : {}),
+        ...(paperHint    ? { paper: paperHint }    : {}),
+      }));
     }
     setScanResults(null);
   }
 
   function pickWindowsPrinter(p) {
     // Fills winName with the exact Windows printer name required by webContents.print()
-    setForm(f => ({ ...f, winName: p.name, name: f.name || p.name, conn: "USB" }));
+    // Don't overwrite conn — network printers installed via TCP/IP show in the OS spooler
+    // but should keep their Network (IP) conn type, not be forced to USB.
+    setForm(f => ({ ...f, winName: p.name, name: f.name || p.name }));
     setWinPrinterList(null);
   }
 
   // ── Web / browser mode — thermal printing not supported ─────────────────
   if (!IS_ELECTRON) {
-    return (
-      <div className="pset-section">
-        <div className="pset-section-head">
-          <div>
-            <h4>Printer Setup</h4>
-            <p>Thermal printer configuration</p>
-          </div>
-        </div>
-        <div style={{
-          margin: "12px 0", padding: "18px 20px",
-          background: "#fffbeb", border: "1.5px solid #f59e0b",
-          borderRadius: 12
-        }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#92400e", marginBottom: 6 }}>
-            ⚠️ Thermal printer setup requires the Windows desktop app
-          </div>
-          <div style={{ fontSize: 13, color: "#78350f", lineHeight: 1.6 }}>
-            The web browser cannot print directly to thermal printers.<br />
-            KOTs and bills in web mode print via the <strong>browser print dialog</strong>.<br /><br />
-            To use a thermal printer (Epson, TVS, etc.) for silent KOT and bill printing,
-            install the <strong>Plato POS Windows app</strong> on your billing computer.
-          </div>
-        </div>
-      </div>
-    );
+    return <TabletPrinterTab />;
   }
 
   return (
@@ -239,13 +499,28 @@ function PrinterTab() {
 
       {/* Printer list */}
       <div className="pset-printer-list">
-        {printers.map(p => (
+        {printers.map(p => {
+          const health = printerHealth[p.id];
+          const healthDot = p.ip && health ? (
+            <span
+              title={health === "online" ? "Reachable" : health === "checking" ? "Checking…" : "Not reachable — check IP or power"}
+              style={{
+                display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                marginRight: 5, verticalAlign: "middle", flexShrink: 0,
+                background: health === "online" ? "#16a34a" : health === "checking" ? "#f59e0b" : "#dc2626",
+              }}
+            />
+          ) : null;
+          return (
           <div key={p.id} className={`pset-printer-card${p.isDefault ? " default" : ""}`}>
             <div className="pset-printer-icon">🖨️</div>
             <div className="pset-printer-info">
               <div className="pset-printer-name">
-                {p.name}
+                {healthDot}{p.name}
                 {p.isDefault && <span className="pset-default-badge">Default</span>}
+                {health === "offline" && p.ip && (
+                  <span style={{ fontSize: 11, color: "#dc2626", fontWeight: 700, marginLeft: 6 }}>Offline</span>
+                )}
               </div>
               <div className="pset-printer-meta">
                 {p.type} · {p.conn === "Network (IP)" ? (p.ip || "IP not set") : p.conn}
@@ -253,8 +528,8 @@ function PrinterTab() {
                   <span style={{ marginLeft: 4 }}>· IP: {p.ip}</span>
                 )}
                 {' · '}{p.paper}
+                {p.marginAdjust > 0 && <span> · +{p.marginAdjust}px margin</span>}
               </div>
-              {/* Warn if printer is labelled USB but has no IP — may need to be changed to Network */}
               {p.conn !== "Network (IP)" && !p.ip && (
                 <div style={{ fontSize: 11, color: "#d97706", fontWeight: 700, marginTop: 2 }}>
                   ⚠️ If this is a network printer, click Edit → set Connection to "Network (IP)" and enter IP
@@ -264,10 +539,7 @@ function PrinterTab() {
             </div>
             <div className="pset-printer-actions">
               <button type="button" className="pset-txt-btn"
-                onClick={() => printKOT(
-                  { outletName: "Test", tableNumber: "T1", areaName: "Main Hall", kotNumber: "KOT-TEST", guests: 0, isCounter: false },
-                  [{ name: "Test Item 1", quantity: 1, note: "" }, { name: "Test Item 2", quantity: 2 }], p, 1
-                )}>🖨 Test</button>
+                onClick={() => printTestPage(p)}>🖨 Test</button>
               <button type="button" className="pset-txt-btn" onClick={() => openEdit(p)}>Edit</button>
               {!p.isDefault && (
                 <button type="button" className="pset-txt-btn" onClick={() => setDefault(p.id)}>Set Default</button>
@@ -275,232 +547,516 @@ function PrinterTab() {
               <button type="button" className="pset-icon-btn danger" onClick={() => removePrinter(p.id)}>🗑</button>
             </div>
           </div>
-        ))}
+          );
+        })}
         {printers.length === 0 && !adding && (
           <div className="pset-empty">No printers configured yet.<br />Tap <strong>+ Add Printer</strong> to begin.</div>
         )}
       </div>
+
+      {/* Label printer section — always visible below thermal printers */}
+      {!adding && (
+        <div className="pset-label-printer-section">
+          <div className="pset-label-divider">
+            <span>🏷️ Label / Sticker Printer</span>
+          </div>
+          <p className="pset-label-hint">
+            No setup needed. When you print a label, a printer picker will appear automatically.
+            Your choice is remembered — next prints go directly to that printer.
+            Use the <strong>▾</strong> button on any label print button to change printers anytime.
+          </p>
+        </div>
+      )}
+
+      {/* Print Log */}
+      {!adding && (
+        <div className="pset-label-printer-section">
+          <div className="pset-label-divider" style={{ cursor: "pointer" }}
+            onClick={() => { refreshLog(); setShowPrintLog(v => !v); }}>
+            <span>📋 Print Log {printLog.length > 0 && <span style={{ fontSize: 11, opacity: 0.7 }}>({printLog.length})</span>}</span>
+            <span style={{ fontSize: 12, marginLeft: "auto", opacity: 0.6 }}>{showPrintLog ? "▲ Hide" : "▼ Show"}</span>
+          </div>
+          {showPrintLog && (
+            <div>
+              {printLog.length === 0
+                ? <p className="pset-label-hint">No print jobs recorded yet.</p>
+                : (
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 6 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                          <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700 }}>Time</th>
+                          <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700 }}>Type</th>
+                          <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700 }}>Label</th>
+                          <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700 }}>Status</th>
+                          <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700 }}>Printer</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {printLog.map(e => (
+                          <tr key={e.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                            <td style={{ padding: "3px 6px", whiteSpace: "nowrap", color: "#6b7280" }}>
+                              {new Date(e.timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
+                            </td>
+                            <td style={{ padding: "3px 6px" }}>{e.type}</td>
+                            <td style={{ padding: "3px 6px" }}>{e.label}</td>
+                            <td style={{ padding: "3px 6px" }}>
+                              <span style={{ fontWeight: 700, color: e.status === "ok" ? "#16a34a" : "#dc2626" }}>
+                                {e.status === "ok" ? "✓ OK" : "✗ Fail"}
+                              </span>
+                              {e.error && <span style={{ color: "#9ca3af", marginLeft: 4, fontSize: 11 }}>({e.error})</span>}
+                              {e.note && <span style={{ color: "#9ca3af", marginLeft: 4, fontSize: 11 }}>{e.note}</span>}
+                            </td>
+                            <td style={{ padding: "3px 6px", color: "#6b7280" }}>{e.printerName || e.printerIp || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <button type="button" className="pset-txt-btn" style={{ marginTop: 8 }}
+                      onClick={handleClearLog}>Clear log</button>
+                  </div>
+                )
+              }
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Add / Edit form */}
       {adding && (
         <div className="pset-add-form">
           <h5 className="pset-form-title">{editId ? "Edit Printer" : "Add Printer"}</h5>
 
-          {/* ── Printer discovery row ── */}
-          {IS_ELECTRON ? (
-            <div className="pset-scan-row">
-              {/* Network / USB scan via port-9100 + wmic/lpstat */}
-              <button type="button" className="pset-scan-btn" onClick={handleScan} disabled={scanning}>
-                {scanning ? "Scanning…" : "🔍 Scan Network & USB"}
-              </button>
-              {/* List Windows-installed printers for winName selection */}
-              <button type="button" className="pset-scan-btn" onClick={handleListWindowsPrinters} disabled={loadingWinPrinters}
-                style={{ marginLeft: 8 }}>
-                {loadingWinPrinters ? "Loading…" : "📋 List Windows Printers"}
-              </button>
-            </div>
-          ) : (
-            // Browser / web mode — printer auto-detect is not supported.
-            // Explain the correct setup path to the staff member.
-            <div className="pset-scan-note">
-              <strong>Windows Electron app required for auto-detect.</strong><br />
-              For network printers: enter the IP address manually below.<br />
-              For USB printers: install the Epson / TVS driver on Windows, then enter
-              the exact printer name shown in <em>Windows → Devices and Printers</em>.
-            </div>
-          )}
-
-          {/* Network scan results */}
-          {scanResults !== null && (
-            scanResults.length === 0 ? (
-              <div className="pset-scan-empty">No printers found on port 9100. Enter IP manually for network printers, or use "List Windows Printers" for USB.</div>
-            ) : (
-              <div className="pset-scan-results">
-                <p className="pset-scan-results-label">Found {scanResults.length} printer{scanResults.length !== 1 ? "s" : ""} — tap to select:</p>
-                {scanResults.map((p, i) => (
-                  <button key={i} type="button" className="pset-scan-result-item" onClick={() => pickScannedPrinter(p)}>
-                    <span className="pset-scan-result-icon">🖨️</span>
-                    <span>
-                      <strong>{p.name}</strong>
-                      <span className="pset-scan-result-ip">{p.ip}{p.usb ? " (USB)" : ""}</span>
-                    </span>
-                  </button>
-                ))}
+          {editId ? (
+            /* ═══ EDIT: full form ═══════════════════════════════════════════ */
+            <>
+              {/* IP / Connection */}
+              <div className="pset-form-row">
+                <div className="pset-form-field">
+                  <label>Printer name</label>
+                  <input className="pset-input" value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+                </div>
+                <div className="pset-form-field">
+                  <label>Network IP address</label>
+                  <input className="pset-input" placeholder="192.168.1.xxx"
+                    value={form.ip} onChange={e => setForm(f => ({ ...f, ip: e.target.value }))} />
+                </div>
               </div>
-            )
-          )}
 
-          {/* Windows printer list (from getPrinters IPC) */}
-          {winPrinterList !== null && (
-            winPrinterList.length === 0 ? (
-              <div className="pset-scan-empty">No printers found in Windows. Install the printer driver first.</div>
-            ) : (
-              <div className="pset-scan-results">
-                <p className="pset-scan-results-label">
-                  Windows printers — tap to set as the print target:
-                </p>
-                {winPrinterList.map((p, i) => (
-                  <button key={i} type="button" className="pset-scan-result-item" onClick={() => pickWindowsPrinter(p)}>
-                    <span className="pset-scan-result-icon">🖨️</span>
-                    <span>
-                      <strong>{p.name}</strong>
-                      {p.isDefault && <span className="pset-default-badge" style={{ marginLeft: 6 }}>Default</span>}
-                    </span>
-                  </button>
-                ))}
+              {/* Role cards */}
+              <div className="pset-form-field" style={{ marginTop: 4 }}>
+                <label>Role</label>
+                <div className="pset-role-cards">
+                  {[
+                    { role: "Bill Printer",      icon: "🧾", label: "Bills",   sub: "Receipts" },
+                    { role: "KOT Printer",       icon: "📋", label: "KOT",     sub: "Kitchen orders" },
+                    { role: "Both (KOT + Bill)", icon: "🍽️", label: "Both",    sub: "Bills + KOT" },
+                  ].map(({ role, icon, label, sub }) => (
+                    <button key={role} type="button"
+                      className={`pset-role-card${form.type === role ? " selected" : ""}`}
+                      onClick={() => setForm(f => ({ ...f, type: role }))}>
+                      <span className="pset-role-icon">{icon}</span>
+                      <span className="pset-role-label">{label}</span>
+                      <span className="pset-role-sub">{sub}</span>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  {["Bar Printer", "Dessert Printer"].map(t => (
+                    <button key={t} type="button"
+                      className={`pset-paper-chip${form.type === t ? " selected" : ""}`}
+                      onClick={() => setForm(f => ({ ...f, type: t }))}>
+                      {t === "Bar Printer" ? "🍺" : "🍰"} {t}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )
-          )}
 
-          <div className="pset-form-row">
-            <div className="pset-form-field">
-              <label>Printer name</label>
-              <input className="pset-input" placeholder="e.g. Hot Kitchen Printer"
-                value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
-            </div>
-            <div className="pset-form-field">
-              <label>Type</label>
-              <select className="pset-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                {PRINTER_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Kitchen station — dropdown from Owner Web stations */}
-          <div className="pset-form-row">
-            <div className="pset-form-field">
-              <label>Kitchen station</label>
-              <select className="pset-select" value={form.station} onChange={e => setForm(f => ({ ...f, station: e.target.value }))}>
-                <option value="">— select station —</option>
-                {kitchenStations.map(s => (
-                  <option key={s.id} value={s.name}>{s.name}</option>
-                ))}
-                <option value="Bills & KOTs">Bills &amp; KOTs</option>
-              </select>
-              <span className="pset-field-hint">
-                {kitchenStations.length === 0
-                  ? "No stations found — create them in Owner Web → Kitchen Stations first"
-                  : "KOTs for this station's categories route to this printer"}
-              </span>
-            </div>
-          </div>
-
-          <div className="pset-form-row">
-            <div className="pset-form-field">
-              <label>Connection</label>
-              <select className="pset-select" value={form.conn} onChange={e => setForm(f => ({ ...f, conn: e.target.value }))}>
-                {PRINTER_CONNS.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="pset-form-field">
-              <label>
-                Network IP address
-                {form.conn !== "Network (IP)" && (
-                  <span style={{ fontWeight: 400, color: "#999", marginLeft: 4 }}>(optional)</span>
-                )}
-              </label>
-              <input className="pset-input" placeholder="192.168.1.xxx"
-                value={form.ip} onChange={e => setForm(f => ({ ...f, ip: e.target.value }))} />
-              {form.conn !== "Network (IP)" && (
-                <span className="pset-field-hint">
-                  If this is a network/WiFi printer, enter its IP here for direct printing (no Windows driver needed).
-                </span>
+              {/* Station — only for KOT-type printers */}
+              {(form.type === "KOT Printer" || form.type === "Both (KOT + Bill)" || form.type === "Bar Printer" || form.type === "Dessert Printer") && (
+                <div className="pset-form-field">
+                  <label>Kitchen station</label>
+                  <select className="pset-select" value={form.station} onChange={e => setForm(f => ({ ...f, station: e.target.value }))}>
+                    <option value="">— select station —</option>
+                    {kitchenStations.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    <option value="Bills & KOTs">Bills &amp; KOTs</option>
+                  </select>
+                  <span className="pset-field-hint">KOTs for this station route to this printer</span>
+                </div>
               )}
-            </div>
-          </div>
 
-          <div className="pset-form-row">
-            <div className="pset-form-field">
-              <label>Printer model</label>
-              <select className="pset-select" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))}>
-                {PRINTER_MODELS.map(m => <option key={m}>{m}</option>)}
-              </select>
-            </div>
-            <div className="pset-form-field">
-              <label>Paper size</label>
-              <select className="pset-select" value={form.paper} onChange={e => setForm(f => ({ ...f, paper: e.target.value }))}>
-                {PAPER_SIZES.map(s => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Network IP entered → show Auto-Setup button */}
-          {IS_ELECTRON && form.ip?.trim() && (
-            <div className="pset-form-row">
-              <div className="pset-form-field">
-                <label>Quick Windows setup (network printers)</label>
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <button type="button" className="pset-save-btn"
-                    onClick={handleAutoInstall} disabled={autoInstalling}>
-                    {autoInstalling ? "Installing…" : "🖨️ Auto-Setup in Windows"}
-                  </button>
-                  {autoInstallMsg && (
-                    <span style={{
-                      fontSize: 13, fontWeight: 700,
-                      color: autoInstallMsg.ok ? "#16a34a" : "#dc2626"
+              {/* Model + Paper */}
+              <div className="pset-form-row">
+                <div className="pset-form-field">
+                  <label>Printer model</label>
+                  <select className="pset-select" value={form.model}
+                    onChange={e => {
+                      const m = e.target.value;
+                      const ph = MODEL_PAPER[m];
+                      setForm(f => ({ ...f, model: m, ...(ph ? { paper: ph } : {}) }));
                     }}>
-                      {autoInstallMsg.msg}
-                    </span>
+                    {PRINTER_MODELS.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="pset-form-field">
+                  <label>Paper size</label>
+                  <div className="pset-paper-chips">
+                    {["80mm", "58mm"].map(s => (
+                      <button key={s} type="button"
+                        className={`pset-paper-chip${form.paper === s ? " selected" : ""}`}
+                        onClick={() => setForm(f => ({ ...f, paper: s }))}>{s}</button>
+                    ))}
+                    <button type="button"
+                      className={`pset-paper-chip${!["80mm","58mm"].includes(form.paper) ? " selected" : ""}`}
+                      onClick={() => setForm(f => ({ ...f, paper: "76mm" }))}>Other</button>
+                  </div>
+                  {!["80mm","58mm"].includes(form.paper) && (
+                    <select className="pset-select" style={{ marginTop: 6 }} value={form.paper}
+                      onChange={e => setForm(f => ({ ...f, paper: e.target.value }))}>
+                      {PAPER_SIZES.map(s => <option key={s}>{s}</option>)}
+                    </select>
                   )}
                 </div>
-                <span className="pset-field-hint">
-                  Auto-registers this printer in Windows (for USB-port apps). For network printing,
-                  just saving the IP address above is enough — no Windows driver needed.
-                  {form.winName && <> Installed as: <strong>{form.winName}</strong></>}
-                </span>
               </div>
-            </div>
-          )}
 
-          {/* USB / Bluetooth → manual Windows printer name field */}
-          {IS_ELECTRON && (
-            <div className="pset-form-row">
-              <div className="pset-form-field">
-                <label>Windows printer name <span style={{ fontWeight: 400, color: "#999" }}>(USB only, optional)</span></label>
-                <input
-                  className="pset-input"
-                  placeholder="e.g. EPSON TM-T82 Receipt"
-                  value={form.winName}
-                  onChange={e => setForm(f => ({ ...f, winName: e.target.value }))}
-                />
-                <span className="pset-field-hint">
-                  For USB printers only — must match Windows → Devices and Printers exactly.
-                  Use "List Windows Printers" above to auto-fill.
-                  Leave blank if using network (IP) printing.
-                </span>
+              {/* Advanced toggle */}
+              <button type="button" className="pset-advanced-toggle"
+                onClick={() => setShowAdvanced(v => !v)}>
+                {showAdvanced ? "▲ Hide advanced" : "▼ Advanced options"}
+              </button>
+              {showAdvanced && (
+                <div className="pset-advanced-body">
+                  <div className="pset-form-field">
+                    <label>Right margin adjust (px)</label>
+                    <div className="pset-margin-stepper">
+                      <button type="button" className="pset-margin-btn"
+                        onClick={() => setForm(f => ({ ...f, marginAdjust: Math.max(0, (f.marginAdjust||0) - 2) }))}>−</button>
+                      <span className="pset-margin-val">{form.marginAdjust || 0} px</span>
+                      <button type="button" className="pset-margin-btn"
+                        onClick={() => setForm(f => ({ ...f, marginAdjust: Math.min(20, (f.marginAdjust||0) + 2) }))}>+</button>
+                    </div>
+                    <span className="pset-field-hint">If amounts cut off on right edge, increase this. Default 0 for Epson.</span>
+                  </div>
+                  {IS_ELECTRON && (
+                    <>
+                      <div className="pset-form-field">
+                        <label>Windows printer name <span style={{ fontWeight: 400, color: "#999" }}>(USB only)</span></label>
+                        <input className="pset-input" placeholder="e.g. EPSON TM-T82 Receipt"
+                          value={form.winName} onChange={e => setForm(f => ({ ...f, winName: e.target.value }))} />
+                        <span className="pset-field-hint">Must match Windows → Devices and Printers exactly.</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <button type="button" className="pset-scan-btn" onClick={handleListWindowsPrinters} disabled={loadingWinPrinters}>
+                          {loadingWinPrinters ? "Loading…" : "📋 List Windows Printers"}
+                        </button>
+                        {form.ip?.trim() && (
+                          <button type="button" className="pset-scan-btn" onClick={handleAutoInstall} disabled={autoInstalling}>
+                            {autoInstalling ? "Installing…" : "🖨️ Auto-Setup in Windows"}
+                          </button>
+                        )}
+                        {autoInstallMsg && (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: autoInstallMsg.ok ? "#16a34a" : "#dc2626" }}>
+                            {autoInstallMsg.msg}
+                          </span>
+                        )}
+                      </div>
+                      {winPrinterList !== null && winPrinterList.length > 0 && (
+                        <div className="pset-scan-results">
+                          {winPrinterList.map((p, i) => (
+                            <button key={i} type="button" className="pset-scan-result-item" onClick={() => pickWindowsPrinter(p)}>
+                              <span className="pset-scan-result-icon">🖨️</span>
+                              <span><strong>{p.name}</strong>{p.isDefault && <span className="pset-default-badge" style={{ marginLeft: 6 }}>Default</span>}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="pset-form-actions" style={{ marginTop: 14 }}>
+                <button type="button" className="pset-cancel-btn"
+                  onClick={() => { setAdding(false); setEditId(null); setScanResults(null); setWinPrinterList(null); }}>Cancel</button>
+                {(form.ip?.trim() || form.winName?.trim()) && (
+                  <button type="button" className="pset-scan-btn"
+                    onClick={() => printTestPage({ ...form, id: "__test__" })}>
+                    🖨 Test Print
+                  </button>
+                )}
+                <button type="button" className="pset-save-btn" onClick={savePrinter}>Save Changes</button>
               </div>
-            </div>
-          )}
+            </>
+          ) : (
+            /* ═══ ADD: 3-step wizard ════════════════════════════════════════ */
+            <>
+              {/* Step indicator */}
+              <div className="pset-wizard-steps">
+                {[["Find", 1], ["Configure", 2], ["Role", 3]].map(([label, n]) => (
+                  <div key={n} className={`pset-wstep${proStep === n ? " active" : proStep > n ? " done" : ""}`}>
+                    <span className="pset-wstep-num">{proStep > n ? "✓" : n}</span>
+                    <span className="pset-wstep-label">{label}</span>
+                  </div>
+                ))}
+              </div>
 
-          <div className="pset-form-actions">
-            <button type="button" className="pset-cancel-btn"
-              onClick={() => { setAdding(false); setEditId(null); setScanResults(null); setWinPrinterList(null); }}>Cancel</button>
-            <button type="button" className="pset-save-btn" onClick={savePrinter}>
-              {editId ? "Save Changes" : "Add Printer"}
-            </button>
-          </div>
+              {/* ─ Step 1: Find printer ──────────────────────────────────── */}
+              {proStep === 1 && (
+                <>
+                  <div className="pset-discover-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                    <button type="button" className="pset-discover-card" onClick={handleScan} disabled={scanning}>
+                      <span className="pset-discover-icon">📡</span>
+                      <span className="pset-discover-label">{scanning ? "Scanning…" : "Scan Network"}</span>
+                      <span className="pset-discover-sub">Auto-find on Wi-Fi</span>
+                    </button>
+                    <button type="button" className="pset-discover-card" onClick={() => { setForm(f => ({ ...f, conn: "USB" })); setScanResults(null); handleListWindowsPrinters(); setProStep(2); }}>
+                      <span className="pset-discover-icon">🖨️</span>
+                      <span className="pset-discover-label">USB Printer</span>
+                      <span className="pset-discover-sub">Connected by cable</span>
+                    </button>
+                  </div>
+
+                  {scanning && (
+                    <div className="pset-scan-empty">Scanning network… may take 15–30 seconds</div>
+                  )}
+
+                  {scanResults !== null && (
+                    scanResults.length === 0 ? (
+                      <div className="pset-scan-empty">No printers found on port 9100.</div>
+                    ) : (
+                      <div className="pset-scan-results">
+                        {scanResults.filter(p => !p.usb).length > 0 && (
+                          <>
+                            <p className="pset-scan-results-label">Network printers found — tap to select:</p>
+                            {scanResults.filter(p => !p.usb).map((p, i) => (
+                              <button key={i} type="button" className="pset-scan-result-item"
+                                onClick={() => { pickScannedPrinter(p); setProStep(2); }}>
+                                <span className="pset-scan-result-icon">📡</span>
+                                <span>
+                                  <strong style={{ fontFamily: "monospace" }}>{p.ip}</strong>
+                                  <span className="pset-scan-result-ip"> · Network · port 9100</span>
+                                </span>
+                                <span style={{ marginLeft: "auto", color: "#16a34a", fontWeight: 700, fontSize: 12 }}>Use this →</span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                        {scanResults.filter(p => p.usb).length > 0 && (
+                          <>
+                            <p className="pset-scan-results-label" style={{ marginTop: 8 }}>USB printers found:</p>
+                            {scanResults.filter(p => p.usb).map((p, i) => (
+                              <button key={`usb${i}`} type="button" className="pset-scan-result-item"
+                                onClick={() => { pickScannedPrinter(p); setProStep(2); }}>
+                                <span className="pset-scan-result-icon">🖨️</span>
+                                <span>
+                                  <strong>{p.name}</strong>
+                                  <span className="pset-scan-result-ip"> · USB</span>
+                                </span>
+                                <span style={{ marginLeft: "auto", color: "#16a34a", fontWeight: 700, fontSize: 12 }}>Use this →</span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )
+                  )}
+
+                  {/* Manual IP fallback — always shown below scan results */}
+                  <div className="pset-manual-ip-row">
+                    <span className="pset-manual-ip-label">Know the IP?</span>
+                    <input className="pset-input pset-manual-ip-input" placeholder="192.168.1.xxx"
+                      value={form.ip}
+                      onChange={e => setForm(f => ({ ...f, ip: e.target.value }))} />
+                    <button type="button" className="pset-save-btn"
+                      style={{ padding: "6px 14px", fontSize: 13 }}
+                      disabled={!form.ip.trim()}
+                      onClick={() => { setForm(f => ({ ...f, conn: "Network (IP)" })); setProStep(2); }}>
+                      Next →
+                    </button>
+                  </div>
+
+                  <div className="pset-form-actions" style={{ marginTop: 8 }}>
+                    <button type="button" className="pset-cancel-btn"
+                      onClick={() => { setAdding(false); setScanResults(null); }}>Cancel</button>
+                  </div>
+                </>
+              )}
+
+              {/* ─ Step 2: Configure ─────────────────────────────────────── */}
+              {proStep === 2 && (
+                <>
+                  {form.conn === "Network (IP)" ? (
+                    form.ip ? (
+                      <div className="pset-ip-chip">
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", display: "inline-block" }} />
+                        {form.ip}
+                        <button type="button" style={{ marginLeft: 8, fontSize: 11, color: "#6b7280", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+                          onClick={() => { setForm(f => ({ ...f, ip: "" })); setScanResults(null); setProStep(1); }}>change</button>
+                      </div>
+                    ) : (
+                      <div className="pset-form-field" style={{ marginBottom: 12 }}>
+                        <label>IP Address</label>
+                        <input className="pset-input" placeholder="192.168.1.xxx" value={form.ip}
+                          onChange={e => setForm(f => ({ ...f, ip: e.target.value }))} autoFocus />
+                        <span className="pset-field-hint">Enter the printer's network IP address</span>
+                      </div>
+                    )
+                  ) : (
+                    /* USB — show Windows printer list */
+                    <>
+                      {loadingWinPrinters && <div className="pset-scan-empty">Loading Windows printers…</div>}
+                      {winPrinterList !== null && (
+                        winPrinterList.length === 0 ? (
+                          <div className="pset-scan-empty">No printers found in Windows. Install the printer driver first.</div>
+                        ) : (
+                          <div className="pset-scan-results" style={{ marginBottom: 10 }}>
+                            <p className="pset-scan-results-label">Select your USB printer:</p>
+                            {winPrinterList.map((p, i) => (
+                              <button key={i} type="button" className="pset-scan-result-item" onClick={() => pickWindowsPrinter(p)}>
+                                <span className="pset-scan-result-icon">🖨️</span>
+                                <span><strong>{p.name}</strong>{p.isDefault && <span className="pset-default-badge" style={{ marginLeft: 6 }}>Default</span>}</span>
+                                <span style={{ marginLeft: "auto", color: "#16a34a", fontWeight: 700, fontSize: 12 }}>Select →</span>
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      )}
+                    </>
+                  )}
+
+                  {/* Printer name */}
+                  <div className="pset-form-field" style={{ marginBottom: 12 }}>
+                    <label>Printer name</label>
+                    <input className="pset-input" placeholder="e.g. Hot Kitchen Printer" value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      autoFocus={!!form.ip} />
+                  </div>
+
+                  {/* Model → paper auto-fill */}
+                  <div className="pset-form-row">
+                    <div className="pset-form-field">
+                      <label>Printer model</label>
+                      <select className="pset-select" value={form.model}
+                        onChange={e => {
+                          const m = e.target.value;
+                          const ph = MODEL_PAPER[m];
+                          setForm(f => ({ ...f, model: m, ...(ph ? { paper: ph } : {}) }));
+                        }}>
+                        {PRINTER_MODELS.map(m => <option key={m}>{m}</option>)}
+                      </select>
+                    </div>
+                    <div className="pset-form-field">
+                      <label>Paper size</label>
+                      <div className="pset-paper-chips">
+                        {["80mm", "58mm"].map(s => (
+                          <button key={s} type="button"
+                            className={`pset-paper-chip${form.paper === s ? " selected" : ""}`}
+                            onClick={() => setForm(f => ({ ...f, paper: s }))}>{s}</button>
+                        ))}
+                        <button type="button"
+                          className={`pset-paper-chip${!["80mm","58mm"].includes(form.paper) ? " selected" : ""}`}
+                          onClick={() => setForm(f => ({ ...f, paper: "76mm" }))}>Other</button>
+                      </div>
+                      {!["80mm","58mm"].includes(form.paper) && (
+                        <select className="pset-select" style={{ marginTop: 6 }} value={form.paper}
+                          onChange={e => setForm(f => ({ ...f, paper: e.target.value }))}>
+                          {PAPER_SIZES.map(s => <option key={s}>{s}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pset-form-actions" style={{ marginTop: 14 }}>
+                    <button type="button" className="pset-cancel-btn" onClick={() => setProStep(1)}>← Back</button>
+                    {(form.ip?.trim() || form.winName?.trim()) && (
+                      <button type="button" className="pset-scan-btn"
+                        onClick={() => printTestPage({ ...form, id: "__test__" })}>
+                        🖨 Test Print
+                      </button>
+                    )}
+                    <button type="button" className="pset-save-btn"
+                      onClick={() => { if (form.name.trim()) setProStep(3); }}
+                      disabled={!form.name.trim()}>
+                      Next →
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ─ Step 3: Role ──────────────────────────────────────────── */}
+              {proStep === 3 && (
+                <>
+                  <p style={{ fontSize: 13, color: "var(--sq-muted)", marginBottom: 12 }}>
+                    What should <strong style={{ color: "var(--sq-text)" }}>{form.name}</strong> print?
+                  </p>
+
+                  <div className="pset-role-cards">
+                    {[
+                      { role: "Bill Printer",      icon: "🧾", label: "Bills",          sub: "Receipts & settlements" },
+                      { role: "KOT Printer",       icon: "📋", label: "Kitchen Orders", sub: "KOTs to kitchen" },
+                      { role: "Both (KOT + Bill)", icon: "🍽️", label: "Both",           sub: "Bills + KOTs" },
+                    ].map(({ role, icon, label, sub }) => (
+                      <button key={role} type="button"
+                        className={`pset-role-card${form.type === role ? " selected" : ""}`}
+                        onClick={() => setForm(f => ({ ...f, type: role }))}>
+                        <span className="pset-role-icon">{icon}</span>
+                        <span className="pset-role-label">{label}</span>
+                        <span className="pset-role-sub">{sub}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Bar / Dessert specialty options */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    {["Bar Printer", "Dessert Printer"].map(t => (
+                      <button key={t} type="button"
+                        className={`pset-paper-chip${form.type === t ? " selected" : ""}`}
+                        onClick={() => setForm(f => ({ ...f, type: t }))}>
+                        {t === "Bar Printer" ? "🍺" : "🍰"} {t}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Kitchen station — only for KOT-type */}
+                  {(form.type === "KOT Printer" || form.type === "Both (KOT + Bill)" || form.type === "Bar Printer" || form.type === "Dessert Printer") && (
+                    <div className="pset-form-field" style={{ marginTop: 14 }}>
+                      <label>Kitchen station</label>
+                      <select className="pset-select" value={form.station}
+                        onChange={e => setForm(f => ({ ...f, station: e.target.value }))}>
+                        <option value="">— select station (optional) —</option>
+                        {kitchenStations.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        <option value="Bills & KOTs">Bills &amp; KOTs</option>
+                      </select>
+                      <span className="pset-field-hint">
+                        {kitchenStations.length === 0
+                          ? "No stations yet — create them in Owner Web → Kitchen Stations"
+                          : "KOTs for this station's items route to this printer"}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="pset-form-actions" style={{ marginTop: 14 }}>
+                    <button type="button" className="pset-cancel-btn" onClick={() => setProStep(2)}>← Back</button>
+                    <button type="button" className="pset-save-btn" onClick={savePrinter}
+                      disabled={!form.type}>
+                      Save Printer
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
 
+
 /* ─── Tables Tab ────────────────────────────────────────────────────────────── */
 function TablesTab() {
-  const [areas, setAreas] = useState(() =>
-    load("pos_table_config", [
-      { id: "a1", name: "Main Hall",  tables: [
-        { id: "t1", number: "T1", seats: 4 },
-        { id: "t2", number: "T2", seats: 4 },
-        { id: "t3", number: "T3", seats: 6 },
-        { id: "t4", number: "T4", seats: 2 },
-      ]},
-      { id: "a2", name: "Terrace", tables: [
-        { id: "t5", number: "T5", seats: 4 },
-        { id: "t6", number: "T6", seats: 4 },
-      ]}
-    ])
-  );
+  const [areas, setAreas] = useState(() => lsGet("pos_table_config", []));
   const [activeArea,  setActiveArea]  = useState(areas[0]?.id || null);
   const [newAreaName, setNewAreaName] = useState("");
   const [newTable,    setNewTable]    = useState({ number: "", seats: "4" });
@@ -517,7 +1073,7 @@ function TablesTab() {
 
   function persist(updated) {
     setAreas(updated);
-    save("pos_table_config", updated);
+    lsSet("pos_table_config", updated);
     // Sync to API so owner-web stays in sync
     if (outletId) {
       const apiTables = areasToApiTables(updated);
@@ -659,7 +1215,7 @@ function CashierTab({ cashierName, activeShift }) {
     { icon: "🔒", label: "Reports & analytics — Owner-web only"          },
   ];
 
-  const movements = load("pos_cash_movements", [])
+  const movements = lsGet("pos_cash_movements", [])
     .filter(m => m.shiftId === activeShift?.id);
 
   return (
@@ -710,7 +1266,7 @@ function CashierTab({ cashierName, activeShift }) {
         ))}
       </div>
 
-      {/* ── Forget device ────────────────────────────────────────────────── */}
+      {/* ── Device Setup ─────────────────────────────────────────────────── */}
       <div className="pset-section-head" style={{ marginTop: 28 }}>
         <div><h4>Device Setup</h4><p>Branch link code and device registration</p></div>
       </div>
@@ -722,21 +1278,14 @@ function CashierTab({ cashierName, activeShift }) {
               <p className="pset-device-branch">
                 <span>Connected:</span> <strong>{cfg.outletName}</strong>
                 <span className="pset-device-code"> · {cfg.outletCode}</span>
+                <span className="pset-device-code"> · {cfg.workArea ? `${cfg.workArea} terminal` : "Full Access"}</span>
               </p>
             ) : <p style={{ color: "#ef4444", fontSize: 13 }}>No branch linked</p>;
           } catch { return null; }
         })()}
-        <button
-          className="pset-forget-btn"
-          onClick={() => {
-            if (window.confirm("Unlink this device? You will need a new branch code on next launch.")) {
-              localStorage.removeItem("pos_branch_config");
-              window.location.reload();
-            }
-          }}
-        >
-          🔗 Forget this device &amp; re-link
-        </button>
+        <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
+          To move this device to a different outlet, contact your manager — they can unlink it from the Owner Dashboard.
+        </p>
       </div>
 
       {/* ── Clear order cache ─────────────────────────────────────────────── */}
@@ -748,24 +1297,42 @@ function CashierTab({ cashierName, activeShift }) {
       </div>
       <div className="pset-device-info">
         <p style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
-          ⚠️ Clears active order cache only. Printers, settings, and branch link are <strong>not</strong> affected.
+          ⚠️ Clears orders, menus, KOT queues and app cache. Branch link, printers, and display settings are <strong>kept</strong>.
         </p>
         <button
           className="pset-forget-btn"
           style={{ background: "#fef2f2", color: "#dc2626", borderColor: "#fca5a5" }}
-          onClick={() => {
-            if (window.confirm("Clear all cached order data on this device?\n\nThis removes ghost items from local storage. Settings, printers, and branch link are kept.")) {
-              [
-                "pos_active_orders",
-                "pos_kot_queue",
-                "pos_closed_order_queue",
-                "pos_closed_orders",
-              ].forEach(k => localStorage.removeItem(k));
+          onClick={async () => {
+            if (window.confirm("Clear all cached data on this device?\n\nThis removes ghost orders, stale menus, KOT queues and browser cache. Branch link, printers, and display settings are kept.")) {
+              const KEEP = new Set([
+                "pos_branch_config",
+                "pos_token",
+                "pos_device_id",
+                "pos_printers",
+                "pos_display_settings",
+                "pos_dark_mode",
+                "pos_devices_assignments",
+                "pos_label_printer",
+                "pos_last_label_printer",
+              ]);
+              const cfg = (() => { try { return JSON.parse(localStorage.getItem("pos_branch_config") || "null"); } catch { return null; } })();
+              if (cfg?.outletId) {
+                const prefix = `outlet_${cfg.outletId}_`;
+                Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k => { try { localStorage.removeItem(k); } catch {} });
+              }
+              Object.keys(localStorage)
+                .filter(k => k.startsWith("pos_") && !KEEP.has(k))
+                .forEach(k => { try { localStorage.removeItem(k); } catch {} });
+              // Clear service worker caches so stale assets are re-fetched
+              if ("caches" in window) {
+                const names = await caches.keys();
+                await Promise.all(names.map(n => caches.delete(n)));
+              }
               window.location.reload();
             }
           }}
         >
-          🗑️ Clear Order Cache &amp; Reload
+          🗑️ Clear Cache &amp; Reload
         </button>
       </div>
     </div>
@@ -846,7 +1413,7 @@ function DisplayTab() {
 
 /* ─── Security Tab ──────────────────────────────────────────────────────────── */
 function SecurityTab() {
-  const [sec,        setSec]        = useState(() => load("pos_security", { managerPin: "1234" }));
+  const [sec,        setSec]        = useState(() => lsGet("pos_security", { managerPin: "1234" }));
   const [pinInput,   setPinInput]   = useState("");
   const [pinInput2,  setPinInput2]  = useState("");
   const [saved,      setSaved]      = useState(false);
@@ -857,7 +1424,7 @@ function SecurityTab() {
     if (!/^\d{4,6}$/.test(pinInput)) { setPinError("PIN must be 4–6 digits."); return; }
     if (pinInput !== pinInput2)       { setPinError("PINs do not match."); return; }
     const updated = { ...sec, managerPin: pinInput };
-    save("pos_security", updated);
+    lsSet("pos_security", updated);
     setSec(updated);
     setPinInput("");
     setPinInput2("");

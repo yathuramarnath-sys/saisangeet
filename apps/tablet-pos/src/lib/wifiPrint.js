@@ -60,7 +60,7 @@ function getKotPrinterForStation(stationName) {
  * The proxy (running on the Windows POS or a Raspberry Pi) converts HTML → ESC/POS
  * and forwards the bytes to the printer via TCP port 9100.
  */
-async function sendViaPosProxy(html, printerIp, paperWidthMm = 80) {
+async function sendViaPosProxy(html, printerIp, paperWidthMm = 80, printer = null) {
   const proxyIp = localStorage.getItem("tablet_pos_proxy_ip")?.trim();
   if (!proxyIp) throw new Error("No proxy IP configured. Set POS IP in Settings.");
 
@@ -71,7 +71,7 @@ async function sendViaPosProxy(html, printerIp, paperWidthMm = 80) {
     const res = await fetch(`http://${proxyIp}:4001/print`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ html, printerIp, paperWidthMm }),
+      body: JSON.stringify({ html, printerIp, paperWidthMm, connType: printer?.conn, btAddress: printer?.btAddress }),
       signal: controller.signal,
     });
     if (!res.ok) throw new Error(`Proxy responded ${res.status}`);
@@ -84,10 +84,10 @@ async function sendViaPosProxy(html, printerIp, paperWidthMm = 80) {
 /**
  * Main print function — tries proxy, falls back to system print dialog.
  */
-async function wifiPrint(html, printerIp, paperWidthMm = 80) {
+async function wifiPrint(html, printerIp, paperWidthMm = 80, printer = null) {
   // Try proxy (Windows POS or print server on same network)
   try {
-    const result = await sendViaPosProxy(html, printerIp, paperWidthMm);
+    const result = await sendViaPosProxy(html, printerIp, paperWidthMm, printer);
     if (result?.ok) return { ok: true };
     throw new Error(result?.error || "Proxy print failed");
   } catch (err) {
@@ -119,13 +119,13 @@ async function wifiPrint(html, printerIp, paperWidthMm = 80) {
 export async function tabletPrintBill(html, paperWidthMm = 80) {
   const printer = getBillPrinter();
   const ip = printer?.ip?.trim() || "";
-  return wifiPrint(html, ip, paperWidthMm);
+  return wifiPrint(html, ip, paperWidthMm, printer);
 }
 
 export async function tabletPrintKOT(html, stationName, paperWidthMm = 80) {
   const printer = getKotPrinterForStation(stationName);
   const ip = printer?.ip?.trim() || "";
-  return wifiPrint(html, ip, paperWidthMm);
+  return wifiPrint(html, ip, paperWidthMm, printer);
 }
 
 export { getBillPrinter, getKotPrinterForStation };

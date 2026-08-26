@@ -21,6 +21,13 @@ const EMPTY_FORM = {
   name: "", discountType: "percentage", value: "", notes: "", outletScope: "All Outlets",
   discountScope: "order", appliesToRole: "All Billing Roles",
   requiresApproval: false, timeWindow: "Always on",
+  triggerType: "manual", visitStampEvery: "5",
+};
+
+const TRIGGER_LABELS = {
+  manual:       "Manual (cashier picks)",
+  visit_stamp:  "Visit Stamp (auto)",
+  birthday:     "Birthday Month (auto)",
 };
 
 export function DiscountRulesPage() {
@@ -73,6 +80,8 @@ export function DiscountRulesPage() {
       appliesToRole:    rule.appliesToRole    || "All Billing Roles",
       requiresApproval: rule.requiresApproval ?? false,
       timeWindow:       rule.timeWindow       || "Always on",
+      triggerType:      rule.triggerType      || "manual",
+      visitStampEvery:  String(rule.visitStampEvery ?? 5),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -99,6 +108,8 @@ export function DiscountRulesPage() {
         appliesToRole:    form.appliesToRole,
         requiresApproval: form.requiresApproval,
         timeWindow:       form.timeWindow,
+        triggerType:      form.triggerType,
+        visitStampEvery:  form.triggerType === "visit_stamp" ? Number(form.visitStampEvery) || 5 : null,
       };
       const newRule = await api.post("/settings/discounts", payload);
       setRules(prev => [newRule, ...prev]);
@@ -127,6 +138,8 @@ export function DiscountRulesPage() {
         appliesToRole:    form.appliesToRole,
         requiresApproval: form.requiresApproval,
         timeWindow:       form.timeWindow,
+        triggerType:      form.triggerType,
+        visitStampEvery:  form.triggerType === "visit_stamp" ? Number(form.visitStampEvery) || 5 : null,
       };
       const updated = await api.patch(`/settings/discounts/${editingId}`, payload);
       setRules(prev => prev.map(r => r.id === editingId ? { ...r, ...updated } : r));
@@ -288,6 +301,43 @@ export function DiscountRulesPage() {
                 />
               </label>
 
+              {/* Trigger type */}
+              <label>
+                How it triggers
+                <select
+                  value={form.triggerType}
+                  onChange={e => setForm(p => ({ ...p, triggerType: e.target.value }))}
+                >
+                  <option value="manual">Manual — cashier picks it at checkout</option>
+                  <option value="visit_stamp">Visit Stamp — auto-apply on every Nth visit</option>
+                  <option value="birthday">Birthday Month — auto-apply in customer's birth month</option>
+                </select>
+              </label>
+
+              {form.triggerType === "visit_stamp" && (
+                <label>
+                  Apply on every N visits
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={form.visitStampEvery}
+                    onChange={e => setForm(p => ({ ...p, visitStampEvery: e.target.value }))}
+                    placeholder="e.g. 5"
+                    required
+                  />
+                  <span style={{ fontSize: 11, color: "#6b7280", marginTop: 2, display: "block" }}>
+                    Discount auto-applies when the customer's total visits is a multiple of this number.
+                  </span>
+                </label>
+              )}
+
+              {form.triggerType === "birthday" && (
+                <div style={{ padding: "8px 12px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, fontSize: 12, color: "#1e40af" }}>
+                  💡 Discount auto-applies when the customer's birthday month is saved in their profile and matches the current month.
+                </div>
+              )}
+
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <label>
                   Discount type
@@ -368,10 +418,10 @@ export function DiscountRulesPage() {
               lineHeight: 1.6,
             }}>
               <strong>💡 How it works</strong><br />
-              Active rules appear as buttons in the POS cashier screen.
+              Active <strong>Manual</strong> rules appear as buttons in the POS cashier screen — cashier picks manually.<br />
+              <strong>Visit Stamp</strong> rules auto-apply when a customer reaches their Nth visit (phone must be saved).<br />
+              <strong>Birthday Month</strong> rules auto-apply when the customer's birth month matches today.<br />
               Branch-specific rules only appear in that branch's POS.
-              The cashier manually picks which rule to apply per customer —
-              rules are <strong>never auto-applied</strong>.
             </div>
           )}
         </div>
@@ -429,6 +479,18 @@ export function DiscountRulesPage() {
                         }}>
                           {fmtRule(rule)}
                         </span>
+                        {rule.triggerType && rule.triggerType !== "manual" && (
+                          <span style={{
+                            padding: "2px 10px",
+                            borderRadius: 20,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            background: rule.triggerType === "birthday" ? "#fce7f3" : "#dbeafe",
+                            color: rule.triggerType === "birthday" ? "#9d174d" : "#1e40af",
+                          }}>
+                            {rule.triggerType === "birthday" ? "🎂 Birthday" : `🎯 Every ${rule.visitStampEvery || 5}th visit`}
+                          </span>
+                        )}
                         <span style={{
                           padding: "2px 10px",
                           borderRadius: 20,

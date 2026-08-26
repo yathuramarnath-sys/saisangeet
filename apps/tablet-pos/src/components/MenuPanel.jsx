@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getStockState,
   subscribeStock,
-} from "../../../../packages/shared-types/src/stockAvailability.js";
+} from "../lib/stockAvailability.js";
+import {
+  getCategoryStockState,
+  subscribeCategoryStock,
+} from "../lib/categoryAvailability.js";
 
 // Category → emoji mapping
 const CAT_EMOJI = {
@@ -75,15 +79,65 @@ const PALETTE = [
   { bg: "#D35400", light: "#FDEBD0", grad: "linear-gradient(135deg,#E67E22,#9A3412)" },
 ];
 
-export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, quantities, onDecrement, onSkuLookup }) {
+const FAVOURITES_CAT = "⭐ Favourites";
+
+const GST_SLABS = [
+  { label: "No Tax (0%)",  value: 0  },
+  { label: "GST 5%",       value: 5  },
+  { label: "GST 12%",      value: 12 },
+  { label: "GST 18%",      value: 18 },
+];
+
+const BLANK_DRAFT = { name: "", price: "", catId: "", taxRate: "5" };
+
+export function MenuPanel({ categories, menuItems, activeCategory: activeCategoryProp, onAddItem, onToggleAvailability, onToggleCategoryAvailability, quantities, onDecrement, stockSnapshot, onSkuLookup, onCategoryChange, favouriteItemIds = [], onQuickAddItem }) {
   const [search,      setSearch]      = useState("");
   const [stockState,  setStockState]  = useState(() => getStockState());
+  const [categoryStockState, setCategoryStockState] = useState(() => getCategoryStockState());
+  const [pendingDisableCat,  setPendingDisableCat]   = useState(null); // { id, name } | null
+  const [customTime,         setCustomTime]          = useState("");
+  const [addOpen,   setAddOpen]   = useState(false);
+  const [draft,     setDraft]     = useState(BLANK_DRAFT);
+  const [saving,    setSaving]    = useState(false);
+  const [addError,  setAddError]  = useState("");
+  const [lpMenu,    setLpMenu]    = useState(null); // { itemId, soldOut }
+  const lpTimer = useRef(null);
 
   // Keep stock state in sync with other tabs / windows
   useEffect(() => {
     const unsub = subscribeStock((s) => setStockState({ ...s }));
     return unsub;
   }, []);
+
+  useEffect(() => {
+    const unsub = subscribeCategoryStock((s) => setCategoryStockState({ ...s }));
+    return unsub;
+  }, []);
+
+  function categoryEta(entry) {
+    if (!entry?.availableAt) return "until re-enabled";
+    const d = new Date(entry.availableAt);
+    return `until ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  function confirmDisableCategory(minutesFromNow) {
+    if (!pendingDisableCat) return;
+    const availableAt = new Date(Date.now() + minutesFromNow * 60_000).toISOString();
+    onToggleCategoryAvailability?.(pendingDisableCat.id, false, availableAt);
+    setPendingDisableCat(null);
+    setCustomTime("");
+  }
+
+  function confirmDisableCategoryCustomTime() {
+    if (!pendingDisableCat || !customTime) return;
+    const [h, m] = customTime.split(":").map(Number);
+    const at = new Date();
+    at.setHours(h, m, 0, 0);
+    if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1); // time already passed today → tomorrow
+    onToggleCategoryAvailability?.(pendingDisableCat.id, false, at.toISOString());
+    setPendingDisableCat(null);
+    setCustomTime("");
+  }
 
   const catColors = useMemo(() => {
     const map = {};
@@ -94,23 +148,30 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
   const activeCategory = activeCategoryProp || categories[0]?.name;
   const activeCatId    = categories.find(c => c.name === activeCategory)?.id || activeCategory?.toLowerCase();
   const activeColor    = catColors[activeCategory] || PALETTE[0];
+  const activeCatDisabledEntry = categoryStockState[activeCatId]?.available === false
+    ? categoryStockState[activeCatId]
+    : null;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const isNumeric = /^\d+$/.test(q);
-    const base = q
-      ? menuItems.filter(i =>
-          isNumeric
-            ? (i.sku || "").toLowerCase().startsWith(q)
-            : i.name.toLowerCase().includes(q) || (i.sku || "").toLowerCase().includes(q)
-        )
-      : menuItems.filter(
-          i => i.category    === activeCategory
-            || i.categoryName === activeCategory
-            || i.categoryId  === activeCatId
-        );
-    return base.filter(i => i.isActive !== false);
-  }, [menuItems, activeCategory, activeCatId, search]);
+    if (q) {
+      const isNumeric = /^\d+$/.test(q);
+      return menuItems.filter(i =>
+        (isNumeric
+          ? (i.sku || "").toLowerCase().startsWith(q)
+          : i.name.toLowerCase().includes(q) || (i.sku || "").toLowerCase().includes(q))
+        && i.isActive !== false
+      );
+    }
+    if (activeCategory === FAVOURITES_CAT) {
+      const favSet = new Set(favouriteItemIds);
+      return menuItems.filter(i => favSet.has(String(i.id)) && i.isActive !== false);
+    }
+    return menuItems.filter(i =>
+      (i.category === activeCategory || i.categoryName === activeCategory || i.categoryId === activeCatId)
+      && i.isActive !== false
+    );
+  }, [menuItems, activeCategory, activeCatId, search, favouriteItemIds]);
 
   function itemCatColor(item) {
     for (const cat of categories) {
@@ -119,6 +180,37 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
         return catColors[cat.name] || PALETTE[0];
     }
     return PALETTE[0];
+  }
+
+  function openAddModal() {
+    setDraft({ ...BLANK_DRAFT, catId: categories[0]?.id || "" });
+    setAddError("");
+    setAddOpen(true);
+  }
+
+  async function handleSaveNewItem() {
+    if (!draft.name.trim()) return;
+    setSaving(true);
+    setAddError("");
+    try {
+      await onQuickAddItem({
+        name:       draft.name.trim(),
+        price:      parseFloat(draft.price) || 0,
+        categoryId: draft.catId || categories[0]?.id || "",
+        taxRate:    Number(draft.taxRate),
+      });
+      setAddOpen(false);
+      setDraft(BLANK_DRAFT);
+    } catch (err) {
+      const msg = err?.message?.toLowerCase() || "";
+      setAddError(
+        msg.includes("permission") || msg.includes("forbidden") || msg.includes("403")
+          ? "Only managers can add items. Ask your manager."
+          : err.message || "Could not save — please try again."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -154,7 +246,80 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
         )}
       </div>
 
-      {/* ── 3-column food card grid ───────────────────────────────────────── */}
+      {/* ── Category chips — horizontal ──────────────────────────────────── */}
+      <div className="menu-cats">
+        {favouriteItemIds.length > 0 && (
+          <button
+            key="__fav__"
+            type="button"
+            className={`menu-cat-btn${activeCategory === FAVOURITES_CAT ? " active" : ""}`}
+            onClick={() => onCategoryChange?.(FAVOURITES_CAT)}
+          >
+            ⭐ Favourites
+          </button>
+        )}
+        {categories.map((cat) => {
+          const catEntry    = categoryStockState[cat.id];
+          const catDisabled = catEntry?.available === false;
+          return (
+            <div key={cat.name} className="menu-cat-chip-wrap">
+              <button
+                type="button"
+                className={`menu-cat-btn${activeCategory === cat.name ? " active" : ""}${catDisabled ? " cat-disabled" : ""}`}
+                onClick={() => onCategoryChange?.(cat.name)}
+                title={catDisabled ? `Unavailable ${categoryEta(catEntry)}` : undefined}
+              >
+                {catDisabled && <span className="menu-cat-pause">⏸ </span>}{cat.name}
+              </button>
+              {onToggleCategoryAvailability && (
+                <button
+                  type="button"
+                  className={`menu-cat-avail-toggle${catDisabled ? " off" : " on"}`}
+                  title={catDisabled ? "Mark category available" : "Mark category unavailable"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (catDisabled) {
+                      onToggleCategoryAvailability(cat.id, true, null);
+                    } else {
+                      setPendingDisableCat({ id: cat.id, name: cat.name });
+                    }
+                  }}
+                >
+                  {catDisabled ? "✕" : "✓"}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Disable-category modal — pick next-availability time ──────────── */}
+      {pendingDisableCat && (
+        <div className="cat-avail-modal-backdrop" onClick={() => setPendingDisableCat(null)}>
+          <div className="cat-avail-modal" onClick={(e) => e.stopPropagation()}>
+            <h4>Disable "{pendingDisableCat.name}" — when will it be available again?</h4>
+            <div className="cat-avail-presets">
+              <button type="button" onClick={() => confirmDisableCategory(60)}>+1 hour</button>
+              <button type="button" onClick={() => confirmDisableCategory(120)}>+2 hours</button>
+              <button type="button" onClick={() => confirmDisableCategory(240)}>+4 hours</button>
+            </div>
+            <div className="cat-avail-custom">
+              <label>Or pick a time today:</label>
+              <input type="time" value={customTime} onChange={(e) => setCustomTime(e.target.value)} />
+              <button type="button" disabled={!customTime} onClick={confirmDisableCategoryCustomTime}>Set</button>
+            </div>
+            <button type="button" className="cat-avail-cancel" onClick={() => setPendingDisableCat(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {activeCatDisabledEntry && (
+        <div className="menu-cat-disabled-banner">
+          🚫 "{activeCategory}" is unavailable {categoryEta(activeCatDisabledEntry)}
+        </div>
+      )}
+
+      {/* ── Food card grid ───────────────────────────────────────────────── */}
       <div className="menu-cards-grid">
         {filtered.length === 0 && (
           <div className="menu-empty-state">
@@ -168,14 +333,27 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
             : Number(String(item.price || item.basePrice || "").replace(/[^\d.]/g, "")) || 0;
           const color   = search ? PALETTE[0] : itemCatColor(item);
           const emoji   = getItemEmoji(item.name);
-          const soldOut = stockState[item.id]?.available === false;
-          const qty     = (quantities && quantities[item.id]) || 0;
+          const soldOut     = stockState[item.id]?.available === false;
+          const catEntry    = categoryStockState[item.categoryId];
+          const catDisabled = catEntry?.available === false;
+          const unavailable = soldOut || catDisabled;
+          const qty      = (quantities && quantities[item.id]) || 0;
+          const snap     = stockSnapshot?.[item.id];
+          const stockOut = snap && snap.currentStock <= 0 && snap.allowNegative === false;
+          const stockLow = snap && !stockOut && snap.lowStockLevel > 0 && snap.currentStock <= snap.lowStockLevel;
 
           return (
+            /* Use <div> not <button> so inner <button> elements are valid HTML */
             <div
               key={item.id}
-              className={`menu-food-card${soldOut ? " sold-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}${qty > 0 ? " in-cart" : ""}`}
-              title={soldOut ? "Sold Out — tap toggle to re-enable" : undefined}
+              className={`menu-food-card${unavailable ? " sold-out" : stockOut ? " stock-out" : ""}${item.isVeg === false ? " nonveg-card" : " veg-card"}${qty > 0 ? " in-cart" : ""}`}
+              title={soldOut ? "Sold Out — tap toggle to re-enable" : catDisabled ? `Category unavailable ${categoryEta(catEntry)}` : undefined}
+              onClick={(!unavailable && !catDisabled && !stockOut) ? () => onAddItem({ ...item, price }) : undefined}
+              onTouchStart={() => {
+                lpTimer.current = setTimeout(() => setLpMenu({ itemId: item.id, soldOut }), 600);
+              }}
+              onTouchEnd={() => clearTimeout(lpTimer.current)}
+              onTouchMove={() => clearTimeout(lpTimer.current)}
             >
               {/* Availability toggle */}
               {onToggleAvailability && (
@@ -190,9 +368,9 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
               )}
 
               {/* Emoji icon area */}
-              <div className="mfc-icon-area" style={{ background: soldOut ? "#e5e7eb" : color.grad }}>
-                <span className="mfc-emoji">{soldOut ? "🚫" : emoji}</span>
-                {item.isVeg !== undefined && !soldOut && (
+              <div className="mfc-icon-area" style={{ background: unavailable ? "#e5e7eb" : color.grad }}>
+                <span className="mfc-emoji">{unavailable ? "🚫" : emoji}</span>
+                {item.isVeg !== undefined && !unavailable && (
                   <span className={`mfc-veg-badge ${item.isVeg ? "veg" : "nonveg"}`}>
                     {item.isVeg ? "●" : "●"}
                   </span>
@@ -201,27 +379,25 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
 
               {/* Info */}
               <div className="mfc-info">
-                <span className="mfc-name">{item.sku && <span className="mfc-sku">#{item.sku}</span>}{item.name}</span>
+                {item.isVeg !== undefined && !unavailable && (
+                  <span className={`mfc-veg-dot ${item.isVeg ? "veg" : "nonveg"}`} />
+                )}
+                {item.sku && <span className="mfc-sku">#{item.sku}</span>}
+                <span className="mfc-name">{item.name}</span>
                 {soldOut ? (
                   <div className="mfc-soldout-label">SOLD OUT</div>
+                ) : catDisabled ? (
+                  <div className="mfc-soldout-label">CATEGORY UNAVAILABLE</div>
+                ) : stockOut ? (
+                  <div className="mfc-soldout-label mfc-stockout-label">OUT OF STOCK</div>
                 ) : (
                   <div className="mfc-bottom">
                     <span className="mfc-price" style={{ color: color.bg }}>
                       ₹{price}{item.unit ? <span className="mfc-unit">/{item.unit}</span> : null}
+                      {qty > 0 && <span className="mfc-qty-badge">×{qty}</span>}
                     </span>
-                    {qty > 0 ? (
-                      <div className="mfc-qty-controls" onClick={e => e.stopPropagation()}>
-                        <button type="button" className="mfc-qty-btn mfc-minus"
-                          style={{ background: color.bg }}
-                          onClick={() => onDecrement?.({ ...item, price })}>−</button>
-                        <span className="mfc-qty-val">{qty}</span>
-                        <button type="button" className="mfc-qty-btn mfc-plus"
-                          style={{ background: color.bg }}
-                          onClick={() => onAddItem({ ...item, price })}>+</button>
-                      </div>
-                    ) : (
-                      <button type="button" className="mfc-add-btn" style={{ background: color.bg }}
-                        onClick={() => onAddItem({ ...item, price })}>+</button>
+                    {stockLow && (
+                      <span className="mfc-stock-low-badge">Low ({snap.currentStock})</span>
                     )}
                   </div>
                 )}
@@ -229,7 +405,112 @@ export function MenuPanel({ categories, menuItems, activeCategory: activeCategor
             </div>
           );
         })}
+
+        {/* ── Quick-add card — only when not searching ─── */}
+        {!search && onQuickAddItem && (
+          <div className="mfc-add-card" onClick={openAddModal}>
+            <span className="mfc-add-card-plus">＋</span>
+            <span className="mfc-add-card-label">New Item</span>
+          </div>
+        )}
       </div>
+
+      {/* ── Long-press action menu ──────────────────────── */}
+      {lpMenu && (
+        <div className="mfc-lp-backdrop" onClick={() => setLpMenu(null)}>
+          <div className="mfc-lp-menu" onClick={e => e.stopPropagation()}>
+            <div className="mfc-lp-title">Item Options</div>
+            {onToggleAvailability && (
+              <button
+                type="button"
+                className="mfc-lp-btn"
+                onClick={() => {
+                  onToggleAvailability(lpMenu.itemId, lpMenu.soldOut);
+                  setLpMenu(null);
+                }}
+              >
+                {lpMenu.soldOut ? "✓  Mark Available" : "✕  Mark Sold Out"}
+              </button>
+            )}
+            <button type="button" className="mfc-lp-cancel" onClick={() => setLpMenu(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick-add modal ─────────────────────────────── */}
+      {addOpen && (
+        <div className="quick-add-backdrop" onClick={() => { if (!saving) setAddOpen(false); }}>
+          <div className="quick-add-modal" onClick={e => e.stopPropagation()}>
+            <div className="quick-add-title">Add New Item</div>
+
+            <div className="quick-add-field">
+              <label className="quick-add-label">Item Name</label>
+              <input
+                className="quick-add-input"
+                autoFocus
+                placeholder="e.g. Special Thali"
+                value={draft.name}
+                onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                onKeyDown={e => { if (e.key === "Enter" && !saving) handleSaveNewItem(); }}
+              />
+            </div>
+
+            <div className="quick-add-row">
+              <div className="quick-add-field">
+                <label className="quick-add-label">Price (₹)</label>
+                <div className="quick-add-price-wrap">
+                  <span className="quick-add-rupee">₹</span>
+                  <input
+                    className="quick-add-input quick-add-price-input"
+                    type="number" min="0" step="0.5"
+                    placeholder="0"
+                    value={draft.price}
+                    onChange={e => setDraft(d => ({ ...d, price: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="quick-add-field">
+                <label className="quick-add-label">Tax</label>
+                <select
+                  className="quick-add-select"
+                  value={draft.taxRate}
+                  onChange={e => setDraft(d => ({ ...d, taxRate: e.target.value }))}
+                >
+                  {GST_SLABS.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="quick-add-field">
+              <label className="quick-add-label">Category</label>
+              <select
+                className="quick-add-select"
+                value={draft.catId}
+                onChange={e => setDraft(d => ({ ...d, catId: e.target.value }))}
+              >
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {addError && <div className="quick-add-error">{addError}</div>}
+
+            <div className="quick-add-actions">
+              <button className="quick-add-cancel" disabled={saving}
+                onClick={() => setAddOpen(false)}>Cancel</button>
+              <button className="quick-add-save" disabled={saving || !draft.name.trim()}
+                onClick={handleSaveNewItem}>
+                {saving ? "Saving…" : "Save Item"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

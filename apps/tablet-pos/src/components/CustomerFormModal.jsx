@@ -10,16 +10,19 @@ import { useState } from "react";
      onSave(data) — called with { name, phone, email, gstn, address }
      onClose      — dismiss without saving
    ──────────────────────────────────────────────────────────────────────────── */
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
 export function CustomerFormModal({ order, serviceMode, onSave, onClose }) {
   const existing = order?.customer || {};
   const isDelivery = serviceMode === "delivery";
 
-  const [name,    setName]    = useState(existing.name    || "");
-  const [phone,   setPhone]   = useState(existing.phone   || "");
-  const [email,   setEmail]   = useState(existing.email   || "");
-  const [gstn,    setGstn]    = useState(existing.gstn    || "");
-  const [address, setAddress] = useState(existing.address || "");
-  const [errors,  setErrors]  = useState({});
+  const [name,          setName]          = useState(existing.name          || "");
+  const [phone,         setPhone]         = useState(existing.phone         || "");
+  const [email,         setEmail]         = useState(existing.email         || "");
+  const [gstn,          setGstn]          = useState(existing.gstn          || "");
+  const [address,       setAddress]       = useState(existing.address       || "");
+  const [birthdayMonth, setBirthdayMonth] = useState(existing.birthdayMonth || "");
+  const [errors,        setErrors]        = useState({});
 
   function validate() {
     const e = {};
@@ -35,11 +38,12 @@ export function CustomerFormModal({ order, serviceMode, onSave, onClose }) {
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
     onSave({
-      name:    name.trim(),
-      phone:   phone.trim(),
-      email:   email.trim(),
-      gstn:    gstn.trim().toUpperCase(),
-      address: address.trim()
+      name:          name.trim(),
+      phone:         phone.trim(),
+      email:         email.trim(),
+      gstn:          gstn.trim().toUpperCase(),
+      address:       address.trim(),
+      birthdayMonth: birthdayMonth || "",
     });
   }
 
@@ -116,6 +120,19 @@ export function CustomerFormModal({ order, serviceMode, onSave, onClose }) {
               />
               {errors.gstn && <span className="cust-err">{errors.gstn}</span>}
             </div>
+          </div>
+
+          {/* Birthday month — for loyalty discounts */}
+          <div className="cust-field">
+            <label>Birthday Month <span className="opt">(For loyalty discount)</span></label>
+            <select
+              className="cust-input"
+              value={birthdayMonth}
+              onChange={e => setBirthdayMonth(e.target.value)}
+            >
+              <option value="">-- Not set --</option>
+              {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
           </div>
 
           {/* Delivery address (full width when delivery mode) */}

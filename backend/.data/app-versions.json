@@ -65,22 +65,21 @@
     "releaseDate": "2026-05-25"
   },
   "tabletPos": {
-    "version": "1.1.4",
+    "version": "2.0.2",
     "label": "Tablet POS",
-    "changelog": "Area override price pickup, concurrent edit merge fix",
+    "changelog": "Loyalty discounts — visit stamp & birthday month auto-apply; birthday month field in customer form",
     "whatsNew": [
-      "💰 Area-specific prices now apply correctly (Rooftop, AC Hall, etc.)",
-      "🔄 Orders no longer lose unsent items on socket sync"
+      "🎯 Visit Stamp loyalty — discount auto-applies on every Nth customer visit (set N in Owner Console → Discounts)",
+      "🎂 Birthday Month loyalty — discount auto-applies in the customer's birth month",
+      "📋 Customer form now has Birthday Month field — select when saving customer details",
+      "💼 Loyalty rules set up in Owner Console → Discounts, branch-scoped just like manual rules"
     ],
     "installGuide": [
-      "1. On Android tablet, go to Settings → Security → Allow Install from Unknown Sources",
-      "2. Transfer the APK to the tablet",
-      "3. Uninstall the old Tablet POS first if prompted",
-      "4. Open the APK and tap Install",
-      "5. Open Tablet POS and enter your outlet code"
+      "Android: Settings → Security → Allow Install from Unknown Sources, transfer APK, tap Install",
+      "iPad: Connect via USB cable, open Xcode → Window → Devices and Simulators → drag IPA to Installed Apps"
     ],
     "downloadUrl": null,
-    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-Tablet-POS-v1.1.4.apk",
-    "releaseDate": "2026-05-23"
+    "apkUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-Tablet-POS-v2.0.2.apk",
+    "releaseDate": "2026-08-26"
   }
 }
