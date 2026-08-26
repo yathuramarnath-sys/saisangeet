@@ -19,36 +19,6 @@ function getCustomers() {
   return getOwnerSetupData()?.customers || [];
 }
 
-// GET /customers/visit-count?phone=xxx — count of closed orders for this phone (= visit count)
-customersRouter.get("/visit-count", requireAuth, asyncHandler(async (req, res) => {
-  const tenantId = req.user?.tenantId || "default";
-  const { phone } = req.query;
-  if (!phone?.trim()) return res.status(400).json({ error: "phone is required" });
-
-  let visitCount = 0;
-  try {
-    const r = await query(
-      `SELECT COUNT(*) AS cnt
-         FROM closed_orders
-        WHERE tenant_id = $1
-          AND (
-            order_data->'customer'->>'phone' = $2
-            OR order_data->>'customerPhone' = $2
-          )`,
-      [tenantId, phone.trim()]
-    );
-    visitCount = parseInt(r.rows[0]?.cnt || "0", 10);
-  } catch (err) {
-    console.error("[customers] visit-count query failed:", err.message);
-  }
-
-  // Also return the customer profile so the caller can check birthdayMonth
-  const customers = getCustomers();
-  const customer  = customers.find(c => c.phone?.trim() === phone.trim()) || null;
-
-  res.json({ visitCount, customer });
-}));
-
 // GET /customers/order-history?phone=xxx
 customersRouter.get("/order-history", requireAuth, asyncHandler(async (req, res) => {
   const tenantId = req.user?.tenantId || "default";
@@ -109,7 +79,7 @@ customersRouter.get("/", requireAuth, asyncHandler(async (req, res) => {
 
 // POST /customers — create, or upsert by phone if phone already exists
 customersRouter.post("/", requireAuth, asyncHandler(async (req, res) => {
-  const { name, phone, email, gstin, address, company, notes, birthdayMonth } = req.body || {};
+  const { name, phone, email, gstin, address, company, notes } = req.body || {};
   if (!name?.trim()) return res.status(400).json({ error: "name required" });
 
   let saved = null;
@@ -121,17 +91,16 @@ customersRouter.post("/", requireAuth, asyncHandler(async (req, res) => {
       : -1;
 
     const entry = {
-      id:            idx >= 0 ? customers[idx].id : `cust-${Date.now()}`,
-      name:          name.trim(),
-      phone:         phone?.trim()   || "",
-      email:         email?.trim()   || "",
-      gstin:         gstin?.trim().toUpperCase() || "",
-      address:       address?.trim() || "",
-      company:       company?.trim() || "",
-      notes:         notes?.trim()   || "",
-      birthdayMonth: birthdayMonth?.trim() || (idx >= 0 ? (customers[idx].birthdayMonth || "") : ""),
-      createdAt:     idx >= 0 ? customers[idx].createdAt : new Date().toISOString(),
-      updatedAt:     new Date().toISOString(),
+      id:        idx >= 0 ? customers[idx].id : `cust-${Date.now()}`,
+      name:      name.trim(),
+      phone:     phone?.trim()   || "",
+      email:     email?.trim()   || "",
+      gstin:     gstin?.trim().toUpperCase() || "",
+      address:   address?.trim() || "",
+      company:   company?.trim() || "",
+      notes:     notes?.trim()   || "",
+      createdAt: idx >= 0 ? customers[idx].createdAt : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     if (idx >= 0) {

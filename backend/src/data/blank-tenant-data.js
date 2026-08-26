@@ -24,8 +24,7 @@ function createDefaultPermissions() {
     { id: "perm-17", code: "operations.table.move",        moduleName: "Operations",  scope: "captain" },
     { id: "perm-18", code: "floor.area.manage",            moduleName: "Floor",       scope: "manager" },
     { id: "perm-19", code: "floor.table.seats.manage",     moduleName: "Floor",       scope: "cashier" },
-    { id: "perm-20", code: "operations.kot.status.update", moduleName: "Operations",  scope: "kitchen" },
-    { id: "perm-21", code: "discounts.manage",             moduleName: "Discounts",   scope: "owner"   }
+    { id: "perm-20", code: "operations.kot.status.update", moduleName: "Operations",  scope: "kitchen" }
   ];
 }
 
@@ -41,7 +40,7 @@ function createDefaultRoles() {
         "operations.discount.approve","operations.table.create","operations.bill.split",
         "operations.bill.edit","operations.bill.cancel","operations.table.move",
         "floor.area.manage","floor.table.seats.manage","operations.kot.send",
-        "operations.kot.status.update","discounts.manage"
+        "operations.kot.status.update"
       ]
     },
     {

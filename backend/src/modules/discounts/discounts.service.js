@@ -31,9 +31,7 @@ async function createDiscountRule(payload) {
     requiresApproval: Boolean(payload.requiresApproval),
     timeWindow: payload.timeWindow || "Always on",
     isActive: payload.isActive ?? true,
-    notes: payload.notes || "",
-    triggerType: payload.triggerType || "manual",
-    visitStampEvery: payload.triggerType === "visit_stamp" ? (Number(payload.visitStampEvery) || 5) : null,
+    notes: payload.notes || ""
   };
 
   updateOwnerSetupData((current) => ({
@@ -59,7 +57,6 @@ async function updateDiscountRule(ruleId, payload) {
           return rule;
         }
 
-        const nextTrigger = payload.triggerType ?? rule.triggerType ?? "manual";
         updatedRule = {
           ...rule,
           name: payload.name ?? rule.name,
@@ -71,11 +68,7 @@ async function updateDiscountRule(ruleId, payload) {
           requiresApproval: payload.requiresApproval ?? rule.requiresApproval,
           timeWindow: payload.timeWindow ?? rule.timeWindow,
           isActive: payload.isActive ?? rule.isActive,
-          notes: payload.notes ?? rule.notes,
-          triggerType: nextTrigger,
-          visitStampEvery: nextTrigger === "visit_stamp"
-            ? (payload.visitStampEvery !== undefined ? (Number(payload.visitStampEvery) || 5) : (rule.visitStampEvery || 5))
-            : null,
+          notes: payload.notes ?? rule.notes
         };
 
         return updatedRule;
