@@ -241,7 +241,6 @@ async function closeOrderHandler(req, res) {
   const result = await settleOrderBill(req.params.tableId, req.body);
   // Broadcast blank-table signal so all devices clear the table — same as deviceCloseOrderHandler
   const io       = req.app.locals.io;
-  const tenantId = req.user?.tenantId || "default";
   const outletId = result.outletId || req.body.outletId;
   if (io && outletId) {
     const room = `outlet:${tenantId}:${outletId}`;
