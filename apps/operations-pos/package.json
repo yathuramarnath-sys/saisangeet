@@ -1,6 +1,6 @@
 {
   "name": "dinex-pos",
-  "version": "1.9.3",
+  "version": "1.9.8",
   "private": true,
   "description": "Plato POS Terminal",
   "author": "Saisangeet Hospitality Pvt Ltd <hello@dinexpos.in>",
@@ -24,6 +24,7 @@
   "dependencies": {
     "bwip-js": "^4.10.1",
     "electron-updater": "^6.3.9",
+    "multicast-dns": "^7.2.5",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",

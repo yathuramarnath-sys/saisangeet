@@ -1,22 +1,24 @@
 {
   "pos": {
-    "version": "1.9.7",
+    "version": "1.9.8",
     "label": "POS Terminal",
-    "changelog": "Local-first LAN mode — works fully offline, mDNS auto-discovery, ghost table fixes",
+    "changelog": "Customer phone lookup — returning customers auto-fill at checkout, birthday month for loyalty",
     "whatsNew": [
-      "🌐 Full LAN mode — POS runs as local server, Captain & KDS connect at dinexpos-server.local",
-      "⚡ Bills, KOTs and table updates work even when internet is down",
-      "🔧 Fixed ghost table after settlement — settled tables stay cleared on all devices",
-      "📡 mDNS auto-discovery — no IP setup needed for Captain App or KDS"
+      "📞 Phone-first customer form — type 10 digits and returning customer details fill instantly",
+      "🎂 Birthday Month field added to customer form for loyalty discount auto-apply",
+      "✅ Green badge confirms returning customer, yellow badge for new customers",
+      "🌐 Full LAN mode — POS runs as local server, works fully offline"
     ],
     "installGuide": [
       "1. Run Plato-POS-Setup.exe (right-click → Run as administrator if prompted)",
       "2. Installation happens automatically — POS opens when done",
       "3. Log in with your cashier PIN"
     ],
-    "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup.exe",
+    "downloadUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-Setup-v1.9.8.exe",
+    "macUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-v1.9.8-intel.dmg",
+    "macArmUrl": "https://github.com/yathuramarnath-sys/saisangeet/releases/latest/download/Plato-POS-v1.9.8-arm64.dmg",
     "apkUrl": null,
-    "releaseDate": "2026-08-25"
+    "releaseDate": "2026-08-26"
   },
   "captain": {
     "version": "1.9.6",

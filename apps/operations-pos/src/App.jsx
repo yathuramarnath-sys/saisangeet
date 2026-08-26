@@ -3146,11 +3146,12 @@ export function App() {
     // Persist to customer master so credit form can pick from it
     if (data.name) {
       api.post("/customers", {
-        name:    data.name,
-        phone:   data.phone   || "",
-        email:   data.email   || "",
-        gstin:   data.gstn    || "",   // CustomerFormModal uses "gstn" key
-        address: data.address || "",
+        name:          data.name,
+        phone:         data.phone         || "",
+        email:         data.email         || "",
+        gstin:         data.gstn          || "",   // CustomerFormModal uses "gstn" key
+        address:       data.address       || "",
+        birthdayMonth: data.birthdayMonth || "",
       }).catch(() => {}); // fire-and-forget — non-critical
     }
   }
@@ -4712,6 +4713,7 @@ export function App() {
         <CustomerFormModal
           order={selectedOrder}
           serviceMode={serviceMode}
+          api={api}
           onSave={handleSaveCustomer}
           onClose={() => setShowCustomerForm(false)}
         />

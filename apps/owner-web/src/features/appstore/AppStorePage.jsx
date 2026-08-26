@@ -38,14 +38,28 @@ function buildApps(versions = {}) {
           installHint: "On Windows: Chrome menu → 'Install Plato POS' → launches as desktop app. On Android: Chrome menu → 'Add to Home Screen'."
         },
         ...(pos.downloadUrl ? [{
-          label: "Windows App (.exe)",
+          label: `Windows App v${pos.version || ""} (.exe)`,
           icon: "💻",
-          file: "Plato-POS-Setup.exe",
+          file: `Plato-POS-Setup-v${pos.version || ""}.exe`,
           url: pos.downloadUrl,
           installHint: "Download and run the installer on any Windows PC. Uninstall old version first if already installed, then run the new installer."
         }] : []),
+        ...(pos.macArmUrl ? [{
+          label: `Mac App v${pos.version || ""} (Apple Silicon)`,
+          icon: "🍎",
+          file: `Plato-POS-v${pos.version || ""}-arm64.dmg`,
+          url: pos.macArmUrl,
+          installHint: "For M1/M2/M3 Macs. Open the DMG → drag Plato POS to Applications. First launch: right-click the app → Open (to bypass Gatekeeper). Uninstall old version first if already installed."
+        }] : []),
+        ...(pos.macUrl ? [{
+          label: `Mac App v${pos.version || ""} (Intel)`,
+          icon: "🍎",
+          file: `Plato-POS-v${pos.version || ""}-intel.dmg`,
+          url: pos.macUrl,
+          installHint: "For Intel Macs. Open the DMG → drag Plato POS to Applications. First launch: right-click the app → Open (to bypass Gatekeeper). Uninstall old version first if already installed."
+        }] : []),
         ...(pos.apkUrl ? [{
-          label: "Android APK",
+          label: `Android APK v${pos.version || ""}`,
           icon: "📱",
           file: pos.apkUrl.split("/").pop(),
           url: pos.apkUrl,

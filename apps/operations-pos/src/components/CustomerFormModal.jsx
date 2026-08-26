@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 /* ── CustomerFormModal ────────────────────────────────────────────────────────
    Shown when:
@@ -7,19 +7,51 @@ import { useState } from "react";
    Props:
      order        — current order object
      serviceMode  — "dine-in" | "takeaway" | "delivery"
-     onSave(data) — called with { name, phone, email, gstn, address }
+     api          — api helper for customer lookup
+     onSave(data) — called with { name, phone, email, gstn, address, birthdayMonth }
      onClose      — dismiss without saving
    ──────────────────────────────────────────────────────────────────────────── */
-export function CustomerFormModal({ order, serviceMode, onSave, onClose }) {
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+export function CustomerFormModal({ order, serviceMode, api, onSave, onClose }) {
   const existing = order?.customer || {};
   const isDelivery = serviceMode === "delivery";
 
-  const [name,    setName]    = useState(existing.name    || "");
-  const [phone,   setPhone]   = useState(existing.phone   || "");
-  const [email,   setEmail]   = useState(existing.email   || "");
-  const [gstn,    setGstn]    = useState(existing.gstn    || "");
-  const [address, setAddress] = useState(existing.address || "");
-  const [errors,  setErrors]  = useState({});
+  const [name,          setName]          = useState(existing.name          || "");
+  const [phone,         setPhone]         = useState(existing.phone         || "");
+  const [email,         setEmail]         = useState(existing.email         || "");
+  const [gstn,          setGstn]          = useState(existing.gstn          || "");
+  const [address,       setAddress]       = useState(existing.address       || "");
+  const [birthdayMonth, setBirthdayMonth] = useState(existing.birthdayMonth || "");
+  const [errors,        setErrors]        = useState({});
+  const [lookupStatus,  setLookupStatus]  = useState(""); // "found" | "not-found" | "loading" | ""
+  const lookupRef = useRef(null);
+
+  // Auto-lookup when phone reaches 10 digits
+  useEffect(() => {
+    if (phone.length !== 10 || !api) return;
+    if (lookupRef.current) clearTimeout(lookupRef.current);
+    setLookupStatus("loading");
+    lookupRef.current = setTimeout(async () => {
+      try {
+        const list = await api.get(`/customers?q=${encodeURIComponent(phone)}`);
+        const match = Array.isArray(list) ? list.find(c => c.phone === phone) : null;
+        if (match) {
+          if (match.name)          setName(match.name);
+          if (match.email)         setEmail(match.email);
+          if (match.gstin)         setGstn(match.gstin);
+          if (match.address)       setAddress(match.address);
+          if (match.birthdayMonth) setBirthdayMonth(match.birthdayMonth);
+          setLookupStatus("found");
+        } else {
+          setLookupStatus("not-found");
+        }
+      } catch {
+        setLookupStatus("");
+      }
+    }, 400);
+    return () => clearTimeout(lookupRef.current);
+  }, [phone]);
 
   function validate() {
     const e = {};
@@ -35,11 +67,12 @@ export function CustomerFormModal({ order, serviceMode, onSave, onClose }) {
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
     onSave({
-      name:    name.trim(),
-      phone:   phone.trim(),
-      email:   email.trim(),
-      gstn:    gstn.trim().toUpperCase(),
-      address: address.trim()
+      name:          name.trim(),
+      phone:         phone.trim(),
+      email:         email.trim(),
+      gstn:          gstn.trim().toUpperCase(),
+      address:       address.trim(),
+      birthdayMonth: birthdayMonth || "",
     });
   }
 
@@ -65,7 +98,32 @@ export function CustomerFormModal({ order, serviceMode, onSave, onClose }) {
         {/* Body */}
         <div className="sm-body cust-body">
 
-          {/* Name + Phone */}
+          {/* Phone first — lookup triggers auto-fill */}
+          <div className="cust-field">
+            <label>
+              Phone <span className="req">*</span>
+              {lookupStatus === "loading" && <span className="cust-lookup-badge loading"> Searching…</span>}
+              {lookupStatus === "found"   && <span className="cust-lookup-badge found"> ✓ Returning customer — details filled</span>}
+              {lookupStatus === "not-found" && <span className="cust-lookup-badge new"> New customer</span>}
+            </label>
+            <input
+              type="tel"
+              className={`cust-input${errors.phone ? " err" : ""}`}
+              placeholder="10-digit mobile"
+              value={phone}
+              maxLength={10}
+              autoFocus
+              onChange={e => {
+                const v = e.target.value.replace(/\D/g, "");
+                setPhone(v);
+                setErrors(p => ({ ...p, phone: "" }));
+                if (v.length < 10) setLookupStatus("");
+              }}
+            />
+            {errors.phone && <span className="cust-err">{errors.phone}</span>}
+          </div>
+
+          {/* Name + Email */}
           <div className="cust-row-2">
             <div className="cust-field">
               <label>Customer Name <span className="req">*</span></label>
@@ -79,22 +137,6 @@ export function CustomerFormModal({ order, serviceMode, onSave, onClose }) {
               {errors.name && <span className="cust-err">{errors.name}</span>}
             </div>
             <div className="cust-field">
-              <label>Phone <span className="req">*</span></label>
-              <input
-                type="tel"
-                className={`cust-input${errors.phone ? " err" : ""}`}
-                placeholder="10-digit mobile"
-                value={phone}
-                maxLength={10}
-                onChange={e => { setPhone(e.target.value.replace(/\D/g, "")); setErrors(p => ({ ...p, phone: "" })); }}
-              />
-              {errors.phone && <span className="cust-err">{errors.phone}</span>}
-            </div>
-          </div>
-
-          {/* Email + GSTN */}
-          <div className="cust-row-2">
-            <div className="cust-field">
               <label>Email <span className="opt">(Optional)</span></label>
               <input
                 type="email"
@@ -104,6 +146,10 @@ export function CustomerFormModal({ order, serviceMode, onSave, onClose }) {
                 onChange={e => setEmail(e.target.value)}
               />
             </div>
+          </div>
+
+          {/* GSTN + Birthday month */}
+          <div className="cust-row-2">
             <div className="cust-field">
               <label>GSTIN <span className="opt">(For B2B)</span></label>
               <input
@@ -115,6 +161,17 @@ export function CustomerFormModal({ order, serviceMode, onSave, onClose }) {
                 onChange={e => { setGstn(e.target.value.toUpperCase()); setErrors(p => ({ ...p, gstn: "" })); }}
               />
               {errors.gstn && <span className="cust-err">{errors.gstn}</span>}
+            </div>
+            <div className="cust-field">
+              <label>Birthday Month <span className="opt">(Loyalty)</span></label>
+              <select
+                className="cust-input"
+                value={birthdayMonth}
+                onChange={e => setBirthdayMonth(e.target.value)}
+              >
+                <option value="">-- Not set --</option>
+                {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
             </div>
           </div>
 
@@ -143,7 +200,7 @@ export function CustomerFormModal({ order, serviceMode, onSave, onClose }) {
             </svg>
             {isDelivery
               ? "Customer details will be printed on the delivery slip."
-              : "GSTIN is required only when customer needs a B2B invoice."}
+              : "Type phone number — returning customers are auto-filled."}
           </div>
         </div>
 
