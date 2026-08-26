@@ -1,3 +1,4 @@
+// server — 2026-08-26
 // Sentry MUST be the very first require so it can instrument everything
 const { initSentry, Sentry } = require("./config/sentry");
 initSentry();
