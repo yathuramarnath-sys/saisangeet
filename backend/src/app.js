@@ -5,7 +5,8 @@ const helmet = require("helmet");
 const { Sentry } = require("./config/sentry");
 
 const { apiRouter } = require("./routes");
-const { webhooksRouter }     = require("./modules/online-orders/online-orders.routes");
+const { webhooksRouter }        = require("./modules/online-orders/online-orders.routes");
+const { waOrderWebhookRouter }  = require("./modules/whatsapp-ordering/whatsapp-ordering.routes");
 const { phonePeWebhook }     = require("./modules/phonepe/phonepe.routes");
 const { paytmWebhook }       = require("./modules/paytm/paytm.routes");
 const { borzoWebhook }       = require("./modules/borzo/borzo.routes");
@@ -105,6 +106,7 @@ function createApp() {
 
   // Public webhook routes — no JWT (UrbanPiper + PhonePe + Razorpay hit these directly)
   app.use("/webhooks", webhooksRouter);
+  app.use("/webhooks", waOrderWebhookRouter);
   app.use("/webhooks", phonePeWebhook);
   app.use("/webhooks", paytmWebhook);
   app.use("/webhooks", borzoWebhook);
