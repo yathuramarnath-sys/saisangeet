@@ -24,7 +24,6 @@ import { AllOrdersPage } from "../features/orders/AllOrdersPage";
 import { KotsPage } from "../features/kots/KotsPage";
 import { OnlineOrdersHistoryPage } from "../features/online-orders/OnlineOrdersHistoryPage";
 import { PosSettingsPage } from "../features/pos-settings/PosSettingsPage";
-import { WhatsAppOrderingPage } from "../features/whatsapp-ordering/WhatsAppOrderingPage";
 import { PrototypePage } from "./PrototypePage";
 
 export function AppRoutes() {
@@ -119,10 +118,6 @@ export function AppRoutes() {
 
     if (item.mode === "react" && item.id === "online-sales") {
       return <OnlineSalesPage />;
-    }
-
-    if (item.mode === "react" && item.id === "whatsapp-ordering") {
-      return <WhatsAppOrderingPage />;
     }
 
     return <PrototypePage prototypeFile={item.prototypeFile} />;

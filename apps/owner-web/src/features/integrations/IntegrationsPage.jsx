@@ -6,6 +6,7 @@ import {
   CATEGORY_ORDER,
   INTEGRATIONS_CATALOG,
 } from "./integrations.seed";
+import { WhatsAppOrderingCard } from "../whatsapp-ordering/WhatsAppOrderingCard";
 
 
 // ── Toggle switch ─────────────────────────────────────────────────────────────
@@ -1042,12 +1043,13 @@ function OnlineOrdersWebhookCard() {
 }
 
 export function IntegrationsPage() {
-  const [whatsappActive, setWhatsappActive] = useState(false);
-  const [zohoActive,     setZohoActive]     = useState(false);
-  const [borzoActive,    setBorzoActive]    = useState(false);
-  const [phonepeActive,  setPhonePeActive]  = useState(false);
+  const [whatsappActive,    setWhatsappActive]    = useState(false);
+  const [zohoActive,        setZohoActive]        = useState(false);
+  const [borzoActive,       setBorzoActive]       = useState(false);
+  const [phonepeActive,     setPhonePeActive]     = useState(false);
+  const [waOrderingActive,  setWaOrderingActive]  = useState(false);
 
-  const totalCount = [whatsappActive, zohoActive, borzoActive, phonepeActive].filter(Boolean).length;
+  const totalCount = [whatsappActive, zohoActive, borzoActive, phonepeActive, waOrderingActive].filter(Boolean).length;
 
   return (
     <>
@@ -1073,7 +1075,7 @@ export function IntegrationsPage() {
           </p>
         </div>
         <div className="hero-stats">
-          <div><span>Available</span><strong>5</strong></div>
+          <div><span>Available</span><strong>6</strong></div>
           <div><span>Connected</span><strong>{totalCount}</strong></div>
         </div>
       </section>
@@ -1129,6 +1131,19 @@ export function IntegrationsPage() {
           </div>
         </div>
         <OnlineOrdersWebhookCard />
+      </section>
+
+      {/* ── WhatsApp Ordering ────────────────────────────────────────────────── */}
+      <section className="integrations-section">
+        <div className="integrations-section-head">
+          <div>
+            <h3 className="integrations-category-title">WhatsApp Ordering</h3>
+            <p className="integrations-category-desc">
+              Let customers browse your menu and place pickup orders directly on WhatsApp — no app download needed.
+            </p>
+          </div>
+        </div>
+        <WhatsAppOrderingCard onConnectionChange={setWaOrderingActive} />
       </section>
 
       {CATEGORY_ORDER.map((category) => {
