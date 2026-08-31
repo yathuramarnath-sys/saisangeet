@@ -245,14 +245,7 @@ async function runMigrations() {
   await queryFn(`ALTER TABLE advance_orders ADD COLUMN IF NOT EXISTS no_showed_at TIMESTAMPTZ`);
   console.log("[migrate] advance_orders table verified.");
 
-  // ── 7e. WhatsApp Ordering tables ─────────────────────────────────────────────
-  try {
-    const { ensureWaOrderingTables } = require("../modules/whatsapp-ordering/whatsapp-ordering.repository");
-    await ensureWaOrderingTables(queryFn);
-    console.log("[migrate] wa_ordering tables verified.");
-  } catch (err) {
-    console.error("[migrate] Could not create wa_ordering tables:", err.message);
-  }
+  // ── 7e. WhatsApp Ordering — config stored in owner-setup-store, no DB tables needed
 
   // ── 7. Owner auth field repair ───────────────────────────────────────────────
   // Scan every tenant for owner accounts with missing email / passwordHash and
