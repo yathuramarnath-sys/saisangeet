@@ -29,9 +29,23 @@ async function initDb(userDataPath) {
 
   dbPath = path.join(userDataPath, "dinex-pos.db");
 
+  // Clean up any stale .tmp file left by a previous mid-write crash
+  const tmpPath = dbPath + ".tmp";
+  if (fs.existsSync(tmpPath)) {
+    try { fs.unlinkSync(tmpPath); } catch (_) {}
+  }
+
   if (fs.existsSync(dbPath)) {
     const data = fs.readFileSync(dbPath);
-    db = new SQL.Database(data);
+    try {
+      db = new SQL.Database(data);
+    } catch (err) {
+      // Corrupt database — rename it for post-mortem, start fresh
+      console.error("[store] Database corrupt, resetting:", err.message);
+      const bakPath = dbPath + ".bak." + Date.now();
+      try { fs.renameSync(dbPath, bakPath); } catch (_) {}
+      db = new SQL.Database();
+    }
   } else {
     db = new SQL.Database();
   }
