@@ -487,7 +487,7 @@ async function runDailySalesReport() {
 
           const data       = typeof row.setup === "string" ? JSON.parse(row.setup) : row.setup;
           const ownerUser  = (data?.users || []).find(u => u.passwordHash && u.email);
-          const ownerEmail = ownerUser?.email || data?.businessProfile?.email;
+          const ownerEmail = data?.businessProfile?.email || ownerUser?.email;
           const restName   = data?.businessProfile?.tradeName || data?.businessProfile?.legalName || "";
           const ownerName  = ownerUser?.fullName || (data?.users || []).find(u => (u.roles || []).includes("Owner"))?.fullName || "";
           const outlets    = data?.outlets || [];

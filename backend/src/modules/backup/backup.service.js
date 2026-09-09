@@ -140,9 +140,8 @@ async function runNightlyBackup() {
   for (const [tenantId, data] of all) {
     try {
       const restaurantName = data?.businessProfile?.tradeName || data?.businessProfile?.legalName || "Restaurant";
-      // Find the owner account (has passwordHash = web-login account)
       const ownerUser = (data?.users || []).find((u) => u.passwordHash && u.email);
-      const toEmail   = ownerUser?.email || data?.businessProfile?.email;
+      const toEmail   = data?.businessProfile?.email || ownerUser?.email;
 
       if (!toEmail) {
         console.warn(`[backup] Tenant ${tenantId}: no email found — skipping`);
