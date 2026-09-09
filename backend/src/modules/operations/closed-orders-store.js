@@ -137,6 +137,27 @@ function getTodaySalesByOutlet(tenantId, outletId) {
 }
 
 /**
+ * Return all closed orders for a tenant closed yesterday (IST).
+ * Used by the 4 AM daily-report job which reports on the previous day.
+ */
+function getYesterdaySales(tenantId) {
+  const yd = new Date();
+  yd.setDate(yd.getDate() - 1);
+  const ydStr = yd.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  return getSalesForRange(tenantId, ydStr, ydStr, null);
+}
+
+/**
+ * Return closed orders for a specific outlet closed yesterday (IST).
+ */
+function getYesterdaySalesByOutlet(tenantId, outletId) {
+  const yd = new Date();
+  yd.setDate(yd.getDate() - 1);
+  const ydStr = yd.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  return getSalesForRange(tenantId, ydStr, ydStr, outletId);
+}
+
+/**
  * Return closed orders for a tenant within a date range (IST), optionally
  * filtered by outletId.
  * @param {string}      tenantId
@@ -400,6 +421,7 @@ async function updateOrderPayments(tenantId, outletId, closedAt, payments, corre
 module.exports = {
   addClosedOrder,
   getTodaySales, getTodaySalesByOutlet, getSalesForRange,
+  getYesterdaySales, getYesterdaySalesByOutlet,
   hydrateClosedOrders, getOrderById,
   getCreditOrders, settleCreditOrder, getCreditSettlementsForRange,
   updateOrderPayments,

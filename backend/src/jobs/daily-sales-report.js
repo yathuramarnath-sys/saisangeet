@@ -83,14 +83,15 @@ function buildSummary(orders, shifts, outlets = []) {
     .slice(0, 5);
   const branches = Object.values(branchTotals).sort((a, b) => b.total - a.total);
 
-  // Shift mismatches — scoped to shifts CLOSED TODAY (IST) only. History keeps
-  // up to 500 past shifts, so without this filter every report re-lists every
-  // mismatch ever recorded instead of just today's.
-  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  // Shift mismatches — scoped to shifts CLOSED YESTERDAY (IST). The report fires
+  // at 4 AM IST and covers the previous trading day, so "today" would always be
+  // empty at that hour.
+  const yd = new Date(); yd.setDate(yd.getDate() - 1);
+  const ydStr = yd.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const todaysShifts = [...(shifts.active || []), ...(shifts.history || [])].filter(s => {
     const closedStr = new Date(s.closedAt || s.openedAt || 0)
       .toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    return closedStr === todayStr;
+    return closedStr === ydStr;
   });
   const mismatches  = todaysShifts.filter(s => s.status === "mismatch");
   const totalShort  = mismatches.reduce((s, x) => s + Math.abs(Math.min(x.variance || 0, 0)), 0);
@@ -454,7 +455,9 @@ async function runDailySalesReport() {
     }
 
     const resend  = new Resend(env.resendApiKey);
-    const dateStr = new Date().toLocaleDateString("en-IN", {
+    // Report fires at 4 AM IST — show yesterday's date (the actual trading day)
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const dateStr = yesterday.toLocaleDateString("en-IN", {
       timeZone: "Asia/Kolkata", weekday: "long", day: "numeric", month: "long", year: "numeric"
     });
     const backupDate = new Date().toISOString().slice(0, 10);
@@ -473,7 +476,7 @@ async function runDailySalesReport() {
            WHERE ts.key = 'owner_setup'`
         );
         for (const row of rows.rows) {
-          // Skip inactive tenants (set via Admin → Set Active toggle)
+          // Skip tenants explicitly deactivated via Admin → Clients
           const activeFlag = row.client_active
             ? (typeof row.client_active === "string" ? JSON.parse(row.client_active) : row.client_active)
             : null;
@@ -485,10 +488,16 @@ async function runDailySalesReport() {
           const data       = typeof row.setup === "string" ? JSON.parse(row.setup) : row.setup;
           const ownerUser  = (data?.users || []).find(u => u.passwordHash && u.email);
           const ownerEmail = ownerUser?.email || data?.businessProfile?.email;
-          const restName   = data?.businessProfile?.tradeName || data?.businessProfile?.legalName || "Restaurant";
-          const ownerName  = ownerUser?.fullName || (data?.users || []).find(u => (u.roles || []).includes("Owner"))?.fullName || "Owner";
+          const restName   = data?.businessProfile?.tradeName || data?.businessProfile?.legalName || "";
+          const ownerName  = ownerUser?.fullName || (data?.users || []).find(u => (u.roles || []).includes("Owner"))?.fullName || "";
           const outlets    = data?.outlets || [];
-          if (ownerEmail) tenants.push({ tenantId: row.tenant_id, ownerEmail, restName, ownerName, outlets, data });
+
+          // Skip unprovisioned/test accounts with no real business name
+          if (!restName) {
+            console.log(`[sales-report] Skipping unconfigured tenant ${row.tenant_id} (no business name)`);
+            continue;
+          }
+          if (ownerEmail) tenants.push({ tenantId: row.tenant_id, ownerEmail, restName, ownerName: ownerName || "Owner", outlets, data });
         }
       } catch (err) {
         console.error("[sales-report] Could not query tenants:", err.message);
@@ -503,7 +512,7 @@ async function runDailySalesReport() {
     // ── Send one combined report + backup email per active tenant ────────────
     for (const { tenantId, ownerEmail, restName, ownerName, outlets, data } of tenants) {
       try {
-        const orders  = cosModule.getTodaySales(tenantId);
+        const orders  = cosModule.getYesterdaySales(tenantId);
         const shifts  = ssModule.getShifts(tenantId);
         const summary = buildSummary(orders, shifts, outlets);
 
@@ -541,7 +550,7 @@ async function runDailySalesReport() {
         const outletEmail = outlet?.reportEmail;
         if (!outletEmail || outletEmail === ownerEmail) continue;
         try {
-          const outletOrders  = cosModule.getTodaySalesByOutlet(tenantId, outlet.id);
+          const outletOrders  = cosModule.getYesterdaySalesByOutlet(tenantId, outlet.id);
           const outletSummary = buildSummary(outletOrders, { active: [], history: [] });
           const outletName    = outlet.name || restName;
 
