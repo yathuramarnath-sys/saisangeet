@@ -36,9 +36,6 @@ jobs:
           key: eb-win-pos-${{ hashFiles('apps/operations-pos/package.json') }}
           restore-keys: eb-win-pos-
 
-      - name: Install root dependencies (provides app-builder-bin for electron-builder)
-        run: npm install --ignore-scripts
-
       - name: Install POS dependencies
         working-directory: apps/operations-pos
         run: npm install --no-workspaces
@@ -128,9 +125,6 @@ jobs:
           path: C:\eb-cache
           key: eb-win-kds-${{ hashFiles('apps/kitchen-display/package.json') }}
           restore-keys: eb-win-kds-
-
-      - name: Install root dependencies (provides app-builder-bin for electron-builder)
-        run: npm install --ignore-scripts
 
       - name: Install KDS dependencies
         working-directory: apps/kitchen-display
