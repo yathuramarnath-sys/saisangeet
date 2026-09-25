@@ -1219,7 +1219,17 @@ export function MenuPage() {
         "salesAvailability"
       ];
 
-      const rows = menuData.items.map((item) => [
+      const exportItems = outletFilter === "all"
+        ? menuData.items
+        : menuData.items.filter((item) => {
+            const oa = item.outletAvailability || [];
+            if (oa.length === 0) return true;
+            const entry = oa.find((e) => e.outlet === outletFilter);
+            if (!entry) return true;
+            return entry.enabled !== false;
+          });
+
+      const rows = exportItems.map((item) => [
         item.name,
         item.categoryName || "",
         item.foodType || "",
@@ -1237,7 +1247,7 @@ export function MenuPage() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "menu-export.csv";
+      link.download = outletFilter === "all" ? "menu-export.csv" : `menu-export-${outletFilter}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -1245,6 +1255,31 @@ export function MenuPage() {
       setSaveMessage("Menu export downloaded.");
     } catch (error) {
       setSaveError(error.message || "Unable to export menu.");
+    }
+  }
+
+  function handleExportCategories() {
+    try {
+      const headers = ["categoryName", "outlet", "availableFrom", "availableTo"];
+      const rows = filteredCategoryGroups.map((cat) => [
+        cat.name,
+        (cat.outletAvailability || []).filter((e) => e.enabled !== false).map((e) => e.outlet).join("; ") || "All",
+        cat.availableFrom || "",
+        cat.availableTo || ""
+      ]);
+      const csv = [headers.join(","), ...rows.map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = categoryListOutletFilter === "all" ? "categories.csv" : `categories-${categoryListOutletFilter}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setSaveMessage("Category list downloaded.");
+    } catch (error) {
+      setSaveError(error.message || "Unable to export categories.");
     }
   }
 
@@ -1975,11 +2010,16 @@ export function MenuPage() {
               <p className="eyebrow">Categories</p>
               <h3>Category List</h3>
             </div>
-            {editingCategoryId && (
-              <button type="button" className="ghost-btn" onClick={cancelEditingCategory}>
-                Cancel Edit
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button type="button" className="secondary-btn" onClick={handleExportCategories}>
+                Download CSV
               </button>
-            )}
+              {editingCategoryId && (
+                <button type="button" className="ghost-btn" onClick={cancelEditingCategory}>
+                  Cancel Edit
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ── Add category (single compact row) ── */}
