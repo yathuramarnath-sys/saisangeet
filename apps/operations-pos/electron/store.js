@@ -14,6 +14,7 @@ const fs   = require("fs");
 
 let db     = null;
 let dbPath = null;
+let SQL    = null;  // saved so _resetDb() can create a new Database without re-loading WASM
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,7 @@ async function initDb(userDataPath) {
     "sql-wasm.wasm"
   );
 
-  const SQL = await initSqlJs({ locateFile: () => wasmPath });
+  SQL = await initSqlJs({ locateFile: () => wasmPath });
 
   dbPath = path.join(userDataPath, "dinex-pos.db");
 
@@ -168,15 +169,74 @@ function loadKots() {
   return store;
 }
 
+// ── DB self-heal ──────────────────────────────────────────────────────────────
+// Called when a write throws — renames the corrupt file and creates a fresh DB.
+
+function _resetDb() {
+  if (!SQL) { db = null; return; }
+  try {
+    if (dbPath) {
+      const bakPath = dbPath + ".bak." + Date.now();
+      try { fs.renameSync(dbPath, bakPath); } catch (_) {}
+    }
+    db = new SQL.Database();
+    db.run(`
+      CREATE TABLE IF NOT EXISTS orders (
+        table_id   TEXT    PRIMARY KEY,
+        data       TEXT    NOT NULL,
+        updated_at INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS kots (
+        kot_id     TEXT    PRIMARY KEY,
+        data       TEXT    NOT NULL,
+        status     TEXT    NOT NULL DEFAULT 'new',
+        created_at INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS settings (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS config (
+        key        TEXT    PRIMARY KEY,
+        value      TEXT    NOT NULL,
+        updated_at INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS closed_orders_queue (
+        id         TEXT    PRIMARY KEY,
+        outlet_id  TEXT    NOT NULL,
+        data       TEXT    NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT 0
+      );
+    `);
+    _flush();
+    console.log("[store] DB reset complete — starting fresh");
+  } catch (err) {
+    console.error("[store] DB reset failed:", err.message);
+    db = null;
+  }
+}
+
 // ── Settings (simple key/value) ───────────────────────────────────────────────
 
 function saveSetting(key, value) {
   if (!db) return;
-  db.run(
-    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    [key, String(value)]
-  );
-  _flush();
+  try {
+    db.run(
+      "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      [key, String(value)]
+    );
+    _flush();
+  } catch (err) {
+    console.error("[store] saveSetting error — resetting DB:", err.message);
+    _resetDb();
+    try {
+      db?.run(
+        "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        [key, String(value)]
+      );
+      _flush();
+    } catch (_) {}
+  }
 }
 
 function loadSetting(key) {
