@@ -39,7 +39,6 @@ router.post("/", asyncHandler(async (req, res) => {
       await fetchOrCreateOrderByTable(tableId).catch(() => null);
       for (const item of items) {
         const result = await createOrderItem(tableId, {
-          id:           item.id,
           menuItemId:   item.id,
           name:         item.name,
           price:        item.price,
@@ -96,7 +95,6 @@ router.patch("/:id/accept", requireAuth, asyncHandler(async (req, res) => {
       // Add each item
       for (const item of entry.items) {
         const result = await createOrderItem(entry.tableId, {
-          id:           item.id,
           menuItemId:   item.id,
           name:         item.name,
           price:        item.price,
