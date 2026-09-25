@@ -38,7 +38,7 @@ jobs:
 
       - name: Install POS dependencies
         working-directory: apps/operations-pos
-        run: npm install --no-workspaces
+        run: npm install --legacy-peer-deps
 
       - name: Build Vite app
         working-directory: apps/operations-pos
@@ -128,7 +128,7 @@ jobs:
 
       - name: Install KDS dependencies
         working-directory: apps/kitchen-display
-        run: npm install --no-workspaces
+        run: npm install --legacy-peer-deps
 
       - name: Build Vite app
         working-directory: apps/kitchen-display
