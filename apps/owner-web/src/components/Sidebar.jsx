@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { api } from "../lib/api";
 import { navigation } from "../data/navigation";
+import { openAttendance } from "../lib/attendance";
 
 // ── Change Password Modal ─────────────────────────────────────────────────────
 function ChangePasswordModal({ onClose }) {
@@ -141,6 +142,17 @@ export function Sidebar() {
             {item.label}
           </NavLink>
         ))}
+        {(user?.roles || []).includes("Owner") && (
+          <button
+            type="button"
+            className="nav-item"
+            onClick={openAttendance}
+            title="Opens Plato Attendance in a new tab"
+            style={{ background: "none", border: 0, width: "100%", textAlign: "left", cursor: "pointer", font: "inherit" }}
+          >
+            Attendance ↗
+          </button>
+        )}
       </nav>
 
       {/* User area with dropdown */}
