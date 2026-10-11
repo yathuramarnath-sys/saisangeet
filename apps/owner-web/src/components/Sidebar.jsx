@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { api } from "../lib/api";
 import { navGroups } from "../data/navigation";
+import { openAttendance } from "../lib/attendance";
 
 // ── Eye-toggle icon ───────────────────────────────────────────────────────────
 function EyeIcon({ open }) {
@@ -191,6 +192,19 @@ export function Sidebar({ open, onClose }) {
               </div>
             );
           })}
+          {/* Plato Attendance — separate app, opens in a new tab already logged in (owners only) */}
+          {(user?.roles || []).includes("Owner") && (
+            <button
+              type="button"
+              className="oc-nav-link"
+              onClick={() => { onClose?.(); openAttendance(); }}
+              title="Opens Plato Attendance in a new tab"
+              style={{ background: "none", border: 0, width: "100%", textAlign: "left", cursor: "pointer", font: "inherit" }}
+            >
+              <span className="material-symbols-rounded oc-nav-icon">how_to_reg</span>
+              <span className="oc-nav-label">Attendance ↗</span>
+            </button>
+          )}
         </nav>
 
         {/* User area */}

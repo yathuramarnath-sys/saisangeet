@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { openAttendance } from "../../lib/attendance";
 
 // ─── App catalogue ────────────────────────────────────────────────────────────
 // Download URLs come from /api/v1/app-versions (backend app-versions.json).
@@ -126,6 +127,29 @@ function buildApps(versions = {}) {
       ],
       who: "Kitchen staff",
       note: "Mount a screen at each station. Works on Android, Windows, or any smart TV with Chrome.",
+    },
+    {
+      id: "attendance",
+      name: "Plato Attendance",
+      tagline: "Face attendance, shifts, salary, payslips",
+      icon: "👤",
+      color: "#0f766e",
+      bg: "#f0fdfa",
+      border: "#99f6e4",
+      version: null,
+      changelog: null,
+      platforms: [
+        {
+          label: "Open Attendance",
+          icon: "🌐",
+          file: null,
+          url: null,
+          sso: true,
+          installHint: "Opens in a new tab, already logged in (owner only). Branch managers can log in at attendance.dinexpos.in with their own account."
+        },
+      ],
+      who: "Owner / Branch in-charge",
+      note: "Separate app with its own kiosk phone for face attendance. Your POS is not affected.",
     },
     {
       id: "owner",
@@ -250,6 +274,7 @@ function PlatformBtn({ platform, appColor }) {
 
   function handleClick() {
     if (platform.current) return; // already here
+    if (platform.sso) { openAttendance(); return; }
     if (platform.file && platform.url) {
       // Trigger file download directly
       const a = document.createElement("a");

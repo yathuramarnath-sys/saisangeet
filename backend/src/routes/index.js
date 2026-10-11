@@ -40,6 +40,7 @@ const { inventoryRouter }    = require("../modules/inventory/inventory.routes");
 const { advanceOrdersRouter } = require("../modules/advance-orders/advance-orders.routes");
 const { customersRouter }     = require("../modules/customers/customers.routes");
 const { backupRouter }        = require("../modules/backup/backup.routes");
+const { attendanceRouter }    = require("../modules/attendance/attendance-sso.routes");
 const { requireAuth }   = require("../middleware/require-auth");
 const { requireTenant } = require("../middleware/require-tenant");
 const { asyncHandler }  = require("../utils/async-handler");
@@ -128,6 +129,7 @@ apiRouter.use("/inventory",          inventoryRouter);
 apiRouter.use("/advance-orders",     advanceOrdersRouter);
 apiRouter.use("/customers",          customersRouter);
 apiRouter.use("/backup",             backupRouter);
+apiRouter.use("/attendance",         attendanceRouter);
 
 // ── GET /settings/pos-config — fetch POS configuration ───────────────────────
 apiRouter.get("/settings/pos-config", requireAuth, asyncHandler(async (_req, res) => {
