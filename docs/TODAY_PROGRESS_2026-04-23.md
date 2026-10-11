@@ -134,7 +134,7 @@ JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradle
 ```
 
 **Why debug, not release (Captain):**  
-`apps/waiter-mobile/android/app/build.gradle` has a `signingConfigs.release` block referencing `~/Desktop/dinex-captain.jks` with password `Dinex@123`, but the keystore file was not present on the Desktop at build time.  
+`apps/waiter-mobile/android/app/build.gradle` has a `signingConfigs.release` block referencing `~/Desktop/dinex-captain.jks` with a password (removed — see GitHub secret `KEYSTORE_PASSWORD`), but the keystore file was not present on the Desktop at build time.  
 To produce a signed release APK: place `dinex-captain.jks` on the Desktop and run `./gradlew assembleRelease` from `apps/waiter-mobile/android/`.
 
 ---

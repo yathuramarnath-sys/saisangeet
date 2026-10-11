@@ -4,6 +4,12 @@ These files are the signing keys for the Plato Android APKs.
 **Never commit the .jks files to git** (they are in .gitignore).
 Back them up in a secure location (password manager, encrypted drive).
 
+> **Passwords are NOT stored in this repo** (it is public).
+> They live only in the GitHub secret `KEYSTORE_PASSWORD` (used by
+> `.github/workflows/build-android.yml`) and in the owner's password manager.
+> Never write a password, PIN or key into any file in this repository.
+
+
 ---
 
 ## dinex-captain.jks — Plato Captain App
@@ -13,8 +19,6 @@ Back them up in a secure location (password manager, encrypted drive).
 | App ID       | in.dinexpos.captain              |
 | App Name     | Plato Captain                    |
 | Key Alias    | dinex                            |
-| Store Pass   | Dinex@123                        |
-| Key Pass     | Dinex@123                        |
 | Algorithm    | RSA 2048-bit, SHA384withRSA      |
 | Valid Until  | ~10,000 days from 2026-05-10     |
 | Generated    | 2026-05-10 (build machine Mac)   |
@@ -30,8 +34,6 @@ Back them up in a secure location (password manager, encrypted drive).
 | App ID       | in.dinexpos.kds                 |
 | App Name     | Plato KDS                       |
 | Key Alias    | dinex                           |
-| Store Pass   | Dinex@123                       |
-| Key Pass     | Dinex@123                       |
 | Algorithm    | RSA 2048-bit, SHA384withRSA     |
 | Valid Until  | ~10,000 days from 2026-05-10    |
 | Generated    | 2026-05-10 (build machine Mac)  |

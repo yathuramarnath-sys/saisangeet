@@ -61,7 +61,7 @@ Two-layer fix:
 **Status:** New keystores generated 2026-05-10 (originals were lost).
 **Impact:** Devices running Captain v1.4 or KDS v1.3 need manual uninstall before installing new APKs. Android rejects upgrades with mismatched signatures.
 **Action:** Before rolling out Captain v1.5 / KDS v1.4, physically uninstall old APK on every device first.
-**Files:** `backend/keystores/KEYSTORE_INFO.md` — credentials and instructions saved here.
+**Files:** `backend/keystores/KEYSTORE_INFO.md` — instructions only. Passwords: GitHub secret `KEYSTORE_PASSWORD` + owner's password manager (never in this public repo).
 
 ---
 

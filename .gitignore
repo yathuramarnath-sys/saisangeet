@@ -14,7 +14,7 @@ electron-dist/
 apps/*/.env.local
 
 # Android release keystores — sensitive signing keys, never commit binaries
-# The KEYSTORE_INFO.md readme IS committed (no secrets, just instructions)
+# The KEYSTORE_INFO.md readme IS committed — instructions only, NEVER passwords (this repo is public)
 backend/keystores/*.jks
 backend/keystores/*.keystore
 
