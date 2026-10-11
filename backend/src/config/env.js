@@ -34,6 +34,11 @@ const env = {
   googleClientId:     process.env.GOOGLE_CLIENT_ID     || "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
 
+  // Plato Attendance (separate app) — single sign-on from the owner console.
+  // Both must be set to enable it; the same secret is set in the Attendance backend.
+  attendanceSsoSecret: process.env.ATTENDANCE_SSO_SECRET || "",
+  attendanceAppUrl:    process.env.ATTENDANCE_APP_URL    || "",
+
   // MSG91 SMS
   msg91AuthKey: process.env.MSG91_AUTH_KEY || "",
   msg91Sender:  process.env.MSG91_SENDER   || "PLATOPOS",
