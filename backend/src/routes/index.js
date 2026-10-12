@@ -41,6 +41,7 @@ const { advanceOrdersRouter } = require("../modules/advance-orders/advance-order
 const { customersRouter }     = require("../modules/customers/customers.routes");
 const { backupRouter }        = require("../modules/backup/backup.routes");
 const { attendanceRouter }    = require("../modules/attendance/attendance-sso.routes");
+const { purchaseRouter, partnerRouter: purchasePartnerRouter } = require("../modules/purchase/purchase-link.routes");
 const { requireAuth }   = require("../middleware/require-auth");
 const { requireTenant } = require("../middleware/require-tenant");
 const { asyncHandler }  = require("../utils/async-handler");
@@ -50,6 +51,10 @@ const apiRouter = express.Router();
 
 // ── Public: customer QR menu + outlet info — no auth needed ──────────────────
 apiRouter.use("/public", publicRouter);
+
+// ── Plato Purchase server only (own signed link token, read-only) ────────────
+// Verifies its token and runs each read inside that one restaurant (runWithTenant).
+apiRouter.use("/partner/purchase", purchasePartnerRouter);
 
 // ── Public: app version manifest — no auth needed ─────────────────────────────
 // Returns current versions for all Plato apps so clients can show update banners.
@@ -130,6 +135,7 @@ apiRouter.use("/advance-orders",     advanceOrdersRouter);
 apiRouter.use("/customers",          customersRouter);
 apiRouter.use("/backup",             backupRouter);
 apiRouter.use("/attendance",         attendanceRouter);
+apiRouter.use("/purchase",           purchaseRouter);
 
 // ── GET /settings/pos-config — fetch POS configuration ───────────────────────
 apiRouter.get("/settings/pos-config", requireAuth, asyncHandler(async (_req, res) => {
