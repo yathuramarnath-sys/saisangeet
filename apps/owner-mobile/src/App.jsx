@@ -6,6 +6,7 @@ import { LiveScreen }    from "./screens/LiveScreen";
 import { SalesScreen }   from "./screens/SalesScreen";
 import { ReportsScreen } from "./screens/ReportsScreen";
 import { MoreScreen }    from "./screens/MoreScreen";
+import { AttendanceScreen } from "./screens/AttendanceScreen";
 import { BottomNav }     from "./components/BottomNav";
 
 export function App() {
@@ -21,6 +22,7 @@ export function App() {
       <div className="screen-wrap">
         {tab === "live"    && <LiveScreen />}
         {tab === "sales"   && <SalesScreen />}
+        {tab === "staff"   && <AttendanceScreen />}
         {tab === "reports" && <ReportsScreen />}
         {tab === "more"    && <MoreScreen />}
       </div>

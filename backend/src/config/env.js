@@ -38,6 +38,8 @@ const env = {
   // Both must be set to enable it; the same secret is set in the Attendance backend.
   attendanceSsoSecret: process.env.ATTENDANCE_SSO_SECRET || "",
   attendanceAppUrl:    process.env.ATTENDANCE_APP_URL    || "",
+  // Attendance API for the owner app's read-only Attendance tab (defaults to the live server).
+  attendanceApiUrl:    process.env.ATTENDANCE_API_URL    || "https://attendance-api.dinexpos.in",
 
   // MSG91 SMS
   msg91AuthKey: process.env.MSG91_AUTH_KEY || "",

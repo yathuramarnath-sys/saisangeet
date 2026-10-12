@@ -976,3 +976,18 @@ input, textarea { font-family: inherit; }
 }
 .empty-icon { font-size: 40px; display: block; margin-bottom: 12px; }
 .empty-state p { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+
+/* ── Attendance tab (read-only view of Plato Attendance) ── */
+.att-kpi { border: none; font: inherit; color: inherit; cursor: pointer; width: 100%; }
+.att-kpi:active { transform: scale(0.98); }
+.att-daynav {
+  display: flex; align-items: center; gap: 4px; margin-left: auto;
+  background: var(--surface); border-radius: 999px; box-shadow: var(--shadow); padding: 2px;
+}
+.att-daynav span { font-size: 13px; font-weight: 700; min-width: 74px; text-align: center; }
+.att-daynav button {
+  border: none; background: none; font-size: 20px; width: 32px; height: 32px; border-radius: 50%;
+  color: var(--text2, #374151); cursor: pointer;
+}
+.att-daynav button:disabled { opacity: 0.3; }
+.att-note { margin: 0 16px 12px; font-size: 12.5px; color: var(--text3); line-height: 1.4; }
