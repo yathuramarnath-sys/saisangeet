@@ -41,6 +41,11 @@ const env = {
   // Attendance API for the owner app's read-only Attendance tab (defaults to the live server).
   attendanceApiUrl:    process.env.ATTENDANCE_API_URL    || "https://attendance-api.dinexpos.in",
 
+  // Plato Purchase & Expenses (separate app) — owner console link + read-only sales /
+  // cash-out links. Uses PLATO_LINK_SECRET, or the Attendance secret when not set.
+  platoLinkSecret:     (process.env.PLATO_LINK_SECRET || "").trim(),
+  purchaseAppUrl:      process.env.PURCHASE_APP_URL      || "https://purchase.dinexpos.in",
+
   // MSG91 SMS
   msg91AuthKey: process.env.MSG91_AUTH_KEY || "",
   msg91Sender:  process.env.MSG91_SENDER   || "PLATOPOS",

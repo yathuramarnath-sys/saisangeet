@@ -4,6 +4,7 @@ import { useAuth } from "../lib/AuthContext";
 import { api } from "../lib/api";
 import { navGroups } from "../data/navigation";
 import { openAttendance } from "../lib/attendance";
+import { openPurchase } from "../lib/purchase";
 
 // ── Eye-toggle icon ───────────────────────────────────────────────────────────
 function EyeIcon({ open }) {
@@ -203,6 +204,19 @@ export function Sidebar({ open, onClose }) {
             >
               <span className="material-symbols-rounded oc-nav-icon">how_to_reg</span>
               <span className="oc-nav-label">Attendance ↗</span>
+            </button>
+          )}
+          {/* Plato Purchase & Expenses — separate app, opens in a new tab already logged in (owners only) */}
+          {(user?.roles || []).includes("Owner") && (
+            <button
+              type="button"
+              className="oc-nav-link"
+              onClick={() => { onClose?.(); openPurchase(); }}
+              title="Opens Plato Purchase & Expenses in a new tab"
+              style={{ background: "none", border: 0, width: "100%", textAlign: "left", cursor: "pointer", font: "inherit" }}
+            >
+              <span className="material-symbols-rounded oc-nav-icon">receipt_long</span>
+              <span className="oc-nav-label">Purchase ↗</span>
             </button>
           )}
         </nav>
