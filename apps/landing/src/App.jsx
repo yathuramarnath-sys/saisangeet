@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { COMPANY } from "./legal/company";
+import { LegalFooterLinks } from "./legal/LegalApp";
 
 const APP_URL = "https://app.dinexpos.in";
 const API_URL = "https://api.dinexpos.in/api/v1";
@@ -1063,7 +1065,7 @@ export function App() {
               <strong>Company</strong>
               <a href="#vision">About</a>
               <a href="#pricing">Pricing</a>
-              <a href="mailto:info@dinexpos.in">Contact</a>
+              <a href="/contact">Contact</a>
               <a href="#enroll">Request Demo</a>
             </div>
             <div>
@@ -1074,8 +1076,10 @@ export function App() {
           </div>
         </div>
         <div className="lp-footer-bottom">
-          <span>© 2026 PLATO. All rights reserved.</span>
-          <span><a href="#" style={{ color: "#4A5065", textDecoration: "none", marginRight: 16 }}>Privacy Policy</a><a href="#" style={{ color: "#4A5065", textDecoration: "none" }}>Terms of Service</a></span>
+          <span>
+            © 2026 PLATO — a brand of {COMPANY.legalName}{COMPANY.tradeName ? ` (${COMPANY.tradeName})` : ""} · GSTIN {COMPANY.gstin}
+          </span>
+          <LegalFooterLinks className="lp-footer-legal" />
         </div>
       </footer>
 
