@@ -1854,3 +1854,7 @@ button.lp-btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: no
   }
   .admin-search { width: 180px; }
 }
+
+.lp-footer-legal { display: flex; gap: 16px; flex-wrap: wrap; }
+.lp-footer-legal a { color: #4A5065; text-decoration: none; }
+.lp-footer-legal a:hover { color: var(--brand); }
